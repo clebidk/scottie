@@ -417,6 +417,24 @@ def find_financing_violations(page_json, financing_lender=None):
 # row's label on its own), or a verbatim quote of one of claims/verified.json's
 # own warranty-* / gbrain-warranty-* claim texts (substring match, so a
 # longer sentence that quotes the claim with attribution still passes).
+#
+# Cycle 7 real-run verification (out/20260909-2233-hidden-costs-v2, article
+# cartridge STOPped) surfaced the same two false-positive shapes the
+# financing gate already hit in cycle 6: (1) the allowed sentence combined
+# with unrelated surrounding content in the same field ("Clear policies on
+# shipping, warranty, and returns ... Limited lifetime warranty; full terms
+# by component are published on the warranty page.") -- same "combined
+# field" fix as cycle 6 item 5, strip the allowed sentence out before
+# judging what's left; (2) ordinary buyer-education prose that merely
+# discusses warranty as a policy topic with no specific coverage claim
+# ("the return or warranty terms", "what the warranty actually covers
+# component by component") -- asserts nothing false and needs no fixed
+# wording. The operator-reported bug's actual shape was always a blanket
+# *lifetime* coverage claim ("Limited lifetime warranty on the cabin,
+# heating elements, and electronics" -- false because electronics are
+# 3yr/1yr, not lifetime), so after removing any allowed-sentence substring,
+# a violation requires "lifetime" to still be present alongside "warrant" --
+# a topical mention with no lifetime/blanket-coverage assertion passes.
 def find_warranty_violations(page_json, verified_claims):
     verified_warranty_texts = {
         c["text"].strip() for c in (verified_claims or []) if "warranty" in c.get("id", "").lower() and c.get("text")
@@ -429,7 +447,10 @@ def find_warranty_violations(page_json, verified_claims):
             return True
         if stripped.lower() == allowed_label_lower:
             return True
-        return any(vt in text for vt in verified_warranty_texts)
+        if any(vt in text for vt in verified_warranty_texts):
+            return True
+        remainder = text.replace(ALLOWED_WARRANTY_SENTENCE, "")
+        return "lifetime" not in remainder.lower()
 
     hits = []
 

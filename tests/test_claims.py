@@ -695,6 +695,31 @@ def test_find_warranty_violations_ignores_pages_with_no_warranty_mention():
     assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
 
 
+# Regression from the real out/20260909-2233-hidden-costs-v2 verification
+# run: article STOPped, exhausting the repair loop, on ordinary buyer-
+# education prose that only discusses warranty as a policy topic (asserts
+# no specific coverage) and on the allowed sentence combined with unrelated
+# surrounding content in the same field -- the same two false-positive
+# shapes the financing gate already hit in cycle 6.
+def test_find_warranty_violations_ignores_topical_mentions_with_no_lifetime_claim():
+    page = {"body_sections": [{"paragraphs": [
+        {"text": "At minimum, a shopper should be able to find the price, specs, and the return or warranty terms without submitting anything."},
+        {"text": "It also helps to know what the warranty actually covers component by component before you buy."},
+    ]}]}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_allows_the_exact_sentence_combined_with_unrelated_content():
+    page = {"turn_section": {"criteria": [{
+        "text": (
+            "Clear policies on shipping, warranty, and returns published where you can read them "
+            "before you buy. Limited lifetime warranty; full terms by component are published on "
+            "the warranty page."
+        )
+    }]}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
 def test_find_warranty_violations_allows_bare_spec_label():
     page = {"specs_table": [{"label": "Warranty", "value": "See warranty page"}]}
     # The label alone is fine; the bad value is still flagged on its own.
