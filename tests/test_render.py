@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from adv.claims import ClaimsGateFailure
-from adv.render import render_page
+from adv.render import build_sources_list, render_page, resolve_public_url
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -404,6 +404,65 @@ def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
     assert ">Peak Saunas – Warranty<" in sources_html
     assert ">Peak Saunas – Shipping policy<" in sources_html
     assert ">Peak Saunas – Refund policy<" in sources_html
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 1 regression: some of the gbrain-seeded allowlist claims'
+# "source" field is a compound string joining internal gbrain: references
+# with a real URL via "; " (or, for a few, no real URL at all) -- caught by
+# running the real claims/verified.json through `adv run` on the server,
+# where the naive "use claim['source'] as the href verbatim" produced a
+# broken link (or an un-clickable gbrain: URI) instead of a real one.
+# ---------------------------------------------------------------------------
+
+def test_resolve_public_url_extracts_http_url_from_a_compound_source():
+    compound = "gbrain:competitors/overview; gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy"
+    assert resolve_public_url(compound) == "https://peaksaunas.com/policies/shipping-policy"
+
+
+def test_resolve_public_url_falls_back_to_product_url_when_source_is_internal_only():
+    assert resolve_public_url("gbrain:competitors/overview", fallback_url="https://peaksaunas.com/products/fuji") == "https://peaksaunas.com/products/fuji"
+
+
+def test_resolve_public_url_returns_none_with_no_source_and_no_fallback():
+    assert resolve_public_url("gbrain:competitors/overview") is None
+
+
+def test_build_sources_list_skips_a_claim_with_no_resolvable_url():
+    verified_by_id = {"internal-only": {"text": "x", "category": "trust", "source": "gbrain:internal/only"}}
+    assert build_sources_list({"internal-only"}, verified_by_id) == []
+
+
+def test_build_sources_list_falls_back_to_product_url_for_internal_only_claim():
+    verified_by_id = {"internal-only": {"text": "x", "category": "trust", "source": "gbrain:internal/only"}}
+    sources = build_sources_list({"internal-only"}, verified_by_id, product_name="Fuji", product_url="https://peaksaunas.com/products/fuji")
+    assert sources == [{"url": "https://peaksaunas.com/products/fuji", "label": "Peak Saunas – Fuji product page"}]
+
+
+def test_render_page_sources_list_resolves_compound_and_internal_only_sources(tmp_path):
+    facts_pack = json.loads(json.dumps(FACTS_PACK))
+    by_id = {c["id"]: c for c in facts_pack["verified_claims"]}
+    by_id["gbrain-allowlist-red-light"]["source"] = "gbrain:competitors/overview"
+    by_id["gbrain-allowlist-us-owned"]["source"] = (
+        "gbrain:competitors/overview; https://peaksaunas.com/policies/shipping-policy"
+    )
+    index_path = render_page(
+        cartridge_name="product-page",
+        page=PRODUCT_PAGE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=facts_pack,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "product-page",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "gbrain:" not in html
+    assert 'href="https://peaksaunas.com/products/fuji"' in html
+    assert 'href="https://peaksaunas.com/policies/shipping-policy"' in html
 
 
 def test_render_page_raises_on_emf_leak_into_visible_text(tmp_path):

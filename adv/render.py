@@ -5,6 +5,7 @@ a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
 import json
+import re
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
@@ -71,6 +72,22 @@ _SOURCE_PATH_LABELS = {
     "/pages/austin-laudenslager": "Austin Laudenslager",
 }
 
+_URL_IN_TEXT_RE = re.compile(r"https?://\S+")
+
+
+def resolve_public_url(source, *, fallback_url=None):
+    """A claim's "source" field is sometimes a single URL, sometimes a
+    compound string of internal references and a public URL joined with
+    "; " (e.g. a gbrain-seeded claim: "gbrain:policy/x; https://..."), and
+    occasionally purely internal with no public URL at all. Returns the
+    first http(s) URL found in `source`, else `fallback_url` (the product
+    page, for a product-benefit claim with no public source of its own),
+    else None -- never the raw compound string as an href."""
+    match = _URL_IN_TEXT_RE.search(source or "")
+    if match:
+        return match.group(0).rstrip(";,")
+    return fallback_url
+
 
 def source_label(url, *, product_name=None, explicit_label=None):
     """A short, human-readable label for `url` -- never the raw URL itself.
@@ -95,16 +112,23 @@ def source_label(url, *, product_name=None, explicit_label=None):
     return f"Peak Saunas – {fallback}" if fallback else "Peak Saunas"
 
 
-def build_sources_list(used_claim_ids, verified_by_id, product_name=None):
-    """One entry per distinct source URL referenced by `used_claim_ids`
-    (fix cycle 3 item 1) -- claim texts are never shown on the page, only in
-    REVIEW.md; the page gets a label (link text) and the URL (href only)."""
+def build_sources_list(used_claim_ids, verified_by_id, product_name=None, product_url=None):
+    """One entry per distinct public source URL referenced by
+    `used_claim_ids` (fix cycle 3 item 1) -- claim texts are never shown on
+    the page, only in REVIEW.md; the page gets a label (link text) and the
+    URL (href only). A claim's "source" field is resolved to a real http(s)
+    URL first (resolve_public_url) -- a claim with no public URL of its own
+    (some of the gbrain-seeded allowlist claims are internal-only) falls
+    back to the product page rather than a broken/internal href, and is
+    skipped entirely if there's no product page to fall back to either."""
     seen = {}
     for cid in sorted(used_claim_ids):
         claim = verified_by_id.get(cid)
         if not claim:
             continue
-        url = claim.get("source", "") or ""
+        url = resolve_public_url(claim.get("source", ""), fallback_url=product_url)
+        if not url:
+            continue
         if url not in seen:
             seen[url] = source_label(url, product_name=product_name, explicit_label=claim.get("label"))
     return [{"url": url, "label": label} for url, label in seen.items()]
@@ -286,7 +310,7 @@ def render_page(
         asset["alt"] = asset_alt(asset, product_short_name)
     used_claim_ids = collect_claim_ids(page)
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
-    sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name)
+    sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"))
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
