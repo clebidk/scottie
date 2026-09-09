@@ -6,3 +6,8 @@
 3. Product page: an empty "Reviews" heading renders when no review data exists; hide the block when empty.
 4. Article: verify the disclosure paragraph is inside the rendered page body (page text capture did not show it).
 5. Compare-at price: config-gated in cycle 1; confirm it is off by default in all three templates.
+
+## Cycle 2 additions (Caleb, 2026-09-09: "stay away from ever mentioning EMF")
+6. EMF is absolute. The gate must scan the whole rendered HTML: body text, headings, alt text, title, meta description, JSON-LD, image filenames, and link text. Any match on "emf" or "electromagnetic" (case-insensitive) fails the page.
+7. Ingest: ad claims or features that mention EMF are dropped from ad_brief with a log line "dropped EMF claim: <text>" instead of stopping the run. The page simply never covers that angle.
+8. Product URLs: the Shopify handle for Fuji contains "near-zero-emf". Pages link to the product URL as-is for now (the handle is Caleb's call on the Shopify side); log a warning per run listing any URL that contains "emf" so it stays visible in REVIEW.md.
