@@ -1,0 +1,35 @@
+{
+  "source_folders": {
+    "videos": {"id": "1-E9w8jwjLVxox5KdIAbvBLz5uly11Cz0", "title": "v2 Videos - EDITED", "owner": "morgancompher@gmail.com", "public_link": true},
+    "stills": {"id": "1Qj_3qxGGBSGvlST2Z1ikkXM3hqrpSNKo", "title": "#JMPS-08/26/26-Week-46-adset-2", "owner": "jpegsmafia@gmail.com", "public_link": true}
+  },
+  "videos": [
+    {"id": "1zTKy1NWK8QB8w5hnxoP9z4bXN-M34rtZ", "title": "Hidden Costs v2 - EDITED", "bytes": 39077062, "duration_s": 27.6, "res": "1080x1920", "codec": "hevc/aac", "local": "hidden-costs-v2.mov", "burned_captions": "one word per frame, bottom band"},
+    {"id": "11Gq1CcopDKutfuZZ6mDFgayAu63KKUny", "title": "Product Features v2 - EDITED", "bytes": 57945212},
+    {"id": "1p4YbafjuhecN4tpK0bbRpQlGOHNvrhZy", "title": "Price Comparison v2 - EDITED", "bytes": 77396776}
+  ],
+  "stills": {
+    "angles": ["EnterYourInfraredGlow", "LessThan$300", "LevelUpYourHealth", "UnforgettableGlow"],
+    "ratios": ["9-16", "4-5"],
+    "layout": "comparative: left = competitor/alternative in greyscale with red X list; right = Peak sauna with green check list; green financing pill 'Get it from est. $NNN/mo' with Bread Pay",
+    "files": {
+      "LessThan$300_4-5": "1RwqxeNdeqLmzWEzFiwf3v_fj936e2a2W",
+      "LessThan$300_9-16": "1kae_UAu_9N504nWrXjxMsezCekBa1MeX",
+      "LevelUpYourHealth_4-5_3": "10rgn3mgaTZhniOmDfqpCeW2Y4JYO7U1q",
+      "LevelUpYourHealth_4-5_4": "1vP1JTMDagf0o58CyJXdkLEnm6S4WXG0Q",
+      "LevelUpYourHealth_9-16_3": "1tl0qjLPNUQ9j8Iyk1tj7p6jCag8dIXKY",
+      "LevelUpYourHealth_9-16_4": "1WHmZGttkI05KEs1PTEv9JR5VlIsI_-Hv",
+      "EnterYourInfraredGlow_4-5": "1QWLZcSbHwmNi1LFQpjYA1grw5TW2lhFC",
+      "EnterYourInfraredGlow_9-16": "1Prj7zVhdx_w-XcdXSdYM2v968LHTT4Ja",
+      "UnforgettableGlow_4-5": "1NqV6xWyxjKVzYrUKw9ShYUmKEP2-cuhR",
+      "UnforgettableGlow_9-16": "1lNCO5S_tvMOi18o0MEFRPiLx8I9KuUhL"
+    },
+    "ocr_text": {
+      "LessThan$300": ["Get that healthy glow for LESS THAN $300", "X LEAVES YOU DRAINED", "X TAKES 2 HOURS TO USE", "X HIGH EMF EXPOSURE", "Get it from est. $257/mo", "FULL-BODY MEDICAL-GRADE RED LIGHT", "PEAK WELLNESS CLUB", "CRATE-PROTECTED DELIVERY"],
+      "LevelUpYourHealth": ["LEVEL UP YOUR HEALTH", "BUILD YOUR GLOW", "X NO RED LIGHT THERAPY", "X BASIC MANUAL CONTROLS", "X WEAK FAR-INFRARED ONLY", "Get it from est. $176/mo", "4-IN-1: NEAR, MID, FAR IR + RED LIGHT", "MEDICAL-GRADE PANEL, INCLUDED", "LIVE LEADERBOARD + SAUNA LOUNGE"],
+      "EnterYourInfraredGlow": ["4.9/5 +9,000", "ENTER YOUR INFRARED GLOW", "Get it from est. $234/mo", "4-IN-1: NEAR, MID, FAR IR + RED LIGHT", "MEDICAL-GRADE PANEL, INCLUDED", "LIVE LEADERBOARD + SAUNA LOUNGE", "EXPERT STUDIES + ACTIONABLE PROTOCOLS", "X NO RED LIGHT THERAPY", "X BASIC MANUAL CONTROLS", "X WEAK FAR-INFRARED ONLY"],
+      "UnforgettableGlow": ["Get that healthy Unforgettable Glow", "X TAKES 3 HOURS TO DO", "X LEAVES SKIN DULL", "X LEAKS EMF RADIATION", "Get it from est. $257/mo", "CRATE-PROTECTED DELIVERY", "FULL-BODY MEDICAL-GRADE RED LIGHT", "PEAK WELLNESS CLUB"]
+    },
+    "claims_to_verify": ["MEDICAL-GRADE red light / panel", "4.9/5 +9,000 reviews", "competitor HIGH EMF EXPOSURE / LEAKS EMF RADIATION", "LESS THAN $300 (is a monthly financing figure, not price)", "est. $/mo figures"]
+  }
+}

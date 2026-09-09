@@ -1,0 +1,11 @@
+out/
+runs/
+.env
+.venv*/
+vendor/
+models/
+__pycache__/
+*.pyc
+fixtures/*.mov
+fixtures/*.wav
+fixtures/*.png
