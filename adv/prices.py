@@ -85,13 +85,16 @@ def get_live_products(cache_path, fetch_page=http_fetch_page, log=None):
 def merge_products(old_products, live_products):
     """Refresh claims/products.json's slug -> entry map with live price/image/
     variant data, keeping each entry's hand-curated `default`, `short_name`,
-    and `specs` fields. Old entries with no live counterpart are kept as-is."""
+    and `specs` fields. Only refreshes the curated products already in
+    old_products -- the live feed also includes spare parts/accessories/other
+    SKUs that were never curated (no specs, no real short_name), and those
+    are intentionally left out rather than polluting the catalog."""
     merged = {}
     for lp in live_products:
         slug = lp.get("handle")
-        if not slug:
+        if not slug or slug not in old_products:
             continue
-        old = old_products.get(slug, {})
+        old = old_products[slug]
         variants = lp.get("variants", [])
         prices = [v["price"] for v in variants if v.get("price")]
         compare_prices = [v["compare_at_price"] for v in variants if v.get("compare_at_price")]
@@ -107,7 +110,7 @@ def merge_products(old_products, live_products):
         ]
         entry = {
             "slug": slug,
-            "name": old.get("name") or lp.get("title", slug).split()[0],
+            "name": old["name"],
             "title": lp.get("title", old.get("title", "")),
             "url": f"https://peaksaunas.com/products/{slug}",
             "price": prices[0] if prices else old.get("price"),
