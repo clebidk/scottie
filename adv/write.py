@@ -42,7 +42,7 @@ Compare-at / list price: only mention a "was $X" / compare-at / strikethrough pr
 
 Warranty: always say "limited lifetime warranty" -- never bare "lifetime warranty".
 
-Reviews: use facts_pack.reviews_summary and its claim_ids exactly as given. If facts_pack.reviews_summary is null, do not state any review count or star rating anywhere on the page -- never use the placeholder figures "9,000", "10,000", or "4.9" for a review count or rating.
+Reviews: use facts_pack.reviews_summary and its claim_ids exactly as given. If facts_pack.reviews_summary is null, do not state any review count or star rating anywhere on the page -- never use the placeholder figures "9,000", "10,000", or "4.9" for a review count or rating. Also avoid the bare word "reviews" as generic buyer-education vocabulary (e.g. "check whether reviews are visible") -- it needs a claim_id too, and a generic mention has nothing to cite. Say "customer feedback" or similar instead unless you're citing facts_pack.reviews_summary's actual claim_id.
 
 Refer to the product by facts_pack.product.short_name, not facts_pack.product.name alone and never by a raw marketing title -- e.g. "Peak Fuji 2-Person Infrared Sauna", not "Fuji" or a Shopify product title.
 
