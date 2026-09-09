@@ -345,79 +345,44 @@ def find_first_person_violations(page_json, speaker_pov):
     return hits
 
 
-# A sentence that actually STATES financing terms -- a figure, a lender
-# name -- as opposed to one that merely discusses financing as a topic
-# (article's "hidden costs" angle is largely about financing/price
-# transparency, so the word "financing" alone shows up constantly in
-# ordinary buyer-education commentary that asserts no specific terms and
-# needs no claim_id under any other gate). digit_exempt_terms is stripped
-# first, same as the digit/claim_id rule (_strip_digit_exempt_tokens) --
-# otherwise a sentence that just happens to also mention the product's own
-# short_name ("...financing information are all posted on the same page ...
-# The Peak Fuji 2-Person Infrared Sauna...") reads as "stating a figure"
-# purely because of the "2" in the product name, with nothing to do with
-# financing at all. Caught live on the hidden-costs-v2 verification run.
-_FINANCING_TERMS_RE = re.compile(r"\d|\$|%")
-
-
-def _states_financing_terms(text, digit_exempt_terms=None):
-    digit_check_text = _strip_digit_exempt_tokens(text, digit_exempt_terms)
-    return bool(_FINANCING_TERMS_RE.search(digit_check_text)) or any(
-        name in text.lower() for name in FORBIDDEN_LENDER_NAMES
-    )
-
-
-# Fix cycle 6 item 4: while no lender is configured, the ONLY sentence
-# allowed to STATE financing terms anywhere on the page is
-# ALLOWED_FINANCING_SENTENCE_NO_LENDER, verbatim -- the model kept writing
-# its own financing phrasing with invented numbers ("as low as $75/mo"),
-# which then failed the digit/claim_id gate and fed the repair loop with
-# nothing safe to cite. Only a sentence that both mentions financing AND
-# states a figure/lender name counts -- see _states_financing_terms; caught
-# live on the hidden-costs-v2 verification run, where an earlier, broader
-# version of this check flagged ordinary buyer-education prose ("financing
-# terms and sticker price are two separate questions") that named no figure
-# or lender at all. No-op once a real lender is configured.
-def find_financing_violations(page_json, financing_lender=None, digit_exempt_terms=None):
+# Fix cycle 6 item 4: while no lender is configured, the schema's dedicated
+# financing field (hero.financing_line / final_cta.financing_line in
+# product-page and longform -- the field GLOBAL_VOICE_BLOCK's financing
+# paragraph and every cartridge.md's own financing-line rule are actually
+# about) must state exactly ALLOWED_FINANCING_SENTENCE_NO_LENDER, verbatim.
+# Scoped to this one field, not scanned across every prose string, after
+# repeated live-verification failures (docs/FIXLOG.md Cycle 6) where a
+# text-content-based version of this check kept flagging ordinary
+# buyer-education prose that merely discussed financing as a topic, or
+# that happened to also state an unrelated price/product-name digit in the
+# same sentence -- a case a proximity heuristic couldn't reliably tell
+# apart from an actually-invented financing figure. A lender name (or a
+# figure) invented anywhere else on the page is still caught: any other
+# lender name by find_forbidden_terms, any other invented number by the
+# digit/claim_id rule (item 2). No-op once a real lender is configured.
+def find_financing_violations(page_json, financing_lender=None):
     if financing_lender:
         return []
     hits = []
 
     def walk(node, path):
-        if isinstance(node, str):
-            stripped = node.strip()
-            if "financ" in stripped.lower():
-                # The exact allowed sentence may appear verbatim as part of
-                # a larger field that also covers something unrelated (e.g.
-                # an FAQ answer combining the price with the financing
-                # sentence) -- strip every occurrence of it out first, then
-                # only flag if financing is STILL mentioned in what's left
-                # (a second, different financing statement) or if the
-                # sentence never appeared at all and the field states terms
-                # on its own. A question ("Is financing available?") is
-                # asking, not asserting, so it's never a violation either
-                # way.
-                remainder = stripped.replace(ALLOWED_FINANCING_SENTENCE_NO_LENDER, "")
-                if (
-                    "financ" in remainder.lower()
-                    and not remainder.strip().endswith("?")
-                    and _states_financing_terms(remainder, digit_exempt_terms)
-                ):
+        if isinstance(node, dict):
+            financing_line = node.get("financing_line")
+            if financing_line is not None:
+                text = financing_line.get("text") if isinstance(financing_line, dict) else financing_line
+                text_path = f"{path}.financing_line.text" if isinstance(financing_line, dict) else f"{path}.financing_line"
+                if isinstance(text, str) and text.strip() != ALLOWED_FINANCING_SENTENCE_NO_LENDER:
                     hits.append(
                         {
-                            "path": path,
+                            "path": text_path,
                             "issue": (
-                                "financing text must be exactly "
-                                f"{ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured) -- "
-                                "no other financing phrasing, figure, or lender name anywhere on the page"
+                                "financing_line must be exactly "
+                                f"{ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured)"
                             ),
-                            "text": node,
+                            "text": text,
                         }
                     )
-        elif isinstance(node, dict):
             for k, v in node.items():
-                if k in _NON_PROSE_KEYS:
-                    continue
                 walk(v, f"{path}.{k}")
         elif isinstance(node, list):
             for i, v in enumerate(node):
@@ -435,7 +400,7 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_first_person_violations(page_json, speaker_pov)
     problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
     problems += find_leaked_claim_ids(page_json, valid_ids)
-    problems += find_financing_violations(page_json, financing_lender=financing_lender, digit_exempt_terms=digit_exempt_terms)
+    problems += find_financing_violations(page_json, financing_lender=financing_lender)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
 
