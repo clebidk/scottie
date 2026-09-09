@@ -225,6 +225,7 @@ Output ONLY a single JSON object with exactly these keys, no markdown fences, no
 Rules:
 - Every string in claims_made must be independently checkable against an outside source (a number, a named comparison, a specific claim).
 - Anything that is just the speaker describing their own feelings or experience goes into speaker_experience, never claims_made. This includes a generalization about unnamed "other brands"/"most companies" when it is really just the speaker recounting their own shopping experience (e.g. "so many brands make me do this") rather than a specific, sourceable claim about a named competitor.
+- A statement the speaker frames as their own research, estimate, or hedge -- "I've been seeing...", "around $X", "say $X", "I did the math", "I realized..." -- goes into speaker_experience, never claims_made, even when it includes a number. This is the speaker's own approximation, not an independently checkable fact, and it is never fact-checked. Example: "I've been seeing that the average unlimited sauna membership is around $200 a month. So say $2,400 a year." is speaker_experience. By contrast, a plain factual assertion with no hedge -- "infrared sauna is on sale right now for $5,450" -- is a claim: put it in claims_made.
 - Output valid JSON only. No prose before or after, no markdown fences."""
 
 

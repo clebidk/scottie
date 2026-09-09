@@ -147,6 +147,65 @@ def test_build_ad_brief_fails_after_two_bad_responses(tmp_path):
     assert len(client.messages.calls) == 2
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 9 item 3: a statement framed as the speaker's own research,
+# estimate, or hedge ("I've been seeing", "around $", "say $", "I did the
+# math", "I realized") goes into speaker_experience, not claims_made, even
+# when it carries a number -- it's the speaker's own approximation, not an
+# independently checkable fact. Only a plain factual assertion with no hedge
+# belongs in claims_made.
+# ---------------------------------------------------------------------------
+
+def test_ad_brief_prompt_instructs_hedged_statements_into_speaker_experience():
+    for phrase in ("I've been seeing", "around $", "say $", "I did the math", "I realized"):
+        assert phrase in ingest.AD_BRIEF_SYSTEM
+    assert "speaker_experience" in ingest.AD_BRIEF_SYSTEM
+    assert "$5,450" in ingest.AD_BRIEF_SYSTEM  # the real, un-hedged claim example
+
+
+PRICE_COMPARISON_TRANSCRIPT = (
+    "I keep hearing all the benefits of infrared saunas, so I really want to get into it. "
+    "I've been taking some time to research different studios and memberships. And during "
+    "my research, I realized that at-home saunas are an option. So I decided to do the math "
+    "and see if it made sense financially to buy one of these. I've been seeing that the "
+    "average unlimited sauna membership is around $200 a month. So say $2,400 a year. "
+    "infrared sauna is on sale right now for $5,450. That means after 28 months, I will "
+    "spend the same amount of money on a membership as I would actually owning a sauna."
+)
+
+# The intended, correctly-classified shape of this transcript's ad_brief
+# (fix cycle 9 item 3's target contract) -- claims_made carries only the one
+# un-hedged factual assertion, matching the Mini's live price claim.
+PRICE_COMPARISON_AD_BRIEF = dict(
+    VALID_AD_BRIEF,
+    claims_made=["infrared sauna is on sale right now for $5,450"],
+    speaker_experience=[
+        "I've been seeing that the average unlimited sauna membership is around $200 a month.",
+        "So say $2,400 a year.",
+        "I decided to do the math and see if it made sense financially to buy one of these.",
+        "After 28 months, I will spend the same amount of money on a membership as I would actually owning a sauna.",
+    ],
+    source_file="price-comparison-v2.transcript.txt",
+    transcript_or_text=PRICE_COMPARISON_TRANSCRIPT,
+)
+
+
+def test_build_ad_brief_accepts_the_correctly_hedged_classification(tmp_path):
+    """Not a test of real model behavior (that's verified live) -- this locks
+    in the target contract: once the ingest model classifies the transcript
+    this way, claims_made contains only the un-hedged $5,450 item, which is
+    exactly the Mini's price claim."""
+    client = FakeClient([json_response(PRICE_COMPARISON_AD_BRIEF)])
+    budget, log = _budget_log(tmp_path)
+    result = ingest.build_ad_brief(
+        transcript_or_text=PRICE_COMPARISON_TRANSCRIPT, source_file="price-comparison-v2.transcript.txt",
+        input_type="text", client=client, model="claude-sonnet-5", budget=budget, log=log,
+    )
+    log.close()
+    assert result["claims_made"] == ["infrared sauna is on sale right now for $5,450"]
+    assert not any("200" in s or "2,400" in s for s in result["claims_made"])
+
+
 def test_build_ad_brief_rejects_missing_key(tmp_path):
     bad = dict(VALID_AD_BRIEF)
     del bad["speaker_experience"]

@@ -176,7 +176,10 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
 def refresh_price_data(*, products_path, cache_path, show_compare_at_price, today_iso, fetch_page=http_fetch_page, log=None):
     """Full fix-2 flow: fetch (or reuse the cache for) the live catalog,
     refresh claims/products.json on disk, and return
-    (merged_products_by_slug, live_price_claims_by_slug)."""
+    (merged_products_by_slug, live_price_claims_by_slug, live_products).
+    live_products (fix cycle 9 item 1) is the raw Shopify feed list this call
+    used -- still carrying fields merge_products() drops, like body_html --
+    or [] if no live data and no cache were available."""
     products_path = Path(products_path)
     old_doc = json.loads(products_path.read_text())
     old_products = old_doc.get("products", {})
@@ -205,4 +208,4 @@ def refresh_price_data(*, products_path, cache_path, show_compare_at_price, toda
             if c["id"] == f"price-{name_slug}":
                 price_claims_by_slug[slug] = c
                 break
-    return merged, price_claims_by_slug
+    return merged, price_claims_by_slug, (live_products or [])

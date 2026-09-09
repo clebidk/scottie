@@ -35,7 +35,10 @@ def _patch_network(monkeypatch):
                 if c["id"] == f"price-{name_slug}":
                     by_slug[slug] = c
                     break
-        return products, by_slug
+        # No real Shopify body_html here -- pdp_claims.seed_pdp_claims (fix
+        # cycle 9 item 1) sees no raw products and produces no claims, which
+        # is fine: this dry run doesn't exercise PDP claim seeding.
+        return products, by_slug, []
 
     monkeypatch.setattr(cli, "refresh_price_data", fake_refresh_price_data)
     monkeypatch.setattr(cli, "fetch_reviews_claim", lambda url, today_iso, log=None: None)

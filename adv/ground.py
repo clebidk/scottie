@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Protocol
 
+from .prices import format_price
+
 DEFAULT_CONFIG = {
     "financing_lender": None,
     "show_compare_at_price": False,
@@ -48,6 +50,50 @@ def load_claims_config(claims_dir):
     if config_path.exists():
         config.update(json.loads(config_path.read_text()))
     return config
+
+
+# Fix cycle 9 item 2: product inference by price -- only claims_made and the
+# ad's own hook/promise/angle count as "the ad brief contains a dollar
+# amount"; speaker_experience is deliberately excluded (a hedge like "around
+# $200 a month" is the speaker's own estimate, not a quoted price, and
+# ingest.py fix cycle 9 item 3 already keeps it out of claims_made).
+_DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
+
+
+def _quoted_dollar_amounts(ad_brief):
+    fields = [ad_brief.get("hook", ""), ad_brief.get("promise", ""), ad_brief.get("angle", "")]
+    fields += [c for c in ad_brief.get("claims_made", []) if isinstance(c, str)]
+    text = " ".join(f for f in fields if isinstance(f, str))
+    amounts = []
+    for m in _DOLLAR_AMOUNT_RE.finditer(text):
+        try:
+            amounts.append(float(m.group(1).replace(",", "")))
+        except ValueError:
+            continue
+    return amounts
+
+
+def _pick_by_quoted_price(active_products, ad_brief):
+    """(amount, product) for the one active product whose current price is
+    within $1 of a dollar amount quoted in the ad brief, or None if no
+    amount is quoted, none lines up with any active product's price, or more
+    than one distinct product would match (ambiguous -- not a signal)."""
+    matches = []
+    for amount in _quoted_dollar_amounts(ad_brief):
+        for p in active_products:
+            price = p.get("price")
+            if price is None:
+                continue
+            try:
+                price = float(price)
+            except (TypeError, ValueError):
+                continue
+            if abs(amount - price) <= 1.0:
+                matches.append((amount, p))
+    distinct_slugs = {p["slug"] for _, p in matches}
+    if len(distinct_slugs) == 1:
+        return matches[0]
+    return None
 
 
 def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
@@ -104,19 +150,24 @@ class LocalFactsSource:
             self._assets_index = json.loads(assets_path.read_text()) if assets_path.exists() else {"assets": []}
         return self._assets_index
 
-    def all_verified_claims(self, live_price_claims=None):
+    def all_verified_claims(self, live_price_claims=None, extra_claims=None):
         """The full claims/verified.json universe, for gating ad_brief.claims_made
         (which can reference anything approved, not just the eventual product's
         curated facts_pack subset). live_price_claims (fix 2), if given, is a
         slug -> claim map of this run's freshly-fetched price claims, which
-        take priority over the static price-* entries they replace."""
+        take priority over the static price-* entries they replace.
+        extra_claims (fix cycle 9 item 1), if given, is this run's freshly-
+        seeded PDP claims (pdp_claims.seed_pdp_claims) -- appended as-is,
+        never written to claims/verified.json."""
         self._load()
-        if not live_price_claims:
-            return self._verified
-        live_by_id = {c["id"]: c for c in live_price_claims.values()}
-        merged = [c for c in self._verified if c["id"] not in live_by_id]
-        merged.extend(live_by_id.values())
-        return merged
+        claims = self._verified
+        if live_price_claims:
+            live_by_id = {c["id"]: c for c in live_price_claims.values()}
+            claims = [c for c in claims if c["id"] not in live_by_id]
+            claims = claims + list(live_by_id.values())
+        if extra_claims:
+            claims = list(claims) + list(extra_claims)
+        return claims
 
     def pick_product(self, product_slug, ad_brief):
         product, _warning = self.pick_product_with_warning(product_slug, ad_brief)
@@ -166,6 +217,17 @@ class LocalFactsSource:
             named.sort(key=lambda t: t[0])
             return named[0][1], None
 
+        # Fix cycle 9 item 2: no model named -- if the ad quotes a dollar
+        # amount that lines up (within $1) with exactly one active product's
+        # current price, infer that product rather than falling through to
+        # the default. price-comparison-v2.mov never names a model ("I think
+        # I'm going to buy the Peak sauna") but does say "$5,450", which is
+        # the Mini's price and no other active model's.
+        price_pick = _pick_by_quoted_price(active_products, ad_brief)
+        if price_pick:
+            amount, product = price_pick
+            return product, f"product inferred from quoted price {format_price(amount)} = {product['name']}"
+
         for p in active_products:
             if p.get("default"):
                 return p, f"product not named in ad; defaulted to {p['name']}"
@@ -173,7 +235,7 @@ class LocalFactsSource:
         default_product = active_products[0] if active_products else next(iter(products.values()))
         return default_product, f"product not named in ad; defaulted to {default_product['name']}"
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None):
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -213,7 +275,19 @@ class LocalFactsSource:
             for c in self._verified
             if c["id"] in universal_ids
         ]
+
+        # Fix cycle 9 item 1: this run's freshly-seeded PDP claims for this
+        # product (pdp_claims.seed_pdp_claims) -- never in claims/verified.json,
+        # so they're not covered by universal_ids/self._verified above; add
+        # directly, scoped to this product's own id namespace.
+        pdp_claims_for_product = [c for c in (pdp_claims or []) if c["id"].startswith(f"pdp-{name_slug}-")]
+        verified_claims.extend(
+            {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}
+            for c in pdp_claims_for_product
+        )
+
         by_id = {c["id"]: c["text"] for c in self._verified}
+        by_id.update({c["id"]: c["text"] for c in pdp_claims_for_product})
 
         # Fix 2: a live price claim (fetched this run, dated today, sourced
         # to the product URL) replaces the static claims/verified.json entry

@@ -64,15 +64,29 @@ class ClaimsGateFailure(Exception):
 # (a) ad claims vs verified claims
 # ---------------------------------------------------------------------------
 
+# Fix cycle 9 item 4: a small, hand-picked set of synonym pairs so
+# semantically equivalent phrasing overlaps cleanly instead of STOPping on a
+# wording mismatch -- e.g. the ad's "crate-protected delivery" against
+# gbrain-shipping-free-crate-origin's own text ("... a PeakGuard custom
+# protective wooden crate ... Free shipping ..."): "protected"/"protective"
+# and "delivery"/"shipping" mean the same thing here but share no token.
+# Applied inside normalize() so both sides of a comparison see the same
+# canonical token -- not a general thesaurus, just the one pair this gate
+# has actually needed.
+_TOKEN_SYNONYMS = {"protected": "protective", "delivery": "shipping"}
+
+
 def normalize(text):
     """lowercase, collapse number formatting so "$8,250" and "$8250.00" become
     the same token, strip remaining punctuation (keep $ and % since they carry
-    meaning), drop stopwords -> list of tokens."""
+    meaning), drop stopwords, fold known synonyms to a canonical token ->
+    list of tokens."""
     text = text.lower()
     text = re.sub(r"(?<=\d),(?=\d)", "", text)  # thousands separator: 8,250 -> 8250
     text = re.sub(r"\.00\b", "", text)  # cents suffix: 8250.00 -> 8250
     text = re.sub(r"[^a-z0-9%$\s]", " ", text)
-    return [t for t in text.split() if t and t not in STOPWORDS]
+    tokens = [t for t in text.split() if t and t not in STOPWORDS]
+    return [_TOKEN_SYNONYMS.get(t, t) for t in tokens]
 
 
 def overlap_ratio(ad_tokens, verified_tokens):

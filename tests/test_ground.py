@@ -284,3 +284,101 @@ def test_facts_pack_never_includes_an_emf_claim():
         facts_pack = source.facts_for(slug, _ad_brief(""))
         for c in facts_pack["verified_claims"]:
             assert "emf" not in c["text"].lower(), c
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 9 item 1: PDP claims (pdp_claims.seed_pdp_claims) are in-memory
+# only -- never in claims/verified.json -- and must reach facts_pack when
+# passed in, scoped to the run's own product.
+# ---------------------------------------------------------------------------
+
+def test_facts_for_merges_pdp_claims_for_the_chosen_product_only():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    pdp_claims = [
+        {"id": "pdp-mini-app-control", "text": "Runs from the Peak Saunas app.", "category": "spec", "source": "https://peaksaunas.com/products/mini", "approved_by": "site", "date": "2026-09-09"},
+        {"id": "pdp-fuji-app-control", "text": "Some other product's claim.", "category": "spec", "source": "https://peaksaunas.com/products/fuji", "approved_by": "site", "date": "2026-09-09"},
+    ]
+    facts_pack = source.facts_for(MINI_SLUG, _ad_brief(""), pdp_claims=pdp_claims)
+    verified_ids = {c["id"] for c in facts_pack["verified_claims"]}
+    assert "pdp-mini-app-control" in verified_ids
+    assert "pdp-fuji-app-control" not in verified_ids  # a different product's PDP claim
+
+
+def test_facts_for_with_no_pdp_claims_is_unaffected():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    facts_pack = source.facts_for(MINI_SLUG, _ad_brief(""))
+    assert not any(c["id"].startswith("pdp-") for c in facts_pack["verified_claims"])
+
+
+def test_all_verified_claims_includes_extra_claims():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    extra = [{"id": "pdp-mini-app-control", "text": "Runs from the Peak Saunas app.", "category": "spec", "source": "x", "approved_by": "site", "date": "2026-09-09"}]
+    claims = source.all_verified_claims(extra_claims=extra)
+    assert any(c["id"] == "pdp-mini-app-control" for c in claims)
+
+
+def test_all_verified_claims_with_no_extra_claims_is_unaffected():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    claims = source.all_verified_claims()
+    assert not any(c["id"].startswith("pdp-") for c in claims)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 9 item 2: product inference by price -- if the ad brief quotes a
+# dollar amount matching exactly one active product's current price (within
+# $1) and no model is named, pick that product instead of falling through to
+# the default.
+# ---------------------------------------------------------------------------
+
+PRICE_COMPARISON_TRANSCRIPT = (
+    "I keep hearing all the benefits of infrared saunas, so I really want to get into it. "
+    "I've been seeing that the average unlimited sauna membership is around $200 a month. "
+    "So say $2,400 a year. infrared sauna is on sale right now for $5,450. "
+    "I think I'm going to buy the Peak sauna."
+)
+
+
+def test_pick_product_infers_from_quoted_price_when_no_model_named():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = {
+        "transcript_or_text": PRICE_COMPARISON_TRANSCRIPT,
+        "hook": "",
+        "promise": "",
+        "angle": "",
+        "claims_made": ["infrared sauna is on sale right now for $5,450"],
+    }
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product["slug"] == MINI_SLUG
+    assert warning == "product inferred from quoted price $5,450 = Mini"
+
+
+def test_pick_product_price_inference_ignores_amounts_that_match_no_product():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = {
+        "transcript_or_text": "",
+        "hook": "",
+        "promise": "",
+        "angle": "",
+        "claims_made": ["memberships run about $200 a month, or $2,400 a year"],
+    }
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    # neither $200 nor $2,400 is within $1 of any active product's price --
+    # falls through to the ordinary default, unaffected by this fix.
+    assert product.get("default") is True
+    assert warning == "product not named in ad; defaulted to Fuji"
+
+
+def test_pick_product_named_model_still_wins_over_a_quoted_price():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = {
+        "transcript_or_text": "I love my Peak Fuji, on sale right now for $5,450.",
+        "hook": "",
+        "promise": "",
+        "angle": "",
+        "claims_made": ["on sale right now for $5,450"],
+    }
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    # Fuji is named explicitly -- wins outright even though $5,450 happens to
+    # be the Mini's price, because a named model is checked first.
+    assert product["slug"] == FUJI_SLUG
+    assert warning is None

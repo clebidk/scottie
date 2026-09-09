@@ -133,6 +133,55 @@ def test_ad_claim_with_no_numbers_is_unaffected_by_numeric_check():
 
 
 # ---------------------------------------------------------------------------
+# Fix cycle 9 item 4: a small synonym normalization (protected -> protective,
+# delivery -> shipping) so "crate-protected delivery" overlaps cleanly with
+# claims/verified.json's actual wording ("... a PeakGuard custom protective
+# wooden crate ... Free shipping ..."), instead of STOPping at 0.333 overlap
+# (below the 0.6 threshold) purely over word choice. The numeric-token rule
+# is untouched -- neither claim carries a number.
+# ---------------------------------------------------------------------------
+
+SHIPPING_CRATE_CLAIM = [
+    {
+        "id": "gbrain-shipping-free-crate-origin",
+        "text": (
+            "Free shipping, always (continental US). Ships in a PeakGuard custom protective "
+            "wooden crate from the Ontario, California warehouse via freight/LTL "
+            "(no single primary carrier -- a large carrier network)."
+        ),
+        "category": "policy",
+        "source": "https://peaksaunas.com/policies/shipping-policy",
+    }
+]
+
+
+def test_crate_protected_delivery_matches_the_verified_shipping_claim():
+    ad_brief = {"claims_made": ["Crate-protected delivery"]}
+    matched = gate_ad_brief_claims(ad_brief, SHIPPING_CRATE_CLAIM)
+    assert matched[0]["matched_claim_id"] == "gbrain-shipping-free-crate-origin"
+    assert matched[0]["overlap"] == 1.0
+
+
+def test_crate_protected_delivery_fails_without_the_synonym_mapping():
+    # Sanity check on the regression itself: without the synonym mapping,
+    # "protected"/"delivery" share no token with "protective"/"shipping" and
+    # overlap is exactly 1/3 (only "crate" matches) -- below the 0.6 gate.
+    from adv.claims import normalize, overlap_ratio
+
+    ad_tokens = ["crate", "protected", "delivery"]  # pre-synonym tokens
+    verified_tokens = normalize(SHIPPING_CRATE_CLAIM[0]["text"])
+    assert overlap_ratio(ad_tokens, verified_tokens) == pytest.approx(1 / 3)
+
+
+def test_synonym_normalization_does_not_create_false_matches():
+    # "protected"/"delivery" only ever fold to "protective"/"shipping" -- an
+    # unrelated claim about neither still doesn't match.
+    ad_brief = {"claims_made": ["Crate-protected delivery"]}
+    with pytest.raises(ClaimsGateFailure):
+        gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+
+
+# ---------------------------------------------------------------------------
 # fix 4 / fix 6: forbidden terms in page.json (EMF, competitor trademark,
 # discontinued models, financing lender names when none is configured)
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ from .claims import (
 from .ground import LocalFactsSource, load_claims_config
 from .ingest import download_drive_file, run_ingest
 from .log import RunLog
+from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
@@ -615,13 +616,25 @@ def cmd_run(args):
     # Fix 2: live prices, at the start of the run, before ingest. Cached for
     # 60 minutes in runs/products-cache.json; falls back to the cache (with a
     # logged warning) on fetch failure.
-    _, live_price_claims_by_slug = refresh_price_data(
+    today_iso = datetime.date.today().isoformat()
+    merged_products, live_price_claims_by_slug, live_products = refresh_price_data(
         products_path=claims_dir / "products.json",
         cache_path=REPO_ROOT / "runs" / "products-cache.json",
         show_compare_at_price=claims_config.get("show_compare_at_price", False),
-        today_iso=datetime.date.today().isoformat(),
+        today_iso=today_iso,
         log=log,
     )
+
+    # Fix cycle 9 item 1: PDP claim seeding, right after the live price
+    # refresh above (same raw feed data, still carrying body_html) -- every
+    # active product's page states facts (app control, outlet/electrical,
+    # speakers, wood, red light, crate shipping, capacity, assembly) that
+    # claims/verified.json doesn't carry. In-memory only for this run;
+    # regenerated into runs/pdp-claims-cache.json alongside the price cache,
+    # never written into claims/verified.json.
+    live_products_by_handle = {p.get("handle"): p for p in live_products}
+    pdp_claims = seed_pdp_claims(merged_products, live_products_by_handle, today_iso)
+    save_pdp_claims_cache(REPO_ROOT / "runs" / "pdp-claims-cache.json", pdp_claims)
 
     try:
         ad_brief = run_ingest(
@@ -641,22 +654,25 @@ def cmd_run(args):
         facts_source = LocalFactsSource(claims_dir)
 
         # Gate against the FULL verified.json universe (with this run's live
-        # price claims substituted in) -- an ad claim can reference anything
-        # approved, not just the eventual product's curated facts_pack subset.
+        # price claims and freshly-seeded PDP claims substituted/added in) --
+        # an ad claim can reference anything approved, not just the eventual
+        # product's curated facts_pack subset.
         gate_matched = gate_ad_brief_claims(
-            ad_brief, facts_source.all_verified_claims(live_price_claims_by_slug)
+            ad_brief, facts_source.all_verified_claims(live_price_claims_by_slug, extra_claims=pdp_claims)
         )
         log.gate_result("PASS", f"{len(gate_matched)} ad claim(s) matched")
 
         # Fix cycle 8 problem 1b: pick_product_with_warning names the exact
         # model mentioned in the ad (word-boundary match, first-mentioned wins
         # if several); if none is named it falls back to the default product
-        # and hands back a warning that goes into REVIEW.md below.
+        # and hands back a warning that goes into REVIEW.md below. Fix cycle
+        # 9 item 2: failing that, it also checks for a quoted price matching
+        # exactly one active product before defaulting.
         product, product_warning = facts_source.pick_product_with_warning(args.product, ad_brief)
         if product_warning:
             log.event("run", product_warning)
         live_price_claim = live_price_claims_by_slug.get(product["slug"])
-        reviews_claim = fetch_reviews_claim(product["url"], datetime.date.today().isoformat(), log=log)
+        reviews_claim = fetch_reviews_claim(product["url"], today_iso, log=log)
 
         facts_pack = facts_source.facts_for(
             product["slug"],
@@ -664,6 +680,7 @@ def cmd_run(args):
             config=claims_config,
             live_price_claim=live_price_claim,
             reviews_claim=reviews_claim,
+            pdp_claims=pdp_claims,
         )
         (run_dir / "facts_pack.json").write_text(json.dumps(facts_pack, indent=2))
 
