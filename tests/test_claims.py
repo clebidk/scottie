@@ -83,6 +83,14 @@ def test_plain_text_without_trigger_needs_no_claim_ids():
     assert problems == []
 
 
+def test_trigger_word_check_is_word_boundary_not_substring():
+    # Regression from the hidden-costs-v2 verification run: "frustrated"
+    # contains "rated" as a substring and must not require a claim_id.
+    page = {"open": [{"text": "She came away more frustrated than when she started."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"})
+    assert problems == []
+
+
 # ---------------------------------------------------------------------------
 # fix 7: an ad claim's numeric tokens must also appear in the verified claim
 # ---------------------------------------------------------------------------
@@ -240,6 +248,30 @@ def test_find_first_person_violations_allows_attributed_customer_story():
 def test_find_first_person_violations_ignores_quoted_testimonial():
     page = {"social_proof": {"quotes": ["I ran into this over and over, until Peak."]}}
     assert find_first_person_violations(page, "first_person") == []
+
+
+def test_find_first_person_violations_ignores_inline_quotation_mark_span():
+    # Regression from the hidden-costs-v2 verification run: a customer's
+    # attributed, quoted line inside an ordinary paragraph (not a structural
+    # "quotes" container) must not be flagged -- only the author speaking
+    # outside quotation marks should be.
+    page = {
+        "open": [
+            {
+                "text": (
+                    '"It\'s 2026," she said. "I don\'t want to talk to anyone. '
+                    'Just tell me how much this costs." She wasn\'t shopping for a car.'
+                )
+            }
+        ]
+    }
+    assert find_first_person_violations(page, "first_person") == []
+
+
+def test_find_first_person_violations_still_catches_i_verb_outside_quotes():
+    page = {"open": [{"text": 'She said, "thanks." I ran into this over and over.'}]}
+    hits = find_first_person_violations(page, "first_person")
+    assert len(hits) == 1
 
 
 def test_gate_page_json_stops_on_first_person_leak():

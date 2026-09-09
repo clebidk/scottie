@@ -123,11 +123,17 @@ def gate_ad_brief_claims(ad_brief, verified_claims):
 # (b) page.json claim_ids validation
 # ---------------------------------------------------------------------------
 
+# Word-boundary, not substring: a plain substring check flags ordinary
+# words that happen to contain a trigger word ("frustrated" contains
+# "rated", "previews"/"interviews" contain "reviews") -- caught live on the
+# hidden-costs-v2 fixture during fix-cycle-2 verification.
+_TRIGGER_WORD_RE = re.compile(r"\b(?:" + "|".join(TRIGGER_WORDS) + r")\b")
+
+
 def _contains_trigger(text):
     if re.search(r"\d", text) or "%" in text or "$" in text:
         return True
-    lower = text.lower()
-    return any(w in lower for w in TRIGGER_WORDS)
+    return bool(_TRIGGER_WORD_RE.search(text.lower()))
 
 
 def collect_claim_ids(node):
@@ -243,27 +249,36 @@ _FIRST_PERSON_RE = re.compile(
 # text inside these is fine; it's someone else's words, not the author's.
 _QUOTED_CONTAINER_KEYS = {"quotes", "quote", "testimonial", "testimonials", "blockquote"}
 
+# A quoted testimonial "span" can also just be a quotation mark span inside
+# an ordinary paragraph -- e.g. open[1]'s 'She said, "I don\'t want to talk
+# to anyone."' is a customer's attributed quote, not the author speaking, and
+# must not be flagged. Matches straight and curly double quotes.
+_QUOTED_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
+
 
 def find_first_person_violations(page_json, speaker_pov):
     """Fix 11: when the ad speaker talks in first person, that story must be
     attributed to "a customer" (or facts_pack.speaker_name), never written as
     the page author's own first-person experience. Flags any prose string
     containing an "I <verb>" construction outside a quoted-testimonial
-    container. No-op when speaker_pov isn't "first_person"."""
+    container or an inline quotation-mark span. No-op when speaker_pov isn't
+    "first_person"."""
     if speaker_pov != "first_person":
         return []
     hits = []
 
     def walk(node, path, in_quote):
         if isinstance(node, str):
-            if not in_quote and _FIRST_PERSON_RE.search(node):
-                hits.append(
-                    {
-                        "path": path,
-                        "issue": "first-person statement outside a quoted testimonial",
-                        "text": node,
-                    }
-                )
+            if not in_quote:
+                unquoted = _QUOTED_SPAN_RE.sub(" ", node)
+                if _FIRST_PERSON_RE.search(unquoted):
+                    hits.append(
+                        {
+                            "path": path,
+                            "issue": "first-person statement outside a quoted testimonial",
+                            "text": node,
+                        }
+                    )
         elif isinstance(node, dict):
             for k, v in node.items():
                 walk(v, f"{path}.{k}", in_quote or k in _QUOTED_CONTAINER_KEYS)
