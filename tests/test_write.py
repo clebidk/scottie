@@ -136,6 +136,33 @@ def test_write_page_system_prompt_states_the_exact_financing_sentence(tmp_path):
     assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in system
 
 
+# ---------------------------------------------------------------------------
+# Cycle 6 verification: the bad-JSON retry used to resend the exact same
+# messages, blindly re-rolling with no feedback about what went wrong.
+# ---------------------------------------------------------------------------
+
+def test_write_page_retry_feeds_the_parse_error_back_as_a_correction(tmp_path):
+    client = FakeClient(["not json", json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    page = write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    assert page == ARTICLE_PAGE
+    second_call_messages = client.messages.calls[1]["messages"]
+    assert len(second_call_messages) == 3  # original user turn, the bad assistant reply, the correction
+    assert second_call_messages[1]["content"] == "not json"
+    assert "not valid JSON" in second_call_messages[2]["content"]
+
+
 def test_write_page_rejects_missing_required_key(tmp_path):
     bad_page = dict(ARTICLE_PAGE)
     del bad_page["cta"]

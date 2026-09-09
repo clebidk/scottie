@@ -218,6 +218,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
     stage = f"write.{cartridge_name}"
     last_error = None
+    messages = [{"role": "user", "content": user_content}]
     for attempt in range(2):
         budget.check()
         response = client.messages.create(
@@ -231,7 +232,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
             # empty/truncated response (observed in practice on longform).
             thinking={"type": "disabled"},
             system=system,
-            messages=[{"role": "user", "content": user_content}],
+            messages=messages,
         )
         usage = response.usage
         budget.record_call(usage.input_tokens, usage.output_tokens)
@@ -247,6 +248,24 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
         except Exception as e:
             last_error = e
             log.event(stage, f"invalid page.json on attempt {attempt + 1}: {e}")
+            # Fix cycle 6 verification: this retry used to resend the exact
+            # same messages, blindly re-rolling with no reason to behave
+            # differently -- caught live when a response came back empty
+            # ("Expecting value: line 1 column 1") and, on the very next
+            # attempt with no feedback, came back missing a required key
+            # instead. Feed the bad response and the specific error back as
+            # a real multi-turn correction instead.
+            messages = messages + [
+                {"role": "assistant", "content": text or "(empty response)"},
+                {
+                    "role": "user",
+                    "content": (
+                        f"That response was not valid JSON matching the schema: {e}. Return ONLY a "
+                        "complete, corrected JSON object matching the schema -- no markdown fences, "
+                        "no commentary before or after."
+                    ),
+                },
+            ]
             continue
 
     raise ValueError(f"{stage} failed after retry: {last_error}")
