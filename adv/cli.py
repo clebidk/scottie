@@ -19,7 +19,7 @@ from .log import RunLog
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
-from .write import parse_word_range, resolve_allowed_cta_texts, write_page
+from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -138,7 +138,7 @@ def find_word_range_violation(page_json, word_range):
     wc = count_words(page_json)
     if lo <= wc <= hi:
         return []
-    target = lo + (hi - lo) // 2
+    target = word_range_target(word_range)
     if wc < lo:
         detail = f"Expand sections with real substance until you're near {target} words, not just barely over {lo}."
     else:

@@ -32,7 +32,7 @@ _TRIGGER_WORDS_LIST = ", ".join(f'"{w.upper() if w == "emf" else w}"' for w in T
 
 GLOBAL_VOICE_BLOCK = f"""## Voice and output rules
 
-Voice: plain, specific, no hype words ({_HYPE_WORDS_LIST}). No exclamation marks. Prefer short declarative sentences.
+Voice: plain, specific, no hype words ({_HYPE_WORDS_LIST}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing -- any time you're about to say a feature isn't gated behind an upgrade or extra payment, say "included standard", "there's no extra step", or "it's included, not an add-on" instead.
 
 Never write the byline, publish/update dates, the "Advertisement" label, or the disclosure paragraph -- the renderer injects those automatically.
 
@@ -102,6 +102,17 @@ def parse_word_range(cartridge_md):
     return int(m.group(1).replace(",", "")), int(m.group(2).replace(",", ""))
 
 
+def word_range_target(word_range):
+    """A word count comfortably clear of the minimum without demanding a big
+    expansion -- a quarter of the way into the range, not the midpoint. Used
+    by both the writer prompt (aim here) and the gate's failure message
+    (expand toward here) so a repair asks for a modest, achievable amount of
+    new content rather than tempting a rewrite big enough to introduce a
+    fresh violation elsewhere."""
+    lo, hi = word_range
+    return lo + (hi - lo) // 4
+
+
 # Fix cycle 4 item 3: schema.json's "allowed_cta_texts" is a list of CTA
 # templates, e.g. "Shop the {short_name}". The writer has to submit the
 # already-substituted, concrete text in page.json (there's nowhere else for
@@ -146,7 +157,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     hard_constraints = []
     if word_range:
         lo, hi = word_range
-        target = lo + (hi - lo) // 2
+        target = word_range_target(word_range)
         hard_constraints.append(
             f"Body word count must be between {lo} and {hi} -- aim for roughly {target} words, "
             f"not the bare minimum of {lo}. Undershooting {lo} fails review and sends this "
