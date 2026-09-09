@@ -756,6 +756,18 @@ def test_find_warranty_violations_allows_the_sentence_continued_with_a_comma():
     assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
 
 
+def test_find_warranty_violations_ignores_lifetime_and_warranty_used_separately():
+    # Fourth real-run regression (out/20260909-2248-hidden-costs-v2): both
+    # words appear but never adjacent -- this is commentary contrasting a
+    # vague "lifetime promise" against reading real per-component terms,
+    # not a claim that Peak's warranty is blanket lifetime coverage.
+    page = {"turn_section": {"criteria": [{
+        "text": "A warranty document you can actually read component by component, not just a "
+                "one-line lifetime promise."
+    }]}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
 def test_find_warranty_violations_still_flags_a_claim_with_no_disclaimer_phrase_at_all():
     # The core-pattern tolerance above must not swallow the original false
     # claim, which never states "full terms by component ... published".

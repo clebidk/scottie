@@ -459,6 +459,18 @@ _WARRANTY_SENTENCE_CORE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Fourth real-run STOP on the same fixture (out/20260909-2248-hidden-costs-v2):
+# a bare "lifetime" check flagged "A warranty document you can actually read
+# component by component, not just a one-line lifetime promise." -- that's
+# buyer-education commentary CONTRASTING a vague "lifetime promise" against
+# reading real per-component terms, not a claim that Peak's own warranty is
+# blanket lifetime coverage. The word "warranty" and the word "lifetime" both
+# appear, but never adjacent -- the actual assertion this gate needs to catch
+# is specifically the phrase "lifetime warranty" (the two words together,
+# describing what IS covered), not either word alone anywhere in the
+# sentence.
+_LIFETIME_WARRANTY_BIGRAM_RE = re.compile(r"lifetime\s+warranty", re.IGNORECASE)
+
 
 def find_warranty_violations(page_json, verified_claims):
     verified_warranty_texts = {
@@ -475,7 +487,7 @@ def find_warranty_violations(page_json, verified_claims):
         if any(vt in text for vt in verified_warranty_texts):
             return True
         remainder = _WARRANTY_SENTENCE_CORE_RE.sub("", text)
-        return "lifetime" not in remainder.lower()
+        return not _LIFETIME_WARRANTY_BIGRAM_RE.search(remainder)
 
     hits = []
 
