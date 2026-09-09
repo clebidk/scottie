@@ -32,7 +32,7 @@ _TRIGGER_WORDS_LIST = ", ".join(f'"{w.upper() if w == "emf" else w}"' for w in T
 
 GLOBAL_VOICE_BLOCK = f"""## Voice and output rules
 
-Voice: plain, specific, no hype words ({_HYPE_WORDS_LIST}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing -- any time you're about to say a feature isn't gated behind an upgrade or extra payment, say "included standard", "there's no extra step", or "it's included, not an add-on" instead.
+Voice: plain, specific, no hype words ({_HYPE_WORDS_LIST}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
 
 Never write the byline, publish/update dates, the "Advertisement" label, or the disclosure paragraph -- the renderer injects those automatically.
 
@@ -152,7 +152,13 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     caller that doesn't pass them gets the pre-cycle-4 behavior."""
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir)
-    exemplars = load_exemplars(cartridge_dir)
+    # A repair attempt (revision_note set) already saw the exemplars on the
+    # first attempt -- it needs to fix specific flagged issues, not re-learn
+    # voice/structure, and exemplars are the single largest piece of a call's
+    # input tokens (up to ~45KB of reference text). Skipping them on repairs
+    # buys real budget headroom for the repair loop without changing what
+    # the writer is told to fix.
+    exemplars = load_exemplars(cartridge_dir) if not revision_note else []
 
     hard_constraints = []
     if word_range:

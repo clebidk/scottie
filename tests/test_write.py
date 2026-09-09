@@ -42,6 +42,31 @@ def test_write_page_valid_on_first_try(tmp_path):
     assert "reference_article" in sent_user_msg
 
 
+def test_write_page_omits_exemplars_on_a_repair_attempt(tmp_path):
+    # Fix cycle 4: a revision_note means this is a repair attempt, which
+    # already saw the exemplars once (on the initial attempt) -- resending
+    # them just burns budget without changing what the writer needs to fix.
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    page = write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+        revision_note="## REVISION REQUIRED (repair attempt 1 of 2)\n- some failure",
+    )
+    log.close()
+    assert page == ARTICLE_PAGE
+    sent_user_msg = client.messages.calls[0]["messages"][0]["content"]
+    assert "reference_article" not in sent_user_msg
+    assert "REVISION REQUIRED" in sent_user_msg
+
+
 def test_write_page_retries_once_on_bad_json(tmp_path):
     client = FakeClient(["not json", json_response(ARTICLE_PAGE)])
     budget = Budget()
