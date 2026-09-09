@@ -91,6 +91,22 @@ def test_trigger_word_check_is_word_boundary_not_substring():
     assert problems == []
 
 
+def test_digit_in_a_customer_quote_does_not_need_a_claim_id():
+    # Regression from the hidden-costs-v2 verification run: the ad's own
+    # dialogue ("It's 2026, I don't want to talk to anyone...") quoted
+    # verbatim and attributed to a customer isn't the author's own factual
+    # assertion -- it shouldn't need a claim_id just because it has a digit.
+    page = {"open": [{"text": '"It\'s 2026," she told us. "I don\'t want to talk to anyone."'}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"})
+    assert problems == []
+
+
+def test_digit_outside_a_quote_still_needs_a_claim_id():
+    page = {"open": [{"text": "She said, \"thanks.\" It costs $8,250 up front."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"})
+    assert len(problems) == 1
+
+
 # ---------------------------------------------------------------------------
 # fix 7: an ad claim's numeric tokens must also appear in the verified claim
 # ---------------------------------------------------------------------------

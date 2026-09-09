@@ -30,6 +30,15 @@ STOPWORDS = {
 
 TRIGGER_WORDS = ("medical", "clinical", "study", "proven", "emf", "rated", "reviews")
 
+# A quoted testimonial "span" -- a customer's own attributed words inline in
+# an ordinary paragraph (e.g. 'she said, "It's 2026..."'). A structural
+# "quotes" list (cartridges/longform's social_proof.quotes) is a list of
+# plain strings, which validate_page_claim_ids never descends into as prose
+# on its own -- this extends the same "a verbatim customer quote isn't the
+# author's own claim" treatment to a quote sitting inline inside a "text"
+# field. Matches straight and curly double quotes.
+_QUOTED_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
+
 # Fix 4 (EMF must never appear) + Fix 6 (never name a competitor trademark or a
 # discontinued Peak model in generated copy). Checked case-insensitively as a
 # plain substring anywhere in page.json text.
@@ -131,9 +140,13 @@ _TRIGGER_WORD_RE = re.compile(r"\b(?:" + "|".join(TRIGGER_WORDS) + r")\b")
 
 
 def _contains_trigger(text):
-    if re.search(r"\d", text) or "%" in text or "$" in text:
+    # A verbatim customer quote (e.g. "It's 2026," she said) isn't the
+    # author's own factual assertion -- don't require a claim_id just
+    # because the ad speaker's own words happened to include a number.
+    unquoted = _QUOTED_SPAN_RE.sub(" ", text)
+    if re.search(r"\d", unquoted) or "%" in unquoted or "$" in unquoted:
         return True
-    return bool(_TRIGGER_WORD_RE.search(text.lower()))
+    return bool(_TRIGGER_WORD_RE.search(unquoted.lower()))
 
 
 def collect_claim_ids(node):
@@ -249,11 +262,10 @@ _FIRST_PERSON_RE = re.compile(
 # text inside these is fine; it's someone else's words, not the author's.
 _QUOTED_CONTAINER_KEYS = {"quotes", "quote", "testimonial", "testimonials", "blockquote"}
 
-# A quoted testimonial "span" can also just be a quotation mark span inside
-# an ordinary paragraph -- e.g. open[1]'s 'She said, "I don\'t want to talk
-# to anyone."' is a customer's attributed quote, not the author speaking, and
-# must not be flagged. Matches straight and curly double quotes.
-_QUOTED_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
+# _QUOTED_SPAN_RE (defined near TRIGGER_WORDS above) covers the other case: a
+# quotation-mark span inline inside an ordinary paragraph -- e.g. open[1]'s
+# 'She said, "I don\'t want to talk to anyone."' is a customer's attributed
+# quote, not the author speaking, and must not be flagged here either.
 
 
 def find_first_person_violations(page_json, speaker_pov):
