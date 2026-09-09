@@ -435,7 +435,29 @@ def find_financing_violations(page_json, financing_lender=None):
 # 3yr/1yr, not lifetime), so after removing any allowed-sentence substring,
 # a violation requires "lifetime" to still be present alongside "warrant" --
 # a topical mention with no lifetime/blanket-coverage assertion passes.
-_ALLOWED_WARRANTY_SENTENCE_RE = re.compile(re.escape(ALLOWED_WARRANTY_SENTENCE), re.IGNORECASE)
+# Two real-run STOPs on the same fixture (out/20260909-2241-hidden-costs-v2)
+# surfaced a third false-positive shape: the writer reproduces the allowed
+# sentence's exact MEANING but drifts on a connector word or the closing
+# punctuation while weaving it into a bigger sentence -- "a limited lifetime
+# warranty, with full terms by component published on the warranty page"
+# (drops "are", "with" instead of ";"), "...are published on the warranty
+# page, so you can check..." (comma instead of a period, continuing the
+# sentence). A strict case-insensitive `str`/regex match of the sentence
+# verbatim doesn't recognize either as "the allowed sentence" even though
+# neither states anything false. _WARRANTY_SENTENCE_CORE_RE recognizes the
+# semantic core (the specific phrase "full terms by component ... published
+# on the warranty page" is what actually matters -- it's what makes the
+# statement true regardless of per-component duration) while tolerating an
+# optional "are" and the connector/punctuation before it. It still requires
+# that exact phrase, so it does NOT match the original false claim ("Limited
+# lifetime warranty on the cabin, heating elements, and electronics" has no
+# "full terms by component ... published" at all) or a claim that states
+# specific coverage without that disclaimer.
+_WARRANTY_SENTENCE_CORE_RE = re.compile(
+    r"limited\s+lifetime\s+warranty\W+(?:with\s+)?full\s+terms\s+by\s+component\s+"
+    r"(?:are\s+)?published\s+on\s+the\s+warranty\s+page\.?",
+    re.IGNORECASE,
+)
 
 
 def find_warranty_violations(page_json, verified_claims):
@@ -452,12 +474,7 @@ def find_warranty_violations(page_json, verified_claims):
             return True
         if any(vt in text for vt in verified_warranty_texts):
             return True
-        # Case-insensitive removal: a writer naturally re-cases "Limited" to
-        # "limited" when the sentence isn't the first word of its own
-        # sentence (e.g. "Peak Saunas offers a limited lifetime warranty;
-        # full terms..."). Same wording, same meaning -- still the allowed
-        # sentence, just mid-sentence casing.
-        remainder = _ALLOWED_WARRANTY_SENTENCE_RE.sub("", text)
+        remainder = _WARRANTY_SENTENCE_CORE_RE.sub("", text)
         return "lifetime" not in remainder.lower()
 
     hits = []

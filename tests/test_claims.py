@@ -732,6 +732,41 @@ def test_find_warranty_violations_allows_the_sentence_re_cased_mid_sentence():
     assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
 
 
+def test_find_warranty_violations_allows_minor_connector_drift_around_the_core_disclaimer():
+    # Third real-run regression (out/20260909-2241-hidden-costs-v2): the
+    # writer drops "are" and swaps ";" for ", with" while weaving the
+    # sentence into a bigger one -- the specific "full terms by component
+    # ... published on the warranty page" disclaimer is still there and
+    # still true, just reworded around the edges.
+    page = {"specs_and_proof": {"proof_points": [{
+        "text": "The sauna carries a limited lifetime warranty, with full terms by component "
+                "published on the warranty page. You can read exactly what's covered before you buy."
+    }]}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_allows_the_sentence_continued_with_a_comma():
+    # Same real-run regression, second occurrence: the writer keeps "are"
+    # and the semicolon but continues the sentence with a comma clause
+    # instead of ending it with a period.
+    page = {"faq": {"questions": [{"text":
+        "The sauna carries a limited lifetime warranty; full terms by component are published "
+        "on the warranty page, so you can check exactly what's covered before buying."
+    }]}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_still_flags_a_claim_with_no_disclaimer_phrase_at_all():
+    # The core-pattern tolerance above must not swallow the original false
+    # claim, which never states "full terms by component ... published".
+    page = {"proof_bullets": [{
+        "text": "Limited lifetime warranty on the cabin, heating elements, and electronics, "
+                "with full terms published on our website.",
+    }]}
+    hits = find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS)
+    assert len(hits) == 1
+
+
 def test_find_warranty_violations_allows_bare_spec_label():
     page = {"specs_table": [{"label": "Warranty", "value": "See warranty page"}]}
     # The label alone is fine; the bad value is still flagged on its own.
