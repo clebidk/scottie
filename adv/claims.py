@@ -358,7 +358,13 @@ def find_financing_violations(page_json, financing_lender=None):
 
     def walk(node, path):
         if isinstance(node, str):
-            if "financ" in node.lower() and node.strip() != ALLOWED_FINANCING_SENTENCE_NO_LENDER:
+            stripped = node.strip()
+            # A question ("Is financing available?", an FAQ's own "question"
+            # field) isn't financing phrasing -- it's asking about financing;
+            # the ANSWER is what has to be the exact allowed sentence. Caught
+            # live on the hidden-costs-v2 verification run: an FAQ question
+            # was flagged even though its answer was fine.
+            if "financ" in stripped.lower() and not stripped.endswith("?") and stripped != ALLOWED_FINANCING_SENTENCE_NO_LENDER:
                 hits.append(
                     {
                         "path": path,

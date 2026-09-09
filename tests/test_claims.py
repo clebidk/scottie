@@ -554,6 +554,15 @@ def test_find_financing_violations_ignores_text_that_never_mentions_financing():
     assert find_financing_violations(page, financing_lender=None) == []
 
 
+def test_find_financing_violations_ignores_a_question_about_financing():
+    # Regression from the hidden-costs-v2 verification run: an FAQ
+    # "question" field ("Is financing available?") isn't financing
+    # phrasing -- it's asking about it. Only the answer has to be the
+    # exact allowed sentence.
+    page = {"faq": {"questions": [{"question": "Is financing available?", "text": "Financing is available at checkout."}]}}
+    assert find_financing_violations(page, financing_lender=None) == []
+
+
 def test_gate_page_json_stops_on_financing_violation():
     page = {"hero": {"financing_line": {"text": "Financing available now, no credit check needed!"}}}
     with pytest.raises(ClaimsGateFailure) as exc_info:
