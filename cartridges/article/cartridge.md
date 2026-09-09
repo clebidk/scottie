@@ -1,0 +1,28 @@
+# Cartridge: article  (v0.1.0)
+
+Purpose: an editorial piece that a cold Meta reader accepts as a magazine article, then discovers Peak at the end.
+Audience temperature: cold. Reader does not know Peak and did not plan to buy a sauna today.
+
+## Structure (in order)
+1. Header block: "Advertisement" label, headline (curiosity or contrarian, no product name), dek (1 sentence), byline block, dates.
+2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. First person allowed if the ad speaker is first person.
+3. Body: 3–5 H2 sections. Each answers one question the reader would ask next. Education only. Product may be mentioned by name once in the body, as an example, no link.
+4. Evidence: at least 2 cited facts from facts_pack.verified_claims, cited inline as "(source name, year)" with the URL.
+5. Turn: one H2 that moves from the topic to "what to look for", listing 3–4 criteria that Peak meets. Still no hard sell.
+6. Close: 1 paragraph naming Peak, 1 soft CTA link ("See the models" / "Read the specs"). Financing line only if the ad used a price angle.
+7. Footer: disclosure paragraph, sources list.
+
+## Rules
+- 1,000–1,600 words. Education ≥ 70% of body words.
+- Exactly 1 CTA. No sticky bar. No countdowns, no discount language.
+- Headline never contains "Peak" or a price.
+- No claims outside verified_claims. Health statements cite the study and its population; never promise an outcome for Peak hardware.
+- Competitor statements only as the speaker's own experience unless sourced.
+- Images: 2–3 from the asset library, lifestyle over product. No before/after, no clinical settings.
+- Voice: plain, specific, second person or first person. No exclamation marks. No "game-changer", "unlock", "elevate", "journey".
+
+## From the ad
+Hook and angle → headline and open. Objections raised in the ad → body sections. Speaker's story → open, kept in their voice.
+
+## From facts_pack
+Specs, price, financing, warranty, verified studies, reviews summary.
