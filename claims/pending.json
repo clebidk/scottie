@@ -59,5 +59,49 @@
     "note": "This build's brief explicitly specified 'Bread Pay' as the financing_line lender name, so claims/products.json uses it as instructed. Flagging: docs/guardrails.md (written concurrently from g Brain policy/financing-and-payment) states Peak's only authorized financing providers are Affirm and Shop Pay Installments, and explicitly calls out 'Bread Pay' on the live Fuji page as an unresolved discrepancy needing Caleb's decision -- either the live site/ad creative have drifted from policy, or the policy doc is stale. Do not treat financing_line's lender name as verified until this is resolved.",
     "status": "pending_review",
     "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "gbrain-financing-lender-discrepancy",
+    "text": "DISCREPANCY: the live Fuji 2-Person product page (fetched 2026-09-09) displays a payment/financing logo with alt text \"Bread Pay\" (appears twice in the page HTML). \"Bread Pay\" is not one of the two providers gbrain policy authorizes (Affirm / Shop Pay Installments) \u2014 policy/financing-and-payment explicitly says never claim any other provider. Either the live site has drifted from policy, or the policy page is stale.",
+    "category": "trust",
+    "appeared_in": [
+      "gbrain:policy/financing-and-payment (contradicted by live https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy)"
+    ],
+    "note": "Flag for Caleb before any ad copy names a financing provider: confirm whether Bread Pay is now a live/approved lender (policy needs updating) or an unauthorized change on the storefront (needs fixing). Do not name any lender in generated copy until resolved.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "gbrain-emf-position",
+    "text": "Peak conducts internal EMF testing on every sauna in every production batch; the average measured field reading is 3 mG (ultra-low range). Peak does NOT hold third-party or accredited-laboratory EMF certifications \u2014 no ISO/ANSI-accredited lab test report exists. Never claim third-party-tested EMF results, and never give a 'pacemaker safe' assurance without Austin's approval.",
+    "category": "health",
+    "appeared_in": [
+      "gbrain:kb/auto-fills/emf-testing-policy"
+    ],
+    "note": "FLAG: do-not-lead-with. competitors/overview: 'Do NOT lead with an EMF/near-zero EMF angle.' knowledge-map.md also notes customers repeatedly challenge this claim for lack of public proof (unresolved) \u2014 treat as supporting/secondary copy only, never a headline claim, and never imply accredited testing.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-emf-figure",
+    "text": "No per-model EMF figure exists for Fuji specifically \u2014 only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
+    "category": "spec",
+    "appeared_in": [
+      "gbrain:spec/fuji (absence); gbrain:kb/auto-fills/emf-testing-policy"
+    ],
+    "note": "FLAG: do-not-lead-with (inherits the EMF claim's flag). Do not fabricate a Fuji-specific EMF number.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-emf-figure",
+    "text": "No per-model EMF figure exists for Everest specifically \u2014 only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
+    "category": "spec",
+    "appeared_in": [
+      "gbrain:spec/everest (absence); gbrain:kb/auto-fills/emf-testing-policy"
+    ],
+    "note": "FLAG: do-not-lead-with (inherits the EMF claim's flag). Do not fabricate an Everest-specific EMF number.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-09"
   }
 ]

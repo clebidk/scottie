@@ -50,7 +50,13 @@
     {% for p in page.close.paragraphs %}
     <p>{{ p.text }}</p>
     {% endfor %}
-    {% if page.financing_line %}<p class="adv-financing">{{ page.financing_line }}</p>{% endif %}
+    {% if page.financing_line %}
+      {% if product.financing and product.financing.lender %}
+      <p class="adv-financing">{{ page.financing_line }}</p>
+      {% else %}
+      <p class="adv-financing">Financing available</p>
+      {% endif %}
+    {% endif %}
     <p><a class="adv-cta" href="{{ page.cta.url }}">{{ page.cta.text }}</a></p>
   </section>
 </article>

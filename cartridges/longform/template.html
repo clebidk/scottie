@@ -14,7 +14,13 @@
     {% endif %}
     <h1>{{ page.hero.headline }}</h1>
     <p class="adv-dek">{{ page.hero.subhead }}</p>
-    {% if page.hero.financing_line %}<p class="adv-financing">{{ page.hero.financing_line.text }}</p>{% endif %}
+    {% if page.hero.financing_line %}
+      {% if product.financing and product.financing.lender %}
+      <p class="adv-financing">{{ page.hero.financing_line.text }}</p>
+      {% else %}
+      <p class="adv-financing">Financing available</p>
+      {% endif %}
+    {% endif %}
     <p><a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a></p>
   </section>
 
@@ -72,7 +78,13 @@
   <section class="adv-final-cta">
     <h2>{{ page.final_cta.headline }}</h2>
     <p><a class="adv-cta" href="{{ page.final_cta.cta.url }}">{{ page.final_cta.cta.text }}</a></p>
-    {% if page.final_cta.financing_line %}<p class="adv-financing">{{ page.final_cta.financing_line.text }}</p>{% endif %}
+    {% if page.final_cta.financing_line %}
+      {% if product.financing and product.financing.lender %}
+      <p class="adv-financing">{{ page.final_cta.financing_line.text }}</p>
+      {% else %}
+      <p class="adv-financing">Financing available</p>
+      {% endif %}
+    {% endif %}
     {% if page.final_cta.warranty_line %}<p class="adv-warranty">{{ page.final_cta.warranty_line.text }}</p>{% endif %}
   </section>
 </main>

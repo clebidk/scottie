@@ -5,7 +5,7 @@ Audience temperature: warm.
 
 ## Structure (in order)
 1. Header: "Advertisement" label small, Peak logo, no nav.
-2. Hero: product name, one-line promise taken from the ad angle, price, financing line ("from est. $X/mo with <lender>"), one primary CTA (Buy / Shop <model>). Hero image from asset library.
+2. Hero: product short_name, one-line promise taken from the ad angle, price, financing line ("Financing available" unless a lender is configured), one primary CTA (Buy / Shop <model>). Hero image from asset library.
 3. Three proof bullets: each one verified claim with a short label and a one-line explanation. Choose the three that match the ad's angle.
 4. Angle section: 1 H2 + 2–4 short paragraphs or an image-and-text pair that expands what the ad said.
 5. Specs table: 6–10 rows from facts_pack.specs.
@@ -15,7 +15,7 @@ Audience temperature: warm.
 
 ## Rules
 - 250–500 words. One CTA text, shown twice. No reviews carousel, no related products, no nav, no newsletter.
-- Price always visible above the fold. Financing always carries "/mo" and lender name.
+- Price always visible above the fold. Financing carries "/mo" and a lender name only if facts_pack.product.financing.lender is set; otherwise "Financing available" with no figure.
 - Every bullet, spec, and trust item must map to a verified_claims id or facts_pack.specs row.
 - Images: hero + 1–2 detail shots from the asset library.
 - Voice: short declarative sentences. No superlatives without a source.

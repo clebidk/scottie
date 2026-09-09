@@ -1,6 +1,12 @@
 import pytest
 
-from adv.claims import ClaimsGateFailure, gate_ad_brief_claims, gate_page_json, validate_page_claim_ids
+from adv.claims import (
+    ClaimsGateFailure,
+    find_forbidden_terms,
+    gate_ad_brief_claims,
+    gate_page_json,
+    validate_page_claim_ids,
+)
 
 VERIFIED_CLAIMS = [
     {"id": "price-fuji", "text": "The Peak Saunas Fuji is priced at $8250.00 (list/compare-at $14032.00).", "category": "price", "source": "https://peaksaunas.com/products/fuji"},
@@ -73,3 +79,59 @@ def test_plain_text_without_trigger_needs_no_claim_ids():
     page = {"open": [{"text": "Shopping used to mean waiting for a callback."}]}
     problems = validate_page_claim_ids(page, {"price-fuji"})
     assert problems == []
+
+
+# ---------------------------------------------------------------------------
+# fix 7: an ad claim's numeric tokens must also appear in the verified claim
+# ---------------------------------------------------------------------------
+
+def test_ad_claim_with_wrong_number_does_not_match_despite_word_overlap():
+    # Same words as price-fuji ("The Peak Saunas Fuji is priced at $...."),
+    # different number -- must NOT match on word overlap alone.
+    ad_brief = {"claims_made": ["The Peak Saunas Fuji is priced at $9,750."]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    assert exc_info.value.stage == "ad_claims"
+
+
+def test_ad_claim_with_no_numbers_is_unaffected_by_numeric_check():
+    ad_brief = {"claims_made": ["Austin Laudenslager is the Founder and CEO of Peak Saunas."]}
+    matched = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    assert matched[0]["matched_claim_id"] == "founder-ceo"
+
+
+# ---------------------------------------------------------------------------
+# fix 4 / fix 6: forbidden terms in page.json (EMF, competitor trademark,
+# discontinued models, financing lender names when none is configured)
+# ---------------------------------------------------------------------------
+
+def test_find_forbidden_terms_catches_emf_case_insensitive():
+    page = {"body_sections": [{"paragraphs": [{"text": "Our sauna has Near-Zero emf, tested internally."}]}]}
+    hits = find_forbidden_terms(page)
+    assert any(h["term"] == "emf" for h in hits)
+
+
+def test_find_forbidden_terms_catches_sunlighten_and_discontinued_models():
+    page = {"open": [{"text": "Unlike Sunlighten, unlike the Crown, unlike Olympus or Aspen, we ship free."}]}
+    hits = find_forbidden_terms(page)
+    terms_hit = {h["term"] for h in hits}
+    assert terms_hit == {"sunlighten", "crown", "olympus", "aspen"}
+
+
+def test_find_forbidden_terms_catches_lender_name_when_lender_not_configured():
+    page = {"hero": {"financing_line": {"text": "Get it from est. $229/mo with Bread Pay"}}}
+    hits = find_forbidden_terms(page, financing_lender=None)
+    assert any(h["term"] == "bread pay" for h in hits)
+
+
+def test_find_forbidden_terms_allows_the_configured_lender_name():
+    page = {"hero": {"financing_line": {"text": "Get it from est. $229/mo with Affirm"}}}
+    hits = find_forbidden_terms(page, financing_lender="Affirm")
+    assert hits == []
+
+
+def test_gate_page_json_stops_on_emf_even_with_valid_claim_ids():
+    page = {"proof_bullets": [{"label": "EMF", "text": "Near-zero EMF.", "claim_ids": ["price-fuji"]}]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, FACTS_PACK, "product-page")
+    assert exc_info.value.stage == "page_json:product-page"

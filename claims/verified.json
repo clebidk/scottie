@@ -120,94 +120,6 @@
     "date": "2026-09-09"
   },
   {
-    "id": "financing-crown",
-    "text": "Estimated financing for the Peak Saunas Crown is from est. $138/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-mini",
-    "text": "Estimated financing for the Peak Saunas Mini is from est. $151/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-kilimanjaro",
-    "text": "Estimated financing for the Peak Saunas Kilimanjaro is from est. $374/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-patagonia",
-    "text": "Estimated financing for the Peak Saunas Patagonia is from est. $304/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-el-capitan",
-    "text": "Estimated financing for the Peak Saunas El Capitan is from est. $465/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-matterhorn",
-    "text": "Estimated financing for the Peak Saunas Matterhorn is from est. $299/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-denali",
-    "text": "Estimated financing for the Peak Saunas Denali is from est. $271/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-rainier",
-    "text": "Estimated financing for the Peak Saunas Rainier is from est. $201/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-shasta",
-    "text": "Estimated financing for the Peak Saunas Shasta is from est. $193/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-fuji",
-    "text": "Estimated financing for the Peak Saunas Fuji is from est. $229/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
-    "id": "financing-everest",
-    "text": "Estimated financing for the Peak Saunas Everest is from est. $221/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
-    "category": "price",
-    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
-    "approved_by": "estimate",
-    "date": "2026-09-09"
-  },
-  {
     "id": "peak-saunas-shows-full-pricing-and-produ",
     "text": "Peak Saunas shows full pricing and product information on its product pages without requiring a name or phone number to see it.",
     "category": "trust",
@@ -233,7 +145,7 @@
   },
   {
     "id": "spec-crown-max-temperature",
-    "text": "Crown -- Max temperature: 150°F.",
+    "text": "Crown -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
     "approved_by": "site",
@@ -241,7 +153,7 @@
   },
   {
     "id": "spec-crown-infrared-wavelength-range",
-    "text": "Crown -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Crown -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
     "approved_by": "site",
@@ -289,7 +201,7 @@
   },
   {
     "id": "spec-mini-max-temperature",
-    "text": "Mini -- Max temperature: 150°F.",
+    "text": "Mini -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
@@ -297,7 +209,7 @@
   },
   {
     "id": "spec-mini-infrared-wavelength-range",
-    "text": "Mini -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Mini -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
@@ -329,7 +241,7 @@
   },
   {
     "id": "spec-kilimanjaro-max-temperature",
-    "text": "Kilimanjaro -- Max temperature: 170°F.",
+    "text": "Kilimanjaro -- Max temperature: 170\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "site",
@@ -337,7 +249,7 @@
   },
   {
     "id": "spec-kilimanjaro-infrared-wavelength-range",
-    "text": "Kilimanjaro -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Kilimanjaro -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "site",
@@ -377,7 +289,7 @@
   },
   {
     "id": "spec-patagonia-max-temperature",
-    "text": "Patagonia -- Max temperature: 170°F.",
+    "text": "Patagonia -- Max temperature: 170\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "site",
@@ -385,7 +297,7 @@
   },
   {
     "id": "spec-patagonia-infrared-wavelength-range",
-    "text": "Patagonia -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Patagonia -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "site",
@@ -417,7 +329,7 @@
   },
   {
     "id": "spec-el-capitan-max-temperature",
-    "text": "El Capitan -- Max temperature: 170°F.",
+    "text": "El Capitan -- Max temperature: 170\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "site",
@@ -425,7 +337,7 @@
   },
   {
     "id": "spec-el-capitan-infrared-wavelength-range",
-    "text": "El Capitan -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "El Capitan -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "site",
@@ -465,7 +377,7 @@
   },
   {
     "id": "spec-matterhorn-max-temperature",
-    "text": "Matterhorn -- Max temperature: 150°F.",
+    "text": "Matterhorn -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -473,7 +385,7 @@
   },
   {
     "id": "spec-matterhorn-infrared-wavelength-range",
-    "text": "Matterhorn -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Matterhorn -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -513,7 +425,7 @@
   },
   {
     "id": "spec-denali-max-temperature",
-    "text": "Denali -- Max temperature: 150°F.",
+    "text": "Denali -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -521,7 +433,7 @@
   },
   {
     "id": "spec-denali-infrared-wavelength-range",
-    "text": "Denali -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Denali -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -561,7 +473,7 @@
   },
   {
     "id": "spec-rainier-max-temperature",
-    "text": "Rainier -- Max temperature: 150°F.",
+    "text": "Rainier -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -569,7 +481,7 @@
   },
   {
     "id": "spec-rainier-infrared-wavelength-range",
-    "text": "Rainier -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Rainier -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -601,7 +513,7 @@
   },
   {
     "id": "spec-shasta-max-temperature",
-    "text": "Shasta -- Max temperature: 150°F.",
+    "text": "Shasta -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -609,7 +521,7 @@
   },
   {
     "id": "spec-shasta-infrared-wavelength-range",
-    "text": "Shasta -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Shasta -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
     "approved_by": "site",
@@ -641,7 +553,7 @@
   },
   {
     "id": "spec-fuji-max-temperature",
-    "text": "Fuji -- Max temperature: 150°F.",
+    "text": "Fuji -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
@@ -649,7 +561,7 @@
   },
   {
     "id": "spec-fuji-infrared-wavelength-range",
-    "text": "Fuji -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Fuji -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
@@ -689,7 +601,7 @@
   },
   {
     "id": "spec-everest-max-temperature",
-    "text": "Everest -- Max temperature: 150°F.",
+    "text": "Everest -- Max temperature: 150\u00b0F.",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
@@ -697,7 +609,7 @@
   },
   {
     "id": "spec-everest-infrared-wavelength-range",
-    "text": "Everest -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "text": "Everest -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
@@ -717,6 +629,214 @@
     "category": "spec",
     "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-allowlist-red-light",
+    "text": "Medical-grade red light therapy (included standard).",
+    "category": "trust",
+    "source": "gbrain:competitors/overview",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-allowlist-free-shipping",
+    "text": "Free shipping (included, always).",
+    "category": "trust",
+    "source": "gbrain:competitors/overview; gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-allowlist-360-full-spectrum",
+    "text": "360\u00b0 full spectrum infrared heater placement.",
+    "category": "spec",
+    "source": "gbrain:competitors/overview",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-allowlist-us-owned",
+    "text": "US-owned company.",
+    "category": "trust",
+    "source": "gbrain:competitors/overview",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-allowlist-lifetime-warranty",
+    "text": "Limited Lifetime warranty.",
+    "category": "trust",
+    "source": "gbrain:competitors/overview; gbrain:policy/warranty; https://peaksaunas.com/pages/warranty",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-warranty-lifetime-definition",
+    "text": "Peak Saunas Limited Lifetime Warranty: residential use only, original purchaser, non-transferable, auto-registered at order. \"Lifetime\" = the expected life of the component, defined as 7 years under normal residential use. Indoor and outdoor carry the same terms.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty; https://peaksaunas.com/pages/warranty",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-warranty-labor-exclusion",
+    "text": "Labor of any kind \u2014 diagnosis, service, or installation \u2014 is never covered on any component. The warranty covers parts only.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty; https://peaksaunas.com/pages/warranty",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-warranty-component-coverage",
+    "text": "Coverage by component: Heating elements \u2014 Lifetime (=7yr residential). Cabinetry & wood structure \u2014 Lifetime (=7yr residential). Red light therapy (RLT) panel \u2014 3 years (NOT the lifetime tier; corrected by Austin 2026-09-07). Control system & power supply \u2014 3 years. Chromotherapy lighting \u2014 1 year. Sound system \u2014 1 year. Accessories (cup holders, thermometers, etc.) \u2014 1 year. WiFi/app connectivity \u2014 1 year.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty; https://peaksaunas.com/pages/warranty",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-warranty-not-covered",
+    "text": "Not covered: normal wear/discoloration/fading/cosmetic change; misuse/abuse/neglect/improper install; commercial or rental use (separate commercial warranty available); unauthorized parts or modifications; freight/shipping for replacement parts after 90 days from delivery; weather, water, power surges, pests, Acts of God.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty; https://peaksaunas.com/pages/warranty",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-shipping-free-crate-origin",
+    "text": "Free shipping, always (continental US). Ships in a PeakGuard custom protective wooden crate from the Ontario, California warehouse via freight/LTL (no single primary carrier \u2014 a large carrier network).",
+    "category": "policy",
+    "source": "gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-shipping-timing",
+    "text": "In-stock orders ship within 2\u20134 business days; they then arrive 5\u201314 business days from the ship date. Carrier calls 1\u20132 days before delivery to schedule a 4-hour appointment window. Curbside standard delivery (white-glove/garage available for an extra fee).",
+    "category": "policy",
+    "source": "gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-shipping-damage-claims",
+    "text": "Visible damage at delivery: photograph it, note it on the delivery receipt/BOL, may refuse shipment, then contact support. Concealed/hidden damage: must be reported within 48 hours of delivery (with photos) \u2014 claims made after 48 hours cannot be honored.",
+    "category": "policy",
+    "source": "gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-financing-terms",
+    "text": "0% APR financing via Shop Pay Installments (Affirm): purchases under $2,000 \u2192 up to 12 months; over $2,000 \u2192 up to 24 months. Soft credit pull at checkout, subject to approval. Also HSA/FSA via TrueMed (2\u20133 min approval, effective savings ~30%). The only two financing providers are Affirm and Shop Pay Installments \u2014 Peak does NOT offer Klarna, Sezzle, Afterpay, Upgrade, or any other financing provider.",
+    "category": "policy",
+    "source": "gbrain:policy/financing-and-payment",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-reviews-platform",
+    "text": "Primary review platform is Judge.me (https://judge.me/reviews/stores/peaksaunas.com) \u2014 use in all customer-facing contexts. Do NOT use Google review links. TrustPilot is secondary and cannot be directly solicited (mention only if the customer asks).",
+    "category": "policy",
+    "source": "gbrain:kb/reviews-policy",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-wavelengths",
+    "text": "Fuji infrared: Full Spectrum (near + mid + far), 8 infrared heater panels, full spectrum halogen/quartz 360\u00b0 placement + floor heater, max temp 150\u00b0F.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-rlt",
+    "text": "Fuji red light therapy: included standard, 1 RLT panel, seated distance 7\u20138 in from panel.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-wood",
+    "text": "Fuji wood: crafted entirely from Canadian Red Cedar \u2014 interior AND exterior.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-dimensions",
+    "text": "Fuji dimensions: exterior (assembled) 53\"W x 44\"D x 75\"H, bench 49\"L x 20\"D (approx), assembled weight 385 lbs; shipping crate 57.9\" \u00d7 22.0\" \u00d7 79.1\", crate weight 467 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-persons",
+    "text": "Fuji capacity: 2 persons, indoor.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-fuji-power",
+    "text": "Fuji electrical: 120V/20A, dedicated outlet required \u2014 a standard 15A outlet is NOT sufficient. Wattage ~2050W.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-wavelengths",
+    "text": "Everest infrared: Full Spectrum (near + mid + far), 8 infrared heater panels, full spectrum halogen/quartz surrounding 360\u00b0, max temp 150\u00b0F.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-rlt",
+    "text": "Everest red light therapy: included standard, 1 RLT panel, seated distance 7\u20138 in from panel.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-wood",
+    "text": "Everest wood: crafted entirely from Canadian Hemlock \u2014 interior AND exterior.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-dimensions",
+    "text": "Everest dimensions: exterior (assembled) 53\"W x 44\"D x 75\"H, bench 49\"L x 20\"D (approx), assembled weight 305 lbs; shipping crate 57.9\" \u00d7 22.0\" \u00d7 79.1\", crate weight 498 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-persons",
+    "text": "Everest capacity: 2 persons, indoor.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "approved_by": "gbrain-seed",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "gbrain-everest-power",
+    "text": "Everest electrical: 120V/20A, dedicated outlet required \u2014 a standard 15A outlet is NOT sufficient. Wattage ~2050W.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "approved_by": "gbrain-seed",
     "date": "2026-09-09"
   }
 ]

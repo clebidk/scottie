@@ -10,12 +10,12 @@
         "promise": {"type": "string", "description": "One-line promise from the ad angle. Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead."},
         "price_line": {
           "type": "object",
-          "description": "e.g. text: '$8,250 (was $14,032)'. Must carry the product's price claim_id.",
+          "description": "e.g. text: '$8,250'. Only add a compare-at/'was $X' figure if facts_pack.product.compare_at_price is non-null. Must carry the product's price claim_id.",
           "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
         },
         "financing_line": {
           "type": "object",
-          "description": "e.g. text: 'from est. $229/mo with Bread Pay'. Must carry the product's financing claim_id.",
+          "description": "text: 'Financing available' when facts_pack.product.financing.lender is null (no lender name, no monthly figure); otherwise may name the lender and monthly figure from facts_pack.product.financing.",
           "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
         },
         "cta": {

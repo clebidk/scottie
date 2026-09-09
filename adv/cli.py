@@ -10,11 +10,13 @@ from pathlib import Path
 from . import config
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
-from .claims import ClaimsGateFailure, gate_ad_brief_claims, gate_page_json
-from .ground import LocalFactsSource
-from .ingest import run_ingest
+from .claims import ClaimsGateFailure, collect_claim_ids, gate_ad_brief_claims, gate_page_json
+from .ground import LocalFactsSource, load_claims_config
+from .ingest import download_drive_file, run_ingest
 from .log import RunLog
-from .render import render_page
+from .prices import refresh_price_data
+from .render import http_fetch_bytes, render_page
+from .reviews import fetch_reviews_claim
 from .write import write_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -42,6 +44,33 @@ def discover_cartridges():
 # adv run
 # ---------------------------------------------------------------------------
 
+# Fix 10: page.json keys that hold structural/reference data, not prose --
+# excluded from the main-content word count.
+_NON_PROSE_KEYS = {"url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
+
+
+def _collect_prose_strings(node, out):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in _NON_PROSE_KEYS:
+                continue
+            _collect_prose_strings(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            _collect_prose_strings(v, out)
+    elif isinstance(node, str):
+        out.append(node)
+
+
+def count_words(page_json):
+    """Word count of a page's main content only: every prose string in
+    page.json (the byline and disclosure blocks are renderer-injected and
+    never appear in page.json, so they're excluded automatically)."""
+    strings = []
+    _collect_prose_strings(page_json, strings)
+    return sum(len(s.split()) for s in strings)
+
+
 def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched):
     lines = [
         f"# REVIEW: {run_dir.name}",
@@ -50,11 +79,25 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
         f"- Product: {product_name}",
         f"- Cartridges: {', '.join(selected)}",
         "",
-        "## Claims used",
+        "## Ad claims matched",
     ]
     for m in gate_matched:
         lines.append(f"- ad claim \"{m['claim']}\" -> verified `{m['matched_claim_id']}` (overlap {m['overlap']})")
+
     verified_by_id = {c["id"]: c for c in facts_pack["verified_claims"]}
+    used_claim_ids = set()
+    for page in pages.values():
+        used_claim_ids |= collect_claim_ids(page)
+    lines.append("")
+    lines.append("## Claims used")
+    if used_claim_ids:
+        for cid in sorted(used_claim_ids):
+            c = verified_by_id.get(cid)
+            text = c["text"] if c else "(not found in facts_pack.verified_claims)"
+            lines.append(f"- `{cid}`: {text}")
+    else:
+        lines.append("- (no claim_ids referenced by any page)")
+
     lines.append("")
     lines.append("## Sources")
     for c in facts_pack["verified_claims"]:
@@ -69,6 +112,11 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     lines.append("## Pages")
     for name in selected:
         lines.append(f"- {name}/index.html")
+
+    lines.append("")
+    lines.append("## Word counts (main content only, excludes disclosure and byline)")
+    for name in selected:
+        lines.append(f"- {name}: {count_words(pages[name])} words")
 
     lines.append("")
     lines.append("## Budget use")
@@ -107,6 +155,20 @@ def cmd_run(args):
         selected = rng.sample(available, k=min(3, len(available)))
     log.cartridges(selected)
 
+    claims_dir = REPO_ROOT / "claims"
+    claims_config = load_claims_config(claims_dir)
+
+    # Fix 2: live prices, at the start of the run, before ingest. Cached for
+    # 60 minutes in runs/products-cache.json; falls back to the cache (with a
+    # logged warning) on fetch failure.
+    _, live_price_claims_by_slug = refresh_price_data(
+        products_path=claims_dir / "products.json",
+        cache_path=REPO_ROOT / "runs" / "products-cache.json",
+        show_compare_at_price=claims_config.get("show_compare_at_price", False),
+        today_iso=datetime.date.today().isoformat(),
+        log=log,
+    )
+
     try:
         ad_brief = run_ingest(
             input_arg=args.input,
@@ -122,15 +184,27 @@ def cmd_run(args):
         (run_dir / "ad_brief.json").write_text(json.dumps(ad_brief, indent=2))
 
         budget.check()
-        facts_source = LocalFactsSource(REPO_ROOT / "claims")
+        facts_source = LocalFactsSource(claims_dir)
 
-        # Gate against the FULL verified.json universe -- an ad claim can
-        # reference anything approved, not just the eventual product's
-        # curated facts_pack subset.
-        gate_matched = gate_ad_brief_claims(ad_brief, facts_source.all_verified_claims())
+        # Gate against the FULL verified.json universe (with this run's live
+        # price claims substituted in) -- an ad claim can reference anything
+        # approved, not just the eventual product's curated facts_pack subset.
+        gate_matched = gate_ad_brief_claims(
+            ad_brief, facts_source.all_verified_claims(live_price_claims_by_slug)
+        )
         log.gate_result("PASS", f"{len(gate_matched)} ad claim(s) matched")
 
-        facts_pack = facts_source.facts_for(args.product, ad_brief)
+        product = facts_source.pick_product(args.product, ad_brief)
+        live_price_claim = live_price_claims_by_slug.get(product["slug"])
+        reviews_claim = fetch_reviews_claim(product["url"], datetime.date.today().isoformat(), log=log)
+
+        facts_pack = facts_source.facts_for(
+            product["slug"],
+            ad_brief,
+            config=claims_config,
+            live_price_claim=live_price_claim,
+            reviews_claim=reviews_claim,
+        )
         (run_dir / "facts_pack.json").write_text(json.dumps(facts_pack, indent=2))
 
         pages = {}
@@ -146,7 +220,7 @@ def cmd_run(args):
                 budget=budget,
                 log=log,
             )
-            gate_page_json(page, facts_pack, cartridge_name)
+            gate_page_json(page, facts_pack, cartridge_name, financing_lender=claims_config.get("financing_lender"))
             pages[cartridge_name] = page
 
         published = updated = datetime.date.today().isoformat()
@@ -164,6 +238,8 @@ def cmd_run(args):
                 published=published,
                 updated=updated,
                 log=log,
+                fetch_url=http_fetch_bytes,
+                drive_downloader=download_drive_file,
             )
             outputs.append(index_path)
 

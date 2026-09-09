@@ -5,10 +5,12 @@ a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
 import json
+import urllib.request
 from pathlib import Path
 
 import jinja2
 
+from . import ingest
 from .claims import collect_claim_ids
 
 FALLBACK_BYLINE = """<p class="adv-byline-author">By {author}, Founder &amp; CEO, Peak Saunas</p>
@@ -70,7 +72,7 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated):
         return {
             "@context": "https://schema.org",
             "@type": "Product",
-            "name": product["name"],
+            "name": product.get("short_name") or product["name"],
             "url": product["url"],
             "image": product.get("image_urls", []),
             "offers": {
@@ -93,6 +95,81 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated):
     return {}
 
 
+def collect_asset_ids(node):
+    """Every "asset_id" referenced anywhere in page.json."""
+    ids = set()
+
+    def walk(n):
+        if isinstance(n, dict):
+            if n.get("asset_id"):
+                ids.add(n["asset_id"])
+            for v in n.values():
+                walk(v)
+        elif isinstance(n, list):
+            for v in n:
+                walk(v)
+
+    walk(node)
+    return ids
+
+
+def _looks_like_html(data):
+    head = data[:512].lstrip().lower()
+    return head.startswith(b"<!doctype html") or b"<html" in data[:2000].lower()
+
+
+def http_fetch_bytes(url):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.read()
+
+
+def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, drive_downloader=ingest.download_drive_file):
+    """Download one asset (Shopify CDN image, or a Drive file via
+    drive_downloader/ingest.download_drive_file) into dest_dir as
+    <asset id>.<ext>. Returns the local Path, or None (with a logged
+    warning) if the download fails or the response looks like an HTML
+    page instead of a file."""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        if asset.get("drive_id"):
+            tmp_dir = dest_dir / f"_tmp-{asset['id']}"
+            tmp_path = drive_downloader(asset["drive_id"], tmp_dir)
+            data = Path(tmp_path).read_bytes()
+            ext = Path(tmp_path).suffix or ".bin"
+            Path(tmp_path).unlink(missing_ok=True)
+            try:
+                tmp_dir.rmdir()
+            except OSError:
+                pass
+        else:
+            url = asset.get("url")
+            if not url:
+                return None
+            data = fetch_url(url)
+            ext = Path(url.split("?")[0]).suffix or ".jpg"
+
+        if _looks_like_html(data):
+            if log:
+                log.event("render", f"asset {asset['id']} download looked like HTML; skipping")
+            return None
+
+        dest_path = dest_dir / f"{asset['id']}{ext}"
+        dest_path.write_bytes(data)
+        return dest_path
+    except Exception as e:
+        if log:
+            log.event("render", f"asset {asset['id']} download failed: {e}")
+        return None
+
+
 def render_page(
     *,
     cartridge_name,
@@ -106,6 +183,9 @@ def render_page(
     published,
     updated,
     log=None,
+    download_assets=True,
+    fetch_url=http_fetch_bytes,
+    drive_downloader=ingest.download_drive_file,
 ):
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     env = jinja2.Environment(
@@ -116,10 +196,32 @@ def render_page(
     brand_css = load_brand_css(brand_dir, log)
     byline_html = load_byline_html(brand_dir, published, updated, log)
 
-    assets_by_id = {a["id"]: a for a in facts_pack.get("assets", [])}
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    assets_by_id = {a["id"]: dict(a) for a in facts_pack.get("assets", [])}
     used_claim_ids = collect_claim_ids(page)
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
     sources = [verified_by_id[cid] for cid in sorted(used_claim_ids) if cid in verified_by_id]
+
+    # Fix 8: download each asset the page actually references, into
+    # out_dir/assets/, and rewrite its url to a path relative to index.html
+    # so the page folder is self-contained. An asset that fails to download
+    # (or comes back as HTML) is dropped -- the template's own `{% if asset
+    # %}` guards mean it's simply not rendered, with a warning logged.
+    if download_assets:
+        used_asset_ids = collect_asset_ids(page)
+        assets_dir = out_dir / "assets"
+        for asset_id in list(assets_by_id):
+            if asset_id not in used_asset_ids:
+                continue
+            local_path = download_asset(
+                assets_by_id[asset_id], assets_dir, log=log, fetch_url=fetch_url, drive_downloader=drive_downloader
+            )
+            if local_path is None:
+                del assets_by_id[asset_id]
+            else:
+                assets_by_id[asset_id]["url"] = f"assets/{local_path.name}"
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated)
 
@@ -139,8 +241,6 @@ def render_page(
         cartridge=cartridge_name,
     )
 
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "index.html").write_text(html)
     (out_dir / "page.json").write_text(json.dumps(page, indent=2))
     return out_dir / "index.html"

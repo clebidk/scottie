@@ -22,8 +22,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $138/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -37,12 +35,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-crown-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-crown-infrared-wavelength-range"
         },
         {
@@ -60,7 +58,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-crown-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Crown 2-Person Infrared Sauna"
     },
     "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
       "slug": "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
@@ -82,8 +81,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $151/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -97,12 +94,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-mini-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-mini-infrared-wavelength-range"
         },
         {
@@ -110,7 +107,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-mini-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Mini 1-Person Infrared Sauna"
     },
     "peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
       "slug": "peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
@@ -132,8 +130,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $374/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -147,12 +143,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "170°F",
+          "value": "170\u00b0F",
           "claim_id": "spec-kilimanjaro-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-kilimanjaro-infrared-wavelength-range"
         },
         {
@@ -165,7 +161,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-kilimanjaro-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Kilimanjaro 5-Person Outdoor Infrared Sauna"
     },
     "peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
       "slug": "peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
@@ -187,8 +184,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $304/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -202,12 +197,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "170°F",
+          "value": "170\u00b0F",
           "claim_id": "spec-patagonia-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-patagonia-infrared-wavelength-range"
         },
         {
@@ -215,7 +210,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-patagonia-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Patagonia 2-Person Outdoor Infrared Sauna"
     },
     "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
       "slug": "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
@@ -237,8 +233,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $465/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -252,12 +246,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "170°F",
+          "value": "170\u00b0F",
           "claim_id": "spec-el-capitan-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-el-capitan-infrared-wavelength-range"
         },
         {
@@ -270,7 +264,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-el-capitan-audio"
         }
-      ]
+      ],
+      "short_name": "Peak El Capitan 4-Person Outdoor Infrared Sauna"
     },
     "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -292,8 +287,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $299/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -307,12 +300,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-matterhorn-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-matterhorn-infrared-wavelength-range"
         },
         {
@@ -325,7 +318,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-matterhorn-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Matterhorn 3-Person Infrared Sauna"
     },
     "peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -347,8 +341,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $271/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -362,12 +354,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-denali-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-denali-infrared-wavelength-range"
         },
         {
@@ -380,7 +372,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-denali-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Denali 3-Person Infrared Sauna"
     },
     "peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -402,8 +395,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $201/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -417,12 +408,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-rainier-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-rainier-infrared-wavelength-range"
         },
         {
@@ -430,7 +421,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-rainier-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Rainier 1-Person Infrared Sauna"
     },
     "peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -452,8 +444,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $193/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -467,12 +457,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-shasta-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-shasta-infrared-wavelength-range"
         },
         {
@@ -480,7 +470,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-shasta-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Shasta 1-Person Infrared Sauna"
     },
     "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
       "slug": "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
@@ -502,8 +493,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $229/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -517,12 +506,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-fuji-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-fuji-infrared-wavelength-range"
         },
         {
@@ -536,7 +525,8 @@
           "claim_id": "spec-fuji-audio"
         }
       ],
-      "default": true
+      "default": true,
+      "short_name": "Peak Fuji 2-Person Infrared Sauna"
     },
     "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
       "slug": "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
@@ -558,8 +548,6 @@
           "available": true
         }
       ],
-      "financing_line": "from est. $221/mo with Bread Pay",
-      "financing_estimated": true,
       "specs": [
         {
           "label": "Capacity",
@@ -573,12 +561,12 @@
         },
         {
           "label": "Max temperature",
-          "value": "150°F",
+          "value": "150\u00b0F",
           "claim_id": "spec-everest-max-temperature"
         },
         {
           "label": "Infrared wavelength range",
-          "value": "700–25,000nm (near, mid, far)",
+          "value": "700\u201325,000nm (near, mid, far)",
           "claim_id": "spec-everest-infrared-wavelength-range"
         },
         {
@@ -591,7 +579,8 @@
           "value": "Two Bluetooth speakers",
           "claim_id": "spec-everest-audio"
         }
-      ]
+      ],
+      "short_name": "Peak Everest 2-Person Infrared Sauna"
     }
   }
 }
