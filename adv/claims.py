@@ -379,26 +379,34 @@ def find_financing_violations(page_json, financing_lender=None):
     def walk(node, path):
         if isinstance(node, str):
             stripped = node.strip()
-            # A question ("Is financing available?", an FAQ's own "question"
-            # field) isn't a financing statement even if it happens to name a
-            # figure -- it's asking, not asserting.
-            if (
-                "financ" in stripped.lower()
-                and not stripped.endswith("?")
-                and _states_financing_terms(stripped)
-                and stripped != ALLOWED_FINANCING_SENTENCE_NO_LENDER
-            ):
-                hits.append(
-                    {
-                        "path": path,
-                        "issue": (
-                            "financing text must be exactly "
-                            f"{ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured) -- "
-                            "no other financing phrasing, figure, or lender name anywhere on the page"
-                        ),
-                        "text": node,
-                    }
-                )
+            if "financ" in stripped.lower():
+                # The exact allowed sentence may appear verbatim as part of
+                # a larger field that also covers something unrelated (e.g.
+                # an FAQ answer combining the price with the financing
+                # sentence) -- strip every occurrence of it out first, then
+                # only flag if financing is STILL mentioned in what's left
+                # (a second, different financing statement) or if the
+                # sentence never appeared at all and the field states terms
+                # on its own. A question ("Is financing available?") is
+                # asking, not asserting, so it's never a violation either
+                # way.
+                remainder = stripped.replace(ALLOWED_FINANCING_SENTENCE_NO_LENDER, "")
+                if (
+                    "financ" in remainder.lower()
+                    and not remainder.strip().endswith("?")
+                    and _states_financing_terms(remainder)
+                ):
+                    hits.append(
+                        {
+                            "path": path,
+                            "issue": (
+                                "financing text must be exactly "
+                                f"{ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured) -- "
+                                "no other financing phrasing, figure, or lender name anywhere on the page"
+                            ),
+                            "text": node,
+                        }
+                    )
         elif isinstance(node, dict):
             for k, v in node.items():
                 if k in _NON_PROSE_KEYS:

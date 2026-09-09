@@ -563,6 +563,19 @@ def test_find_financing_violations_ignores_a_question_about_financing():
     assert find_financing_violations(page, financing_lender=None) == []
 
 
+def test_find_financing_violations_allows_the_exact_sentence_combined_with_unrelated_content():
+    # Regression from the hidden-costs-v2 verification run: an FAQ answer
+    # legitimately combined an unrelated price statement (with its own
+    # digit/$) with the required financing sentence appended -- the whole
+    # field doesn't have to be NOTHING BUT the sentence, just not contain
+    # any OTHER financing statement.
+    page = {"faq": {"questions": [{
+        "question": "What does it cost, and is financing available?",
+        "text": "It's priced at $8,250, and that's the listed price on the product page. Financing is available at checkout.",
+    }]}}
+    assert find_financing_violations(page, financing_lender=None) == []
+
+
 def test_find_financing_violations_ignores_topical_mentions_with_no_stated_terms():
     # Regression from the hidden-costs-v2 verification run: the article
     # cartridge's whole angle is financing/price transparency, so ordinary
