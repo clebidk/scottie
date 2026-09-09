@@ -435,6 +435,9 @@ def find_financing_violations(page_json, financing_lender=None):
 # 3yr/1yr, not lifetime), so after removing any allowed-sentence substring,
 # a violation requires "lifetime" to still be present alongside "warrant" --
 # a topical mention with no lifetime/blanket-coverage assertion passes.
+_ALLOWED_WARRANTY_SENTENCE_RE = re.compile(re.escape(ALLOWED_WARRANTY_SENTENCE), re.IGNORECASE)
+
+
 def find_warranty_violations(page_json, verified_claims):
     verified_warranty_texts = {
         c["text"].strip() for c in (verified_claims or []) if "warranty" in c.get("id", "").lower() and c.get("text")
@@ -443,13 +446,18 @@ def find_warranty_violations(page_json, verified_claims):
 
     def is_allowed(text):
         stripped = text.strip()
-        if stripped in (ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_VALUE):
+        if stripped.lower() in (ALLOWED_WARRANTY_SENTENCE.lower(), ALLOWED_WARRANTY_SPEC_VALUE.lower()):
             return True
         if stripped.lower() == allowed_label_lower:
             return True
         if any(vt in text for vt in verified_warranty_texts):
             return True
-        remainder = text.replace(ALLOWED_WARRANTY_SENTENCE, "")
+        # Case-insensitive removal: a writer naturally re-cases "Limited" to
+        # "limited" when the sentence isn't the first word of its own
+        # sentence (e.g. "Peak Saunas offers a limited lifetime warranty;
+        # full terms..."). Same wording, same meaning -- still the allowed
+        # sentence, just mid-sentence casing.
+        remainder = _ALLOWED_WARRANTY_SENTENCE_RE.sub("", text)
         return "lifetime" not in remainder.lower()
 
     hits = []

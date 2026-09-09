@@ -720,6 +720,18 @@ def test_find_warranty_violations_allows_the_exact_sentence_combined_with_unrela
     assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
 
 
+def test_find_warranty_violations_allows_the_sentence_re_cased_mid_sentence():
+    # Second real-run regression (out/20260909-2238-hidden-costs-v2): a
+    # writer naturally lowercases "Limited" -> "limited" when the sentence
+    # isn't the first word of its own sentence -- same wording, same
+    # meaning, still the allowed sentence.
+    page = {"turn_section": {"criteria": [{
+        "text": "A warranty that's actually written down. Peak Saunas offers a limited lifetime "
+                "warranty; full terms by component are published on the warranty page."
+    }]}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
 def test_find_warranty_violations_allows_bare_spec_label():
     page = {"specs_table": [{"label": "Warranty", "value": "See warranty page"}]}
     # The label alone is fine; the bad value is still flagged on its own.
