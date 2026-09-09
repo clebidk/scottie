@@ -12,6 +12,7 @@ from adv.budget import Budget
 from adv.claims import ClaimsGateFailure
 from adv.cli import (
     MAX_REPAIR_ATTEMPTS,
+    build_revision_note,
     find_cta_violation,
     find_word_range_violation,
     get_cta_text,
@@ -185,3 +186,27 @@ def test_find_cta_violation_flags_text_not_on_the_allowlist():
 
 def test_find_cta_violation_noop_without_an_allowlist():
     assert find_cta_violation({"cta_text": "anything"}, "product-page", []) == []
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 5: build_revision_note calls out a leaked-claim-id failure
+# specifically -- observed recurring across repair attempts on the real
+# hidden-costs-v2 verification run because the rewrite moved the same
+# parenthetical id onto a different sentence instead of deleting it.
+# ---------------------------------------------------------------------------
+
+def test_build_revision_note_calls_out_leaked_claim_id_failures():
+    failures = [{
+        "path": "$.close.paragraphs[0].text",
+        "issue": "claim id leaked into copy: spec-fuji-capacity in $.close.paragraphs[0].text",
+        "text": "... (spec-fuji-capacity) ...",
+    }]
+    note = build_revision_note(1, failures)
+    assert "Delete the id from that sentence" in note
+    assert "do not move the same id onto another sentence" in note
+
+
+def test_build_revision_note_omits_leaked_claim_id_guidance_when_not_applicable():
+    failures = [{"path": "$.hero.text", "term": "unlock", "issue": "forbidden term 'unlock' found"}]
+    note = build_revision_note(1, failures)
+    assert "Delete the id from that sentence" not in note

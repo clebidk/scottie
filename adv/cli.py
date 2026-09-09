@@ -179,6 +179,21 @@ def build_revision_note(attempt, failures):
         "against the system prompt's forbidden-term and claim_id rules before returning.",
         "",
     ]
+    # Fix cycle 5: a leaked-claim-id failure was observed recurring across
+    # repair attempts because the rewrite moved the same parenthetical id
+    # onto a different sentence elsewhere on the page instead of removing
+    # it -- call this out explicitly rather than relying on the generic
+    # guidance above.
+    if any("claim id leaked into copy" in f["issue"] for f in failures):
+        lines.append(
+            "At least one failure below is a claim id printed as text (e.g. "
+            '"(spec-fuji-capacity)"). Delete the id from that sentence -- do not replace it '
+            "with a different parenthetical, and do not move the same id onto another "
+            "sentence anywhere else on the page. The id belongs only in that sentence's "
+            "claim_ids array; no parenthetical is needed at all unless it's a plain-English "
+            '"(source name, year)" citation.'
+        )
+        lines.append("")
     lines += [_format_gate_failure(item) for item in failures]
     return "\n".join(lines)
 
