@@ -114,6 +114,22 @@ def test_parse_word_range_reads_each_real_cartridge_md():
         assert parse_word_range(cartridge_md) == expected
 
 
+def test_real_cartridge_md_files_have_exactly_one_word_range_pattern():
+    # Regression: cycle 4's per-paragraph/step/answer length guidance (added
+    # after a real run undershot its word range) is phrased as "N to M
+    # words", not "N-M words", specifically so it can never collide with
+    # parse_word_range's regex, which takes the *first* "N-M words" match in
+    # the file -- a second match earlier in the file (e.g. inside the
+    # Structure section, which comes before the Rules section's real range)
+    # would silently parse the wrong range instead of the cartridge's actual
+    # one.
+    import re
+    word_range_pattern = re.compile(r"[\d,]+[–-][\d,]+ *words")
+    for name in ("article", "longform", "product-page"):
+        cartridge_md = (REPO_ROOT / "cartridges" / name / "cartridge.md").read_text()
+        assert len(word_range_pattern.findall(cartridge_md)) == 1
+
+
 def test_parse_word_range_returns_none_without_a_match():
     assert parse_word_range("no word range mentioned here") is None
 
