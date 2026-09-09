@@ -324,8 +324,109 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_forbidden_terms(page_json, financing_lender=financing_lender)
     problems += find_first_person_violations(page_json, speaker_pov)
     problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
+    problems += find_leaked_claim_ids(page_json, valid_ids)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 5: a claim id belongs only in a node's own "claim_ids"/"claim_id"
+# field -- never inside prose the writer composed. Observed twice in run
+# 20260909-2021-hidden-costs-v2: "the Peak Fuji 2-Person Infrared Sauna
+# (spec-fuji-capacity), which is priced at $8,250". A reader has no idea
+# what "spec-fuji-capacity" means; it's an internal id, not a citation.
+# ---------------------------------------------------------------------------
+
+# An id-shaped token: lowercase letters, digits, and hyphens, at least one
+# hyphen (a bare word like "sauna" never matches). Flags both a leaked known
+# id and a hallucinated one in the same family (see KNOWN_CLAIM_ID_PREFIXES)
+# that was never in claims/verified.json to begin with.
+_ID_SHAPED_TOKEN_RE = re.compile(r"\b[a-z]+(?:-[a-z0-9]+){1,}\b")
+
+# The id-family prefixes actually used in claims/verified.json. A token
+# starting with one of these reads as an internal id even if it doesn't
+# happen to be one of this run's own valid_claim_ids.
+KNOWN_CLAIM_ID_PREFIXES = (
+    "price-", "spec-", "reviews-", "warranty-", "shipping-", "returns-",
+    "founder-", "gbrain-", "benefit-", "trust-",
+)
+
+
+def _looks_like_claim_id(token, valid_claim_ids):
+    return token in valid_claim_ids or token.startswith(KNOWN_CLAIM_ID_PREFIXES)
+
+
+def find_leaked_claim_ids(page_json, valid_claim_ids):
+    """Scans every prose string in page_json (same structural-field exemptions
+    as find_forbidden_terms -- a claim_ids list or an asset_id legitimately
+    contains id-shaped tokens) for a token that is either an exact known id
+    from this run's valid_claim_ids or starts with one of
+    KNOWN_CLAIM_ID_PREFIXES. Returns one problem dict per hit, gate-shaped
+    like find_forbidden_terms's, so write_and_gate_page's repair loop
+    rewrites the offending sentence instead of citing the id inline."""
+    hits = []
+
+    def walk(node, path):
+        if isinstance(node, str):
+            for m in _ID_SHAPED_TOKEN_RE.finditer(node):
+                token = m.group(0)
+                if _looks_like_claim_id(token, valid_claim_ids):
+                    hits.append(
+                        {
+                            "path": path,
+                            "issue": f"claim id leaked into copy: {token} in {path}",
+                            "text": node,
+                        }
+                    )
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                if k in _NON_PROSE_KEYS:
+                    continue
+                walk(v, f"{path}.{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+
+    walk(page_json, "$")
+    return hits
+
+
+def find_leaked_claim_ids_visible_text(rendered_html, valid_claim_ids):
+    """Post-render backstop, same rationale as find_forbidden_visible_text:
+    scans the page's visible text (tags/scripts/styles stripped) for a
+    claim id that slipped past find_leaked_claim_ids above. Same detection
+    rule -- exact known id, or an id-shaped token starting with a known id
+    prefix."""
+    text = strip_html_to_visible_text(rendered_html).lower()
+    hits = []
+    for m in _ID_SHAPED_TOKEN_RE.finditer(text):
+        token = m.group(0)
+        if _looks_like_claim_id(token, valid_claim_ids):
+            hits.append({"term": token, "issue": f"claim id leaked into copy: {token} in visible text"})
+    return hits
+
+
+_LEAKED_CLAIM_ID_PAREN_RE = re.compile(r"\s?\(([a-z]+(?:-[a-z0-9]+){1,})\)")
+
+
+def strip_leaked_claim_ids(html_text, valid_claim_ids):
+    """Last line of defense: find_leaked_claim_ids (pre-render) and
+    find_leaked_claim_ids_visible_text (post-render) above should already
+    have caught this and sent it back for a rewrite -- this only fires if
+    both missed it. Quietly removes a parenthesized known claim id from the
+    rendered HTML (e.g. "(spec-fuji-capacity)" -> "") rather than failing an
+    already-written run over it. Returns (cleaned_html, [removed_ids])."""
+    removed = []
+
+    def repl(m):
+        token = m.group(1)
+        if _looks_like_claim_id(token, valid_claim_ids):
+            removed.append(token)
+            return ""
+        return m.group(0)
+
+    cleaned = _LEAKED_CLAIM_ID_PAREN_RE.sub(repl, html_text)
+    return cleaned, removed
 
 
 # ---------------------------------------------------------------------------

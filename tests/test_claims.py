@@ -6,8 +6,11 @@ from adv.claims import (
     find_first_person_violations,
     find_forbidden_terms,
     find_forbidden_visible_text,
+    find_leaked_claim_ids,
+    find_leaked_claim_ids_visible_text,
     gate_ad_brief_claims,
     gate_page_json,
+    strip_leaked_claim_ids,
     validate_page_claim_ids,
 )
 
@@ -381,3 +384,78 @@ def test_gate_page_json_stops_on_benefit_claim_shortfall():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_page_json(page, BENEFIT_FACTS_PACK, "product-page")
     assert exc_info.value.stage == "page_json:product-page"
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 5: a claim id belongs only in a node's own claim_ids/claim_id
+# field -- never inline in prose. Observed twice in run
+# 20260909-2021-hidden-costs-v2: "the Peak Fuji 2-Person Infrared Sauna
+# (spec-fuji-capacity), which is priced at $8,250".
+# ---------------------------------------------------------------------------
+
+LEAK_FACTS_PACK = {
+    "verified_claims": VERIFIED_CLAIMS
+    + [
+        {"id": "spec-fuji-capacity", "text": "The Peak Fuji seats 2 people.", "category": "spec", "source": "https://peaksaunas.com/products/fuji"},
+    ]
+}
+
+_LEAKED_TEXT = "the Peak Fuji 2-Person Infrared Sauna (spec-fuji-capacity), which is priced at $8,250"
+
+
+def test_find_leaked_claim_ids_catches_parenthesized_id_in_prose():
+    page = {"hero": {"promise": {"text": _LEAKED_TEXT, "claim_ids": ["price-fuji"]}}}
+    hits = find_leaked_claim_ids(page, {"spec-fuji-capacity", "price-fuji"})
+    assert len(hits) == 1
+    assert hits[0]["issue"] == "claim id leaked into copy: spec-fuji-capacity in $.hero.promise.text"
+
+
+def test_find_leaked_claim_ids_ignores_ids_in_claim_ids_field():
+    page = {"hero": {"promise": {"text": "The Peak Fuji, which is priced at $8,250", "claim_ids": ["price-fuji", "spec-fuji-capacity"]}}}
+    assert find_leaked_claim_ids(page, {"spec-fuji-capacity", "price-fuji"}) == []
+
+
+def test_gate_page_json_stops_on_leaked_claim_id_in_prose():
+    # cartridge_name isn't in MIN_BENEFIT_CLAIMS/_BENEFIT_SECTION_GETTERS, so
+    # find_benefit_claim_shortfall no-ops and this isolates the leak check.
+    page = {"hero": {"promise": {"text": _LEAKED_TEXT, "claim_ids": ["price-fuji", "spec-fuji-capacity"]}}}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, LEAK_FACTS_PACK, "some-other-cartridge")
+    assert exc_info.value.stage == "page_json:some-other-cartridge"
+    assert any("claim id leaked into copy: spec-fuji-capacity" in p["issue"] for p in exc_info.value.items)
+
+
+def test_gate_page_json_passes_when_claim_id_only_in_claim_ids_field():
+    page = {"hero": {"promise": {"text": "The Peak Fuji, which is priced at $8,250", "claim_ids": ["price-fuji", "spec-fuji-capacity"]}}}
+    # Doesn't raise.
+    gate_page_json(page, LEAK_FACTS_PACK, "some-other-cartridge")
+
+
+def test_find_leaked_claim_ids_catches_hallucinated_id_by_prefix_alone():
+    # Not in valid_claim_ids at all, but shaped like one and carrying a
+    # known prefix -- still flagged (defense against a hallucinated id in
+    # the right family, not just a leak of a real one).
+    page = {"hero": {"promise": {"text": "as shown in (spec-crown-capacity)", "claim_ids": []}}}
+    hits = find_leaked_claim_ids(page, {"price-fuji"})
+    assert any(h["path"] == "$.hero.promise.text" for h in hits)
+
+
+def test_find_leaked_claim_ids_visible_text_catches_parenthesized_id():
+    html = f"<p>{_LEAKED_TEXT}</p>"
+    hits = find_leaked_claim_ids_visible_text(html, {"spec-fuji-capacity", "price-fuji"})
+    assert any(h["term"] == "spec-fuji-capacity" for h in hits)
+
+
+def test_strip_leaked_claim_ids_removes_parenthesized_id_and_reports_it():
+    html = f"<p>{_LEAKED_TEXT}</p>"
+    cleaned, removed = strip_leaked_claim_ids(html, {"spec-fuji-capacity", "price-fuji"})
+    assert removed == ["spec-fuji-capacity"]
+    assert "spec-fuji-capacity" not in cleaned
+    assert "the Peak Fuji 2-Person Infrared Sauna, which is priced at $8,250" in cleaned
+
+
+def test_strip_leaked_claim_ids_leaves_unrelated_parentheticals_alone():
+    html = "<p>See (Peak Saunas, 2026) for details.</p>"
+    cleaned, removed = strip_leaked_claim_ids(html, {"spec-fuji-capacity", "price-fuji"})
+    assert removed == []
+    assert cleaned == html

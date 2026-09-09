@@ -511,6 +511,47 @@ def test_render_page_raises_on_emf_leak_into_visible_text(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# fix cycle 5 item 2: last line of defense -- a claim id printed in
+# parentheses inline in rendered copy (e.g. "(spec-fuji-capacity)") is
+# quietly stripped rather than failing an already-written run over it, and
+# the removal is logged.
+# ---------------------------------------------------------------------------
+
+def test_render_page_strips_leaked_claim_id_and_logs(tmp_path):
+    class FakeLog:
+        def __init__(self):
+            self.events = []
+
+        def event(self, stage, message):
+            self.events.append((stage, message))
+
+    page = json.loads(json.dumps(ARTICLE_PAGE))
+    page["body_sections"][0]["paragraphs"][0]["text"] = (
+        "The Peak Fuji 2-Person Infrared Sauna (price-fuji), which is priced at $8,250."
+    )
+    log = FakeLog()
+    out_dir = tmp_path / "article"
+    index_path = render_page(
+        cartridge_name="article",
+        page=page,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=out_dir,
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+        log=log,
+    )
+    html = index_path.read_text()
+    assert "price-fuji" not in html
+    assert "The Peak Fuji 2-Person Infrared Sauna, which is priced at $8,250." in html
+    assert any("stripped leaked claim id" in msg and "price-fuji" in msg for _, msg in log.events)
+
+
+# ---------------------------------------------------------------------------
 # fix cycle 2 item 10 (FIXLOG item 1): brand/byline.html is page-neutral --
 # no more competitor-buyer's-guide copy lifted verbatim ("this ranking",
 # "corrections that favor a competitor").

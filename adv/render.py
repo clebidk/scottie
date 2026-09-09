@@ -13,7 +13,13 @@ from urllib.parse import urlparse
 import jinja2
 
 from . import ingest
-from .claims import ClaimsGateFailure, collect_claim_ids, find_forbidden_visible_text
+from .claims import (
+    ClaimsGateFailure,
+    collect_claim_ids,
+    find_forbidden_visible_text,
+    find_leaked_claim_ids_visible_text,
+    strip_leaked_claim_ids,
+)
 
 FALLBACK_BYLINE = """<p class="adv-byline-author">By {author}, Founder &amp; CEO, Peak Saunas</p>
 <p class="adv-byline-contributor">Reviewed by {contributor}</p>
@@ -349,13 +355,29 @@ def render_page(
         cartridge=cartridge_name,
     )
 
-    # Fix cycle 2 item 9: EMF is absolute -- scan the page as a reader would
-    # actually see it (tags/scripts/styles stripped, entities unescaped)
-    # before writing it out. This is a backstop behind the page.json gate:
-    # a citation URL that's fine sitting in a "url"/"asset_id" field can
-    # still leak into visible prose (or a Sources-list link's text) once
+    # Fix cycle 5 item 2: last line of defense -- a claim id printed in
+    # parentheses inline in rendered copy (e.g. "(spec-fuji-capacity)")
+    # reads as an internal SKU to a reader. write_and_gate_page's repair
+    # loop (claims.find_leaked_claim_ids) and the post-render scan just
+    # below (find_leaked_claim_ids_visible_text) should already have caught
+    # this -- this only fires if both missed it, so it quietly removes the
+    # parenthetical and logs a warning instead of failing an
+    # already-written run over it.
+    valid_claim_ids = {c["id"] for c in facts_pack.get("verified_claims", [])}
+    html, stripped_ids = strip_leaked_claim_ids(html, valid_claim_ids)
+    for token in stripped_ids:
+        if log:
+            log.event("render", f"stripped leaked claim id from copy: {token!r} ({cartridge_name})")
+
+    # Fix cycle 2 item 9 / cycle 5 item 2: EMF and a leaked claim id are both
+    # absolute -- scan the page as a reader would actually see it (tags/
+    # scripts/styles stripped, entities unescaped) before writing it out.
+    # This is a backstop behind the page.json gate: a citation URL or a
+    # claim id that's fine sitting in a "url"/"asset_id" field can still
+    # leak into visible prose (or a Sources-list link's text) once
     # rendered, and that must still STOP the run rather than publish.
     hits = find_forbidden_visible_text(html)
+    hits += find_leaked_claim_ids_visible_text(html, valid_claim_ids)
     if hits:
         raise ClaimsGateFailure(f"html_visible_text:{cartridge_name}", hits)
 
