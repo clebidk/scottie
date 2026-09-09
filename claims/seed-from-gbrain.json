@@ -1,0 +1,242 @@
+[
+  {
+    "id": "gbrain-allowlist-red-light",
+    "text": "Medical-grade red light therapy (included standard).",
+    "category": "trust",
+    "source": "gbrain:competitors/overview",
+    "status": "cleared",
+    "note": "One of five explicitly pre-cleared claims: 'Only state verified claims (medical-grade red light, free shipping, 360° full spectrum, US-owned, Lifetime warranty).'"
+  },
+  {
+    "id": "gbrain-allowlist-free-shipping",
+    "text": "Free shipping (included, always).",
+    "category": "trust",
+    "source": "gbrain:competitors/overview; gbrain:policy/shipping-and-delivery",
+    "status": "cleared",
+    "note": "Pre-cleared allowlist claim. Confirmed verbatim in policy/shipping-and-delivery: 'Free shipping, always (continental US).'"
+  },
+  {
+    "id": "gbrain-allowlist-360-full-spectrum",
+    "text": "360° full spectrum infrared heater placement.",
+    "category": "spec",
+    "source": "gbrain:competitors/overview",
+    "status": "cleared",
+    "note": "Pre-cleared allowlist claim. Differentiator note: 'not front-wall only like Clearlight.'"
+  },
+  {
+    "id": "gbrain-allowlist-us-owned",
+    "text": "US-owned company.",
+    "category": "trust",
+    "source": "gbrain:competitors/overview",
+    "status": "cleared",
+    "note": "Pre-cleared allowlist claim; no further detail given on this page."
+  },
+  {
+    "id": "gbrain-allowlist-lifetime-warranty",
+    "text": "Limited Lifetime warranty.",
+    "category": "trust",
+    "source": "gbrain:competitors/overview; gbrain:policy/warranty",
+    "status": "cleared",
+    "note": "Pre-cleared allowlist claim. MUST say 'limited lifetime warranty' — never just 'lifetime warranty' (outline/sales brand guide, Appendix). 'Lifetime' is explicitly defined as 7 years under normal residential use — do NOT say '10-year' (policy/warranty)."
+  },
+  {
+    "id": "gbrain-warranty-lifetime-definition",
+    "text": "Peak Saunas Limited Lifetime Warranty: residential use only, original purchaser, non-transferable, auto-registered at order. \"Lifetime\" = the expected life of the component, defined as 7 years under normal residential use. Indoor and outdoor carry the same terms.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty",
+    "status": "cleared",
+    "note": "Stated policy — quote exactly. Page explicitly instructs agents to state it this way and do NOT say '10-year'."
+  },
+  {
+    "id": "gbrain-warranty-labor-exclusion",
+    "text": "Labor of any kind — diagnosis, service, or installation — is never covered on any component. The warranty covers parts only.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty",
+    "status": "cleared",
+    "note": "Stated policy, exact terms. Important guardrail: do not imply full-service coverage in ad copy."
+  },
+  {
+    "id": "gbrain-warranty-component-coverage",
+    "text": "Coverage by component: Heating elements — Lifetime (=7yr residential). Cabinetry & wood structure — Lifetime (=7yr residential). Red light therapy (RLT) panel — 3 years (NOT the lifetime tier; corrected by Austin 2026-09-07). Control system & power supply — 3 years. Chromotherapy lighting — 1 year. Sound system — 1 year. Accessories (cup holders, thermometers, etc.) — 1 year. WiFi/app connectivity — 1 year.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty",
+    "status": "cleared",
+    "note": "Stated policy, exact terms. Do not market the RLT panel or electronics as carrying the same lifetime coverage as structure/heating elements — recent correction (2026-09-07) demoted RLT panel to the 3-year tier."
+  },
+  {
+    "id": "gbrain-warranty-not-covered",
+    "text": "Not covered: normal wear/discoloration/fading/cosmetic change; misuse/abuse/neglect/improper install; commercial or rental use (separate commercial warranty available); unauthorized parts or modifications; freight/shipping for replacement parts after 90 days from delivery; weather, water, power surges, pests, Acts of God.",
+    "category": "policy",
+    "source": "gbrain:policy/warranty",
+    "status": "cleared",
+    "note": "Stated policy, exact terms — useful for FAQ/objection-handling sections, not typically headline copy."
+  },
+  {
+    "id": "gbrain-shipping-free-crate-origin",
+    "text": "Free shipping, always (continental US). Ships in a PeakGuard custom protective wooden crate from the Ontario, California warehouse via freight/LTL (no single primary carrier — a large carrier network).",
+    "category": "policy",
+    "source": "gbrain:policy/shipping-and-delivery",
+    "status": "cleared",
+    "note": "Stated policy, exact terms."
+  },
+  {
+    "id": "gbrain-shipping-timing",
+    "text": "In-stock orders ship within 2–4 business days; they then arrive 5–14 business days from the ship date. Carrier calls 1–2 days before delivery to schedule a 4-hour appointment window. Curbside standard delivery (white-glove/garage available for an extra fee).",
+    "category": "policy",
+    "source": "gbrain:policy/shipping-and-delivery",
+    "status": "cleared",
+    "note": "Stated policy, exact terms. Per-model crate dimensions/weights live on spec/<model> pages, not here."
+  },
+  {
+    "id": "gbrain-shipping-damage-claims",
+    "text": "Visible damage at delivery: photograph it, note it on the delivery receipt/BOL, may refuse shipment, then contact support. Concealed/hidden damage: must be reported within 48 hours of delivery (with photos) — claims made after 48 hours cannot be honored.",
+    "category": "policy",
+    "source": "gbrain:policy/shipping-and-delivery",
+    "status": "cleared",
+    "note": "Stated policy, exact terms — for FAQ/trust sections, not headline ad copy."
+  },
+  {
+    "id": "gbrain-financing-terms",
+    "text": "0% APR financing via Shop Pay Installments (Affirm): purchases under $2,000 → up to 12 months; over $2,000 → up to 24 months. Soft credit pull at checkout, subject to approval. Also HSA/FSA via TrueMed (2–3 min approval, effective savings ~30%). The only two financing providers are Affirm and Shop Pay Installments — Peak does NOT offer Klarna, Sezzle, Afterpay, Upgrade, or any other financing provider.",
+    "category": "policy",
+    "source": "gbrain:policy/financing-and-payment",
+    "status": "cleared",
+    "note": "Stated policy, exact terms and explicit guardrail list of forbidden providers to never claim."
+  },
+  {
+    "id": "gbrain-financing-lender-discrepancy",
+    "text": "DISCREPANCY: the live Fuji 2-Person product page (fetched 2026-09-09) displays a payment/financing logo with alt text \"Bread Pay\" (appears twice in the page HTML). \"Bread Pay\" is not one of the two providers gbrain policy authorizes (Affirm / Shop Pay Installments) — policy/financing-and-payment explicitly says never claim any other provider. Either the live site has drifted from policy, or the policy page is stale.",
+    "category": "trust",
+    "source": "gbrain:policy/financing-and-payment (contradicted by live https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy)",
+    "status": "needs-caleb",
+    "note": "Flag for Caleb before any ad copy names a financing provider: confirm whether Bread Pay is now a live/approved lender (policy needs updating) or an unauthorized change on the storefront (needs fixing). Do not name any lender in generated copy until resolved."
+  },
+  {
+    "id": "gbrain-reviews-platform",
+    "text": "Primary review platform is Judge.me (https://judge.me/reviews/stores/peaksaunas.com) — use in all customer-facing contexts. Do NOT use Google review links. TrustPilot is secondary and cannot be directly solicited (mention only if the customer asks).",
+    "category": "policy",
+    "source": "gbrain:kb/reviews-policy",
+    "status": "cleared",
+    "note": "Stated policy. No specific review count or star rating is cleared here — pull any published count/rating live, do not hardcode (knowledge-map flags the review count as unresolved/conflicting across sources)."
+  },
+  {
+    "id": "gbrain-emf-position",
+    "text": "Peak conducts internal EMF testing on every sauna in every production batch; the average measured field reading is 3 mG (ultra-low range). Peak does NOT hold third-party or accredited-laboratory EMF certifications — no ISO/ANSI-accredited lab test report exists. Never claim third-party-tested EMF results, and never give a 'pacemaker safe' assurance without Austin's approval.",
+    "category": "health",
+    "source": "gbrain:kb/auto-fills/emf-testing-policy",
+    "status": "needs-caleb",
+    "note": "FLAG: do-not-lead-with. competitors/overview: 'Do NOT lead with an EMF/near-zero EMF angle.' knowledge-map.md also notes customers repeatedly challenge this claim for lack of public proof (unresolved) — treat as supporting/secondary copy only, never a headline claim, and never imply accredited testing."
+  },
+  {
+    "id": "gbrain-fuji-wavelengths",
+    "text": "Fuji infrared: Full Spectrum (near + mid + far), 8 infrared heater panels, full spectrum halogen/quartz 360° placement + floor heater, max temp 150°F.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-fuji-rlt",
+    "text": "Fuji red light therapy: included standard, 1 RLT panel, seated distance 7–8 in from panel.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "status": "cleared",
+    "note": "Per-panel technical numbers (216 dual-chip LEDs, 175 mW/cm² @ 6\") are stated fleet-wide on competitors/overview, not per-model on spec/fuji."
+  },
+  {
+    "id": "gbrain-fuji-wood",
+    "text": "Fuji wood: crafted entirely from Canadian Red Cedar — interior AND exterior.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-fuji-dimensions",
+    "text": "Fuji dimensions: exterior (assembled) 53\"W x 44\"D x 75\"H, bench 49\"L x 20\"D (approx), assembled weight 385 lbs; shipping crate 57.9\" × 22.0\" × 79.1\", crate weight 467 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-fuji-persons",
+    "text": "Fuji capacity: 2 persons, indoor.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-fuji-power",
+    "text": "Fuji electrical: 120V/20A, dedicated outlet required — a standard 15A outlet is NOT sufficient. Wattage ~2050W.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-fuji-emf-figure",
+    "text": "No per-model EMF figure exists for Fuji specifically — only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
+    "category": "spec",
+    "source": "gbrain:spec/fuji (absence); gbrain:kb/auto-fills/emf-testing-policy",
+    "status": "needs-caleb",
+    "note": "FLAG: do-not-lead-with (inherits the EMF claim's flag). Do not fabricate a Fuji-specific EMF number."
+  },
+  {
+    "id": "gbrain-everest-wavelengths",
+    "text": "Everest infrared: Full Spectrum (near + mid + far), 8 infrared heater panels, full spectrum halogen/quartz surrounding 360°, max temp 150°F.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-everest-rlt",
+    "text": "Everest red light therapy: included standard, 1 RLT panel, seated distance 7–8 in from panel.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "status": "cleared",
+    "note": "Per-panel technical numbers (216 dual-chip LEDs, 175 mW/cm² @ 6\") are stated fleet-wide on competitors/overview, not per-model on spec/everest."
+  },
+  {
+    "id": "gbrain-everest-wood",
+    "text": "Everest wood: crafted entirely from Canadian Hemlock — interior AND exterior.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-everest-dimensions",
+    "text": "Everest dimensions: exterior (assembled) 53\"W x 44\"D x 75\"H, bench 49\"L x 20\"D (approx), assembled weight 305 lbs; shipping crate 57.9\" × 22.0\" × 79.1\", crate weight 498 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-everest-persons",
+    "text": "Everest capacity: 2 persons, indoor.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-everest-power",
+    "text": "Everest electrical: 120V/20A, dedicated outlet required — a standard 15A outlet is NOT sufficient. Wattage ~2050W.",
+    "category": "spec",
+    "source": "gbrain:spec/everest",
+    "status": "cleared",
+    "note": "Stated spec, exact terms."
+  },
+  {
+    "id": "gbrain-everest-emf-figure",
+    "text": "No per-model EMF figure exists for Everest specifically — only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
+    "category": "spec",
+    "source": "gbrain:spec/everest (absence); gbrain:kb/auto-fills/emf-testing-policy",
+    "status": "needs-caleb",
+    "note": "FLAG: do-not-lead-with (inherits the EMF claim's flag). Do not fabricate an Everest-specific EMF number."
+  }
+]
