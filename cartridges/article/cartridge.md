@@ -17,6 +17,7 @@ Audience temperature: cold. Reader does not know Peak and did not plan to buy a 
 - Exactly 1 CTA. No sticky bar. No countdowns, no discount language.
 - Headline never contains "Peak" or a price.
 - No claims outside verified_claims. Health statements cite the study and its population; never promise an outcome for Peak hardware.
+- Body sections give generic buyer education ("questions to ask", "what varies between brands") without stating a specific number, spec, or figure for saunas in general -- a number in prose always needs a claim_id, and facts_pack has no generic-industry claims to cite, only this one product's. Save any actual number for a spec you can cite from facts_pack (with its claim_id copied into the sentence).
 - Competitor statements only as the speaker's own experience unless sourced.
 - Images: 2–3 from the asset library, lifestyle over product. No before/after, no clinical settings.
 - Voice: plain, specific, second person or first person. No exclamation marks. No "game-changer", "unlock", "elevate", "journey".
