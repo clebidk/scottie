@@ -41,6 +41,11 @@ class RunLog:
     def gate_result(self, result, detail=""):
         self._write(f"gate_result: {result} {detail}".rstrip())
 
+    def result(self, result, attempts, repairs):
+        """Fix cycle 4 item 5: one final line per run, e.g.
+        "run_result: PASS attempts=4 repairs=1"."""
+        self._write(f"run_result: {result} attempts={attempts} repairs={repairs}")
+
     def budget_summary(self, summary):
         self._write(f"budget: {summary}")
 

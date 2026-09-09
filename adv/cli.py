@@ -19,7 +19,7 @@ from .log import RunLog
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
-from .write import write_page
+from .write import parse_word_range, resolve_allowed_cta_texts, write_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -51,11 +51,6 @@ def discover_cartridges():
 # single top-level CTA field) is the flattened equivalent of the old nested
 # cta.url -- excluded the same way.
 _NON_PROSE_KEYS = {"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
-
-# Fix cycle 3 item 7: product-page's own word budget (cartridges/product-page/
-# cartridge.md: "250-500 words"), enforced here as a soft REVIEW.md warning.
-PRODUCT_PAGE_WORD_MIN = 250
-PRODUCT_PAGE_WORD_MAX = 500
 
 
 def _collect_prose_strings(node, out):
@@ -96,7 +91,155 @@ def count_words(page_json):
     return sum(len(s.split()) for s in strings)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None):
+# ---------------------------------------------------------------------------
+# Fix cycle 4: writer repair loop. After write_page, run every page-level
+# gate check (claims.gate_page_json's checks, plus the two new hard checks
+# below); on failure, call the writer again with the original prompt plus a
+# "REVISION REQUIRED" block listing each failure verbatim, up to
+# MAX_REPAIR_ATTEMPTS times. Ad-claim gate failures (gate_ad_brief_claims, in
+# cmd_run) are unaffected -- those still STOP immediately, no retry.
+# ---------------------------------------------------------------------------
+
+MAX_REPAIR_ATTEMPTS = 2
+
+
+# article's CTA lives at page.cta.text (fix cycle 3 item 4 left article's
+# single nested cta object alone); longform and product-page have a flat
+# top-level cta_text.
+def get_cta_text(page_json, cartridge_name):
+    if cartridge_name == "article":
+        return (page_json.get("cta") or {}).get("text")
+    return page_json.get("cta_text")
+
+
+def find_cta_violation(page_json, cartridge_name, allowed_cta_texts):
+    """[] if allowed_cta_texts is empty/None (cartridge has no allowlist) or
+    the page's CTA text matches one of the allowed, already-substituted
+    options exactly; otherwise one problem dict in the same shape
+    claims.gate_page_json's checks use."""
+    if not allowed_cta_texts:
+        return []
+    cta_text = get_cta_text(page_json, cartridge_name)
+    if cta_text in allowed_cta_texts:
+        return []
+    path = "$.cta.text" if cartridge_name == "article" else "$.cta_text"
+    return [{
+        "path": path,
+        "issue": f"CTA text {cta_text!r} is not one of the allowed options: {allowed_cta_texts}",
+    }]
+
+
+def find_word_range_violation(page_json, word_range):
+    """[] if word_range is None or the page's word count (count_words) falls
+    inside it; otherwise one problem dict."""
+    if not word_range:
+        return []
+    lo, hi = word_range
+    wc = count_words(page_json)
+    if lo <= wc <= hi:
+        return []
+    return [{
+        "path": "$.word_count",
+        "issue": f"Body is {wc} words; required {lo}-{hi}. Expand/trim sections to land in range.",
+    }]
+
+
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts):
+    """Every page-level gate check, combined into one list of problem dicts
+    (empty if the page passes everything). Never raises -- the repair loop
+    decides what to do with the result."""
+    problems = []
+    try:
+        gate_page_json(page, facts_pack, cartridge_name, financing_lender=financing_lender, speaker_pov=speaker_pov)
+    except ClaimsGateFailure as e:
+        problems += e.items
+    problems += find_word_range_violation(page, word_range)
+    problems += find_cta_violation(page, cartridge_name, allowed_cta_texts)
+    return problems
+
+
+def _format_gate_failure(item):
+    detail = f" (text: {item['text']!r})" if "text" in item else ""
+    return f"- {item.get('path', '')}: {item['issue']}{detail}"
+
+
+def build_revision_note(attempt, failures):
+    lines = [
+        f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS})",
+        "Your previous page.json failed the gate checks below. Fix every one of them and "
+        "return a complete, corrected page.json in the same schema -- the full page, not a "
+        "diff or a patch.",
+        "",
+    ]
+    lines += [_format_gate_failure(item) for item in failures]
+    return "\n".join(lines)
+
+
+def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
+                         financing_lender, speaker_pov):
+    """write_page, then check_page_gates; on failure, retries write_page with
+    a REVISION REQUIRED block up to MAX_REPAIR_ATTEMPTS times. Every attempt
+    (initial + repairs) is one write_page call and counts against the run's
+    budget like any other model call. Returns (page, attempts) on success,
+    where attempts is a list of that attempt's failure list (empty for the
+    winning attempt). Raises ClaimsGateFailure (stage page_json:<cartridge>,
+    with .attempts set to the same list) if every attempt fails."""
+    cartridge_dir = Path(cartridges_dir) / cartridge_name
+    cartridge_md = (cartridge_dir / "cartridge.md").read_text()
+    schema = json.loads((cartridge_dir / "schema.json").read_text())
+    word_range = parse_word_range(cartridge_md)
+    allowed_cta_texts = resolve_allowed_cta_texts(schema, facts_pack["product"]["short_name"])
+
+    revision_note = None
+    attempts = []
+    attempt = 0
+    while True:
+        attempt += 1
+        budget.check()
+        page = write_page(
+            cartridge_name=cartridge_name,
+            cartridges_dir=cartridges_dir,
+            ad_brief=ad_brief,
+            facts_pack=facts_pack,
+            client=client,
+            model=model,
+            budget=budget,
+            log=log,
+            word_range=word_range,
+            allowed_cta_texts=allowed_cta_texts,
+            revision_note=revision_note,
+        )
+        problems = check_page_gates(
+            page, facts_pack, cartridge_name,
+            financing_lender=financing_lender, speaker_pov=speaker_pov,
+            word_range=word_range, allowed_cta_texts=allowed_cta_texts,
+        )
+        attempts.append(problems)
+
+        if not problems:
+            log.event(f"write.{cartridge_name}", f"gate PASS on attempt {attempt}")
+            log.gate_result("PASS", f"page_json:{cartridge_name} attempt={attempt} repairs={attempt - 1}")
+            return page, attempts
+
+        log.event(f"write.{cartridge_name}", f"gate FAIL on attempt {attempt}: {problems}")
+        if attempt >= MAX_REPAIR_ATTEMPTS + 1:
+            err = ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
+            err.attempts = attempts
+            raise err
+        revision_note = build_revision_note(attempt, problems)
+
+
+def _log_run_result(log, result, gate_log):
+    """Fix cycle 4 item 5: `run_result: PASS|STOP attempts=<n> repairs=<m>`,
+    summed across every cartridge write_and_gate_page got to before the run
+    ended -- attempts/repairs are 0 for a STOP that happened before any
+    cartridge was written (e.g. the ad_claims gate)."""
+    total_attempts = sum(len(v["attempts"]) for v in gate_log.values())
+    total_repairs = sum(max(0, len(v["attempts"]) - 1) for v in gate_log.values())
+    log.result(result, total_attempts, total_repairs)
+
+
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None):
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -143,13 +286,6 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     for name in selected:
         wc = count_words(pages[name])
         lines.append(f"- {name}: {wc} words")
-        # Fix cycle 3 item 7: soft check only -- a warning line, never a
-        # failure. product-page's own rule is 250-500 words main content.
-        if name == "product-page" and not (PRODUCT_PAGE_WORD_MIN <= wc <= PRODUCT_PAGE_WORD_MAX):
-            lines.append(
-                f"  - WARNING: product-page is {wc} words; the cartridge's word budget is "
-                f"{PRODUCT_PAGE_WORD_MIN}-{PRODUCT_PAGE_WORD_MAX}."
-            )
 
     lines.append("")
     lines.append("## Review checklist")
@@ -177,6 +313,20 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
             lines.append(f"- {url}")
     else:
         lines.append("- no URL used by this run contains \"emf\".")
+
+    lines.append("")
+    lines.append("## Gate history")
+    lines.append("(fix cycle 4 item 5 -- attempts include the writer repair loop: attempt 1 is the")
+    lines.append("initial write, attempts 2-3 are repairs made from a REVISION REQUIRED prompt.)")
+    lines.append("")
+    lines.append("| Cartridge | Attempts | Failures per attempt | Result |")
+    lines.append("|---|---|---|---|")
+    for name in selected:
+        attempts = (gate_log or {}).get(name, {}).get("attempts", [[]])
+        per_attempt = "; ".join(
+            f"attempt {i + 1}: {len(failures)} failure(s)" for i, failures in enumerate(attempts)
+        )
+        lines.append(f"| {name} | {len(attempts)} | {per_attempt} | PASS |")
 
     lines.append("")
     lines.append("## Budget use")
@@ -217,6 +367,12 @@ def cmd_run(args):
 
     claims_dir = REPO_ROOT / "claims"
     claims_config = load_claims_config(claims_dir)
+
+    # Fix cycle 4 item 5: cartridge_name -> {"attempts": [failures_per_attempt]}
+    # from the writer repair loop below, kept outside the try block so a STOP
+    # can still log a run_result line with real attempts/repairs counts for
+    # whatever cartridges were processed before the STOP.
+    gate_log = {}
 
     # Fix 2: live prices, at the start of the run, before ingest. Cached for
     # 60 minutes in runs/products-cache.json; falls back to the cache (with a
@@ -277,23 +433,23 @@ def cmd_run(args):
         pages = {}
         for cartridge_name in selected:
             budget.check()
-            page = write_page(
-                cartridge_name=cartridge_name,
-                cartridges_dir=REPO_ROOT / "cartridges",
-                ad_brief=ad_brief,
-                facts_pack=facts_pack,
-                client=client,
-                model=config.DEFAULT_MODEL,
-                budget=budget,
-                log=log,
-            )
-            gate_page_json(
-                page,
-                facts_pack,
-                cartridge_name,
-                financing_lender=claims_config.get("financing_lender"),
-                speaker_pov=ad_brief.get("speaker_pov"),
-            )
+            try:
+                page, attempts = write_and_gate_page(
+                    cartridge_name=cartridge_name,
+                    cartridges_dir=REPO_ROOT / "cartridges",
+                    ad_brief=ad_brief,
+                    facts_pack=facts_pack,
+                    client=client,
+                    model=config.DEFAULT_MODEL,
+                    budget=budget,
+                    log=log,
+                    financing_lender=claims_config.get("financing_lender"),
+                    speaker_pov=ad_brief.get("speaker_pov"),
+                )
+            except ClaimsGateFailure as e:
+                gate_log[cartridge_name] = {"attempts": getattr(e, "attempts", [e.items])}
+                raise
+            gate_log[cartridge_name] = {"attempts": attempts}
             pages[cartridge_name] = page
 
         published = updated = datetime.date.today().isoformat()
@@ -324,6 +480,7 @@ def cmd_run(args):
         log.event("run", str(e))
         cost = log.cost_estimate()
         log.budget_summary(budget.summary())
+        _log_run_result(log, "STOP", gate_log)
         log.close()
         print(f"Claims gate STOPPED at stage {e.stage!r}: {len(e.items)} unmatched item(s).", file=sys.stderr)
         print(json.dumps(e.items, indent=2), file=sys.stderr)
@@ -333,6 +490,7 @@ def cmd_run(args):
     except BudgetExceeded as e:
         log.event("run", f"budget exceeded: {e}")
         log.budget_summary(budget.summary())
+        _log_run_result(log, "STOP", gate_log)
         log.close()
         print(f"budget exceeded: {e}", file=sys.stderr)
         return 3
@@ -350,7 +508,9 @@ def cmd_run(args):
         cost=cost,
         gate_matched=gate_matched,
         emf_urls=emf_urls,
+        gate_log=gate_log,
     )
+    _log_run_result(log, "PASS", gate_log)
     log.close()
 
     print(f"Run complete: {run_dir}")

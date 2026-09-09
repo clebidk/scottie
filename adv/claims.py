@@ -24,6 +24,8 @@
 import html
 import re
 
+from .vocab import ALWAYS_FORBIDDEN_TERMS, FORBIDDEN_LENDER_NAMES, TRIGGER_WORDS
+
 STOPWORDS = {
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "to", "of", "in",
     "on", "at", "for", "with", "and", "or", "but", "that", "this", "it", "its", "as", "by",
@@ -31,8 +33,6 @@ STOPWORDS = {
     "will", "would", "should", "could", "just", "about", "into", "over", "under", "up",
     "down", "out", "if", "we", "you", "your", "our", "their", "they", "he", "she", "i",
 }
-
-TRIGGER_WORDS = ("medical", "clinical", "study", "proven", "emf", "rated", "reviews")
 
 # A quoted testimonial "span" -- a customer's own attributed words inline in
 # an ordinary paragraph (e.g. 'she said, "It's 2026..."'). A structural
@@ -42,15 +42,6 @@ TRIGGER_WORDS = ("medical", "clinical", "study", "proven", "emf", "rated", "revi
 # author's own claim" treatment to a quote sitting inline inside a "text"
 # field. Matches straight and curly double quotes.
 _QUOTED_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
-
-# Fix 4 (EMF must never appear) + Fix 6 (never name a competitor trademark or a
-# discontinued Peak model in generated copy). Checked case-insensitively as a
-# plain substring anywhere in page.json text.
-ALWAYS_FORBIDDEN_TERMS = ("emf", "sunlighten", "crown", "olympus", "aspen")
-
-# Fix 6: never name a specific financing lender unless one has been approved
-# in claims/config.json (financing_lender non-null).
-FORBIDDEN_LENDER_NAMES = ("bread pay", "affirm", "shop pay", "klarna", "afterpay", "sezzle")
 
 
 class ClaimsGateFailure(Exception):

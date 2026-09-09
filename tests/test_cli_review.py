@@ -51,28 +51,13 @@ def test_cmd_review_returns_1_when_no_cartridge_output_found(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# fix cycle 3 item 7: product-page's 250-500 word budget is a soft check --
-# a REVIEW.md warning line, never a run failure.
+# Fix cycle 3 item 7 gave product-page's 250-500 word budget a soft check --
+# a REVIEW.md warning line, never a run failure. Fix cycle 4 item 2 replaced
+# that with a hard gate (claims-style problem dict, feeding the repair loop)
+# enforced for every cartridge before a page ever reaches write_review_md, so
+# the soft-warning line is gone: a run only gets to REVIEW.md once every
+# selected cartridge is already inside its word range.
 # ---------------------------------------------------------------------------
-
-def test_write_review_md_warns_when_product_page_is_outside_word_budget(tmp_path):
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    short_page = {"hero": {"promise": "Too short."}}
-    cli.write_review_md(
-        run_dir,
-        ad_brief={"angle": "a"},
-        facts_pack={"verified_claims": []},
-        product_name="Fuji",
-        selected=["product-page"],
-        pages={"product-page": short_page},
-        budget=type("B", (), {"summary": lambda self: {}})(),
-        cost=0.0,
-        gate_matched=[],
-    )
-    review_md = (run_dir / "REVIEW.md").read_text()
-    assert "WARNING: product-page is" in review_md
-    assert "250-500" in review_md
 
 
 def test_count_words_excludes_top_level_cta_url():

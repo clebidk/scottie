@@ -49,11 +49,31 @@ AD_BRIEF = {
     "speaker_pov": "first_person", "source_file": "ad.txt", "input_type": "text", "transcript_or_text": "text",
 }
 
+# Fix cycle 4 item 2: cartridges now have a hard word-range gate
+# (claims.find_word_range_violation), so these fixture pages -- reused
+# end-to-end through `adv run` in test_cli_run.py -- need real body length,
+# not just a couple of placeholder sentences. Plain, claim-id-free filler
+# (no digits, $, %, or trigger words) padded onto an existing prose field
+# keeps every other assertion in this file (exact strings, CTA counts, etc.)
+# unchanged.
+_FILLER_SENTENCES = [
+    "Buyers weighing a purchase like this tend to ask similar questions before they commit, and the answers rarely come from a single glossy photo or a catchy headline; they come from spending a few careful minutes comparing specifics side by side across the handful of options actually worth considering.",
+    "A shopper who has been burned before learns to slow down and read past the marketing copy, looking instead for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door.",
+    "What separates a brand worth trusting from one that just talks a good game usually shows up in the small details: how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying.",
+    "It helps to write down the two or three things that actually matter for daily use, then check each option against that short list instead of getting pulled along by whichever page happens to have the loudest headline or the most dramatic before-and-after style photography on it.",
+    "None of this is complicated, but it does take a little patience, the kind that pays off later when the choice holds up under ordinary daily use instead of just looking good for the length of a single afternoon spent comparing tabs open side by side in a browser.",
+]
+
+
+def _filler_paragraphs(n):
+    return [{"text": _FILLER_SENTENCES[i % len(_FILLER_SENTENCES)]} for i in range(n)]
+
+
 ARTICLE_PAGE = {
     "headline": "Why the checkout page decides more than the price",
     "dek": "A look at what makes people trust a purchase enough to finish it.",
     "open": [{"text": "Shopping used to mean waiting for a callback."}],
-    "body_sections": [{"heading": "Why hidden pricing kills trust", "paragraphs": [{"text": "Buyers move on when the price is hidden."}]}],
+    "body_sections": [{"heading": "Why hidden pricing kills trust", "paragraphs": [{"text": "Buyers move on when the price is hidden."}] + _filler_paragraphs(22)}],
     "turn_section": {
         "heading": "What to look for",
         "intro": "A few signs.",
@@ -68,7 +88,7 @@ ARTICLE_PAGE = {
 }
 
 PRODUCT_PAGE_PAGE = {
-    "cta_text": "Shop Fuji",
+    "cta_text": "Shop the Peak Fuji 2-Person Infrared Sauna",
     "cta_url": "https://peaksaunas.com/products/fuji",
     "hero": {
         "product_name": "Fuji 2-Person Full Spectrum Infrared Sauna",
@@ -83,7 +103,7 @@ PRODUCT_PAGE_PAGE = {
         {"label": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
         {"label": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
     ],
-    "angle_section": {"heading": "Why the price is on the page", "paragraphs": [{"text": "No form required."}]},
+    "angle_section": {"heading": "Why the price is on the page", "paragraphs": [{"text": "No form required."}] + _filler_paragraphs(6)},
     "specs_table": [{"label": "Capacity", "value": "2-Person"}],
     "trust_strip": {
         "warranty": {"text": "warranty text", "claim_ids": ["warranty-terms"]},
@@ -101,7 +121,7 @@ LONGFORM_PAGE = {
         "hero_image": {"asset_id": "asset-1"},
         "financing_line": {"text": "Financing available", "claim_ids": []},
     },
-    "problem": {"heading": "Why shoppers give up", "paragraphs": [{"text": "A lot of sites make you call in for a number."}]},
+    "problem": {"heading": "Why shoppers give up", "paragraphs": [{"text": "A lot of sites make you call in for a number."}] + _filler_paragraphs(20)},
     "how_it_works": {
         "heading": "How Peak shows it",
         "steps": [
@@ -537,7 +557,7 @@ def test_product_page_cta_text_appears_exactly_twice(tmp_path):
         download_assets=False,
     )
     html = index_path.read_text()
-    assert html.count(">Shop Fuji<") == 2
+    assert html.count(">Shop the Peak Fuji 2-Person Infrared Sauna<") == 2
     assert html.count('href="https://peaksaunas.com/products/fuji"') >= 2
 
 

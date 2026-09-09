@@ -1,5 +1,6 @@
 {
   "type": "object",
+  "allowed_cta_texts": ["See the models", "Read the specs"],
   "required": ["headline", "dek", "open", "body_sections", "turn_section", "close", "cta", "images"],
   "properties": {
     "headline": {
