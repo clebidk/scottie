@@ -138,9 +138,14 @@ def find_word_range_violation(page_json, word_range):
     wc = count_words(page_json)
     if lo <= wc <= hi:
         return []
+    target = lo + (hi - lo) // 2
+    if wc < lo:
+        detail = f"Expand sections with real substance until you're near {target} words, not just barely over {lo}."
+    else:
+        detail = f"Trim sections down toward {target} words."
     return [{
         "path": "$.word_count",
-        "issue": f"Body is {wc} words; required {lo}-{hi}. Expand/trim sections to land in range.",
+        "issue": f"Body is {wc} words; required {lo}-{hi}. {detail}",
     }]
 
 

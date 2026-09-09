@@ -146,10 +146,15 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     hard_constraints = []
     if word_range:
         lo, hi = word_range
+        target = lo + (hi - lo) // 2
         hard_constraints.append(
-            f"Body word count must be between {lo} and {hi}. Count words in section bodies "
-            "only -- headings, urls, asset ids, claim ids, and the cta_url are not part of "
-            "the count."
+            f"Body word count must be between {lo} and {hi} -- aim for roughly {target} words, "
+            f"not the bare minimum of {lo}. Undershooting {lo} fails review and sends this "
+            "back for a full rewrite, which costs more than writing enough the first time, so "
+            "give each section real substance (concrete detail, not padding) rather than "
+            "stopping as soon as the structure is technically complete. Count words in section "
+            "bodies only -- headings, urls, asset ids, claim ids, and the cta_url are not part "
+            "of the count."
         )
     if allowed_cta_texts:
         options = "; ".join(f'"{t}"' for t in allowed_cta_texts)
