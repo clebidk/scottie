@@ -103,9 +103,22 @@ def numeric_tokens(tokens):
     return {re.sub(r"[\$%]", "", t) for t in tokens if any(ch.isdigit() for ch in t)}
 
 
+# Fix cycle 9 item 4: the general threshold (0.6) stays put, but a genuinely
+# short ad claim (<=3 content tokens) is held to a lower bar (0.5) -- with so
+# few tokens, a single word-choice mismatch (verified text says "speakers",
+# the ad says "capabilities") is enough to sink an otherwise-real match, and
+# there's no room left for the rest of the sentence to make up the
+# difference the way a longer claim's surrounding words can. The numeric-
+# token rule below is unaffected either way.
+_SHORT_CLAIM_MAX_TOKENS = 3
+_SHORT_CLAIM_THRESHOLD = 0.5
+_DEFAULT_THRESHOLD = 0.6
+
+
 def match_claim(ad_claim_text, verified_claims):
     ad_tokens = normalize(ad_claim_text)
     ad_numbers = numeric_tokens(ad_tokens)
+    threshold = _SHORT_CLAIM_THRESHOLD if len(ad_tokens) <= _SHORT_CLAIM_MAX_TOKENS else _DEFAULT_THRESHOLD
     best, best_ratio = None, 0.0
     for vc in verified_claims:
         vc_tokens = normalize(vc["text"])
@@ -117,7 +130,7 @@ def match_claim(ad_claim_text, verified_claims):
         ratio = overlap_ratio(ad_tokens, vc_tokens)
         if ratio > best_ratio:
             best, best_ratio = vc, ratio
-    if best_ratio >= 0.6:
+    if best_ratio >= threshold:
         return best, best_ratio
     return None, best_ratio
 

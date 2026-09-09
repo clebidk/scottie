@@ -181,6 +181,47 @@ def test_synonym_normalization_does_not_create_false_matches():
         gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
 
 
+# Fix cycle 9 item 4 (second half): a short ad claim (<=3 content tokens) is
+# held to a lower 0.5 overlap bar instead of the general 0.6 -- observed live
+# on fixtures/product-features-v2.mov: "It has Bluetooth capabilities" (2
+# content tokens: bluetooth, capabilities) only overlaps 0.5 against the
+# verified claim's "...Two HiFi Bluetooth speakers..." (shares "bluetooth",
+# not "capabilities"/"speakers") and was STOPping despite the underlying fact
+# being true and sourced.
+BLUETOOTH_SPEAKER_CLAIM = [
+    {
+        "id": "pdp-mini-speakers",
+        "text": "Two HiFi Bluetooth speakers, dual-level LED accent lighting, built-in chromotherapy.",
+        "category": "spec",
+        "source": "https://peaksaunas.com/products/mini",
+    }
+]
+
+
+def test_short_ad_claim_matches_at_the_lower_threshold():
+    ad_brief = {"claims_made": ["It has Bluetooth capabilities"]}
+    matched = gate_ad_brief_claims(ad_brief, BLUETOOTH_SPEAKER_CLAIM)
+    assert matched[0]["matched_claim_id"] == "pdp-mini-speakers"
+    assert matched[0]["overlap"] == 0.5
+
+
+def test_longer_ad_claim_still_needs_the_general_threshold():
+    # Same claim, worded with more (non-overlapping) content tokens -- still
+    # only 1 shared token ("bluetooth") out of more than 3, so overlap drops
+    # below even the 0.5 short-claim bar and this must still STOP.
+    ad_brief = {"claims_made": ["It has some really nice Bluetooth capabilities apparently"]}
+    with pytest.raises(ClaimsGateFailure):
+        gate_ad_brief_claims(ad_brief, BLUETOOTH_SPEAKER_CLAIM)
+
+
+def test_short_claim_threshold_does_not_match_on_a_single_generic_word():
+    # A 1-token claim sharing one common word with an unrelated verified
+    # claim must not spuriously pass at the lower bar.
+    ad_brief = {"claims_made": ["Speakers"]}
+    with pytest.raises(ClaimsGateFailure):
+        gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+
+
 # ---------------------------------------------------------------------------
 # fix 4 / fix 6: forbidden terms in page.json (EMF, competitor trademark,
 # discontinued models, financing lender names when none is configured)
