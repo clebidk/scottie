@@ -3,6 +3,7 @@ import pytest
 from adv.claims import (
     ClaimsGateFailure,
     find_benefit_claim_shortfall,
+    find_financing_violations,
     find_first_person_violations,
     find_forbidden_terms,
     find_forbidden_visible_text,
@@ -459,3 +460,102 @@ def test_strip_leaked_claim_ids_leaves_unrelated_parentheticals_alone():
     cleaned, removed = strip_leaked_claim_ids(html, {"spec-fuji-capacity", "price-fuji"})
     assert removed == []
     assert cleaned == html
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 6 item 2: a digit inside the product's own short_name/title/
+# model name, or a generic "N-Person" capacity token, isn't a number the
+# writer is asserting -- it shouldn't by itself force a claim_id onto a
+# sentence with nothing else to cite. Regression from the hidden-costs-v2
+# verification run: attempt 2's fix for "unlock" reintroduced the product's
+# own short_name in a fresh sentence and immediately failed this gate on
+# the "2" in "2-Person" instead.
+# ---------------------------------------------------------------------------
+
+FUJI_DIGIT_EXEMPT_TERMS = ["Peak Fuji 2-Person Infrared Sauna", "Peak Fuji 2-Person Full Spectrum Infrared Sauna", "Fuji"]
+
+
+def test_digit_exempt_product_name_needs_no_claim_id():
+    page = {"open": [{"text": "The Peak Fuji 2-Person Infrared Sauna is built from cedar."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"}, FUJI_DIGIT_EXEMPT_TERMS)
+    assert problems == []
+
+
+def test_digit_outside_exempt_terms_still_needs_a_claim_id():
+    page = {"open": [{"text": "It reaches 150°F."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"}, FUJI_DIGIT_EXEMPT_TERMS)
+    assert len(problems) == 1
+    assert "contains a number" in problems[0]["issue"]
+
+
+def test_digit_exempt_generic_capacity_token_needs_no_claim_id():
+    # A capacity token for a DIFFERENT product than the one in
+    # digit_exempt_terms is still covered by the generic "N-Person" pattern.
+    page = {"open": [{"text": "Even the 4-Person model ships free."}]}
+    problems = validate_page_claim_ids(page, set(), [])
+    assert problems == []
+
+
+def test_digit_exempt_terms_do_not_exempt_a_real_dollar_amount():
+    page = {"open": [{"text": "The Peak Fuji 2-Person Infrared Sauna costs $8,250."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"}, FUJI_DIGIT_EXEMPT_TERMS)
+    assert len(problems) == 1
+    assert "contains a dollar amount" in problems[0]["issue"]
+
+
+def test_gate_page_json_uses_facts_pack_digit_exempt_terms():
+    # turn_section.criteria carries article's minimum-one benefit claim_id
+    # (find_benefit_claim_shortfall) so the only thing under test here is the
+    # digit exemption on the "open" paragraph.
+    page = {
+        "open": [{"text": "The Peak Fuji 2-Person Infrared Sauna is built from cedar."}],
+        "turn_section": {"criteria": [{"text": "Backed by Austin.", "claim_ids": ["founder-ceo"]}]},
+    }
+    facts_pack = {"verified_claims": VERIFIED_CLAIMS, "digit_exempt_terms": FUJI_DIGIT_EXEMPT_TERMS}
+    gate_page_json(page, facts_pack, "article")  # does not raise
+
+
+def test_digit_exempt_terms_handles_a_non_capacity_digit_in_a_model_name():
+    # The generic "N-Person" pattern only covers capacity -- a model name
+    # with some other digit in it needs the explicit digit_exempt_terms
+    # list, not just the capacity regex, to be exempted.
+    page = {"open": [{"text": "The Peak Nova 360X sauna heats up fast."}]}
+    assert validate_page_claim_ids(page, set(), ["Peak Nova 360X"]) == []
+    problems = validate_page_claim_ids(page, set(), [])
+    assert len(problems) == 1
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 6 item 4: while no lender is configured, the only sentence
+# allowed to mention financing anywhere on the page is the exact sentence
+# below -- the model kept writing its own financing phrasing with invented
+# numbers.
+# ---------------------------------------------------------------------------
+
+def test_find_financing_violations_allows_the_exact_sentence():
+    page = {"hero": {"financing_line": {"text": "Financing is available at checkout."}}}
+    assert find_financing_violations(page, financing_lender=None) == []
+
+
+def test_find_financing_violations_flags_any_other_financing_phrasing():
+    page = {"hero": {"financing_line": {"text": "Financing is available for as low as $75/mo."}}}
+    hits = find_financing_violations(page, financing_lender=None)
+    assert len(hits) == 1
+    assert "Financing is available at checkout." in hits[0]["issue"]
+
+
+def test_find_financing_violations_noop_once_a_lender_is_configured():
+    page = {"hero": {"financing_line": {"text": "Financing is available for as low as $75/mo with Affirm."}}}
+    assert find_financing_violations(page, financing_lender="Affirm") == []
+
+
+def test_find_financing_violations_ignores_text_that_never_mentions_financing():
+    page = {"open": [{"text": "The sauna is built from cedar."}]}
+    assert find_financing_violations(page, financing_lender=None) == []
+
+
+def test_gate_page_json_stops_on_financing_violation():
+    page = {"hero": {"financing_line": {"text": "Financing available now, no credit check needed!"}}}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, FACTS_PACK, "product-page")
+    assert any("financing" in item["issue"] for item in exc_info.value.items)

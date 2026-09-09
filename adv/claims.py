@@ -24,7 +24,12 @@
 import html
 import re
 
-from .vocab import ALWAYS_FORBIDDEN_TERMS, FORBIDDEN_LENDER_NAMES, TRIGGER_WORDS
+from .vocab import (
+    ALLOWED_FINANCING_SENTENCE_NO_LENDER,
+    ALWAYS_FORBIDDEN_TERMS,
+    FORBIDDEN_LENDER_NAMES,
+    TRIGGER_WORDS,
+)
 
 STOPWORDS = {
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "to", "of", "in",
@@ -134,20 +139,42 @@ def gate_ad_brief_claims(ad_brief, verified_claims):
 _TRIGGER_WORD_RE = re.compile(r"\b(?:" + "|".join(TRIGGER_WORDS) + r")\b")
 
 
-def _trigger_reason(text):
+# Fix cycle 6 item 2: a digit inside the product's own short_name/title/model
+# name (e.g. the "2" in "Peak Fuji 2-Person Infrared Sauna") or a generic
+# capacity token ("2-Person") is not a number the writer is asserting --
+# stripping these before the digit check means writing the product's own
+# name no longer forces a claim_id onto a sentence that has nothing else to
+# cite (observed cycling with the leaked-claim-id fix in the hidden-costs-v2
+# verification run: attempt 2's fix for "unlock" re-triggered this instead).
+_CAPACITY_TOKEN_RE = re.compile(r"\b[1-6]-Person\b", re.IGNORECASE)
+
+
+def _strip_digit_exempt_tokens(text, digit_exempt_terms):
+    for term in digit_exempt_terms or ():
+        if term:
+            text = re.sub(re.escape(term), " ", text, flags=re.IGNORECASE)
+    return _CAPACITY_TOKEN_RE.sub(" ", text)
+
+
+def _trigger_reason(text, digit_exempt_terms=None):
     """None if `text` carries nothing that requires a claim_id; otherwise a
     short human-readable reason (fix cycle 4: named in the gate failure so a
     repair attempt knows exactly what to remove or cite, instead of
     re-reading the whole paragraph to guess). A verbatim customer quote
     (e.g. "It's 2026," she said) isn't the author's own factual assertion --
     don't require a claim_id just because the ad speaker's own words
-    happened to include a number."""
+    happened to include a number. digit_exempt_terms (fix cycle 6 item 2) are
+    stripped before the digit check only -- a product name/title/capacity
+    token doesn't count as an asserted number, but a real dollar amount or
+    percentage still needs a claim_id even inside the product name's
+    sentence."""
     unquoted = _QUOTED_SPAN_RE.sub(" ", text)
     if "$" in unquoted:
         return "contains a dollar amount"
     if "%" in unquoted:
         return "contains a percentage"
-    if re.search(r"\d", unquoted):
+    digit_check_text = _strip_digit_exempt_tokens(unquoted, digit_exempt_terms)
+    if re.search(r"\d", digit_check_text):
         return "contains a number"
     m = _TRIGGER_WORD_RE.search(unquoted.lower())
     if m:
@@ -155,8 +182,8 @@ def _trigger_reason(text):
     return None
 
 
-def _contains_trigger(text):
-    return _trigger_reason(text) is not None
+def _contains_trigger(text, digit_exempt_terms=None):
+    return _trigger_reason(text, digit_exempt_terms) is not None
 
 
 def collect_claim_ids(node):
@@ -181,7 +208,7 @@ def collect_claim_ids(node):
     return ids
 
 
-def validate_page_claim_ids(page_json, valid_claim_ids):
+def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None):
     problems = []
 
     def walk(node, path):
@@ -197,7 +224,7 @@ def validate_page_claim_ids(page_json, valid_claim_ids):
             if isinstance(node.get("text"), str):
                 text = node["text"]
                 has_ref = bool(claim_ids) or bool(claim_id)
-                reason = _trigger_reason(text)
+                reason = _trigger_reason(text, digit_exempt_terms)
                 if reason and not has_ref:
                     problems.append(
                         {
@@ -318,13 +345,53 @@ def find_first_person_violations(page_json, speaker_pov):
     return hits
 
 
+# Fix cycle 6 item 4: while no lender is configured, the ONLY sentence
+# allowed to mention financing anywhere on the page is
+# ALLOWED_FINANCING_SENTENCE_NO_LENDER, verbatim -- the model kept writing
+# its own financing phrasing with invented numbers ("as low as $75/mo"),
+# which then failed the digit/claim_id gate and fed the repair loop with
+# nothing safe to cite. No-op once a real lender is configured.
+def find_financing_violations(page_json, financing_lender=None):
+    if financing_lender:
+        return []
+    hits = []
+
+    def walk(node, path):
+        if isinstance(node, str):
+            if "financ" in node.lower() and node.strip() != ALLOWED_FINANCING_SENTENCE_NO_LENDER:
+                hits.append(
+                    {
+                        "path": path,
+                        "issue": (
+                            "financing text must be exactly "
+                            f"{ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured) -- "
+                            "no other financing phrasing, figure, or lender name anywhere on the page"
+                        ),
+                        "text": node,
+                    }
+                )
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                if k in _NON_PROSE_KEYS:
+                    continue
+                walk(v, f"{path}.{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+
+    walk(page_json, "$")
+    return hits
+
+
 def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
-    problems = validate_page_claim_ids(page_json, valid_ids)
+    digit_exempt_terms = facts_pack.get("digit_exempt_terms")
+    problems = validate_page_claim_ids(page_json, valid_ids, digit_exempt_terms)
     problems += find_forbidden_terms(page_json, financing_lender=financing_lender)
     problems += find_first_person_violations(page_json, speaker_pov)
     problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
     problems += find_leaked_claim_ids(page_json, valid_ids)
+    problems += find_financing_violations(page_json, financing_lender=financing_lender)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
 

@@ -12,6 +12,8 @@ from adv.budget import Budget
 from adv.claims import ClaimsGateFailure
 from adv.cli import (
     MAX_REPAIR_ATTEMPTS,
+    apply_deterministic_fixes,
+    apply_hype_synonyms,
     build_revision_note,
     find_cta_violation,
     find_word_range_violation,
@@ -19,6 +21,7 @@ from adv.cli import (
     write_and_gate_page,
 )
 from adv.log import RunLog
+from adv.vocab import ALWAYS_FORBIDDEN_TERMS
 from adv.write import parse_word_range, resolve_allowed_cta_texts
 from tests.conftest import FakeClient, json_response
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
@@ -60,13 +63,14 @@ def _write_and_gate(responses, tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_repair_loop_recovers_after_one_failed_attempt(tmp_path):
-    (page, attempts), client = _write_and_gate(
+    (page, attempts, deterministic_fixes), client = _write_and_gate(
         [json_response(BAD_ARTICLE_PAGE), json_response(ARTICLE_PAGE)], tmp_path
     )
     assert page == ARTICLE_PAGE
     assert len(client.messages.calls) == 2
     assert len(attempts) == 2
     assert attempts[0] and attempts[1] == []  # attempt 1 failed, attempt 2 passed
+    assert deterministic_fixes == [0, 0]  # BAD_ARTICLE_PAGE's CTA violation isn't deterministically fixable
 
     # the second call's user message carries the REVISION REQUIRED block
     # naming the CTA failure from the first attempt.
@@ -103,6 +107,7 @@ def test_repair_loop_stops_after_max_repair_attempts(tmp_path):
     assert len(client.messages.calls) == MAX_REPAIR_ATTEMPTS + 1
     assert len(exc_info.value.attempts) == MAX_REPAIR_ATTEMPTS + 1
     assert all(a for a in exc_info.value.attempts)  # every attempt still failing
+    assert exc_info.value.deterministic_fixes == [0] * (MAX_REPAIR_ATTEMPTS + 1)
 
 
 # ---------------------------------------------------------------------------
@@ -210,3 +215,117 @@ def test_build_revision_note_omits_leaked_claim_id_guidance_when_not_applicable(
     failures = [{"path": "$.hero.text", "term": "unlock", "issue": "forbidden term 'unlock' found"}]
     note = build_revision_note(1, failures)
     assert "Delete the id from that sentence" not in note
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 6 item 3: the forbidden-word list, verbatim, at the top of the
+# REVISION REQUIRED block, plus the closing "fix all of these" instruction.
+# ---------------------------------------------------------------------------
+
+def test_build_revision_note_includes_forbidden_word_list_verbatim():
+    note = build_revision_note(1, [{"path": "$.hero.text", "term": "unlock", "issue": "forbidden term 'unlock' found"}])
+    for word in ALWAYS_FORBIDDEN_TERMS:
+        assert word in note
+
+
+def test_build_revision_note_ends_with_the_required_instruction_sentence():
+    note = build_revision_note(1, [{"path": "$.hero.text", "issue": "some issue"}])
+    assert note.strip().endswith(
+        "Fix all of these. Do not introduce any new violation. Before answering, re-read the "
+        "forbidden word list and remove every occurrence."
+    )
+
+
+def test_write_and_gate_page_revision_note_carries_forward_failures_from_earlier_attempts(tmp_path):
+    # attempt 1 fails on a bad CTA; attempt 2's rewrite fixes the CTA but
+    # introduces an unrelated EMF violation instead (fix A, break B --
+    # observed for real on the hidden-costs-v2 verification run). The third
+    # attempt's REVISION REQUIRED block must still mention attempt 1's
+    # original CTA failure alongside attempt 2's EMF failure, deduplicated,
+    # not just the most recent attempt's.
+    attempt1_bad = BAD_ARTICLE_PAGE  # bad CTA ("Buy now")
+    attempt2_bad = dict(ARTICLE_PAGE, open=[{"text": "This sauna avoids EMF entirely."}])  # good CTA, new EMF hit
+    attempt3_good = ARTICLE_PAGE
+
+    (page, attempts, deterministic_fixes), client = _write_and_gate(
+        [json_response(attempt1_bad), json_response(attempt2_bad), json_response(attempt3_good)], tmp_path
+    )
+    assert page == ARTICLE_PAGE
+    assert len(client.messages.calls) == 3
+
+    third_user_msg = client.messages.calls[2]["messages"][0]["content"]
+    assert "REVISION REQUIRED" in third_user_msg
+    assert "Buy now" in third_user_msg  # attempt 1's CTA failure, still carried forward
+    assert "emf" in third_user_msg.lower()  # attempt 2's EMF failure
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 6 item 1: deterministic pre-repair pass. A safe text
+# substitution (hype-word synonym, leaked-claim-id parenthetical) is applied
+# -- no model call -- and the gate re-run, before ever building a REVISION
+# REQUIRED prompt. Direct unit tests for apply_hype_synonyms/
+# apply_deterministic_fixes are in test_write.py's neighbor... actually kept
+# here alongside the loop they feed.
+# ---------------------------------------------------------------------------
+
+def test_apply_hype_synonyms_is_case_preserving_and_whole_word():
+    assert apply_hype_synonyms("Unlock the price now.") == "Get the price now."
+    assert apply_hype_synonyms("nothing to unlock here") == "nothing to get here"
+    assert apply_hype_synonyms("This is a real game-changer!") == "This is a real big improvement."
+    # not a substring match: "lock" inside "unlock" only, never "lock" alone
+    assert apply_hype_synonyms("The lock on the door held.") == "The lock on the door held."
+
+
+def test_apply_deterministic_fixes_resolves_a_hype_word_failure():
+    page = {"hero": {"text": "Nothing to unlock here."}}
+    failures = [{"path": "$.hero.text", "term": "unlock", "issue": "forbidden term 'unlock' found", "text": page["hero"]["text"]}]
+    fixed = apply_deterministic_fixes(page, failures, set())
+    assert fixed == 1
+    assert page["hero"]["text"] == "Nothing to get here."
+
+
+def test_apply_deterministic_fixes_removes_leaked_claim_id_parenthetical():
+    page = {"hero": {"text": "Priced at $8,250 (price-fuji)."}}
+    failures = [{
+        "path": "$.hero.text",
+        "issue": "claim id leaked into copy: price-fuji in $.hero.text",
+        "text": page["hero"]["text"],
+    }]
+    fixed = apply_deterministic_fixes(page, failures, {"price-fuji"})
+    assert fixed == 1
+    assert "price-fuji" not in page["hero"]["text"]
+
+
+def test_apply_deterministic_fixes_leaves_unfixable_failures_alone():
+    # EMF has no safe synonym -- must fall through to a real repair call,
+    # not a deterministic rewrite.
+    page = {"hero": {"text": "Contains EMF testing data."}}
+    failures = [{"path": "$.hero.text", "term": "emf", "issue": "forbidden term 'emf' found", "text": page["hero"]["text"]}]
+    fixed = apply_deterministic_fixes(page, failures, set())
+    assert fixed == 0
+    assert page["hero"]["text"] == "Contains EMF testing data."
+
+
+def test_write_and_gate_page_resolves_hype_word_via_deterministic_fix_without_a_repair_call(tmp_path):
+    bad_page = dict(ARTICLE_PAGE, open=[{"text": "Shopping used to mean you had to unlock a callback."}])
+
+    (page, attempts, deterministic_fixes), client = _write_and_gate([json_response(bad_page)], tmp_path)
+
+    assert len(client.messages.calls) == 1  # no repair call needed
+    assert attempts == [[]]  # gate passed after the deterministic fix, on attempt 1
+    assert deterministic_fixes == [1]
+    assert "unlock" not in page["open"][0]["text"].lower()
+
+
+def test_write_and_gate_page_resolves_leaked_claim_id_via_deterministic_fix(tmp_path):
+    bad_page = dict(
+        ARTICLE_PAGE,
+        close={"paragraphs": [{"text": "Peak Saunas is one brand that does this (gbrain-allowlist-red-light)."}]},
+    )
+
+    (page, attempts, deterministic_fixes), client = _write_and_gate([json_response(bad_page)], tmp_path)
+
+    assert len(client.messages.calls) == 1
+    assert attempts == [[]]
+    assert deterministic_fixes == [1]
+    assert "gbrain-allowlist-red-light" not in page["close"]["paragraphs"][0]["text"]

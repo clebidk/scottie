@@ -94,7 +94,7 @@ PRODUCT_PAGE_PAGE = {
         "product_name": "Fuji 2-Person Full Spectrum Infrared Sauna",
         "promise": "A two-person sauna with the price shown up front.",
         "price_line": {"text": "$8,250.", "claim_ids": ["price-fuji"]},
-        "financing_line": {"text": "Financing available", "claim_ids": []},
+        "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
         "hero_image": {"asset_id": "asset-1"},
     },
     "proof_bullets": [
@@ -119,7 +119,7 @@ LONGFORM_PAGE = {
         "headline": "The hidden cost of a hidden price",
         "subhead": "Why checkout matters as much as the product.",
         "hero_image": {"asset_id": "asset-1"},
-        "financing_line": {"text": "Financing available", "claim_ids": []},
+        "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
     },
     "problem": {"heading": "Why shoppers give up", "paragraphs": [{"text": "A lot of sites make you call in for a number."}] + _filler_paragraphs(20)},
     "how_it_works": {
@@ -136,7 +136,7 @@ LONGFORM_PAGE = {
     "faq": {"questions": [{"question": "Is the price shown up front?", "text": "$8,250 is shown on the page.", "claim_ids": ["price-fuji"]}]},
     "final_cta": {
         "headline": "Ready to see the number?",
-        "financing_line": {"text": "Financing available", "claim_ids": []},
+        "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
         "warranty_line": {"text": "warranty text", "claim_ids": ["warranty-terms"]},
     },
     "images": [{"asset_id": "asset-1"}],

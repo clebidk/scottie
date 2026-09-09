@@ -8,7 +8,15 @@ import re
 from pathlib import Path
 
 from .jsonutil import extract_json
-from .vocab import BANNED_NAMES, EMF_TERMS, FORBIDDEN_LENDER_NAMES, HYPE_WORDS, TRIGGER_WORDS
+from .vocab import (
+    ALLOWED_FINANCING_SENTENCE_NO_LENDER,
+    BANNED_NAMES,
+    EMF_TERMS,
+    FORBIDDEN_LENDER_NAMES,
+    HYPE_WORDS,
+    TRIGGER_WORDS,
+    forbidden_words_block,
+)
 
 TYPE_MAP = {
     "string": str,
@@ -53,7 +61,7 @@ If the user message includes "exemplars", use them only as a voice and structure
 ## Guardrails
 Never write "{_EMF_UPPER}" in any form, anywhere, including as an abbreviation inside a claim -- this applies even to facts_pack's own internal-only EMF testing data. Never write "{_FIRST_BANNED_NAME}". Refer to the competitor as "Sun", never "Sun Home". Never name {_OTHER_BANNED_NAMES_LIST} (discontinued Peak models). Never claim third-party or accredited-laboratory testing of any kind. Competitor statements are only ever the speaker's own experience, never a sourced fact about a competitor, unless a verified claim covers it.
 
-Financing: use facts_pack.product.financing. If financing.lender is null, write only "Financing available" -- no lender name, no monthly figure, anywhere on the page. Never name a financing lender ({_LENDER_NAMES_LIST}, or any other) unless financing.lender is non-null and IS that name.
+Financing: use facts_pack.product.financing. If financing.lender is null, the ONLY sentence you may write anywhere on the page to mention financing is exactly "{ALLOWED_FINANCING_SENTENCE_NO_LENDER}" -- verbatim, nothing added before or after it in that field, no lender name, no monthly figure, no other financing phrasing anywhere else on the page. Never name a financing lender ({_LENDER_NAMES_LIST}, or any other) unless financing.lender is non-null and IS that name.
 
 Compare-at / list price: only mention a "was $X" / compare-at / strikethrough price if facts_pack.product.compare_at_price is non-null. If it is null, state only the current price.
 
@@ -181,8 +189,15 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
             f"The CTA text must be exactly one of: {options}. Do not invent any other CTA wording."
         )
 
+    # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
+    # top of the system prompt (and again inside every REVISION REQUIRED
+    # block below) -- observed cycling on the hidden-costs-v2 verification
+    # run where a repair attempt fixed one forbidden word but reintroduced
+    # another two attempts later.
     system = (
-        cartridge_md
+        forbidden_words_block()
+        + "\n\n"
+        + cartridge_md
         + "\n\n## JSON schema for page.json\n"
         + json.dumps(schema, indent=2)
         + "\n\n"

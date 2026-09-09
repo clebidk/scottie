@@ -12,13 +12,20 @@ from pathlib import Path
 from . import config
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
-from .claims import ClaimsGateFailure, collect_claim_ids, gate_ad_brief_claims, gate_page_json
+from .claims import (
+    ClaimsGateFailure,
+    collect_claim_ids,
+    gate_ad_brief_claims,
+    gate_page_json,
+    strip_leaked_claim_ids,
+)
 from .ground import LocalFactsSource, load_claims_config
 from .ingest import download_drive_file, run_ingest
 from .log import RunLog
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
+from .vocab import forbidden_words_block
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -169,14 +176,24 @@ def _format_gate_failure(item):
 
 
 def build_revision_note(attempt, failures):
+    """`failures` (fix cycle 6 item 3) is every failure seen across every
+    attempt so far in this cartridge, deduplicated -- not just this attempt's
+    -- so a repair that fixes one violation but reintroduces an earlier one
+    still shows up as a still-open item next time, instead of the writer
+    forgetting about it. The forbidden-word list is quoted verbatim both
+    near the top of this block and (via write.write_page) at the top of the
+    system prompt, so a repair attempt can't claim it forgot the list."""
     lines = [
         f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS})",
-        "Your previous page.json failed the gate checks below. Fix every one of them and "
-        "return a complete, corrected page.json in the same schema -- the full page, not a "
-        "diff or a patch. Fixing a flagged sentence by rewriting it often introduces a new, "
-        "unflagged violation nearby (a different sentence using a forbidden word, or another "
-        "unsourced number) -- re-read every sentence you touch, and every sentence next to it, "
-        "against the system prompt's forbidden-term and claim_id rules before returning.",
+        forbidden_words_block(),
+        "",
+        "Your page.json failed the gate checks below (every failure seen across every attempt "
+        "so far on this page, not just your most recent one). Fix every one of them and return "
+        "a complete, corrected page.json in the same schema -- the full page, not a diff or a "
+        "patch. Fixing a flagged sentence by rewriting it often introduces a new, unflagged "
+        "violation nearby (a different sentence using a forbidden word, or another unsourced "
+        "number) -- re-read every sentence you touch, and every sentence next to it, against "
+        "the system prompt's forbidden-term and claim_id rules before returning.",
         "",
     ]
     # Fix cycle 5: a leaked-claim-id failure was observed recurring across
@@ -195,26 +212,160 @@ def build_revision_note(attempt, failures):
         )
         lines.append("")
     lines += [_format_gate_failure(item) for item in failures]
+    lines.append("")
+    lines.append(
+        "Fix all of these. Do not introduce any new violation. Before answering, re-read the "
+        "forbidden word list and remove every occurrence."
+    )
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 6 item 1: deterministic pre-repair pass. Before ever calling the
+# writer again, try a handful of safe, no-model-call text fixes on exactly
+# the fields the gate flagged, then re-run the gate -- only failures that
+# survive this pass ever reach a REVISION REQUIRED prompt / real repair
+# call. This is what breaks the "fix A, break B, re-break A" cycle observed
+# on the hidden-costs-v2 verification run: attempt 1 hit the hype word
+# "unlock"; attempt 2's rewrite fixed it but tripped the digit/claim_id gate
+# on the product's own short_name ("Peak Fuji 2-Person Infrared Sauna");
+# attempt 3's rewrite fixed that but reintroduced "unlock" -- exhausting
+# MAX_REPAIR_ATTEMPTS on two bugs that each had a one-line deterministic fix.
+# ---------------------------------------------------------------------------
+
+# Case-preserving, whole-word substitution only -- never rewrites inside
+# another word ("unlocking" is matched as its own key, not as "unlock" plus
+# leftover "ing").
+_HYPE_SYNONYMS = {
+    "unlock": "get",
+    "unlocks": "gets",
+    "unlocking": "getting",
+    "elevate": "improve",
+    "elevates": "improves",
+    "journey": "process",
+    "game-changer": "big improvement",
+    "game changer": "big improvement",
+}
+
+
+def _case_preserving_replacement(match, replacement):
+    original = match.group(0)
+    if original[:1].isupper():
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
+
+
+def apply_hype_synonyms(text):
+    """Whole-word, case-preserving substitution of every vocab.HYPE_WORDS
+    term this cycle has a safe synonym for, plus exclamation mark -> period
+    (fix cycle 4 banned '!' outright; a rewrite sometimes just swaps the
+    sentence's punctuation instead of its wording)."""
+    for word, replacement in _HYPE_SYNONYMS.items():
+        pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
+        text = pattern.sub(lambda m: _case_preserving_replacement(m, replacement), text)
+    text = text.replace("!", ".")
+    return re.sub(r"\.{2,}", ".", text)
+
+
+# Minimal JSONPath-shaped navigator for the "$.a.b[0].c" paths claims.py's
+# gate checks emit -- just enough to get/set the exact string node a failure
+# points at.
+_PATH_SEGMENT_RE = re.compile(r"\.([^.\[\]]+)|\[(\d+)\]")
+
+
+def _path_segments(path):
+    return [
+        int(m.group(2)) if m.group(2) is not None else m.group(1)
+        for m in _PATH_SEGMENT_RE.finditer(path[1:])
+    ]
+
+
+def _get_at_path(page, path):
+    node = page
+    for seg in _path_segments(path):
+        node = node[seg]
+    return node
+
+
+def _set_at_path(page, path, value):
+    segs = _path_segments(path)
+    node = page
+    for seg in segs[:-1]:
+        node = node[seg]
+    node[segs[-1]] = value
+
+
+def apply_deterministic_fixes(page, failures, valid_claim_ids):
+    """Mutates `page` in place, resolving exactly the failures that a safe
+    text substitution can fix -- a forbidden hype word/exclamation mark, or
+    a claim id leaked into a parenthetical -- and leaving everything else
+    (a missing claim_id, a word-count or CTA violation, EMF, a banned name)
+    for a real repair call. Returns the number of fields changed."""
+    fixed = 0
+    for item in failures:
+        path = item.get("path")
+        if not path:
+            continue
+        term = item.get("term")
+        issue = item.get("issue", "")
+        try:
+            current = _get_at_path(page, path)
+        except (KeyError, IndexError, TypeError):
+            continue
+        if not isinstance(current, str):
+            continue
+
+        if term in _HYPE_SYNONYMS or term == "!":
+            new_text = apply_hype_synonyms(current)
+        elif "claim id leaked into copy" in issue:
+            new_text, _removed = strip_leaked_claim_ids(current, valid_claim_ids)
+        else:
+            continue
+
+        if new_text != current:
+            _set_at_path(page, path, new_text)
+            fixed += 1
+    return fixed
 
 
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                          financing_lender, speaker_pov):
-    """write_page, then check_page_gates; on failure, retries write_page with
-    a REVISION REQUIRED block up to MAX_REPAIR_ATTEMPTS times. Every attempt
-    (initial + repairs) is one write_page call and counts against the run's
-    budget like any other model call. Returns (page, attempts) on success,
-    where attempts is a list of that attempt's failure list (empty for the
-    winning attempt). Raises ClaimsGateFailure (stage page_json:<cartridge>,
-    with .attempts set to the same list) if every attempt fails."""
+    """write_page, then check_page_gates; on failure, first tries the
+    deterministic pre-repair pass (apply_deterministic_fixes -- no model
+    call) and re-gates, then, only if failures remain, retries write_page
+    with a REVISION REQUIRED block up to MAX_REPAIR_ATTEMPTS times. Every
+    write_page call (initial + repairs) counts against the run's budget like
+    any other model call; the deterministic pass does not. Returns (page,
+    attempts, deterministic_fix_counts) on success -- attempts is a list of
+    that attempt's failure list (empty for the winning attempt, after any
+    deterministic fix has already been applied), deterministic_fix_counts
+    is the parallel list of how many fields the pre-repair pass fixed on
+    that attempt. Raises ClaimsGateFailure (stage page_json:<cartridge>,
+    with .attempts and .deterministic_fixes set) if every attempt fails."""
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md = (cartridge_dir / "cartridge.md").read_text()
     schema = json.loads((cartridge_dir / "schema.json").read_text())
     word_range = parse_word_range(cartridge_md)
     allowed_cta_texts = resolve_allowed_cta_texts(schema, facts_pack["product"]["short_name"])
+    valid_claim_ids = {c["id"] for c in facts_pack["verified_claims"]}
+
+    def _gate(page):
+        return check_page_gates(
+            page, facts_pack, cartridge_name,
+            financing_lender=financing_lender, speaker_pov=speaker_pov,
+            word_range=word_range, allowed_cta_texts=allowed_cta_texts,
+        )
 
     revision_note = None
     attempts = []
+    deterministic_fix_counts = []
+    # Fix cycle 6 item 3: every failure seen so far in this cartridge,
+    # deduplicated by (path, issue) -- carried into every REVISION REQUIRED
+    # block so a repair that fixes one violation but reintroduces an earlier
+    # one still shows up as still-open, instead of the writer only seeing
+    # its most recent mistake.
+    failures_seen = []
+    failures_seen_keys = set()
     attempt = 0
     while True:
         attempt += 1
@@ -232,24 +383,33 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             allowed_cta_texts=allowed_cta_texts,
             revision_note=revision_note,
         )
-        problems = check_page_gates(
-            page, facts_pack, cartridge_name,
-            financing_lender=financing_lender, speaker_pov=speaker_pov,
-            word_range=word_range, allowed_cta_texts=allowed_cta_texts,
-        )
+        problems = _gate(page)
+
+        fixed = apply_deterministic_fixes(page, problems, valid_claim_ids) if problems else 0
+        if fixed:
+            log.event(f"write.{cartridge_name}", f"deterministic fix applied: {fixed} field(s)")
+            problems = _gate(page)
+        deterministic_fix_counts.append(fixed)
         attempts.append(problems)
 
         if not problems:
             log.event(f"write.{cartridge_name}", f"gate PASS on attempt {attempt}")
             log.gate_result("PASS", f"page_json:{cartridge_name} attempt={attempt} repairs={attempt - 1}")
-            return page, attempts
+            return page, attempts, deterministic_fix_counts
 
         log.event(f"write.{cartridge_name}", f"gate FAIL on attempt {attempt}: {problems}")
+        for item in problems:
+            key = (item.get("path"), item.get("issue"))
+            if key not in failures_seen_keys:
+                failures_seen_keys.add(key)
+                failures_seen.append(item)
+
         if attempt >= MAX_REPAIR_ATTEMPTS + 1:
             err = ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
             err.attempts = attempts
+            err.deterministic_fixes = deterministic_fix_counts
             raise err
-        revision_note = build_revision_note(attempt, problems)
+        revision_note = build_revision_note(attempt, failures_seen)
 
 
 def _log_run_result(log, result, gate_log):
@@ -340,16 +500,21 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     lines.append("")
     lines.append("## Gate history")
     lines.append("(fix cycle 4 item 5 -- attempts include the writer repair loop: attempt 1 is the")
-    lines.append("initial write, attempts 2-3 are repairs made from a REVISION REQUIRED prompt.)")
+    lines.append("initial write, attempts 2-3 are repairs made from a REVISION REQUIRED prompt.")
+    lines.append("Fix cycle 6 item 5 -- \"deterministic fixes\" is how many fields the no-model-call")
+    lines.append("pre-repair pass fixed on that attempt, before the gate was re-run.)")
     lines.append("")
-    lines.append("| Cartridge | Attempts | Failures per attempt | Result |")
-    lines.append("|---|---|---|---|")
+    lines.append("| Cartridge | Attempts | Failures per attempt | Deterministic fixes | Result |")
+    lines.append("|---|---|---|---|---|")
     for name in selected:
-        attempts = (gate_log or {}).get(name, {}).get("attempts", [[]])
+        entry = (gate_log or {}).get(name, {})
+        attempts = entry.get("attempts", [[]])
+        det_fixes = entry.get("deterministic_fixes", [0] * len(attempts))
         per_attempt = "; ".join(
             f"attempt {i + 1}: {len(failures)} failure(s)" for i, failures in enumerate(attempts)
         )
-        lines.append(f"| {name} | {len(attempts)} | {per_attempt} | PASS |")
+        det_str = "; ".join(f"attempt {i + 1}: {n}" for i, n in enumerate(det_fixes)) or "0"
+        lines.append(f"| {name} | {len(attempts)} | {per_attempt} | {det_str} | PASS |")
 
     lines.append("")
     lines.append("## Budget use")
@@ -457,7 +622,7 @@ def cmd_run(args):
         for cartridge_name in selected:
             budget.check()
             try:
-                page, attempts = write_and_gate_page(
+                page, attempts, deterministic_fixes = write_and_gate_page(
                     cartridge_name=cartridge_name,
                     cartridges_dir=REPO_ROOT / "cartridges",
                     ad_brief=ad_brief,
@@ -470,9 +635,13 @@ def cmd_run(args):
                     speaker_pov=ad_brief.get("speaker_pov"),
                 )
             except ClaimsGateFailure as e:
-                gate_log[cartridge_name] = {"attempts": getattr(e, "attempts", [e.items])}
+                attempts = getattr(e, "attempts", [e.items])
+                gate_log[cartridge_name] = {
+                    "attempts": attempts,
+                    "deterministic_fixes": getattr(e, "deterministic_fixes", [0] * len(attempts)),
+                }
                 raise
-            gate_log[cartridge_name] = {"attempts": attempts}
+            gate_log[cartridge_name] = {"attempts": attempts, "deterministic_fixes": deterministic_fixes}
             pages[cartridge_name] = page
 
         published = updated = datetime.date.today().isoformat()

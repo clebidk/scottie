@@ -206,6 +206,22 @@ class LocalFactsSource:
         financing = {"available": True, "lender": config.get("financing_lender"), "monthly": None}
         compare_at_price = product.get("compare_at_price") if config.get("show_compare_at_price") else None
 
+        # Fix cycle 6 item 2: every product's short_name/title/model name
+        # across the whole catalog (not just the one this run is about) --
+        # claims.py strips these out of a text field before checking it for
+        # a bare digit, so writing "Peak Fuji 2-Person Infrared Sauna" never
+        # by itself forces a claim_id onto a sentence that has nothing else
+        # to cite. A generic "N-Person" capacity token is covered separately
+        # by claims.py's own regex, not by this list.
+        digit_exempt_terms = sorted(
+            {
+                t
+                for p in self._products.values()
+                for t in (p.get("short_name"), p.get("title"), p.get("name"))
+                if t
+            }
+        )
+
         return {
             "product": {
                 "name": product["name"],
@@ -228,6 +244,7 @@ class LocalFactsSource:
             # attributed to "a customer" unless Caleb has put a real,
             # consented name in claims/config.json.
             "speaker_name": config.get("speaker_name"),
+            "digit_exempt_terms": digit_exempt_terms,
         }
 
 

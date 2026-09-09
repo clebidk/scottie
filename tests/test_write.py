@@ -2,6 +2,7 @@ from pathlib import Path
 
 from adv.budget import Budget
 from adv.log import RunLog
+from adv.vocab import ALLOWED_FINANCING_SENTENCE_NO_LENDER, ALWAYS_FORBIDDEN_TERMS
 from adv.write import load_exemplars, write_page
 from tests.conftest import FakeClient, json_response
 from tests.test_render import ARTICLE_PAGE, AD_BRIEF, FACTS_PACK
@@ -84,6 +85,55 @@ def test_write_page_retries_once_on_bad_json(tmp_path):
     log.close()
     assert page == ARTICLE_PAGE
     assert len(client.messages.calls) == 2
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 6 item 3/4: the forbidden-word list sits at the very top of the
+# system prompt, verbatim; the financing prompt states the one sentence
+# that's allowed when no lender is configured.
+# ---------------------------------------------------------------------------
+
+def test_write_page_puts_forbidden_word_list_at_top_of_system_prompt(tmp_path):
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    system = client.messages.calls[0]["system"]
+    for word in ALWAYS_FORBIDDEN_TERMS:
+        assert word in system
+    # verbatim, one per line, before the cartridge.md content that follows it
+    first_line = system.splitlines()[0]
+    assert "Forbidden words" in first_line
+    assert system.index(ALWAYS_FORBIDDEN_TERMS[0]) < system.index("## JSON schema for page.json")
+
+
+def test_write_page_system_prompt_states_the_exact_financing_sentence(tmp_path):
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    system = client.messages.calls[0]["system"]
+    assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in system
 
 
 def test_write_page_rejects_missing_required_key(tmp_path):
