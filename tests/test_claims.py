@@ -563,8 +563,19 @@ def test_find_financing_violations_ignores_a_question_about_financing():
     assert find_financing_violations(page, financing_lender=None) == []
 
 
+def test_find_financing_violations_ignores_topical_mentions_with_no_stated_terms():
+    # Regression from the hidden-costs-v2 verification run: the article
+    # cartridge's whole angle is financing/price transparency, so ordinary
+    # buyer-education commentary uses the word "financing" constantly
+    # without stating any figure or lender -- an earlier, broader version of
+    # this check flagged that prose and made the article cartridge
+    # un-writable for this ad.
+    page = {"open": [{"text": "Financing terms and sticker price are two separate questions worth keeping apart."}]}
+    assert find_financing_violations(page, financing_lender=None) == []
+
+
 def test_gate_page_json_stops_on_financing_violation():
-    page = {"hero": {"financing_line": {"text": "Financing available now, no credit check needed!"}}}
+    page = {"hero": {"financing_line": {"text": "Financing available now, as low as $99/mo, no credit check needed!"}}}
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_page_json(page, FACTS_PACK, "product-page")
     assert any("financing" in item["issue"] for item in exc_info.value.items)

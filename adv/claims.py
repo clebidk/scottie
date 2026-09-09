@@ -345,12 +345,32 @@ def find_first_person_violations(page_json, speaker_pov):
     return hits
 
 
+# A sentence that actually STATES financing terms -- a figure, a lender
+# name -- as opposed to one that merely discusses financing as a topic
+# (article's "hidden costs" angle is largely about financing/price
+# transparency, so the word "financing" alone shows up constantly in
+# ordinary buyer-education commentary that asserts no specific terms and
+# needs no claim_id under any other gate).
+_FINANCING_TERMS_RE = re.compile(r"\d|\$|%")
+
+
+def _states_financing_terms(text):
+    return bool(_FINANCING_TERMS_RE.search(text)) or any(
+        name in text.lower() for name in FORBIDDEN_LENDER_NAMES
+    )
+
+
 # Fix cycle 6 item 4: while no lender is configured, the ONLY sentence
-# allowed to mention financing anywhere on the page is
+# allowed to STATE financing terms anywhere on the page is
 # ALLOWED_FINANCING_SENTENCE_NO_LENDER, verbatim -- the model kept writing
 # its own financing phrasing with invented numbers ("as low as $75/mo"),
 # which then failed the digit/claim_id gate and fed the repair loop with
-# nothing safe to cite. No-op once a real lender is configured.
+# nothing safe to cite. Only a sentence that both mentions financing AND
+# states a figure/lender name counts -- see _states_financing_terms; caught
+# live on the hidden-costs-v2 verification run, where an earlier, broader
+# version of this check flagged ordinary buyer-education prose ("financing
+# terms and sticker price are two separate questions") that named no figure
+# or lender at all. No-op once a real lender is configured.
 def find_financing_violations(page_json, financing_lender=None):
     if financing_lender:
         return []
@@ -360,11 +380,14 @@ def find_financing_violations(page_json, financing_lender=None):
         if isinstance(node, str):
             stripped = node.strip()
             # A question ("Is financing available?", an FAQ's own "question"
-            # field) isn't financing phrasing -- it's asking about financing;
-            # the ANSWER is what has to be the exact allowed sentence. Caught
-            # live on the hidden-costs-v2 verification run: an FAQ question
-            # was flagged even though its answer was fine.
-            if "financ" in stripped.lower() and not stripped.endswith("?") and stripped != ALLOWED_FINANCING_SENTENCE_NO_LENDER:
+            # field) isn't a financing statement even if it happens to name a
+            # figure -- it's asking, not asserting.
+            if (
+                "financ" in stripped.lower()
+                and not stripped.endswith("?")
+                and _states_financing_terms(stripped)
+                and stripped != ALLOWED_FINANCING_SENTENCE_NO_LENDER
+            ):
                 hits.append(
                     {
                         "path": path,
