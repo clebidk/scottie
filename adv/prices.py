@@ -85,7 +85,7 @@ def get_live_products(cache_path, fetch_page=http_fetch_page, log=None):
 def merge_products(old_products, live_products):
     """Refresh claims/products.json's slug -> entry map with live price/image/
     variant data, keeping each entry's hand-curated `default`, `short_name`,
-    and `specs` fields. Only refreshes the curated products already in
+    `active`, and `specs` fields. Only refreshes the curated products already in
     old_products -- the live feed also includes spare parts/accessories/other
     SKUs that were never curated (no specs, no real short_name), and those
     are intentionally left out rather than polluting the catalog."""
@@ -123,6 +123,13 @@ def merge_products(old_products, live_products):
             entry["default"] = True
         if old.get("short_name"):
             entry["short_name"] = old["short_name"]
+        # Fix cycle 8 problem 1b: `active` (whether the picker may ever
+        # select this model -- false for discontinued models) is curated
+        # data like `default`/`short_name`, not something the live Shopify
+        # feed knows about. Without this the picker's discontinued-model
+        # exclusion would silently reset on the very next `adv run`.
+        if "active" in old:
+            entry["active"] = old["active"]
         merged[slug] = entry
 
     for slug, old in old_products.items():

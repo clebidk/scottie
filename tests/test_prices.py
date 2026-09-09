@@ -67,6 +67,24 @@ def test_merge_products_keeps_curated_products_missing_from_the_live_feed():
     assert merged == OLD_PRODUCTS
 
 
+def test_merge_products_preserves_active_flag_through_a_live_refresh():
+    """Regression (cycle 8): merge_products used to only re-attach `default`
+    and `short_name` from the old entry, silently dropping `active` -- so the
+    very next live price refresh (every `adv run`) would erase the
+    discontinued-model exclusion the product picker depends on."""
+    old = {
+        "peak-saunas-crown": dict(OLD_PRODUCTS["peak-saunas-fuji"], slug="peak-saunas-crown", name="Crown", active=False),
+        "peak-saunas-fuji": dict(OLD_PRODUCTS["peak-saunas-fuji"], active=True),
+    }
+    live = [
+        {"handle": "peak-saunas-crown", "title": "Crown", "variants": [{"sku": "PEAK-CROWN", "price": "4950.00"}], "images": []},
+        {"handle": "peak-saunas-fuji", "title": "Fuji", "variants": [{"sku": "PEAK-FUJI", "price": "8250.00"}], "images": []},
+    ]
+    merged = merge_products(old, live)
+    assert merged["peak-saunas-crown"]["active"] is False
+    assert merged["peak-saunas-fuji"]["active"] is True
+
+
 def test_build_live_price_claims_omits_compare_at_unless_configured():
     products = {"peak-saunas-fuji": {"name": "Fuji", "price": "8250.00", "compare_at_price": "14032.00", "url": "https://peaksaunas.com/products/peak-saunas-fuji"}}
 
