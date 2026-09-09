@@ -85,3 +85,48 @@ def test_write_review_md_no_warning_when_within_word_budget(tmp_path):
     )
     review_md = (run_dir / "REVIEW.md").read_text()
     assert "WARNING" not in review_md
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 8 problem 1b: when the product picker defaults (no model named in
+# the ad), write_review_md surfaces the warning prominently.
+# ---------------------------------------------------------------------------
+
+def test_write_review_md_shows_product_warning_when_defaulted(tmp_path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    ok_page = {"hero": {"promise": " ".join(["word"] * 300)}}
+    cli.write_review_md(
+        run_dir,
+        ad_brief={"angle": "a"},
+        facts_pack={"verified_claims": []},
+        product_name="Fuji",
+        selected=["product-page"],
+        pages={"product-page": ok_page},
+        budget=type("B", (), {"summary": lambda self: {}})(),
+        cost=0.0,
+        gate_matched=[],
+        product_warning="product not named in ad; defaulted to Fuji",
+    )
+    review_md = (run_dir / "REVIEW.md").read_text()
+    assert "WARNING: product not named in ad; defaulted to Fuji" in review_md
+
+
+def test_write_review_md_no_product_warning_when_model_was_named(tmp_path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    ok_page = {"hero": {"promise": " ".join(["word"] * 300)}}
+    cli.write_review_md(
+        run_dir,
+        ad_brief={"angle": "a"},
+        facts_pack={"verified_claims": []},
+        product_name="Mini",
+        selected=["product-page"],
+        pages={"product-page": ok_page},
+        budget=type("B", (), {"summary": lambda self: {}})(),
+        cost=0.0,
+        gate_matched=[],
+        product_warning=None,
+    )
+    review_md = (run_dir / "REVIEW.md").read_text()
+    assert "WARNING" not in review_md

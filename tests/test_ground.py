@@ -4,6 +4,8 @@ from adv.ground import BENEFIT_ALLOWLIST_IDS, LocalFactsSource, load_claims_conf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+MINI_SLUG = "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+EL_CAPITAN_SLUG = "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control"
 
 
 def test_specs_carry_claim_id_and_facts_pack_includes_them():
@@ -166,3 +168,119 @@ def test_facts_for_merges_shopify_images_first_then_drive_assets(monkeypatch):
     drive_kinds = [a["kind"] for a in assets[shopify_count:]]
     assert set(drive_kinds) <= {"lifestyle", "interior", "render", "installation"}
     assert "video" not in drive_kinds and "logo" not in drive_kinds and "ugc" not in drive_kinds
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 8 problem 1b: product picker matches real model names only, on a
+# word boundary, case-insensitively; first-mentioned wins when several are
+# named; falls back to the default (with a warning) when none is; ignores
+# discontinued (active: false) models even if their name is literally in the
+# ad.
+# ---------------------------------------------------------------------------
+
+def _ad_brief(text):
+    return {"transcript_or_text": text, "hook": "", "promise": "", "angle": ""}
+
+
+def test_pick_product_matches_single_named_model_case_insensitively():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = _ad_brief("I just ordered the Peak Sauna Mini and I could not be more excited.")
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product["slug"] == MINI_SLUG
+    assert warning is None
+
+
+def test_pick_product_word_boundary_rejects_alias_only_mentions():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    # "el cap", "1-person", "2-person", "sauna mini" alone are not model
+    # names -- only the product's own `name` field counts.
+    ad_brief = _ad_brief("This is a 1-person sauna, great for el cap weekend trips.")
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product["slug"] == FUJI_SLUG  # default, nothing actually named
+    assert warning == "product not named in ad; defaulted to Fuji"
+
+
+def test_pick_product_full_alias_phrase_still_matches_the_real_name_inside_it():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    # "sauna mini" contains the real model word "mini" as a whole word --
+    # that's a legitimate match, not a false alias hit.
+    ad_brief = _ad_brief("Ask about our sauna mini today.")
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product["slug"] == MINI_SLUG
+    assert warning is None
+
+
+def test_pick_product_picks_first_mentioned_when_several_named():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = _ad_brief("Compare the El Capitan against the Fuji -- both are great.")
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product["slug"] == EL_CAPITAN_SLUG
+    assert warning is None
+
+
+def test_pick_product_defaults_and_warns_when_no_model_named():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = _ad_brief("I love my new infrared sauna, it's changed my life.")
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product.get("default") is True
+    assert warning == "product not named in ad; defaulted to Fuji"
+
+
+def test_pick_product_ignores_discontinued_model_even_if_named():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = _ad_brief("I've heard great things about the Peak Crown.")
+    product, warning = source.pick_product_with_warning(None, ad_brief)
+    assert product["name"] != "Crown"
+    assert product.get("default") is True
+    assert warning == "product not named in ad; defaulted to Fuji"
+
+
+def test_pick_product_explicit_product_slug_wins_and_never_warns():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = _ad_brief("no model named here at all")
+    product, warning = source.pick_product_with_warning("mini", ad_brief)
+    assert product["slug"] == MINI_SLUG
+    assert warning is None
+
+
+def test_pick_product_backward_compatible_wrapper_returns_product_only():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = _ad_brief("I just ordered the Peak Sauna Mini.")
+    product = source.pick_product(None, ad_brief)
+    assert product["slug"] == MINI_SLUG
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 8 problem 2: every active model's g Brain-sourced spec claims
+# (spec-<model>-*, and the older gbrain-<model>-* Fuji/Everest set) must
+# reach facts_pack.verified_claims, not just the handful of fields Shopify's
+# products.json specs array already carried.
+# ---------------------------------------------------------------------------
+
+def test_facts_pack_includes_gbrain_spec_claims_for_mini():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    facts_pack = source.facts_for(MINI_SLUG, _ad_brief(""))
+    verified_ids = {c["id"] for c in facts_pack["verified_claims"]}
+    assert "spec-mini-electrical" in verified_ids
+    assert "spec-mini-red-light" in verified_ids
+
+
+def test_facts_pack_includes_gbrain_dimensions_claims_for_fuji_and_everest():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    fuji_pack = source.facts_for(FUJI_SLUG, _ad_brief(""))
+    fuji_ids = {c["id"] for c in fuji_pack["verified_claims"]}
+    assert "gbrain-fuji-dimensions" in fuji_ids
+    assert "gbrain-fuji-power" in fuji_ids
+
+    everest_slug = "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    everest_pack = source.facts_for(everest_slug, _ad_brief(""))
+    everest_ids = {c["id"] for c in everest_pack["verified_claims"]}
+    assert "gbrain-everest-dimensions" in everest_ids
+
+
+def test_facts_pack_never_includes_an_emf_claim():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    for slug in (MINI_SLUG, FUJI_SLUG):
+        facts_pack = source.facts_for(slug, _ad_brief(""))
+        for c in facts_pack["verified_claims"]:
+            assert "emf" not in c["text"].lower(), c

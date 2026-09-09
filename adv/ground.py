@@ -3,6 +3,7 @@ the writer can cite from. `FactsSource` is a protocol so `write`/`cli` don't
 care whether facts came from the local JSON files or (later) g Brain.
 """
 import json
+import re
 from pathlib import Path
 from typing import Protocol
 
@@ -118,14 +119,33 @@ class LocalFactsSource:
         return merged
 
     def pick_product(self, product_slug, ad_brief):
+        product, _warning = self.pick_product_with_warning(product_slug, ad_brief)
+        return product
+
+    def pick_product_with_warning(self, product_slug, ad_brief):
+        """Cycle 8 problem 1b: an explicit --product still wins outright. Otherwise
+        match each active model's real name (never an alias -- "mini", "peak
+        mini", "sauna mini", "el cap", "1-person" etc. are not model names, only
+        the product's own `name` field is matched) against the ad's transcript/
+        brief, case-insensitively and on a whole word/phrase boundary so "Fuji"
+        doesn't match inside some unrelated longer word. If exactly one model is
+        named, pick it. If several are named, pick whichever is mentioned first
+        in the haystack. If none is named, fall back to the default product (or
+        the first active one if none is marked default) and return a warning
+        string for REVIEW.md; a `product_slug`/named match never carries a
+        warning. Discontinued models (`active: false`) are never picked either
+        way.
+        """
         self._load()
         products = self._products
 
         if product_slug:
             for slug, p in products.items():
                 if slug == product_slug or p["name"].lower() == product_slug.lower():
-                    return p
+                    return p, None
             raise ValueError(f"unknown --product: {product_slug!r}")
+
+        active_products = [p for p in products.values() if p.get("active", True)]
 
         haystack = " ".join(
             [
@@ -135,15 +155,23 @@ class LocalFactsSource:
                 ad_brief.get("angle", ""),
             ]
         ).lower()
-        for slug, p in products.items():
-            if p["name"].lower() in haystack:
-                return p
 
-        for slug, p in products.items():
+        named = []
+        for p in active_products:
+            pattern = r"\b" + re.escape(p["name"].lower()) + r"\b"
+            m = re.search(pattern, haystack)
+            if m:
+                named.append((m.start(), p))
+        if named:
+            named.sort(key=lambda t: t[0])
+            return named[0][1], None
+
+        for p in active_products:
             if p.get("default"):
-                return p
+                return p, f"product not named in ad; defaulted to {p['name']}"
 
-        return next(iter(products.values()))
+        default_product = active_products[0] if active_products else next(iter(products.values()))
+        return default_product, f"product not named in ad; defaulted to {default_product['name']}"
 
     def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None):
         self._load()
@@ -161,6 +189,20 @@ class LocalFactsSource:
 
         price_id = f"price-{name_slug}"
         spec_ids = {s["claim_id"] for s in specs if s.get("claim_id")}
+        # Fix cycle 8 problem 2: claims/products.json's own `specs` list only
+        # ever carried the handful of fields Shopify already exposed (capacity,
+        # cabin material, max temp, ...) -- per-model facts seeded from g Brain
+        # (dimensions, electrical, red light, heater, wood: `spec-<model>-*`,
+        # and the older `gbrain-<model>-*` Fuji/Everest set) were never wired
+        # into facts_pack at all, so the writer had nothing to cite even once
+        # the claim existed in claims/verified.json. Any verified claim whose
+        # id is namespaced to this model is citable, not just the ones already
+        # listed as an explicit spec-table row.
+        spec_ids |= {
+            c["id"]
+            for c in self._verified
+            if c["id"].startswith(f"spec-{name_slug}-") or c["id"].startswith(f"gbrain-{name_slug}-")
+        }
         universal_ids = (
             {"founder-ceo", "warranty-terms", "shipping-policy", "returns-policy", price_id}
             | spec_ids

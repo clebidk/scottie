@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -6,6 +7,31 @@ from adv import ingest
 from adv.budget import Budget
 from adv.log import RunLog
 from tests.conftest import FakeClient, json_response
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 8 problem 1a: whisper-cli's initial prompt biases decoding toward
+# Peak Saunas' own vocabulary so it stops mishearing "Sauna" as "Sonna".
+# ---------------------------------------------------------------------------
+
+def test_video_to_transcript_passes_whisper_initial_prompt(tmp_path):
+    with patch("adv.ingest.subprocess.run") as mock_run:
+        mock_run.return_value.stdout = "a transcript"
+        (tmp_path / "in.mov").write_bytes(b"fake")
+        result = ingest.video_to_transcript(
+            tmp_path / "in.mov", tmp_path, "ffmpeg", "whisper-cli", "model.bin",
+        )
+    assert result == "a transcript"
+    whisper_call = mock_run.call_args_list[1]
+    whisper_cmd = whisper_call.args[0]
+    assert "--prompt" in whisper_cmd
+    prompt_arg = whisper_cmd[whisper_cmd.index("--prompt") + 1]
+    assert prompt_arg == ingest.WHISPER_INITIAL_PROMPT
+    # every model name the picker needs to recognize is in the prompt
+    for name in ("Fuji", "Everest", "Rainier", "Shasta", "Denali", "Matterhorn", "Patagonia", "El Capitan", "Kilimanjaro", "Mini"):
+        assert name in ingest.WHISPER_INITIAL_PROMPT
+    assert "Peak Saunas" in ingest.WHISPER_INITIAL_PROMPT
+    assert "Sauna" in ingest.WHISPER_INITIAL_PROMPT
 
 
 # ---------------------------------------------------------------------------

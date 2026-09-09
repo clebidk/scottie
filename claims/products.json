@@ -84,7 +84,8 @@
           "claim_id": "spec-crown-audio"
         }
       ],
-      "short_name": "Peak Crown 2-Person Infrared Sauna"
+      "short_name": "Peak Crown 2-Person Infrared Sauna",
+      "active": false
     },
     "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
       "slug": "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
@@ -148,7 +149,8 @@
           "claim_id": "spec-mini-audio"
         }
       ],
-      "short_name": "Peak Mini 1-Person Infrared Sauna"
+      "short_name": "Peak Mini 1-Person Infrared Sauna",
+      "active": true
     },
     "peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
       "slug": "peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
@@ -214,7 +216,8 @@
           "claim_id": "spec-kilimanjaro-audio"
         }
       ],
-      "short_name": "Peak Kilimanjaro 5-Person Outdoor Infrared Sauna"
+      "short_name": "Peak Kilimanjaro 5-Person Outdoor Infrared Sauna",
+      "active": true
     },
     "peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
       "slug": "peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
@@ -276,7 +279,8 @@
           "claim_id": "spec-patagonia-audio"
         }
       ],
-      "short_name": "Peak Patagonia 2-Person Outdoor Infrared Sauna"
+      "short_name": "Peak Patagonia 2-Person Outdoor Infrared Sauna",
+      "active": true
     },
     "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
       "slug": "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
@@ -343,7 +347,8 @@
           "claim_id": "spec-el-capitan-audio"
         }
       ],
-      "short_name": "Peak El Capitan 4-Person Outdoor Infrared Sauna"
+      "short_name": "Peak El Capitan 4-Person Outdoor Infrared Sauna",
+      "active": true
     },
     "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -411,7 +416,8 @@
           "claim_id": "spec-matterhorn-audio"
         }
       ],
-      "short_name": "Peak Matterhorn 3-Person Infrared Sauna"
+      "short_name": "Peak Matterhorn 3-Person Infrared Sauna",
+      "active": true
     },
     "peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -477,7 +483,8 @@
           "claim_id": "spec-denali-audio"
         }
       ],
-      "short_name": "Peak Denali 3-Person Infrared Sauna"
+      "short_name": "Peak Denali 3-Person Infrared Sauna",
+      "active": true
     },
     "peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -538,7 +545,8 @@
           "claim_id": "spec-rainier-audio"
         }
       ],
-      "short_name": "Peak Rainier 1-Person Infrared Sauna"
+      "short_name": "Peak Rainier 1-Person Infrared Sauna",
+      "active": true
     },
     "peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
       "slug": "peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
@@ -599,7 +607,8 @@
           "claim_id": "spec-shasta-audio"
         }
       ],
-      "short_name": "Peak Shasta 1-Person Infrared Sauna"
+      "short_name": "Peak Shasta 1-Person Infrared Sauna",
+      "active": true
     },
     "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
       "slug": "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
@@ -666,7 +675,8 @@
         }
       ],
       "default": true,
-      "short_name": "Peak Fuji 2-Person Infrared Sauna"
+      "short_name": "Peak Fuji 2-Person Infrared Sauna",
+      "active": true
     },
     "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
       "slug": "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
@@ -732,7 +742,8 @@
           "claim_id": "spec-everest-audio"
         }
       ],
-      "short_name": "Peak Everest 2-Person Infrared Sauna"
+      "short_name": "Peak Everest 2-Person Infrared Sauna",
+      "active": true
     }
   }
 }

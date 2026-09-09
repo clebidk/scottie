@@ -107,6 +107,18 @@ def detect_type(path):
 # Video -> transcript (ffmpeg + whisper.cpp)
 # ---------------------------------------------------------------------------
 
+# Fix cycle 8 problem 1a: whisper-cli's own vocabulary has no idea "Peak
+# Saunas" or its model names exist -- on fixtures/product-features-v2.mov it
+# heard "Sonna" for "Sauna". whisper.cpp's initial prompt biases decoding
+# toward a short vocabulary list without changing the model; it's not a
+# transcript prefix, so it never appears in the output itself.
+WHISPER_INITIAL_PROMPT = (
+    "Peak Saunas. Sauna, infrared sauna, red light therapy. Models: Fuji, "
+    "Everest, Rainier, Shasta, Denali, Matterhorn, Patagonia, El Capitan, "
+    "Kilimanjaro, Mini."
+)
+
+
 def video_to_transcript(path, workdir, ffmpeg_bin, whisper_bin, whisper_model):
     path = Path(path)
     workdir = Path(workdir)
@@ -123,7 +135,10 @@ def video_to_transcript(path, workdir, ffmpeg_bin, whisper_bin, whisper_model):
     )
 
     result = subprocess.run(
-        [whisper_bin, "-m", str(whisper_model), "-f", str(wav_path), "-nt", "-np", "-t", "3"],
+        [
+            whisper_bin, "-m", str(whisper_model), "-f", str(wav_path), "-nt", "-np", "-t", "3",
+            "--prompt", WHISPER_INITIAL_PROMPT,
+        ],
         check=True, capture_output=True, text=True,
     )
     return result.stdout.strip()

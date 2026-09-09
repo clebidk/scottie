@@ -838,5 +838,237 @@
     "source": "gbrain:spec/everest",
     "approved_by": "gbrain-seed",
     "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-electrical",
+    "text": "Mini electrical: 120V/15A, standard outlet -- no electrician needed. Wattage ~1500W.",
+    "category": "spec",
+    "source": "gbrain:spec/mini; https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-red-light",
+    "text": "Mini red light therapy: included standard, 1 RLT panel, front-facing full-body medical-grade red light therapy panel.",
+    "category": "spec",
+    "source": "gbrain:spec/mini; https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-electrical",
+    "text": "Rainier electrical: 120V/15A, standard outlet -- no electrician needed. Wattage ~1800W.",
+    "category": "spec",
+    "source": "gbrain:spec/rainier; https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-dimensions",
+    "text": "Rainier dimensions: exterior (assembled) 42\"W x 40\"D x 75\"H, bench 38\"L x 18\"D (approx), assembled weight 305 lbs; shipping crate 46.1\" x 22.0\" x 83.1\", crate weight 397 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/rainier; https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-red-light",
+    "text": "Rainier red light therapy: included standard, 1 RLT panel, front-facing full-body medical-grade red light therapy panel, seated distance 7-8 in from panel.",
+    "category": "spec",
+    "source": "gbrain:spec/rainier; https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-heater",
+    "text": "Rainier heating: 7 infrared heater panels, full spectrum halogen/quartz + XL red light panel. No floor heater.",
+    "category": "spec",
+    "source": "gbrain:spec/rainier; https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-electrical",
+    "text": "Shasta electrical: 120V/15A, standard outlet -- no electrician needed. Wattage ~1800W.",
+    "category": "spec",
+    "source": "gbrain:spec/shasta; https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-dimensions",
+    "text": "Shasta dimensions: exterior (assembled) 42\"W x 40\"D x 75\"H, bench 38\"L x 18\"D (approx), assembled weight 305 lbs; shipping crate 46.1\" x 22.0\" x 83.1\", crate weight 419 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/shasta; https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-red-light",
+    "text": "Shasta red light therapy: included standard, 1 RLT panel, front-facing full-body medical-grade red light therapy panel, seated distance 7-8 in from panel.",
+    "category": "spec",
+    "source": "gbrain:spec/shasta; https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-heater",
+    "text": "Shasta heating: 7 infrared heater panels, full spectrum halogen/quartz. No floor heater.",
+    "category": "spec",
+    "source": "gbrain:spec/shasta; https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-dimensions",
+    "text": "Denali dimensions: exterior (assembled) 61\"W x 44\"D x 75\"H, bench 55\"L x 20\"D (approx), assembled weight 375 lbs; shipping crate 65.7\" x 22.0\" x 79.1\", crate weight 589 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/denali; https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-red-light",
+    "text": "Denali red light therapy: included standard, 2 RLT panels.",
+    "category": "spec",
+    "source": "gbrain:spec/denali; https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-heater",
+    "text": "Denali heating: 9 infrared heater panels, full spectrum halogen/quartz 360 degrees. Floor heater included.",
+    "category": "spec",
+    "source": "gbrain:spec/denali; https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-dimensions",
+    "text": "Matterhorn dimensions: exterior (assembled) 61\"W x 44\"D x 75\"H, bench 55\"L x 20\"D (approx), assembled weight 400 lbs; shipping crate 65.7\" x 22.0\" x 79.1\", crate weight 560 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/matterhorn; https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-red-light",
+    "text": "Matterhorn red light therapy: included standard, 2 RLT panels.",
+    "category": "spec",
+    "source": "gbrain:spec/matterhorn; https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-heater",
+    "text": "Matterhorn heating: 9 infrared heater panels, full spectrum halogen/quartz 360 degrees. Floor heater included.",
+    "category": "spec",
+    "source": "gbrain:spec/matterhorn; https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-electrical",
+    "text": "Patagonia electrical: dedicated 240V/20A outdoor-rated circuit -- electrician required.",
+    "category": "spec",
+    "source": "gbrain:spec/patagonia; https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-wood",
+    "text": "Patagonia materials: interior crafted from Canadian Hemlock; exterior material is black space-grade aluminum.",
+    "category": "spec",
+    "source": "gbrain:spec/patagonia; https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-dimensions",
+    "text": "Patagonia dimensions: exterior (assembled) 52\"W x 42\"D x 83\"H, bench 46\"L x 20\"D (approx), assembled weight 798 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/patagonia; https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-red-light",
+    "text": "Patagonia red light therapy: included standard, 1 RLT panel.",
+    "category": "spec",
+    "source": "gbrain:spec/patagonia; https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-heater",
+    "text": "Patagonia heating: 7 hybrid full spectrum panels (3 carbon FAR + 4 halogen/quartz). Floor heater included.",
+    "category": "spec",
+    "source": "gbrain:spec/patagonia; https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-electrical",
+    "text": "El Capitan electrical: dedicated 240V/30A outdoor-rated circuit -- electrician required.",
+    "category": "spec",
+    "source": "gbrain:spec/el-capitan; https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-wood",
+    "text": "El Capitan materials: interior crafted from Canadian Hemlock; exterior material is black space-grade aluminum.",
+    "category": "spec",
+    "source": "gbrain:spec/el-capitan; https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-dimensions",
+    "text": "El Capitan dimensions: exterior (assembled) 81\"W x 55\"D x 83\"H, bench 72\"L x 18\"D (approx), assembled weight 695 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/el-capitan; https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-red-light",
+    "text": "El Capitan red light therapy: included standard, 2 RLT panels.",
+    "category": "spec",
+    "source": "gbrain:spec/el-capitan; https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-electrical",
+    "text": "Kilimanjaro electrical: dedicated 240V/30A outdoor-rated circuit -- electrician required.",
+    "category": "spec",
+    "source": "gbrain:spec/kilimanjaro; https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-wood",
+    "text": "Kilimanjaro materials: interior crafted from Canadian Hemlock; exterior material is black space-grade aluminum.",
+    "category": "spec",
+    "source": "gbrain:spec/kilimanjaro; https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-dimensions",
+    "text": "Kilimanjaro dimensions: exterior (assembled) 59\"W x 59\"D x 83\"H, bench 55\"L x 18\"D upper bench (approx), assembled weight 1031 lbs.",
+    "category": "spec",
+    "source": "gbrain:spec/kilimanjaro; https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-red-light",
+    "text": "Kilimanjaro red light therapy: included standard, 1 RLT panel.",
+    "category": "spec",
+    "source": "gbrain:spec/kilimanjaro; https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "gbrain-spec",
+    "date": "2026-09-09"
   }
 ]

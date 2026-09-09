@@ -466,7 +466,7 @@ def _log_run_result(log, result, gate_log):
     log.result(result, total_attempts, total_repairs)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None):
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None, product_warning=None):
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -474,8 +474,14 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
         f"- Product: {product_name}",
         f"- Cartridges: {', '.join(selected)}",
         "",
-        "## Ad claims matched",
     ]
+    # Fix cycle 8 problem 1b: no model name was found in the ad, so the run
+    # defaulted -- surface that prominently, it's the kind of thing an
+    # operator needs to catch before a page ships grounded on the wrong SKU.
+    if product_warning:
+        lines.append(f"**WARNING: {product_warning}**")
+        lines.append("")
+    lines.append("## Ad claims matched")
     for m in gate_matched:
         lines.append(f"- ad claim \"{m['claim']}\" -> verified `{m['matched_claim_id']}` (overlap {m['overlap']})")
 
@@ -642,7 +648,13 @@ def cmd_run(args):
         )
         log.gate_result("PASS", f"{len(gate_matched)} ad claim(s) matched")
 
-        product = facts_source.pick_product(args.product, ad_brief)
+        # Fix cycle 8 problem 1b: pick_product_with_warning names the exact
+        # model mentioned in the ad (word-boundary match, first-mentioned wins
+        # if several); if none is named it falls back to the default product
+        # and hands back a warning that goes into REVIEW.md below.
+        product, product_warning = facts_source.pick_product_with_warning(args.product, ad_brief)
+        if product_warning:
+            log.event("run", product_warning)
         live_price_claim = live_price_claims_by_slug.get(product["slug"])
         reviews_claim = fetch_reviews_claim(product["url"], datetime.date.today().isoformat(), log=log)
 
@@ -745,6 +757,7 @@ def cmd_run(args):
         gate_matched=gate_matched,
         emf_urls=emf_urls,
         gate_log=gate_log,
+        product_warning=product_warning,
     )
     _log_run_result(log, "PASS", gate_log)
     log.close()
