@@ -350,12 +350,19 @@ def find_first_person_violations(page_json, speaker_pov):
 # (article's "hidden costs" angle is largely about financing/price
 # transparency, so the word "financing" alone shows up constantly in
 # ordinary buyer-education commentary that asserts no specific terms and
-# needs no claim_id under any other gate).
+# needs no claim_id under any other gate). digit_exempt_terms is stripped
+# first, same as the digit/claim_id rule (_strip_digit_exempt_tokens) --
+# otherwise a sentence that just happens to also mention the product's own
+# short_name ("...financing information are all posted on the same page ...
+# The Peak Fuji 2-Person Infrared Sauna...") reads as "stating a figure"
+# purely because of the "2" in the product name, with nothing to do with
+# financing at all. Caught live on the hidden-costs-v2 verification run.
 _FINANCING_TERMS_RE = re.compile(r"\d|\$|%")
 
 
-def _states_financing_terms(text):
-    return bool(_FINANCING_TERMS_RE.search(text)) or any(
+def _states_financing_terms(text, digit_exempt_terms=None):
+    digit_check_text = _strip_digit_exempt_tokens(text, digit_exempt_terms)
+    return bool(_FINANCING_TERMS_RE.search(digit_check_text)) or any(
         name in text.lower() for name in FORBIDDEN_LENDER_NAMES
     )
 
@@ -371,7 +378,7 @@ def _states_financing_terms(text):
 # version of this check flagged ordinary buyer-education prose ("financing
 # terms and sticker price are two separate questions") that named no figure
 # or lender at all. No-op once a real lender is configured.
-def find_financing_violations(page_json, financing_lender=None):
+def find_financing_violations(page_json, financing_lender=None, digit_exempt_terms=None):
     if financing_lender:
         return []
     hits = []
@@ -394,7 +401,7 @@ def find_financing_violations(page_json, financing_lender=None):
                 if (
                     "financ" in remainder.lower()
                     and not remainder.strip().endswith("?")
-                    and _states_financing_terms(remainder)
+                    and _states_financing_terms(remainder, digit_exempt_terms)
                 ):
                     hits.append(
                         {
@@ -428,7 +435,7 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_first_person_violations(page_json, speaker_pov)
     problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
     problems += find_leaked_claim_ids(page_json, valid_ids)
-    problems += find_financing_violations(page_json, financing_lender=financing_lender)
+    problems += find_financing_violations(page_json, financing_lender=financing_lender, digit_exempt_terms=digit_exempt_terms)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
 

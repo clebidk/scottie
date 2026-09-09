@@ -576,6 +576,28 @@ def test_find_financing_violations_allows_the_exact_sentence_combined_with_unrel
     assert find_financing_violations(page, financing_lender=None) == []
 
 
+def test_find_financing_violations_ignores_a_coincidental_digit_from_the_product_name():
+    # Regression from the hidden-costs-v2 verification run: the sentence
+    # doesn't state any financing figure -- the "2" that made
+    # _states_financing_terms fire was only the product's own short_name
+    # ("Peak Fuji 2-Person Infrared Sauna") mentioned elsewhere in the same
+    # sentence, unrelated to financing.
+    text = (
+        "The Peak Fuji 2-Person Infrared Sauna lists its price, specs, and financing details "
+        "on the same product page, so a call becomes optional."
+    )
+    page = {"close": {"paragraphs": [{"text": text}]}}
+    assert find_financing_violations(page, financing_lender=None, digit_exempt_terms=["Peak Fuji 2-Person Infrared Sauna"]) == []
+    # a real, non-capacity figure elsewhere in the same sentence is still
+    # caught -- this isn't a blanket exemption for any digit.
+    text_with_real_figure = text.replace("financing details", "financing at $99/mo")
+    page_with_real_figure = {"close": {"paragraphs": [{"text": text_with_real_figure}]}}
+    hits = find_financing_violations(
+        page_with_real_figure, financing_lender=None, digit_exempt_terms=["Peak Fuji 2-Person Infrared Sauna"]
+    )
+    assert len(hits) == 1
+
+
 def test_find_financing_violations_ignores_topical_mentions_with_no_stated_terms():
     # Regression from the hidden-costs-v2 verification run: the article
     # cartridge's whole angle is financing/price transparency, so ordinary
