@@ -1,0 +1,23 @@
+[project]
+name = "advertorial"
+version = "0.1.0"
+description = "Ad-to-landing-page generator (V1 static harness) for Peak Saunas"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic",
+    "python-dotenv",
+    "jinja2",
+]
+
+[project.scripts]
+adv = "adv.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["adv*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
