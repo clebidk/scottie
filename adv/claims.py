@@ -134,14 +134,29 @@ def gate_ad_brief_claims(ad_brief, verified_claims):
 _TRIGGER_WORD_RE = re.compile(r"\b(?:" + "|".join(TRIGGER_WORDS) + r")\b")
 
 
-def _contains_trigger(text):
-    # A verbatim customer quote (e.g. "It's 2026," she said) isn't the
-    # author's own factual assertion -- don't require a claim_id just
-    # because the ad speaker's own words happened to include a number.
+def _trigger_reason(text):
+    """None if `text` carries nothing that requires a claim_id; otherwise a
+    short human-readable reason (fix cycle 4: named in the gate failure so a
+    repair attempt knows exactly what to remove or cite, instead of
+    re-reading the whole paragraph to guess). A verbatim customer quote
+    (e.g. "It's 2026," she said) isn't the author's own factual assertion --
+    don't require a claim_id just because the ad speaker's own words
+    happened to include a number."""
     unquoted = _QUOTED_SPAN_RE.sub(" ", text)
-    if re.search(r"\d", unquoted) or "%" in unquoted or "$" in unquoted:
-        return True
-    return bool(_TRIGGER_WORD_RE.search(unquoted.lower()))
+    if "$" in unquoted:
+        return "contains a dollar amount"
+    if "%" in unquoted:
+        return "contains a percentage"
+    if re.search(r"\d", unquoted):
+        return "contains a number"
+    m = _TRIGGER_WORD_RE.search(unquoted.lower())
+    if m:
+        return f'uses the word "{m.group(0)}"'
+    return None
+
+
+def _contains_trigger(text):
+    return _trigger_reason(text) is not None
 
 
 def collect_claim_ids(node):
@@ -182,9 +197,15 @@ def validate_page_claim_ids(page_json, valid_claim_ids):
             if isinstance(node.get("text"), str):
                 text = node["text"]
                 has_ref = bool(claim_ids) or bool(claim_id)
-                if _contains_trigger(text) and not has_ref:
+                reason = _trigger_reason(text)
+                if reason and not has_ref:
                     problems.append(
-                        {"path": path, "issue": "text needs at least one claim_id", "text": text}
+                        {
+                            "path": path,
+                            "issue": f"text needs at least one claim_id ({reason}) -- cite a "
+                                     "verified claim_id, or rewrite the sentence without it",
+                            "text": text,
+                        }
                     )
             for k, v in node.items():
                 walk(v, f"{path}.{k}")

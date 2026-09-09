@@ -173,7 +173,10 @@ def build_revision_note(attempt, failures):
         f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS})",
         "Your previous page.json failed the gate checks below. Fix every one of them and "
         "return a complete, corrected page.json in the same schema -- the full page, not a "
-        "diff or a patch.",
+        "diff or a patch. Fixing a flagged sentence by rewriting it often introduces a new, "
+        "unflagged violation nearby (a different sentence using a forbidden word, or another "
+        "unsourced number) -- re-read every sentence you touch, and every sentence next to it, "
+        "against the system prompt's forbidden-term and claim_id rules before returning.",
         "",
     ]
     lines += [_format_gate_failure(item) for item in failures]
