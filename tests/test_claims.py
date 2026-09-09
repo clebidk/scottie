@@ -143,6 +143,32 @@ def test_find_forbidden_terms_ignores_emf_in_urls_and_asset_ids():
     assert find_forbidden_terms(page) == []
 
 
+def test_find_forbidden_terms_ignores_emf_in_an_inline_citation_url():
+    # Regression: the article cartridge cites sources inline as
+    # "(source, year, <url>)" inside a prose "text" field -- the product URL
+    # there also contains "emf". Only the URL substring is exempt; the
+    # surrounding prose is still scanned.
+    page = {
+        "body_sections": [
+            {
+                "paragraphs": [
+                    {
+                        "text": "Peak runs on a 120V/20A outlet (Peak Saunas, 2026, "
+                        "https://peaksaunas.com/products/peak-saunas-fuji-2-person-near-zero-emf-full-spectrum-infrared-sauna)."
+                    }
+                ]
+            }
+        ]
+    }
+    assert find_forbidden_terms(page) == []
+
+
+def test_find_forbidden_terms_still_catches_emf_outside_a_url():
+    page = {"body_sections": [{"paragraphs": [{"text": "This sauna has near-zero EMF, unlike competitors."}]}]}
+    hits = find_forbidden_terms(page)
+    assert any(h["term"] == "emf" for h in hits)
+
+
 def test_gate_page_json_stops_on_emf_even_with_valid_claim_ids():
     page = {"proof_bullets": [{"label": "EMF", "text": "Near-zero EMF.", "claim_ids": ["price-fuji"]}]}
     with pytest.raises(ClaimsGateFailure) as exc_info:

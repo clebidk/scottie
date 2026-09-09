@@ -179,6 +179,7 @@ def validate_page_claim_ids(page_json, valid_claim_ids):
 # without it ever reaching rendered copy. Fix 4: "The product URL may still
 # contain the word; that is fine."
 _NON_PROSE_KEYS = {"url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
+_URL_RE = re.compile(r"https?://\S+")
 
 
 def find_forbidden_terms(page_json, financing_lender=None):
@@ -194,7 +195,13 @@ def find_forbidden_terms(page_json, financing_lender=None):
 
     def walk(node, path):
         if isinstance(node, str):
-            lower = node.lower()
+            # A citation URL inline in prose (e.g. "(Peak Saunas, 2026,
+            # https://.../near-zero-emf-...)") may legitimately contain a
+            # forbidden term as part of the product's own URL/handle -- fix 4:
+            # "The product URL may still contain the word; that is fine."
+            # Strip any URL substring before scanning the surrounding prose.
+            without_urls = _URL_RE.sub(" ", node)
+            lower = without_urls.lower()
             for term in forbidden:
                 if term in lower:
                     hits.append({"path": path, "term": term, "issue": f"forbidden term {term!r} found", "text": node})
