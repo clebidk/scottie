@@ -317,6 +317,40 @@ def test_write_and_gate_page_resolves_hype_word_via_deterministic_fix_without_a_
     assert "unlock" not in page["open"][0]["text"].lower()
 
 
+def test_apply_deterministic_fixes_resolves_a_safe_trigger_word_failure():
+    # Regression from the hidden-costs-v2 verification run: generic
+    # buyer-education prose used "study"/"studies" with nothing in
+    # facts_pack.verified_claims to cite -- "research" isn't a trigger word,
+    # so swapping it in drops the claim_id requirement without a repair call.
+    page = {
+        "body_sections": [
+            {"paragraphs": [{"text": "Any brand citing a study should be citing something a reader can look up."}]}
+        ]
+    }
+    failures = [{
+        "path": "$.body_sections[0].paragraphs[0]",
+        "issue": 'text needs at least one claim_id (uses the word "study") -- cite a verified claim_id, or rewrite the sentence without it',
+        "text": page["body_sections"][0]["paragraphs"][0]["text"],
+    }]
+    fixed = apply_deterministic_fixes(page, failures, set())
+    assert fixed == 1
+    new_text = page["body_sections"][0]["paragraphs"][0]["text"]
+    assert "study" not in new_text.lower()
+    assert "research" in new_text.lower()
+
+
+def test_apply_deterministic_fixes_leaves_trigger_words_with_no_safe_synonym_alone():
+    page = {"hero": {"text": "Look at ratings and reviews from other buyers."}}
+    failures = [{
+        "path": "$.hero",
+        "issue": 'text needs at least one claim_id (uses the word "reviews") -- cite a verified claim_id, or rewrite the sentence without it',
+        "text": page["hero"]["text"],
+    }]
+    fixed = apply_deterministic_fixes(page, failures, set())
+    assert fixed == 0
+    assert page["hero"]["text"] == "Look at ratings and reviews from other buyers."
+
+
 def test_write_and_gate_page_resolves_leaked_claim_id_via_deterministic_fix(tmp_path):
     bad_page = dict(
         ARTICLE_PAGE,

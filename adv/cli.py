@@ -295,19 +295,67 @@ def _set_at_path(page, path, value):
     node[segs[-1]] = value
 
 
+# A trigger word (claims.TRIGGER_WORDS) that always needs a claim_id has a
+# generic, non-trigger replacement safe enough to substitute blind: "study"/
+# "studies" recur constantly in the article cartridge's buyer-education
+# prose ("a careful buyer treats research as useful background...") with
+# nothing in facts_pack.verified_claims to cite -- swapping in "research"
+# (itself not a trigger word) drops the requirement without changing the
+# sentence's meaning. Deliberately small: the other trigger words
+# (medical/clinical/proven/rated/reviews/emf) either already have prompt-
+# level guidance (reviews) or don't have a safe drop-in synonym, so a real
+# repair call still handles those.
+_TRIGGER_WORD_SYNONYMS = {
+    "study": "research",
+    "studies": "research",
+}
+
+# claims.validate_page_claim_ids's trigger-word issue text, e.g. 'text needs
+# at least one claim_id (uses the word "study") -- cite a verified claim_id,
+# or rewrite the sentence without it'.
+_TRIGGER_WORD_ISSUE_RE = re.compile(r'uses the word "([a-z]+)"')
+
+
+def _generic_word_sub(text, word, replacement):
+    pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
+    return pattern.sub(lambda m: _case_preserving_replacement(m, replacement), text)
+
+
 def apply_deterministic_fixes(page, failures, valid_claim_ids):
     """Mutates `page` in place, resolving exactly the failures that a safe
-    text substitution can fix -- a forbidden hype word/exclamation mark, or
-    a claim id leaked into a parenthetical -- and leaving everything else
-    (a missing claim_id, a word-count or CTA violation, EMF, a banned name)
-    for a real repair call. Returns the number of fields changed."""
+    text substitution can fix -- a forbidden hype word/exclamation mark, a
+    claim id leaked into a parenthetical, or a trigger word with a safe
+    generic synonym (_TRIGGER_WORD_SYNONYMS) -- and leaving everything else
+    (a missing claim_id with no safe rewrite, a word-count or CTA violation,
+    EMF, a banned name) for a real repair call. Returns the number of
+    fields changed."""
     fixed = 0
     for item in failures:
-        path = item.get("path")
-        if not path:
+        raw_path = item.get("path")
+        if not raw_path:
             continue
         term = item.get("term")
         issue = item.get("issue", "")
+
+        if term in _HYPE_SYNONYMS or term == "!":
+            path = raw_path
+            substitute = apply_hype_synonyms
+        elif "claim id leaked into copy" in issue:
+            path = raw_path
+            substitute = lambda text: strip_leaked_claim_ids(text, valid_claim_ids)[0]
+        else:
+            m = _TRIGGER_WORD_ISSUE_RE.search(issue)
+            word = m.group(1) if m else None
+            replacement = _TRIGGER_WORD_SYNONYMS.get(word)
+            if not replacement:
+                continue
+            # validate_page_claim_ids's trigger-word path points at the
+            # containing node (the one with the "text" field), not the
+            # string itself -- unlike the forbidden-term/leaked-id paths
+            # above, which already point at the string.
+            path = raw_path if raw_path.endswith(".text") else f"{raw_path}.text"
+            substitute = lambda text, w=word, r=replacement: _generic_word_sub(text, w, r)
+
         try:
             current = _get_at_path(page, path)
         except (KeyError, IndexError, TypeError):
@@ -315,13 +363,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids):
         if not isinstance(current, str):
             continue
 
-        if term in _HYPE_SYNONYMS or term == "!":
-            new_text = apply_hype_synonyms(current)
-        elif "claim id leaked into copy" in issue:
-            new_text, _removed = strip_leaked_claim_ids(current, valid_claim_ids)
-        else:
-            continue
-
+        new_text = substitute(current)
         if new_text != current:
             _set_at_path(page, path, new_text)
             fixed += 1
