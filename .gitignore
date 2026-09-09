@@ -9,3 +9,5 @@ __pycache__/
 fixtures/*.mov
 fixtures/*.wav
 fixtures/*.png
+advertorial.egg-info/
+*.egg-info/
