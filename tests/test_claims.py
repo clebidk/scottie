@@ -130,6 +130,19 @@ def test_find_forbidden_terms_allows_the_configured_lender_name():
     assert hits == []
 
 
+def test_find_forbidden_terms_ignores_emf_in_urls_and_asset_ids():
+    # Regression: the Fuji product URL/handle and its derived asset ids
+    # literally contain "emf" -- fix 4 says the URL may still contain the
+    # word; that's fine, since it's never rendered as page copy.
+    page = {
+        "hero": {
+            "cta": {"url": "https://peaksaunas.com/products/peak-saunas-fuji-near-zero-emf-sauna"},
+            "hero_image": {"asset_id": "asset-peak-saunas-fuji-near-zero-emf-sauna-1"},
+        }
+    }
+    assert find_forbidden_terms(page) == []
+
+
 def test_gate_page_json_stops_on_emf_even_with_valid_claim_ids():
     page = {"proof_bullets": [{"label": "EMF", "text": "Near-zero EMF.", "claim_ids": ["price-fuji"]}]}
     with pytest.raises(ClaimsGateFailure) as exc_info:

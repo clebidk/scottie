@@ -174,10 +174,19 @@ def validate_page_claim_ids(page_json, valid_claim_ids):
     return problems
 
 
+# Structural/reference fields, not prose the writer composed -- a product
+# URL or asset id can legitimately contain "emf" (the Shopify handle does)
+# without it ever reaching rendered copy. Fix 4: "The product URL may still
+# contain the word; that is fine."
+_NON_PROSE_KEYS = {"url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
+
+
 def find_forbidden_terms(page_json, financing_lender=None):
-    """Recursively scan every string in page_json for a forbidden term
-    (case-insensitive substring). Lender names are only forbidden while no
-    lender has been approved (claims/config.json financing_lender is null)."""
+    """Recursively scan every prose string in page_json for a forbidden term
+    (case-insensitive substring), skipping structural/reference fields (url,
+    asset_id, etc.) that aren't writer-composed copy. Lender names are only
+    forbidden while no lender has been approved (claims/config.json
+    financing_lender is null)."""
     forbidden = list(ALWAYS_FORBIDDEN_TERMS)
     if not financing_lender:
         forbidden += list(FORBIDDEN_LENDER_NAMES)
@@ -191,6 +200,8 @@ def find_forbidden_terms(page_json, financing_lender=None):
                     hits.append({"path": path, "term": term, "issue": f"forbidden term {term!r} found", "text": node})
         elif isinstance(node, dict):
             for k, v in node.items():
+                if k in _NON_PROSE_KEYS:
+                    continue
                 walk(v, f"{path}.{k}")
         elif isinstance(node, list):
             for i, v in enumerate(node):
