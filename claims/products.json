@@ -1,0 +1,597 @@
+{
+  "generated": "2026-09-09",
+  "source": "https://peaksaunas.com/products.json",
+  "products": {
+    "peak-saunas-crown-2-person-full-spectrum-infrared-sauna": {
+      "slug": "peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+      "name": "Crown",
+      "title": "Crown 2-Person Full Spectrum Infrared Sauna with Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+      "price": "4950.00",
+      "compare_at_price": "9237.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/IMG_7231.jpg?v=1770236223",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Crown_10.png?v=1770236223",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/WhatsApp_Image_2025-07-07_at_21.14.21.jpg?v=1770236223"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-WHITNEY",
+          "title": "Default Title",
+          "price": "4950.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $138/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "2-Person",
+          "claim_id": "spec-crown-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian hemlock",
+          "claim_id": "spec-crown-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-crown-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-crown-infrared-wavelength-range"
+        },
+        {
+          "label": "Heating panels",
+          "value": "Eight",
+          "claim_id": "spec-crown-heating-panels"
+        },
+        {
+          "label": "Electrical requirement",
+          "value": "120V outlet",
+          "claim_id": "spec-crown-electrical-requirement"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-crown-audio"
+        }
+      ]
+    },
+    "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
+      "slug": "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "name": "Mini",
+      "title": "Mini 1-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "price": "5450.00",
+      "compare_at_price": "10832.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/IMG-8472.png?v=1782200866",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/mini-shelf-gap-update.png?v=1784137612",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Untitled_design_15.png?v=1784143080"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-MINI",
+          "title": "Default Title",
+          "price": "5450.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $151/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "1-Person",
+          "claim_id": "spec-mini-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian hemlock",
+          "claim_id": "spec-mini-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-mini-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-mini-infrared-wavelength-range"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-mini-audio"
+        }
+      ]
+    },
+    "peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
+      "slug": "peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+      "name": "Kilimanjaro",
+      "title": "Kilimanjaro 5-Person Outdoor Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy and Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+      "price": "13450.00",
+      "compare_at_price": "20032.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/WhatsApp_Image_2025-08-26_at_11.43.21_1.jpg?v=1756854227",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Kilimanjaro_life.png?v=1782357013",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-KILIMANJARO",
+          "title": "Default Title",
+          "price": "13450.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $374/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "5-Person",
+          "claim_id": "spec-kilimanjaro-capacity"
+        },
+        {
+          "label": "Placement",
+          "value": "Outdoor",
+          "claim_id": "spec-kilimanjaro-placement"
+        },
+        {
+          "label": "Max temperature",
+          "value": "170°F",
+          "claim_id": "spec-kilimanjaro-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-kilimanjaro-infrared-wavelength-range"
+        },
+        {
+          "label": "Heating panels",
+          "value": "twelve",
+          "claim_id": "spec-kilimanjaro-heating-panels"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-kilimanjaro-audio"
+        }
+      ]
+    },
+    "peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
+      "slug": "peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+      "name": "Patagonia",
+      "title": "Patagonia 2-Person Outdoor Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy and Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+      "price": "10950.00",
+      "compare_at_price": "18032.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Patagonia_01_1.png?v=1776186810",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/PWU_-_Patagonia_-_4.png?v=1784748573",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_0503.jpg?v=1776205855"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-PATAGONIA",
+          "title": "Default Title",
+          "price": "10950.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $304/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "2-Person",
+          "claim_id": "spec-patagonia-capacity"
+        },
+        {
+          "label": "Placement",
+          "value": "Outdoor",
+          "claim_id": "spec-patagonia-placement"
+        },
+        {
+          "label": "Max temperature",
+          "value": "170°F",
+          "claim_id": "spec-patagonia-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-patagonia-infrared-wavelength-range"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-patagonia-audio"
+        }
+      ]
+    },
+    "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control": {
+      "slug": "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+      "name": "El Capitan",
+      "title": "El Capitan 4-Person Outdoor Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy and Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+      "price": "16750.00",
+      "compare_at_price": "25831.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/El_Capitan_03_cdd6ca5d-2637-457e-97df-e0694b20f122.png?v=1778549953",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/PWU_-_El_Capitan_-_7.png?v=1782374275",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-EL-CAPITAN",
+          "title": "Default Title",
+          "price": "16750.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $465/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "4-Person",
+          "claim_id": "spec-el-capitan-capacity"
+        },
+        {
+          "label": "Placement",
+          "value": "Outdoor",
+          "claim_id": "spec-el-capitan-placement"
+        },
+        {
+          "label": "Max temperature",
+          "value": "170°F",
+          "claim_id": "spec-el-capitan-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-el-capitan-infrared-wavelength-range"
+        },
+        {
+          "label": "Heating panels",
+          "value": "thirteen",
+          "claim_id": "spec-el-capitan-heating-panels"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-el-capitan-audio"
+        }
+      ]
+    },
+    "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
+      "slug": "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "name": "Matterhorn",
+      "title": "Matterhorn 3-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "price": "10750.00",
+      "compare_at_price": "19831.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Matterhorn_01.png?v=1778549675",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Matternhorn_1.png?v=1782374459",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-MATTERHORN3",
+          "title": "Default Title",
+          "price": "10750.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $299/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "3-Person",
+          "claim_id": "spec-matterhorn-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian red cedar",
+          "claim_id": "spec-matterhorn-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-matterhorn-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-matterhorn-infrared-wavelength-range"
+        },
+        {
+          "label": "Electrical requirement",
+          "value": "240V outlet",
+          "claim_id": "spec-matterhorn-electrical-requirement"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-matterhorn-audio"
+        }
+      ]
+    },
+    "peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
+      "slug": "peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "name": "Denali",
+      "title": "Denali 3-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "price": "9750.00",
+      "compare_at_price": "18831.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Denali_01.png?v=1778549720",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/denali-in-home.png?v=1784132619",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/B0C12639-1442-4451-8DAC-6DF07BB1B697.png?v=1776188601"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-DENALI3",
+          "title": "Default Title",
+          "price": "9750.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $271/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "3-Person",
+          "claim_id": "spec-denali-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian hemlock",
+          "claim_id": "spec-denali-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-denali-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-denali-infrared-wavelength-range"
+        },
+        {
+          "label": "Electrical requirement",
+          "value": "240V outlet",
+          "claim_id": "spec-denali-electrical-requirement"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-denali-audio"
+        }
+      ]
+    },
+    "peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
+      "slug": "peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "name": "Rainier",
+      "title": "Rainier 1-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "price": "7250.00",
+      "compare_at_price": "13032.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/rainier_2.png?v=1778549771",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/rainier_lifestyle_bathroom.png?v=1782940372",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-RAINIER",
+          "title": "Default Title",
+          "price": "7250.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $201/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "1-Person",
+          "claim_id": "spec-rainier-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian red cedar",
+          "claim_id": "spec-rainier-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-rainier-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-rainier-infrared-wavelength-range"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-rainier-audio"
+        }
+      ]
+    },
+    "peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control": {
+      "slug": "peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "name": "Shasta",
+      "title": "Shasta 1-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "price": "6950.00",
+      "compare_at_price": "12532.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Shasta.png?v=1778549811",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/shasta_lifestyle_indoor.jpg?v=1783032017",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-SHASTA",
+          "title": "Default Title",
+          "price": "6950.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $193/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "1-Person",
+          "claim_id": "spec-shasta-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian hemlock",
+          "claim_id": "spec-shasta-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-shasta-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-shasta-infrared-wavelength-range"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-shasta-audio"
+        }
+      ]
+    },
+    "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
+      "slug": "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "name": "Fuji",
+      "title": "Fuji 2-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "price": "8250.00",
+      "compare_at_price": "14032.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Fuji_34500b66-acc8-4a10-b433-9781b05be7aa.png?v=1778549846",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/PWU_-_Fuji_-_18_7681d6dc-6eeb-4423-b4e1-6840e96fea93.png?v=1776202787",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-FUJI",
+          "title": "Default Title",
+          "price": "8250.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $229/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "2-Person",
+          "claim_id": "spec-fuji-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian red cedar",
+          "claim_id": "spec-fuji-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-fuji-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-fuji-infrared-wavelength-range"
+        },
+        {
+          "label": "Electrical requirement",
+          "value": "120V / 20A outlet",
+          "claim_id": "spec-fuji-electrical-requirement"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-fuji-audio"
+        }
+      ],
+      "default": true
+    },
+    "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy": {
+      "slug": "peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "name": "Everest",
+      "title": "Everest 2-Person Full Spectrum Infrared Sauna with Full-Body Medical-Grade Red Light Therapy & Smart WiFi App Control",
+      "url": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "price": "7950.00",
+      "compare_at_price": "13532.00",
+      "image_urls": [
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Everest_6f826c18-4815-4ef2-8420-a45bd5465798.png?v=1778549898",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/everest_lifestyle_la_home.png?v=1783031672",
+        "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360"
+      ],
+      "variants_summary": [
+        {
+          "sku": "PEAK-EVEREST",
+          "title": "Default Title",
+          "price": "7950.00",
+          "available": true
+        }
+      ],
+      "financing_line": "from est. $221/mo with Bread Pay",
+      "financing_estimated": true,
+      "specs": [
+        {
+          "label": "Capacity",
+          "value": "2-Person",
+          "claim_id": "spec-everest-capacity"
+        },
+        {
+          "label": "Cabin material",
+          "value": "Canadian hemlock",
+          "claim_id": "spec-everest-cabin-material"
+        },
+        {
+          "label": "Max temperature",
+          "value": "150°F",
+          "claim_id": "spec-everest-max-temperature"
+        },
+        {
+          "label": "Infrared wavelength range",
+          "value": "700–25,000nm (near, mid, far)",
+          "claim_id": "spec-everest-infrared-wavelength-range"
+        },
+        {
+          "label": "Electrical requirement",
+          "value": "120V / 20A outlet",
+          "claim_id": "spec-everest-electrical-requirement"
+        },
+        {
+          "label": "Audio",
+          "value": "Two Bluetooth speakers",
+          "claim_id": "spec-everest-audio"
+        }
+      ]
+    }
+  }
+}

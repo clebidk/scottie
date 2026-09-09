@@ -1,0 +1,722 @@
+[
+  {
+    "id": "price-crown",
+    "text": "The Peak Saunas Crown is priced at $4950.00 (list/compare-at $9237.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-mini",
+    "text": "The Peak Saunas Mini is priced at $5450.00 (list/compare-at $10832.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-kilimanjaro",
+    "text": "The Peak Saunas Kilimanjaro is priced at $13450.00 (list/compare-at $20032.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-patagonia",
+    "text": "The Peak Saunas Patagonia is priced at $10950.00 (list/compare-at $18032.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-el-capitan",
+    "text": "The Peak Saunas El Capitan is priced at $16750.00 (list/compare-at $25831.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-matterhorn",
+    "text": "The Peak Saunas Matterhorn is priced at $10750.00 (list/compare-at $19831.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-denali",
+    "text": "The Peak Saunas Denali is priced at $9750.00 (list/compare-at $18831.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-rainier",
+    "text": "The Peak Saunas Rainier is priced at $7250.00 (list/compare-at $13032.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-shasta",
+    "text": "The Peak Saunas Shasta is priced at $6950.00 (list/compare-at $12532.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-fuji",
+    "text": "The Peak Saunas Fuji is priced at $8250.00 (list/compare-at $14032.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "price-everest",
+    "text": "The Peak Saunas Everest is priced at $7950.00 (list/compare-at $13532.00).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "founder-ceo",
+    "text": "Austin Laudenslager is the Founder & CEO of Peak Saunas.",
+    "category": "trust",
+    "source": "https://peaksaunas.com/pages/austin-laudenslager",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "warranty-terms",
+    "text": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; cabinetry and structure 7 years; control system and power supply 3 years; red light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original purchaser only and requires installation within 6 months of delivery.",
+    "category": "trust",
+    "source": "https://peaksaunas.com/pages/warranty",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "shipping-policy",
+    "text": "Peak Saunas offers free shipping on all orders. In-stock items have a 2-4 business day handling time, then 3-7 business days in transit. Heavy/bulky items ship via LTL freight with a scheduled delivery appointment.",
+    "category": "trust",
+    "source": "https://peaksaunas.com/policies/shipping-policy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "returns-policy",
+    "text": "Peak Saunas returns require the sauna to be disassembled and repacked in its original crate; all returns are subject to a 25% restocking fee and the customer pays return shipping. Orders cancelled before shipping incur a 5% cancellation fee.",
+    "category": "trust",
+    "source": "https://peaksaunas.com/policies/refund-policy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-crown",
+    "text": "Estimated financing for the Peak Saunas Crown is from est. $138/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-mini",
+    "text": "Estimated financing for the Peak Saunas Mini is from est. $151/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-kilimanjaro",
+    "text": "Estimated financing for the Peak Saunas Kilimanjaro is from est. $374/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-patagonia",
+    "text": "Estimated financing for the Peak Saunas Patagonia is from est. $304/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-el-capitan",
+    "text": "Estimated financing for the Peak Saunas El Capitan is from est. $465/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-matterhorn",
+    "text": "Estimated financing for the Peak Saunas Matterhorn is from est. $299/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-denali",
+    "text": "Estimated financing for the Peak Saunas Denali is from est. $271/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-rainier",
+    "text": "Estimated financing for the Peak Saunas Rainier is from est. $201/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-shasta",
+    "text": "Estimated financing for the Peak Saunas Shasta is from est. $193/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-fuji",
+    "text": "Estimated financing for the Peak Saunas Fuji is from est. $229/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "financing-everest",
+    "text": "Estimated financing for the Peak Saunas Everest is from est. $221/mo with Bread Pay (computed as price / 36 months; not a quoted lender rate).",
+    "category": "price",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "estimate",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "peak-saunas-shows-full-pricing-and-produ",
+    "text": "Peak Saunas shows full pricing and product information on its product pages without requiring a name or phone number to see it.",
+    "category": "trust",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "Caleb",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-capacity",
+    "text": "Crown -- Capacity: 2-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-cabin-material",
+    "text": "Crown -- Cabin material: Canadian hemlock.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-max-temperature",
+    "text": "Crown -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-infrared-wavelength-range",
+    "text": "Crown -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-heating-panels",
+    "text": "Crown -- Heating panels: Eight.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-electrical-requirement",
+    "text": "Crown -- Electrical requirement: 120V outlet.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-crown-audio",
+    "text": "Crown -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-crown-2-person-full-spectrum-infrared-sauna",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-capacity",
+    "text": "Mini -- Capacity: 1-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-cabin-material",
+    "text": "Mini -- Cabin material: Canadian hemlock.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-max-temperature",
+    "text": "Mini -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-infrared-wavelength-range",
+    "text": "Mini -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-mini-audio",
+    "text": "Mini -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-capacity",
+    "text": "Kilimanjaro -- Capacity: 5-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-placement",
+    "text": "Kilimanjaro -- Placement: Outdoor.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-max-temperature",
+    "text": "Kilimanjaro -- Max temperature: 170°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-infrared-wavelength-range",
+    "text": "Kilimanjaro -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-heating-panels",
+    "text": "Kilimanjaro -- Heating panels: twelve.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-kilimanjaro-audio",
+    "text": "Kilimanjaro -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-capacity",
+    "text": "Patagonia -- Capacity: 2-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-placement",
+    "text": "Patagonia -- Placement: Outdoor.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-max-temperature",
+    "text": "Patagonia -- Max temperature: 170°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-infrared-wavelength-range",
+    "text": "Patagonia -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-patagonia-audio",
+    "text": "Patagonia -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-capacity",
+    "text": "El Capitan -- Capacity: 4-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-placement",
+    "text": "El Capitan -- Placement: Outdoor.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-max-temperature",
+    "text": "El Capitan -- Max temperature: 170°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-infrared-wavelength-range",
+    "text": "El Capitan -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-heating-panels",
+    "text": "El Capitan -- Heating panels: thirteen.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-el-capitan-audio",
+    "text": "El Capitan -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-capacity",
+    "text": "Matterhorn -- Capacity: 3-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-cabin-material",
+    "text": "Matterhorn -- Cabin material: Canadian red cedar.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-max-temperature",
+    "text": "Matterhorn -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-infrared-wavelength-range",
+    "text": "Matterhorn -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-electrical-requirement",
+    "text": "Matterhorn -- Electrical requirement: 240V outlet.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-matterhorn-audio",
+    "text": "Matterhorn -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-capacity",
+    "text": "Denali -- Capacity: 3-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-cabin-material",
+    "text": "Denali -- Cabin material: Canadian hemlock.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-max-temperature",
+    "text": "Denali -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-infrared-wavelength-range",
+    "text": "Denali -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-electrical-requirement",
+    "text": "Denali -- Electrical requirement: 240V outlet.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-denali-audio",
+    "text": "Denali -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-denali-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-capacity",
+    "text": "Rainier -- Capacity: 1-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-cabin-material",
+    "text": "Rainier -- Cabin material: Canadian red cedar.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-max-temperature",
+    "text": "Rainier -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-infrared-wavelength-range",
+    "text": "Rainier -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-rainier-audio",
+    "text": "Rainier -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-capacity",
+    "text": "Shasta -- Capacity: 1-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-cabin-material",
+    "text": "Shasta -- Cabin material: Canadian hemlock.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-max-temperature",
+    "text": "Shasta -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-infrared-wavelength-range",
+    "text": "Shasta -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-shasta-audio",
+    "text": "Shasta -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-shasta-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-fuji-capacity",
+    "text": "Fuji -- Capacity: 2-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-fuji-cabin-material",
+    "text": "Fuji -- Cabin material: Canadian red cedar.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-fuji-max-temperature",
+    "text": "Fuji -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-fuji-infrared-wavelength-range",
+    "text": "Fuji -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-fuji-electrical-requirement",
+    "text": "Fuji -- Electrical requirement: 120V / 20A outlet.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-fuji-audio",
+    "text": "Fuji -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-everest-capacity",
+    "text": "Everest -- Capacity: 2-Person.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-everest-cabin-material",
+    "text": "Everest -- Cabin material: Canadian hemlock.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-everest-max-temperature",
+    "text": "Everest -- Max temperature: 150°F.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-everest-infrared-wavelength-range",
+    "text": "Everest -- Infrared wavelength range: 700–25,000nm (near, mid, far).",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-everest-electrical-requirement",
+    "text": "Everest -- Electrical requirement: 120V / 20A outlet.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  },
+  {
+    "id": "spec-everest-audio",
+    "text": "Everest -- Audio: Two Bluetooth speakers.",
+    "category": "spec",
+    "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "approved_by": "site",
+    "date": "2026-09-09"
+  }
+]

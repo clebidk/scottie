@@ -1,0 +1,63 @@
+[
+  {
+    "id": "pending-medical-grade-red-light",
+    "text": "medical-grade red light panel",
+    "category": "health",
+    "appeared_in": [
+      "stills: LessThan$300 (\"FULL-BODY MEDICAL-GRADE RED LIGHT\")",
+      "stills: LevelUpYourHealth (\"MEDICAL-GRADE PANEL, INCLUDED\")",
+      "stills: EnterYourInfraredGlow (\"MEDICAL-GRADE PANEL, INCLUDED\")",
+      "stills: UnforgettableGlow (\"FULL-BODY MEDICAL-GRADE RED LIGHT\")"
+    ],
+    "note": "Peak's own product pages describe the red light panels as 'medical-grade' and Austin's bio references an '8-wavelength (630-1060nm)' panel with published irradiance figures, but no source page on peaksaunas.com states a regulatory/medical certification for the term 'medical-grade'. Needs Caleb's sign-off on wording and a source (e.g. the engineering doc Austin's bio references) before this can move to verified.json.",
+    "status": "pending_review",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "pending-review-rating",
+    "text": "4.9/5 rating with 9,000+ reviews",
+    "category": "trust",
+    "appeared_in": [
+      "stills: EnterYourInfraredGlow (\"4.9/5 +9,000\")"
+    ],
+    "note": "No reviews count/rating endpoint was checked as part of this build (out of scope for the public products.json fetch). Needs a source URL (e.g. the site's reviews app/page) before this can move to verified.json.",
+    "status": "pending_review",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "pending-competitor-emf",
+    "text": "competitor saunas have high EMF exposure",
+    "category": "comparison",
+    "appeared_in": [
+      "stills: LessThan$300 (\"X HIGH EMF EXPOSURE\")",
+      "stills: UnforgettableGlow (\"X LEAKS EMF RADIATION\")"
+    ],
+    "note": "Comparative claim about unnamed competitors with no cited source or test data. Per SPEC.md section 6, competitor comparisons need a source or must be rewritten as the speaker's own experience.",
+    "status": "pending_review",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "pending-4in1-red-light",
+    "text": "4-in-1 near, mid, far infrared + red light",
+    "category": "spec",
+    "appeared_in": [
+      "stills: LevelUpYourHealth (\"4-IN-1: NEAR, MID, FAR IR + RED LIGHT\")",
+      "stills: EnterYourInfraredGlow (\"4-IN-1: NEAR, MID, FAR IR + RED LIGHT\")"
+    ],
+    "note": "The near/mid/far infrared wavelength range (700-25,000nm) is stated on product pages and is in claims/products.json specs, but the '4-in-1' framing (counting red light as a 4th mode alongside 3 infrared bands) is ad copy, not site copy. Needs Caleb's sign-off on whether to adopt this framing verbatim.",
+    "status": "pending_review",
+    "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "pending-financing-lender-bread-pay",
+    "text": "\"with Bread Pay\" as the financing lender name in every product's financing_line (claims/products.json)",
+    "category": "trust",
+    "appeared_in": [
+      "stills: LessThan$300, LevelUpYourHealth, EnterYourInfraredGlow, UnforgettableGlow (financing pill, all read 'with Bread Pay')",
+      "live product pages (e.g. the Fuji PDP payment badge, fetched 2026-09-09)"
+    ],
+    "note": "This build's brief explicitly specified 'Bread Pay' as the financing_line lender name, so claims/products.json uses it as instructed. Flagging: docs/guardrails.md (written concurrently from g Brain policy/financing-and-payment) states Peak's only authorized financing providers are Affirm and Shop Pay Installments, and explicitly calls out 'Bread Pay' on the live Fuji page as an unresolved discrepancy needing Caleb's decision -- either the live site/ad creative have drifted from policy, or the policy doc is stale. Do not treat financing_line's lender name as verified until this is resolved.",
+    "status": "pending_review",
+    "date_flagged": "2026-09-09"
+  }
+]
