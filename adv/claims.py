@@ -16,6 +16,10 @@
     scripts, and styles stripped, entities unescaped) may not contain "emf" or
     "electromagnetic" -- href/src attribute values are exempt because tag-
     stripping removes them along with the tag.
+(f) Fix cycle 3 item 3: each cartridge's persuasive section (proof_bullets /
+    how_it_works / turn_section.criteria) must carry a minimum count of
+    product-benefit claim_ids (spec/benefit/trust category, excluding price/
+    shipping/warranty/returns by id) -- see find_benefit_claim_shortfall.
 """
 import html
 import re
@@ -205,7 +209,7 @@ def validate_page_claim_ids(page_json, valid_claim_ids):
 # URL or asset id can legitimately contain "emf" (the Shopify handle does)
 # without it ever reaching rendered copy. Fix 4: "The product URL may still
 # contain the word; that is fine."
-_NON_PROSE_KEYS = {"url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
+_NON_PROSE_KEYS = {"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
 _URL_RE = re.compile(r"https?://\S+")
 
 
@@ -307,8 +311,68 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems = validate_page_claim_ids(page_json, valid_ids)
     problems += find_forbidden_terms(page_json, financing_lender=financing_lender)
     problems += find_first_person_violations(page_json, speaker_pov)
+    problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 3 item 3: product substance. Price/shipping/warranty/returns are
+# operational facts, not a reason to buy -- a run can pass every other gate
+# while saying almost nothing about what the sauna does. Each cartridge's
+# persuasive section (proof_bullets / how_it_works / turn_section.criteria)
+# must carry a minimum number of claim_ids whose facts_pack category is
+# spec/benefit/trust, excluding the transactional ids by name.
+# ---------------------------------------------------------------------------
+
+MIN_BENEFIT_CLAIMS = {"product-page": 3, "longform": 3, "article": 1}
+
+BENEFIT_CLAIM_CATEGORIES = {"spec", "benefit", "trust"}
+
+# Excluded by name (fix cycle 3 item 3: "not price, shipping, warranty, or
+# returns") -- these are trust/price category claims that don't say anything
+# about what the product does, so they don't count toward the minimum even
+# though their category would otherwise qualify.
+_EXCLUDED_BENEFIT_IDS = {"warranty-terms", "shipping-policy", "returns-policy"}
+_EXCLUDED_BENEFIT_ID_PREFIXES = ("price-",)
+
+_BENEFIT_SECTION_GETTERS = {
+    "product-page": lambda page: page.get("proof_bullets", []),
+    "longform": lambda page: (page.get("how_it_works") or {}).get("steps", []),
+    "article": lambda page: (page.get("turn_section") or {}).get("criteria", []),
+}
+
+
+def _is_benefit_claim_id(claim_id, verified_by_id):
+    if claim_id in _EXCLUDED_BENEFIT_IDS or claim_id.startswith(_EXCLUDED_BENEFIT_ID_PREFIXES):
+        return False
+    claim = verified_by_id.get(claim_id)
+    return bool(claim) and claim.get("category") in BENEFIT_CLAIM_CATEGORIES
+
+
+def find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name):
+    """[] if `cartridge_name`'s persuasive section already carries enough
+    product-benefit claim_ids (MIN_BENEFIT_CLAIMS); otherwise one problem
+    dict describing the shortfall. No-op for a cartridge not in
+    MIN_BENEFIT_CLAIMS."""
+    minimum = MIN_BENEFIT_CLAIMS.get(cartridge_name)
+    get_section = _BENEFIT_SECTION_GETTERS.get(cartridge_name)
+    if minimum is None or get_section is None:
+        return []
+    verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
+    section_ids = collect_claim_ids(get_section(page_json))
+    benefit_ids = {cid for cid in section_ids if _is_benefit_claim_id(cid, verified_by_id)}
+    if len(benefit_ids) < minimum:
+        return [
+            {
+                "path": f"$.{cartridge_name}-benefit-claims",
+                "issue": (
+                    f"only {len(benefit_ids)} product-benefit claim_id(s) found "
+                    f"({sorted(benefit_ids)}), need >= {minimum}"
+                ),
+            }
+        ]
+    return []
 
 
 # ---------------------------------------------------------------------------

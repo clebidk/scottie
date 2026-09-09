@@ -1,10 +1,18 @@
 {
   "type": "object",
-  "required": ["hero", "proof_bullets", "angle_section", "specs_table", "trust_strip", "repeat_cta"],
+  "required": ["cta_text", "cta_url", "hero", "proof_bullets", "angle_section", "specs_table", "trust_strip"],
   "properties": {
+    "cta_text": {
+      "type": "string",
+      "description": "Fix cycle 3 item 4: the ONE CTA button text for this page (e.g. 'Buy / Shop <model>'). The renderer reuses it verbatim in the hero and the repeat CTA -- choose it once here, never repeat/vary it elsewhere."
+    },
+    "cta_url": {
+      "type": "string",
+      "description": "The CTA's destination URL, reused everywhere cta_text is."
+    },
     "hero": {
       "type": "object",
-      "description": "product name, one-line promise from the ad angle, price, financing line, one primary CTA, hero image.",
+      "description": "product name, one-line promise from the ad angle, price, financing line, hero image.",
       "properties": {
         "product_name": {"type": "string"},
         "promise": {"type": "string", "description": "One-line promise from the ad angle. Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead."},
@@ -18,19 +26,15 @@
           "description": "text: 'Financing available' when facts_pack.product.financing.lender is null (no lender name, no monthly figure); otherwise may name the lender and monthly figure from facts_pack.product.financing.",
           "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
         },
-        "cta": {
-          "type": "object",
-          "properties": {"text": {"type": "string"}, "url": {"type": "string"}}
-        },
         "hero_image": {
           "type": "object",
-          "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}
+          "properties": {"asset_id": {"type": "string"}}
         }
       }
     },
     "proof_bullets": {
       "type": "array",
-      "description": "Exactly 3 bullets, each one verified claim with a short label and a one-line explanation, chosen to match the ad's angle.",
+      "description": "Exactly 3 bullets, each one verified claim with a short label and a one-line explanation, chosen to match the ad's angle. Fix cycle 3 item 3: at least 3 of them must be product-benefit claim_ids -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
       "items": {
         "type": "object",
         "properties": {
@@ -54,7 +58,7 @@
         },
         "image": {
           "type": "object",
-          "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}
+          "properties": {"asset_id": {"type": "string"}}
         }
       }
     },
@@ -80,20 +84,12 @@
         "reviews": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
       }
     },
-    "repeat_cta": {
-      "type": "object",
-      "description": "Same CTA text as hero.cta, repeated after the trust strip.",
-      "properties": {
-        "text": {"type": "string"},
-        "url": {"type": "string"}
-      }
-    },
     "detail_images": {
       "type": "array",
       "description": "1-2 additional detail shots from the asset library.",
       "items": {
         "type": "object",
-        "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}
+        "properties": {"asset_id": {"type": "string"}}
       }
     }
   }

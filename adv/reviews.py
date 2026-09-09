@@ -12,6 +12,13 @@ _JSONLD_RE = re.compile(r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(
 _JDGM_RATING_RE = re.compile(r'data-average-rating=["\']([\d.]+)["\']', re.I)
 _JDGM_COUNT_RE = re.compile(r'data-number-of-reviews=["\']([\d,]+)["\']', re.I)
 
+# Fix cycle 3 item 1: the rating/count are scraped off the product page (the
+# Judge.me widget embedded there), but the claim's own source should point at
+# Judge.me itself -- gbrain-reviews-platform names this as the one clearable
+# review platform -- so the Sources list gets its own distinct "Judge.me
+# reviews for Peak Saunas" line instead of colliding with the product page's.
+JUDGEME_STORE_URL = "https://judge.me/reviews/stores/peaksaunas.com"
+
 
 _BROWSER_HEADERS = {
     # peaksaunas.com is behind Cloudflare's bot challenge for a non-browser
@@ -80,7 +87,7 @@ def build_reviews_claim(product_url, review_data, today_iso):
         "id": "reviews-live",
         "text": text,
         "category": "trust",
-        "source": product_url,
+        "source": JUDGEME_STORE_URL,
         "approved_by": "live-fetch",
         "date": today_iso,
     }

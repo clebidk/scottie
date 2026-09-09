@@ -39,6 +39,13 @@ appeared in creative but aren't yet sourced/approved (see that file for the curr
 list -- medical-grade wording, the review rating, the EMF comparison, the "4-in-1"
 framing).
 
+## Review a run
+
+```
+.venv/bin/adv review out/<run-id>   # writes <cartridge>-review.html per cartridge, images inlined as data URIs
+make review RUN=<run-id> [OUT=<local-path>]   # runs the above on prod, rsyncs the review.html files back
+```
+
 ## Score a run
 
 ```

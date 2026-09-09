@@ -59,17 +59,55 @@ def load_byline_html(brand_dir, published, updated, log=None):
 # Fix cycle 2 item 9: the Sources list must show a short, human-readable
 # link label -- never the raw URL as visible text (that's exactly how the
 # Fuji product URL's "near-zero-emf" handle was leaking into visible copy).
-_SOURCE_CATEGORY_LABELS = {"price": "product page", "spec": "product page", "policy": "policy page", "trust": "page"}
+#
+# Fix cycle 3 item 1: dedupe to one line per distinct source URL (several
+# claims -- specs, price -- share the same product-page URL) with a specific
+# label, derived from the URL path (or a claim's own "label" field, when a
+# future claim needs one the path can't describe).
+_SOURCE_PATH_LABELS = {
+    "/pages/warranty": "Warranty",
+    "/policies/shipping-policy": "Shipping policy",
+    "/policies/refund-policy": "Refund policy",
+    "/pages/austin-laudenslager": "Austin Laudenslager",
+}
 
 
-def source_label(claim):
-    source = claim.get("source", "") or ""
-    if source.startswith("http"):
-        host = urlparse(source).netloc.replace("www.", "") or "Source"
-        base = "Peak Saunas" if host == "peaksaunas.com" else host
-    else:
-        base = "Peak Saunas"
-    return f"{base} {_SOURCE_CATEGORY_LABELS.get(claim.get('category'), 'page')}"
+def source_label(url, *, product_name=None, explicit_label=None):
+    """A short, human-readable label for `url` -- never the raw URL itself.
+    An explicit "label" field on the claim always wins; otherwise the label
+    is derived from the URL's host and path."""
+    if explicit_label:
+        return explicit_label
+    if not url or not url.startswith("http"):
+        return "Peak Saunas"
+    parsed = urlparse(url)
+    host = parsed.netloc.replace("www.", "")
+    if host == "judge.me":
+        return "Judge.me reviews for Peak Saunas"
+    if host != "peaksaunas.com":
+        return host
+    path = parsed.path.rstrip("/")
+    if path.startswith("/products/"):
+        return f"Peak Saunas – {product_name or 'product'} product page"
+    if path in _SOURCE_PATH_LABELS:
+        return f"Peak Saunas – {_SOURCE_PATH_LABELS[path]}"
+    fallback = path.rsplit("/", 1)[-1].replace("-", " ").title()
+    return f"Peak Saunas – {fallback}" if fallback else "Peak Saunas"
+
+
+def build_sources_list(used_claim_ids, verified_by_id, product_name=None):
+    """One entry per distinct source URL referenced by `used_claim_ids`
+    (fix cycle 3 item 1) -- claim texts are never shown on the page, only in
+    REVIEW.md; the page gets a label (link text) and the URL (href only)."""
+    seen = {}
+    for cid in sorted(used_claim_ids):
+        claim = verified_by_id.get(cid)
+        if not claim:
+            continue
+        url = claim.get("source", "") or ""
+        if url not in seen:
+            seen[url] = source_label(url, product_name=product_name, explicit_label=claim.get("label"))
+    return [{"url": url, "label": label} for url, label in seen.items()]
 
 
 def build_json_ld(cartridge_name, page, facts_pack, published, updated):
@@ -110,6 +148,26 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated):
                 mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
         return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
     return {}
+
+
+# Fix cycle 3 item 5: the writer may only pick an asset id -- the renderer
+# derives alt text from what the asset actually is (its brand/assets.json
+# "kind", plus the product name), never from a title (Drive titles are raw
+# camera filenames like "_MG_3988.JPG", not descriptions) or a model-invented
+# string that could describe something the image doesn't show.
+_ASSET_KIND_ALT_SUFFIXES = {
+    "image": "product photo",
+    "render": "product photo",
+    "lifestyle": "lifestyle photo",
+    "interior": "interior",
+    "installation": "installation photo",
+}
+
+
+def asset_alt(asset, product_short_name):
+    product_short_name = product_short_name or "Peak Saunas"
+    suffix = _ASSET_KIND_ALT_SUFFIXES.get(asset.get("kind"), "photo")
+    return f"{product_short_name} – {suffix}"
 
 
 def collect_asset_ids(node):
@@ -216,14 +274,19 @@ def render_page(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    product = facts_pack.get("product", {})
+    product_name = product.get("name")
+    product_short_name = product.get("short_name") or product_name
     assets_by_id = {a["id"]: dict(a) for a in facts_pack.get("assets", [])}
+    for asset in assets_by_id.values():
+        # Fix cycle 3 item 5: alt text is always renderer-derived from the
+        # asset's own kind + the product's short_name -- never the writer's
+        # invented "alt" field (the template no longer reads it), since a
+        # model-invented alt can describe something that isn't in the image.
+        asset["alt"] = asset_alt(asset, product_short_name)
     used_claim_ids = collect_claim_ids(page)
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
-    sources = [
-        {**verified_by_id[cid], "label": source_label(verified_by_id[cid])}
-        for cid in sorted(used_claim_ids)
-        if cid in verified_by_id
-    ]
+    sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name)
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html

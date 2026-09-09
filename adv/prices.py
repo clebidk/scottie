@@ -130,6 +130,15 @@ def merge_products(old_products, live_products):
     return merged
 
 
+def format_price(amount):
+    """Fix cycle 3 item 2: "$8,250" -- no ".00" cents suffix, comma
+    thousands separator, cents kept only when non-zero (e.g. "$8,250.50")."""
+    amount = float(amount)
+    if amount == int(amount):
+        return f"${int(amount):,}"
+    return f"${amount:,.2f}"
+
+
 def build_live_price_claims(products, today_iso, show_compare_at_price):
     """One in-memory price claim per product, dated today with the product
     URL as source -- never written to claims/verified.json. The compare-at
@@ -140,10 +149,10 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
         if price is None:
             continue
         name_slug = p["name"].lower().replace(" ", "-")
-        text = f"The Peak Saunas {p['name']} is priced at ${float(price):,.2f}."
+        text = f"The Peak Saunas {p['name']} is priced at {format_price(price)}."
         compare_at = p.get("compare_at_price")
         if show_compare_at_price and compare_at:
-            text = text[:-1] + f" (list/compare-at ${float(compare_at):,.2f})."
+            text = text[:-1] + f" (list/compare-at {format_price(compare_at)})."
         claims.append(
             {
                 "id": f"price-{name_slug}",

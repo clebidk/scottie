@@ -9,7 +9,7 @@
   <section class="adv-hero">
     {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
     {% if hero_asset %}
-    <img src="{{ hero_asset.url }}" alt="{{ page.hero.hero_image.alt | default(hero_asset.alt) }}" class="adv-hero-image">
+    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image">
     {% endif %}
     <h1>{{ page.hero.product_name }}</h1>
     <p class="adv-dek">{{ page.hero.promise }}</p>
@@ -21,7 +21,7 @@
       <p class="adv-financing">Financing available</p>
       {% endif %}
     {% endif %}
-    <p><a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a></p>
+    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
   </section>
 
   <section class="adv-proof-bullets">
@@ -39,7 +39,7 @@
     {% endfor %}
     {% set angle_asset = assets.get(page.angle_section.image.asset_id) if page.angle_section.image else None %}
     {% if angle_asset %}
-    <img src="{{ angle_asset.url }}" alt="{{ page.angle_section.image.alt | default(angle_asset.alt) }}">
+    <img src="{{ angle_asset.url }}" alt="{{ angle_asset.alt }}">
     {% endif %}
   </section>
 
@@ -62,11 +62,11 @@
   <div class="adv-images">
     {% for img in page.detail_images %}
       {% set asset = assets.get(img.asset_id) %}
-      {% if asset %}<img src="{{ asset.url }}" alt="{{ img.alt | default(asset.alt) }}" loading="lazy">{% endif %}
+      {% if asset %}<img src="{{ asset.url }}" alt="{{ asset.alt }}" loading="lazy">{% endif %}
     {% endfor %}
   </div>
   {% endif %}
 
-  <p><a class="adv-cta" href="{{ page.repeat_cta.url }}">{{ page.repeat_cta.text }}</a></p>
+  <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
 </div>
 {% endblock %}

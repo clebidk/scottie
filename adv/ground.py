@@ -19,6 +19,22 @@ DRIVE_ASSET_TIERS = (("lifestyle", "interior"), ("render",), ("installation",))
 DRIVE_ASSET_NEVER_KINDS = {"video", "logo", "ugc"}
 DRIVE_ASSET_MAX = 6
 
+# Fix cycle 3 item 3: these are cleared, product-wide (not per-model) claims
+# from claims/seed-from-gbrain.json's allowlist ("Only state verified claims:
+# medical-grade red light, free shipping, 360 full spectrum, US-owned,
+# Lifetime warranty"). They're already merged into claims/verified.json with
+# sources -- the gap fixed here is that facts_for()'s universal_ids never
+# surfaced them into facts_pack, so the writer had nothing to cite when
+# describing what the sauna actually does (only price/shipping/warranty/
+# returns made it through). Every product gets all five.
+BENEFIT_ALLOWLIST_IDS = {
+    "gbrain-allowlist-red-light",
+    "gbrain-allowlist-free-shipping",
+    "gbrain-allowlist-360-full-spectrum",
+    "gbrain-allowlist-us-owned",
+    "gbrain-allowlist-lifetime-warranty",
+}
+
 
 class FactsSource(Protocol):
     def facts_for(self, product_slug, ad_brief) -> dict: ...
@@ -145,7 +161,11 @@ class LocalFactsSource:
 
         price_id = f"price-{name_slug}"
         spec_ids = {s["claim_id"] for s in specs if s.get("claim_id")}
-        universal_ids = {"founder-ceo", "warranty-terms", "shipping-policy", "returns-policy", price_id} | spec_ids
+        universal_ids = (
+            {"founder-ceo", "warranty-terms", "shipping-policy", "returns-policy", price_id}
+            | spec_ids
+            | BENEFIT_ALLOWLIST_IDS
+        )
         verified_claims = [
             {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}
             for c in self._verified

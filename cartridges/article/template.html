@@ -28,7 +28,7 @@
       {% set asset = assets.get(img.asset_id) %}
       {% if asset %}
       <figure>
-        <img src="{{ asset.url }}" alt="{{ img.alt | default(asset.alt) }}" loading="lazy">
+        <img src="{{ asset.url }}" alt="{{ asset.alt }}" loading="lazy">
         {% if img.caption %}<figcaption>{{ img.caption }}</figcaption>{% endif %}
       </figure>
       {% endif %}

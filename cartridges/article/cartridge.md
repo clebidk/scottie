@@ -8,7 +8,7 @@ Audience temperature: cold. Reader does not know Peak and did not plan to buy a 
 2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. If the ad speaker is first person, tell it as a customer's story ("a customer told us...") -- never in the author's (Austin's) own first person; see the global voice block.
 3. Body: 3–5 H2 sections. Each answers one question the reader would ask next. Education only. Product may be mentioned by name once in the body, as an example, no link.
 4. Evidence: at least 2 cited facts from facts_pack.verified_claims, cited inline as "(source name, year)" -- never the raw URL; the renderer adds the link in the Sources list.
-5. Turn: one H2 that moves from the topic to "what to look for", listing 3–4 criteria that Peak meets. Still no hard sell.
+5. Turn: one H2 that moves from the topic to "what to look for", listing 3–4 criteria that Peak meets. Still no hard sell. At least 1 criterion must carry a product-benefit claim_id (see Rules).
 6. Close: 1 paragraph naming Peak, 1 soft CTA link ("See the models" / "Read the specs"). Financing line only if the ad used a price angle.
 7. Footer: disclosure paragraph, sources list.
 
@@ -19,7 +19,8 @@ Audience temperature: cold. Reader does not know Peak and did not plan to buy a 
 - No claims outside verified_claims. Health statements cite the study and its population; never promise an outcome for Peak hardware.
 - Body sections give generic buyer education ("questions to ask", "what varies between brands") without stating a specific number, spec, or figure for saunas in general -- a number in prose always needs a claim_id, and facts_pack has no generic-industry claims to cite, only this one product's. Save any actual number for a spec you can cite from facts_pack (with its claim_id copied into the sentence).
 - Competitor statements only as the speaker's own experience unless sourced.
-- Images: 2–3 from the asset library, lifestyle over product. No before/after, no clinical settings.
+- The turn_section's "what to look for" criteria must include at least 1 product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) from facts_pack.verified_claims -- not the price, shipping-policy, warranty-terms, or returns-policy claim_ids. The run STOPs if this minimum isn't met.
+- Images: 2–3 from the asset library, lifestyle over product, referenced by asset_id only -- the renderer derives alt text, never write your own "alt" field. No before/after, no clinical settings.
 - Voice: plain, specific, second person or first person. No exclamation marks. No "game-changer", "unlock", "elevate", "journey".
 
 ## From the ad

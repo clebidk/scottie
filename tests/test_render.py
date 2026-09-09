@@ -30,6 +30,15 @@ FACTS_PACK = {
         {"id": "shipping-policy", "text": "shipping text", "category": "trust", "source": "https://peaksaunas.com/policies/shipping-policy"},
         {"id": "returns-policy", "text": "returns text", "category": "trust", "source": "https://peaksaunas.com/policies/refund-policy"},
         {"id": "founder-ceo", "text": "Austin Laudenslager is the Founder & CEO.", "category": "trust", "source": "https://peaksaunas.com/pages/austin-laudenslager"},
+        # Fix cycle 3 item 3: product-benefit claims (what the sauna does),
+        # distinct from the transactional price/shipping/warranty/returns ids.
+        # Same ids/categories as the real claims/seed-from-gbrain.json
+        # allowlist entries merged into claims/verified.json, so these page
+        # fixtures also work unmodified against the real claims store in
+        # tests/test_cli_run.py.
+        {"id": "gbrain-allowlist-red-light", "text": "Medical-grade red light therapy (included standard).", "category": "trust", "source": "https://peaksaunas.com/products/fuji"},
+        {"id": "gbrain-allowlist-360-full-spectrum", "text": "360 degree full spectrum infrared heater placement.", "category": "spec", "source": "https://peaksaunas.com/products/fuji"},
+        {"id": "gbrain-allowlist-us-owned", "text": "US-owned company.", "category": "trust", "source": "https://peaksaunas.com/pages/austin-laudenslager"},
     ],
     "assets": [{"id": "asset-1", "url": "https://cdn.shopify.com/fuji-1.png", "kind": "image", "alt": "Fuji sauna"}],
 }
@@ -45,22 +54,35 @@ ARTICLE_PAGE = {
     "dek": "A look at what makes people trust a purchase enough to finish it.",
     "open": [{"text": "Shopping used to mean waiting for a callback."}],
     "body_sections": [{"heading": "Why hidden pricing kills trust", "paragraphs": [{"text": "Buyers move on when the price is hidden."}]}],
-    "turn_section": {"heading": "What to look for", "intro": "A few signs.", "criteria": [{"text": "Price shown before any form."}]},
+    "turn_section": {
+        "heading": "What to look for",
+        "intro": "A few signs.",
+        "criteria": [
+            {"text": "Price shown before any form."},
+            {"text": "Includes medical-grade red light therapy standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
+        ],
+    },
     "close": {"paragraphs": [{"text": "Peak Saunas is one brand that does this."}]},
     "cta": {"text": "See the models", "url": "https://peaksaunas.com/collections/all"},
-    "images": [{"asset_id": "asset-1", "alt": "Fuji sauna"}],
+    "images": [{"asset_id": "asset-1"}],
 }
 
 PRODUCT_PAGE_PAGE = {
+    "cta_text": "Shop Fuji",
+    "cta_url": "https://peaksaunas.com/products/fuji",
     "hero": {
         "product_name": "Fuji 2-Person Full Spectrum Infrared Sauna",
         "promise": "A two-person sauna with the price shown up front.",
         "price_line": {"text": "$8,250.", "claim_ids": ["price-fuji"]},
         "financing_line": {"text": "Financing available", "claim_ids": []},
-        "cta": {"text": "Shop Fuji", "url": "https://peaksaunas.com/products/fuji"},
-        "hero_image": {"asset_id": "asset-1", "alt": "Fuji sauna"},
+        "hero_image": {"asset_id": "asset-1"},
     },
-    "proof_bullets": [{"label": "Warranty", "text": "Backed by a written warranty.", "claim_ids": ["warranty-terms"]}],
+    "proof_bullets": [
+        {"label": "Warranty", "text": "Backed by a written warranty.", "claim_ids": ["warranty-terms"]},
+        {"label": "Red light therapy", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
+        {"label": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
+        {"label": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
+    ],
     "angle_section": {"heading": "Why the price is on the page", "paragraphs": [{"text": "No form required."}]},
     "specs_table": [{"label": "Capacity", "value": "2-Person"}],
     "trust_strip": {
@@ -68,29 +90,36 @@ PRODUCT_PAGE_PAGE = {
         "shipping": {"text": "shipping text", "claim_ids": ["shipping-policy"]},
         "returns": {"text": "returns text", "claim_ids": ["returns-policy"]},
     },
-    "repeat_cta": {"text": "Shop Fuji", "url": "https://peaksaunas.com/products/fuji"},
 }
 
 LONGFORM_PAGE = {
+    "cta_text": "See pricing",
+    "cta_url": "https://peaksaunas.com/products/fuji",
     "hero": {
         "headline": "The hidden cost of a hidden price",
         "subhead": "Why checkout matters as much as the product.",
-        "hero_image": {"asset_id": "asset-1", "alt": "Fuji sauna"},
-        "cta": {"text": "See pricing", "url": "https://peaksaunas.com/products/fuji"},
+        "hero_image": {"asset_id": "asset-1"},
         "financing_line": {"text": "Financing available", "claim_ids": []},
     },
     "problem": {"heading": "Why shoppers give up", "paragraphs": [{"text": "A lot of sites make you call in for a number."}]},
-    "how_it_works": {"heading": "How Peak shows it", "steps": [{"title": "See the price", "text": "The price is on the page."}]},
+    "how_it_works": {
+        "heading": "How Peak shows it",
+        "steps": [
+            {"title": "See the price", "text": "The price is on the page."},
+            {"title": "Red light therapy", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
+            {"title": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
+            {"title": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
+        ],
+    },
     "specs_and_proof": {"specs_table": [{"label": "Capacity", "value": "2-Person"}], "proof_points": [{"text": "warranty text", "claim_ids": ["warranty-terms"]}]},
     "social_proof": {"reviews_summary": None, "quotes": []},
     "faq": {"questions": [{"question": "Is the price shown up front?", "text": "$8,250 is shown on the page.", "claim_ids": ["price-fuji"]}]},
     "final_cta": {
         "headline": "Ready to see the number?",
-        "cta": {"text": "See pricing", "url": "https://peaksaunas.com/products/fuji"},
         "financing_line": {"text": "Financing available", "claim_ids": []},
         "warranty_line": {"text": "warranty text", "claim_ids": ["warranty-terms"]},
     },
-    "images": [{"asset_id": "asset-1", "alt": "Fuji sauna"}],
+    "images": [{"asset_id": "asset-1"}],
 }
 
 
@@ -321,8 +350,9 @@ def test_longform_hides_reviews_block_when_reviews_summary_is_null(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# fix cycle 2 item 9: Sources list link text is a short label, never the raw
-# URL; and a URL that leaked into visible prose STOPs the run at render time.
+# fix cycle 2 item 9 / fix cycle 3 item 1: Sources list link text is a short
+# label, never the raw URL or a claim's full text; and a URL that leaked into
+# visible prose STOPs the run at render time.
 # ---------------------------------------------------------------------------
 
 def test_render_page_sources_list_uses_label_not_raw_url_as_link_text(tmp_path):
@@ -342,7 +372,38 @@ def test_render_page_sources_list_uses_label_not_raw_url_as_link_text(tmp_path):
     html = index_path.read_text()
     assert 'href="https://peaksaunas.com/products/fuji"' in html
     assert ">https://peaksaunas.com/products/fuji<" not in html
-    assert ">Peak Saunas product page<" in html
+    assert ">Peak Saunas – Fuji product page<" in html
+
+
+def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
+    """fix cycle 3 item 1: price-fuji, gbrain-allowlist-red-light, and
+    gbrain-allowlist-360-full-spectrum all share the product page URL -- one
+    line, not three -- and no claim text (only the label) appears in the
+    Sources list."""
+    index_path = render_page(
+        cartridge_name="product-page",
+        page=PRODUCT_PAGE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "product-page",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    sources_html = html[html.index("<h3>Sources</h3>"):]
+    assert sources_html.count('href="https://peaksaunas.com/products/fuji"') == 1
+    # claim text may appear elsewhere on the page (e.g. the proof bullets
+    # legitimately show it as persuasive copy) -- only the Sources list
+    # itself must never show claim text, just the label.
+    assert "Medical-grade red light therapy" not in sources_html
+    assert "Peak Saunas is a US-owned company" not in sources_html
+    assert ">Peak Saunas – Warranty<" in sources_html
+    assert ">Peak Saunas – Shipping policy<" in sources_html
+    assert ">Peak Saunas – Refund policy<" in sources_html
 
 
 def test_render_page_raises_on_emf_leak_into_visible_text(tmp_path):
@@ -395,3 +456,99 @@ def test_real_byline_html_is_page_neutral(tmp_path):
     assert "Caleb Niednagel" in html
     assert "this ranking" not in html.lower()
     assert "favor a competitor" not in html.lower()
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 4: one CTA text/url per page, reused everywhere the
+# cartridge shows a CTA -- no separate hero/repeat/final cta object to drift.
+# ---------------------------------------------------------------------------
+
+def test_product_page_cta_text_appears_exactly_twice(tmp_path):
+    index_path = render_page(
+        cartridge_name="product-page",
+        page=PRODUCT_PAGE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "product-page",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert html.count(">Shop Fuji<") == 2
+    assert html.count('href="https://peaksaunas.com/products/fuji"') >= 2
+
+
+def test_longform_cta_text_appears_in_hero_sticky_and_final(tmp_path):
+    index_path = render_page(
+        cartridge_name="longform",
+        page=LONGFORM_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "longform",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert html.count(">See pricing<") == 3
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 5: image alt text is always renderer-derived from the
+# asset's kind + the product's short_name -- the writer's own "alt" field
+# (even if a stray one is still sitting in page.json) is never used.
+# ---------------------------------------------------------------------------
+
+def test_hero_image_alt_is_renderer_derived_not_writer_supplied(tmp_path):
+    page = json.loads(json.dumps(PRODUCT_PAGE_PAGE))
+    page["hero"]["hero_image"]["alt"] = "a description that doesn't match the image"
+    index_path = render_page(
+        cartridge_name="product-page",
+        page=page,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "product-page",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "a description that doesn't match the image" not in html
+    assert 'alt="Peak Fuji 2-Person Infrared Sauna – product photo"' in html
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 6: disclosure text no longer mentions financing estimates.
+# ---------------------------------------------------------------------------
+
+def test_disclosure_text_omits_financing_estimates(tmp_path):
+    index_path = render_page(
+        cartridge_name="article",
+        page=ARTICLE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "article",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "financing estimates" not in html
+    assert (
+        "This page is an advertisement published by Peak Saunas, which sells the products described. "
+        "Every specific claim on this page is sourced; see Sources below. "
+        "Prices were current as of the publish date above and may have changed since."
+    ) in html

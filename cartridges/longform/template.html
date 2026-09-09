@@ -10,7 +10,7 @@
   <section class="adv-hero">
     {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
     {% if hero_asset %}
-    <img src="{{ hero_asset.url }}" alt="{{ page.hero.hero_image.alt | default(hero_asset.alt) }}" class="adv-hero-image">
+    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image">
     {% endif %}
     <h1>{{ page.hero.headline }}</h1>
     <p class="adv-dek">{{ page.hero.subhead }}</p>
@@ -21,7 +21,7 @@
       <p class="adv-financing">Financing available</p>
       {% endif %}
     {% endif %}
-    <p><a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a></p>
+    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
   </section>
 
   <section class="adv-problem">
@@ -36,7 +36,7 @@
     {% for step in page.how_it_works.steps %}
     <div class="adv-step">
       {% set step_asset = assets.get(step.image.asset_id) if step.image else None %}
-      {% if step_asset %}<img src="{{ step_asset.url }}" alt="{{ step.image.alt | default(step_asset.alt) }}" loading="lazy">{% endif %}
+      {% if step_asset %}<img src="{{ step_asset.url }}" alt="{{ step_asset.alt }}" loading="lazy">{% endif %}
       <h3>{{ step.title }}</h3>
       <p>{{ step.text }}</p>
     </div>
@@ -77,7 +77,7 @@
 
   <section class="adv-final-cta">
     <h2>{{ page.final_cta.headline }}</h2>
-    <p><a class="adv-cta" href="{{ page.final_cta.cta.url }}">{{ page.final_cta.cta.text }}</a></p>
+    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
     {% if page.final_cta.financing_line %}
       {% if product.financing and product.financing.lender %}
       <p class="adv-financing">{{ page.final_cta.financing_line.text }}</p>
@@ -90,6 +90,6 @@
 </div>
 
 <div class="adv-sticky-cta">
-  <a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a>
+  <a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
 </div>
 {% endblock %}

@@ -1,6 +1,6 @@
 """fix 2: live price refresh. No network -- merge_products/build_live_price_claims
 are pure functions exercised directly with fake live-feed data."""
-from adv.prices import build_live_price_claims, merge_products
+from adv.prices import build_live_price_claims, format_price, merge_products
 
 OLD_PRODUCTS = {
     "peak-saunas-fuji": {
@@ -70,8 +70,23 @@ def test_merge_products_keeps_curated_products_missing_from_the_live_feed():
 def test_build_live_price_claims_omits_compare_at_unless_configured():
     products = {"peak-saunas-fuji": {"name": "Fuji", "price": "8250.00", "compare_at_price": "14032.00", "url": "https://peaksaunas.com/products/peak-saunas-fuji"}}
 
+    # fix cycle 3 item 2: "$8,250" -- no ".00" cents suffix on a whole dollar amount.
     claims = build_live_price_claims(products, "2026-09-09", show_compare_at_price=False)
-    assert claims[0]["text"] == "The Peak Saunas Fuji is priced at $8,250.00."
+    assert claims[0]["text"] == "The Peak Saunas Fuji is priced at $8,250."
 
     claims = build_live_price_claims(products, "2026-09-09", show_compare_at_price=True)
-    assert "14,032.00" in claims[0]["text"]
+    assert "(list/compare-at $14,032)" in claims[0]["text"]
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 2: format_price -- "$8,250" (no cents), "$8,250.50" (cents
+# kept only when non-zero).
+# ---------------------------------------------------------------------------
+
+def test_format_price_omits_cents_for_a_whole_dollar_amount():
+    assert format_price("8250.00") == "$8,250"
+    assert format_price(8250) == "$8,250"
+
+
+def test_format_price_keeps_cents_when_non_zero():
+    assert format_price("8250.50") == "$8,250.50"

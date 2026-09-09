@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from adv.ground import LocalFactsSource, load_claims_config, select_drive_assets
+from adv.ground import BENEFIT_ALLOWLIST_IDS, LocalFactsSource, load_claims_config, select_drive_assets
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
@@ -21,6 +21,24 @@ def test_default_product_is_fuji_when_nothing_named():
     source = LocalFactsSource(REPO_ROOT / "claims")
     facts_pack = source.facts_for(None, {"transcript_or_text": "just a generic ad about saunas", "hook": "", "promise": "", "angle": ""})
     assert facts_pack["product"]["slug"] == FUJI_SLUG
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 3: the cleared allowlist benefit claims (medical-grade red
+# light therapy, full-spectrum infrared, US-owned, free shipping, limited
+# lifetime warranty) must reach facts_pack -- they were already merged into
+# claims/verified.json with sources, but facts_for()'s universal_ids never
+# surfaced them, so the writer had nothing to cite for what the sauna does.
+# ---------------------------------------------------------------------------
+
+def test_facts_pack_includes_benefit_allowlist_claims():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    facts_pack = source.facts_for(FUJI_SLUG, {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""})
+    verified_ids = {c["id"] for c in facts_pack["verified_claims"]}
+    assert BENEFIT_ALLOWLIST_IDS <= verified_ids
+    for cid in BENEFIT_ALLOWLIST_IDS:
+        claim = next(c for c in facts_pack["verified_claims"] if c["id"] == cid)
+        assert claim["source"], f"{cid} has no source"
 
 
 def test_facts_pack_stays_small():

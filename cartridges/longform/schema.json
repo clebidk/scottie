@@ -1,14 +1,21 @@
 {
   "type": "object",
-  "required": ["hero", "problem", "how_it_works", "specs_and_proof", "social_proof", "faq", "final_cta", "images"],
+  "required": ["cta_text", "cta_url", "hero", "problem", "how_it_works", "specs_and_proof", "social_proof", "faq", "final_cta", "images"],
   "properties": {
+    "cta_text": {
+      "type": "string",
+      "description": "Fix cycle 3 item 4: the ONE CTA button text for this page. The renderer reuses it verbatim in the hero, the sticky bar, and the final CTA block -- choose it once here, never repeat/vary it elsewhere."
+    },
+    "cta_url": {
+      "type": "string",
+      "description": "The CTA's destination URL, reused everywhere cta_text is."
+    },
     "hero": {
       "type": "object",
       "properties": {
         "headline": {"type": "string"},
         "subhead": {"type": "string"},
-        "hero_image": {"type": "object", "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}},
-        "cta": {"type": "object", "properties": {"text": {"type": "string"}, "url": {"type": "string"}}},
+        "hero_image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
         "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
       }
     },
@@ -25,7 +32,7 @@
     },
     "how_it_works": {
       "type": "object",
-      "description": "H2 + 3 steps or feature blocks, each with an image slot. Technical facts from facts_pack.specs only.",
+      "description": "H2 + 3 steps or feature blocks, each with an image slot. Technical facts from facts_pack.specs only. Fix cycle 3 item 3: at least 3 steps combined must carry a product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
       "properties": {
         "heading": {"type": "string"},
         "steps": {
@@ -36,7 +43,7 @@
               "title": {"type": "string"},
               "text": {"type": "string"},
               "claim_ids": {"type": "array"},
-              "image": {"type": "object", "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}}
+              "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
             }
           }
         }
@@ -87,9 +94,9 @@
     },
     "final_cta": {
       "type": "object",
+      "description": "Headline + financing/warranty lines. CTA text/url are the shared page.cta_text/page.cta_url from the hero -- do not repeat them here.",
       "properties": {
         "headline": {"type": "string"},
-        "cta": {"type": "object", "properties": {"text": {"type": "string"}, "url": {"type": "string"}}},
         "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
         "warranty_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
       }
@@ -97,7 +104,7 @@
     "images": {
       "type": "array",
       "description": "4-6 images total from the asset library, referenced by asset id (this list is a convenience index of everything used).",
-      "items": {"type": "object", "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}}
+      "items": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
     }
   }
 }

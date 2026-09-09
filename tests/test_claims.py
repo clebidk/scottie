@@ -2,6 +2,7 @@ import pytest
 
 from adv.claims import (
     ClaimsGateFailure,
+    find_benefit_claim_shortfall,
     find_first_person_violations,
     find_forbidden_terms,
     find_forbidden_visible_text,
@@ -156,6 +157,15 @@ def test_find_forbidden_terms_allows_the_configured_lender_name():
     assert hits == []
 
 
+def test_find_forbidden_terms_ignores_emf_in_top_level_cta_url():
+    # Regression: fix cycle 3 item 4 flattened the writer's per-block
+    # {"cta": {"url": ...}} into a single top-level "cta_url" string --
+    # it must stay exempt the same way the old nested "url" key was, since
+    # the real Fuji product URL/handle contains "near-zero-emf".
+    page = {"cta_url": "https://peaksaunas.com/products/peak-saunas-fuji-near-zero-emf-sauna"}
+    assert find_forbidden_terms(page) == []
+
+
 def test_find_forbidden_terms_ignores_emf_in_urls_and_asset_ids():
     # Regression: the Fuji product URL/handle and its derived asset ids
     # literally contain "emf" -- fix 4 says the URL may still contain the
@@ -295,3 +305,79 @@ def test_gate_page_json_stops_on_first_person_leak():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_page_json(page, FACTS_PACK, "article", speaker_pov="first_person")
     assert exc_info.value.stage == "page_json:article"
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 3 item 3: product substance -- each cartridge's persuasive
+# section needs a minimum count of product-benefit claim_ids, excluding
+# price/shipping/warranty/returns by id even though shipping/warranty/returns
+# share the "trust" category that would otherwise qualify.
+# ---------------------------------------------------------------------------
+
+BENEFIT_FACTS_PACK = {
+    "verified_claims": VERIFIED_CLAIMS
+    + [
+        {"id": "warranty-terms", "text": "warranty text", "category": "trust", "source": "https://peaksaunas.com/pages/warranty"},
+        {"id": "shipping-policy", "text": "shipping text", "category": "trust", "source": "https://peaksaunas.com/policies/shipping-policy"},
+        {"id": "returns-policy", "text": "returns text", "category": "trust", "source": "https://peaksaunas.com/policies/refund-policy"},
+        {"id": "benefit-red-light", "text": "Medical-grade red light therapy.", "category": "trust", "source": "https://peaksaunas.com/products/fuji"},
+        {"id": "benefit-full-spectrum", "text": "Full spectrum infrared.", "category": "spec", "source": "https://peaksaunas.com/products/fuji"},
+        {"id": "benefit-us-owned", "text": "US-owned company.", "category": "trust", "source": "https://peaksaunas.com/pages/austin-laudenslager"},
+    ]
+}
+
+
+def test_find_benefit_claim_shortfall_ignores_price_shipping_warranty_returns():
+    # Three bullets, but all of them are the excluded transactional ids --
+    # zero benefit claims, well below product-page's minimum of 3.
+    page = {
+        "proof_bullets": [
+            {"text": "a", "claim_ids": ["price-fuji"]},
+            {"text": "b", "claim_ids": ["warranty-terms"]},
+            {"text": "c", "claim_ids": ["shipping-policy"]},
+        ]
+    }
+    problems = find_benefit_claim_shortfall(page, BENEFIT_FACTS_PACK, "product-page")
+    assert len(problems) == 1
+    assert "only 0 product-benefit claim_id" in problems[0]["issue"]
+
+
+def test_find_benefit_claim_shortfall_passes_with_enough_benefit_claims():
+    page = {
+        "proof_bullets": [
+            {"text": "a", "claim_ids": ["benefit-red-light"]},
+            {"text": "b", "claim_ids": ["benefit-full-spectrum"]},
+            {"text": "c", "claim_ids": ["benefit-us-owned"]},
+        ]
+    }
+    assert find_benefit_claim_shortfall(page, BENEFIT_FACTS_PACK, "product-page") == []
+
+
+def test_find_benefit_claim_shortfall_only_looks_at_the_persuasive_section():
+    # A specs_table full of benefit claim_ids doesn't count -- only
+    # proof_bullets (product-page) / how_it_works (longform) /
+    # turn_section.criteria (article) do.
+    page = {
+        "specs_table": [{"label": "x", "value": "y", "claim_id": "benefit-red-light"}],
+        "proof_bullets": [],
+    }
+    problems = find_benefit_claim_shortfall(page, BENEFIT_FACTS_PACK, "product-page")
+    assert len(problems) == 1
+
+
+def test_find_benefit_claim_shortfall_article_minimum_is_one():
+    page = {"turn_section": {"criteria": [{"text": "x", "claim_ids": ["benefit-red-light"]}]}}
+    assert find_benefit_claim_shortfall(page, BENEFIT_FACTS_PACK, "article") == []
+
+
+def test_find_benefit_claim_shortfall_noop_for_unlisted_cartridge():
+    assert find_benefit_claim_shortfall({}, BENEFIT_FACTS_PACK, "some-other-cartridge") == []
+
+
+def test_gate_page_json_stops_on_benefit_claim_shortfall():
+    page = {
+        "proof_bullets": [{"text": "a", "claim_ids": ["warranty-terms"]}],
+    }
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, BENEFIT_FACTS_PACK, "product-page")
+    assert exc_info.value.stage == "page_json:product-page"

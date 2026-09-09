@@ -1,7 +1,9 @@
-"""`adv` console entry point: run / ingest / claims add|list / score."""
+"""`adv` console entry point: run / ingest / claims add|list / review / score."""
 import argparse
+import base64
 import datetime
 import json
+import mimetypes
 import random
 import re
 import sys
@@ -45,8 +47,15 @@ def discover_cartridges():
 # ---------------------------------------------------------------------------
 
 # Fix 10: page.json keys that hold structural/reference data, not prose --
-# excluded from the main-content word count.
-_NON_PROSE_KEYS = {"url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
+# excluded from the main-content word count. cta_url (fix cycle 3 item 4's
+# single top-level CTA field) is the flattened equivalent of the old nested
+# cta.url -- excluded the same way.
+_NON_PROSE_KEYS = {"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
+
+# Fix cycle 3 item 7: product-page's own word budget (cartridges/product-page/
+# cartridge.md: "250-500 words"), enforced here as a soft REVIEW.md warning.
+PRODUCT_PAGE_WORD_MIN = 250
+PRODUCT_PAGE_WORD_MAX = 500
 
 
 def _collect_prose_strings(node, out):
@@ -132,7 +141,15 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     lines.append("")
     lines.append("## Word counts (main content only, excludes disclosure and byline)")
     for name in selected:
-        lines.append(f"- {name}: {count_words(pages[name])} words")
+        wc = count_words(pages[name])
+        lines.append(f"- {name}: {wc} words")
+        # Fix cycle 3 item 7: soft check only -- a warning line, never a
+        # failure. product-page's own rule is 250-500 words main content.
+        if name == "product-page" and not (PRODUCT_PAGE_WORD_MIN <= wc <= PRODUCT_PAGE_WORD_MAX):
+            lines.append(
+                f"  - WARNING: product-page is {wc} words; the cartridge's word budget is "
+                f"{PRODUCT_PAGE_WORD_MIN}-{PRODUCT_PAGE_WORD_MAX}."
+            )
 
     lines.append("")
     lines.append("## Review checklist")
@@ -381,6 +398,58 @@ def cmd_ingest(args):
 
 
 # ---------------------------------------------------------------------------
+# adv review (fix cycle 3 item 8): one self-contained review.html per
+# cartridge, images inlined as data URIs, for sending to Caleb. Simple regex
+# on src="assets/..." -- no HTML parser needed.
+# ---------------------------------------------------------------------------
+
+_ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
+
+
+def inline_assets_as_data_uris(html_text, assets_dir):
+    """Replace every `src="assets/<file>"` with a data: URI of that file's
+    bytes, read from `assets_dir`. A referenced file that's missing on disk
+    is left as-is (better a broken image than a crashed command)."""
+
+    def replace(match):
+        filename = match.group(1)
+        asset_path = Path(assets_dir) / filename
+        if not asset_path.exists():
+            return match.group(0)
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        b64 = base64.b64encode(asset_path.read_bytes()).decode("ascii")
+        return f'src="data:{mime};base64,{b64}"'
+
+    return _ASSET_SRC_RE.sub(replace, html_text)
+
+
+def cmd_review(args):
+    run_dir = Path(args.run_dir)
+    if not run_dir.is_dir():
+        print(f"no such run dir: {run_dir}", file=sys.stderr)
+        return 1
+
+    written = []
+    for cartridge_dir in sorted(p for p in run_dir.iterdir() if p.is_dir()):
+        index_path = cartridge_dir / "index.html"
+        if not index_path.exists():
+            continue
+        html_text = index_path.read_text()
+        review_html = inline_assets_as_data_uris(html_text, cartridge_dir / "assets")
+        review_path = run_dir / f"{cartridge_dir.name}-review.html"
+        review_path.write_text(review_html)
+        written.append(review_path)
+
+    if not written:
+        print(f"no cartridge output (index.html) found under {run_dir}", file=sys.stderr)
+        return 1
+
+    for p in written:
+        print(f"Wrote {p}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # adv claims add / list
 # ---------------------------------------------------------------------------
 
@@ -464,6 +533,10 @@ def build_parser():
     p_ingest.add_argument("--whisper-bin", default=config.WHISPER_BIN)
     p_ingest.add_argument("--whisper-model", default=config.WHISPER_MODEL)
     p_ingest.set_defaults(func=cmd_ingest)
+
+    p_review = sub.add_parser("review", help="write a self-contained review.html per cartridge (images inlined)")
+    p_review.add_argument("run_dir")
+    p_review.set_defaults(func=cmd_review)
 
     p_claims = sub.add_parser("claims", help="manage claims/verified.json")
     claims_sub = p_claims.add_subparsers(dest="claims_command", required=True)
