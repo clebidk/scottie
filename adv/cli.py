@@ -62,6 +62,22 @@ def _collect_prose_strings(node, out):
         out.append(node)
 
 
+def find_emf_urls(facts_pack):
+    """Fix cycle 2 item 8: the Shopify handle for Fuji (and other models)
+    contains "near-zero-emf" -- pages link to the product URL as-is (that's
+    Caleb's call on the Shopify side), but every such URL is logged per run
+    so it stays visible in REVIEW.md."""
+    urls = []
+    product_url = facts_pack.get("product", {}).get("url")
+    if product_url and "emf" in product_url.lower():
+        urls.append(product_url)
+    for claim in facts_pack.get("verified_claims", []):
+        source = claim.get("source", "")
+        if source.startswith("http") and "emf" in source.lower() and source not in urls:
+            urls.append(source)
+    return urls
+
+
 def count_words(page_json):
     """Word count of a page's main content only: every prose string in
     page.json (the byline and disclosure blocks are renderer-injected and
@@ -71,7 +87,7 @@ def count_words(page_json):
     return sum(len(s.split()) for s in strings)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched):
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None):
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -117,6 +133,33 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     lines.append("## Word counts (main content only, excludes disclosure and byline)")
     for name in selected:
         lines.append(f"- {name}: {count_words(pages[name])} words")
+
+    lines.append("")
+    lines.append("## Review checklist")
+    if ad_brief.get("speaker_pov") == "first_person":
+        lines.append(
+            "- First-person attribution: PASS -- the ad speaker's first-person story was "
+            "attributed to a customer (or facts_pack.speaker_name), not written in the "
+            "author's own first person (gate: claims.find_first_person_violations)."
+        )
+    else:
+        lines.append("- First-person attribution: not applicable (ad_brief.speaker_pov is not first_person).")
+
+    lines.append("")
+    lines.append("## EMF handling")
+    dropped = ad_brief.get("_dropped_emf_claims") or []
+    if dropped:
+        lines.append("Dropped from ad_brief during ingest (fix 7):")
+        for text in dropped:
+            lines.append(f"- dropped EMF claim: {text}")
+    else:
+        lines.append("- no EMF claims/features were dropped from ad_brief during ingest.")
+    if emf_urls:
+        lines.append("URLs that still contain \"emf\" (Shopify handle; pages link to it as-is -- fix 8):")
+        for url in emf_urls:
+            lines.append(f"- {url}")
+    else:
+        lines.append("- no URL used by this run contains \"emf\".")
 
     lines.append("")
     lines.append("## Budget use")
@@ -207,6 +250,13 @@ def cmd_run(args):
         )
         (run_dir / "facts_pack.json").write_text(json.dumps(facts_pack, indent=2))
 
+        # Fix cycle 2 item 8: log a warning for every URL that still contains
+        # "emf" (the Shopify handle), so it stays visible in REVIEW.md even
+        # though the page is allowed to link to it as-is.
+        emf_urls = find_emf_urls(facts_pack)
+        for url in emf_urls:
+            log.event("run", f"URL contains 'emf': {url}")
+
         pages = {}
         for cartridge_name in selected:
             budget.check()
@@ -220,7 +270,13 @@ def cmd_run(args):
                 budget=budget,
                 log=log,
             )
-            gate_page_json(page, facts_pack, cartridge_name, financing_lender=claims_config.get("financing_lender"))
+            gate_page_json(
+                page,
+                facts_pack,
+                cartridge_name,
+                financing_lender=claims_config.get("financing_lender"),
+                speaker_pov=ad_brief.get("speaker_pov"),
+            )
             pages[cartridge_name] = page
 
         published = updated = datetime.date.today().isoformat()
@@ -276,6 +332,7 @@ def cmd_run(args):
         budget=budget,
         cost=cost,
         gate_matched=gate_matched,
+        emf_urls=emf_urls,
     )
     log.close()
 

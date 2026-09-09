@@ -27,6 +27,10 @@ Every piece of text that states a number, a percentage, a dollar amount, or uses
 
 Reference images only by an asset id from facts_pack.assets, in an "asset_id" field -- never by URL directly.
 
+Never write a URL anywhere in body text (prose, headings, alt text, quotes). Cite a source inline as "(source name, year)" -- e.g. "(Peak Saunas product page, 2026)" -- using a short human-readable name for the source, never the raw URL. The renderer builds the Sources list and its links on its own from claim_ids; the URL never needs to appear as text you write.
+
+If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to "a customer" -- or to the name in facts_pack.speaker_name if that field is non-null -- e.g. "One customer told us she..." or a short quoted line clearly credited to that customer. The page author (Austin) never speaks in the ad speaker's first person.
+
 If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {"reference_article": "..."} exemplar is a real published Peak Saunas article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
 
 ## Guardrails

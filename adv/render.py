@@ -7,11 +7,12 @@ never writes any of that -- it's all added here.
 import json
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 import jinja2
 
 from . import ingest
-from .claims import collect_claim_ids
+from .claims import ClaimsGateFailure, collect_claim_ids, find_forbidden_visible_text
 
 FALLBACK_BYLINE = """<p class="adv-byline-author">By {author}, Founder &amp; CEO, Peak Saunas</p>
 <p class="adv-byline-contributor">Reviewed by {contributor}</p>
@@ -53,6 +54,22 @@ def load_byline_html(brand_dir, published, updated, log=None):
     if log:
         log.event("render", "brand/byline.html not found; using fallback byline markup")
     return FALLBACK_BYLINE.format(**context)
+
+
+# Fix cycle 2 item 9: the Sources list must show a short, human-readable
+# link label -- never the raw URL as visible text (that's exactly how the
+# Fuji product URL's "near-zero-emf" handle was leaking into visible copy).
+_SOURCE_CATEGORY_LABELS = {"price": "product page", "spec": "product page", "policy": "policy page", "trust": "page"}
+
+
+def source_label(claim):
+    source = claim.get("source", "") or ""
+    if source.startswith("http"):
+        host = urlparse(source).netloc.replace("www.", "") or "Source"
+        base = "Peak Saunas" if host == "peaksaunas.com" else host
+    else:
+        base = "Peak Saunas"
+    return f"{base} {_SOURCE_CATEGORY_LABELS.get(claim.get('category'), 'page')}"
 
 
 def build_json_ld(cartridge_name, page, facts_pack, published, updated):
@@ -202,7 +219,11 @@ def render_page(
     assets_by_id = {a["id"]: dict(a) for a in facts_pack.get("assets", [])}
     used_claim_ids = collect_claim_ids(page)
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
-    sources = [verified_by_id[cid] for cid in sorted(used_claim_ids) if cid in verified_by_id]
+    sources = [
+        {**verified_by_id[cid], "label": source_label(verified_by_id[cid])}
+        for cid in sorted(used_claim_ids)
+        if cid in verified_by_id
+    ]
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
@@ -240,6 +261,16 @@ def render_page(
         updated=updated,
         cartridge=cartridge_name,
     )
+
+    # Fix cycle 2 item 9: EMF is absolute -- scan the page as a reader would
+    # actually see it (tags/scripts/styles stripped, entities unescaped)
+    # before writing it out. This is a backstop behind the page.json gate:
+    # a citation URL that's fine sitting in a "url"/"asset_id" field can
+    # still leak into visible prose (or a Sources-list link's text) once
+    # rendered, and that must still STOP the run rather than publish.
+    hits = find_forbidden_visible_text(html)
+    if hits:
+        raise ClaimsGateFailure(f"html_visible_text:{cartridge_name}", hits)
 
     (out_dir / "index.html").write_text(html)
     (out_dir / "page.json").write_text(json.dumps(page, indent=2))

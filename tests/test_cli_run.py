@@ -120,8 +120,11 @@ def test_run_dry_run_produces_three_pages(monkeypatch):
 
 
 def test_run_stops_on_unmatched_claim(monkeypatch):
+    # Not an EMF claim -- fix 7 (below) drops EMF-mentioning claims instead of
+    # stopping, so this uses a different, still-unsourced claim to test the
+    # generic unmatched-claim STOP path.
     bad_ad_brief = dict(AD_BRIEF_RESPONSE)
-    bad_ad_brief["claims_made"] = ["Competitor saunas leak dangerous levels of EMF radiation."]
+    bad_ad_brief["claims_made"] = ["Competitor saunas cost twice as much as Peak."]
     responses = [json_response(bad_ad_brief)]
     client = FakeClient(responses)
     monkeypatch.setattr(cli, "make_client", lambda: client)
@@ -135,3 +138,40 @@ def test_run_stops_on_unmatched_claim(monkeypatch):
     unmatched = json.loads((run_dir / "unmatched_claims.json").read_text())
     assert unmatched["stage"] == "ad_claims"
     assert len(unmatched["items"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 7: an EMF-mentioning ad claim/feature is dropped from
+# ad_brief during ingest (logged), never a STOP.
+# ---------------------------------------------------------------------------
+
+def test_run_drops_emf_claim_instead_of_stopping(monkeypatch):
+    emf_ad_brief = dict(AD_BRIEF_RESPONSE)
+    emf_ad_brief["claims_made"] = ["Competitor saunas leak dangerous levels of EMF radiation."]
+    emf_ad_brief["features_shown"] = ["near-zero EMF design"]
+    responses = [
+        json_response(emf_ad_brief),
+        json_response(ARTICLE_PAGE),
+        json_response(PRODUCT_PAGE_PAGE),
+        json_response(LONGFORM_PAGE),
+    ]
+    client = FakeClient(responses)
+    monkeypatch.setattr(cli, "make_client", lambda: client)
+    _patch_network(monkeypatch)
+
+    exit_code = cli.cmd_run(_base_args())
+    assert exit_code == 0
+
+    out_dirs = sorted((REPO_ROOT / "out").glob("*-hidden-costs-v2-transcript"))
+    run_dir = out_dirs[-1]
+
+    ad_brief = json.loads((run_dir / "ad_brief.json").read_text())
+    assert ad_brief["claims_made"] == []
+    assert ad_brief["features_shown"] == []
+    assert ad_brief["_dropped_emf_claims"] == [
+        "Competitor saunas leak dangerous levels of EMF radiation.",
+        "near-zero EMF design",
+    ]
+
+    review_md = (run_dir / "REVIEW.md").read_text()
+    assert "dropped EMF claim: Competitor saunas leak dangerous levels of EMF radiation." in review_md

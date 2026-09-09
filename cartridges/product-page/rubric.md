@@ -1,6 +1,6 @@
 # Rubric: product-page (v0.1.0)
 
-Not executed in V1 (grader lands in V1.5). Ten one-line checks, derived from cartridge.md.
+Not executed in V1 (grader lands in V1.5). Eleven one-line checks, derived from cartridge.md.
 
 1. Word count is 250-500 words.
 2. Exactly one CTA text string, shown twice (hero + repeat).
@@ -12,3 +12,4 @@ Not executed in V1 (grader lands in V1.5). Ten one-line checks, derived from car
 8. Trust strip items (warranty, shipping, returns, reviews) map to verified_claims only; reviews is omitted if facts_pack.reviews_summary is null.
 9. Hero image plus 1-2 detail shots, all from the asset library.
 10. No superlative ("best", "#1", "unmatched") appears without a claim_id.
+11. First-person attribution: if ad_brief.speaker_pov is first_person, the speaker's story is attributed to "a customer" (or facts_pack.speaker_name) -- never told in the author's (Austin's) own first person.

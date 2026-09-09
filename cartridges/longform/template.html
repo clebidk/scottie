@@ -2,7 +2,7 @@
 {% block title %}{{ page.hero.headline }}{% endblock %}
 {% block byline %}<div class="adv-byline">{{ byline_html | safe }}</div>{% endblock %}
 {% block content %}
-<main class="adv-longform">
+<div class="adv-longform">
   <header>
     <span class="adv-badge">Advertisement</span>
   </header>
@@ -57,7 +57,7 @@
   </section>
 
   <section class="adv-social-proof">
-    {% if page.social_proof.reviews_summary %}<p>{{ page.social_proof.reviews_summary.text }}</p>{% endif %}
+    {% if facts_pack.reviews_summary and page.social_proof.reviews_summary %}<p>{{ page.social_proof.reviews_summary.text }}</p>{% endif %}
     {% if page.social_proof.quotes %}
     <ul class="adv-quotes">
       {% for q in page.social_proof.quotes %}<li>&ldquo;{{ q }}&rdquo;</li>{% endfor %}
@@ -87,7 +87,7 @@
     {% endif %}
     {% if page.final_cta.warranty_line %}<p class="adv-warranty">{{ page.final_cta.warranty_line.text }}</p>{% endif %}
   </section>
-</main>
+</div>
 
 <div class="adv-sticky-cta">
   <a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a>

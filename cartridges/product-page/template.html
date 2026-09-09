@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ product.short_name or product.name }}{% endblock %}
 {% block content %}
-<main class="adv-product-page">
+<div class="adv-product-page">
   <header>
     <span class="adv-badge">Advertisement</span>
   </header>
@@ -55,7 +55,7 @@
     {% if page.trust_strip.warranty %}<div class="adv-trust-item"><strong>Warranty</strong><p>{{ page.trust_strip.warranty.text }}</p></div>{% endif %}
     {% if page.trust_strip.shipping %}<div class="adv-trust-item"><strong>Shipping</strong><p>{{ page.trust_strip.shipping.text }}</p></div>{% endif %}
     {% if page.trust_strip.returns %}<div class="adv-trust-item"><strong>Returns</strong><p>{{ page.trust_strip.returns.text }}</p></div>{% endif %}
-    {% if page.trust_strip.reviews %}<div class="adv-trust-item"><strong>Reviews</strong><p>{{ page.trust_strip.reviews.text }}</p></div>{% endif %}
+    {% if facts_pack.reviews_summary and page.trust_strip.reviews %}<div class="adv-trust-item"><strong>Reviews</strong><p>{{ page.trust_strip.reviews.text }}</p></div>{% endif %}
   </section>
 
   {% if page.detail_images %}
@@ -68,5 +68,5 @@
   {% endif %}
 
   <p><a class="adv-cta" href="{{ page.repeat_cta.url }}">{{ page.repeat_cta.text }}</a></p>
-</main>
+</div>
 {% endblock %}

@@ -10,7 +10,7 @@
 {% endif %}
 </head>
 <body>
-<div class="adv-wrap">
+<main class="adv-wrap">
 {% block content %}{% endblock %}
 
 <footer class="adv-footer">
@@ -21,12 +21,12 @@
     <h3>Sources</h3>
     <ul>
     {% for s in sources %}
-      <li id="source-{{ s.id }}">{{ s.text }} &mdash; <a href="{{ s.source }}" rel="nofollow">{{ s.source }}</a></li>
+      <li id="source-{{ s.id }}">{{ s.text }} &mdash; <a href="{{ s.source }}" rel="nofollow">{{ s.label }}</a></li>
     {% endfor %}
     </ul>
   </div>
   {% endif %}
 </footer>
-</div>
+</main>
 </body>
 </html>

@@ -2,7 +2,9 @@ import pytest
 
 from adv.claims import (
     ClaimsGateFailure,
+    find_first_person_violations,
     find_forbidden_terms,
+    find_forbidden_visible_text,
     gate_ad_brief_claims,
     gate_page_json,
     validate_page_claim_ids,
@@ -174,3 +176,74 @@ def test_gate_page_json_stops_on_emf_even_with_valid_claim_ids():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_page_json(page, FACTS_PACK, "product-page")
     assert exc_info.value.stage == "page_json:product-page"
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 9: rendered-HTML visible-text EMF gate -- href/src are
+# exempt (they disappear with the tag), but visible link/prose text is not.
+# ---------------------------------------------------------------------------
+
+def test_find_forbidden_visible_text_passes_when_emf_only_in_an_href():
+    html = (
+        '<p>See the <a href="https://peaksaunas.com/products/peak-saunas-fuji-near-zero-emf-sauna">'
+        "Peak Saunas product page</a> for specs.</p>"
+    )
+    assert find_forbidden_visible_text(html) == []
+
+
+def test_find_forbidden_visible_text_fails_when_emf_is_in_visible_text():
+    html = (
+        '<p>Source: (Peak Saunas, 2026, '
+        "https://peaksaunas.com/products/peak-saunas-fuji-near-zero-emf-sauna)</p>"
+    )
+    hits = find_forbidden_visible_text(html)
+    assert any(h["term"] == "emf" for h in hits)
+
+
+def test_find_forbidden_visible_text_ignores_script_and_style_content():
+    html = (
+        '<script type="application/ld+json">{"emf": "electromagnetic test data"}</script>'
+        "<style>.emf-badge { color: red; }</style>"
+        "<p>Clean visible copy with no forbidden terms.</p>"
+    )
+    assert find_forbidden_visible_text(html) == []
+
+
+def test_find_forbidden_visible_text_catches_electromagnetic():
+    html = "<p>Our sauna emits almost no electromagnetic field.</p>"
+    hits = find_forbidden_visible_text(html)
+    assert any(h["term"] == "electromagnetic" for h in hits)
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 11: first-person attribution -- the page author never
+# speaks in the ad speaker's first person when speaker_pov is first_person.
+# ---------------------------------------------------------------------------
+
+def test_find_first_person_violations_catches_i_verb_construction():
+    page = {"open": [{"text": "I ran into this over and over."}]}
+    hits = find_first_person_violations(page, "first_person")
+    assert len(hits) == 1
+    assert hits[0]["path"] == "$.open[0].text"
+
+
+def test_find_first_person_violations_noop_when_not_first_person():
+    page = {"open": [{"text": "I ran into this over and over."}]}
+    assert find_first_person_violations(page, "brand") == []
+
+
+def test_find_first_person_violations_allows_attributed_customer_story():
+    page = {"open": [{"text": "One customer told us she ran into this over and over."}]}
+    assert find_first_person_violations(page, "first_person") == []
+
+
+def test_find_first_person_violations_ignores_quoted_testimonial():
+    page = {"social_proof": {"quotes": ["I ran into this over and over, until Peak."]}}
+    assert find_first_person_violations(page, "first_person") == []
+
+
+def test_gate_page_json_stops_on_first_person_leak():
+    page = {"open": [{"text": "I ran into this over and over."}]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, FACTS_PACK, "article", speaker_pov="first_person")
+    assert exc_info.value.stage == "page_json:article"

@@ -269,6 +269,23 @@ def build_ad_brief(*, transcript_or_text, source_file, input_type, client, model
 # Orchestration
 # ---------------------------------------------------------------------------
 
+def drop_emf_claims(ad_brief, log):
+    """Fix cycle 2 item 7: EMF is absolute -- an ad claim or feature that
+    mentions it is dropped from ad_brief (logged, never a STOP), so the page
+    simply never covers that angle. Returns the list of dropped strings."""
+    dropped = []
+    for key in ("claims_made", "features_shown"):
+        kept = []
+        for item in ad_brief.get(key, []):
+            if isinstance(item, str) and "emf" in item.lower():
+                dropped.append(item)
+                log.event("ingest", f"dropped EMF claim: {item}")
+            else:
+                kept.append(item)
+        ad_brief[key] = kept
+    return dropped
+
+
 def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, whisper_bin, whisper_model):
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -297,4 +314,5 @@ def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, wh
         budget=budget,
         log=log,
     )
+    ad_brief["_dropped_emf_claims"] = drop_emf_claims(ad_brief, log)
     return ad_brief

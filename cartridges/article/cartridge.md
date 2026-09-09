@@ -5,9 +5,9 @@ Audience temperature: cold. Reader does not know Peak and did not plan to buy a 
 
 ## Structure (in order)
 1. Header block: "Advertisement" label, headline (curiosity or contrarian, no product name), dek (1 sentence), byline block, dates.
-2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. First person allowed if the ad speaker is first person.
+2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. If the ad speaker is first person, tell it as a customer's story ("a customer told us...") -- never in the author's (Austin's) own first person; see the global voice block.
 3. Body: 3–5 H2 sections. Each answers one question the reader would ask next. Education only. Product may be mentioned by name once in the body, as an example, no link.
-4. Evidence: at least 2 cited facts from facts_pack.verified_claims, cited inline as "(source name, year)" with the URL.
+4. Evidence: at least 2 cited facts from facts_pack.verified_claims, cited inline as "(source name, year)" -- never the raw URL; the renderer adds the link in the Sources list.
 5. Turn: one H2 that moves from the topic to "what to look for", listing 3–4 criteria that Peak meets. Still no hard sell.
 6. Close: 1 paragraph naming Peak, 1 soft CTA link ("See the models" / "Read the specs"). Financing line only if the ad used a price angle.
 7. Footer: disclosure paragraph, sources list.
@@ -22,7 +22,7 @@ Audience temperature: cold. Reader does not know Peak and did not plan to buy a 
 - Voice: plain, specific, second person or first person. No exclamation marks. No "game-changer", "unlock", "elevate", "journey".
 
 ## From the ad
-Hook and angle → headline and open. Objections raised in the ad → body sections. Speaker's story → open, kept in their voice.
+Hook and angle → headline and open. Objections raised in the ad → body sections. Speaker's story → open, attributed to "a customer" (or facts_pack.speaker_name), never told in the author's own first person.
 
 ## From facts_pack
 Specs, price, financing, warranty, verified studies, reviews summary.

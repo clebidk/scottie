@@ -42,6 +42,20 @@ def test_default_config_has_no_lender_and_hides_compare_at():
     config = load_claims_config(REPO_ROOT / "claims")
     assert config["financing_lender"] is None
     assert config["show_compare_at_price"] is False
+    # Fix cycle 2 item 2: no speaker name is cleared for use by default --
+    # the ad speaker's story is anonymous ("a customer") unless Caleb sets one.
+    assert config["speaker_name"] is None
+
+
+def test_facts_for_passes_speaker_name_through_from_config():
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+
+    facts_pack = source.facts_for(FUJI_SLUG, ad_brief, config={"speaker_name": None})
+    assert facts_pack["speaker_name"] is None
+
+    facts_pack = source.facts_for(FUJI_SLUG, ad_brief, config={"speaker_name": "Jamie R."})
+    assert facts_pack["speaker_name"] == "Jamie R."
 
 
 def test_facts_for_financing_and_compare_at_respect_config():

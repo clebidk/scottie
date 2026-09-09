@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from adv.claims import ClaimsGateFailure
 from adv.render import render_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -239,3 +240,158 @@ def test_render_page_skips_asset_that_downloads_as_html(tmp_path):
     assert not (out_dir / "assets").exists() or not list((out_dir / "assets").iterdir())
     assert 'class="adv-hero-image"' not in html
     assert any("looked like HTML" in msg for _, msg in log.events)
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 13: the disclosure paragraph must be inside <main> or
+# <article> so page-text extraction picks it up (it previously sat in a
+# footer that was a sibling of the cartridge's own root element).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "cartridge_name,page",
+    [("article", ARTICLE_PAGE), ("product-page", PRODUCT_PAGE_PAGE), ("longform", LONGFORM_PAGE)],
+)
+def test_disclosure_paragraph_is_inside_main_or_article(tmp_path, cartridge_name, page):
+    index_path = render_page(
+        cartridge_name=cartridge_name,
+        page=page,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / cartridge_name,
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    disclosure_pos = html.index("This page is an advertisement published by Peak Saunas")
+    main_open = html.index("<main")
+    main_close = html.rindex("</main>")
+    assert main_open < disclosure_pos < main_close
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 12 (FIXLOG item 3): the Reviews block is hidden in every
+# template when facts_pack.reviews_summary is null, even if the writer put
+# something in page.json's reviews slot anyway.
+# ---------------------------------------------------------------------------
+
+def test_product_page_hides_reviews_block_when_reviews_summary_is_null(tmp_path):
+    page = json.loads(json.dumps(PRODUCT_PAGE_PAGE))
+    page["trust_strip"]["reviews"] = {"text": "9,000+ reviews, 4.9 stars", "claim_ids": []}
+    index_path = render_page(
+        cartridge_name="product-page",
+        page=page,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,  # reviews_summary is None
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "product-page",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "9,000" not in html
+    assert "<strong>Reviews</strong>" not in html
+
+
+def test_longform_hides_reviews_block_when_reviews_summary_is_null(tmp_path):
+    page = json.loads(json.dumps(LONGFORM_PAGE))
+    page["social_proof"]["reviews_summary"] = {"text": "9,000+ reviews, 4.9 stars", "claim_ids": []}
+    index_path = render_page(
+        cartridge_name="longform",
+        page=page,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "longform",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "9,000" not in html
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 9: Sources list link text is a short label, never the raw
+# URL; and a URL that leaked into visible prose STOPs the run at render time.
+# ---------------------------------------------------------------------------
+
+def test_render_page_sources_list_uses_label_not_raw_url_as_link_text(tmp_path):
+    index_path = render_page(
+        cartridge_name="product-page",
+        page=PRODUCT_PAGE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "product-page",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert 'href="https://peaksaunas.com/products/fuji"' in html
+    assert ">https://peaksaunas.com/products/fuji<" not in html
+    assert ">Peak Saunas product page<" in html
+
+
+def test_render_page_raises_on_emf_leak_into_visible_text(tmp_path):
+    page = json.loads(json.dumps(ARTICLE_PAGE))
+    page["body_sections"][0]["paragraphs"][0]["text"] = (
+        "Read more (Peak Saunas, 2026, "
+        "https://peaksaunas.com/products/peak-saunas-fuji-near-zero-emf-sauna)."
+    )
+    out_dir = tmp_path / "article"
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        render_page(
+            cartridge_name="article",
+            page=page,
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            cartridges_dir=REPO_ROOT / "cartridges",
+            brand_dir=tmp_path / "brand-does-not-exist",
+            templates_dir=REPO_ROOT / "adv" / "templates",
+            out_dir=out_dir,
+            published="2026-09-09",
+            updated="2026-09-09",
+            download_assets=False,
+        )
+    assert exc_info.value.stage == "html_visible_text:article"
+    assert not (out_dir / "index.html").exists()
+
+
+# ---------------------------------------------------------------------------
+# fix cycle 2 item 10 (FIXLOG item 1): brand/byline.html is page-neutral --
+# no more competitor-buyer's-guide copy lifted verbatim ("this ranking",
+# "corrections that favor a competitor").
+# ---------------------------------------------------------------------------
+
+def test_real_byline_html_is_page_neutral(tmp_path):
+    index_path = render_page(
+        cartridge_name="article",
+        page=ARTICLE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=REPO_ROOT / "brand",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=tmp_path / "article",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "Austin Laudenslager" in html
+    assert "Caleb Niednagel" in html
+    assert "this ranking" not in html.lower()
+    assert "favor a competitor" not in html.lower()

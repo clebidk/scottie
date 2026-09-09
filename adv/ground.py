@@ -6,7 +6,12 @@ import json
 from pathlib import Path
 from typing import Protocol
 
-DEFAULT_CONFIG = {"financing_lender": None, "show_compare_at_price": False, "reviews_source": "judgeme-live"}
+DEFAULT_CONFIG = {
+    "financing_lender": None,
+    "show_compare_at_price": False,
+    "reviews_source": "judgeme-live",
+    "speaker_name": None,
+}
 
 # Fix 8: for the chosen product's Drive assets, prefer lifestyle/interior,
 # then render, then installation shots. Never video/logo/ugc in V1.
@@ -199,6 +204,10 @@ class LocalFactsSource:
             "reviews_summary": reviews_summary,
             "verified_claims": verified_claims,
             "assets": assets,
+            # Fix 2 (cycle 2): the ad speaker's first-person story is
+            # attributed to "a customer" unless Caleb has put a real,
+            # consented name in claims/config.json.
+            "speaker_name": config.get("speaker_name"),
         }
 
 

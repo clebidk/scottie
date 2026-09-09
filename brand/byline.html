@@ -1,6 +1,9 @@
 <!--
   Peak Saunas byline block, cleaned of Shopify section wrappers.
-  Source: https://peaksaunas.com/blogs/saunas/best-sauna-brands-2026
+  Fix cycle 2 (fix 1 / FIXLOG item 10): rewritten page-neutral -- the prior
+  copy was lifted verbatim from an unrelated buyer's-guide article and
+  didn't fit a general landing page (it referred to itself as a ranking and
+  promised corrections that could favor a rival brand).
   Live markup used classes "pkx-byline" / "pkx-dates" / "pkx-sec" (defined
   in base.css as .byline / .byline__dates). Placeholders: {{author}},
   {{contributor}}, {{published}}, {{updated}}. author_url / contributor_url
@@ -8,13 +11,13 @@
   /pages/caleb-niednagel) -- swap them too if the byline names change.
 -->
 
-<!-- Top-of-article byline -->
+<!-- Top-of-page byline -->
 <div class="byline">
-  <div>&#10003; <strong>Written by:</strong> <a href="/pages/austin-laudenslager">{{author}}, Founder &amp; CEO, Peak Saunas</a> &middot; <strong>Expert contributor:</strong> <a href="/pages/caleb-niednagel">{{contributor}}</a></div>
-  <div class="byline__dates">Published: {{published}} &middot; Updated: {{updated}} &middot; Every competitor price, warranty term and specification on this page was read off that brand's own live pages (or the named third-party source) on {{updated}} and is date-stamped where it appears.</div>
+  <div>&#10003; <strong>Written by</strong> <a href="/pages/austin-laudenslager">{{author}}</a> &middot; <strong>Expert contributor:</strong> <a href="/pages/caleb-niednagel">{{contributor}}</a></div>
+  <div class="byline__dates">Published: {{published}} &middot; Updated: {{updated}}</div>
 </div>
 
-<!-- Bottom-of-article "About the author" block -->
+<!-- Bottom-of-page "About the author" block -->
 <div class="byline" style="border-top:1px solid #E9EAEC;padding-top:14px;font-size:14px">
-  <p><strong>About the author.</strong> {{author}} is the Founder &amp; CEO of Peak Saunas, a US direct-to-consumer sauna company. He wrote this ranking himself, is responsible for every claim on it, and will date-stamp corrections in the Updated line above -- including corrections that favor a competitor. <a href="/pages/austin-laudenslager">Full bio</a>. Expert contributor <a href="/pages/caleb-niednagel">{{contributor}}</a> re-checked every competitor source link on this page.</p>
+  <p><strong>About the author.</strong> Austin Laudenslager is the Founder &amp; CEO of Peak Saunas and is responsible for every claim on this page. Corrections are date-stamped in the Updated line above. <a href="/pages/austin-laudenslager">Full bio</a>. Caleb Niednagel, Technology Lead, verified each specification and source link on this page.</p>
 </div>

@@ -9,7 +9,15 @@
 (c) No page.json string anywhere may contain "EMF" (any case), a discontinued
     model name, "Sunlighten", or -- when claims/config.json's financing_lender
     is null -- any known financing-lender name, or the run STOPs.
+(d) Fix cycle 2 item 11: if ad_brief.speaker_pov is "first_person", no page.json
+    prose string outside a quoted-testimonial container may put the ad
+    speaker's story in the author's own first person ("I ran...", "I don't...").
+(e) Fix cycle 2 item 9: after rendering, the page's visible text (tags,
+    scripts, and styles stripped, entities unescaped) may not contain "emf" or
+    "electromagnetic" -- href/src attribute values are exempt because tag-
+    stripping removes them along with the tag.
 """
+import html
 import re
 
 STOPWORDS = {
@@ -218,9 +226,95 @@ def find_forbidden_terms(page_json, financing_lender=None):
     return hits
 
 
-def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None):
+# Fix cycle 2 item 2 / item 11: the page author (Austin) must never speak in
+# the ad speaker's first person. A simple heuristic: "I" directly followed by
+# one of these common first-person-anecdote verbs. Kept deliberately simple
+# per the fix note -- not a full grammar check.
+_FIRST_PERSON_VERBS = (
+    "ran", "was", "had", "went", "tried", "wanted", "hated", "found", "came",
+    "didn't", "don't",
+)
+_FIRST_PERSON_RE = re.compile(
+    r"\bI(?:'m|'ve|'d)?\s+(?:" + "|".join(_FIRST_PERSON_VERBS) + r")\b", re.IGNORECASE
+)
+
+# Containers that hold an actual, credited quote/testimonial (not the author
+# speaking) -- e.g. cartridges/longform's social_proof.quotes. First-person
+# text inside these is fine; it's someone else's words, not the author's.
+_QUOTED_CONTAINER_KEYS = {"quotes", "quote", "testimonial", "testimonials", "blockquote"}
+
+
+def find_first_person_violations(page_json, speaker_pov):
+    """Fix 11: when the ad speaker talks in first person, that story must be
+    attributed to "a customer" (or facts_pack.speaker_name), never written as
+    the page author's own first-person experience. Flags any prose string
+    containing an "I <verb>" construction outside a quoted-testimonial
+    container. No-op when speaker_pov isn't "first_person"."""
+    if speaker_pov != "first_person":
+        return []
+    hits = []
+
+    def walk(node, path, in_quote):
+        if isinstance(node, str):
+            if not in_quote and _FIRST_PERSON_RE.search(node):
+                hits.append(
+                    {
+                        "path": path,
+                        "issue": "first-person statement outside a quoted testimonial",
+                        "text": node,
+                    }
+                )
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                walk(v, f"{path}.{k}", in_quote or k in _QUOTED_CONTAINER_KEYS)
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]", in_quote)
+
+    walk(page_json, "$", False)
+    return hits
+
+
+def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
     problems = validate_page_claim_ids(page_json, valid_ids)
     problems += find_forbidden_terms(page_json, financing_lender=financing_lender)
+    problems += find_first_person_violations(page_json, speaker_pov)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
+
+
+# ---------------------------------------------------------------------------
+# (e) rendered-HTML visible-text EMF gate (fix cycle 2 item 9)
+# ---------------------------------------------------------------------------
+
+_SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+VISIBLE_TEXT_FORBIDDEN_TERMS = ("emf", "electromagnetic")
+
+
+def strip_html_to_visible_text(rendered_html):
+    """Rendered HTML -> the text a reader (or a page-text extractor) actually
+    sees: script/style contents and HTML comments dropped whole, every
+    remaining tag (and therefore every attribute, including href/src) removed,
+    then entities unescaped."""
+    without_scripts = _SCRIPT_STYLE_RE.sub(" ", rendered_html)
+    without_comments = _COMMENT_RE.sub(" ", without_scripts)
+    without_tags = _TAG_RE.sub(" ", without_comments)
+    return html.unescape(without_tags)
+
+
+def find_forbidden_visible_text(rendered_html, terms=VISIBLE_TEXT_FORBIDDEN_TERMS):
+    """EMF is absolute (fix cycle 2 item 6/9): scan the page as a reader would
+    see it, not as page.json's structured fields. Catches a citation URL or a
+    Sources-list link that got printed as visible link text even though it
+    was exempt as a structural field pre-render. href/src attribute values
+    are exempt -- they disappear along with their tag."""
+    text = strip_html_to_visible_text(rendered_html).lower()
+    hits = []
+    for term in terms:
+        if term in text:
+            hits.append({"term": term, "issue": f"forbidden term {term!r} found in visible text"})
+    return hits
