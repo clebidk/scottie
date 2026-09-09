@@ -209,7 +209,7 @@ Output ONLY a single JSON object with exactly these keys, no markdown fences, no
 
 Rules:
 - Every string in claims_made must be independently checkable against an outside source (a number, a named comparison, a specific claim).
-- Anything that is just the speaker describing their own feelings or experience goes into speaker_experience, never claims_made.
+- Anything that is just the speaker describing their own feelings or experience goes into speaker_experience, never claims_made. This includes a generalization about unnamed "other brands"/"most companies" when it is really just the speaker recounting their own shopping experience (e.g. "so many brands make me do this") rather than a specific, sourceable claim about a named competitor.
 - Output valid JSON only. No prose before or after, no markdown fences."""
 
 
