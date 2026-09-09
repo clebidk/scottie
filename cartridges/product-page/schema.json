@@ -1,0 +1,100 @@
+{
+  "type": "object",
+  "required": ["hero", "proof_bullets", "angle_section", "specs_table", "trust_strip", "repeat_cta"],
+  "properties": {
+    "hero": {
+      "type": "object",
+      "description": "product name, one-line promise from the ad angle, price, financing line, one primary CTA, hero image.",
+      "properties": {
+        "product_name": {"type": "string"},
+        "promise": {"type": "string", "description": "One-line promise from the ad angle. Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead."},
+        "price_line": {
+          "type": "object",
+          "description": "e.g. text: '$8,250 (was $14,032)'. Must carry the product's price claim_id.",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        },
+        "financing_line": {
+          "type": "object",
+          "description": "e.g. text: 'from est. $229/mo with Bread Pay'. Must carry the product's financing claim_id.",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        },
+        "cta": {
+          "type": "object",
+          "properties": {"text": {"type": "string"}, "url": {"type": "string"}}
+        },
+        "hero_image": {
+          "type": "object",
+          "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}
+        }
+      }
+    },
+    "proof_bullets": {
+      "type": "array",
+      "description": "Exactly 3 bullets, each one verified claim with a short label and a one-line explanation, chosen to match the ad's angle.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "text": {"type": "string"},
+          "claim_ids": {"type": "array"}
+        }
+      }
+    },
+    "angle_section": {
+      "type": "object",
+      "description": "1 H2 + 2-4 short paragraphs (or an image/text pair) expanding what the ad said.",
+      "properties": {
+        "heading": {"type": "string"},
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+          }
+        },
+        "image": {
+          "type": "object",
+          "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}
+        }
+      }
+    },
+    "specs_table": {
+      "type": "array",
+      "description": "6-10 rows from facts_pack.specs.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "value": {"type": "string"},
+          "claim_id": {"type": "string"}
+        }
+      }
+    },
+    "trust_strip": {
+      "type": "object",
+      "description": "warranty, shipping/delivery, returns, review count+rating -- from verified_claims only.",
+      "properties": {
+        "warranty": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
+        "shipping": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
+        "returns": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
+        "reviews": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+      }
+    },
+    "repeat_cta": {
+      "type": "object",
+      "description": "Same CTA text as hero.cta, repeated after the trust strip.",
+      "properties": {
+        "text": {"type": "string"},
+        "url": {"type": "string"}
+      }
+    },
+    "detail_images": {
+      "type": "array",
+      "description": "1-2 additional detail shots from the asset library.",
+      "items": {
+        "type": "object",
+        "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}
+      }
+    }
+  }
+}

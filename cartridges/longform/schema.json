@@ -1,0 +1,103 @@
+{
+  "type": "object",
+  "required": ["hero", "problem", "how_it_works", "specs_and_proof", "social_proof", "faq", "final_cta", "images"],
+  "properties": {
+    "hero": {
+      "type": "object",
+      "properties": {
+        "headline": {"type": "string"},
+        "subhead": {"type": "string"},
+        "hero_image": {"type": "object", "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}},
+        "cta": {"type": "object", "properties": {"text": {"type": "string"}, "url": {"type": "string"}}},
+        "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+      }
+    },
+    "problem": {
+      "type": "object",
+      "description": "H2 + 2-3 paragraphs on the reader's problem as the ad frames it; objections from the ad become the problem statements.",
+      "properties": {
+        "heading": {"type": "string"},
+        "paragraphs": {
+          "type": "array",
+          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+        }
+      }
+    },
+    "how_it_works": {
+      "type": "object",
+      "description": "H2 + 3 steps or feature blocks, each with an image slot. Technical facts from facts_pack.specs only.",
+      "properties": {
+        "heading": {"type": "string"},
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {"type": "string"},
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"},
+              "image": {"type": "object", "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}}
+            }
+          }
+        }
+      }
+    },
+    "specs_and_proof": {
+      "type": "object",
+      "description": "table (6-10 rows) + 2-3 verified claims with citations.",
+      "properties": {
+        "specs_table": {
+          "type": "array",
+          "items": {"type": "object", "properties": {"label": {"type": "string"}, "value": {"type": "string"}, "claim_id": {"type": "string"}}}
+        },
+        "proof_points": {
+          "type": "array",
+          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+        }
+      }
+    },
+    "social_proof": {
+      "type": "object",
+      "description": "review summary from verified_claims; up to 3 quotes only if they exist verbatim in facts_pack.reviews_summary. Never invent quotes.",
+      "properties": {
+        "reviews_summary": {
+          "type": "object",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        },
+        "quotes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "faq": {
+      "type": "object",
+      "description": "5-7 questions from ad objections and common buyer questions; answers from facts_pack.",
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "text is the answer (named 'text', not 'answer', so the claims gate's trigger-word check applies to it).",
+            "properties": {
+              "question": {"type": "string"},
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "final_cta": {
+      "type": "object",
+      "properties": {
+        "headline": {"type": "string"},
+        "cta": {"type": "object", "properties": {"text": {"type": "string"}, "url": {"type": "string"}}},
+        "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
+        "warranty_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+      }
+    },
+    "images": {
+      "type": "array",
+      "description": "4-6 images total from the asset library, referenced by asset id (this list is a convenience index of everything used).",
+      "items": {"type": "object", "properties": {"asset_id": {"type": "string"}, "alt": {"type": "string"}}}
+    }
+  }
+}

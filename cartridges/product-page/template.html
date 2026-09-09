@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ page.hero.product_name }}{% endblock %}
+{% block content %}
+<main class="adv-product-page">
+  <header>
+    <span class="adv-badge">Advertisement</span>
+  </header>
+
+  <section class="adv-hero">
+    {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
+    {% if hero_asset %}
+    <img src="{{ hero_asset.url }}" alt="{{ page.hero.hero_image.alt | default(hero_asset.alt) }}" class="adv-hero-image">
+    {% endif %}
+    <h1>{{ page.hero.product_name }}</h1>
+    <p class="adv-dek">{{ page.hero.promise }}</p>
+    <p class="adv-price">{{ page.hero.price_line.text }}</p>
+    {% if page.hero.financing_line %}<p class="adv-financing">{{ page.hero.financing_line.text }}</p>{% endif %}
+    <p><a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a></p>
+  </section>
+
+  <section class="adv-proof-bullets">
+    <ul>
+      {% for b in page.proof_bullets %}
+      <li><strong>{{ b.label }}</strong> &mdash; {{ b.text }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="adv-angle">
+    <h2>{{ page.angle_section.heading }}</h2>
+    {% for p in page.angle_section.paragraphs %}
+    <p>{{ p.text }}</p>
+    {% endfor %}
+    {% set angle_asset = assets.get(page.angle_section.image.asset_id) if page.angle_section.image else None %}
+    {% if angle_asset %}
+    <img src="{{ angle_asset.url }}" alt="{{ page.angle_section.image.alt | default(angle_asset.alt) }}">
+    {% endif %}
+  </section>
+
+  <table class="adv-specs">
+    <tbody>
+      {% for row in page.specs_table %}
+      <tr><th>{{ row.label }}</th><td>{{ row.value }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <section class="adv-trust-strip">
+    {% if page.trust_strip.warranty %}<div class="adv-trust-item"><strong>Warranty</strong><p>{{ page.trust_strip.warranty.text }}</p></div>{% endif %}
+    {% if page.trust_strip.shipping %}<div class="adv-trust-item"><strong>Shipping</strong><p>{{ page.trust_strip.shipping.text }}</p></div>{% endif %}
+    {% if page.trust_strip.returns %}<div class="adv-trust-item"><strong>Returns</strong><p>{{ page.trust_strip.returns.text }}</p></div>{% endif %}
+    {% if page.trust_strip.reviews %}<div class="adv-trust-item"><strong>Reviews</strong><p>{{ page.trust_strip.reviews.text }}</p></div>{% endif %}
+  </section>
+
+  {% if page.detail_images %}
+  <div class="adv-images">
+    {% for img in page.detail_images %}
+      {% set asset = assets.get(img.asset_id) %}
+      {% if asset %}<img src="{{ asset.url }}" alt="{{ img.alt | default(asset.alt) }}" loading="lazy">{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <p><a class="adv-cta" href="{{ page.repeat_cta.url }}">{{ page.repeat_cta.text }}</a></p>
+</main>
+{% endblock %}

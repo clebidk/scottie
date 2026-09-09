@@ -1,0 +1,103 @@
+{
+  "type": "object",
+  "required": ["headline", "dek", "open", "body_sections", "turn_section", "close", "cta", "images"],
+  "properties": {
+    "headline": {
+      "type": "string",
+      "description": "Curiosity or contrarian headline. Never contains 'Peak' or a price."
+    },
+    "dek": {
+      "type": "string",
+      "description": "One-sentence subhead under the headline."
+    },
+    "open": {
+      "type": "array",
+      "description": "2-3 short paragraphs establishing the reader's situation, taken from the ad's hook.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string"},
+          "claim_ids": {"type": "array"}
+        }
+      }
+    },
+    "body_sections": {
+      "type": "array",
+      "description": "3-5 H2 sections, each answering one question the reader would ask next. Education only; the product may be named once, as an example, no link. At least 2 paragraphs across body_sections must carry claim_ids citing facts_pack.verified_claims, with inline citation text like '(source name, year)'.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "heading": {"type": "string"},
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {"type": "string"},
+                "claim_ids": {"type": "array"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "turn_section": {
+      "type": "object",
+      "description": "One H2 that moves from the topic to 'what to look for', 3-4 criteria that Peak meets. Still no hard sell.",
+      "properties": {
+        "heading": {"type": "string"},
+        "intro": {"type": "string"},
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "close": {
+      "type": "object",
+      "description": "1 paragraph naming Peak.",
+      "properties": {
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "cta": {
+      "type": "object",
+      "description": "Exactly one soft CTA ('See the models' / 'Read the specs').",
+      "properties": {
+        "text": {"type": "string"},
+        "url": {"type": "string"}
+      }
+    },
+    "financing_line": {
+      "type": "string",
+      "description": "Only present if the ad used a price angle. Must carry claim_ids."
+    },
+    "images": {
+      "type": "array",
+      "description": "2-3 images from the asset library, lifestyle over product.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "asset_id": {"type": "string"},
+          "alt": {"type": "string"},
+          "caption": {"type": "string"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ page.hero.headline }}{% endblock %}
+{% block byline %}<div class="adv-byline">{{ byline_html | safe }}</div>{% endblock %}
+{% block content %}
+<main class="adv-longform">
+  <header>
+    <span class="adv-badge">Advertisement</span>
+  </header>
+
+  <section class="adv-hero">
+    {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
+    {% if hero_asset %}
+    <img src="{{ hero_asset.url }}" alt="{{ page.hero.hero_image.alt | default(hero_asset.alt) }}" class="adv-hero-image">
+    {% endif %}
+    <h1>{{ page.hero.headline }}</h1>
+    <p class="adv-dek">{{ page.hero.subhead }}</p>
+    {% if page.hero.financing_line %}<p class="adv-financing">{{ page.hero.financing_line.text }}</p>{% endif %}
+    <p><a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a></p>
+  </section>
+
+  <section class="adv-problem">
+    <h2>{{ page.problem.heading }}</h2>
+    {% for p in page.problem.paragraphs %}
+    <p>{{ p.text }}</p>
+    {% endfor %}
+  </section>
+
+  <section class="adv-how-it-works">
+    <h2>{{ page.how_it_works.heading }}</h2>
+    {% for step in page.how_it_works.steps %}
+    <div class="adv-step">
+      {% set step_asset = assets.get(step.image.asset_id) if step.image else None %}
+      {% if step_asset %}<img src="{{ step_asset.url }}" alt="{{ step.image.alt | default(step_asset.alt) }}" loading="lazy">{% endif %}
+      <h3>{{ step.title }}</h3>
+      <p>{{ step.text }}</p>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="adv-specs-proof">
+    <table class="adv-specs">
+      <tbody>
+        {% for row in page.specs_and_proof.specs_table %}
+        <tr><th>{{ row.label }}</th><td>{{ row.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% for pt in page.specs_and_proof.proof_points %}
+    <p>{{ pt.text }}</p>
+    {% endfor %}
+  </section>
+
+  <section class="adv-social-proof">
+    {% if page.social_proof.reviews_summary %}<p>{{ page.social_proof.reviews_summary.text }}</p>{% endif %}
+    {% if page.social_proof.quotes %}
+    <ul class="adv-quotes">
+      {% for q in page.social_proof.quotes %}<li>&ldquo;{{ q }}&rdquo;</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <section class="adv-faq">
+    <h2>Frequently asked questions</h2>
+    {% for item in page.faq.questions %}
+    <div class="adv-faq-item">
+      <h3>{{ item.question }}</h3>
+      <p>{{ item.text }}</p>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="adv-final-cta">
+    <h2>{{ page.final_cta.headline }}</h2>
+    <p><a class="adv-cta" href="{{ page.final_cta.cta.url }}">{{ page.final_cta.cta.text }}</a></p>
+    {% if page.final_cta.financing_line %}<p class="adv-financing">{{ page.final_cta.financing_line.text }}</p>{% endif %}
+    {% if page.final_cta.warranty_line %}<p class="adv-warranty">{{ page.final_cta.warranty_line.text }}</p>{% endif %}
+  </section>
+</main>
+
+<div class="adv-sticky-cta">
+  <a class="adv-cta" href="{{ page.hero.cta.url }}">{{ page.hero.cta.text }}</a>
+</div>
+{% endblock %}

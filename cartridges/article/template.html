@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ page.headline }}{% endblock %}
+{% block content %}
+<article class="adv-article">
+  <header>
+    <span class="adv-badge">Advertisement</span>
+    <h1>{{ page.headline }}</h1>
+    <p class="adv-dek">{{ page.dek }}</p>
+    <div class="adv-byline">{{ byline_html | safe }}</div>
+  </header>
+
+  {% for p in page.open %}
+  <p>{{ p.text }}</p>
+  {% endfor %}
+
+  {% for section in page.body_sections %}
+  <section>
+    <h2>{{ section.heading }}</h2>
+    {% for p in section.paragraphs %}
+    <p>{{ p.text }}</p>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  {% if page.images %}
+  <div class="adv-images">
+    {% for img in page.images %}
+      {% set asset = assets.get(img.asset_id) %}
+      {% if asset %}
+      <figure>
+        <img src="{{ asset.url }}" alt="{{ img.alt | default(asset.alt) }}" loading="lazy">
+        {% if img.caption %}<figcaption>{{ img.caption }}</figcaption>{% endif %}
+      </figure>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <section class="adv-turn">
+    <h2>{{ page.turn_section.heading }}</h2>
+    {% if page.turn_section.intro %}<p>{{ page.turn_section.intro }}</p>{% endif %}
+    <ul>
+      {% for c in page.turn_section.criteria %}
+      <li>{{ c.text }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="adv-close">
+    {% for p in page.close.paragraphs %}
+    <p>{{ p.text }}</p>
+    {% endfor %}
+    {% if page.financing_line %}<p class="adv-financing">{{ page.financing_line }}</p>{% endif %}
+    <p><a class="adv-cta" href="{{ page.cta.url }}">{{ page.cta.text }}</a></p>
+  </section>
+</article>
+{% endblock %}
