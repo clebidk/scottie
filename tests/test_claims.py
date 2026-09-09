@@ -9,6 +9,7 @@ from adv.claims import (
     find_forbidden_visible_text,
     find_leaked_claim_ids,
     find_leaked_claim_ids_visible_text,
+    find_warranty_violations,
     gate_ad_brief_claims,
     gate_page_json,
     strip_leaked_claim_ids,
@@ -159,6 +160,46 @@ def test_find_forbidden_terms_allows_the_configured_lender_name():
     page = {"hero": {"financing_line": {"text": "Get it from est. $229/mo with Affirm"}}}
     hits = find_forbidden_terms(page, financing_lender="Affirm")
     assert hits == []
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 7 item 2: implied claims -- inferring a second, unverified fact
+# from a verified one (e.g. "US-owned" implying "domestic support, not a
+# call center"). Forbidden unless a verified claim's own text carries the
+# phrase.
+# ---------------------------------------------------------------------------
+
+def test_find_forbidden_terms_catches_implied_support_location_claim():
+    # The actual bug that triggered this fix: "US-owned, so the person
+    # you'd reach is domestic, not a call center reading a script."
+    page = {"proof_bullets": [{"text": "US-owned, so the person you'd reach is domestic, not a call center reading a script."}]}
+    hits = find_forbidden_terms(page, verified_claims=VERIFIED_CLAIMS)
+    assert any(h["term"] == "call center" for h in hits)
+
+
+def test_find_forbidden_terms_catches_other_implied_claim_terms():
+    for term in ("domestic support", "us-based support", "american-made", "made in the usa"):
+        page = {"open": [{"text": f"Peak Saunas offers {term}."}]}
+        hits = find_forbidden_terms(page, verified_claims=VERIFIED_CLAIMS)
+        assert any(h["term"] == term for h in hits), term
+
+
+def test_find_forbidden_terms_allows_an_implied_claim_term_when_a_verified_claim_states_it():
+    verified = VERIFIED_CLAIMS + [
+        {"id": "gbrain-support-domestic", "text": "Support calls are answered by domestic support staff.",
+         "category": "trust", "source": "gbrain:policy/support"}
+    ]
+    page = {"open": [{"text": "Peak Saunas offers domestic support."}]}
+    hits = find_forbidden_terms(page, verified_claims=verified)
+    assert not any(h["term"] == "domestic support" for h in hits)
+
+
+def test_find_forbidden_terms_implied_claim_terms_default_forbidden_with_no_verified_claims_arg():
+    # verified_claims defaults to None -- the terms stay forbidden rather
+    # than silently passing through when a caller doesn't pass it.
+    page = {"open": [{"text": "Made in the USA, every unit."}]}
+    hits = find_forbidden_terms(page)
+    assert any(h["term"] == "made in the usa" for h in hits)
 
 
 def test_find_forbidden_terms_ignores_emf_in_top_level_cta_url():
@@ -596,3 +637,73 @@ def test_gate_page_json_stops_on_financing_violation():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_page_json(page, FACTS_PACK, "product-page")
     assert any("financing_line" in item["issue"] for item in exc_info.value.items)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 7 item 1: warranty wording, same fixed-sentence pattern as
+# financing above, but scoped to any text ("any text containing 'warrant'"),
+# not one dedicated field -- warranty copy can legitimately appear in a proof
+# bullet, a trust-strip field, or a specs-table row.
+# ---------------------------------------------------------------------------
+
+WARRANTY_VERIFIED_CLAIMS = [
+    {
+        "id": "warranty-terms",
+        "text": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; "
+                "control system and power supply 3 years; chromotherapy lighting 1 year.",
+        "category": "trust",
+        "source": "https://peaksaunas.com/pages/warranty",
+    },
+]
+WARRANTY_FACTS_PACK = {"verified_claims": WARRANTY_VERIFIED_CLAIMS}
+
+
+def test_find_warranty_violations_allows_the_exact_sentence():
+    page = {"trust_strip": {"warranty": {"text": "Limited lifetime warranty; full terms by component are published on the warranty page."}}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_allows_the_spec_table_value():
+    page = {"specs_table": [{"label": "Warranty", "value": "Limited lifetime warranty (terms by component)"}]}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_allows_a_verbatim_quote_of_the_verified_claim():
+    page = {"open": [{"text": (
+        "As the warranty page puts it, \"Peak Saunas warranty covers, from date of delivery: "
+        "heating elements 7 years; control system and power supply 3 years; chromotherapy "
+        "lighting 1 year.\""
+    )}]}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_flags_a_false_per_component_summary():
+    # The actual bug: "Limited lifetime warranty on the cabin, heating
+    # elements, and electronics" -- electronics are 3yr/1yr in the verified
+    # claim, not lifetime, so this is a false, writer-composed summary.
+    page = {"proof_bullets": [{
+        "label": "Warranty",
+        "text": "Limited lifetime warranty on the cabin, heating elements, and electronics.",
+    }]}
+    hits = find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS)
+    assert len(hits) == 1
+    assert "warranty wording must be exactly" in hits[0]["issue"]
+
+
+def test_find_warranty_violations_ignores_pages_with_no_warranty_mention():
+    page = {"open": [{"text": "The sauna is built from cedar."}]}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_allows_bare_spec_label():
+    page = {"specs_table": [{"label": "Warranty", "value": "See warranty page"}]}
+    # The label alone is fine; the bad value is still flagged on its own.
+    hits = find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS)
+    assert all(h["text"] != "Warranty" for h in hits)
+
+
+def test_gate_page_json_stops_on_warranty_violation():
+    page = {"trust_strip": {"warranty": {"text": "Limited lifetime warranty on the cabin, heating elements, and electronics."}}}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, WARRANTY_FACTS_PACK, "product-page")
+    assert any("warranty wording" in item["issue"] for item in exc_info.value.items)

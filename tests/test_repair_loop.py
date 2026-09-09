@@ -172,6 +172,25 @@ def test_resolve_allowed_cta_texts_empty_without_the_schema_field():
     assert resolve_allowed_cta_texts({}, "Peak Fuji 2-Person Infrared Sauna") == []
 
 
+def test_resolve_allowed_cta_texts_substitutes_model_name():
+    # Fix cycle 7 item 3: "Shop the {model_name}" -> "Shop the Fuji" (model
+    # name only, not the full short_name).
+    schema = {"allowed_cta_texts": ["Shop the {short_name}", "Buy the {short_name}", "Shop the {model_name}"]}
+    resolved = resolve_allowed_cta_texts(schema, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
+    assert resolved == [
+        "Shop the Peak Fuji 2-Person Infrared Sauna",
+        "Buy the Peak Fuji 2-Person Infrared Sauna",
+        "Shop the Fuji",
+    ]
+
+
+def test_resolve_allowed_cta_texts_model_name_defaults_to_none():
+    # A caller (or an existing test) that doesn't pass model_name is
+    # unaffected as long as the schema's templates don't reference it.
+    schema = {"allowed_cta_texts": ["Shop the {short_name}"]}
+    assert resolve_allowed_cta_texts(schema, "Peak Fuji 2-Person Infrared Sauna") == ["Shop the Peak Fuji 2-Person Infrared Sauna"]
+
+
 def test_get_cta_text_reads_articles_nested_cta_and_others_top_level():
     assert get_cta_text({"cta": {"text": "See the models"}}, "article") == "See the models"
     assert get_cta_text({"cta_text": "See pricing"}, "longform") == "See pricing"
@@ -191,6 +210,12 @@ def test_find_cta_violation_flags_text_not_on_the_allowlist():
 
 def test_find_cta_violation_noop_without_an_allowlist():
     assert find_cta_violation({"cta_text": "anything"}, "product-page", []) == []
+
+
+def test_find_cta_violation_passes_for_the_model_name_only_cta():
+    schema = {"allowed_cta_texts": ["Shop the {short_name}", "Buy the {short_name}", "Shop the {model_name}"]}
+    allowed = resolve_allowed_cta_texts(schema, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
+    assert find_cta_violation({"cta_text": "Shop the Fuji"}, "product-page", allowed) == []
 
 
 # ---------------------------------------------------------------------------

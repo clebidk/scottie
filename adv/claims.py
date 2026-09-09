@@ -26,8 +26,12 @@ import re
 
 from .vocab import (
     ALLOWED_FINANCING_SENTENCE_NO_LENDER,
+    ALLOWED_WARRANTY_SENTENCE,
+    ALLOWED_WARRANTY_SPEC_LABEL,
+    ALLOWED_WARRANTY_SPEC_VALUE,
     ALWAYS_FORBIDDEN_TERMS,
     FORBIDDEN_LENDER_NAMES,
+    IMPLIED_CLAIM_FORBIDDEN_TERMS,
     TRIGGER_WORDS,
 )
 
@@ -252,15 +256,22 @@ _NON_PROSE_KEYS = {"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", 
 _URL_RE = re.compile(r"https?://\S+")
 
 
-def find_forbidden_terms(page_json, financing_lender=None):
+def find_forbidden_terms(page_json, financing_lender=None, verified_claims=None):
     """Recursively scan every prose string in page_json for a forbidden term
     (case-insensitive substring), skipping structural/reference fields (url,
     asset_id, etc.) that aren't writer-composed copy. Lender names are only
     forbidden while no lender has been approved (claims/config.json
-    financing_lender is null)."""
+    financing_lender is null). Fix cycle 7 item 2: IMPLIED_CLAIM_FORBIDDEN_TERMS
+    (a second, unverified fact inferred from a verified one, e.g. "US-owned"
+    implying "domestic support") are forbidden unless a verified claim's own
+    text actually carries the phrase -- checked against `verified_claims`
+    (facts_pack["verified_claims"]) so a future genuinely-verified claim
+    about support location isn't blocked forever."""
     forbidden = list(ALWAYS_FORBIDDEN_TERMS)
     if not financing_lender:
         forbidden += list(FORBIDDEN_LENDER_NAMES)
+    verified_text_blob = " ".join(c.get("text", "").lower() for c in (verified_claims or []))
+    forbidden += [t for t in IMPLIED_CLAIM_FORBIDDEN_TERMS if t not in verified_text_blob]
     hits = []
 
     def walk(node, path):
@@ -392,15 +403,76 @@ def find_financing_violations(page_json, financing_lender=None):
     return hits
 
 
+# Fix cycle 7 item 1: warranty wording, same rationale/shape as
+# find_financing_violations above but scoped to any text field ("any text
+# containing 'warrant'"), not one dedicated schema field -- warranty copy
+# can legitimately appear in trust_strip.warranty.text, a proof bullet, a
+# specs_table row, or longform's final_cta warranty line, and the false
+# claim that triggered this fix ("Limited lifetime warranty on the cabin,
+# heating elements, and electronics") was writer-composed prose, not a
+# dedicated field. The only allowed forms: the fixed sentence
+# (ALLOWED_WARRANTY_SENTENCE), the fixed spec-table value
+# (ALLOWED_WARRANTY_SPEC_VALUE), the bare spec-table label
+# (ALLOWED_WARRANTY_SPEC_LABEL, e.g. a {"label": "Warranty", "value": ...}
+# row's label on its own), or a verbatim quote of one of claims/verified.json's
+# own warranty-* / gbrain-warranty-* claim texts (substring match, so a
+# longer sentence that quotes the claim with attribution still passes).
+def find_warranty_violations(page_json, verified_claims):
+    verified_warranty_texts = {
+        c["text"].strip() for c in (verified_claims or []) if "warranty" in c.get("id", "").lower() and c.get("text")
+    }
+    allowed_label_lower = ALLOWED_WARRANTY_SPEC_LABEL.lower()
+
+    def is_allowed(text):
+        stripped = text.strip()
+        if stripped in (ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_VALUE):
+            return True
+        if stripped.lower() == allowed_label_lower:
+            return True
+        return any(vt in text for vt in verified_warranty_texts)
+
+    hits = []
+
+    def walk(node, path):
+        if isinstance(node, str):
+            if "warrant" in node.lower() and not is_allowed(node):
+                hits.append(
+                    {
+                        "path": path,
+                        "issue": (
+                            f"warranty wording must be exactly {ALLOWED_WARRANTY_SENTENCE!r}, "
+                            f"the spec-table pair ({ALLOWED_WARRANTY_SPEC_LABEL!r}: "
+                            f"{ALLOWED_WARRANTY_SPEC_VALUE!r}), or a verbatim quote of a verified "
+                            "warranty claim's own text"
+                        ),
+                        "text": node,
+                    }
+                )
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                if k in _NON_PROSE_KEYS:
+                    continue
+                walk(v, f"{path}.{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+
+    walk(page_json, "$")
+    return hits
+
+
 def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
     digit_exempt_terms = facts_pack.get("digit_exempt_terms")
     problems = validate_page_claim_ids(page_json, valid_ids, digit_exempt_terms)
-    problems += find_forbidden_terms(page_json, financing_lender=financing_lender)
+    problems += find_forbidden_terms(
+        page_json, financing_lender=financing_lender, verified_claims=facts_pack.get("verified_claims")
+    )
     problems += find_first_person_violations(page_json, speaker_pov)
     problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
     problems += find_leaked_claim_ids(page_json, valid_ids)
     problems += find_financing_violations(page_json, financing_lender=financing_lender)
+    problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
 

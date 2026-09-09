@@ -388,7 +388,9 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     cartridge_md = (cartridge_dir / "cartridge.md").read_text()
     schema = json.loads((cartridge_dir / "schema.json").read_text())
     word_range = parse_word_range(cartridge_md)
-    allowed_cta_texts = resolve_allowed_cta_texts(schema, facts_pack["product"]["short_name"])
+    allowed_cta_texts = resolve_allowed_cta_texts(
+        schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"]
+    )
     valid_claim_ids = {c["id"] for c in facts_pack["verified_claims"]}
 
     def _gate(page):

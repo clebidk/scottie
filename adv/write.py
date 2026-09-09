@@ -10,10 +10,14 @@ from pathlib import Path
 from .jsonutil import extract_json
 from .vocab import (
     ALLOWED_FINANCING_SENTENCE_NO_LENDER,
+    ALLOWED_WARRANTY_SENTENCE,
+    ALLOWED_WARRANTY_SPEC_LABEL,
+    ALLOWED_WARRANTY_SPEC_VALUE,
     BANNED_NAMES,
     EMF_TERMS,
     FORBIDDEN_LENDER_NAMES,
     HYPE_WORDS,
+    IMPLIED_CLAIM_FORBIDDEN_TERMS,
     TRIGGER_WORDS,
     forbidden_words_block,
 )
@@ -37,6 +41,7 @@ _FIRST_BANNED_NAME = BANNED_NAMES[0].title()
 _OTHER_BANNED_NAMES_LIST = ", ".join(n.title() for n in BANNED_NAMES[1:])
 _LENDER_NAMES_LIST = ", ".join(n.title() for n in FORBIDDEN_LENDER_NAMES)
 _TRIGGER_WORDS_LIST = ", ".join(f'"{w.upper() if w == "emf" else w}"' for w in TRIGGER_WORDS)
+_IMPLIED_CLAIM_TERMS_LIST = ", ".join(f'"{t}"' for t in IMPLIED_CLAIM_FORBIDDEN_TERMS)
 
 GLOBAL_VOICE_BLOCK = f"""## Voice and output rules
 
@@ -65,7 +70,9 @@ Financing: use facts_pack.product.financing. If financing.lender is null, you ma
 
 Compare-at / list price: only mention a "was $X" / compare-at / strikethrough price if facts_pack.product.compare_at_price is non-null. If it is null, state only the current price.
 
-Warranty: always say "limited lifetime warranty" -- never bare "lifetime warranty".
+Warranty: the verified warranty claim covers each component differently (e.g. heating elements and cabinetry are covered longer than electronics like the control system or chromotherapy lighting) -- never write a sentence describing what's covered by component from memory (e.g. "lifetime warranty on the cabin, heating elements, and electronics" is false for electronics). Anywhere any text mentions warranty, write EXACTLY "{ALLOWED_WARRANTY_SENTENCE}" -- or, in a spec-table row, the label "{ALLOWED_WARRANTY_SPEC_LABEL}" with value exactly "{ALLOWED_WARRANTY_SPEC_VALUE}" -- or quote the verified warranty claim's own text verbatim. Never invent or paraphrase per-component warranty wording.
+
+Implied claims: never infer a second, unverified fact from a verified claim -- a verified claim proves only what it literally says, nothing else. Being US-owned does not verify support is domestic; free shipping does not verify delivery speed; a star rating does not verify the product is "best". Never write {_IMPLIED_CLAIM_TERMS_LIST} unless a verified claim's own text actually states it.
 
 Reviews: use facts_pack.reviews_summary and its claim_ids exactly as given. If facts_pack.reviews_summary is null, do not state any review count or star rating anywhere on the page -- never use the placeholder figures "9,000", "10,000", or "4.9" for a review count or rating. The word "reviews" itself is not banned, but it always needs a claim_id -- this trips writers repeatedly in generic buyer-education prose that has no claim_id to give it, e.g. "look at ratings and reviews from other buyers", "a star average built on a handful of reviews". Say "customer feedback" or "what other buyers say" instead in that kind of sentence -- every time, not just the first draft -- unless you are citing facts_pack.reviews_summary's actual claim_id.
 
@@ -132,9 +139,14 @@ def word_range_target(word_range):
 # product's actual short_name once, here -- both the prompt (the writer's
 # menu of choices) and the gate (what it compares cta_text against) call this
 # same function, so they can't end up comparing against different strings.
-def resolve_allowed_cta_texts(schema, short_name):
+# Fix cycle 7 item 3: schema.json can also template "{model_name}" (e.g.
+# "Shop the {model_name}" -> "Shop the Fuji") -- model_name defaults to None
+# so an existing caller/template with no "{model_name}" placeholder is
+# unaffected; str.format only substitutes a placeholder that's actually
+# present in the template string.
+def resolve_allowed_cta_texts(schema, short_name, model_name=None):
     templates = schema.get("allowed_cta_texts") or []
-    return [t.format(short_name=short_name) for t in templates]
+    return [t.format(short_name=short_name, model_name=model_name) for t in templates]
 
 
 def load_exemplars(cartridge_dir, limit=2):

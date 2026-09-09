@@ -14,7 +14,7 @@ Audience temperature: warm.
 8. Footer: disclosure paragraph.
 
 ## Rules
-- 250–500 words. Return top-level `cta_text` and `cta_url` exactly once -- the renderer reuses them verbatim in the hero and the repeat CTA. `cta_text` must be exactly one of schema.json's `allowed_cta_texts` with `{short_name}` filled in with the product's actual short_name -- never invent different wording (the gate rejects anything else and the run repairs/STOPs). No reviews carousel, no related products, no nav, no newsletter.
+- 250–500 words. Return top-level `cta_text` and `cta_url` exactly once -- the renderer reuses them verbatim in the hero and the repeat CTA. `cta_text` must be exactly one of schema.json's `allowed_cta_texts` with `{short_name}`/`{model_name}` filled in with the product's actual short_name/model name (e.g. "Shop the Fuji") -- never invent different wording (the gate rejects anything else and the run repairs/STOPs). No reviews carousel, no related products, no nav, no newsletter.
 - Price always visible above the fold. Financing carries "/mo" and a lender name only if facts_pack.product.financing.lender is set; otherwise the exact sentence "Financing is available at checkout." with no figure.
 - At least 3 of proof_bullets' claim_ids must be product-benefit claims -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) from facts_pack.verified_claims -- not the price, shipping-policy, warranty-terms, or returns-policy claim_ids. The run STOPs if this minimum isn't met.
 - Every bullet, spec, and trust item must map to a verified_claims id or facts_pack.specs row.

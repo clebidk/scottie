@@ -98,7 +98,10 @@ PRODUCT_PAGE_PAGE = {
         "hero_image": {"asset_id": "asset-1"},
     },
     "proof_bullets": [
-        {"label": "Warranty", "text": "Backed by a written warranty.", "claim_ids": ["warranty-terms"]},
+        # Fix cycle 7 item 1: warranty wording is now gated to the fixed
+        # sentence (claims.find_warranty_violations) -- "Backed by a written
+        # warranty." used to pass but is no longer one of the allowed forms.
+        {"label": "Warranty", "text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
         {"label": "Red light therapy", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
         {"label": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
         {"label": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
@@ -106,7 +109,7 @@ PRODUCT_PAGE_PAGE = {
     "angle_section": {"heading": "Why the price is on the page", "paragraphs": [{"text": "No form required."}] + _filler_paragraphs(6)},
     "specs_table": [{"label": "Capacity", "value": "2-Person"}],
     "trust_strip": {
-        "warranty": {"text": "warranty text", "claim_ids": ["warranty-terms"]},
+        "warranty": {"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
         "shipping": {"text": "shipping text", "claim_ids": ["shipping-policy"]},
         "returns": {"text": "returns text", "claim_ids": ["returns-policy"]},
     },
@@ -131,13 +134,13 @@ LONGFORM_PAGE = {
             {"title": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
         ],
     },
-    "specs_and_proof": {"specs_table": [{"label": "Capacity", "value": "2-Person"}], "proof_points": [{"text": "warranty text", "claim_ids": ["warranty-terms"]}]},
+    "specs_and_proof": {"specs_table": [{"label": "Capacity", "value": "2-Person"}], "proof_points": [{"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]}]},
     "social_proof": {"reviews_summary": None, "quotes": []},
     "faq": {"questions": [{"question": "Is the price shown up front?", "text": "$8,250 is shown on the page.", "claim_ids": ["price-fuji"]}]},
     "final_cta": {
         "headline": "Ready to see the number?",
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
-        "warranty_line": {"text": "warranty text", "claim_ids": ["warranty-terms"]},
+        "warranty_line": {"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
     },
     "images": [{"asset_id": "asset-1"}],
 }

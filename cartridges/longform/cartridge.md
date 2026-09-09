@@ -15,7 +15,7 @@ Audience temperature: warm to hot.
 9. Footer: byline block (author, verifier, dates), disclosure paragraph, sources.
 
 ## Rules
-- 800–1,400 words. Return top-level `cta_text` and `cta_url` exactly once -- the renderer reuses them verbatim in the hero, sticky bar, and final block. `cta_text` must be exactly one of schema.json's `allowed_cta_texts` with `{short_name}` filled in with the product's actual short_name -- never invent different wording (the gate rejects anything else and the run repairs/STOPs).
+- 800–1,400 words. Return top-level `cta_text` and `cta_url` exactly once -- the renderer reuses them verbatim in the hero, sticky bar, and final block. `cta_text` must be exactly one of schema.json's `allowed_cta_texts` with `{short_name}`/`{model_name}` filled in with the product's actual short_name/model name (e.g. "Shop the Fuji") -- never invent different wording (the gate rejects anything else and the run repairs/STOPs).
 - At least 3 of how_it_works.steps' claim_ids must be product-benefit claims -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) from facts_pack.verified_claims -- not the price, shipping-policy, warranty-terms, or returns-policy claim_ids. The run STOPs if this minimum isn't met.
 - Every spec, number, and quote maps to facts_pack. Health statements cite studies.
 - Images: 4–6 from the asset library, referenced by asset_id only -- the renderer derives alt text, never write your own "alt" field.

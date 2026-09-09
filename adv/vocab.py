@@ -32,6 +32,31 @@ TRIGGER_WORDS = ("medical", "clinical", "study", "proven", "emf", "rated", "revi
 # (claims.py), like every other list in this file.
 ALLOWED_FINANCING_SENTENCE_NO_LENDER = "Financing is available at checkout."
 
+# Fix cycle 7 item 1: warranty wording, same pattern as the financing sentence
+# above -- claims/verified.json's warranty-terms/gbrain-warranty-component-
+# coverage claims show per-component coverage (heating/cabinetry 7yr,
+# control system/RLT panel 3yr, chromotherapy/audio/WiFi/accessories 1yr),
+# NOT a blanket lifetime on every component. A product-page run wrote
+# "Limited lifetime warranty on the cabin, heating elements, and
+# electronics" -- false for electronics (3yr or 1yr, not lifetime). The only
+# two allowed forms anywhere text mentions "warrant": this exact sentence,
+# or (in a spec-table-shaped row) the label/value pair below -- or a verbatim
+# quote of a verified warranty claim's own text.
+ALLOWED_WARRANTY_SENTENCE = "Limited lifetime warranty; full terms by component are published on the warranty page."
+ALLOWED_WARRANTY_SPEC_LABEL = "Warranty"
+ALLOWED_WARRANTY_SPEC_VALUE = "Limited lifetime warranty (terms by component)"
+
+# Fix cycle 7 item 2: implied claims -- inferring a second, unverified fact
+# from a verified one (e.g. "US-owned" -> "the person you'd reach is
+# domestic, not a call center"). Forbidden unless a verified claim's own
+# text actually contains the phrase (find_forbidden_terms checks
+# facts_pack.verified_claims before adding these to the forbidden list) --
+# same conditional pattern as FORBIDDEN_LENDER_NAMES above, gated on content
+# instead of a config flag.
+IMPLIED_CLAIM_FORBIDDEN_TERMS = (
+    "call center", "domestic support", "us-based support", "american-made", "made in the usa",
+)
+
 
 def forbidden_words_block(heading="Forbidden words -- never use any of these, in any form, anywhere on the page:"):
     """Fix cycle 6 item 3: the forbidden-word list, verbatim, one per line --

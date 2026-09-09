@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "allowed_cta_texts": ["See pricing", "Shop the {short_name}"],
+  "allowed_cta_texts": ["See pricing", "Shop the {short_name}", "Shop the {model_name}"],
   "required": ["cta_text", "cta_url", "hero", "problem", "how_it_works", "specs_and_proof", "social_proof", "faq", "final_cta", "images"],
   "properties": {
     "cta_text": {

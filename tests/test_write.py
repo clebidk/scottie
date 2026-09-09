@@ -2,8 +2,14 @@ from pathlib import Path
 
 from adv.budget import Budget
 from adv.log import RunLog
-from adv.vocab import ALLOWED_FINANCING_SENTENCE_NO_LENDER, ALWAYS_FORBIDDEN_TERMS
-from adv.write import load_exemplars, write_page
+import json
+
+from adv.vocab import (
+    ALLOWED_FINANCING_SENTENCE_NO_LENDER,
+    ALLOWED_WARRANTY_SENTENCE,
+    ALWAYS_FORBIDDEN_TERMS,
+)
+from adv.write import load_exemplars, resolve_allowed_cta_texts, write_page
 from tests.conftest import FakeClient, json_response
 from tests.test_render import ARTICLE_PAGE, AD_BRIEF, FACTS_PACK
 
@@ -134,6 +140,42 @@ def test_write_page_system_prompt_states_the_exact_financing_sentence(tmp_path):
     log.close()
     system = client.messages.calls[0]["system"]
     assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in system
+
+
+def test_write_page_system_prompt_states_the_exact_warranty_sentence(tmp_path):
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    system = client.messages.calls[0]["system"]
+    assert ALLOWED_WARRANTY_SENTENCE in system
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 7 item 3: "Shop the {model_name}" is now one of the real
+# product-page/longform schema.json's allowed_cta_texts, alongside the
+# existing {short_name} templates.
+# ---------------------------------------------------------------------------
+
+def test_real_product_page_and_longform_schemas_allow_the_model_name_only_cta():
+    for cartridge_name in ("product-page", "longform"):
+        schema = json.loads((REPO_ROOT / "cartridges" / cartridge_name / "schema.json").read_text())
+        templates = schema["allowed_cta_texts"]
+        assert "Shop the {model_name}" in templates
+        # existing entries are kept, not replaced
+        assert "Shop the {short_name}" in templates
+        resolved = resolve_allowed_cta_texts(schema, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
+        assert "Shop the Fuji" in resolved
 
 
 # ---------------------------------------------------------------------------
