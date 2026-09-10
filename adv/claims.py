@@ -230,18 +230,24 @@ _DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
 # statements are only ever the speaker's own experience, never a sourced
 # fact about a competitor"). Classified by the claim's own grammatical
 # subject -- the real fixtures phrase these consistently as "Comparison
-# option ...", "Competing product(s) ...", "Competitor product(s)/model(s)
-# ..." (docs/SWEEP-2026-09-10.md fixtures 5-7). Deliberately narrower than
-# "any sentence mentioning a competitor" -- a claim like "Competitor saunas
-# leak dangerous levels of EMF radiation" (tests/test_cli_run.py, pre-dating
-# this fix) is a specific factual assertion about a named rival, not the
-# red-X still's generic "the other option" framing, and is left to the
-# ordinary unmatched-claim path (it still never matches, and still never
-# stops the run under "warn" -- just reported as a not-repeated claim
-# instead of an "about: alternative" one).
+# option ...", "Competing product(s)/sauna(s) ...", "Competitor(') product(s)/
+# sauna(s)/model(s) ..." (docs/SWEEP-2026-09-10.md fixtures 5-7, plus a real
+# Cycle 12 sweep run that surfaced "Competing saunas lack red light therapy"
+# -- see docs/FIXLOG.md Cycle 12: without "sauna" in this list, that claim
+# fell through to word-overlap matching and false-matched Peak's own
+# warranty-terms claim at 0.667 overlap, a live example of exactly the
+# false-MATCHED-overclaim risk fix cycle 10 problem B was about, just for a
+# competitor claim instead of a warranty one). Deliberately still narrower
+# than "any sentence mentioning a competitor": a specific factual assertion
+# about a named rival with no red-X "the other option" framing at all (e.g.
+# "a review site rated Peak below every major competitor" -- no claim here
+# even uses "competitor"/"competing" as its own grammatical subject) is left
+# to the ordinary unmatched-claim path -- it still never matches, and still
+# never stops the run under "warn", just reported as a not-repeated claim
+# instead of an "about: alternative" one.
 _ALTERNATIVE_SUBJECT_RE = re.compile(
-    r"\b(?:comparison option|competing (?:product|model)s?|"
-    r"competitor(?:'s)? (?:product|model)s?|"
+    r"\b(?:comparison option|competing (?:product|model|sauna)s?|"
+    r"competitor(?:'s)? (?:product|model|sauna)s?|"
     r"the other (?:option|brand)|other brands)\b",
     re.IGNORECASE,
 )

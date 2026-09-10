@@ -58,7 +58,7 @@ def test_matched_ad_claim_with_comma_formatted_price():
 
 
 def test_unmatched_ad_claim_stops():
-    ad_brief = {"claims_made": ["Competitor saunas leak dangerous levels of EMF radiation."]}
+    ad_brief = {"claims_made": ["Peak Saunas ships every order within two business days."]}
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
     assert exc_info.value.stage == "ad_claims"
@@ -1028,12 +1028,12 @@ def test_warn_policy_does_not_stop_on_plain_unmatched_claim_either():
     # -- a plain (non-locked-topic) unmatched claim always stopped the run
     # regardless of policy. Now it doesn't: it's dropped from what the
     # writer may use and reported, same as a locked-topic overclaim.
-    ad_brief = {"claims_made": ["Competitor saunas leak dangerous levels of EMF radiation."]}
+    ad_brief = {"claims_made": ["Peak Saunas ships every order within two business days."]}
     matched, not_repeated, alt_claims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
     assert matched == []
     assert len(not_repeated) == 1
     assert "topic" not in not_repeated[0]
-    assert not_repeated[0]["claim"] == "Competitor saunas leak dangerous levels of EMF radiation."
+    assert not_repeated[0]["claim"] == "Peak Saunas ships every order within two business days."
     assert not_repeated[0]["message"].startswith("AD CLAIM NOT REPEATED:")
 
 
@@ -1041,7 +1041,7 @@ def test_stop_policy_folds_overclaims_and_unmatched_into_one_failure():
     ad_brief = {
         "claims_made": [
             "It includes a free lifetime warranty if it doesn't work",
-            "Competitor saunas leak dangerous levels of EMF radiation.",
+            "Peak Saunas ships every order within two business days.",
         ]
     }
     with pytest.raises(ClaimsGateFailure) as exc_info:
@@ -1099,6 +1099,23 @@ def test_classify_ad_claim_about_recognizes_the_real_fixture_phrasings():
         if "Competing" in text or "Competitor" in text or "Comparison" in text:
             assert classify_ad_claim_about(text) == "alternative", text
     assert classify_ad_claim_about("Product includes 4-in-1: Near, Mid, Far IR + Red Light") is None
+
+
+def test_classify_ad_claim_about_recognizes_competing_saunas_phrasing():
+    # A real Cycle 12 sweep run (docs/FIXLOG.md Cycle 12) produced this exact
+    # claim -- "sauna(s)" is a real competitor-noun choice in production ad
+    # copy, not just "product"/"model". Without it in the noun list, this
+    # claim fell through to word-overlap matching and false-MATCHED Peak's
+    # own warranty-terms claim at 0.667 overlap.
+    assert classify_ad_claim_about("Competing saunas lack red light therapy") == "alternative"
+    assert classify_ad_claim_about("Competitor saunas have only basic manual controls") == "alternative"
+
+
+def test_classify_ad_claim_about_leaves_a_specific_named_rival_claim_alone():
+    # A claim with no "competitor"/"competing" grammatical subject at all --
+    # still a plain unmatched claim (never matches, never stops under
+    # "warn"), just not classified "about: alternative".
+    assert classify_ad_claim_about("A review site rated Peak below every major competitor") is None
 
 
 # ---------------------------------------------------------------------------

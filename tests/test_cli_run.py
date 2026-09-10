@@ -179,9 +179,13 @@ def test_run_reaches_price_based_product_inference_in_the_real_pipeline_order(mo
 def test_run_stops_on_unmatched_claim(monkeypatch):
     # Not an EMF claim -- fix 7 (below) drops EMF-mentioning claims instead of
     # stopping, so this uses a different, still-unsourced claim to test the
-    # generic unmatched-claim STOP path.
+    # generic unmatched-claim STOP path. Also deliberately not phrased with
+    # "competitor"/"competing" as its own grammatical subject -- fix cycle 12
+    # item 3's classify_ad_claim_about would otherwise classify it "about:
+    # alternative" instead (never stops the run under any policy), which is
+    # not what this test is checking.
     bad_ad_brief = dict(AD_BRIEF_RESPONSE)
-    bad_ad_brief["claims_made"] = ["Competitor saunas cost twice as much as Peak."]
+    bad_ad_brief["claims_made"] = ["Peak Saunas ships every order within two business days."]
     responses = [
         json_response(bad_ad_brief),
         json_response({}),  # fix cycle 12 item 4: semantic-match call, no mappings
