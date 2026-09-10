@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>5 Reasons People Love The Peak Mini Sauna | Peak Saunas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pk-bg:#ffffff;
+  --pk-primary:hsl(221 44% 18%);
+  --pk-accent:hsl(156 80% 43%);
+  --pk-secondary:hsl(40 20% 97%);
+  --pk-border:hsl(221 20% 90%);
+  --pk-muted:hsl(221 20% 50%);
+  --pk-sans:"DM Sans",sans-serif;
+  --pk-display:"Poppins",sans-serif;
+}
+html,body{margin:0;padding:0}
+.pk-lp *,.pk-lp *::before,.pk-lp *::after{box-sizing:border-box;margin:0;padding:0;border:0 solid var(--pk-border)}
+.pk-lp{display:flex;flex-direction:column;min-height:100dvh;width:100%;overflow:hidden;background:var(--pk-bg);font-family:var(--pk-sans);-webkit-font-smoothing:antialiased}
+.pk-lp img{display:block;max-width:100%}
+
+/* ---------- header ---------- */
+.pk-header{width:100%;padding:1.5rem;display:flex;justify-content:center;align-items:center;background:#fff;z-index:50}
+.pk-header img{height:2rem;width:auto;object-fit:contain}
+
+/* ---------- shared split ---------- */
+.pk-split{display:flex;flex-direction:column;width:100%}
+
+/* ---------- hero ---------- */
+.pk-hero{min-height:80vh;background:var(--pk-secondary);border-bottom:1px solid var(--pk-border)}
+.pk-hero-copy{width:100%;display:flex;flex-direction:column;justify-content:center;padding:4rem 2rem;order:2}
+.pk-hero-inner{max-width:36rem}
+.pk-eyebrow{color:var(--pk-accent);font-family:var(--pk-display);font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:.875rem;line-height:1.25rem;margin-bottom:1rem}
+.pk-h1{font-family:var(--pk-display);font-weight:600;color:var(--pk-primary);font-size:2.25rem;line-height:1.05;margin-bottom:1.5rem}
+.pk-hero-sub{font-size:1.125rem;line-height:1.625;color:var(--pk-muted);font-family:var(--pk-sans);margin-bottom:2.5rem;max-width:28rem}
+.pk-hero-media{width:100%;height:50vh;order:1;position:relative;background:#FDF9F1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pk-hero-media img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;transform-origin:center;scale:95%}
+
+/* ---------- buttons ---------- */
+.pk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;border:1px solid #fff;min-height:2.5rem;border-radius:0;background:var(--pk-accent);color:#fff;font-family:var(--pk-sans);font-weight:500;font-size:1.125rem;line-height:1.75rem;padding:1.5rem 2rem;cursor:pointer;text-decoration:none;transition:background-color .15s ease}
+.pk-btn:hover{background-color:color-mix(in oklab,hsl(156 80% 43%) 90%,transparent)}
+.pk-btn svg{width:1.25rem;height:1.25rem;transition:transform .15s ease}
+.pk-btn:hover svg{transform:translateX(.25rem)}
+.pk-btn-cta{padding:1.75rem 2.5rem}
+
+/* ---------- listicle items ---------- */
+.pk-main{width:100%;background:var(--pk-bg)}
+.pk-item{min-height:75vh;border-bottom:1px solid var(--pk-border)}
+.pk-item-media{width:100%;height:50vh;position:relative;display:flex;align-items:stretch;padding:2.5rem 0}
+.pk-item-media img{width:100%;height:100%;object-fit:cover}
+.pk-item--left .pk-item-media img{border-radius:0 2.5rem 2.5rem 0}
+.pk-item--right .pk-item-media img{border-radius:2.5rem 0 0 2.5rem}
+.pk-item-copy{width:100%;display:flex;flex-direction:column;justify-content:center;padding:5rem 2rem}
+.pk-item-inner{max-width:36rem;position:relative;z-index:10}
+.pk-num{position:absolute;top:-2.5rem;left:-1.5rem;font-family:var(--pk-display);font-weight:700;color:var(--pk-accent);font-size:8rem;line-height:1;opacity:.1;user-select:none;z-index:-1;pointer-events:none}
+.pk-h2{font-family:var(--pk-display);font-weight:600;color:var(--pk-primary);font-size:1.875rem;line-height:1.25;margin:1rem 0 1.5rem}
+.pk-body{font-size:1.125rem;line-height:1.625;color:var(--pk-muted);font-family:var(--pk-sans)}
+
+/* ---------- cta ---------- */
+.pk-cta{width:100%;padding:6rem 1.5rem;background:var(--pk-primary);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.pk-cta-inner{max-width:42rem;display:flex;flex-direction:column;align-items:center}
+.pk-cta h2{font-family:var(--pk-display);font-weight:700;color:#fff;font-size:2.25rem;line-height:1.25;margin-bottom:1.5rem}
+.pk-cta p{font-size:1.25rem;line-height:1.75rem;color:rgba(255,255,255,.8);font-family:var(--pk-sans);margin-bottom:2.5rem;max-width:36rem}
+
+/* ---------- footer ---------- */
+.pk-footer{width:100%;background:#fff;padding:3rem 2rem;border-top:1px solid var(--pk-border);display:flex;flex-direction:column;align-items:center;justify-content:space-between}
+.pk-footer-logo{margin-bottom:1.5rem}
+.pk-footer-logo img{height:1.5rem;width:auto;object-fit:contain;filter:grayscale(1);opacity:.6;transition:filter .3s ease,opacity .3s ease}
+.pk-footer-logo img:hover{filter:grayscale(0);opacity:1}
+.pk-footer-links{display:flex;gap:2rem;font-size:.875rem;line-height:1.25rem;color:var(--pk-muted);font-family:var(--pk-sans);font-weight:500;letter-spacing:.025em;text-transform:uppercase}
+.pk-footer-links a{color:inherit;text-decoration:none;transition:color .15s ease}
+.pk-footer-links a:hover{color:var(--pk-primary)}
+
+/* ---------- reveal animations ---------- */
+.pk-reveal{opacity:0;transform:translateY(40px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.pk-reveal.pk-in{opacity:1;transform:none}
+.pk-zoom{opacity:0;transform:scale(1.05);transition:opacity 1.2s cubic-bezier(0,0,.58,1),transform 1.2s cubic-bezier(0,0,.58,1)}
+.pk-zoom.pk-in{opacity:1;transform:scale(1)}
+@media (prefers-reduced-motion:reduce){
+  .pk-reveal,.pk-zoom{opacity:1!important;transform:none!important;transition:none!important}
+}
+
+/* ---------- md: 768px ---------- */
+@media (min-width:768px){
+  .pk-header{padding:2rem 1.5rem}
+  .pk-header img{height:2.5rem}
+  .pk-h1{font-size:3.75rem}
+  .pk-hero-sub{font-size:1.25rem}
+  .pk-num{top:-4rem;left:-2.5rem;font-size:10rem}
+  .pk-h2{font-size:2.25rem}
+  .pk-body{font-size:1.25rem}
+  .pk-cta{padding:8rem 1.5rem}
+  .pk-cta h2{font-size:3rem}
+  .pk-cta p{font-size:1.5rem;line-height:2rem}
+  .pk-footer{flex-direction:row}
+  .pk-footer-logo{margin-bottom:0}
+}
+
+/* ---------- lg: 1024px ---------- */
+@media (min-width:1024px){
+  .pk-split{flex-direction:row}
+  .pk-hero-copy{width:50%;padding:5rem;order:1}
+  .pk-hero-media{width:50%;height:auto;order:2}
+  .pk-h1{font-size:4.5rem}
+  .pk-item-media{width:50%;height:auto;padding:4rem 0}
+  .pk-item--left .pk-item-media{order:1;padding-left:2.5rem}
+  .pk-item--left .pk-item-copy{order:2}
+  .pk-item--right .pk-item-media{order:2;padding-right:2.5rem}
+  .pk-item--right .pk-item-copy{order:1}
+  .pk-item-copy{width:50%;padding:6rem}
+  .pk-num{left:-4rem;font-size:14rem}
+  .pk-h2{font-size:3rem}
+  .pk-cta h2{font-size:3.75rem}
+  .pk-footer{padding:3rem 6rem}
+}
+
+/* ---------- xl: 1280px ---------- */
+@media (min-width:1280px){
+  .pk-hero-copy{padding:8rem}
+  .pk-item--left .pk-item-media{padding-left:4rem}
+  .pk-item--right .pk-item-media{padding-right:4rem}
+  .pk-item-copy{padding:8rem}
+}
+</style>
+</head>
+<body>
+<div class="pk-lp">
+
+  <header class="pk-header">
+    <img src="assets/peaks_logo.png" alt="Peak Saunas">
+  </header>
+
+  <section class="pk-split pk-hero">
+    <div class="pk-hero-copy">
+      <div class="pk-hero-inner pk-reveal" data-pk-mount>
+        <h4 class="pk-eyebrow">Trusted by 5,000+ Happy Customers</h4>
+        <h1 class="pk-h1">5 Reasons People Love The Peak Mini Sauna</h1>
+        <p class="pk-hero-sub">The Peak Mini Sauna brings the full practice into any space with precise heat, premium materials, and zero compromise.</p>
+        <a class="pk-btn" href="#">Shop Peak Saunas<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></a>
+      </div>
+    </div>
+    <div class="pk-hero-media">
+      <img class="pk-zoom" data-pk-mount src="assets/hero_mini_sauna.png" alt="Peak Sauna product shot">
+    </div>
+  </section>
+
+  <main class="pk-main">
+
+    <section class="pk-split pk-item pk-item--left">
+      <div class="pk-item-media">
+        <img class="pk-zoom" src="assets/sauna_stepping_in.jpg" alt="Plug &amp; Play">
+      </div>
+      <div class="pk-item-copy">
+        <div class="pk-item-inner pk-reveal">
+          <div class="pk-num">01</div>
+          <h2 class="pk-h2">Plug &amp; Play</h2>
+          <p class="pk-body">The Mini Sauna plugs into any traditional power outlet. No need for getting an electrician over or upgrading your electrical to fit your sauna. Simply construct your sauna after it arrives, pick your spot, plug it in, and you are good to go.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pk-split pk-item pk-item--right">
+      <div class="pk-item-media">
+        <img class="pk-zoom" src="assets/red_light_panel.png" alt="Medical-Grade Red Light Therapy">
+      </div>
+      <div class="pk-item-copy">
+        <div class="pk-item-inner pk-reveal">
+          <div class="pk-num">02</div>
+          <h2 class="pk-h2">Medical-Grade Red Light Therapy</h2>
+          <p class="pk-body">Every one of our saunas comes with a medical-grade red light therapy panel. We believe it is an essential part of the recovery process, so it comes standard on all units.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pk-split pk-item pk-item--left">
+      <div class="pk-item-media">
+        <img class="pk-zoom" src="assets/sauna_interior.png" alt="Fits Your Space">
+      </div>
+      <div class="pk-item-copy">
+        <div class="pk-item-inner pk-reveal">
+          <div class="pk-num">03</div>
+          <h2 class="pk-h2">Fits Your Space</h2>
+          <p class="pk-body">This unit is designed to work in the space that is available. It is our smallest unit and is only 31in wide, so it doesn't take up a major footprint. Yet, it still delivers all the same benefits of a full size sauna.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pk-split pk-item pk-item--right">
+      <div class="pk-item-media">
+        <img class="pk-zoom" src="assets/sauna_lifestyle.jpg" alt="Smart App Controls">
+      </div>
+      <div class="pk-item-copy">
+        <div class="pk-item-inner pk-reveal">
+          <div class="pk-num">04</div>
+          <h2 class="pk-h2">Smart App Controls</h2>
+          <p class="pk-body">Manage your sauna session directly from your phone. Preheat the sauna, control the temperature, listen to your favorite podcast or playlist — all directly from your phone.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pk-split pk-item pk-item--left">
+      <div class="pk-item-media">
+        <img class="pk-zoom" src="assets/free_shipping.jpg" alt="Free Shipping">
+      </div>
+      <div class="pk-item-copy">
+        <div class="pk-item-inner pk-reveal">
+          <div class="pk-num">05</div>
+          <h2 class="pk-h2">Free Shipping</h2>
+          <p class="pk-body">You know how expensive it is to ship a big box at the post office. Well imagine the cost to ship an indestructible crate filled with hundreds of pounds of sauna materials. Fortunately, you don't have to — because all of our units ship to your door free of charge.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="pk-cta">
+    <div class="pk-cta-inner pk-reveal">
+      <h2>Ready to upgrade your recovery?</h2>
+      <p>Join thousands who have made Peak Saunas their daily non-negotiable for deeper sleep and faster recovery.</p>
+      <a class="pk-btn pk-btn-cta" href="#">Get Your Peak Sauna</a>
+    </div>
+  </section>
+
+  <footer class="pk-footer">
+    <div class="pk-footer-logo"><img src="assets/peaks_logo.png" alt="Peak Saunas"></div>
+    <div class="pk-footer-links">
+      <a href="#">Shop</a>
+      <a href="#">Our Story</a>
+      <a href="#">Support</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var mount = document.querySelectorAll('[data-pk-mount]');
+  var start = function(){ mount.forEach(function(el){ el.classList.add('pk-in'); }); };
+  requestAnimationFrame(function(){ requestAnimationFrame(start); });
+  setTimeout(start, 120); /* rAF is paused in background tabs; timeout guarantees the mount reveal */
+  var targets = document.querySelectorAll('.pk-reveal:not([data-pk-mount]),.pk-zoom:not([data-pk-mount])');
+  if(!('IntersectionObserver' in window)){
+    targets.forEach(function(el){ el.classList.add('pk-in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ e.target.classList.add('pk-in'); io.unobserve(e.target); }
+    });
+  }, { rootMargin: '-10% -10% -10% -10%' });
+  targets.forEach(function(el){ io.observe(el); });
+})();
+</script>
+</body>
+</html>
