@@ -1,0 +1,79 @@
+{
+  "type": "object",
+  "allowed_cta_texts": ["See the models", "Shop the {model_name}", "Book a consult"],
+  "required": ["headline", "dek", "reasons", "cta_text", "cta_url", "closing"],
+  "properties": {
+    "headline": {
+      "type": "string",
+      "description": "'N Reasons ...' formula, 8-14 words. Name the audience when the ad names one (e.g. 'N Reasons Busy Parents Are Switching to Peak Saunas'). N must match the number of entries in reasons."
+    },
+    "dek": {
+      "type": "string",
+      "description": "One-sentence subhead under the headline."
+    },
+    "proof_row": {
+      "type": "array",
+      "description": "Optional 3-stat proof row directly under the dek. Only verified claims: live Judge.me rating and count, warranty term, free shipping. Omit entirely rather than pad it out -- never invent a fourth stat, and never include a review stat when facts_pack.reviews_summary is null.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string", "description": "Short stat label, e.g. '4.8 stars' or 'Free shipping'."},
+          "text": {"type": "string", "description": "One short supporting phrase, e.g. 'from 1,200+ reviews'."},
+          "claim_ids": {"type": "array"}
+        }
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "description": "5-7 numbered reasons, in order (named 'reasons', not 'items' -- 'items' collides with Python dict's own .items method under Jinja's attribute-then-subscript lookup). Each entry: number, an H2 title (<=10 words), a 40-90 word body, one image slot, and claim_ids for any fact stated in it. Proof lives inside each entry -- never a separate stacked proof section.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "number": {"type": "integer", "description": "1-indexed position, matching the reading order (1, 2, 3, ...)."},
+          "heading": {"type": "string", "description": "H2 title for this reason, <=10 words, no numeral (the renderer draws the number)."},
+          "text": {"type": "string", "description": "40-90 word body for this reason."},
+          "claim_ids": {"type": "array"},
+          "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
+        }
+      }
+    },
+    "cta_text": {
+      "type": "string",
+      "description": "The ONE CTA button text for this page, from allowed_cta_texts. The renderer reuses it verbatim after item 3 and again at the close -- choose it once here, never vary it."
+    },
+    "cta_url": {
+      "type": "string",
+      "description": "The CTA's destination URL, reused everywhere cta_text is."
+    },
+    "closing": {
+      "type": "object",
+      "description": "Closing block: 1 paragraph naming Peak, the fixed warranty sentence, and the fixed no-lender financing sentence.",
+      "properties": {
+        "headline": {
+          "type": "string",
+          "description": "Optional short closing-band headline above the paragraph, e.g. 'Ready to feel the difference?'. Never contains a price."
+        },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        },
+        "warranty_line": {
+          "type": "object",
+          "description": "Must be exactly the fixed warranty sentence -- see the global voice block.",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        },
+        "financing_line": {
+          "type": "object",
+          "description": "Must be exactly 'Financing is available at checkout.' while no lender is configured -- see the global voice block.",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        }
+      }
+    }
+  }
+}

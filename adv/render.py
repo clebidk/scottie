@@ -169,6 +169,21 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated):
                 "availability": "https://schema.org/InStock",
             },
         }
+    if cartridge_name == "listicle":
+        return {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": page.get("headline", ""),
+            "description": page.get("dek", ""),
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "position": item.get("number"),
+                    "name": item.get("heading", ""),
+                }
+                for item in page.get("reasons", [])
+            ],
+        }
     if cartridge_name == "longform":
         faq_items = page.get("faq", {}).get("questions", []) if isinstance(page.get("faq"), dict) else page.get("faq", [])
         mains = []

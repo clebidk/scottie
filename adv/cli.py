@@ -27,6 +27,7 @@ from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
 from .semantic_match import semantic_match_claims
+from .shopify import write_shopify_body
 from .vocab import (
     ALLOWED_WARRANTY_SENTENCE,
     ALLOWED_WARRANTY_SPEC_LABEL,
@@ -54,6 +55,13 @@ def discover_cartridges():
     if not cart_dir.exists():
         return []
     return sorted(p.name for p in cart_dir.iterdir() if p.is_dir() and (p / "cartridge.md").exists())
+
+
+# listicle is opt-in only until Caleb approves it for the default rotation
+# (cartridges/listicle/cartridge.md) -- discover_cartridges() finds it (so
+# `--cartridges listicle` and the unknown-cartridge check both work), but
+# `adv run`'s no-flag default random-3 pick draws only from this set.
+DEFAULT_CARTRIDGE_POOL = ("article", "product-page", "longform")
 
 
 # ---------------------------------------------------------------------------
@@ -817,7 +825,8 @@ def cmd_run(args):
             log.close()
             return 1
     else:
-        selected = rng.sample(available, k=min(3, len(available)))
+        default_pool = [c for c in available if c in DEFAULT_CARTRIDGE_POOL] or available
+        selected = rng.sample(default_pool, k=min(3, len(default_pool)))
     log.cartridges(selected)
 
     claims_dir = REPO_ROOT / "claims"
@@ -1132,6 +1141,29 @@ def cmd_review(args):
 
 
 # ---------------------------------------------------------------------------
+# adv shopify-body
+# ---------------------------------------------------------------------------
+
+def cmd_shopify_body(args):
+    """`adv shopify-body <run-dir>/<cartridge>`: writes shopify-body.html and
+    shopify-body.assets.json next to that cartridge's index.html. No Shopify
+    API call anywhere in this path -- see cartridges/listicle/README's
+    "Shopify traps" section for why publishing is a separate, not-yet-built
+    step that must never run without a packet stamped `ship` and Caleb's
+    approval."""
+    cartridge_dir = Path(args.cartridge_dir)
+    index_path = cartridge_dir / "index.html"
+    if not index_path.exists():
+        print(f"no index.html found under {cartridge_dir}", file=sys.stderr)
+        return 1
+
+    shopify_body_path, assets_manifest_path = write_shopify_body(cartridge_dir)
+    print(f"Wrote {shopify_body_path}")
+    print(f"Wrote {assets_manifest_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # adv claims add / list
 # ---------------------------------------------------------------------------
 
@@ -1219,6 +1251,10 @@ def build_parser():
     p_review = sub.add_parser("review", help="write a self-contained review.html per cartridge (images inlined)")
     p_review.add_argument("run_dir")
     p_review.set_defaults(func=cmd_review)
+
+    p_shopify_body = sub.add_parser("shopify-body", help="write shopify-body.html + shopify-body.assets.json for one cartridge's output")
+    p_shopify_body.add_argument("cartridge_dir", help="<run-dir>/<cartridge>, e.g. out/20260910-1200-my-ad/listicle")
+    p_shopify_body.set_defaults(func=cmd_shopify_body)
 
     p_claims = sub.add_parser("claims", help="manage claims/verified.json")
     claims_sub = p_claims.add_subparsers(dest="claims_command", required=True)

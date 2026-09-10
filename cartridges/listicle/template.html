@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{{ page.headline }}{% endblock %}
+{% block content %}
+<style>
+/* Listicle cartridge -- section rhythm, item layout, and reveal-on-scroll
+   motion reproduced from reference/peak-listicle-lp/index.html (the live,
+   already-shipped "5 Reasons" page), adapted to brand/base.css's tokens:
+   DM Sans / Poppins (already self-hosted via brand_css's own @font-face
+   rules, so no external font load here) and the #16C47F accent on white,
+   replacing the reference's navy --pk-primary with the site's documented
+   dark-section token. The ".pk-lp" class (kept alongside ".adv-listicle")
+   is also what `adv shopify-body`'s Aurora full-bleed :has() rules target
+   -- do not rename or drop it.
+   ---------------------------------------------------------------------- */
+.adv-listicle{
+  --pk-primary:#252525;
+  --pk-accent:#16C47F;
+  --pk-secondary:#F4F5F6;
+  --pk-border:#E9EAEC;
+  --pk-muted:#55595E;
+  --pk-sans:"DM Sans",-apple-system,BlinkMacSystemFont,sans-serif;
+  --pk-display:"Poppins",sans-serif;
+  display:flex;flex-direction:column;width:100%;overflow:hidden;background:#fff;
+  font-family:var(--pk-sans);text-align:left;-webkit-font-smoothing:antialiased;
+}
+.adv-listicle *,.adv-listicle *::before,.adv-listicle *::after{box-sizing:border-box}
+.adv-listicle img{display:block;max-width:100%;width:auto;height:auto}
+.adv-listicle .pk-split{display:flex;flex-direction:column;width:100%}
+
+/* header: ad label, headline, dek, optional proof row, byline */
+.adv-listicle .lst-header{width:100%;background:var(--pk-secondary);border-bottom:1px solid var(--pk-border);padding:3rem 1.5rem}
+.adv-listicle .lst-header-inner{max-width:42rem;margin:0 auto}
+.adv-listicle .adv-badge{display:inline-block;font-family:var(--pk-sans);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.75rem;color:var(--pk-muted);margin-bottom:1rem}
+.adv-listicle .pk-h1{font-family:var(--pk-display);font-weight:600;color:var(--pk-primary);font-size:2rem;line-height:1.15;margin:0 0 1rem}
+.adv-listicle .pk-dek{font-size:1.125rem;line-height:1.6;color:var(--pk-muted);font-family:var(--pk-sans);margin:0 0 1.5rem;max-width:34rem}
+.adv-listicle .lst-proof-row{list-style:none;display:flex;flex-wrap:wrap;gap:1.5rem 2rem;margin:0 0 1.5rem;padding:0}
+.adv-listicle .lst-proof-row li{display:flex;flex-direction:column}
+.adv-listicle .lst-proof-label{font-family:var(--pk-display);font-weight:600;color:var(--pk-primary);font-size:1.25rem}
+.adv-listicle .lst-proof-text{font-size:.875rem;color:var(--pk-muted)}
+.adv-listicle .adv-byline{font-size:.875rem;color:var(--pk-muted)}
+
+/* buttons */
+.adv-listicle .pk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;min-height:2.5rem;border-radius:0;background:var(--pk-accent);color:#fff;font-family:var(--pk-sans);font-weight:500;font-size:1.0625rem;line-height:1.5rem;padding:1.25rem 2rem;cursor:pointer;text-decoration:none;transition:background-color .15s ease;border:none}
+.adv-listicle .pk-btn:hover{background-color:color-mix(in oklab,#16C47F 88%,black)}
+
+/* numbered items -- alternating image side, per reference */
+.adv-listicle .pk-main{width:100%;background:#fff}
+.adv-listicle .pk-item{min-height:60vh;border-bottom:1px solid var(--pk-border)}
+.adv-listicle .pk-item-media{width:100%;height:44vh;position:relative;display:flex;align-items:stretch;padding:2rem 0}
+.adv-listicle .pk-item-media img{width:100%;height:100%;object-fit:cover}
+.adv-listicle .pk-item--left .pk-item-media img{border-radius:0 2rem 2rem 0}
+.adv-listicle .pk-item--right .pk-item-media img{border-radius:2rem 0 0 2rem}
+.adv-listicle .pk-item-copy{width:100%;display:flex;flex-direction:column;justify-content:center;padding:3rem 1.5rem}
+.adv-listicle .pk-item-inner{max-width:32rem;position:relative;z-index:10}
+.adv-listicle .pk-num{position:absolute;top:-2rem;left:-1rem;font-family:var(--pk-display);font-weight:700;color:var(--pk-accent);font-size:6rem;line-height:1;opacity:.12;user-select:none;z-index:-1;pointer-events:none}
+.adv-listicle .pk-h2{font-family:var(--pk-display);font-weight:600;color:var(--pk-primary);font-size:1.5rem;line-height:1.25;margin:.5rem 0 1rem}
+.adv-listicle .pk-body{font-size:1.0625rem;line-height:1.6;color:var(--pk-muted);font-family:var(--pk-sans);margin:0}
+
+/* mid-page CTA, after item 3 */
+.adv-listicle .lst-mid-cta{width:100%;padding:2.5rem 1.5rem;display:flex;justify-content:center;border-bottom:1px solid var(--pk-border)}
+
+/* closing CTA band */
+.adv-listicle .pk-cta{width:100%;padding:4rem 1.5rem;background:var(--pk-primary);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.adv-listicle .pk-cta-inner{max-width:36rem;display:flex;flex-direction:column;align-items:center}
+.adv-listicle .pk-cta h2{font-family:var(--pk-display);font-weight:700;color:#fff;font-size:1.75rem;line-height:1.25;margin:0 0 1rem}
+.adv-listicle .pk-cta p{font-size:1rem;line-height:1.6;color:rgba(255,255,255,.82);font-family:var(--pk-sans);margin:0 0 1.75rem;max-width:32rem}
+.adv-listicle .lst-fine{font-size:.8125rem;color:rgba(255,255,255,.7);margin-top:1.25rem}
+
+/* reveal-on-scroll motion, reproduced from reference/peak-listicle-lp/index.html */
+.adv-listicle .pk-reveal{opacity:0;transform:translateY(40px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.adv-listicle .pk-reveal.pk-in{opacity:1;transform:none}
+.adv-listicle .pk-zoom{opacity:0;transform:scale(1.05);transition:opacity 1.2s cubic-bezier(0,0,.58,1),transform 1.2s cubic-bezier(0,0,.58,1)}
+.adv-listicle .pk-zoom.pk-in{opacity:1;transform:scale(1)}
+@media (prefers-reduced-motion:reduce){
+  .adv-listicle .pk-reveal,.adv-listicle .pk-zoom{opacity:1!important;transform:none!important;transition:none!important}
+}
+
+@media (min-width:768px){
+  .adv-listicle .pk-h1{font-size:2.75rem}
+  .adv-listicle .pk-dek{font-size:1.25rem}
+  .adv-listicle .pk-num{top:-3rem;left:-1.75rem;font-size:8rem}
+  .adv-listicle .pk-h2{font-size:1.875rem}
+  .adv-listicle .pk-body{font-size:1.125rem}
+  .adv-listicle .pk-cta{padding:5rem 1.5rem}
+  .adv-listicle .pk-cta h2{font-size:2.25rem}
+}
+
+@media (min-width:1024px){
+  .adv-listicle .pk-item.pk-split{flex-direction:row}
+  .adv-listicle .pk-item-media{width:50%;height:auto;padding:3rem 0}
+  .adv-listicle .pk-item--left .pk-item-media{order:1;padding-left:2rem}
+  .adv-listicle .pk-item--left .pk-item-copy{order:2}
+  .adv-listicle .pk-item--right .pk-item-media{order:2;padding-right:2rem}
+  .adv-listicle .pk-item--right .pk-item-copy{order:1}
+  .adv-listicle .pk-item-copy{width:50%;padding:4rem}
+  .adv-listicle .pk-num{left:-3rem;font-size:10rem}
+  .adv-listicle .pk-h2{font-size:2.25rem}
+}
+</style>
+<div class="pk-lp adv-listicle">
+
+  <header class="lst-header">
+    <div class="lst-header-inner pk-reveal" data-pk-mount>
+      <span class="adv-badge">Advertisement</span>
+      <h1 class="pk-h1">{{ page.headline }}</h1>
+      <p class="pk-dek">{{ page.dek }}</p>
+      {% if page.proof_row %}
+      <ul class="lst-proof-row">
+        {% for stat in page.proof_row %}
+        <li>
+          <span class="lst-proof-label">{{ stat.label }}</span>
+          {% if stat.text %}<span class="lst-proof-text">{{ stat.text }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <div class="adv-byline">{{ byline_html | safe }}</div>
+    </div>
+  </header>
+
+  <main class="pk-main">
+    {% for item in page.reasons %}
+    <section class="pk-split pk-item {{ 'pk-item--left' if loop.index0 % 2 == 0 else 'pk-item--right' }}">
+      <div class="pk-item-media">
+        {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
+        {% if item_asset %}
+        <img class="pk-zoom" src="{{ item_asset.url }}" alt="{{ item_asset.alt }}" loading="lazy">
+        {% endif %}
+      </div>
+      <div class="pk-item-copy">
+        <div class="pk-item-inner pk-reveal">
+          <div class="pk-num">{{ "%02d"|format(item.number) }}</div>
+          <h2 class="pk-h2">{{ item.heading }}</h2>
+          <p class="pk-body">{{ item.text }}</p>
+        </div>
+      </div>
+    </section>
+    {% if loop.index == 3 %}
+    <div class="lst-mid-cta">
+      <a class="pk-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </main>
+
+  <section class="pk-cta">
+    <div class="pk-cta-inner pk-reveal">
+      {% if page.closing.headline %}<h2>{{ page.closing.headline }}</h2>{% endif %}
+      {% for p in page.closing.paragraphs %}
+      <p>{{ p.text }}</p>
+      {% endfor %}
+      <a class="pk-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      {% if page.closing.warranty_line %}<p class="lst-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
+      {% if page.closing.financing_line %}
+        {% if product.financing and product.financing.lender %}
+        <p class="lst-fine">{{ page.closing.financing_line.text }}</p>
+        {% else %}
+        <p class="lst-fine">Financing available</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var root = document.querySelector('.pk-lp');
+  if(!root) return;
+  var mount = root.querySelectorAll('[data-pk-mount]');
+  var start = function(){ mount.forEach(function(el){ el.classList.add('pk-in'); }); };
+  requestAnimationFrame(function(){ requestAnimationFrame(start); });
+  setTimeout(start, 120); /* rAF is paused in background tabs; timeout guarantees the mount reveal */
+  var targets = root.querySelectorAll('.pk-reveal:not([data-pk-mount]),.pk-zoom:not([data-pk-mount])');
+  if(!('IntersectionObserver' in window)){
+    targets.forEach(function(el){ el.classList.add('pk-in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ e.target.classList.add('pk-in'); io.unobserve(e.target); }
+    });
+  }, { rootMargin: '-10% -10% -10% -10%' });
+  targets.forEach(function(el){ io.observe(el); });
+})();
+</script>
+{% endblock %}
