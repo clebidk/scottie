@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from adv.budget import Budget, BudgetExceeded
-from adv.claims import ClaimsGateFailure
+from adv.claims import ClaimsGateFailure, find_warranty_violations
 from adv.cli import (
     MAX_REPAIR_ATTEMPTS,
     apply_deterministic_fixes,
@@ -22,7 +22,7 @@ from adv.cli import (
     write_and_gate_page,
 )
 from adv.log import RunLog
-from adv.vocab import ALWAYS_FORBIDDEN_TERMS
+from adv.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_LABEL, ALLOWED_WARRANTY_SPEC_VALUE, ALWAYS_FORBIDDEN_TERMS
 from adv.write import parse_word_range, resolve_allowed_cta_texts
 from tests.conftest import FakeClient, FakeResponse, json_response
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
@@ -389,6 +389,93 @@ def test_write_and_gate_page_resolves_leaked_claim_id_via_deterministic_fix(tmp_
     assert attempts == [[]]
     assert deterministic_fixes == [1]
     assert "gbrain-allowlist-red-light" not in page["close"]["paragraphs"][0]["text"]
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 13 item 1: warranty wording, deterministic pre-repair. Sweep
+# 2026-09-10b's still-levelup-4x5.png and still-unforgettable-4x5.png both
+# STOPped because the writer's own repair attempt reproduced the same
+# claims.find_warranty_violations failure -- a short label or an honest-
+# sounding paraphrase, never one of the allowed forms. apply_deterministic_
+# fixes now resolves this the same way it already resolves a hype word or a
+# leaked claim id: no model call.
+# ---------------------------------------------------------------------------
+
+_WARRANTY_VALID_CLAIM_IDS = {"warranty-terms", "price-fuji"}
+
+
+def test_apply_deterministic_fixes_resolves_a_warranty_proof_point():
+    # The real failure shape from the sweep: a short label, not one of the
+    # three allowed forms.
+    page = {"proof_points": [{
+        "text": "Backed by a limited lifetime warranty covering the cabin and heaters.",
+        "claim_ids": [],
+    }]}
+    failures = find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}])
+    assert len(failures) == 1
+    fixed = apply_deterministic_fixes(page, failures, _WARRANTY_VALID_CLAIM_IDS)
+    assert fixed == 1
+    assert page["proof_points"][0]["text"] == ALLOWED_WARRANTY_SENTENCE
+    assert page["proof_points"][0]["claim_ids"] == ["warranty-terms"]
+    # gate re-run confirms it: no violation left.
+    assert find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}]) == []
+
+
+def test_apply_deterministic_fixes_resolves_a_warranty_paragraph():
+    page = {"body_sections": [{"paragraphs": [{
+        "text": "A sauna advertised with a lifetime warranty might only apply that term to the cabinetry.",
+        "claim_ids": [],
+    }]}]}
+    failures = find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}])
+    assert len(failures) == 1
+    fixed = apply_deterministic_fixes(page, failures, _WARRANTY_VALID_CLAIM_IDS)
+    assert fixed == 1
+    para = page["body_sections"][0]["paragraphs"][0]
+    assert para["text"] == ALLOWED_WARRANTY_SENTENCE
+    assert para["claim_ids"] == ["warranty-terms"]
+
+
+def test_apply_deterministic_fixes_resolves_a_warranty_spec_table_row():
+    page = {"specs_table": [{"label": "Warranty", "value": "Lifetime warranty on everything", "claim_id": None}]}
+    # specs_table rows use "value", not "text" -- confirm the gate flags the
+    # value field specifically, at a path ending in ".value".
+    failures = find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}])
+    assert len(failures) == 1
+    assert failures[0]["path"].endswith(".value")
+    fixed = apply_deterministic_fixes(page, failures, _WARRANTY_VALID_CLAIM_IDS)
+    assert fixed == 1
+    row = page["specs_table"][0]
+    assert row["label"] == ALLOWED_WARRANTY_SPEC_LABEL
+    assert row["value"] == ALLOWED_WARRANTY_SPEC_VALUE
+    assert row["claim_id"] == "warranty-terms"
+
+
+def test_apply_deterministic_fixes_leaves_an_allowed_warranty_form_unchanged():
+    page = {"trust_strip": {"warranty": {"text": ALLOWED_WARRANTY_SENTENCE, "claim_ids": ["warranty-terms"]}}}
+    # An allowed form never produces a failure in the first place -- the
+    # gate simply passes it, so there is nothing for the deterministic pass
+    # to touch.
+    assert find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}]) == []
+    fixed = apply_deterministic_fixes(page, [], _WARRANTY_VALID_CLAIM_IDS)
+    assert fixed == 0
+    assert page["trust_strip"]["warranty"]["text"] == ALLOWED_WARRANTY_SENTENCE
+
+
+def test_write_and_gate_page_resolves_warranty_violation_via_deterministic_fix_without_a_repair_call(tmp_path):
+    bad_page = dict(
+        ARTICLE_PAGE,
+        close={"paragraphs": [{
+            "text": "Backed by a limited lifetime warranty covering the cabin and heaters.",
+            "claim_ids": [],
+        }]},
+    )
+
+    (page, attempts, deterministic_fixes), client = _write_and_gate([json_response(bad_page)], tmp_path)
+
+    assert len(client.messages.calls) == 1  # no repair call needed
+    assert attempts == [[]]
+    assert deterministic_fixes == [1]
+    assert page["close"]["paragraphs"][0]["text"] == ALLOWED_WARRANTY_SENTENCE
 
 
 # ---------------------------------------------------------------------------

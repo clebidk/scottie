@@ -27,7 +27,12 @@ from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
 from .semantic_match import semantic_match_claims
-from .vocab import forbidden_words_block
+from .vocab import (
+    ALLOWED_WARRANTY_SENTENCE,
+    ALLOWED_WARRANTY_SPEC_LABEL,
+    ALLOWED_WARRANTY_SPEC_VALUE,
+    forbidden_words_block,
+)
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -404,14 +409,73 @@ def convert_incidental_numerals(text):
     return _STANDALONE_NUMERAL_RE.sub(standalone_repl, text)
 
 
-def apply_deterministic_fixes(page, failures, valid_claim_ids):
+# ---------------------------------------------------------------------------
+# Fix cycle 13 item 1: warranty wording, deterministic pre-repair. Sweep
+# 2026-09-10b (still-levelup-4x5.png, still-unforgettable-4x5.png) STOPped
+# because the writer's own repair attempt reproduced the same
+# claims.find_warranty_violations failure it was asked to fix -- a short
+# label ("Limited lifetime warranty", "Backed by a limited lifetime
+# warranty...") or honest-sounding paraphrase, never the exact allowed
+# sentence. Rather than spend a real repair call on a violation whose fix is
+# always the same fixed sentence, resolve it here, before any model call.
+# ---------------------------------------------------------------------------
+
+
+def _warranty_claim_id(valid_claim_ids):
+    """The verified claim id to cite for the fixed warranty sentence --
+    "warranty-terms" if present (the real id in claims/verified.json as of
+    this fix), else the first id in this run's own valid_claim_ids that
+    looks like a warranty claim, else None (attach no claim_ids rather than
+    guess)."""
+    if "warranty-terms" in valid_claim_ids:
+        return "warranty-terms"
+    for cid in sorted(valid_claim_ids):
+        if "warranty" in cid.lower():
+            return cid
+    return None
+
+
+def _fix_warranty_violation(page, path, valid_claim_ids):
+    """Replaces a warranty-wording gate failure at `path` with the fixed
+    sentence (claim_ids attached on the sibling field), or, if `path` is a
+    spec-table row's "value" field, sets the fixed label/value pair instead
+    (the row's other allowed form). Returns True if the page was changed."""
+    try:
+        segs = _path_segments(path)
+        node = page
+        for seg in segs[:-1]:
+            node = node[seg]
+        key = segs[-1]
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(node, dict) or not isinstance(node.get(key), str):
+        return False
+
+    if key == "value" and "label" in node:
+        node["label"] = ALLOWED_WARRANTY_SPEC_LABEL
+        node["value"] = ALLOWED_WARRANTY_SPEC_VALUE
+        if "claim_id" in node:
+            node["claim_id"] = _warranty_claim_id(valid_claim_ids) or node["claim_id"]
+        return True
+
+    node[key] = ALLOWED_WARRANTY_SENTENCE
+    claim_id = _warranty_claim_id(valid_claim_ids)
+    if "claim_ids" in node and claim_id:
+        node["claim_ids"] = [claim_id]
+    return True
+
+
+def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
-    claim id leaked into a parenthetical, or a trigger word with a safe
-    generic synonym (_TRIGGER_WORD_SYNONYMS) -- and leaving everything else
-    (a missing claim_id with no safe rewrite, a word-count or CTA violation,
+    claim id leaked into a parenthetical, a trigger word with a safe
+    generic synonym (_TRIGGER_WORD_SYNONYMS), or a warranty-wording
+    violation (fix cycle 13 item 1) -- and leaving everything else (a
+    missing claim_id with no safe rewrite, a word-count or CTA violation,
     EMF, a banned name) for a real repair call. Returns the number of
-    fields changed."""
+    fields changed. `log`/`cartridge_name`, when both given, get one
+    "deterministic fix applied: warranty sentence" event per warranty field
+    fixed."""
     fixed = 0
     for item in failures:
         raw_path = item.get("path")
@@ -419,6 +483,13 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids):
             continue
         term = item.get("term")
         issue = item.get("issue", "")
+
+        if "warranty wording must be exactly" in issue:
+            if _fix_warranty_violation(page, raw_path, valid_claim_ids):
+                fixed += 1
+                if log is not None and cartridge_name is not None:
+                    log.event(f"write.{cartridge_name}", "deterministic fix applied: warranty sentence")
+            continue
 
         if term in _HYPE_SYNONYMS or term == "!":
             path = raw_path
@@ -552,7 +623,10 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
 
-        fixed = apply_deterministic_fixes(page, problems, valid_claim_ids) if problems else 0
+        fixed = (
+            apply_deterministic_fixes(page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name)
+            if problems else 0
+        )
         if fixed:
             log.event(f"write.{cartridge_name}", f"deterministic fix applied: {fixed} field(s)")
             problems = _gate(page)
