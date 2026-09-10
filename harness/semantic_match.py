@@ -73,14 +73,18 @@ def semantic_match_claims(claims_made, verified_claims, *, client, model, budget
         response = client.messages.create(
             model=model,
             max_tokens=1500,
-            # Fix cycle 16 item 11: deterministic output for this call --
-            # this is a fixed mapping decision, not creative writing, and a
-            # stable answer run-to-run is exactly what the Thursday queue's
-            # "semantic matcher variance" bug report asked for.
-            temperature=0,
             thinking={"type": "disabled"},
             system=SEMANTIC_MATCH_SYSTEM,
             messages=[{"role": "user", "content": user_content}],
+            # Fix cycle 16 item 11: deterministic output for this call --
+            # this is a fixed mapping decision, not creative writing, and a
+            # stable answer run-to-run is exactly what the Thursday queue's
+            # "semantic matcher variance" bug report asked for. This
+            # client's `messages.create` has no typed `temperature`
+            # parameter (confirmed live on the server, anthropic==1.4.0 --
+            # a bare `temperature=0` kwarg raises TypeError); `extra_body`
+            # merges into the raw request body so the API still receives it.
+            extra_body={"temperature": 0},
         )
         usage = response.usage
         if budget:
