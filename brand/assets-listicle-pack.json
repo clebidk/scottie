@@ -1,0 +1,1072 @@
+{
+  "generated": "2026-09-10T18:21:42Z",
+  "root_folder_id": "1TJIKdHrD4AheKYq-0D4dLnbGfZrFwIVA",
+  "public_download": true,
+  "download_url_pattern": "https://drive.google.com/uc?export=download&id={id}",
+  "counts": {
+    "total": 105,
+    "by_kind": {
+      "ai_render": 34,
+      "photo_install": 3,
+      "photo_product": 61,
+      "still_video": 7
+    },
+    "by_model": {
+      "other": 2,
+      "mini": 30,
+      "matterhorn": 34
+    }
+  },
+  "assets": [
+    {
+      "id": "13Bx8QPN7kicokKwD3k_QQEfpKmEu2Gi2",
+      "title": "AIrender_54b05d3c-956b-452e-a541-53ee46fe3f53.png",
+      "mimeType": "image/png",
+      "bytes": 1568138,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "15iUs9ABvqFilxb2EvJ9UqXk4D2cS5qrC",
+      "title": "AIrender_9c101d58-0a0c-4989-bb36-bbd64601f33c.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 325185,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1X9F65VEaoJHyBBiPGip1yq17-LNdGBjO",
+      "title": "AIrender_9c101d58-0a0c-4989-bb36-bbd64601f33c.png",
+      "mimeType": "image/png",
+      "bytes": 1505539,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "16vpxFjmFFGueFS4vepLEGP-h5dFAsypo",
+      "title": "AIrender_Denali in home.png",
+      "mimeType": "image/png",
+      "bytes": 1761668,
+      "model": "other",
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1DIC_ClX7kl_K2YE9-ezcIqthcWRaptjl",
+      "title": "AIrender_Firefly (1).png",
+      "mimeType": "image/png",
+      "bytes": 2335333,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1HZPcpkWGmeU7pixvka8f5apiEod0vCQ_",
+      "title": "AIrender_Firefly_Gemini Flash (1).png",
+      "mimeType": "image/png",
+      "bytes": 3873216,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "14b4t2AUNAaMQaiDKh92puxjmd5L2MKET",
+      "title": "AIrender_Firefly_Gemini Flash.png",
+      "mimeType": "image/png",
+      "bytes": 3397217,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1UAmeicWScDs4n4KIvGWMrLd6jTN0hP2c",
+      "title": "AIrender_Firefly_Gemini Flash_add this sauna naturally in a modern LA home utilizing it in a tight space or closet. 431092.png",
+      "mimeType": "image/png",
+      "bytes": 1370688,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1rV5pMns883DJWWR3j2WrYQW0NHsNGkn4",
+      "title": "AIrender_Firefly_Gemini Flash_add this sauna naturally in a modern LA home. do not change any aspects of the sauna, 754539.png",
+      "mimeType": "image/png",
+      "bytes": 1771110,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "17OjLxENIltmowDwpI4jT2oX-De1AIo1p",
+      "title": "AIrender_Firefly_Gemini Flash_double the gap above the sauna before the shelves start. not the depth of the shelves 425952.png",
+      "mimeType": "image/png",
+      "bytes": 1530138,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1p1MDwbQ7xK1Lxgf7aZc1NelnjopqZqiM",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a gym with an openable wall or garage door wall in a modern LA home with 184273.png",
+      "mimeType": "image/png",
+      "bytes": 3637062,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1q_rVWRQwemWgW1xjQ56k2vFDfvB3vpND",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a gym with an openable wall or garage door wall in a modern LA home with 747685.png",
+      "mimeType": "image/png",
+      "bytes": 4176019,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "14w76ZIkMVUGIe_YRGGl98-B17TymR5DX",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a home gym in a modern LA home with the sauna from the reference image n 182450.png",
+      "mimeType": "image/png",
+      "bytes": 3760849,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1-c6lqhfV9PfQwDvtkEMNVXuVtln5mZNu",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a master bathroom in a modern LA home with the sauna from the reference  142122.png",
+      "mimeType": "image/png",
+      "bytes": 3207116,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1YuvfVhdr2_m-kHIC7qcDV0miO3UDz5Pd",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a master bathroom in a modern LA home with the sauna from the reference  547785.png",
+      "mimeType": "image/png",
+      "bytes": 3109487,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1cNvBysltdwd7WCCpV8mWGk60SNlsrx_k",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 478112 (1).png",
+      "mimeType": "image/png",
+      "bytes": 3693874,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1WOw0cMRjDgun_IK92r0HFpcGe38oJwng",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 478112.png",
+      "mimeType": "image/png",
+      "bytes": 3730426,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "15GS6RDMqyZL4vnM_xDs1pQUpF2Ps-rov",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 553647.png",
+      "mimeType": "image/png",
+      "bytes": 3549439,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1ZgliwDizQhI_mMtBsHWqrTnqBDvgfqKv",
+      "title": "AIrender_Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 987918.png",
+      "mimeType": "image/png",
+      "bytes": 3984323,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1i1MrUTqY5uIFFzSxrboJx1d7VSKRQ-Wu",
+      "title": "AIrender_Firefly_Gemini Flash_now generate an open concept poolhouse in a modern LA home with the sauna from the re 142864.png",
+      "mimeType": "image/png",
+      "bytes": 3636291,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1Ibd3c5eSFua9O7-sLit2GBnaZW0Xa-Jk",
+      "title": "AIrender_Firefly_Gemini Flash_now generate an open concept poolhouse in a modern LA home with the sauna from the re 968157.png",
+      "mimeType": "image/png",
+      "bytes": 3750909,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "104sM3AjfwJNDfmudYHNskcj2alkpfmg5",
+      "title": "AIrender_Firefly_Gemini Flash_now generate another version of this sauna in the large master bathroom of a modern L 521531.png",
+      "mimeType": "image/png",
+      "bytes": 3207475,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1S4_kKVEskSPxEpsEAtyZJqOWnElJJ0pZ",
+      "title": "AIrender_Firefly_Gemini Flash_now generate another version of this sauna in the large master bathroom of a modern L 578039 (1).png",
+      "mimeType": "image/png",
+      "bytes": 3336921,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1WgP41e7W5Z5c0iBzftOWP1OSDmgnMogn",
+      "title": "AIrender_Firefly_Gemini Flash_now generate another version of this sauna in the large master bathroom of a modern L 578039.png",
+      "mimeType": "image/png",
+      "bytes": 3790015,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1e9BpSLkZYaWNGxHFe6jr2Zzl6O2NQ3CU",
+      "title": "AIrender_Firefly_Gemini Flash_now generate the room in a modern LA home with the sauna from the reference image pla 510594.png",
+      "mimeType": "image/png",
+      "bytes": 3769965,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1KvpoXDlEk_1PUJtXZjs-nTm3iUeMEqn5",
+      "title": "AIrender_Firefly_Gemini Flash_now generate this sauna in another spot in a modern LA home. similar vibe to recent g 521531.png",
+      "mimeType": "image/png",
+      "bytes": 3653194,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1iNc-l5ozJGE_2yLtXSRO3nJYUJFsgojI",
+      "title": "AIrender_Firefly_Gemini Flash_now generate this sauna in the large master bathroom of a modern LA home. similar vib 521531.png",
+      "mimeType": "image/png",
+      "bytes": 3624606,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "19wsGrmAyLlN8S8lvVt1OakEq35YA6W6J",
+      "title": "AIrender_Firefly_Gemini Flash_now put the same sauna in a modern LA home 118272.png",
+      "mimeType": "image/png",
+      "bytes": 4206072,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1VqSYMiulgYx2QFVEWtSlzcMl63eTJntK",
+      "title": "AIrender_Firefly_Gemini Flash_one more centered along the back wall of a modern minimalist gym 521531.png",
+      "mimeType": "image/png",
+      "bytes": 4826065,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1ehKBWtlvxnVSDKL_OudJXQT1AwcYPB6G",
+      "title": "AIrender_Firefly_Gemini Flash_this is pretty good but remove the angle of the sauna going back to the wall 683722.png",
+      "mimeType": "image/png",
+      "bytes": 4606682,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "14pzmCuVwQG2SeOYb2Z-i7kd85SGayOAB",
+      "title": "AIrender_Firefly_gpt-image.png",
+      "mimeType": "image/png",
+      "bytes": 4662544,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1_Wv-MXartpCjjj-8ey6z0vg3qMMbmgp7",
+      "title": "AIrender_ba775be1-b546-48d8-b65b-7ad69cc8308b.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 334399,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1YNFCLq8mGEwLgnnuavHjhvt85uyXZNgD",
+      "title": "AIrender_ba775be1-b546-48d8-b65b-7ad69cc8308b.png",
+      "mimeType": "image/png",
+      "bytes": 1607744,
+      "model": null,
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "1prS9xJ5-pgeH-Ja7LA1kn96f57c_s4iE",
+      "title": "AIrender_patagonia 200.webp",
+      "mimeType": "image/webp",
+      "bytes": 567894,
+      "model": "other",
+      "kind": "ai_render",
+      "orientation": null,
+      "ai_generated": true
+    },
+    {
+      "id": "11xw6CaHNI6TNb9ezBCUBoXTS6d5jG47n",
+      "title": "MINI-install_09-2.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 6351826,
+      "model": "mini",
+      "kind": "photo_install",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "13PAv9Jg94HrZkbhAxZ0wb3RGl0xOVZ8O",
+      "title": "MINI-install_10.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6818388,
+      "model": "mini",
+      "kind": "photo_install",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1MmsnMm5DXyLLohAJvoo8bYVodFWndytM",
+      "title": "Matterhorn-install_09.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 4519288,
+      "model": "matterhorn",
+      "kind": "photo_install",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "17UghmkrmU613OIfIQmb3zi01bRb_S_9z",
+      "title": "MINI__MG_1225.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 12165924,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1j_g3K3n92E0vwOtIlMmiDFT6md7G9-rb",
+      "title": "MINI__MG_1232.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 15064483,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "13WAP9ZyCybiItJlTRBKIImsnHmVl7Xu7",
+      "title": "MINI__MG_1236.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 13721421,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1xMh3Eg_iDOyCh1u-RSxOe1IOF5uuFWD_",
+      "title": "MINI__MG_1250.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 9710425,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1-Ztvy-rZJuGV9-SgLz_dezzkRtzngbhT",
+      "title": "MINI__MG_1251.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 10721388,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1V97OlBSR4e6XGbBXAk2HlcMlU2v0NDQH",
+      "title": "MINI__MG_1253.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 10241360,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1Wa5FIM3XthsFe-AktfhS22nuDxwoHc-b",
+      "title": "MINI__MG_1256.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 10088121,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1fhCqv8_fY5cH69OhbFSBs_f-8usNTmyt",
+      "title": "MINI__MG_1259.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6799834,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1RwDeWzFT96IeY1bNJYBNiGDURnEoBadV",
+      "title": "MINI__MG_1260.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6733524,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1fdqfwF3shDph4S-2NZORV-hvkTNniGAk",
+      "title": "MINI__MG_1261.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6944498,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "19tktmX7wUYMfrD1WK700yWpnB7NF46j7",
+      "title": "MINI__MG_1262.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6866559,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "19eWBBq1w95qogzPhfIL94t3fsed-akjU",
+      "title": "MINI__MG_1263.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7008820,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1j33LTId5-dSxQxFvsQPILr22W76Zd0oF",
+      "title": "MINI__MG_1264.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6961660,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "11E2WpkmXxqDxX9EOTFbCNFDIy9G3_9Dx",
+      "title": "MINI__MG_1265.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6816551,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1aWEnqYLM6fkd9EZCPoZL38osi0J1Ed79",
+      "title": "MINI__MG_1266.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6818388,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1iJLXbZJqgct_EAdBij0Dti42GjrdeX9I",
+      "title": "MINI__MG_1267.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6598436,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1EisdaOjJZwVqtGjCsd9e8xnSkPWEuNFl",
+      "title": "MINI__MG_1268.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6855341,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1EyvdS-nZDiwecccpUFEV-MPT6q2CvNur",
+      "title": "MINI__MG_1269.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7189098,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1HWr5E6nRmo2H8coFdF4xTLlzziY4I9aH",
+      "title": "MINI__MG_1270.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7159148,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1ZTZgIuZvt7HxWVDMsnlQkNkkyw35tOnr",
+      "title": "MINI__MG_1271.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7078630,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1FzJ-KrWJ4JHmWcrR5oXeLAKWSl9MZyOW",
+      "title": "MINI__MG_1272.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7028357,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1OUZYQMh-WZvXdjA6SPiMlmjDYRaAhCpF",
+      "title": "MINI__MG_1273.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 6873634,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1QHtxBHf58Gvw-rTQT38rY1Av7o8R2c7b",
+      "title": "MINI__MG_1274.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7218430,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1xRWx4iqEFEufVsNogp2yD5eprwUkYf2T",
+      "title": "MINI__MG_1275.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7098227,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1OntrdZ1xzKoCCP0amx5CWqRVwjUjtj52",
+      "title": "MINI__MG_1276.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7175919,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1IMLQz8Q5wGE-njATHxT1Tw7VfiepI0cQ",
+      "title": "MINI__MG_1277.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7209409,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1G7bB1q8VJdiY0ZI1wiMGS7mHmn80p7nP",
+      "title": "MINI__MG_1278.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7101207,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "10uRgo9om73m2izrjwA9YPTrsvcyxrCsn",
+      "title": "MINI__MG_1284.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 9084024,
+      "model": "mini",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "103mRQ0ggSpI2DSP9k0Iq-4QQKw5u8kc5",
+      "title": "Matterhorn__MG_3224.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 8234763,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1YvQiz1LX2JWV0HZqSrp2L4K2uqKtMV2z",
+      "title": "Matterhorn__MG_3225.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5215492,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1pkPaqS112ICwntLWfcAgYPirXaO_IF7C",
+      "title": "Matterhorn__MG_3226.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 3916277,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1rd4yQqf7n364QHq_tdl8MZfUiMHz1TRX",
+      "title": "Matterhorn__MG_3250.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7775542,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1HAFDUAO6w3tQScjQHW_GoROzzya9NrYx",
+      "title": "Matterhorn__MG_3254.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5368931,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1gq9T5rUY5H_bG3wzQ_WL0gK5MmJv3YD8",
+      "title": "Matterhorn__MG_3260.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7601744,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1Ac0oK0ChXSf-sBtuQg8La_4NiFKGbkuq",
+      "title": "Matterhorn__MG_3261.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7634080,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1Kj3uMDvg-dGX8xaqD-IoyIXGD70eS05J",
+      "title": "Matterhorn__MG_3262.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 13001812,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1wtso33kaFxVE3ZekJnyJsg64JzVc85fW",
+      "title": "Matterhorn__MG_3299.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5051040,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1Zo3O9nUVP6zGfFl7UpVPM06OQ3ya_82-",
+      "title": "Matterhorn__MG_3300.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5225307,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1dPZRZ3bn3CDOoAbt3lOqcHWk6jIwfebQ",
+      "title": "Matterhorn__MG_3301.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5238736,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1q6sj562xYGxt6mRmXxlK68MkSgNGV1Cc",
+      "title": "Matterhorn__MG_3302.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5302236,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1GVNVkisglDsaDPJlRN6P6W5IM-QXeCAS",
+      "title": "Matterhorn__MG_3303.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5224896,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1-Sk_Z7rllCZUk_I1x3VeTLmZBl3UVbTL",
+      "title": "Matterhorn__MG_3304.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5502817,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1SU6p-SqesbQLGANShLyJp19tCcLz3e6U",
+      "title": "Matterhorn__MG_3305.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5348641,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1EboXQO-0izpTqc7E4qW-tnnuBK7sDGrk",
+      "title": "Matterhorn__MG_3306.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5226298,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1BtzIiyRNo8Lg6sxia1iSwN5fR6RSkZVl",
+      "title": "Matterhorn__MG_3307.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5232201,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1GMYH4l6AGbJYXkhrT6EG30k2D1--mVEZ",
+      "title": "Matterhorn__MG_3308.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 4902359,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1yg8_RaUD76wKWhfOGTKZdor27DvjymiA",
+      "title": "Matterhorn__MG_3309.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 4800825,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1-uhdYlx4uMX0MVkEZnDa9vG3DZn8PuxH",
+      "title": "Matterhorn__MG_3310.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5369207,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "13Km16O_otksKh0OCg2qLTn8QnSuj_sW3",
+      "title": "Matterhorn__MG_3311.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5221806,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1g0nzpdvttnuv0-f6STcYOw-7kgOPTS5C",
+      "title": "Matterhorn__MG_3312.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5163253,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "17sMLfKUCD8sqduvPYsaRUn13d7Pu3sds",
+      "title": "Matterhorn__MG_3313.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5100895,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1L3vX-_XynXUWPf01X4bBOvcXZuVLYl9r",
+      "title": "Matterhorn__MG_3314.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5009212,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1V7rOQtXzMcsqZadk-gspi7uMSjS6nYkx",
+      "title": "Matterhorn__MG_3315.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5172528,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "16LWn7DvKrKL6l8jQFUiZojShXmZRKAz0",
+      "title": "Matterhorn__MG_3316.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 5144970,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1uKNKAcvDodtvy_pzjrRqoDr1VRXGgHge",
+      "title": "Matterhorn__MG_3319.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 14222957,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "12Us_j9E-8XXBO6am9rc-haaOTAVci3f1",
+      "title": "Matterhorn__MG_3329.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 12975760,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1CwfJnbTAZvGD22Zk_wHXTv14GrQ4se7v",
+      "title": "Matterhorn__MG_3333.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 12450651,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1sOvPWmxiDM-HfACrF6mm0S7EQcrgxq_m",
+      "title": "Matterhorn__MG_3335.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 13553076,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1WqaEK1WLDjMh8SuAB5PEdgJcyBkHWYTK",
+      "title": "Matterhorn__MG_3345.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 10497385,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1fdRt3cxZHVIBUyqWvmTGtUflvKvhaRWV",
+      "title": "Matterhorn__MG_3346.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 11184389,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1i89DrEsE350N7cK1MFmmqF_Uo118hoxC",
+      "title": "Matterhorn__MG_3347.JPG",
+      "mimeType": "image/jpeg",
+      "bytes": 7760586,
+      "model": "matterhorn",
+      "kind": "photo_product",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1lqFnG3kksIql5fsQCyqubUOMKgt5Akd8",
+      "title": "Stills_Office Views Still 001.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 1556640,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1LKEZbBppNUXVmT3mogalTqi5AC5nleU6",
+      "title": "Stills_Office Views Still 002.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 2054245,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "190IbxNZfKdZIXJX_c8_hij-QTuddVE5X",
+      "title": "Stills_Office Views Still 003.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 1664309,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1tS1347UnGVi5LUJozt-cFwxUmmeftOCJ",
+      "title": "Stills_Office Views Still 004.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 1550302,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "14hQUSLvpiyd0C7bdNd9zanxW9kLn6xBH",
+      "title": "Stills_Sauna Still 01.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 1886979,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1QfwGYz7-quEi--33ALSizCoX4OJxlxiD",
+      "title": "Stills_Sauna Still 02.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 1751967,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    },
+    {
+      "id": "1r21HEkQa-ujinCifPPUglF01_22mOSbg",
+      "title": "Stills_Spring Water Still 007.jpg",
+      "mimeType": "image/jpeg",
+      "bytes": 2255756,
+      "model": null,
+      "kind": "still_video",
+      "orientation": null,
+      "ai_generated": false
+    }
+  ]
+}
