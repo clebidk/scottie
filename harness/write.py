@@ -175,14 +175,28 @@ def cached_system_prefix(cartridge_md, schema, tenant=None):
 # Fix cycle 17 item 3 (output hygiene): max_tokens capped per cartridge from
 # its own word range instead of one flat 6000 for every cartridge --
 # product-page (250-500 words) never needed anywhere near as much headroom as
-# longform (800-1,400). 1.6 tokens/word is a generous margin over English's
-# ~0.75 words/token average; structural_overhead covers page.json's own
-# non-prose bytes (keys, punctuation, ids, urls).
-def max_tokens_for_word_range(word_range, structural_overhead=800):
+# longform (800-1,400).
+#
+# The spec's original formula (1.6 tokens/word + 800 flat overhead) was
+# tried first and measured wrong: it caps longform (hi=1400) at 3040 output
+# tokens, but the cycle-16 baseline's own real longform call used 3324
+# output tokens uncapped, and the first real verification run under this cap
+# reproduced exactly that -- `write.longform` hit 3040 output tokens twice in
+# a row and both times returned invalid JSON ("Unterminated string"), i.e.
+# the cap truncated mid-string. Longform's schema is far more
+# structure-heavy per word than article/product-page (a 6-10 row specs
+# table, 5-7 FAQ pairs, 3 steps, 2-3 proof_stats, several claim_ids arrays)
+# so a flat per-word rate tuned for prose undercounts it specifically.
+# 1.8 tokens/word + 1800 overhead keeps ~30% headroom over that measured
+# 3324-token longform call (4320) while still capping well under the old
+# flat 6000 for every cartridge (article 4680, product-page 2700 -- also
+# safer than the original formula's 1600, which left only ~100 tokens of
+# margin over product-page's own 1499-token baseline call).
+def max_tokens_for_word_range(word_range, structural_overhead=1800):
     if not word_range:
         return 6000
     _, hi = word_range
-    return int(hi * 1.6) + structural_overhead
+    return int(hi * 1.8) + structural_overhead
 
 
 # Fix cycle 4 item 2: parsed once from cartridge.md's own "N-M words" Rules

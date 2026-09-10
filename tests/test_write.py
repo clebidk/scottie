@@ -481,7 +481,7 @@ def test_write_page_never_puts_the_ad_brief_inside_the_cached_facts_pack_block(t
 
 def test_max_tokens_for_word_range_matches_the_word_range_formula():
     for lo, hi in [(1000, 1600), (600, 1100), (800, 1400), (250, 500)]:
-        assert max_tokens_for_word_range((lo, hi)) == int(hi * 1.6) + 800
+        assert max_tokens_for_word_range((lo, hi)) == int(hi * 1.8) + 1800
 
 
 def test_max_tokens_for_word_range_falls_back_to_6000_with_no_word_range():
@@ -513,7 +513,7 @@ def test_write_page_sends_the_derived_max_tokens(tmp_path):
     )
     log.close()
     assert client.messages.calls[0]["max_tokens"] == max_tokens_for_word_range((1000, 1600))
-    assert client.messages.calls[0]["max_tokens"] == 3360
+    assert client.messages.calls[0]["max_tokens"] == 4680
 
 
 # ---------------------------------------------------------------------------
@@ -532,7 +532,7 @@ def test_build_initial_write_request_matches_write_pages_attempt_1_shape():
         tenant=TENANT,
     )
     assert kwargs["model"] == "claude-sonnet-5"
-    assert kwargs["max_tokens"] == 3360
+    assert kwargs["max_tokens"] == 4680
     assert kwargs["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert kwargs["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral"}
     assert "facts_pack" in kwargs["messages"][0]["content"][0]["text"]
