@@ -76,15 +76,21 @@ def semantic_match_claims(claims_made, verified_claims, *, client, model, budget
             thinking={"type": "disabled"},
             system=SEMANTIC_MATCH_SYSTEM,
             messages=[{"role": "user", "content": user_content}],
-            # Fix cycle 16 item 11: deterministic output for this call --
-            # this is a fixed mapping decision, not creative writing, and a
-            # stable answer run-to-run is exactly what the Thursday queue's
-            # "semantic matcher variance" bug report asked for. This
-            # client's `messages.create` has no typed `temperature`
-            # parameter (confirmed live on the server, anthropic==1.4.0 --
-            # a bare `temperature=0` kwarg raises TypeError); `extra_body`
-            # merges into the raw request body so the API still receives it.
-            extra_body={"temperature": 0},
+            # Fix cycle 16 item 11: the brief asked for temperature 0 on this
+            # call, for a deterministic mapping decision. Tried on the
+            # server two ways -- a bare `temperature=0` kwarg (this client's
+            # `messages.create` has no typed `temperature` parameter,
+            # anthropic==1.4.0: raises TypeError) and `extra_body={"temperature":
+            # 0}` (reaches the real API, which rejects it outright: "400
+            # `temperature` is deprecated for this model") -- neither works
+            # for claude-sonnet-5 on this deployment. Deliberately NOT sent:
+            # the fallback-to-overlap-on-any-failure behavior below would
+            # otherwise silently eat every semantic-match call, defeating
+            # the model's ability to catch a phrasing an alias/word-overlap
+            # can't. The real fix for the Thursday queue's specific variance
+            # bug is alias_match (checked before this call ever runs, in
+            # claims.match_claim) -- deterministic regardless of this call's
+            # temperature, which is why it's what actually resolves item 11.
         )
         usage = response.usage
         if budget:

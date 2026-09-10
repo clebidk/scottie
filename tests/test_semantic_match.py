@@ -180,19 +180,23 @@ ALIASED_CLAIMS = [
 ]
 
 
-def test_semantic_match_claims_sends_temperature_zero(tmp_path):
-    # Fix cycle 16 item 11 real-run regression: this client's messages.create
-    # has no typed `temperature` parameter (confirmed live on the server,
-    # anthropic==1.4.0) -- a bare `temperature=0` kwarg raises TypeError.
-    # `extra_body` is how an unlisted-but-API-supported param reaches the
-    # real request body, so that's what must carry it, not a top-level kwarg.
+def test_semantic_match_claims_never_sends_a_temperature_parameter(tmp_path):
+    # Fix cycle 16 item 11 real-run regression, found on the server: a bare
+    # `temperature=0` kwarg raises TypeError against this client
+    # (anthropic==1.4.0 has no typed `temperature` param on messages.create),
+    # and the real API's own 400 response to `extra_body={"temperature": 0}`
+    # says outright: "`temperature` is deprecated for this model." Neither
+    # form works for claude-sonnet-5 on this deployment, so this call sends
+    # no temperature at all -- alias_match (checked before this call ever
+    # runs) is what actually makes the Thursday queue's matching bug
+    # deterministic, not this call's sampling temperature.
     claim = "medical-grade panel"
     client = FakeClient([json_response({claim: "gbrain-allowlist-red-light"})])
     log = RunLog("test-run", tmp_path / "run.log")
     semantic_match_claims([claim], VERIFIED_CLAIMS, client=client, model="claude-sonnet-5", log=log)
     log.close()
     assert "temperature" not in client.messages.calls[0]
-    assert client.messages.calls[0]["extra_body"] == {"temperature": 0}
+    assert "extra_body" not in client.messages.calls[0]
 
 
 def test_semantic_match_claims_includes_aliases_in_candidate_text(tmp_path):
