@@ -4,20 +4,24 @@
   copy was lifted verbatim from an unrelated buyer's-guide article and
   didn't fit a general landing page (it referred to itself as a ranking and
   promised corrections that could favor a rival brand).
+  Cycle 19 (Caleb's byline decision): three distinct roles, not two --
+  author (Austin Laudenslager, responsible for every claim), contributor
+  (Peak Saunas Editorial Team, no named person), reviewer (Caleb Niednagel,
+  reviews specifications and sources). See tenants/peak-saunas/authors.yaml.
   Live markup used classes "pkx-byline" / "pkx-dates" / "pkx-sec" (defined
   in base.css as .byline / .byline__dates). Placeholders: {{author}},
-  {{contributor}}, {{published}}, {{updated}}. author_url / contributor_url
-  are left as literal site paths (/pages/austin-laudenslager,
+  {{contributor}}, {{reviewer}}, {{published}}, {{updated}}. author_url /
+  reviewer_url are left as literal site paths (/pages/austin-laudenslager,
   /pages/caleb-niednagel) -- swap them too if the byline names change.
 -->
 
 <!-- Top-of-page byline -->
 <div class="byline">
-  <div>&#10003; <strong>Written by</strong> <a href="/pages/austin-laudenslager">{{author}}</a> &middot; <strong>Expert contributor:</strong> <a href="/pages/caleb-niednagel">{{contributor}}</a></div>
+  <div>&#10003; <strong>Written by</strong> <a href="/pages/austin-laudenslager">{{author}}</a> &middot; {{contributor}} &middot; <strong>Reviewed by</strong> <a href="/pages/caleb-niednagel">{{reviewer}}</a></div>
   <div class="byline__dates">Published: {{published}} &middot; Updated: {{updated}}</div>
 </div>
 
 <!-- Bottom-of-page "About the author" block -->
 <div class="byline" style="border-top:1px solid #E9EAEC;padding-top:14px;font-size:14px">
-  <p><strong>About the author.</strong> Austin Laudenslager is the Founder &amp; CEO of Peak Saunas and is responsible for every claim on this page. Corrections are date-stamped in the Updated line above. <a href="/pages/austin-laudenslager">Full bio</a>. Caleb Niednagel, Technology Lead, verified each specification and source link on this page.</p>
+  <p><strong>About the author.</strong> Austin Laudenslager is the Founder &amp; CEO of Peak Saunas and is responsible for every claim on this page. Corrections are date-stamped in the Updated line above. <a href="/pages/austin-laudenslager">Full bio</a>. Caleb Niednagel, Technology Lead, reviews the specifications and sources on this page.</p>
 </div>

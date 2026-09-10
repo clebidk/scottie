@@ -27,23 +27,32 @@ from .claims import (
 
 FALLBACK_BYLINE = """<p class="adv-byline-author">{author_line}</p>
 <p class="adv-byline-contributor">{contributor_line}</p>
+<p class="adv-byline-reviewer">{reviewer_line}</p>
 <p class="adv-byline-dates">Published {published} &middot; Updated {updated}</p>"""
 
 
 def byline_names(tenant=None):
-    """(author, contributor) as the tenant's own byline.html expects them.
+    """(author, contributor, reviewer) as the tenant's own byline.html expects
+    them.
 
     A tenant's byline.html template appends the author's title itself after
-    {{ author }}, so the author slot is the bare name; the contributor slot has
-    no template-supplied title, so it carries its own."""
+    {{ author }}, so the author slot is the bare name. Cycle 19: contributor
+    is the editorial team, not a person, and (like author) has no
+    template-supplied title of its own; reviewer is the named person who
+    checks specifications and sources, and carries its own title the same
+    way contributor's title used to before Cycle 19."""
     tenant = tenant or tenant_mod.active()
     author = tenant.author("author")
     contributor = tenant.author("contributor")
+    reviewer = tenant.author("reviewer")
     author_name = author.get("name", "")
     contributor_name = contributor.get("name", "")
     if contributor.get("title"):
         contributor_name = f"{contributor_name}, {contributor['title']}"
-    return author_name, contributor_name
+    reviewer_name = reviewer.get("name", "")
+    if reviewer.get("title"):
+        reviewer_name = f"{reviewer_name}, {reviewer['title']}"
+    return author_name, contributor_name, reviewer_name
 
 
 def load_brand_css(brand_dir, log=None):
@@ -58,10 +67,11 @@ def load_brand_css(brand_dir, log=None):
 def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
     tenant = tenant or tenant_mod.active()
     byline_path = Path(brand_dir) / "byline.html"
-    author_name, contributor_name = byline_names(tenant)
+    author_name, contributor_name, reviewer_name = byline_names(tenant)
     context = {
         "author": author_name,
         "contributor": contributor_name,
+        "reviewer": reviewer_name,
         "published": published,
         "updated": updated,
     }
@@ -77,13 +87,17 @@ def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
         log.event("render", "tenant brand/byline.html not found; using fallback byline markup")
     author = tenant.author("author")
     contributor = tenant.author("contributor")
+    reviewer = tenant.author("reviewer")
     return FALLBACK_BYLINE.format(
         author_line=(tenant.authors.get("byline_author_template") or "By {author_name}").format(
             author_name=context["author"], author_title=author.get("title", ""), tenant_name=tenant.display_name
         ),
         contributor_line=(
-            tenant.authors.get("byline_contributor_template") or "Reviewed by {contributor_name}"
+            tenant.authors.get("byline_contributor_template") or "{contributor_name}"
         ).format(contributor_name=contributor.get("name", ""), contributor_title=contributor.get("title", "")),
+        reviewer_line=(
+            tenant.authors.get("byline_reviewer_template") or "Reviewed by {reviewer_name}"
+        ).format(reviewer_name=reviewer.get("name", ""), reviewer_title=reviewer.get("title", "")),
         published=published,
         updated=updated,
     )

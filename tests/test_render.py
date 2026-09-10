@@ -592,6 +592,50 @@ def test_real_byline_html_is_page_neutral(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Cycle 19 (Caleb's byline decision): three distinct roles -- author (Austin,
+# responsible for every claim), contributor (the editorial team, not a named
+# person), reviewer (Caleb, reviews specifications and sources) -- rendered
+# as "Written by <author> · <contributor> · Reviewed by <reviewer>".
+# ---------------------------------------------------------------------------
+
+def test_byline_shows_three_distinct_roles(tmp_path):
+    index_path = render_page(
+        cartridge_name="article",
+        page=ARTICLE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=TENANT.brand_dir,
+        templates_dir=REPO_ROOT / "harness" / "templates",
+        out_dir=tmp_path / "article",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "Written by" in html
+    assert "Austin Laudenslager" in html
+    assert "Peak Saunas Editorial Team" in html
+    assert "Reviewed by" in html
+    assert "Caleb Niednagel, Technology Lead" in html
+    # never the word "credentialed" anywhere in the byline/about-author copy
+    assert "credentialed" not in html.lower()
+    # about-the-author block: Austin named responsible for every claim,
+    # Caleb named as the reviewer of specifications and sources
+    assert "Austin Laudenslager is the Founder &amp; CEO of Peak Saunas and is responsible for every claim" in html
+    assert "Caleb Niednagel, Technology Lead, reviews the specifications and sources" in html
+
+
+def test_byline_names_returns_three_roles():
+    from harness.render import byline_names
+
+    author_name, contributor_name, reviewer_name = byline_names(TENANT)
+    assert author_name == "Austin Laudenslager"
+    assert contributor_name == "Peak Saunas Editorial Team"
+    assert reviewer_name == "Caleb Niednagel, Technology Lead"
+
+
+# ---------------------------------------------------------------------------
 # fix cycle 3 item 4: one CTA text/url per page, reused everywhere the
 # cartridge shows a CTA -- no separate hero/repeat/final cta object to drift.
 # ---------------------------------------------------------------------------
