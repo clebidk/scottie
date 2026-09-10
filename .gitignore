@@ -15,10 +15,12 @@ out/
 runs/
 .env
 
-# Local environments and vendored binaries.
+# Local environments and vendored binaries. No trailing slash: on a deploy
+# these are often symlinks into a shared checkout, and "vendor/" would not
+# match a symlink.
 .venv*/
-vendor/
-models/
+vendor
+models
 __pycache__/
 *.pyc
 *.egg-info/
