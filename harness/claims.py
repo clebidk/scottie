@@ -36,6 +36,7 @@ import html
 import re
 
 from . import tenant as tenant_mod
+from . import exits
 from . import vocab
 from .textutil import DOLLAR_AMOUNT_RE, NON_PROSE_KEYS
 
@@ -62,6 +63,8 @@ _QUOTED_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
 
 
 class ClaimsGateFailure(Exception):
+    exit_code = exits.GATE_STOP
+
     def __init__(self, stage, items):
         super().__init__(f"claims gate STOP at stage {stage!r}: {len(items)} unmatched item(s)")
         self.stage = stage

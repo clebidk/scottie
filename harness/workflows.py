@@ -10,6 +10,7 @@ BEHAVIOUR. Nothing about a stage lives in the YAML.
 import yaml
 
 from .config import REPO_ROOT
+from .errors import UnknownWorkflow
 
 WORKFLOWS_DIR = REPO_ROOT / "workflows"
 
@@ -23,7 +24,7 @@ def list_workflows():
 def load_workflow(name):
     path = WORKFLOWS_DIR / f"{name}.yaml"
     if not path.exists():
-        raise FileNotFoundError(f"no workflow {name!r}; available: {list_workflows()}")
+        raise UnknownWorkflow(f"no workflow {name!r}; available: {list_workflows()}")
     return yaml.safe_load(path.read_text()) or {}
 
 

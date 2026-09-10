@@ -31,15 +31,22 @@ def send_slack(webhook_url, text, *, log=None):
             log.event("notify", "notification skipped: no channel configured (slack)")
         return False
     body = json.dumps({"text": text}).encode("utf-8")
-    req = urllib.request.Request(
-        webhook_url, data=body, headers={"Content-Type": "application/json"}
-    )
+    # Cycle 22 finding R19: this used to catch urllib.error.URLError only, but
+    # Request() itself raises ValueError on a webhook url with no scheme
+    # ("unknown url type"), and urlopen can surface an http.client error --
+    # either of which killed the review_notify stage of an otherwise finished
+    # run, contradicting this module's own promise that a notification never
+    # blocks anything. A notification is best-effort by design; the run's own
+    # output is not.
     try:
+        req = urllib.request.Request(
+            webhook_url, data=body, headers={"Content-Type": "application/json"}
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             ok = 200 <= resp.status < 300
-    except urllib.error.URLError as e:
+    except Exception as e:
         if log:
-            log.event("notify", f"slack send failed: {e}")
+            log.event("notify", f"slack send failed: {type(e).__name__}: {e}")
         return False
     if log:
         log.event("notify", f"slack sent: {ok}")
@@ -60,9 +67,12 @@ def send_email(*, host, port, user, password, from_addr, to_addrs, subject, body
             server.starttls()
             server.login(user, password)
             server.sendmail(from_addr, to_addrs, msg.as_string())
-    except (smtplib.SMTPException, OSError) as e:
+    except Exception as e:
+        # Same rule as send_slack above: a non-numeric SMTP_PORT raises
+        # ValueError out of int(), which the old (smtplib.SMTPException, OSError)
+        # pair did not cover.
         if log:
-            log.event("notify", f"email send failed: {e}")
+            log.event("notify", f"email send failed: {type(e).__name__}: {e}")
         return False
     if log:
         log.event("notify", f"email sent to {len(to_addrs)} address(es)")

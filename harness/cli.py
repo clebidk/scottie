@@ -28,7 +28,9 @@ from .claims import (
     strip_leaked_claim_ids,
     warranty_claim_id,
 )
+from . import exits
 from .config import FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
+from .errors import HarnessError
 from .ingest import run_ingest
 from .log import RunLog
 from .publishers.export import ExportPublisher
@@ -36,13 +38,13 @@ from .publishers.shopify import ShopifyCredentialsMissing, ShopifyPublisher, rew
 from .review import cmd_review
 from .runstate import UnknownReviewer
 from .shopify import write_shopify_body
-from .tenant import TenantNotConfigured, UnknownTenant
 from .textutil import NON_PROSE_KEYS
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
 
-# Exit codes: 1 bad usage, 2 claims gate STOP, 3 budget cap, 4 tenant not set up.
-EXIT_TENANT_NOT_CONFIGURED = 4
+# Exit codes live in harness/exits.py. Kept as a name here because it was part
+# of this module's surface before that module existed.
+EXIT_TENANT_NOT_CONFIGURED = exits.TENANT_NOT_CONFIGURED
 
 # Run-shaping helpers live in harness/pipeline.py, which owns the stage list.
 # Re-exported here because they are part of the CLI's own surface.
@@ -1353,8 +1355,26 @@ def _add_tenant_flag(parser):
     )
 
 
+class _Parser(argparse.ArgumentParser):
+    """argparse exits 2 on a usage error, which is the code this harness
+    reserves for a claims-gate STOP -- so `harness run --carrtidges x` and a
+    run that legitimately refused to write a page were indistinguishable to
+    any script checking $?. A usage error is exits.USAGE here.
+
+    add_subparsers() builds every subparser from the calling parser's own
+    class, so `harness run` with a missing argument gets this too."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(exits.USAGE, f"{self.prog}: error: {message}\n")
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(prog="harness")
+    parser = _Parser(
+        prog="harness",
+        epilog=exits.HELP_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_run = sub.add_parser("run", help="ingest -> ground -> gate -> write -> render")
@@ -1483,18 +1503,24 @@ def build_parser():
 
 
 def main(argv=None):
+    """One place turns an expected failure into a message and an exit code.
+
+    Everything raised from harness/errors.py's hierarchy is a failure with an
+    operator action behind it -- an unconfigured tenant, an unknown workflow or
+    --product, a writer that never returned valid JSON, a batch that timed out,
+    a publish the storefront rejected. Each prints one line and returns its own
+    exit_code.
+
+    Anything else still raises. A traceback from an unexpected exception is
+    deliberate: that is a bug in this harness, and dressing it up as a friendly
+    message would only make it harder to report."""
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
         return args.func(args) or 0
-    except TenantNotConfigured as e:
-        # A tenant that has been created but not filled in is an operator
-        # problem, not a crash -- one line, exit 4, no traceback.
+    except HarnessError as e:
         print(str(e), file=sys.stderr)
-        return EXIT_TENANT_NOT_CONFIGURED
-    except UnknownTenant as e:
-        print(str(e), file=sys.stderr)
-        return EXIT_TENANT_NOT_CONFIGURED
+        return e.exit_code
 
 
 def main_adv_alias(argv=None):

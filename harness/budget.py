@@ -6,8 +6,12 @@ writing incomplete output.
 """
 import time
 
+from . import exits
+
 
 class BudgetExceeded(Exception):
+    exit_code = exits.BUDGET
+
     def __init__(self, message, kind):
         super().__init__(message)
         self.kind = kind

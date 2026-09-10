@@ -11,12 +11,14 @@ if --batch had never been passed for that one cartridge.
 """
 import time
 
+from .errors import HarnessError
+
 from .jsonutil import extract_json
 from .write import build_initial_write_request, validate_schema
 
 
-class BatchTimeout(Exception):
-    pass
+class BatchTimeout(HarnessError):
+    """A Message Batch never reached "ended" inside the timeout."""
 
 
 # 20-minute cap per the fix cycle 17 spec. In practice harness/budget.py's

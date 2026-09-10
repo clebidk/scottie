@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from . import tenant as tenant_mod
+from .errors import UnknownProduct
 from .prices import format_price
 from .textutil import DOLLAR_AMOUNT_RE, product_name_slug
 from .tenant import DEFAULT_CLAIMS_CONFIG as DEFAULT_CONFIG
@@ -242,7 +243,10 @@ class LocalFactsSource:
             for slug, p in products.items():
                 if slug == product_slug or p["name"].lower() == product_slug.lower():
                     return p, None
-            raise ValueError(f"unknown --product: {product_slug!r}")
+            raise UnknownProduct(
+                f"unknown --product: {product_slug!r}; available: "
+                + ", ".join(sorted(products))
+            )
 
         active_products = [p for p in products.values() if p.get("active", True)]
 

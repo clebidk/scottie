@@ -22,6 +22,8 @@ from pathlib import Path
 import yaml
 
 from .config import REPO_ROOT
+from .errors import HarnessError
+from . import exits
 
 TENANTS_DIR = REPO_ROOT / "tenants"
 TEMPLATE_DIR = TENANTS_DIR / "_template"
@@ -34,12 +36,16 @@ TENANT_ENV_VAR = "HARNESS_TENANT"
 PLACEHOLDER = "CHANGE ME"
 
 
-class TenantNotConfigured(Exception):
+class TenantNotConfigured(HarnessError):
     """A tenant directory exists but cannot produce a page yet."""
 
+    exit_code = exits.TENANT_NOT_CONFIGURED
 
-class UnknownTenant(Exception):
+
+class UnknownTenant(HarnessError):
     """No directory under tenants/ for the requested name."""
+
+    exit_code = exits.TENANT_NOT_CONFIGURED
 
 
 # claims/config.json's defaults. Kept here (not in ground.py) so the config a

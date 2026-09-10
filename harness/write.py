@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from .anthropic_client import thinking_kwargs
+from .errors import WriterFailed
 from .jsonutil import extract_json
 from . import tenant as tenant_mod
 from . import vocab
@@ -598,4 +599,4 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
             ]
             continue
 
-    raise ValueError(f"{stage} failed after retry: {last_error}")
+    raise WriterFailed(f"{stage} failed after retry: {last_error}")

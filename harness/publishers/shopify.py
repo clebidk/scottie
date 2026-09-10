@@ -28,6 +28,7 @@ import time
 import urllib.error
 import urllib.request
 
+from ..errors import PublishFailed
 from .base import Publisher
 
 API_VERSION = "2024-10"
@@ -130,7 +131,7 @@ class ShopifyPublisher(Publisher):
                 }
             })
             if status not in (200, 201) or "file" not in data:
-                raise RuntimeError(f"file upload failed for {item['cdn_filename']}: status={status} body={data}")
+                raise PublishFailed(f"file upload failed for {item['cdn_filename']}: status={status} body={data}")
             file_data = data["file"]
             mapping[item["local_path"]] = file_data.get("url") or file_data.get("public_url") or ""
         return mapping
@@ -151,7 +152,7 @@ class ShopifyPublisher(Publisher):
             payload["page"]["handle"] = page["handle"]
         status, data = self._request("POST", "pages.json", payload)
         if status not in (200, 201) or "page" not in data:
-            raise RuntimeError(f"page create failed: status={status} body={data}")
+            raise PublishFailed(f"page create failed: status={status} body={data}")
         created = data["page"]
         page_id = created["id"]
         handle = created.get("handle", "")
