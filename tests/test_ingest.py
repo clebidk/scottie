@@ -259,3 +259,30 @@ def test_build_ad_brief_rejects_a_non_string_audience(tmp_path):
 
 def test_ad_brief_system_prompt_asks_for_audience():
     assert "audience" in ingest.AD_BRIEF_SYSTEM
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 4 (model tiering): Haiku 4.5 rejects a `thinking` param
+# outright -- build_ad_brief must send no `thinking` key at all for it.
+# ---------------------------------------------------------------------------
+
+def test_build_ad_brief_omits_thinking_for_a_haiku_model(tmp_path):
+    client = FakeClient([json_response(VALID_AD_BRIEF)])
+    budget, log = _budget_log(tmp_path)
+    ingest.build_ad_brief(
+        transcript_or_text="hello", source_file="ad.txt", input_type="text",
+        client=client, model="claude-haiku-4-5", budget=budget, log=log,
+    )
+    log.close()
+    assert "thinking" not in client.messages.calls[0]
+
+
+def test_build_ad_brief_keeps_thinking_disabled_for_sonnet(tmp_path):
+    client = FakeClient([json_response(VALID_AD_BRIEF)])
+    budget, log = _budget_log(tmp_path)
+    ingest.build_ad_brief(
+        transcript_or_text="hello", source_file="ad.txt", input_type="text",
+        client=client, model="claude-sonnet-5", budget=budget, log=log,
+    )
+    log.close()
+    assert client.messages.calls[0]["thinking"] == {"type": "disabled"}

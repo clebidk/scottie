@@ -7,6 +7,7 @@ import json
 import re
 from pathlib import Path
 
+from .anthropic_client import thinking_kwargs
 from .jsonutil import extract_json
 from . import tenant as tenant_mod
 from . import vocab
@@ -113,7 +114,7 @@ Same rule, same trap, for "study"/"studies", "clinical", "medical", "proven", an
 
 Refer to the product by facts_pack.product.short_name, not facts_pack.product.name alone and never by a raw marketing title -- on FIRST mention in each major section (hero, each FAQ answer, each step, etc.). A short_name often contains a digit (its capacity, e.g. "2-Person") -- any sentence that uses the full short_name needs a claim_id too; put the matching capacity spec row's claim_id from facts_pack.specs into that sentence's "claim_ids" array (the JSON field), every single time you write the short_name out, including in an FAQ answer or a step that isn't otherwise about specs -- the id itself is never printed as text next to the short_name or anywhere else. WRONG: "the full product short_name (spec-model-capacity), which is priced at $8,250" -- the id in parentheses is a bug, not a citation. RIGHT: the same sentence with no parenthetical at all and "claim_ids": ["spec-model-capacity", "price-model"] on that sentence's own JSON node. To avoid re-triggering this on every sentence (and to avoid sounding like a repeated ad slogan), after that first mention in a section just say "the sauna" or "this model" for the rest of that section -- you don't need the full short_name, or a claim_id, again until the next section.
 
-Output ONLY a single JSON object matching the schema you were given. No markdown fences, no commentary before or after."""
+Output ONLY a single JSON object matching the schema you were given. No markdown fences, no commentary before or after. Output compact JSON -- no pretty-printing, no indentation, no extra whitespace between tokens -- and never restate a verified claim's full text anywhere in your JSON; a claim is always referenced by its id in a claim_ids/claim_id field, never duplicated as text."""
 
 
 def validate_schema(data, schema):
@@ -147,6 +148,41 @@ def load_cartridge_prompt(cartridge_dir, tenant=None):
         cartridge_md += "\n\n## Tenant overrides\n" + tenant.render(override.read_text())
     schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
     return cartridge_md, schema
+
+
+# Fix cycle 17 item 2 (prompt caching): the writer's system prompt, minus the
+# per-run "Hard constraints"/"DO NOT REPEAT" tail write_page appends -- this
+# part is byte-identical across every repair attempt on the same cartridge
+# (word_range/allowed_cta_texts/ad_not_repeated live outside it precisely so
+# they never need to match byte-for-byte for the cache to hit; see
+# write_page). Never put a date, run id, or product price in here -- schema
+# is serialized with sort_keys=True so its JSON text never depends on dict
+# insertion order, and cartridge_md/schema/tenant are all static, tenant-
+# scoped data with nothing per-run in them.
+def cached_system_prefix(cartridge_md, schema, tenant=None):
+    tenant = tenant or tenant_mod.active()
+    return (
+        vocab.forbidden_words_block()
+        + "\n\n"
+        + cartridge_md
+        + "\n\n## JSON schema for page.json\n"
+        + json.dumps(schema, indent=2, sort_keys=True)
+        + "\n\n"
+        + global_voice_block(tenant)
+    )
+
+
+# Fix cycle 17 item 3 (output hygiene): max_tokens capped per cartridge from
+# its own word range instead of one flat 6000 for every cartridge --
+# product-page (250-500 words) never needed anywhere near as much headroom as
+# longform (800-1,400). 1.6 tokens/word is a generous margin over English's
+# ~0.75 words/token average; structural_overhead covers page.json's own
+# non-prose bytes (keys, punctuation, ids, urls).
+def max_tokens_for_word_range(word_range, structural_overhead=800):
+    if not word_range:
+        return 6000
+    _, hi = word_range
+    return int(hi * 1.6) + structural_overhead
 
 
 # Fix cycle 4 item 2: parsed once from cartridge.md's own "N-M words" Rules
@@ -282,6 +318,129 @@ def load_exemplars(exemplars_dir, limit=2):
     return exemplars
 
 
+def _build_hard_constraints(word_range, allowed_cta_texts):
+    hard_constraints = []
+    if word_range:
+        lo, hi = word_range
+        target = word_range_target(word_range)
+        hard_constraints.append(
+            f"Body word count must be between {lo} and {hi} -- aim for roughly {target} words, "
+            f"not the bare minimum of {lo}. Undershooting {lo} fails review and sends this "
+            "back for a full rewrite, which costs more than writing enough the first time, so "
+            "give each section real substance (concrete detail, not padding) rather than "
+            "stopping as soon as the structure is technically complete. Count words in section "
+            "bodies only -- headings, urls, asset ids, claim ids, and the cta_url are not part "
+            "of the count."
+        )
+    if allowed_cta_texts:
+        options = "; ".join(f'"{t}"' for t in allowed_cta_texts)
+        hard_constraints.append(
+            f"The CTA text must be exactly one of: {options}. Do not invent any other CTA wording."
+        )
+    return hard_constraints
+
+
+# Fix cycle 17 item 2 (prompt caching): system is now a list of content
+# blocks instead of one string -- block 1 is cached_system_prefix (the
+# stable prefix, cache_control on it), block 2 (only present when there's
+# something to put in it) is the per-run "Hard constraints"/"DO NOT REPEAT"
+# tail, uncached. Both hard_constraints and ad_not_repeated are the same on
+# every attempt for a given cartridge in a given run (word_range/
+# allowed_cta_texts/ad_not_repeated never change across the repair loop), but
+# they stay outside the cached block deliberately, matching the cache plan
+# exactly (cached block = forbidden words + cartridge.md + schema.json +
+# global voice block, nothing else) rather than assuming a second breakpoint
+# here would also pay off.
+def _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated):
+    system = [{
+        "type": "text",
+        "text": cached_system_prefix(cartridge_md, schema, tenant),
+        "cache_control": {"type": "ephemeral"},
+    }]
+
+    volatile = ""
+    if hard_constraints:
+        volatile += "\n\n## Hard constraints for this run\n" + "\n".join(f"- {c}" for c in hard_constraints)
+    if ad_not_repeated:
+        lines = ["## DO NOT REPEAT these ad statements; use the verified fact instead"]
+        for item in ad_not_repeated:
+            fact = item.get("verified_fact")
+            if fact:
+                lines.append(f'- Ad said: "{item["claim"]}" -- verified fact: "{fact}"')
+            else:
+                lines.append(f'- Ad said: "{item["claim"]}" -- not verified; do not state this on the page at all')
+        volatile += "\n\n" + "\n".join(lines)
+    if volatile:
+        system.append({"type": "text", "text": volatile})
+    return system
+
+
+# Fix cycle 17 item 2: the user turn's first content block is facts_pack
+# alone, with its own cache_control breakpoint -- identical across the three
+# cartridge calls in one run (and across every repair attempt on the same
+# cartridge), so it's worth its own breakpoint independent of the system
+# block. ad_brief + exemplars + revision_note go in a second, uncached block
+# AFTER that breakpoint -- ad_brief never carries a date/run id, but it's
+# per-ad, not stable across runs, and exemplars/revision_note are per-call by
+# design (fix cycle 12 item 1's exemplar-skip-on-repair, fix cycle 4's
+# per-attempt revision note).
+def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None):
+    volatile_payload = {"ad_brief": ad_brief}
+    if exemplars:
+        volatile_payload["exemplars"] = exemplars
+    volatile_text = json.dumps(volatile_payload)
+    if revision_note:
+        volatile_text += "\n\n" + revision_note
+    return {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps({"facts_pack": facts_pack}),
+                "cache_control": {"type": "ephemeral"},
+            },
+            {"type": "text", "text": volatile_text},
+        ],
+    }
+
+
+def _content_len(content):
+    """chars in a system/message "content" value -- a plain string, or a
+    list of {"type": "text", "text": ...} blocks (fix cycle 17's
+    cache_control breakpoints)."""
+    if isinstance(content, str):
+        return len(content)
+    return sum(len(b.get("text", "")) for b in content if isinstance(b, dict))
+
+
+# Fix cycle 17 item 5 (batch mode): the exact request write_page's own
+# attempt 1 would send, as plain kwargs for client.messages.create /
+# batches.create -- shared so a batched initial write is byte-for-byte the
+# same request a synchronous one would have made. Never carries a
+# revision_note -- attempt 1 never has one either way.
+def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, model,
+                                 word_range=None, allowed_cta_texts=None, ad_not_repeated=None,
+                                 tenant=None):
+    """(schema, kwargs) -- schema so the caller can validate_schema() the
+    parsed response the same way write_page does; kwargs is ready to pass to
+    client.messages.create(**kwargs) or wrap in a batch Request's params."""
+    tenant = tenant or tenant_mod.active()
+    cartridge_dir = Path(cartridges_dir) / cartridge_name
+    cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
+    exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name))
+    hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
+    system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
+    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
+    kwargs = {
+        "model": model,
+        "max_tokens": max_tokens_for_word_range(word_range),
+        "system": system,
+        "messages": messages,
+        **thinking_kwargs(model),
+    }
+    return schema, kwargs
+
+
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
                tenant=None):
@@ -310,63 +469,18 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     # the writer is told to fix.
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
 
-    hard_constraints = []
-    if word_range:
-        lo, hi = word_range
-        target = word_range_target(word_range)
-        hard_constraints.append(
-            f"Body word count must be between {lo} and {hi} -- aim for roughly {target} words, "
-            f"not the bare minimum of {lo}. Undershooting {lo} fails review and sends this "
-            "back for a full rewrite, which costs more than writing enough the first time, so "
-            "give each section real substance (concrete detail, not padding) rather than "
-            "stopping as soon as the structure is technically complete. Count words in section "
-            "bodies only -- headings, urls, asset ids, claim ids, and the cta_url are not part "
-            "of the count."
-        )
-    if allowed_cta_texts:
-        options = "; ".join(f'"{t}"' for t in allowed_cta_texts)
-        hard_constraints.append(
-            f"The CTA text must be exactly one of: {options}. Do not invent any other CTA wording."
-        )
-
+    hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification
     # run where a repair attempt fixed one forbidden word but reintroduced
     # another two attempts later.
-    system = (
-        vocab.forbidden_words_block()
-        + "\n\n"
-        + cartridge_md
-        + "\n\n## JSON schema for page.json\n"
-        + json.dumps(schema, indent=2)
-        + "\n\n"
-        + global_voice_block(tenant)
-    )
-    if hard_constraints:
-        system += "\n\n## Hard constraints for this run\n" + "\n".join(f"- {c}" for c in hard_constraints)
-
-    if ad_not_repeated:
-        lines = ["## DO NOT REPEAT these ad statements; use the verified fact instead"]
-        for item in ad_not_repeated:
-            fact = item.get("verified_fact")
-            if fact:
-                lines.append(f'- Ad said: "{item["claim"]}" -- verified fact: "{fact}"')
-            else:
-                lines.append(f'- Ad said: "{item["claim"]}" -- not verified; do not state this on the page at all')
-        system += "\n\n" + "\n".join(lines)
-
-    user_payload = {"ad_brief": ad_brief, "facts_pack": facts_pack}
-    if exemplars:
-        user_payload["exemplars"] = exemplars
-
-    user_content = json.dumps(user_payload)
-    if revision_note:
-        user_content += "\n\n" + revision_note
+    system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
+    max_tokens = max_tokens_for_word_range(word_range)
 
     stage = f"write.{cartridge_name}"
     last_error = None
-    messages = [{"role": "user", "content": user_content}]
+    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note)]
     for attempt in range(2):
         budget.check()
         # Fix cycle 12 item 1: log an approximate prompt size (chars / 4, the
@@ -374,29 +488,33 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
         # prompt-bloat regression (e.g. exemplar trimming silently stops
         # working) shows up in the log even without waiting for the real
         # usage.input_tokens number the API returns after the call.
-        approx_prompt_chars = len(system) + sum(
-            len(m["content"]) if isinstance(m["content"], str) else 0 for m in messages
-        )
+        approx_prompt_chars = _content_len(system) + sum(_content_len(m["content"]) for m in messages)
         log.event(
             stage,
             f"prompt size: ~{approx_prompt_chars // 4} tokens (estimate, {approx_prompt_chars} chars)",
         )
         response = client.messages.create(
             model=model,
-            max_tokens=6000,
-            # This is bounded JSON extraction, not a reasoning task -- disable
-            # thinking so the full max_tokens budget goes to visible output.
-            # Sonnet 5 runs adaptive thinking by default when unset, and
-            # thinking tokens count against max_tokens; without this the
-            # model can exhaust the budget on hidden reasoning and return an
-            # empty/truncated response (observed in practice on longform).
-            thinking={"type": "disabled"},
+            max_tokens=max_tokens,
             system=system,
             messages=messages,
+            # This is bounded JSON extraction, not a reasoning task -- disable
+            # thinking (when the model accepts the param -- Haiku 4.5 doesn't,
+            # see anthropic_client.thinking_kwargs) so the full max_tokens
+            # budget goes to visible output. Sonnet 5 runs adaptive thinking
+            # by default when unset, and thinking tokens count against
+            # max_tokens; without this the model can exhaust the budget on
+            # hidden reasoning and return an empty/truncated response
+            # (observed in practice on longform).
+            **thinking_kwargs(model),
         )
         usage = response.usage
         budget.record_call(usage.input_tokens, usage.output_tokens)
-        log.call(stage, model, usage.input_tokens, usage.output_tokens)
+        log.call(
+            stage, model, usage.input_tokens, usage.output_tokens,
+            cache_creation_input_tokens=usage.cache_creation_input_tokens,
+            cache_read_input_tokens=usage.cache_read_input_tokens,
+        )
 
         text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
         try:

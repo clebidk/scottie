@@ -4,7 +4,7 @@ call, seed, cartridges chosen, gate result, budget totals, an estimated cost lin
 import time
 from pathlib import Path
 
-from .config import INPUT_COST_PER_M, OUTPUT_COST_PER_M
+from . import pricing
 
 
 class RunLog:
@@ -15,6 +15,13 @@ class RunLog:
         self._fh = open(self.path, "a")
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self.total_cache_creation_input_tokens = 0
+        self.total_cache_read_input_tokens = 0
+        # Fix cycle 17: one call needs its own model (and cache/batch token
+        # breakdown) to price correctly -- a run can mix claude-sonnet-5 and
+        # claude-haiku-4-5 calls, and a blended single rate can't tell them
+        # apart. cost_estimate() below sums pricing.calculate_cost() per call.
+        self._calls = []
         self._write(f"run_id: {run_id}")
 
     def _write(self, line):
@@ -25,11 +32,31 @@ class RunLog:
     def event(self, stage, message):
         self._write(f"{stage}: {message}")
 
-    def call(self, stage, model, input_tokens, output_tokens):
+    def call(self, stage, model, input_tokens, output_tokens, *,
+             cache_creation_input_tokens=0, cache_read_input_tokens=0, batch=False):
+        """Records one Claude call's usage. cache_creation_input_tokens and
+        cache_read_input_tokens are the Anthropic SDK Usage object's own
+        fields (cache write / cache read token counts -- zero for a call with
+        no cache_control breakpoint). batch=True marks a call made through
+        the Message Batches API (harness/cli.py's --batch flag), priced at
+        pricing.BATCH_MULTIPLIER."""
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
+        self.total_cache_creation_input_tokens += cache_creation_input_tokens
+        self.total_cache_read_input_tokens += cache_read_input_tokens
+        self._calls.append({
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cache_creation_input_tokens": cache_creation_input_tokens,
+            "cache_read_input_tokens": cache_read_input_tokens,
+            "batch": batch,
+        })
         self._write(
-            f"{stage}: model={model} input_tokens={input_tokens} output_tokens={output_tokens}"
+            f"{stage}: model={model} input_tokens={input_tokens} output_tokens={output_tokens} "
+            f"cache_creation_input_tokens={cache_creation_input_tokens} "
+            f"cache_read_input_tokens={cache_read_input_tokens}"
+            + (" batch=true" if batch else "")
         )
 
     def seed(self, seed):
@@ -50,14 +77,25 @@ class RunLog:
         self._write(f"budget: {summary}")
 
     def cost_estimate(self):
-        cost = (self.total_input_tokens / 1_000_000) * INPUT_COST_PER_M + (
-            self.total_output_tokens / 1_000_000
-        ) * OUTPUT_COST_PER_M
+        """Sum of pricing.calculate_cost() over every recorded call, each
+        priced at its own model's real rate (fix cycle 17: replaces the old
+        single hard-coded $3/$15-per-million blended estimate, which mispriced
+        every call this harness actually makes)."""
+        cost = sum(
+            pricing.calculate_cost(
+                c["model"], c["input_tokens"], c["output_tokens"],
+                cache_creation_input_tokens=c["cache_creation_input_tokens"],
+                cache_read_input_tokens=c["cache_read_input_tokens"],
+                batch=c["batch"],
+            )
+            for c in self._calls
+        )
         self._write(
-            "estimated_cost_usd (estimate, "
-            f"${INPUT_COST_PER_M}/M in + ${OUTPUT_COST_PER_M}/M out): {cost:.4f} "
-            f"total_input_tokens={self.total_input_tokens} "
-            f"total_output_tokens={self.total_output_tokens}"
+            "estimated_cost_usd (estimate, real per-model pricing incl. cache/batch): "
+            f"{cost:.4f} total_input_tokens={self.total_input_tokens} "
+            f"total_output_tokens={self.total_output_tokens} "
+            f"total_cache_creation_input_tokens={self.total_cache_creation_input_tokens} "
+            f"total_cache_read_input_tokens={self.total_cache_read_input_tokens}"
         )
         return cost
 

@@ -13,6 +13,7 @@ import urllib.request
 from pathlib import Path
 
 from . import tenant as tenant_mod
+from .anthropic_client import thinking_kwargs
 from .jsonutil import extract_json
 from .sources.drive import download_drive_file, parse_drive_id
 
@@ -118,7 +119,9 @@ def still_to_text(path, client, model, budget, log):
     response = client.messages.create(
         model=model,
         max_tokens=1024,
-        thinking={"type": "disabled"},  # verbatim transcription task, no reasoning needed
+        # Verbatim transcription task, no reasoning needed -- disable thinking
+        # when the model accepts the param (Haiku 4.5 doesn't; see
+        # anthropic_client.thinking_kwargs).
         system=VISION_SYSTEM,
         messages=[
             {
@@ -129,10 +132,15 @@ def still_to_text(path, client, model, budget, log):
                 ],
             }
         ],
+        **thinking_kwargs(model),
     )
     usage = response.usage
     budget.record_call(usage.input_tokens, usage.output_tokens)
-    log.call("ingest.vision", model, usage.input_tokens, usage.output_tokens)
+    log.call(
+        "ingest.vision", model, usage.input_tokens, usage.output_tokens,
+        cache_creation_input_tokens=usage.cache_creation_input_tokens,
+        cache_read_input_tokens=usage.cache_read_input_tokens,
+    )
 
     text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
     return "\n".join(text_parts).strip()
@@ -220,13 +228,20 @@ def build_ad_brief(*, transcript_or_text, source_file, input_type, client, model
         response = client.messages.create(
             model=model,
             max_tokens=2000,
-            thinking={"type": "disabled"},  # structured extraction task, no reasoning needed
+            # Structured extraction task, no reasoning needed -- disable
+            # thinking when the model accepts the param (Haiku 4.5 doesn't;
+            # see anthropic_client.thinking_kwargs).
             system=AD_BRIEF_SYSTEM,
             messages=[{"role": "user", "content": user_msg}],
+            **thinking_kwargs(model),
         )
         usage = response.usage
         budget.record_call(usage.input_tokens, usage.output_tokens)
-        log.call(stage, model, usage.input_tokens, usage.output_tokens)
+        log.call(
+            stage, model, usage.input_tokens, usage.output_tokens,
+            cache_creation_input_tokens=usage.cache_creation_input_tokens,
+            cache_read_input_tokens=usage.cache_read_input_tokens,
+        )
 
         text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
         try:

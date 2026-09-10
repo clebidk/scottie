@@ -24,7 +24,7 @@ from harness.cli import (
 from harness.log import RunLog
 from harness.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_LABEL, ALLOWED_WARRANTY_SPEC_VALUE, ALWAYS_FORBIDDEN_TERMS
 from harness.write import parse_word_range, resolve_allowed_cta_texts
-from tests.conftest import FakeClient, FakeResponse, json_response
+from tests.conftest import FakeClient, FakeResponse, block_text, json_response
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -75,7 +75,7 @@ def test_repair_loop_recovers_after_one_failed_attempt(tmp_path):
 
     # the second call's user message carries the REVISION REQUIRED block
     # naming the CTA failure from the first attempt.
-    second_user_msg = client.messages.calls[1]["messages"][0]["content"]
+    second_user_msg = block_text(client.messages.calls[1]["messages"][0]["content"])
     assert "REVISION REQUIRED" in second_user_msg
     assert "Buy now" in second_user_msg
 
@@ -279,7 +279,7 @@ def test_write_and_gate_page_revision_note_carries_forward_failures_from_earlier
     assert page == ARTICLE_PAGE
     assert len(client.messages.calls) == 3
 
-    third_user_msg = client.messages.calls[2]["messages"][0]["content"]
+    third_user_msg = block_text(client.messages.calls[2]["messages"][0]["content"])
     assert "REVISION REQUIRED" in third_user_msg
     assert "Buy now" in third_user_msg  # attempt 1's CTA failure, still carried forward
     assert "emf" in third_user_msg.lower()  # attempt 2's EMF failure
@@ -668,3 +668,149 @@ def test_write_and_gate_page_never_raises_bare_budget_exceeded_from_a_skipped_re
             pass
     finally:
         log.close()
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 4 (model tiering): attempt 1 stays on `model`; attempt 2
+# (the first repair) tries repair_first_model; attempt 3+ (a further repair)
+# uses repair_next_model. Either falls back to `model` when not given.
+# ---------------------------------------------------------------------------
+
+def test_write_and_gate_page_uses_repair_first_model_on_the_first_repair(tmp_path):
+    client = FakeClient([json_response(BAD_ARTICLE_PAGE), json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            repair_first_model="claude-haiku-4-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+    assert client.messages.calls[0]["model"] == "claude-sonnet-5"
+    assert client.messages.calls[1]["model"] == "claude-haiku-4-5"
+
+
+def test_write_and_gate_page_uses_repair_next_model_on_the_second_repair(tmp_path):
+    attempt1_bad = BAD_ARTICLE_PAGE
+    attempt2_bad = dict(ARTICLE_PAGE, open=[{"text": "This sauna avoids EMF entirely."}])
+    attempt3_good = ARTICLE_PAGE
+    client = FakeClient([json_response(attempt1_bad), json_response(attempt2_bad), json_response(attempt3_good)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-haiku-4-5",
+            repair_first_model="claude-sonnet-5",
+            repair_next_model="claude-haiku-4-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+    assert client.messages.calls[0]["model"] == "claude-haiku-4-5"   # attempt 1: `model`
+    assert client.messages.calls[1]["model"] == "claude-sonnet-5"    # attempt 2: repair_first_model
+    assert client.messages.calls[2]["model"] == "claude-haiku-4-5"   # attempt 3: repair_next_model
+
+
+def test_write_and_gate_page_repair_models_default_to_the_initial_model(tmp_path):
+    # No repair_first_model/repair_next_model given -- every attempt stays on
+    # `model`, exactly as before fix cycle 17.
+    attempt1_bad = BAD_ARTICLE_PAGE
+    attempt2_bad = dict(ARTICLE_PAGE, open=[{"text": "This sauna avoids EMF entirely."}])
+    attempt3_good = ARTICLE_PAGE
+    client = FakeClient([json_response(attempt1_bad), json_response(attempt2_bad), json_response(attempt3_good)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+    assert [c["model"] for c in client.messages.calls] == ["claude-sonnet-5"] * 3
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 5 (batch mode): initial_page lets a caller (cli.py's
+# --batch path) skip write_and_gate_page's own attempt-1 write_page call.
+# ---------------------------------------------------------------------------
+
+def test_write_and_gate_page_uses_initial_page_without_calling_write_page(tmp_path):
+    client = FakeClient([])  # no canned response needed -- attempt 1 never calls the client
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, deterministic_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+            initial_page=ARTICLE_PAGE,
+            initial_call_tokens=12345,
+        )
+    finally:
+        log.close()
+    assert page == ARTICLE_PAGE
+    assert client.messages.calls == []
+    assert len(attempts) == 1
+    assert attempts[0] == []
+
+
+def test_write_and_gate_page_falls_back_to_a_synchronous_call_when_initial_page_fails_gate(tmp_path):
+    # initial_page has a bad CTA -- gate fails on "attempt 1" (no client call
+    # made for it), then attempt 2 makes a real, synchronous repair call.
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, deterministic_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+            initial_page=BAD_ARTICLE_PAGE,
+        )
+    finally:
+        log.close()
+    assert page == ARTICLE_PAGE
+    assert len(client.messages.calls) == 1  # only the attempt-2 repair made a real call
+    assert len(attempts) == 2
+    assert attempts[0] and attempts[1] == []

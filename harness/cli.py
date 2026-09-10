@@ -25,7 +25,7 @@ from .claims import (
     strip_leaked_claim_ids,
     warranty_claim_id,
 )
-from .config import DEFAULT_MODEL, FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
+from .config import FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
 from .ingest import run_ingest
 from .log import RunLog
 from .review import cmd_review
@@ -516,8 +516,25 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
     return fixed
 
 
+def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant):
+    """(schema, word_range, allowed_cta_texts) for one cartridge -- shared by
+    write_and_gate_page below and harness/batch.py's --batch path, so both
+    compute the exact same hard constraints for the exact same cartridge."""
+    cartridge_dir = Path(cartridges_dir) / cartridge_name
+    cartridge_md = tenant.render((cartridge_dir / "cartridge.md").read_text())
+    schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
+    word_range = parse_word_range(cartridge_md)
+    allowed_cta_texts = resolve_allowed_cta_texts(
+        schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"],
+        tenant=tenant, ad_angle=(ad_brief or {}).get("angle"),
+    )
+    return schema, word_range, allowed_cta_texts
+
+
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-                         financing_lender, speaker_pov, ad_not_repeated=None, tenant=None):
+                         financing_lender, speaker_pov, ad_not_repeated=None, tenant=None,
+                         repair_first_model=None, repair_next_model=None,
+                         initial_page=None, initial_call_tokens=0):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -529,15 +546,23 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     deterministic fix has already been applied), deterministic_fix_counts
     is the parallel list of how many fields the pre-repair pass fixed on
     that attempt. Raises ClaimsGateFailure (stage page_json:<cartridge>,
-    with .attempts and .deterministic_fixes set) if every attempt fails."""
+    with .attempts and .deterministic_fixes set) if every attempt fails.
+
+    repair_first_model/repair_next_model (fix cycle 17 item 4, model
+    tiering): the model attempt 2 (the first repair) and attempt 3+ (any
+    further repair) use -- each falls back to `model` when not given, so a
+    caller that only passes `model` keeps every attempt on that one model,
+    exactly as before this cycle.
+
+    initial_page/initial_call_tokens (fix cycle 17 item 5, batch mode):
+    when `initial_page` is given, attempt 1 gates this page instead of
+    calling write_page itself -- the caller (cli.py's --batch path) already
+    got it from a batched initial write and already logged/budgeted its
+    usage; initial_call_tokens feeds the same repair-skip budget heuristic
+    a normal write_page call's own token cost does."""
     tenant = tenant or tenant_mod.active()
-    cartridge_dir = Path(cartridges_dir) / cartridge_name
-    cartridge_md = tenant.render((cartridge_dir / "cartridge.md").read_text())
-    schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
-    word_range = parse_word_range(cartridge_md)
-    allowed_cta_texts = resolve_allowed_cta_texts(
-        schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"],
-        tenant=tenant, ad_angle=(ad_brief or {}).get("angle"),
+    schema, word_range, allowed_cta_texts = cartridge_write_constraints(
+        cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant
     )
     valid_claim_ids = {c["id"] for c in facts_pack["verified_claims"]}
 
@@ -593,23 +618,40 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 err.budget_skipped = True
                 raise err
         budget.check()
-        tokens_before = budget.tokens_used
-        page = write_page(
-            cartridge_name=cartridge_name,
-            cartridges_dir=cartridges_dir,
-            ad_brief=ad_brief,
-            facts_pack=facts_pack,
-            client=client,
-            model=model,
-            budget=budget,
-            log=log,
-            word_range=word_range,
-            allowed_cta_texts=allowed_cta_texts,
-            revision_note=revision_note,
-            ad_not_repeated=ad_not_repeated,
-            tenant=tenant,
-        )
-        call_token_costs.append(budget.tokens_used - tokens_before)
+        # Fix cycle 17 item 4: attempt 1 stays on `model` (initial writes
+        # never move off sonnet); attempt 2 (the first repair) tries
+        # repair_first_model; attempt 3+ (a further repair) uses
+        # repair_next_model. Either falls back to `model` when not given.
+        if attempt == 1:
+            model_for_attempt = model
+        elif attempt == 2:
+            model_for_attempt = repair_first_model or model
+        else:
+            model_for_attempt = repair_next_model or model
+
+        if attempt == 1 and initial_page is not None:
+            # Fix cycle 17 item 5 (batch mode): a batched initial write
+            # already ran and was already logged/budgeted by the caller.
+            page = initial_page
+            call_token_costs.append(initial_call_tokens)
+        else:
+            tokens_before = budget.tokens_used
+            page = write_page(
+                cartridge_name=cartridge_name,
+                cartridges_dir=cartridges_dir,
+                ad_brief=ad_brief,
+                facts_pack=facts_pack,
+                client=client,
+                model=model_for_attempt,
+                budget=budget,
+                log=log,
+                word_range=word_range,
+                allowed_cta_texts=allowed_cta_texts,
+                revision_note=revision_note,
+                ad_not_repeated=ad_not_repeated,
+                tenant=tenant,
+            )
+            call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
 
         fixed = (
@@ -932,7 +974,7 @@ def cmd_ingest(args):
             input_arg=args.input,
             workdir=out_dir,
             client=client,
-            model=DEFAULT_MODEL,
+            model=tenant.model_for("ingest"),
             budget=budget,
             log=log,
             ffmpeg_bin=args.ffmpeg_bin,
@@ -1085,6 +1127,10 @@ def build_parser():
     p_run.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
     p_run.add_argument("--whisper-bin", default=WHISPER_BIN)
     p_run.add_argument("--whisper-model", default=WHISPER_MODEL)
+    p_run.add_argument(
+        "--batch", action="store_true",
+        help="submit the three cartridges' initial writes via the Message Batches API (50%% off) before repairs",
+    )
     _add_tenant_flag(p_run)
     p_run.set_defaults(func=cmd_run)
 
@@ -1151,6 +1197,7 @@ def build_parser():
     p_workflow_run.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
     p_workflow_run.add_argument("--whisper-bin", default=WHISPER_BIN)
     p_workflow_run.add_argument("--whisper-model", default=WHISPER_MODEL)
+    p_workflow_run.add_argument("--batch", action="store_true")
     _add_tenant_flag(p_workflow_run)
     p_workflow_run.set_defaults(func=cmd_workflow_run)
     p_workflow_list = workflow_sub.add_parser("list", help="every workflow in workflows/")

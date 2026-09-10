@@ -18,6 +18,7 @@ as before this fix -- this is an assist, never a hard dependency.
 """
 import json
 
+from .anthropic_client import thinking_kwargs
 from .jsonutil import extract_json
 
 # Fix cycle 12 item 4: "≤120 items, trimmed" -- id + text only (not
@@ -73,9 +74,18 @@ def semantic_match_claims(claims_made, verified_claims, *, client, model, budget
         response = client.messages.create(
             model=model,
             max_tokens=1500,
-            thinking={"type": "disabled"},
-            system=SEMANTIC_MATCH_SYSTEM,
+            # Fix cycle 17 item 2: SEMANTIC_MATCH_SYSTEM never changes (no
+            # tenant data, no run-specific value in it at all), so it's
+            # cached like the writer's own stable prefix -- a real win across
+            # repeated `harness run`s for the same tenant inside the 5-minute
+            # ephemeral cache window, though a single run only ever makes
+            # this one call, so there's no within-run repeat to hit. The
+            # verified_claims candidate list in the user message is NOT
+            # cached: it can carry a live/refreshed price claim's text, which
+            # must never sit in a cached prefix.
+            system=[{"type": "text", "text": SEMANTIC_MATCH_SYSTEM, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user_content}],
+            **thinking_kwargs(model),
             # Fix cycle 16 item 11: the brief asked for temperature 0 on this
             # call, for a deterministic mapping decision. Tried on the
             # server two ways -- a bare `temperature=0` kwarg (this client's
@@ -96,7 +106,11 @@ def semantic_match_claims(claims_made, verified_claims, *, client, model, budget
         if budget:
             budget.record_call(usage.input_tokens, usage.output_tokens)
         if log:
-            log.call("ad_claims.semantic_match", model, usage.input_tokens, usage.output_tokens)
+            log.call(
+                "ad_claims.semantic_match", model, usage.input_tokens, usage.output_tokens,
+                cache_creation_input_tokens=usage.cache_creation_input_tokens,
+                cache_read_input_tokens=usage.cache_read_input_tokens,
+            )
 
         text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
         mapping = extract_json(text)

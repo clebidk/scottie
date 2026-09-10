@@ -14,7 +14,6 @@ import random
 import sys
 from pathlib import Path
 
-from . import config
 from .budget import Budget, BudgetExceeded
 from .claims import ClaimsGateFailure, gate_ad_brief_claims
 from .ground import LocalFactsSource
@@ -146,7 +145,7 @@ def ingest(state):
         input_arg=args.input,
         workdir=state.run_dir,
         client=state.client,
-        model=config.DEFAULT_MODEL,
+        model=state.tenant.model_for("ingest"),
         budget=state.budget,
         log=state.log,
         ffmpeg_bin=args.ffmpeg_bin,
@@ -197,7 +196,7 @@ def gate_ad_claims(state):
         state.ad_brief.get("claims_made", []),
         all_verified,
         client=state.client,
-        model=config.DEFAULT_MODEL,
+        model=state.tenant.model_for("matcher"),
         budget=state.budget,
         log=state.log,
     )
@@ -233,11 +232,70 @@ def gate_ad_claims(state):
         state.log.event("run", f"URL contains a forbidden term: {url}")
 
 
+def _write_initial_pages_via_batch(state, write_model):
+    """Fix cycle 17 item 5: submits every selected cartridge's initial write
+    as one Message Batch (50% off), polls, and returns
+    {cartridge_name: (page, tokens_spent)} for every cartridge whose result
+    parsed and validated. A cartridge that isn't in the returned dict falls
+    through to write_pages' normal synchronous attempt 1 below -- exactly as
+    if --batch had never been passed for that one cartridge."""
+    from . import batch as batch_mod
+
+    requests, schemas = batch_mod.build_batch_requests(
+        cartridge_names=state.selected,
+        cartridges_dir=CARTRIDGES_DIR,
+        ad_brief=state.ad_brief,
+        facts_pack=state.facts_pack,
+        model=write_model,
+        tenant=state.tenant,
+        ad_not_repeated=state.ad_not_repeated,
+    )
+    created = state.client.messages.batches.create(requests=requests)
+    state.log.event("write_pages", f"batch {created.id} submitted for {len(requests)} cartridge(s)")
+    batch_mod.poll_batch(state.client, created.id, log=state.log)
+    results = batch_mod.collect_batch_results(state.client, created.id, schemas)
+
+    initial_pages = {}
+    for cartridge_name, (page, usage, error) in results.items():
+        if page is None:
+            state.log.event(
+                f"write.{cartridge_name}",
+                f"batch initial write unusable, falling back to a synchronous call: {error}",
+            )
+            continue
+        tokens = 0
+        if usage is not None:
+            tokens = usage.input_tokens + usage.output_tokens
+            state.budget.record_call(usage.input_tokens, usage.output_tokens)
+            state.log.call(
+                f"write.{cartridge_name}", write_model, usage.input_tokens, usage.output_tokens,
+                cache_creation_input_tokens=getattr(usage, "cache_creation_input_tokens", 0),
+                cache_read_input_tokens=getattr(usage, "cache_read_input_tokens", 0),
+                batch=True,
+            )
+        initial_pages[cartridge_name] = (page, tokens)
+    return initial_pages
+
+
 def write_pages(state):
     from .cli import write_and_gate_page
 
+    write_model = state.tenant.model_for("write")
+    repair_first_model = state.tenant.model_for("repair_first")
+    repair_next_model = state.tenant.model_for("repair_next")
+
+    # Fix cycle 17 item 5: `harness run --batch` submits every selected
+    # cartridge's initial write as one Message Batch before this loop runs,
+    # instead of each cartridge making its own synchronous attempt-1 call
+    # below. Repairs (attempt 2+) are unaffected either way -- each depends
+    # on that cartridge's own gate result, so they stay synchronous.
+    initial_pages = (
+        _write_initial_pages_via_batch(state, write_model) if getattr(state.args, "batch", False) else {}
+    )
+
     for cartridge_name in state.selected:
         state.budget.check()
+        initial_page, initial_call_tokens = initial_pages.get(cartridge_name, (None, 0))
         try:
             page, attempts, deterministic_fixes = write_and_gate_page(
                 cartridge_name=cartridge_name,
@@ -245,13 +303,17 @@ def write_pages(state):
                 ad_brief=state.ad_brief,
                 facts_pack=state.facts_pack,
                 client=state.client,
-                model=config.DEFAULT_MODEL,
+                model=write_model,
+                repair_first_model=repair_first_model,
+                repair_next_model=repair_next_model,
                 budget=state.budget,
                 log=state.log,
                 financing_lender=state.claims_config.get("financing_lender"),
                 speaker_pov=state.ad_brief.get("speaker_pov"),
                 ad_not_repeated=state.ad_not_repeated,
                 tenant=state.tenant,
+                initial_page=initial_page,
+                initial_call_tokens=initial_call_tokens,
             )
         except ClaimsGateFailure as e:
             attempts = getattr(e, "attempts", [e.items])

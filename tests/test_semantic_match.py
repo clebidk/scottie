@@ -219,3 +219,44 @@ def test_trim_verified_claims_for_prompt_includes_aliases_when_present():
     trimmed = _trim_verified_claims_for_prompt(ALIASED_CLAIMS)
     by_id = {c["id"]: c for c in trimmed}
     assert by_id["gbrain-allowlist-360-full-spectrum"]["aliases"] == ["4-in-1", "near, mid, far infrared plus red light"]
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 4 (model tiering): Haiku 4.5 rejects a `thinking` param.
+# ---------------------------------------------------------------------------
+
+def test_semantic_match_claims_omits_thinking_for_a_haiku_model(tmp_path):
+    claim = "medical-grade panel"
+    client = FakeClient([json_response({claim: "gbrain-allowlist-red-light"})])
+    log = RunLog("test-run", tmp_path / "run.log")
+    semantic_match_claims([claim], VERIFIED_CLAIMS, client=client, model="claude-haiku-4-5", log=log)
+    log.close()
+    assert "thinking" not in client.messages.calls[0]
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 2 (prompt caching): SEMANTIC_MATCH_SYSTEM never changes,
+# so it's sent as its own cached block.
+# ---------------------------------------------------------------------------
+
+def test_semantic_match_claims_caches_its_static_system_prompt(tmp_path):
+    claim = "medical-grade panel"
+    client = FakeClient([json_response({claim: "gbrain-allowlist-red-light"})])
+    log = RunLog("test-run", tmp_path / "run.log")
+    semantic_match_claims([claim], VERIFIED_CLAIMS, client=client, model="claude-sonnet-5", log=log)
+    log.close()
+    system_blocks = client.messages.calls[0]["system"]
+    assert system_blocks[0]["cache_control"] == {"type": "ephemeral"}
+    assert "verified claim" in system_blocks[0]["text"]
+
+
+def test_semantic_match_claims_never_caches_the_verified_claims_candidate_list(tmp_path):
+    # verified_claims can carry a live/refreshed price claim's text -- that
+    # must never sit behind a cache_control breakpoint.
+    claim = "medical-grade panel"
+    client = FakeClient([json_response({claim: "gbrain-allowlist-red-light"})])
+    log = RunLog("test-run", tmp_path / "run.log")
+    semantic_match_claims([claim], VERIFIED_CLAIMS, client=client, model="claude-sonnet-5", log=log)
+    log.close()
+    user_content = client.messages.calls[0]["messages"][0]["content"]
+    assert isinstance(user_content, str)  # unchanged shape -- no cache_control block here

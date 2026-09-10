@@ -10,8 +10,17 @@ from harness.vocab import (
     ALWAYS_FORBIDDEN_TERMS,
 )
 from tests.support import REPO_ROOT, TENANT
-from harness.write import load_exemplars, resolve_allowed_cta_texts, write_page
-from tests.conftest import FakeClient, json_response
+from harness.write import (
+    build_initial_write_request,
+    cached_system_prefix,
+    load_cartridge_prompt,
+    load_exemplars,
+    max_tokens_for_word_range,
+    parse_word_range,
+    resolve_allowed_cta_texts,
+    write_page,
+)
+from tests.conftest import FakeClient, block_text, json_response
 from tests.test_render import ARTICLE_PAGE, AD_BRIEF, FACTS_PACK
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -118,7 +127,7 @@ def test_write_page_valid_on_first_try(tmp_path):
     assert page == ARTICLE_PAGE
     assert len(client.messages.calls) == 1
     # exemplars for article should have made it into the user message
-    sent_user_msg = client.messages.calls[0]["messages"][0]["content"]
+    sent_user_msg = block_text(client.messages.calls[0]["messages"][0]["content"])
     assert "reference_article" in sent_user_msg
 
 
@@ -142,7 +151,7 @@ def test_write_page_omits_exemplars_on_a_repair_attempt(tmp_path):
     )
     log.close()
     assert page == ARTICLE_PAGE
-    sent_user_msg = client.messages.calls[0]["messages"][0]["content"]
+    sent_user_msg = block_text(client.messages.calls[0]["messages"][0]["content"])
     assert "reference_article" not in sent_user_msg
     assert "REVISION REQUIRED" in sent_user_msg
 
@@ -187,7 +196,10 @@ def test_write_page_puts_forbidden_word_list_at_top_of_system_prompt(tmp_path):
         log=log,
     )
     log.close()
-    system = client.messages.calls[0]["system"]
+    system_blocks = client.messages.calls[0]["system"]
+    # Fix cycle 17 item 2: the stable prefix is its own cached block.
+    assert system_blocks[0]["cache_control"] == {"type": "ephemeral"}
+    system = block_text(system_blocks)
     for word in ALWAYS_FORBIDDEN_TERMS:
         assert word in system
     # verbatim, one per line, before the cartridge.md content that follows it
@@ -211,7 +223,7 @@ def test_write_page_system_prompt_states_the_exact_financing_sentence(tmp_path):
         log=log,
     )
     log.close()
-    system = client.messages.calls[0]["system"]
+    system = block_text(client.messages.calls[0]["system"])
     assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in system
 
 
@@ -230,7 +242,7 @@ def test_write_page_system_prompt_states_the_exact_warranty_sentence(tmp_path):
         log=log,
     )
     log.close()
-    system = client.messages.calls[0]["system"]
+    system = block_text(client.messages.calls[0]["system"])
     assert ALLOWED_WARRANTY_SENTENCE in system
 
 
@@ -378,3 +390,165 @@ def test_resolve_allowed_cta_texts_peak_saunas_default_is_unchanged_buy_mode():
     # every cartridge's allowed_cta_texts exactly as before this cycle.
     resolved = resolve_allowed_cta_texts(LONGFORM_SCHEMA, "Fuji", model_name="Fuji", tenant=TENANT)
     assert resolved == [t.format(short_name="Fuji", model_name="Fuji") for t in LONGFORM_SCHEMA["allowed_cta_texts"]]
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 2: prompt caching. The stable system prefix
+# (write.cached_system_prefix) must be byte-identical every time it's built
+# for the same cartridge/tenant -- that's the whole premise of the
+# cache_control breakpoint write_page puts on it. Fix cycle 17 item 3: max
+# tokens derived from each cartridge's own word range instead of one flat
+# 6000 cap.
+# ---------------------------------------------------------------------------
+
+ARTICLE_CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "article"
+
+
+def test_cached_system_prefix_is_byte_stable_across_repeated_calls():
+    cartridge_md, schema = load_cartridge_prompt(ARTICLE_CARTRIDGE_DIR, TENANT)
+    first = cached_system_prefix(cartridge_md, schema, TENANT)
+    second = cached_system_prefix(cartridge_md, schema, TENANT)
+    assert first == second
+
+
+def test_cached_system_prefix_is_stable_for_every_real_cartridge():
+    # Same guarantee, across every shipped cartridge -- not just article.
+    for name in ("article", "listicle", "longform", "product-page"):
+        cartridge_md, schema = load_cartridge_prompt(REPO_ROOT / "cartridges" / name, TENANT)
+        first = cached_system_prefix(cartridge_md, schema, TENANT)
+        second = cached_system_prefix(cartridge_md, schema, TENANT)
+        assert first == second, f"{name}'s cached system prefix is not byte-stable"
+
+
+def test_cached_system_prefix_takes_no_run_specific_input():
+    # Structural guarantee, not just an empirical one: cached_system_prefix's
+    # only inputs are cartridge_md, schema, and tenant -- none of which ever
+    # carries a date, run id, or product price (those live in facts_pack/
+    # ad_brief, which this function never sees at all).
+    import inspect
+
+    params = list(inspect.signature(cached_system_prefix).parameters)
+    assert params == ["cartridge_md", "schema", "tenant"]
+
+
+def test_write_page_marks_the_cached_prefix_block_with_cache_control(tmp_path):
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    system_blocks = client.messages.calls[0]["system"]
+    assert system_blocks[0]["cache_control"] == {"type": "ephemeral"}
+    # facts_pack is its own breakpoint, in the first user content block.
+    user_content = client.messages.calls[0]["messages"][0]["content"]
+    assert user_content[0]["cache_control"] == {"type": "ephemeral"}
+    assert "facts_pack" in user_content[0]["text"]
+    # ad_brief/exemplars sit after the last breakpoint, uncached.
+    assert "cache_control" not in user_content[1]
+    assert "ad_brief" in user_content[1]["text"]
+
+
+def test_write_page_never_puts_the_ad_brief_inside_the_cached_facts_pack_block(tmp_path):
+    # The facts_pack block is identical across the three cartridge calls in
+    # one run -- ad_brief (per-ad, not stable across cartridges/repairs)
+    # must never leak into it.
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    facts_pack_block_text = client.messages.calls[0]["messages"][0]["content"][0]["text"]
+    assert AD_BRIEF["hook"] not in facts_pack_block_text
+
+
+def test_max_tokens_for_word_range_matches_the_word_range_formula():
+    for lo, hi in [(1000, 1600), (600, 1100), (800, 1400), (250, 500)]:
+        assert max_tokens_for_word_range((lo, hi)) == int(hi * 1.6) + 800
+
+
+def test_max_tokens_for_word_range_falls_back_to_6000_with_no_word_range():
+    assert max_tokens_for_word_range(None) == 6000
+
+
+def test_max_tokens_for_word_range_is_lower_than_the_old_flat_cap_for_every_real_cartridge():
+    for name in ("article", "listicle", "longform", "product-page"):
+        cartridge_md, _ = load_cartridge_prompt(REPO_ROOT / "cartridges" / name, TENANT)
+        word_range = parse_word_range(cartridge_md)
+        assert word_range is not None, f"{name} cartridge.md has no 'N-M words' rule"
+        assert max_tokens_for_word_range(word_range) < 6000
+
+
+def test_write_page_sends_the_derived_max_tokens(tmp_path):
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+        word_range=(1000, 1600),
+    )
+    log.close()
+    assert client.messages.calls[0]["max_tokens"] == max_tokens_for_word_range((1000, 1600))
+    assert client.messages.calls[0]["max_tokens"] == 3360
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 5 (batch mode): build_initial_write_request builds the
+# exact request write_page's own attempt 1 would send.
+# ---------------------------------------------------------------------------
+
+def test_build_initial_write_request_matches_write_pages_attempt_1_shape():
+    schema, kwargs = build_initial_write_request(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        model="claude-sonnet-5",
+        word_range=(1000, 1600),
+        tenant=TENANT,
+    )
+    assert kwargs["model"] == "claude-sonnet-5"
+    assert kwargs["max_tokens"] == 3360
+    assert kwargs["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert kwargs["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral"}
+    assert "facts_pack" in kwargs["messages"][0]["content"][0]["text"]
+    assert "ad_brief" in kwargs["messages"][0]["content"][1]["text"]
+    # Sonnet keeps sending thinking: disabled, same as every synchronous call.
+    assert kwargs["thinking"] == {"type": "disabled"}
+    assert "required" in schema
+
+
+def test_build_initial_write_request_omits_thinking_for_a_haiku_model():
+    _, kwargs = build_initial_write_request(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        model="claude-haiku-4-5",
+        tenant=TENANT,
+    )
+    assert "thinking" not in kwargs

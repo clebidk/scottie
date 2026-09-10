@@ -102,6 +102,17 @@ default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: false
 
+# Cycle 17 (cost reduction): which model each stage calls -- see
+# harness/config.py's DEFAULT_MODELS for what a key left out falls back to.
+# Peak Saunas runs the engine defaults explicitly here so a future default
+# change is a deliberate tenant.yaml edit, not a silent behavior change.
+models:
+  write: claude-sonnet-5
+  repair_first: claude-haiku-4-5
+  repair_next: claude-sonnet-5
+  ingest: claude-haiku-4-5
+  matcher: claude-haiku-4-5
+
 # Cycle 16 item 9 (Thursday queue item 3, "consult-CTA variant per config"). A
 # short form of the company name for a consult-mode CTA phrase.
 tenant_short_name: Peak Saunas

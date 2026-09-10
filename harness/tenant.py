@@ -196,6 +196,18 @@ class Tenant:
             config.update(json.loads(path.read_text()))
         return config
 
+    # Fix cycle 17 (model tiering): tenant.yaml's `models:` section may
+    # override any of write/repair_first/repair_next/ingest/matcher; a stage
+    # this tenant doesn't set falls back to config.DEFAULT_MODELS, same
+    # pattern as claims_config above (tenant.yaml can override a default,
+    # never has to restate every key).
+    def model_for(self, stage):
+        """Resolved model id for `stage` -- tenant.yaml's models.<stage> if
+        set, else the engine default (harness/config.py's DEFAULT_MODELS)."""
+        from . import config
+
+        return self.get(f"models.{stage}") or config.DEFAULT_MODELS[stage]
+
     # -- placeholder rendering ----------------------------------------------
 
     def context(self):

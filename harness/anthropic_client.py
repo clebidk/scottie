@@ -9,3 +9,17 @@ def make_client():
     import anthropic
 
     return anthropic.Anthropic()
+
+
+# Fix cycle 17 (model tiering): every bounded extraction/classification call
+# in this harness (ad_brief, still-image transcription, the writer, the
+# claims semantic matcher) disables thinking so the model's token budget goes
+# to visible output, not hidden reasoning -- but Haiku 4.5 doesn't accept a
+# `thinking` param at all (any value, including "disabled", is rejected).
+# Callers do `client.messages.create(model=model, ..., **thinking_kwargs(model))`
+# so a Haiku call sends no `thinking` key and every other model keeps sending
+# `{"type": "disabled"}` exactly as before this cycle.
+def thinking_kwargs(model):
+    if "haiku" in model:
+        return {}
+    return {"thinking": {"type": "disabled"}}

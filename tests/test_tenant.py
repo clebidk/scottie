@@ -252,3 +252,69 @@ def test_full_spectrum_and_red_light_claims_carry_the_expected_aliases():
         aliases = by_id[cid].get("aliases") or []
         assert "4-in-1" in aliases
         assert "medical-grade panel" in aliases
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 17 item 4 (model tiering): Tenant.model_for resolves
+# tenant.yaml's models.<stage>, falling back to config.DEFAULT_MODELS.
+# ---------------------------------------------------------------------------
+
+from harness import config as harness_config
+
+
+class _FakeModelsTenant:
+    """Just enough of the Tenant interface model_for reads."""
+
+    def __init__(self, config):
+        self._config = config
+
+    def get(self, dotted_key, default=None):
+        node = self._config
+        for part in dotted_key.split("."):
+            if not isinstance(node, dict) or part not in node:
+                return default
+            node = node[part]
+        return node
+
+    model_for = tenant_mod.Tenant.model_for
+
+
+def test_model_for_falls_back_to_engine_defaults_when_tenant_yaml_has_no_models_section():
+    tenant = _FakeModelsTenant({})
+    for stage, default_model in harness_config.DEFAULT_MODELS.items():
+        assert tenant.model_for(stage) == default_model
+
+
+def test_model_for_tenant_yaml_override_wins_for_just_that_stage():
+    tenant = _FakeModelsTenant({"models": {"matcher": "claude-sonnet-5"}})
+    assert tenant.model_for("matcher") == "claude-sonnet-5"
+    # every other stage still falls back to the engine default
+    assert tenant.model_for("write") == harness_config.DEFAULT_MODELS["write"]
+    assert tenant.model_for("ingest") == harness_config.DEFAULT_MODELS["ingest"]
+
+
+def test_model_for_every_stage_is_independently_overridable():
+    overrides = {
+        "write": "claude-haiku-4-5",
+        "repair_first": "claude-sonnet-5",
+        "repair_next": "claude-haiku-4-5",
+        "ingest": "claude-sonnet-5",
+        "matcher": "claude-sonnet-5",
+    }
+    tenant = _FakeModelsTenant({"models": overrides})
+    for stage, model in overrides.items():
+        assert tenant.model_for(stage) == model
+
+
+def test_peak_saunas_models_section_matches_the_engine_defaults():
+    # Peak Saunas' tenant.yaml states the defaults explicitly (fix cycle 17)
+    # rather than omitting the section -- this is a regression check that a
+    # future default change in config.py doesn't silently change what Peak
+    # Saunas actually runs without a deliberate tenant.yaml edit.
+    for stage, default_model in harness_config.DEFAULT_MODELS.items():
+        assert TENANT.model_for(stage) == default_model
+
+
+def test_template_models_section_declares_every_stage():
+    template = yaml.safe_load((tenant_mod.TEMPLATE_DIR / "tenant.yaml").read_text())
+    assert set(template["models"]) == set(harness_config.DEFAULT_MODELS)

@@ -53,6 +53,20 @@ default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: false
 
+# Cycle 17 (cost reduction): which model each stage calls. Any key left out
+# falls back to harness/config.py's DEFAULT_MODELS -- a new tenant can delete
+# this whole block and get the same defaults. write: the three cartridge
+# writes. repair_first: the first repair attempt after a gate failure.
+# repair_next: a second repair, if the first still fails. ingest: ad_brief
+# extraction + still-image text transcription. matcher: claims.py's semantic
+# claim matcher.
+models:
+  write: claude-sonnet-5
+  repair_first: claude-haiku-4-5
+  repair_next: claude-sonnet-5
+  ingest: claude-haiku-4-5
+  matcher: claude-haiku-4-5
+
 # Cycle 16 item 9: consult-CTA variant. tenant_short_name is a short form of
 # the company name for a consult-mode CTA phrase, e.g. "Talk to {tenant_short_name}".
 # cta_mode: "buy" (leave every cartridge's own schema.json allowed_cta_texts

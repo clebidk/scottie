@@ -6,9 +6,15 @@ import pytest
 
 
 class FakeUsage:
-    def __init__(self, input_tokens=10, output_tokens=10):
+    def __init__(self, input_tokens=10, output_tokens=10, *,
+                 cache_creation_input_tokens=0, cache_read_input_tokens=0):
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+        # Fix cycle 17: real Anthropic SDK Usage objects always carry these
+        # two fields (zero when a call has no cache_control breakpoint) --
+        # defaulted here so every existing test double keeps working.
+        self.cache_creation_input_tokens = cache_creation_input_tokens
+        self.cache_read_input_tokens = cache_read_input_tokens
 
 
 class FakeBlock:
@@ -18,9 +24,14 @@ class FakeBlock:
 
 
 class FakeResponse:
-    def __init__(self, text, input_tokens=10, output_tokens=10):
+    def __init__(self, text, input_tokens=10, output_tokens=10, *,
+                 cache_creation_input_tokens=0, cache_read_input_tokens=0):
         self.content = [FakeBlock(text)]
-        self.usage = FakeUsage(input_tokens, output_tokens)
+        self.usage = FakeUsage(
+            input_tokens, output_tokens,
+            cache_creation_input_tokens=cache_creation_input_tokens,
+            cache_read_input_tokens=cache_read_input_tokens,
+        )
 
 
 class FakeMessages:
@@ -49,6 +60,18 @@ class FakeClient:
 
 def json_response(obj):
     return json.dumps(obj)
+
+
+def block_text(content):
+    """Fix cycle 17: a system/message "content" value sent to
+    client.messages.create is now either a plain string, or a list of
+    {"type": "text", "text": ..., ["cache_control": ...]} blocks (write.py's
+    cache_control breakpoints) -- joins either shape into one string so a
+    test can keep doing plain substring assertions regardless of which shape
+    a given call used."""
+    if isinstance(content, str):
+        return content
+    return "".join(b["text"] for b in content if isinstance(b, dict) and b.get("type") == "text")
 
 
 @pytest.fixture
