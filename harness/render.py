@@ -82,10 +82,10 @@ def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
             # Cycle 22 finding R37: this was a bare jinja2.Template, whose
             # autoescape default is off -- the one unescaped render in the
             # harness, and its output is injected into the page with `| safe`.
-            # Autoescape only ever escapes the SUBSTITUTED values (the author
-            # and contributor names, the two dates); the template's own markup
-            # is untouched, so both tenants' byline.html render byte-identically
-            # to before.
+            # Autoescape only ever escapes the SUBSTITUTED values (the byline
+            # names and the two dates); the template's own markup is untouched,
+            # so both tenants' byline.html render byte-identically to before --
+            # tests/test_path_safety.py asserts exactly that.
             env = jinja2.Environment(autoescape=True)
             return env.from_string(raw).render(**context)
         except jinja2.TemplateError as e:

@@ -165,13 +165,17 @@ def test_byline_html_leaves_the_templates_own_markup_alone(tmp_path):
 
 
 def test_the_real_tenants_byline_is_unchanged_by_autoescape():
-    """The change had to be byte-for-byte invisible for the tenants that exist."""
+    """The change had to be byte-for-byte invisible for the tenants that exist.
+
+    Built from byline_names() rather than a hardcoded context, so this keeps
+    checking the real thing when the byline roles change (Cycle 19 added a
+    third)."""
     for name in ("peak-saunas", "_template"):
         t = tenant_mod.Tenant(name, tenant_mod.TENANTS_DIR / name)
         raw = (t.root / "brand" / "byline.html").read_text()
-        author, contributor = render.byline_names(t)
+        author, contributor, reviewer = render.byline_names(t)
         context = {
-            "author": author, "contributor": contributor,
+            "author": author, "contributor": contributor, "reviewer": reviewer,
             "published": "2026-09-11", "updated": "2026-09-11",
         }
         assert jinja2.Template(raw).render(**context) == (
