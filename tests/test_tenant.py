@@ -223,19 +223,20 @@ def test_peak_saunas_tenant_short_name_is_configured():
 # ---------------------------------------------------------------------------
 
 
-def test_hsa_fsa_truemed_claim_is_pending_not_verified():
+def test_policy_financing_doc_stale_claim_is_pending_not_verified():
+    # Cycle 18 approved hsa-fsa-truemed into verified.json, so this now
+    # exercises a claim that genuinely stays pending: policy-financing-doc-stale
+    # (g Brain's financing policy page still needs a team update).
     pending = json.loads((TENANT.claims_dir / "pending.json").read_text())
     ids = {c["id"] for c in pending}
-    assert "pending-hsa-fsa-truemed" in ids
-    entry = next(c for c in pending if c["id"] == "pending-hsa-fsa-truemed")
-    assert entry["status"] in ("pending_review", "needs-caleb")
+    assert "policy-financing-doc-stale" in ids
+    entry = next(c for c in pending if c["id"] == "policy-financing-doc-stale")
+    assert entry["status"] in ("pending_review", "needs-caleb", "needs-team-update")
 
     verified = json.loads((TENANT.claims_dir / "verified.json").read_text())
     verified_ids = {c["id"] for c in verified}
-    assert "pending-hsa-fsa-truemed" not in verified_ids
-    # No verified claim states the specific new trust line itself (an
-    # existing internal financing-terms claim mentions TrueMed only as
-    # background context, which is not the same as an approved page claim).
+    assert "policy-financing-doc-stale" not in verified_ids
+    # No verified claim states the specific stale-policy line itself.
     assert not any(entry["text"].lower() in c["text"].lower() for c in verified)
 
 

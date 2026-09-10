@@ -266,9 +266,12 @@ def test_find_forbidden_terms_catches_sunlighten_and_discontinued_models():
 
 
 def test_find_forbidden_terms_catches_lender_name_when_lender_not_configured():
-    page = {"hero": {"financing_line": {"text": "Get it from est. $229/mo with Bread Pay"}}}
+    # Cycle 18 made Bread Pay the tenant's configured lender (and dropped it
+    # from vocab.yaml's forbidden list), so this now exercises a lender that
+    # is still forbidden: Affirm.
+    page = {"hero": {"financing_line": {"text": "Get it from est. $229/mo with Affirm"}}}
     hits = find_forbidden_terms(page, financing_lender=None)
-    assert any(h["term"] == "bread pay" for h in hits)
+    assert any(h["term"] == "affirm" for h in hits)
 
 
 def test_find_forbidden_terms_allows_the_configured_lender_name():

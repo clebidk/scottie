@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from harness import tenant as tenant_mod
 from harness.ground import LocalFactsSource, benefit_allowlist_ids, load_claims_config, select_drive_assets
 from tests.support import REPO_ROOT, TENANT
 
@@ -59,7 +60,10 @@ def test_facts_pack_stays_small():
 # ---------------------------------------------------------------------------
 
 def test_default_config_has_no_lender_and_hides_compare_at():
-    config = load_claims_config(TENANT.claims_dir)
+    # Cycle 18 set peak-saunas' own financing_lender to "Bread Pay", so
+    # "default config" is exercised against tenants/_template instead --
+    # a tenant that hasn't set any of these yet.
+    config = load_claims_config(tenant_mod.TEMPLATE_DIR / "claims")
     assert config["financing_lender"] is None
     assert config["show_compare_at_price"] is False
     # Fix cycle 2 item 2: no speaker name is cleared for use by default --
@@ -446,7 +450,9 @@ def test_select_listicle_pack_assets_ids_and_url_pattern():
 
 
 def test_default_config_allow_ai_renders_is_false():
-    config = load_claims_config(TENANT.claims_dir)
+    # Cycle 18 turned peak-saunas' own allow_ai_renders on, so "default
+    # config" is exercised against tenants/_template instead (see above).
+    config = load_claims_config(tenant_mod.TEMPLATE_DIR / "claims")
     assert config["allow_ai_renders"] is False
 
 
