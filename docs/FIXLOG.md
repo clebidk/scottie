@@ -591,3 +591,89 @@ notifications. `harness/*`, `cartridges/` untouched, `tenants/_template/*`, `doc
 - **`harness run tenants/peak-saunas/fixtures/still-levelup-4x5.png --tenant peak-saunas`** (`20260910-2238-still-levelup-4x5`): **PASS**, three pages. Every rendered page's `.adv-financing` text: `product-page` and `article` each state it once, `longform` twice (hero + final_cta) -- all four exactly `"Financing is available through Bread Pay at checkout."`, grepped and confirmed byte-identical. Zero occurrences of the stale `"Financing is available at checkout."` or any `$`/`/mo` figure anywhere in any of the three pages. Gate log: `ad_claims.semantic_match: 'Available starting at $176/month' -> None` followed by `ad_claims: AD OVERCLAIM: "Available starting at $176/month" — verified fact: "Financing is available through Bread Pay at checkout."` -- the $/mo overclaim rule (fix cycle 21 item 2) correctly reports the with-lender sentence as the verified fact, not the stale no-lender one. The ad's other two claims (4-in-1 infrared, medical-grade panel) matched `gbrain-allowlist-red-light` via semantic match, unaffected.
 - **`harness run tenants/peak-saunas/fixtures/hidden-costs-v2.mov --tenant peak-saunas`** (`20260910-2240-hidden-costs-v2`): **PASS**, three pages, `gate_result: PASS 0 ad claim(s) matched` -- this fixture's `ad_brief.claims_made` is empty (unchanged from Cycle 10/18's own verification of this same fixture), so no financing ad claim exercised the ad-claims-gate path here; the page-level gate (`find_financing_violations`) still ran on every cartridge's write. Every rendered page's financing text: exactly `"Financing is available through Bread Pay at checkout."`, confirmed the same way -- zero occurrences of the stale sentence or a `$`/`/mo` figure.
 - `git status` on the server: clean (only the pre-existing `approvals.jsonl` untracked file, unrelated to this cycle) at the end.
+
+## Cycle 19 (byline decision, warn as the committed default, final sweep, mobile pass, packet)
+
+**Assignment.** Apply Caleb's byline decision; make `ad_overclaim_policy: "warn"` the committed
+default (not restored to `"stop"` this time); sweep all seven fixtures for real plus two listicle
+runs; a static mobile pass; `harness review`/`shopify-body` on every PASS; update the packet and
+write the sweep doc; exactly one Slack test notification.
+
+1. **Byline: three roles, not two.** `tenants/peak-saunas/authors.yaml` gains a `reviewer` role
+   (Caleb Niednagel, Technology Lead) alongside `author` (Austin Laudenslager, Founder & CEO) and
+   `contributor` (now `"Peak Saunas Editorial Team"`, no named person -- was previously Caleb).
+   `harness/render.py`'s `byline_names()` returns a third value (`reviewer_name`); `FALLBACK_BYLINE`
+   and `load_byline_html` thread it through the same way `contributor` already was.
+   `tenants/peak-saunas/brand/byline.html` renders "Written by Austin Laudenslager &middot; Peak
+   Saunas Editorial Team &middot; Reviewed by Caleb Niednagel, Technology Lead" with dates; the
+   about-the-author block names Austin responsible for every claim and Caleb as reviewing
+   specifications and sources. Never the word "credentialed". Two new tests
+   (`tests/test_render.py`): the rendered three-role byline, and `byline_names()`'s return value.
+2. **`ad_overclaim_policy: "warn"`, committed** (`tenants/peak-saunas/claims/config.json`) --
+   the first time this value is committed rather than set on the server only for a sweep and
+   restored afterward (see Cycle 12's and Cycle 21's own sweep verifications above). Not mirrored
+   in `tenant.yaml`. One test (`tests/test_cli_run.py::test_run_stops_on_unmatched_claim`) was
+   exercising the `"stop"` path specifically while relying on the tenant's ambient on-disk
+   default -- a pre-existing hermeticity gap `docs/SWEEP-2026-09-10b.md`'s "Policy / tree state"
+   section already flagged -- pinned to policy `"stop"` explicitly (`monkeypatch` on
+   `Tenant.claims_config`) so it stays correct regardless of the tenant's real default.
+   **Test count: 592 (590 baseline + 2 new byline tests).**
+3. **Sweep: all seven fixtures + two listicle runs, real, under `"warn"`.** Every fixture PASSes;
+   two (`still-levelup-4x5.png`, `still-infraredglow-4x5.png`) needed a real retry (one STOP each
+   on a pre-existing trigger-word-with-no-claim_id gate shape, plus one transient malformed-JSON
+   crash on `still-infraredglow-4x5.png`'s first attempt) -- neither root cause is a Cycle 19
+   change. `harness review`/`harness shopify-body` run on every PASS across all 9 runs -- 23
+   pages total (seven 3-cartridge runs x 3 + two listicle runs x 1). Byline
+   verbatim on all pages: "Written by Austin Laudenslager &middot; Peak Saunas Editorial Team
+   &middot; Reviewed by Caleb Niednagel, Technology Lead". Financing sentence verbatim on all
+   pages: "Financing is available through Bread Pay at checkout." EMF in visible text: 0 on every
+   page (confirmed with `harness.claims.find_forbidden_visible_text` directly, not a raw grep --
+   a raw grep hits every page only because the Fuji product's own Shopify URL slug contains
+   "near-zero-emf", a documented, harness-external exception). Full table, per-attempt cost, and
+   per-ad omissions in `tenants/peak-saunas/docs/SWEEP-2026-09-11.md`.
+4. **Mobile pass: static checks only.** Playwright/Chromium is not installed in the harness venv
+   on the server (`import playwright` -> `ModuleNotFoundError`) -- not installed for this pass, per
+   the assignment; static HTML/CSS regex checks instead (same style as `harness/review.py`'s own
+   asset-inlining regex, not a real parser). Four checks against all 23 rendered pages at a nominal
+   390px viewport: image sizing, fixed container widths above 390px, the sticky CTA bar's mobile
+   CSS rule, heading `white-space:nowrap`. Two of four clean (no fixed widths above 390px anywhere;
+   no heading `white-space:nowrap` anywhere). Two of four FAIL, same root cause: 21 of 23 pages
+   have `<img>` tags with no width/height and no `img{max-width:100%}` rule anywhere in the loaded
+   CSS; all 7 `longform` pages' `.adv-sticky-cta` div has **no CSS rule at all**, not just no
+   mobile rule. Confirmed empirically (not just via the regex check) against a real rendered page:
+   `tenants/peak-saunas/brand/base.css` (209 lines) defines neither `.adv-cta` nor
+   `.adv-sticky-cta` nor an `img` sizing rule -- `harness/render.py`'s `load_brand_css` loads
+   *either* a tenant's own `base.css` *or* `harness/fallback.css` (which does define all three),
+   never both, so a tenant with its own (incomplete) CSS never sees `fallback.css`'s baseline
+   rules. **Not fixed this cycle** -- the root cause is the tenant's own CSS coverage, not a
+   `cartridges/*/template.html` bug, so it's outside this cycle's "CSS-only, tenant-neutral
+   cartridge template" fix authorization; flagged as a follow-up task (`task_9b60a503`) rather than
+   patched under sweep-time pressure, matching this codebase's own established practice (see
+   Cycle 12's warranty-gate flag, closed properly in Cycle 13).
+5. **Packet and sweep doc.** `tenants/peak-saunas/docs/PACKET-DRAFT.md` updated with all nine
+   Cycle 19 run ids (all `needs_review`, all packet stamps still `BOT DRAFT · NOT SENT`, nothing
+   approved or published), the exact approve/packet/publish commands, the never-line, and the open
+   items (Shopify token not yet saved; candidate `store_admin_domain` `bd4b8d-2.myshopify.com`
+   needs Caleb's confirmation; the new CSS gap; Slack still off on purpose). New
+   `tenants/peak-saunas/docs/SWEEP-2026-09-11.md` -- note: written under `tenants/peak-saunas/
+   docs/`, not top-level `docs/`, matching where `SWEEP-2026-09-10b.md` and `PACKET-DRAFT.md`
+   actually live post-restructure (the assignment named the top-level path, which is stale).
+6. **Slack test: exactly one message.** `SLACK_WEBHOOK_URL` present in the tenant's `.env`
+   (checked by name only, `grep -c`, never printed or catted). `tenant.yaml`'s
+   `notifications.slack` is `false` on purpose (see the "Known issue, 2026-09-10 22:30" note
+   above -- Cycle 20 posted 7 real messages by accident). Sent the one authorized test through
+   `harness/notify.py`'s own `format_needs_review_message`/`send_slack` functions directly (not
+   `notify_needs_review`/`_send`, which check `notifications.slack` and would have skipped) for
+   `20260910-2250-hidden-costs-v2` (the 3-cartridge hidden-costs run), text prefixed `"[TEST] "`,
+   real message format (gate history, claim counts, review paths, approve command) rebuilt from
+   that run's own `REVIEW.md`. Webhook returned success (`send_slack`'s own `200 <= status < 300`
+   check: `True`). `notifications.slack` deliberately left `false` afterward -- re-enabling it
+   permanently is Caleb's call, not made here, so no future run can post automatically before he
+   decides.
+7. **Tests.** Mac clone: `.venv-local/bin/pytest -q` -- **592 total, 592 passed, 0 failed** (590
+   baseline + 2 new byline tests; the policy-hermeticity fix keeps the count the same, it doesn't
+   add a test). Server: `~/advertorial/.venv/bin/pip install -e . -q` then `.venv/bin/python -m
+   pytest -q` -- **592 total, 592 passed, 0 failed**, matching. `git status` clean on both after
+   this cycle's commits (server `out/`/`runs/` sweep artifacts are gitignored; the pre-existing
+   untracked `tenants/peak-saunas/evals/approvals.jsonl` from an earlier cycle, unrelated, still
+   present and still untouched).

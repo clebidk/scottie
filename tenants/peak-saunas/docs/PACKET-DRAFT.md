@@ -4,6 +4,54 @@
 message that has gone anywhere. Nothing in this file has been sent to anyone, published,
 or acted on.
 
+**Cycle 19 update:** the byline decision is applied (author = Austin Laudenslager, Founder
+& CEO; contributor = "Peak Saunas Editorial Team", no named person; reviewer = Caleb
+Niednagel, Technology Lead -- see `tenants/peak-saunas/authors.yaml`), `ad_overclaim_policy`
+is now committed as `"warn"` (no longer restored to `"stop"` after a sweep), and all seven
+fixtures plus both listicle runs PASS under it -- see `docs/SWEEP-2026-09-11.md` for the full
+table, per-ad omissions, and the mobile-pass findings. Every run below is `needs_review`,
+every packet stamp is still `BOT DRAFT · NOT SENT` -- nothing has been approved or published
+this cycle.
+
+### Cycle 19 final run ids (needs_review, nothing approved or published)
+
+| Ad | Cartridges | Run id | State | Pages |
+|---|---|---|---|---|
+| hidden-costs-v2.mov | article, longform, product-page | `out/20260910-2250-hidden-costs-v2` | needs_review | article, longform, product-page: needs_review |
+| hidden-costs-v2.mov | listicle | `out/20260910-2319-hidden-costs-v2` | needs_review | listicle: needs_review |
+| product-features-v2.mov | article, longform, product-page | `out/20260910-2253-product-features-v2` | needs_review | article, longform, product-page: needs_review |
+| product-features-v2.mov | listicle | `out/20260910-2320-product-features-v2` | needs_review | listicle: needs_review |
+| price-comparison-v2.mov | article, longform, product-page | `out/20260910-2255-price-comparison-v2` | needs_review | article, longform, product-page: needs_review |
+| still-lessthan300-4x5.png | article, longform, product-page | `out/20260910-2258-still-lessthan300-4x5` | needs_review | article, longform, product-page: needs_review |
+| still-levelup-4x5.png | article, longform, product-page | `out/20260910-2306-still-levelup-4x5` | needs_review | article, longform, product-page: needs_review |
+| still-infraredglow-4x5.png | article, longform, product-page | `out/20260910-2313-still-infraredglow-4x5` | needs_review | article, longform, product-page: needs_review |
+| still-unforgettable-4x5.png | article, longform, product-page | `out/20260910-2317-still-unforgettable-4x5` | needs_review | article, longform, product-page: needs_review |
+
+All paths relative to `~/advertorial` on the server (`ssh prod`); `out/` is gitignored, exists
+only there.
+
+### Exact approve / packet / publish commands (none of these have been run this cycle)
+
+```
+harness approve tenants/peak-saunas/out/<run-id> --by <email> --pages <cartridge>[,<cartridge>...]
+harness packet tenants/peak-saunas/out/<run-id> --stamp ship --by <email>
+harness publish tenants/peak-saunas/out/<run-id> --page <cartridge> --dry-run   # check credentials first
+harness publish tenants/peak-saunas/out/<run-id> --page <cartridge>            # draft page
+harness publish tenants/peak-saunas/out/<run-id> --page <cartridge> --live     # live, + 8-pull cache check
+```
+
+`--by` must be `michael@peaksaunas.com` (primary) or `caleb@peaksaunas.com` (backup) per
+`tenant.yaml`'s `reviewers` list -- an email not on that list is refused. `harness publish`
+refuses outright unless both the page's own state is `approved` and the packet stamp is
+exactly `ship`.
+
+**The never-line (unchanged, still the standing rule):** No EMF mentions, anywhere, ever. No
+lender names while `financing_lender` is unconfigured (now configured: Bread Pay, gate-
+enforced since Cycle 21 -- see `docs/SWEEP-2026-09-11.md`'s financing-sentence check). No
+unverified claims -- every specific claim on a page must trace to a `claims/verified.json`
+id. No AI-rendered image without "Rendering:" leading its alt text. No publish, ever, without
+a packet stamped `ship` and Caleb's explicit written approval.
+
 **Cycle 20 update:** every run's own `state.json`/`packet.json` (under
 `out/<run-id>/`) are now the live version of this document's `stamp` and
 "decisions still open" fields -- see `docs/PUBLISHING.md` for the full flow.
@@ -97,13 +145,18 @@ gitignored and exists only there, never in a local clone.
     included with a sauna purchase; not currently referenced by any live ad fixture.
   - **Peak Wellness Club price** -- see the pricing discrepancy above; blocks any
     financing/price claim about the Club specifically.
-- **`ad_overclaim_policy`: `"stop"` or `"warn"`.** Currently `"stop"` in the committed
-  config. `"warn"` lets a run continue past an unmatched or overclaimed ad claim (dropping
-  it from what the writer may use, listed in `REVIEW.md`) instead of stopping outright --
-  Caleb's call on which failure mode is safer for an unreviewed ad.
-- **`financing_lender`.** Currently `null` -- no real lender approved. Until set, every
-  financing line is locked to "Financing is available at checkout." with no figure or
-  name.
+- ~~`ad_overclaim_policy`: `"stop"` or `"warn"`.~~ **Decided, Cycle 19: `"warn"`, committed as
+  the default** (`tenants/peak-saunas/claims/config.json`) -- no longer restored to `"stop"`
+  after a sweep. All seven fixtures PASS under it; see `docs/SWEEP-2026-09-11.md`.
+- ~~`financing_lender`.~~ **Decided, Cycle 18/21: Bread Pay**, gate-enforced since Cycle 21 --
+  every financing line renders exactly "Financing is available through Bread Pay at
+  checkout." (verified across all 23 Cycle 19 sweep pages).
+- **Cycle 19 byline decision, for the record (already applied):** author = Austin
+  Laudenslager, Founder & CEO, responsible for every claim; contributor = "Peak Saunas
+  Editorial Team" (no named person, was previously Caleb); reviewer = Caleb Niednagel,
+  Technology Lead, reviews specifications and sources -- a new third role, distinct from
+  contributor. See `tenants/peak-saunas/authors.yaml` and `tenants/peak-saunas/brand/
+  byline.html`.
 - **AI render policy (`allow_ai_renders`).** Currently `false` (fix cycle 15 default). 34
   of the 105 listicle-pack files are AI composites, not photographs -- turning this on
   makes them eligible for selection (always alt-texted "Rendering:", never used as
@@ -115,8 +168,25 @@ gitignored and exists only there, never in a local clone.
   `tenant.yaml` lists Michael (primary) and Caleb (backup) for *approval*, but
   `harness packet --stamp ship` has no separate authorization check today; the packet
   stamp and reviewer approval are two independently-gated steps, not one.
-- **Shopify Admin API credentials.** `SHOPIFY_STORE` (the storefront's `*.myshopify.com`
-  admin domain) and `SHOPIFY_TOKEN` are not set in this tenant's `.env` -- `store_admin_domain`
-  in `tenant.yaml` is deliberately left `null` until the myshopify domain is confirmed. Until
-  both are set, `harness publish` fails closed with a one-line message and makes no network
-  call; `harness publish --dry-run` reports this without needing an approved run at all.
+- **Shopify Admin API credentials -- still open, Cycle 19.** `SHOPIFY_STORE` (the storefront's
+  `*.myshopify.com` admin domain) and `SHOPIFY_TOKEN` are not set in this tenant's `.env` --
+  the Shopify token has not yet been saved. `store_admin_domain` in `tenant.yaml` is
+  deliberately left `null` until the myshopify domain is confirmed -- candidate domain
+  `bd4b8d-2.myshopify.com`, needs Caleb's confirmation before it's written to `tenant.yaml`.
+  Until both `SHOPIFY_STORE`/`SHOPIFY_TOKEN` are set, `harness publish` fails closed with a
+  one-line message and makes no network call; `harness publish --dry-run` reports this without
+  needing an approved run at all. No Shopify call was made at any point in Cycle 19.
+- **New, Cycle 19: `.adv-cta`/`.adv-sticky-cta`/image-sizing CSS gap.** The mobile pass found
+  every live page's CTA button, and `longform`'s sticky bottom CTA bar, render with zero CSS at
+  all -- `tenants/peak-saunas/brand/base.css` never defines those classes. Not fixed this cycle
+  (root cause is the tenant's own CSS, not a `cartridges/*/template.html` bug, so outside this
+  cycle's authorized fix scope) -- flagged as a follow-up task. See `docs/SWEEP-2026-09-11.md`'s
+  "Mobile pass" section for detail.
+- **New, Cycle 19: Slack notifications still off (`tenant.yaml`'s `notifications.slack:
+  false`), on purpose.** Cycle 20's verification runs posted 7 real messages by accident
+  (the webhook was already saved, `notifications.slack` was `true`); disabled pending one
+  deliberate test (see `docs/FIXLOG.md`'s "Known issue, 2026-09-10 22:30" note). That one test
+  ran this cycle (below) via `harness/notify.py`'s own functions directly, bypassing the
+  tenant-level toggle for that single send -- `notifications.slack` was deliberately left
+  `false` afterward so no future run can post automatically until Caleb decides to flip it back
+  on himself.
