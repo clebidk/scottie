@@ -1,13 +1,24 @@
+# Tenant run artifacts and secrets -- never committed.
+tenants/*/out/
+tenants/*/runs/
+tenants/*/.env
+tenants/*/fixtures/*.mov
+tenants/*/fixtures/*.wav
+tenants/*/fixtures/*.png
+tenants/*/fixtures/*.jpg
+tenants/*/inbox/*
+!tenants/*/inbox/.gitkeep
+
+# Legacy top-level run dirs (pre-restructure); kept ignored so an old
+# working copy does not suddenly show them as untracked.
 out/
 runs/
 .env
+
+# Local environments and vendored binaries.
 .venv*/
 vendor/
 models/
 __pycache__/
 *.pyc
-fixtures/*.mov
-fixtures/*.wav
-fixtures/*.png
-advertorial.egg-info/
 *.egg-info/

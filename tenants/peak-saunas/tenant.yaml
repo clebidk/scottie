@@ -1,0 +1,96 @@
+# Peak Saunas -- the first tenant of the harness.
+# Every company-specific string the engine needs lives here (or in authors.yaml,
+# vocab.yaml, claims/config.json). harness/ never hardcodes any of it.
+
+name: Peak Saunas
+slug: peak-saunas
+site_url: https://peaksaunas.com
+site_host: peaksaunas.com
+
+# Shopify storefront. products.json is the public product feed; no Admin API
+# call is ever made by this harness.
+shopify:
+  products_json: https://peaksaunas.com/products.json
+  product_url_template: "https://peaksaunas.com/products/{slug}"
+
+# Where review statistics come from. The rating/count are scraped from the
+# product page (JSON-LD aggregateRating, then the widget's data attributes),
+# but the claim's own source points at the review platform's own store page.
+reviews:
+  source: judgeme-live
+  platform_name: Judge.me
+  store_url: https://judge.me/reviews/stores/peaksaunas.com
+  claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
+
+# One in-memory price claim per product, built fresh every run.
+price_claim_template: "The {tenant_name} {product_name} is priced at {price}."
+
+# Storefront theme. full_bleed_css is pasted verbatim at the top of
+# `harness shopify-body` output; it neutralises the theme's page container so a
+# generated page renders full width. Targeted at the ".pk-lp" root class every
+# cartridge template keeps for exactly this reason -- never retarget it at a
+# page's own class names.
+theme:
+  name: aurora
+  root_class: pk-lp
+  full_bleed_css: |
+    /* full-bleed: break out of the theme page container */
+    .section:has(.pk-lp) .container{max-width:100%;width:100%;padding:0;--gsc-section-spacing-top:0px;--gsc-section-spacing-bottom:0px}
+    .section:has(.pk-lp) .page__title{display:none}
+    .section:has(.pk-lp) .page__content{margin:0;opacity:1;transform:none;animation:none}
+
+default_cta_url: /collections/all
+
+disclosure_text: >-
+  This page is an advertisement published by {tenant_name}, which sells the
+  products described. Every specific claim on this page is sourced; see Sources
+  below. Prices were current as of the publish date above and may have changed
+  since.
+
+# Sources list: a short human-readable label per source URL, never the raw URL.
+source_label_prefix: "Peak Saunas"
+source_path_labels:
+  /pages/warranty: Warranty
+  /policies/shipping-policy: Shipping policy
+  /policies/refund-policy: Refund policy
+  /pages/austin-laudenslager: Austin Laudenslager
+product_page_label: "{prefix} – {product_name} product page"
+review_source_label: "{platform_name} reviews for {tenant_name}"
+asset_alt_fallback: Peak Saunas
+
+# whisper.cpp initial prompt: biases decoding toward this vocabulary without
+# changing the model. Not a transcript prefix -- it never appears in the output.
+whisper_prompt: >-
+  Peak Saunas. Sauna, infrared sauna, red light therapy. Models: Fuji, Everest,
+  Rainier, Shasta, Denali, Matterhorn, Patagonia, El Capitan, Kilimanjaro, Mini.
+
+# Facts to seed from each active product's own Shopify body_html, one phrase
+# check per fact. A fact is created only when one of its phrases is literally
+# on the page -- conservative by design, no inference.
+pdp_facts:
+  app-control: ["peak saunas app"]
+  electrical: ["120v", "standard household outlet", "no electrician"]
+  speakers: ["bluetooth speaker"]
+  wood: ["hemlock", "cedar"]
+  red-light: ["medical-grade red light"]
+  crate-shipping: ["protective crate", "crate"]
+  capacity: []
+  assembly: ["clasp-together", "assembly"]
+
+# Cleared, product-wide claims every product's facts_pack always carries.
+benefit_allowlist_ids:
+  - gbrain-allowlist-red-light
+  - gbrain-allowlist-free-shipping
+  - gbrain-allowlist-360-full-spectrum
+  - gbrain-allowlist-us-owned
+  - gbrain-allowlist-lifetime-warranty
+
+warranty_claim_id: warranty-terms
+excluded_benefit_ids: [warranty-terms, shipping-policy, returns-policy]
+claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-, returns-, founder-]
+
+# `harness run` with no --cartridges draws three at random from this pool.
+# listicle is opt-in only until it is approved for the default rotation.
+default_cartridge_pool: [article, product-page, longform]
+
+allow_ai_renders: false

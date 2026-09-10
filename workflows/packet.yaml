@@ -1,0 +1,22 @@
+name: packet
+description: >-
+  Turn one finished run into a review packet a human can act on without
+  opening the harness: what the ad claimed, what the page says, what was
+  dropped, and what still needs a decision.
+inputs:
+  - run_dir
+  - tenant
+steps:
+  - stage: load_run
+    description: ad_brief.json, facts_pack.json, REVIEW.md, each page.json
+  - stage: build_review_html
+    description: self-contained <cartridge>-review.html, images inlined
+    for_each: cartridge
+  - stage: build_packet
+    description: >-
+      the draft packet -- angle, product, cartridges, claims matched, ad claims
+      not repeated, sources, word counts, open questions, and the ship/hold
+      recommendation
+outputs:
+  - tenants/{tenant}/out/{run_id}/{cartridge}-review.html
+  - tenants/{tenant}/out/{run_id}/PACKET-DRAFT.md

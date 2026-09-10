@@ -1,0 +1,6 @@
+[Unit]
+Description=Weekly evals digest for tenant @@TENANT@@
+
+[Service]
+Type=oneshot
+ExecStart=@@REPO@@/.venv/bin/harness digest scores --tenant @@TENANT@@ --scores-file @@REPO@@/tenants/@@TENANT@@/evals/scores.jsonl

@@ -1,0 +1,52 @@
+# Skeleton tenant. Copy with `harness tenant init <name>`, then fill in every
+# CHANGE ME. The engine reads company-specific strings only from this file,
+# authors.yaml, vocab.yaml, and claims/config.json.
+
+name: CHANGE ME            # display name, e.g. "Acme Saunas"
+slug: CHANGE ME            # directory name, e.g. "acme-saunas"
+site_url: https://CHANGE-ME.example
+site_host: CHANGE-ME.example
+
+shopify:
+  products_json: https://CHANGE-ME.example/products.json
+  product_url_template: "https://CHANGE-ME.example/products/{slug}"
+
+reviews:
+  source: none             # none | judgeme-live
+  platform_name: CHANGE ME
+  store_url: ""
+  claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
+
+price_claim_template: "The {tenant_name} {product_name} is priced at {price}."
+
+theme:
+  name: CHANGE ME
+  root_class: pk-lp
+  full_bleed_css: ""       # theme-specific CSS pasted at the top of shopify-body output
+
+default_cta_url: /collections/all
+
+disclosure_text: >-
+  This page is an advertisement published by {tenant_name}, which sells the
+  products described. Every specific claim on this page is sourced; see Sources
+  below. Prices were current as of the publish date above and may have changed
+  since.
+
+source_label_prefix: CHANGE ME
+source_path_labels: {}
+product_page_label: "{prefix} – {product_name} product page"
+review_source_label: "{platform_name} reviews for {tenant_name}"
+asset_alt_fallback: CHANGE ME
+
+whisper_prompt: ""         # short vocabulary list: brand name, category words, model names
+
+pdp_facts: {}              # fact-name -> list of literal phrases to look for in a product page
+
+benefit_allowlist_ids: []
+warranty_claim_id: ""
+excluded_benefit_ids: []
+claim_id_prefixes: [spec-, price-, pdp-, reviews-]
+
+default_cartridge_pool: [article, product-page, longform]
+
+allow_ai_renders: false

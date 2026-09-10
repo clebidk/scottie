@@ -1,24 +1,31 @@
 [project]
-name = "advertorial"
-version = "0.1.0"
-description = "Ad-to-landing-page generator (V1 static harness) for Peak Saunas"
+name = "harness"
+version = "0.2.0"
+description = "Company-agnostic ad-to-landing-page harness. Tenants supply the data; the engine supplies the pipeline."
 requires-python = ">=3.13"
 dependencies = [
     "anthropic",
     "python-dotenv",
     "jinja2",
     "pillow",
+    "pyyaml",
 ]
 
 [project.scripts]
-adv = "adv.cli:main"
+harness = "harness.cli:main"
+# Kept for one release so existing scripts and cron entries do not break.
+# Prints a deprecation line to stderr, then runs the same CLI.
+adv = "harness.cli:main_adv_alias"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["adv*"]
+include = ["harness*"]
+
+[tool.setuptools.package-data]
+harness = ["fallback.css", "templates/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -1,0 +1,20 @@
+name: score
+description: >-
+  Record a human's four-axis score for one finished run. See evals/rubric.md
+  for what each axis means and what a 1, a 3, and a 5 look like.
+inputs:
+  - run_dir
+  - tenant
+  - angle        # 1-5, angle match
+  - brand        # 1-5, brand fit
+  - claims       # 1-5, claim safety
+  - publish      # 1-5, would publish
+  - by           # optional scorer name
+  - note         # optional
+steps:
+  - stage: load_run
+    description: read the run's REVIEW.md and page.json files
+  - stage: append_score
+    description: one JSON line appended to the tenant's score sheet
+outputs:
+  - tenants/{tenant}/evals/scores.jsonl

@@ -1,0 +1,20 @@
+name: sweep
+description: >-
+  Run ad-to-pages over every fixture in the tenant's fixtures directory and
+  report one line per fixture. Used to check that a harness change did not
+  break a case that used to pass.
+inputs:
+  - tenant
+  - cartridges   # optional; applied to every fixture
+  - pattern      # optional glob, default "*"
+steps:
+  - stage: collect_fixtures
+    description: every file in tenants/{tenant}/fixtures matching pattern
+  - stage: run_workflow
+    workflow: ad-to-pages
+    for_each: fixture
+    continue_on_fail: true   # a STOP on one fixture never ends the sweep
+  - stage: summarize
+    description: one line per fixture -- PASS/STOP/BUDGET, run id, cost, reason
+outputs:
+  - tenants/{tenant}/out/sweep-{date}.md

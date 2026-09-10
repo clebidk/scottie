@@ -1,0 +1,57 @@
+# Forbidden and fixed vocabulary for this tenant. The engine treats all of this
+# as data: harness/vocab.py loads it, the writer prompt quotes it, and the
+# deterministic gate enforces it. A word added here is enforced by the gate and
+# told to the writer in the same edit.
+
+# Absolute bans -- never allowed anywhere in writer-composed prose, whatever
+# claim backs the sentence. The EMF ban is absolute for this tenant and is not
+# negotiable by any cartridge, prompt, or override.
+emf_terms: [emf, electromagnetic]
+banned_names: [sunlighten, crown, olympus, aspen]
+hype_words: [game-changer, unlock, elevate, journey, revolutionary, unleash]
+ban_exclamation_mark: true
+
+# Safe, case-preserving substitutions the deterministic pre-repair pass may
+# apply without spending a model call.
+hype_synonyms:
+  unlock: get
+  unlocks: gets
+  unlocking: getting
+  elevate: improve
+  elevates: improves
+  journey: process
+  game-changer: big improvement
+  game changer: big improvement
+
+# Forbidden only while claims/config.json's financing_lender is unset (null).
+forbidden_lender_names: [bread pay, affirm, shop pay, klarna, afterpay, sezzle]
+
+# Allowed only in a sentence that carries a claim_id.
+trigger_words: [medical, clinical, study, proven, emf, rated, reviews]
+trigger_word_synonyms:
+  study: research
+  studies: research
+
+# Inferring a second, unverified fact from a verified one. Forbidden unless a
+# verified claim's own text actually contains the phrase.
+implied_claim_forbidden_terms:
+  - call center
+  - domestic support
+  - us-based support
+  - american-made
+  - made in the usa
+
+# Fixed sentences. While no lender is configured, the financing sentence is the
+# only way financing may be stated anywhere on a page. The warranty sentence is
+# the only allowed prose form; the label/value pair is its spec-table form.
+allowed_financing_sentence_no_lender: "Financing is available at checkout."
+allowed_warranty_sentence: "Limited lifetime warranty; full terms by component are published on the warranty page."
+allowed_warranty_spec_label: "Warranty"
+allowed_warranty_spec_value: "Limited lifetime warranty (terms by component)"
+
+# Scanned in the rendered page as a reader would see it, after tags are stripped.
+visible_text_forbidden_terms: [emf, electromagnetic]
+
+# Competitor naming: what to say instead of the full brand name.
+competitor_aliases:
+  "sun home": "Sun"
