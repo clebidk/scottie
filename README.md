@@ -12,6 +12,35 @@ input -> ingest -> ad_brief.json -> ground -> facts_pack.json -> claims_gate -> 
                                                                     -> unmatched_claims.json
 ```
 
+## Documents
+
+- `docs/SPEC.md` -- the full contract this harness implements.
+- `docs/HARNESS-MAP.md` -- what's done, what's stubbed, and the smallest bone-level changes
+  for the next round of work.
+- `docs/REFINE-NOTES.md` -- what was refined vs. rebuilt in fix cycles 12-15, each bone
+  with the failure symptom that justified touching it, and what was deliberately left
+  alone.
+- `docs/LISTICLE-GENERATOR.md` -- how to generate a listicle in under 10 minutes, how to
+  add a new cartridge type, the config keys, and the Shopify traps/publish gate.
+- `docs/IMAGE-MAP.md` -- Drive folder id -> local index file -> how slots are filled per
+  cartridge -> where files land per run -> what the Shopify assets manifest is for.
+- `docs/PACKET-DRAFT.md` -- the draft coach-packet object for the four current sample runs,
+  stamped `BOT DRAFT · NOT SENT`, plus the decisions still open for Caleb.
+- `docs/RESEARCH-LISTICLE.md` -- the listicle-format research memo (competitive landscape,
+  the live reference teardown, the synthesis that shaped the cartridge's rules).
+- `docs/DRIVE-AUDIT-LISTICLE.md` -- the audit of `brand/assets-listicle-pack.json`'s 105
+  files (counts, role map, the AI-render policy question).
+- `docs/FIXLOG.md` -- every fix cycle, in order, with the failure it addressed and how it
+  was verified.
+- `docs/guardrails.md` -- the compliance rules (EMF, overclaiming, lender names) every
+  cartridge is gated against.
+- `docs/knowledge-map.md` -- the g Brain source map for product/spec facts.
+- `docs/existing-page-generator.md` -- the separate, root-owned Shopify-publish CLI this
+  harness's own publish adapter will eventually reuse the plumbing from.
+- `docs/ENVIRONMENT.md`, `docs/STYLES.md`, `docs/design-notes-batch50.md`,
+  `docs/SWEEP-2026-09-09.md`, `docs/SWEEP-2026-09-10.md`, `docs/SWEEP-2026-09-10b.md` --
+  environment setup notes, brand style notes, and dated full-fixture sweep results.
+
 ## Run it
 
 On prod (`ssh prod`, project dir `/home/deploy/advertorial`):

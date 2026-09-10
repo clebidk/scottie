@@ -382,3 +382,106 @@ def test_pick_product_named_model_still_wins_over_a_quoted_price():
     # be the Mini's price, because a named model is checked first.
     assert product["slug"] == FUJI_SLUG
     assert warning is None
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 15 item 2: brand/assets-listicle-pack.json wiring for Mini/
+# Matterhorn -- real photos preferred, an ai_generated:true row only ever
+# selected when claims/config.json's allow_ai_renders is true (default
+# False).
+# ---------------------------------------------------------------------------
+
+from adv.ground import select_listicle_pack_assets
+
+MATTERHORN_SLUG = "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control"
+
+FAKE_LISTICLE_PACK_INDEX = {
+    "download_url_pattern": "https://drive.google.com/uc?export=download&id={id}",
+    "assets": [
+        {"id": "p1", "title": "MINI__MG_1225.JPG", "model": "mini", "kind": "photo_product", "ai_generated": False},
+        {"id": "p2", "title": "MINI-install_09.jpg", "model": "mini", "kind": "photo_install", "ai_generated": False},
+        {"id": "s1", "title": "Stills_Office Views 001.jpg", "model": None, "kind": "still_video", "ai_generated": False},
+        {"id": "a1", "title": "AIrender_mini.png", "model": "mini", "kind": "ai_render", "ai_generated": True},
+        {"id": "x1", "title": "excluded", "model": "mini", "kind": "photo_product", "ai_generated": False, "excluded": True},
+        {"id": "m1", "title": "Matterhorn__MG_3224.JPG", "model": "matterhorn", "kind": "photo_product", "ai_generated": False},
+    ],
+}
+
+
+def test_select_listicle_pack_assets_prefers_real_photos_over_ai_render():
+    selected = select_listicle_pack_assets(FAKE_LISTICLE_PACK_INDEX, "mini", allow_ai_renders=True)
+    kinds = [a["kind"] for a in selected]
+    # real photos (photo_product/photo_install/still_video) sort before the
+    # ai_render, even though allow_ai_renders is true here.
+    assert kinds.index("ai_render") > max(
+        i for i, k in enumerate(kinds) if k in ("photo_product", "photo_install", "still_video")
+    )
+
+
+def test_select_listicle_pack_assets_never_selects_ai_generated_by_default():
+    selected = select_listicle_pack_assets(FAKE_LISTICLE_PACK_INDEX, "mini", allow_ai_renders=False)
+    assert all(not a["ai_generated"] for a in selected)
+    assert not any(a["drive_id"] == "a1" for a in selected)
+
+
+def test_select_listicle_pack_assets_includes_ai_generated_when_allowed():
+    selected = select_listicle_pack_assets(FAKE_LISTICLE_PACK_INDEX, "mini", allow_ai_renders=True)
+    ai_ids = {a["drive_id"] for a in selected if a["ai_generated"]}
+    assert "a1" in ai_ids
+
+
+def test_select_listicle_pack_assets_excludes_flagged_and_other_model():
+    selected = select_listicle_pack_assets(FAKE_LISTICLE_PACK_INDEX, "mini", allow_ai_renders=True)
+    ids = {a["drive_id"] for a in selected}
+    assert "x1" not in ids  # excluded
+    assert "m1" not in ids  # matterhorn, not mini
+    assert "s1" in ids  # still_video has no model, eligible for either
+
+
+def test_select_listicle_pack_assets_ids_and_url_pattern():
+    selected = select_listicle_pack_assets(FAKE_LISTICLE_PACK_INDEX, "mini", allow_ai_renders=False)
+    photo = next(a for a in selected if a["kind"] == "photo_product")
+    assert photo["id"] == "asset-listicle-p1"
+    assert photo["url"] == "https://drive.google.com/uc?export=download&id=p1"
+
+
+def test_default_config_allow_ai_renders_is_false():
+    config = load_claims_config(REPO_ROOT / "claims")
+    assert config["allow_ai_renders"] is False
+
+
+def test_facts_for_wires_in_listicle_pack_assets_for_mini(monkeypatch):
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    facts_pack = source.facts_for(MINI_SLUG, ad_brief, config={"allow_ai_renders": False})
+    listicle_asset_ids = {a["drive_id"] for a in facts_pack["assets"] if a.get("id", "").startswith("asset-listicle-")}
+    assert "p1" in listicle_asset_ids
+    assert "a1" not in listicle_asset_ids  # ai_generated, not allowed by default
+
+
+def test_facts_for_wires_in_listicle_pack_assets_for_matterhorn(monkeypatch):
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    facts_pack = source.facts_for(MATTERHORN_SLUG, ad_brief, config={"allow_ai_renders": False})
+    listicle_asset_ids = {a["drive_id"] for a in facts_pack["assets"] if a.get("id", "").startswith("asset-listicle-")}
+    assert "m1" in listicle_asset_ids
+
+
+def test_facts_for_does_not_wire_in_listicle_pack_assets_for_other_products(monkeypatch):
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    facts_pack = source.facts_for(FUJI_SLUG, ad_brief, config={"allow_ai_renders": True})
+    listicle_asset_ids = [a for a in facts_pack["assets"] if a.get("id", "").startswith("asset-listicle-")]
+    assert listicle_asset_ids == []
+
+
+def test_facts_for_allows_ai_generated_listicle_asset_when_config_set(monkeypatch):
+    source = LocalFactsSource(REPO_ROOT / "claims")
+    monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    facts_pack = source.facts_for(MINI_SLUG, ad_brief, config={"allow_ai_renders": True})
+    listicle_asset_ids = {a["drive_id"] for a in facts_pack["assets"] if a.get("id", "").startswith("asset-listicle-")}
+    assert "a1" in listicle_asset_ids

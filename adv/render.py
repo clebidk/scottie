@@ -4,6 +4,7 @@ Injects byline, dates, the "Advertisement" label, the disclosure paragraph,
 a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
+import io
 import json
 import re
 import urllib.request
@@ -11,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import jinja2
+from PIL import Image
 
 from . import ingest
 from .claims import (
@@ -207,13 +209,25 @@ _ASSET_KIND_ALT_SUFFIXES = {
     "lifestyle": "lifestyle photo",
     "interior": "interior",
     "installation": "installation photo",
+    # Fix cycle 15 item 2: brand/assets-listicle-pack.json's own kind values
+    # (distinct from brand/assets.json's above).
+    "photo_product": "product photo",
+    "photo_install": "installation photo",
+    "still_video": "photo",
+    "ai_render": "product photo",
 }
 
 
 def asset_alt(asset, product_short_name):
     product_short_name = product_short_name or "Peak Saunas"
     suffix = _ASSET_KIND_ALT_SUFFIXES.get(asset.get("kind"), "photo")
-    return f"{product_short_name} – {suffix}"
+    alt = f"{product_short_name} – {suffix}"
+    # Fix cycle 15 item 2: an AI-composite render (brand/assets-listicle-pack
+    # .json's ai_generated: true rows) must never read as a real photo of a
+    # customer's home -- the alt text always says so, up front.
+    if asset.get("ai_generated"):
+        alt = f"Rendering: {alt}"
+    return alt
 
 
 def collect_asset_ids(node):
@@ -251,6 +265,60 @@ def http_fetch_bytes(url):
         return resp.read()
 
 
+# Fix cycle 15 item 1: a Drive original inlined at full size (the Mini
+# sample review file was 46 MB) blows well past anything worth emailing. Every
+# asset actually downloaded into out/<run>/<cartridge>/assets/ is downscaled
+# to this long edge and re-encoded before it ever reaches disk.
+ASSET_MAX_LONG_EDGE = 1600
+ASSET_JPEG_QUALITY = 82
+ASSET_PNG_MAX_BYTES = int(1.5 * 1024 * 1024)
+
+
+def resize_asset_bytes(data, ext, *, log=None, asset_id=None):
+    """Downscale `data` (raw image bytes) to a max ASSET_MAX_LONG_EDGE-px
+    long edge, then re-encode: JPEG at ASSET_JPEG_QUALITY, except a PNG stays
+    a PNG unless the re-encoded PNG would be bigger than ASSET_PNG_MAX_BYTES,
+    in which case it's converted to JPEG too. Returns (new_bytes, new_ext).
+    Logs original and final byte counts. Anything Pillow can't open (not an
+    image, or a corrupt/partial download) is returned unchanged -- resizing
+    is a size optimization, not a correctness gate; a bad download is already
+    handled by the HTML-sniffing check in download_asset."""
+    original_bytes = len(data)
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception as e:
+        if log:
+            log.event("render", f"asset {asset_id} could not be opened as an image, skipping resize ({e})")
+        return data, ext
+
+    is_png = (img.format or "").upper() == "PNG"
+
+    if img.width > ASSET_MAX_LONG_EDGE or img.height > ASSET_MAX_LONG_EDGE:
+        img.thumbnail((ASSET_MAX_LONG_EDGE, ASSET_MAX_LONG_EDGE), Image.LANCZOS)
+
+    new_bytes, new_ext = None, None
+    if is_png:
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", optimize=True)
+        png_bytes = buf.getvalue()
+        if len(png_bytes) <= ASSET_PNG_MAX_BYTES:
+            new_bytes, new_ext = png_bytes, ".png"
+
+    if new_bytes is None:
+        rgb_img = img.convert("RGB") if img.mode in ("RGBA", "P", "LA") else img
+        buf = io.BytesIO()
+        rgb_img.save(buf, format="JPEG", quality=ASSET_JPEG_QUALITY)
+        new_bytes, new_ext = buf.getvalue(), ".jpg"
+
+    if log:
+        log.event(
+            "render",
+            f"asset {asset_id} downscaled: {original_bytes} -> {len(new_bytes)} bytes ({ext} -> {new_ext})",
+        )
+    return new_bytes, new_ext
+
+
 def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, drive_downloader=ingest.download_drive_file):
     """Download one asset (Shopify CDN image, or a Drive file via
     drive_downloader/ingest.download_drive_file) into dest_dir as
@@ -281,6 +349,8 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
             if log:
                 log.event("render", f"asset {asset['id']} download looked like HTML; skipping")
             return None
+
+        data, ext = resize_asset_bytes(data, ext, log=log, asset_id=asset["id"])
 
         dest_path = dest_dir / f"{asset['id']}{ext}"
         dest_path.write_bytes(data)

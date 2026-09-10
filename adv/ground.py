@@ -19,6 +19,11 @@ DEFAULT_CONFIG = {
     # ordinary unmatched claim. "warn" -- a locked-topic AD OVERCLAIM no
     # longer stops the run; see claims.gate_ad_brief_claims and README.md.
     "ad_overclaim_policy": "stop",
+    # Fix cycle 15 item 2: brand/assets-listicle-pack.json's ai_generated:
+    # true rows (Firefly/Gemini/gpt-image composites, not photographs) are
+    # never eligible for selection -- see select_listicle_pack_assets --
+    # unless Caleb has explicitly turned this on.
+    "allow_ai_renders": False,
 }
 
 # Fix 8: for the chosen product's Drive assets, prefer lifestyle/interior,
@@ -26,6 +31,16 @@ DEFAULT_CONFIG = {
 DRIVE_ASSET_TIERS = (("lifestyle", "interior"), ("render",), ("installation",))
 DRIVE_ASSET_NEVER_KINDS = {"video", "logo", "ugc"}
 DRIVE_ASSET_MAX = 6
+
+# Fix cycle 15 item 2: brand/assets-listicle-pack.json only has real coverage
+# for these two models (docs/DRIVE-AUDIT-LISTICLE.md's counts) -- wiring it
+# in for a model it has no assets for would just add empty lookups.
+LISTICLE_PACK_MODELS = {"mini", "matterhorn"}
+# Real photos first (photo_product/photo_install, plus still_video -- brand
+# generally, not model-specific); an ai_render only ever becomes eligible via
+# select_listicle_pack_assets's own allow_ai_renders gate.
+LISTICLE_PACK_TIERS = (("photo_product", "photo_install", "still_video"), ("ai_render",))
+LISTICLE_PACK_ASSET_MAX = 6
 
 # Fix cycle 3 item 3: these are cleared, product-wide (not per-model) claims
 # from claims/seed-from-gbrain.json's allowlist ("Only state verified claims:
@@ -133,6 +148,44 @@ def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
     return selected
 
 
+def select_listicle_pack_assets(pack_index, model_slug, allow_ai_renders, limit=LISTICLE_PACK_ASSET_MAX):
+    """Up to `limit` assets from brand/assets-listicle-pack.json for
+    model_slug ("mini" or "matterhorn"), real photos (photo_product,
+    photo_install) and brand stills (still_video) first, an ai_render only if
+    `allow_ai_renders` is true (claims/config.json's allow_ai_renders, default
+    False) -- never selected otherwise, per docs/DRIVE-AUDIT-LISTICLE.md's
+    policy-decision-needed flag. An excluded asset is skipped either way."""
+    candidates = [
+        a
+        for a in pack_index.get("assets", [])
+        if (a.get("model") == model_slug or a.get("kind") == "still_video") and not a.get("excluded")
+    ]
+    download_pattern = pack_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
+    selected, seen = [], set()
+    for tier in LISTICLE_PACK_TIERS:
+        if len(selected) >= limit:
+            break
+        for a in candidates:
+            if len(selected) >= limit:
+                break
+            if a["id"] in seen or a.get("kind") not in tier:
+                continue
+            if a.get("ai_generated") and not allow_ai_renders:
+                continue
+            seen.add(a["id"])
+            selected.append(
+                {
+                    "id": f"asset-listicle-{a['id']}",
+                    "drive_id": a["id"],
+                    "url": download_pattern.format(id=a["id"]),
+                    "kind": a.get("kind"),
+                    "alt": a.get("title") or f"{model_slug} sauna",
+                    "ai_generated": bool(a.get("ai_generated")),
+                }
+            )
+    return selected
+
+
 class LocalFactsSource:
     """Reads claims/products.json and claims/verified.json from disk."""
 
@@ -142,6 +195,7 @@ class LocalFactsSource:
         self._products = None
         self._verified = None
         self._assets_index = None
+        self._listicle_pack_index = None
 
     def _load(self):
         if self._products is None:
@@ -154,6 +208,12 @@ class LocalFactsSource:
             assets_path = self.brand_dir / "assets.json"
             self._assets_index = json.loads(assets_path.read_text()) if assets_path.exists() else {"assets": []}
         return self._assets_index
+
+    def _load_listicle_pack_index(self):
+        if self._listicle_pack_index is None:
+            pack_path = self.brand_dir / "assets-listicle-pack.json"
+            self._listicle_pack_index = json.loads(pack_path.read_text()) if pack_path.exists() else {"assets": []}
+        return self._listicle_pack_index
 
     def all_verified_claims(self, live_price_claims=None, extra_claims=None):
         """The full claims/verified.json universe, for gating ad_brief.claims_made
@@ -252,7 +312,12 @@ class LocalFactsSource:
         ]
         name_slug = product["name"].lower().replace(" ", "-")
         drive_assets = select_drive_assets(self._load_assets_index(), name_slug)
-        assets = shopify_assets + drive_assets  # Shopify images stay first, as hero (fix 8)
+        listicle_pack_assets = []
+        if name_slug in LISTICLE_PACK_MODELS:
+            listicle_pack_assets = select_listicle_pack_assets(
+                self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders"))
+            )
+        assets = shopify_assets + drive_assets + listicle_pack_assets  # Shopify images stay first, as hero (fix 8)
 
         price_id = f"price-{name_slug}"
         spec_ids = {s["claim_id"] for s in specs if s.get("claim_id")}

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from adv.claims import ClaimsGateFailure
-from adv.render import build_sources_list, render_page, resolve_public_url
+from adv.render import asset_alt, build_sources_list, render_page, resolve_public_url
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -675,3 +675,162 @@ def test_disclosure_text_omits_financing_estimates(tmp_path):
         "Every specific claim on this page is sourced; see Sources below. "
         "Prices were current as of the publish date above and may have changed since."
     ) in html
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 15 item 1: every asset downloaded into out/<run>/<cartridge>/
+# assets/ is downscaled to a max 1600px long edge and re-encoded (JPEG
+# quality 82; PNG kept as PNG unless the re-encoded PNG would exceed 1.5 MB,
+# then converted to JPEG). The Mini sample review file was 46 MB because
+# Drive originals were inlined at full size.
+# ---------------------------------------------------------------------------
+
+from io import BytesIO
+
+from PIL import Image
+
+from adv.render import ASSET_MAX_LONG_EDGE, ASSET_PNG_MAX_BYTES, download_asset, resize_asset_bytes
+
+
+def _make_image_bytes(width, height, fmt="PNG", color=(120, 60, 200)):
+    img = Image.new("RGB", (width, height), color=color)
+    buf = BytesIO()
+    img.save(buf, format=fmt)
+    return buf.getvalue()
+
+
+def test_resize_asset_bytes_shrinks_a_large_png_to_the_max_long_edge():
+    original = _make_image_bytes(4000, 3000, fmt="PNG")
+    new_bytes, new_ext = resize_asset_bytes(original, ".png", asset_id="a1")
+    img = Image.open(BytesIO(new_bytes))
+    assert max(img.width, img.height) == ASSET_MAX_LONG_EDGE
+    assert new_ext == ".png"
+    assert len(new_bytes) < len(original)
+
+
+def test_resize_asset_bytes_leaves_a_small_image_under_the_cap_untouched_in_size():
+    original = _make_image_bytes(400, 300, fmt="PNG")
+    new_bytes, new_ext = resize_asset_bytes(original, ".png", asset_id="a1")
+    img = Image.open(BytesIO(new_bytes))
+    assert img.width == 400 and img.height == 300
+    assert new_ext == ".png"
+
+
+def test_resize_asset_bytes_converts_a_png_over_1_5mb_to_jpeg():
+    # A large, low-compressibility PNG (random-ish per-pixel noise defeats
+    # PNG's lossless compression) that stays over ASSET_PNG_MAX_BYTES even
+    # after the long-edge downscale.
+    import random
+
+    random.seed(0)
+    img = Image.new("RGB", (ASSET_MAX_LONG_EDGE, ASSET_MAX_LONG_EDGE))
+    img.putdata([(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for _ in range(img.width * img.height)])
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    original = buf.getvalue()
+    assert len(original) > ASSET_PNG_MAX_BYTES
+
+    new_bytes, new_ext = resize_asset_bytes(original, ".png", asset_id="a1")
+    assert new_ext == ".jpg"
+    assert Image.open(BytesIO(new_bytes)).format == "JPEG"
+
+
+def test_resize_asset_bytes_reencodes_a_jpeg_at_quality_82():
+    original = _make_image_bytes(4000, 2000, fmt="JPEG")
+    new_bytes, new_ext = resize_asset_bytes(original, ".jpg", asset_id="a1")
+    assert new_ext == ".jpg"
+    img = Image.open(BytesIO(new_bytes))
+    assert max(img.width, img.height) == ASSET_MAX_LONG_EDGE
+    assert img.format == "JPEG"
+
+
+def test_resize_asset_bytes_logs_original_and_final_byte_counts():
+    class FakeLog:
+        def __init__(self):
+            self.events = []
+
+        def event(self, stage, message):
+            self.events.append((stage, message))
+
+    log = FakeLog()
+    original = _make_image_bytes(4000, 3000, fmt="PNG")
+    new_bytes, _ = resize_asset_bytes(original, ".png", log=log, asset_id="a1")
+    assert any(
+        f"{len(original)}" in msg and f"{len(new_bytes)}" in msg and "downscaled" in msg for _, msg in log.events
+    )
+
+
+def test_resize_asset_bytes_leaves_non_image_bytes_unchanged():
+    # download_asset's own HTML-sniff already filters out an HTML error page
+    # before resize_asset_bytes ever runs, but a corrupt/partial download
+    # should degrade gracefully (original bytes kept) rather than crash the
+    # run -- this is the same shape as tests/test_render.py's existing fake
+    # "\xff\xd8\xff\xe0fake-jpeg-bytes" download fixtures.
+    original = b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+    new_bytes, new_ext = resize_asset_bytes(original, ".png", asset_id="a1")
+    assert new_bytes == original
+    assert new_ext == ".png"
+
+
+def test_download_asset_resizes_a_real_downloaded_image(tmp_path):
+    large = _make_image_bytes(4000, 3000, fmt="PNG")
+
+    def fake_fetch_url(url):
+        return large
+
+    dest_dir = tmp_path / "assets"
+    path = download_asset({"id": "hero", "url": "https://example.com/hero.png"}, dest_dir, fetch_url=fake_fetch_url)
+    assert path is not None
+    img = Image.open(path)
+    assert max(img.width, img.height) == ASSET_MAX_LONG_EDGE
+    assert path.stat().st_size < len(large)
+
+
+def test_render_page_then_review_stays_under_12mb_with_a_large_fake_image(tmp_path):
+    """Regression for the 46 MB Mini sample review file: a large Drive
+    original downloaded at render time must be downscaled before it ever
+    reaches out/<run>/<cartridge>/assets/, so `adv review`'s data-URI-inlined
+    HTML stays well under the 12 MB per-page ceiling."""
+    from adv.cli import cmd_review
+    import argparse
+
+    large = _make_image_bytes(6000, 4000, fmt="PNG")
+
+    def fake_fetch_url(url):
+        return large
+
+    run_dir = tmp_path / "run"
+    out_dir = run_dir / "product-page"
+    render_page(
+        cartridge_name="product-page",
+        page=PRODUCT_PAGE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "adv" / "templates",
+        out_dir=out_dir,
+        published="2026-09-09",
+        updated="2026-09-09",
+        fetch_url=fake_fetch_url,
+    )
+
+    exit_code = cmd_review(argparse.Namespace(run_dir=str(run_dir)))
+    assert exit_code == 0
+    review_path = run_dir / "product-page-review.html"
+    assert review_path.stat().st_size < 12 * 1024 * 1024
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 15 item 2: an asset marked ai_generated (brand/assets-listicle-
+# pack.json rows) must always get "Rendering:" prefixed to its alt text.
+# ---------------------------------------------------------------------------
+
+def test_asset_alt_prefixes_rendering_for_ai_generated_assets():
+    alt = asset_alt({"kind": "ai_render", "ai_generated": True}, "Peak Mini")
+    assert alt.startswith("Rendering:")
+
+
+def test_asset_alt_does_not_prefix_rendering_for_a_real_photo():
+    alt = asset_alt({"kind": "photo_product", "ai_generated": False}, "Peak Mini")
+    assert not alt.startswith("Rendering:")
