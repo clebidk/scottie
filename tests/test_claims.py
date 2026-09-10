@@ -2,6 +2,7 @@ import pytest
 
 from harness.claims import (
     ClaimsGateFailure,
+    alias_match,
     classify_ad_claim_about,
     find_benefit_claim_shortfall,
     find_financing_violations,
@@ -11,9 +12,12 @@ from harness.claims import (
     find_leaked_claim_ids,
     find_leaked_claim_ids_visible_text,
     find_missing_attribution,
+    find_proof_stats_violations,
+    find_second_cta_violation,
     find_warranty_violations,
     gate_ad_brief_claims,
     gate_page_json,
+    match_claim,
     speaker_numbers,
     strip_leaked_claim_ids,
     validate_page_claim_ids,
@@ -1270,3 +1274,199 @@ def test_gate_page_json_still_stops_on_the_same_page_without_ad_brief():
     facts_pack = {"verified_claims": VERIFIED_CLAIMS}
     with pytest.raises(ClaimsGateFailure):
         gate_page_json(page, facts_pack, "some-other-cartridge")
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 11 (Thursday queue item 1): deterministic alias matching,
+# checked before any semantic-match model call.
+# ---------------------------------------------------------------------------
+
+ALIAS_VERIFIED_CLAIMS = [
+    {
+        "id": "gbrain-allowlist-360-full-spectrum",
+        "text": "360 degree full spectrum infrared heater placement.",
+        "category": "spec",
+        "source": "https://peaksaunas.com/products/fuji",
+        "aliases": ["4-in-1", "near, mid, far infrared plus red light"],
+    },
+    {
+        "id": "gbrain-allowlist-red-light",
+        "text": "Medical-grade red light therapy (included standard).",
+        "category": "trust",
+        "source": "https://peaksaunas.com/products/fuji",
+        "aliases": ["medical-grade panel", "medical grade red light panel"],
+    },
+]
+
+
+def test_alias_match_matches_4in1_alias_to_full_spectrum_claim():
+    best, ratio = alias_match("4-in-1: near, mid, far infrared + red light", ALIAS_VERIFIED_CLAIMS)
+    assert best is not None
+    assert best["id"] == "gbrain-allowlist-360-full-spectrum"
+
+
+def test_alias_match_matches_medical_grade_panel_alias_to_red_light_claim():
+    best, ratio = alias_match("medical-grade panel", ALIAS_VERIFIED_CLAIMS)
+    assert best is not None
+    assert best["id"] == "gbrain-allowlist-red-light"
+
+
+def test_alias_match_returns_none_when_no_alias_is_close_enough():
+    best, ratio = alias_match("free two-day shipping on every order", ALIAS_VERIFIED_CLAIMS)
+    assert best is None
+
+
+def test_alias_match_respects_numeric_guard():
+    # A claim's own aliases still can't be used to smuggle past a wrong
+    # number -- same numeric-token guard as ordinary word-overlap matching.
+    claims = [
+        {
+            "id": "price-fuji",
+            "text": "The Peak Saunas Fuji is priced at $8250.",
+            "category": "price",
+            "source": "https://peaksaunas.com/products/fuji",
+            "aliases": ["an unbeatable price"],
+        }
+    ]
+    best, ratio = alias_match("an unbeatable price of $9999", claims)
+    assert best is None
+
+
+def test_match_claim_uses_alias_before_semantic_mapping():
+    # Even when a (wrong) semantic mapping is offered for this exact text,
+    # the deterministic alias match still wins -- fix cycle 16 item 11:
+    # "checked deterministically before the model call."
+    best, ratio = match_claim(
+        "medical-grade panel", ALIAS_VERIFIED_CLAIMS,
+        semantic_mapping={"medical-grade panel": None},
+    )
+    assert best is not None
+    assert best["id"] == "gbrain-allowlist-red-light"
+
+
+def test_gate_ad_brief_claims_matches_4in1_claim_via_alias_with_no_semantic_mapping():
+    ad_brief = {"claims_made": ["4-in-1: near, mid, far infrared + red light"]}
+    matched, overclaims, alt = gate_ad_brief_claims(ad_brief, ALIAS_VERIFIED_CLAIMS, policy="stop")
+    assert overclaims == []
+    assert matched[0]["matched_claim_id"] == "gbrain-allowlist-360-full-spectrum"
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 12 (Thursday queue item 2): narrow the warranty heuristic
+# trigger to a sentence that actually asserts coverage.
+# ---------------------------------------------------------------------------
+
+
+def test_find_warranty_violations_ignores_descriptive_prose_with_no_coverage_assertion():
+    page = {"body_sections": [{"paragraphs": [
+        {"text": "Read the warranty terms before you buy, not just the marketing page."}
+    ]}]}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_ignores_a_bare_mention_with_no_assertion_word():
+    page = {"faq": {"questions": [{"text": "What does the warranty page actually say?"}]}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+def test_find_warranty_violations_still_catches_a_false_coverage_assertion():
+    # A sentence that DOES assert coverage ("covers", and the "lifetime
+    # warranty" bigram the underlying check keys on) but isn't one of the
+    # allowed forms must still be caught -- the narrowed trigger only
+    # exempts descriptive prose with no coverage assertion at all, it never
+    # widens what is_allowed() itself accepts.
+    page = {"proof_bullets": [{"text": "Our lifetime warranty covers every part of the sauna, forever."}]}
+    hits = find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS)
+    assert len(hits) == 1
+
+
+def test_find_warranty_violations_still_catches_backed_by_wording():
+    page = {"proof_bullets": [{"text": "Backed by a lifetime warranty on absolutely everything."}]}
+    hits = find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS)
+    assert len(hits) == 1
+
+
+def test_find_warranty_violations_still_allows_the_exact_sentence_with_narrowed_trigger():
+    # Regression: the fixed allowed sentence itself contains "lifetime", so
+    # the narrowed trigger still reaches it and is_allowed() still passes it.
+    page = {"trust_strip": {"warranty": {
+        "text": "Limited lifetime warranty; full terms by component are published on the warranty page."
+    }}}
+    assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 3 (design note 7): longform's optional hero.proof_stats.
+# ---------------------------------------------------------------------------
+
+
+def test_find_proof_stats_violations_noop_when_absent():
+    assert find_proof_stats_violations({"hero": {}}) == []
+    assert find_proof_stats_violations({}) == []
+
+
+def test_find_proof_stats_violations_passes_when_every_stat_has_a_claim_id():
+    page = {"hero": {"proof_stats": [
+        {"value": "4.8/5", "label": "from 1,200+ reviews", "claim_ids": ["reviews-live"]},
+        {"value": "Free", "label": "shipping, always", "claim_ids": ["shipping-policy"]},
+    ]}}
+    assert find_proof_stats_violations(page) == []
+
+
+def test_find_proof_stats_violations_flags_a_stat_with_no_claim_id():
+    page = {"hero": {"proof_stats": [
+        {"value": "4.8/5", "label": "from 1,200+ reviews", "claim_ids": ["reviews-live"]},
+        {"value": "Free", "label": "shipping, always"},
+    ]}}
+    hits = find_proof_stats_violations(page)
+    assert len(hits) == 1
+    assert "proof_stats[1]" in hits[0]["path"]
+
+
+def test_gate_page_json_stops_on_proof_stats_with_no_claim_id():
+    page = {"hero": {"proof_stats": [{"value": "4.8/5", "label": "reviews"}]}}
+    facts_pack = {"verified_claims": []}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, facts_pack, "longform")
+    assert any("proof_stats" in item["path"] for item in exc_info.value.items)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 5 (design note 9): never more than one CTA/offer card.
+# ---------------------------------------------------------------------------
+
+
+def test_find_second_cta_violation_passes_a_single_top_level_cta_url():
+    page = {"cta_text": "Shop the Fuji", "cta_url": "https://peaksaunas.com/products/fuji", "hero": {"headline": "x"}}
+    assert find_second_cta_violation(page) == []
+
+
+def test_find_second_cta_violation_catches_a_nested_offer_card():
+    page = {
+        "cta_text": "Shop the Fuji",
+        "cta_url": "https://peaksaunas.com/products/fuji",
+        "hero": {"headline": "x"},
+        "final_cta": {"headline": "Limited offer", "cta_url": "https://peaksaunas.com/pages/special-offer"},
+    }
+    hits = find_second_cta_violation(page)
+    assert len(hits) == 1
+    assert "second CTA url" in hits[0]["issue"]
+
+
+def test_gate_page_json_stops_on_second_cta_violation():
+    page = {
+        "cta_text": "Shop the Fuji",
+        "cta_url": "https://peaksaunas.com/products/fuji",
+        "extra_offer": {"cta_url": "https://peaksaunas.com/pages/other-offer"},
+    }
+    facts_pack = {"verified_claims": []}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_page_json(page, facts_pack, "longform")
+    assert any("second CTA url" in item["issue"] for item in exc_info.value.items)
+
+
+def test_find_second_cta_violation_noop_for_article_shaped_page():
+    # article's single CTA lives at cta.text/cta.url, never a top-level
+    # "cta_url" key -- this check never fires on article's own shape.
+    page = {"cta": {"text": "See the models", "url": "https://peaksaunas.com/collections/all"}}
+    assert find_second_cta_violation(page) == []

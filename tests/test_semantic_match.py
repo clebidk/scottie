@@ -167,3 +167,45 @@ def test_match_claim_falls_through_to_overlap_when_mapping_is_null():
 def test_match_claim_with_no_semantic_mapping_behaves_exactly_as_before():
     matched, ratio = match_claim("something with no overlap at all", VERIFIED_CLAIMS)
     assert matched is None
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 11 (Thursday queue item 1): temperature 0, and a claim's
+# own aliases included in the candidate text sent to the model.
+# ---------------------------------------------------------------------------
+
+ALIASED_CLAIMS = [
+    dict(FULL_SPECTRUM_CLAIM, aliases=["4-in-1", "near, mid, far infrared plus red light"]),
+    dict(RED_LIGHT_CLAIM, aliases=["medical-grade panel", "medical grade red light panel"]),
+]
+
+
+def test_semantic_match_claims_sends_temperature_zero(tmp_path):
+    claim = "medical-grade panel"
+    client = FakeClient([json_response({claim: "gbrain-allowlist-red-light"})])
+    log = RunLog("test-run", tmp_path / "run.log")
+    semantic_match_claims([claim], VERIFIED_CLAIMS, client=client, model="claude-sonnet-5", log=log)
+    log.close()
+    assert client.messages.calls[0]["temperature"] == 0
+
+
+def test_semantic_match_claims_includes_aliases_in_candidate_text(tmp_path):
+    claim = "medical-grade panel"
+    client = FakeClient([json_response({claim: "gbrain-allowlist-red-light"})])
+    log = RunLog("test-run", tmp_path / "run.log")
+    semantic_match_claims([claim], ALIASED_CLAIMS, client=client, model="claude-sonnet-5", log=log)
+    log.close()
+    sent = json.loads(client.messages.calls[0]["messages"][0]["content"])
+    red_light_entry = next(c for c in sent["verified_claims"] if c["id"] == "gbrain-allowlist-red-light")
+    assert "medical-grade panel" in red_light_entry["aliases"]
+
+
+def test_trim_verified_claims_for_prompt_omits_aliases_key_when_a_claim_has_none():
+    trimmed = _trim_verified_claims_for_prompt(VERIFIED_CLAIMS)
+    assert all("aliases" not in c for c in trimmed)
+
+
+def test_trim_verified_claims_for_prompt_includes_aliases_when_present():
+    trimmed = _trim_verified_claims_for_prompt(ALIASED_CLAIMS)
+    by_id = {c["id"]: c for c in trimmed}
+    assert by_id["gbrain-allowlist-360-full-spectrum"]["aliases"] == ["4-in-1", "near, mid, far infrared plus red light"]

@@ -297,3 +297,84 @@ def test_write_page_rejects_missing_required_key(tmp_path):
     log.close()
     assert page == ARTICLE_PAGE
     assert len(client.messages.calls) == 2
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 9 (Thursday queue item 3): consult-CTA variant per
+# tenant.yaml's cta_mode/cta_variants.
+# ---------------------------------------------------------------------------
+
+from harness.write import resolve_cta_mode
+
+
+class _FakeCtaTenant:
+    """Just enough of the Tenant interface resolve_allowed_cta_texts reads."""
+
+    def __init__(self, config):
+        self._config = config
+        self.display_name = "Acme Co"
+
+    def get(self, dotted_key, default=None):
+        node = self._config
+        for part in dotted_key.split("."):
+            if not isinstance(node, dict) or part not in node:
+                return default
+            node = node[part]
+        return node
+
+
+LONGFORM_SCHEMA = json.loads((REPO_ROOT / "cartridges" / "longform" / "schema.json").read_text())
+
+
+def test_resolve_cta_mode_explicit_buy_and_consult_win_regardless_of_angle():
+    assert resolve_cta_mode("buy", ad_angle="a custom outdoor installation") == "buy"
+    assert resolve_cta_mode("consult", ad_angle="a simple low-cost purchase") == "consult"
+
+
+def test_resolve_cta_mode_auto_picks_consult_for_a_high_consideration_angle():
+    assert resolve_cta_mode("auto", ad_angle="A custom outdoor installation for a commercial property.") == "consult"
+
+
+def test_resolve_cta_mode_auto_picks_buy_for_an_ordinary_angle():
+    assert resolve_cta_mode("auto", ad_angle="Transparent pricing beats a sales call.") == "buy"
+
+
+def test_resolve_cta_mode_unknown_value_defaults_to_buy():
+    assert resolve_cta_mode("something-else", ad_angle="a custom commercial installation") == "buy"
+
+
+def test_resolve_allowed_cta_texts_buy_mode_uses_the_cartridges_own_schema_list():
+    tenant = _FakeCtaTenant({"cta_mode": "buy", "cta_variants": {"consult": ["Book a consult"]}})
+    resolved = resolve_allowed_cta_texts(LONGFORM_SCHEMA, "Fuji", model_name="Fuji", tenant=tenant)
+    assert resolved == [t.format(short_name="Fuji", model_name="Fuji") for t in LONGFORM_SCHEMA["allowed_cta_texts"]]
+    assert "Book a consult" not in resolved
+
+
+def test_resolve_allowed_cta_texts_consult_mode_uses_tenant_cta_variants():
+    tenant = _FakeCtaTenant({
+        "cta_mode": "consult",
+        "tenant_short_name": "Acme",
+        "cta_variants": {"consult": ["Book a consult", "Talk to {tenant_short_name}"]},
+    })
+    resolved = resolve_allowed_cta_texts(LONGFORM_SCHEMA, "Fuji", model_name="Fuji", tenant=tenant)
+    assert resolved == ["Book a consult", "Talk to Acme"]
+
+
+def test_resolve_allowed_cta_texts_auto_mode_picks_consult_for_a_high_consideration_angle():
+    tenant = _FakeCtaTenant({
+        "cta_mode": "auto",
+        "tenant_short_name": "Acme",
+        "cta_variants": {"consult": ["Book a consult"]},
+    })
+    resolved = resolve_allowed_cta_texts(
+        LONGFORM_SCHEMA, "Fuji", model_name="Fuji", tenant=tenant,
+        ad_angle="A custom commercial installation.",
+    )
+    assert resolved == ["Book a consult"]
+
+
+def test_resolve_allowed_cta_texts_peak_saunas_default_is_unchanged_buy_mode():
+    # Regression: the real tenant's own default (cta_mode: buy) must leave
+    # every cartridge's allowed_cta_texts exactly as before this cycle.
+    resolved = resolve_allowed_cta_texts(LONGFORM_SCHEMA, "Fuji", model_name="Fuji", tenant=TENANT)
+    assert resolved == [t.format(short_name="Fuji", model_name="Fuji") for t in LONGFORM_SCHEMA["allowed_cta_texts"]]

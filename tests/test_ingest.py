@@ -102,6 +102,7 @@ VALID_AD_BRIEF = {
     "source_file": "ad.txt",
     "input_type": "text",
     "transcript_or_text": "full transcript here",
+    "audience": "",
 }
 
 
@@ -218,3 +219,43 @@ def test_build_ad_brief_rejects_missing_key(tmp_path):
     log.close()
     assert result == VALID_AD_BRIEF
     assert len(client.messages.calls) == 2
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 7 (Thursday queue item 3, "audience named in H1"):
+# ad_brief gains an "audience" field.
+# ---------------------------------------------------------------------------
+
+
+def test_valid_ad_brief_requires_the_audience_key():
+    bad = dict(VALID_AD_BRIEF)
+    del bad["audience"]
+    with pytest.raises(ValueError, match="audience"):
+        ingest.validate_ad_brief(bad)
+
+
+def test_validate_ad_brief_accepts_an_empty_audience_string():
+    ad_brief = dict(VALID_AD_BRIEF, audience="")
+    ingest.validate_ad_brief(ad_brief)  # does not raise
+
+
+def test_validate_ad_brief_accepts_a_named_audience():
+    ad_brief = dict(VALID_AD_BRIEF, audience="busy parents")
+    ingest.validate_ad_brief(ad_brief)  # does not raise
+
+
+def test_build_ad_brief_rejects_a_non_string_audience(tmp_path):
+    bad = dict(VALID_AD_BRIEF, audience=None)
+    client = FakeClient([json_response(bad), json_response(VALID_AD_BRIEF)])
+    budget, log = _budget_log(tmp_path)
+    result = ingest.build_ad_brief(
+        transcript_or_text="hello", source_file="ad.txt", input_type="text",
+        client=client, model="claude-sonnet-5", budget=budget, log=log,
+    )
+    log.close()
+    assert result == VALID_AD_BRIEF
+    assert len(client.messages.calls) == 2
+
+
+def test_ad_brief_system_prompt_asks_for_audience():
+    assert "audience" in ingest.AD_BRIEF_SYSTEM

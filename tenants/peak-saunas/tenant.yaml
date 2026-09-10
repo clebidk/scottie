@@ -101,3 +101,23 @@ claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-
 default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: false
+
+# Cycle 16 item 9 (Thursday queue item 3, "consult-CTA variant per config"). A
+# short form of the company name for a consult-mode CTA phrase.
+tenant_short_name: Peak Saunas
+
+# cta_mode picks which CTA phrasing set a cartridge's allowed_cta_texts draws
+# from: "buy" (default here) leaves every cartridge's own schema.json
+# allowed_cta_texts exactly as it is today; "consult" replaces it, for every
+# cartridge, with cta_variants.consult below (each template filled in with
+# {short_name}/{model_name}/{tenant_short_name}); "auto" picks "consult" when
+# the ad's own angle text matches one of write.py's short list of
+# high-consideration keywords, else "buy". cta_variants.buy is documentation
+# only today -- "buy" mode reads each cartridge's own schema list, not this
+# list -- kept here so a future tenant can override it without a code change.
+cta_mode: buy
+cta_variants:
+  buy: []
+  consult:
+    - "Book a consult"
+    - "Talk to {tenant_short_name}"

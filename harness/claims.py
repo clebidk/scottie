@@ -26,6 +26,11 @@
     how_it_works / turn_section.criteria) must carry a minimum count of
     product-benefit claim_ids (spec/benefit/trust category, excluding price/
     shipping/warranty/returns by id) -- see find_benefit_claim_shortfall.
+(g) Fix cycle 16 item 3: longform's optional hero.proof_stats row -- each
+    stat must carry a claim_id -- see find_proof_stats_violations.
+(h) Fix cycle 16 item 5: never more than one CTA/offer card per page -- a
+    "cta_url" key anywhere but the page root is a second offer card -- see
+    find_second_cta_violation.
 """
 import html
 import re
@@ -142,6 +147,33 @@ _SHORT_CLAIM_THRESHOLD = 0.5
 _DEFAULT_THRESHOLD = 0.6
 
 
+def alias_match(ad_claim_text, verified_claims):
+    """(matched_verified_claim_or_None, overlap_ratio). Fix cycle 16 item 11
+    (Thursday queue item 1): a deterministic, no-model-call check of a
+    verified claim's own `aliases` list (known equivalent ad phrasings, e.g.
+    "4-in-1" for the full-spectrum claim) -- run BEFORE any semantic
+    (model) call, so a known phrasing matches every time instead of only
+    when that run's semantic_match call happens to agree. Same overlap
+    threshold and numeric-token guard as ordinary word-overlap matching,
+    just measured against each alias's own text instead of the claim's
+    main text."""
+    ad_tokens = normalize(ad_claim_text)
+    ad_numbers = numeric_tokens(ad_tokens) - _combo_idiom_numbers(ad_claim_text)
+    threshold = _SHORT_CLAIM_THRESHOLD if len(ad_tokens) <= _SHORT_CLAIM_MAX_TOKENS else _DEFAULT_THRESHOLD
+    best, best_ratio = None, 0.0
+    for vc in verified_claims:
+        for alias in vc.get("aliases") or ():
+            alias_tokens = normalize(alias)
+            if not ad_numbers <= numeric_tokens(alias_tokens):
+                continue
+            ratio = overlap_ratio(ad_tokens, alias_tokens)
+            if ratio > best_ratio:
+                best, best_ratio = vc, ratio
+    if best_ratio >= threshold:
+        return best, best_ratio
+    return None, best_ratio
+
+
 def match_claim(ad_claim_text, verified_claims, semantic_mapping=None):
     """(matched_verified_claim_or_None, overlap_ratio). Fix cycle 12 item 4:
     if `semantic_mapping` (claims.semantic_match's {ad_claim_text:
@@ -153,7 +185,15 @@ def match_claim(ad_claim_text, verified_claims, semantic_mapping=None):
     light" -> the full-spectrum/red-light allowlist claims), but it never
     gets to override the numeric guard on its own. A rejected or missing
     mapping falls through to ordinary word-overlap matching below, exactly
-    as before this fix."""
+    as before this fix.
+
+    Fix cycle 16 item 11: an alias match (alias_match, above) is tried
+    FIRST, before semantic_mapping -- deterministic and free, so a known
+    phrasing never depends on that run's semantic-match call agreeing."""
+    alias_best, alias_ratio = alias_match(ad_claim_text, verified_claims)
+    if alias_best:
+        return alias_best, alias_ratio
+
     ad_tokens = normalize(ad_claim_text)
     ad_numbers = numeric_tokens(ad_tokens) - _combo_idiom_numbers(ad_claim_text)
 
@@ -594,11 +634,14 @@ def speaker_numbers(ad_brief):
 # validate_page_claim_ids below regardless of how the sentence is phrased.
 _ATTRIBUTABLE_PATH_RE = re.compile(
     r"^\$\.(?:"
-    r"angle_section\.paragraphs\[\d+\]"          # product-page
-    r"|open\[\d+\]"                              # article
-    r"|body_sections\[\d+\]\.paragraphs\[\d+\]"  # article
-    r"|close\.paragraphs\[\d+\]"                 # article
-    r"|problem\.paragraphs\[\d+\]"               # longform
+    r"angle_section\.paragraphs\[\d+\]"              # product-page
+    r"|open\[\d+\]"                                  # article
+    r"|body_sections\[\d+\]\.paragraphs\[\d+\]"      # article
+    r"|alternatives_section\.paragraphs\[\d+\]"      # article, fix cycle 16 item 8
+    r"|how_it_works_section\.paragraphs\[\d+\]"      # article, fix cycle 16 item 8
+    r"|close\.paragraphs\[\d+\]"                     # article
+    r"|problem\.paragraphs\[\d+\]"                   # longform
+    r"|reasons\[\d+\]"                               # listicle, fix cycle 16 item 6
     r")$"
 )
 
@@ -996,6 +1039,19 @@ _WARRANTY_SENTENCE_CORE_RE = re.compile(
 # sentence.
 _LIFETIME_WARRANTY_BIGRAM_RE = re.compile(r"lifetime\s+warranty", re.IGNORECASE)
 
+# Thursday queue item 2 / fix cycle 16 item 12: the warranty heuristic used to
+# trigger on any text containing "warrant" at all, then judge whether the
+# wording was one of the allowed forms -- which meant honest, descriptive
+# prose that merely brings up warranty as a topic ("read the warranty terms
+# before you buy", "ask what the warranty actually covers") had to pass
+# is_allowed's checks too, even though it never asserts any specific coverage.
+# Narrowed here: the check only ever fires on a sentence that actually
+# ASSERTS coverage -- one of these words alongside "warrant" -- so descriptive/
+# buyer-education mentions are left alone before is_allowed is even consulted.
+_WARRANTY_COVERAGE_ASSERTION_RE = re.compile(
+    r"\b(?:cover(?:s|ed|age)?|backed|guarantee[sd]?|years?|lifetime)\b", re.IGNORECASE
+)
+
 
 def find_warranty_violations(page_json, verified_claims):
     verified_warranty_texts = {
@@ -1018,7 +1074,12 @@ def find_warranty_violations(page_json, verified_claims):
 
     def walk(node, path):
         if isinstance(node, str):
-            if "warrant" in node.lower() and not is_allowed(node):
+            lowered = node.lower()
+            if (
+                "warrant" in lowered
+                and _WARRANTY_COVERAGE_ASSERTION_RE.search(lowered)
+                and not is_allowed(node)
+            ):
                 hits.append(
                     {
                         "path": path,
@@ -1044,6 +1105,67 @@ def find_warranty_violations(page_json, verified_claims):
     return hits
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 3 (design note 7, "Proposed Changes"): longform's optional
+# hero.proof_stats row -- 2-3 stats directly under the hero subhead -- is
+# verified-claims-only. No-op when proof_stats is absent (it's optional; the
+# cartridge should omit it rather than pad it out with nothing to cite).
+# ---------------------------------------------------------------------------
+
+
+def find_proof_stats_violations(page_json):
+    stats = (page_json.get("hero") or {}).get("proof_stats") if isinstance(page_json, dict) else None
+    if not stats:
+        return []
+    hits = []
+    for i, stat in enumerate(stats):
+        if not isinstance(stat, dict) or not stat.get("claim_ids"):
+            hits.append(
+                {
+                    "path": f"$.hero.proof_stats[{i}]",
+                    "issue": "proof_stats item must carry at least one claim_id -- "
+                             "every stat comes from facts_pack.verified_claims only",
+                }
+            )
+    return hits
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 5 (design note 9, "Roman hub" anti-pattern): never render
+# more than one CTA/offer card on a page. The page's own top-level cta_url
+# (longform/product-page/listicle) is the one allowed CTA destination; any
+# OTHER node anywhere in page_json that carries its own "cta_url" key is a
+# second offer card the writer added on its own. No-op for article, whose
+# schema has no "cta_url" key at all (its single CTA lives at cta.text/url,
+# under the non-prose-exempt "cta" object, which this check doesn't touch).
+# ---------------------------------------------------------------------------
+
+
+def find_second_cta_violation(page_json):
+    hits = []
+
+    def walk(node, path, is_root):
+        if isinstance(node, dict):
+            if not is_root and "cta_url" in node:
+                hits.append(
+                    {
+                        "path": f"{path}.cta_url",
+                        "issue": (
+                            f"second CTA url found on the page ({node.get('cta_url')!r}) -- "
+                            "only one CTA/offer card is allowed per page"
+                        ),
+                    }
+                )
+            for k, v in node.items():
+                walk(v, f"{path}.{k}", False)
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]", False)
+
+    walk(page_json, "$", True)
+    return hits
+
+
 def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None, ad_brief=None):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
     digit_exempt_terms = facts_pack.get("digit_exempt_terms")
@@ -1063,6 +1185,8 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_financing_violations(page_json, financing_lender=financing_lender)
     problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
     problems += find_missing_attribution(page_json)
+    problems += find_proof_stats_violations(page_json)
+    problems += find_second_cta_violation(page_json)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
 

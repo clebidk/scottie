@@ -1,7 +1,7 @@
 {
   "type": "object",
   "allowed_cta_texts": ["See the models", "Read the specs"],
-  "required": ["headline", "dek", "open", "body_sections", "turn_section", "close", "cta", "images"],
+  "required": ["headline", "dek", "open", "body_sections", "alternatives_section", "how_it_works_section", "turn_section", "close", "cta", "images"],
   "properties": {
     "headline": {
       "type": "string",
@@ -45,6 +45,42 @@
                   "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id."
                 }
               }
+            }
+          }
+        }
+      }
+    },
+    "alternatives_section": {
+      "type": "object",
+      "description": "One H2 + 2-3 paragraphs on why the reader's usual alternatives (doing nothing, a generic/other brand, a DIY workaround) don't actually solve the problem the open laid out. Objection-driven, still education, still no product name.",
+      "properties": {
+        "heading": {"type": "string"},
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"},
+              "attributed_to_customer": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "how_it_works_section": {
+      "type": "object",
+      "description": "One H2 + 2-3 paragraphs walking through the mechanism/process that actually solves the problem (still generic, not yet the product) -- sets up the turn to 'what to look for'.",
+      "properties": {
+        "heading": {"type": "string"},
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"},
+              "attributed_to_customer": {"type": "boolean"}
             }
           }
         }

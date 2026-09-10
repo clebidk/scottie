@@ -156,6 +156,12 @@ REQUIRED_KEYS = {
     "source_file": str,
     "input_type": str,
     "transcript_or_text": str,
+    # Fix cycle 16 item 7 (Thursday queue item 3, "audience named in H1"): the
+    # specific audience the ad itself names, e.g. "busy parents", "apartment
+    # dwellers" -- "" (never omitted) when the ad doesn't name one. A
+    # cartridge's headline rule uses this to name the reader directly instead
+    # of a generic "you" when the ad gave it something specific to say.
+    "audience": str,
 }
 
 AD_BRIEF_SYSTEM = """You analyze a direct-response ad transcript (or on-image ad text) and extract a structured brief as JSON.
@@ -174,6 +180,7 @@ Output ONLY a single JSON object with exactly these keys, no markdown fences, no
 - source_file: string, the input filename you were given
 - input_type: string, one of "video", "still", "text" as given to you
 - transcript_or_text: string, the full transcript or on-image text you were given, verbatim
+- audience: string, a short (2-4 word) name for the specific audience the ad itself names or clearly addresses (e.g. "busy parents", "apartment dwellers", "new homeowners") -- "" (empty string) if the ad speaks to a general reader with no specific audience named or clearly implied. Do not invent one; only report an audience the ad itself actually gives you.
 
 Rules:
 - Every string in claims_made must be independently checkable against an outside source (a number, a named comparison, a specific claim).

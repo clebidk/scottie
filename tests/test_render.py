@@ -73,7 +73,17 @@ ARTICLE_PAGE = {
     "headline": "Why the checkout page decides more than the price",
     "dek": "A look at what makes people trust a purchase enough to finish it.",
     "open": [{"text": "Shopping used to mean waiting for a callback."}],
-    "body_sections": [{"heading": "Why hidden pricing kills trust", "paragraphs": [{"text": "Buyers move on when the price is hidden."}] + _filler_paragraphs(22)}],
+    "body_sections": [{"heading": "Why hidden pricing kills trust", "paragraphs": [{"text": "Buyers move on when the price is hidden."}] + _filler_paragraphs(16)}],
+    # Fix cycle 16 item 8: article gained two required stages between
+    # body_sections and turn_section.
+    "alternatives_section": {
+        "heading": "Why the usual workarounds fall short",
+        "paragraphs": [{"text": "Calling in for a number rarely goes any faster."}] + _filler_paragraphs(2),
+    },
+    "how_it_works_section": {
+        "heading": "How an upfront price actually works",
+        "paragraphs": [{"text": "The page states the number and lets the buyer compare it."}] + _filler_paragraphs(2),
+    },
     "turn_section": {
         "heading": "What to look for",
         "intro": "A few signs.",
@@ -834,3 +844,80 @@ def test_asset_alt_prefixes_rendering_for_ai_generated_assets():
 def test_asset_alt_does_not_prefix_rendering_for_a_real_photo():
     alt = asset_alt({"kind": "photo_product", "ai_generated": False}, "Peak Mini")
     assert not alt.startswith("Rendering:")
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 3 (design note 7): longform's optional hero.proof_stats
+# row, rendered directly under the hero subhead.
+# ---------------------------------------------------------------------------
+
+
+def test_render_page_shows_longform_proof_stats_row_when_present(tmp_path):
+    page = dict(LONGFORM_PAGE, hero=dict(LONGFORM_PAGE["hero"], proof_stats=[
+        {"value": "4.8/5", "label": "from 1,200+ reviews", "claim_ids": ["reviews-live"]},
+        {"value": "Free", "label": "shipping, always", "claim_ids": ["shipping-policy"]},
+    ]))
+    index_path = render_page(
+        cartridge_name="longform",
+        page=page,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "harness" / "templates",
+        out_dir=tmp_path / "longform",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "4.8/5" in html
+    assert "from 1,200+ reviews" in html
+    assert "adv-proof-stats" in html
+
+
+def test_render_page_omits_longform_proof_stats_row_when_absent(tmp_path):
+    index_path = render_page(
+        cartridge_name="longform",
+        page=LONGFORM_PAGE,  # no proof_stats key
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "harness" / "templates",
+        out_dir=tmp_path / "longform",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert "adv-proof-stats" not in html
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 8: article's two new stages between body_sections and
+# turn_section.
+# ---------------------------------------------------------------------------
+
+
+def test_render_page_shows_article_alternatives_and_how_it_works_sections(tmp_path):
+    index_path = render_page(
+        cartridge_name="article",
+        page=ARTICLE_PAGE,
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=tmp_path / "brand-does-not-exist",
+        templates_dir=REPO_ROOT / "harness" / "templates",
+        out_dir=tmp_path / "article",
+        published="2026-09-09",
+        updated="2026-09-09",
+        download_assets=False,
+    )
+    html = index_path.read_text()
+    assert ARTICLE_PAGE["alternatives_section"]["heading"] in html
+    assert ARTICLE_PAGE["how_it_works_section"]["heading"] in html
+    assert "adv-alternatives" in html
+    assert "adv-how-it-works" in html
+    # ordered between body_sections and turn_section
+    assert html.index(ARTICLE_PAGE["alternatives_section"]["heading"]) < html.index(ARTICLE_PAGE["turn_section"]["heading"])

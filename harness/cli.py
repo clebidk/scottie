@@ -536,7 +536,8 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
     word_range = parse_word_range(cartridge_md)
     allowed_cta_texts = resolve_allowed_cta_texts(
-        schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"]
+        schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"],
+        tenant=tenant, ad_angle=(ad_brief or {}).get("angle"),
     )
     valid_claim_ids = {c["id"] for c in facts_pack["verified_claims"]}
 
@@ -641,6 +642,88 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         revision_note = build_revision_note(attempt, failures_seen)
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 16: soft checks. Every one of these is advisory only -- a
+# REVIEW.md warning line, never a gate failure, never a repair-loop trigger.
+# They exist so an operator sees a formula/rule miss at review time without
+# the run STOPping or spending a repair call on something that isn't a
+# claims/policy violation.
+# ---------------------------------------------------------------------------
+
+# Design note 1 (item A1): article's headline formula, 8-14 words. Not
+# enforced as a hard gate -- a real headline can reasonably land a word or
+# two outside the target and still be a perfectly good headline.
+HEADLINE_WORD_RANGE = (8, 14)
+
+
+def find_headline_word_count_warning(page, cartridge_name, word_range=HEADLINE_WORD_RANGE):
+    if cartridge_name != "article":
+        return None
+    headline = page.get("headline") or ""
+    wc = len(headline.split())
+    lo, hi = word_range
+    if lo <= wc <= hi:
+        return None
+    return f"{cartridge_name}: headline is {wc} word(s), outside the {lo}-{hi} target: {headline!r}"
+
+
+# Swipe-file item 6: proof inside each reason/section -- article's
+# body_sections and listicle's reasons should each carry at least one
+# claim_id, or an attributed customer statement, somewhere inside.
+_PROOF_WARNING_SECTIONS = {
+    "article": lambda page: [
+        (f"body_sections[{i}]", section.get("paragraphs") or [])
+        for i, section in enumerate(page.get("body_sections") or [])
+    ],
+    "listicle": lambda page: [(f"reasons[{i}]", [reason]) for i, reason in enumerate(page.get("reasons") or [])],
+}
+
+
+def _node_has_proof(node):
+    return isinstance(node, dict) and (bool(node.get("claim_ids")) or node.get("attributed_to_customer") is True)
+
+
+def find_missing_section_proof_warnings(page, cartridge_name):
+    get_sections = _PROOF_WARNING_SECTIONS.get(cartridge_name)
+    if not get_sections:
+        return []
+    warnings = []
+    for label, nodes in get_sections(page):
+        if not any(_node_has_proof(n) for n in nodes):
+            warnings.append(
+                f"{cartridge_name}: {label} has no claim_id and no attributed customer statement"
+            )
+    return warnings
+
+
+# Swipe-file item 7: when ad_brief.audience names a specific audience, the
+# headline should name it -- checked only for cartridges with a plain
+# top-level "headline" string.
+def find_audience_headline_warning(page, cartridge_name, ad_brief):
+    audience = (ad_brief or {}).get("audience") or ""
+    if not audience or cartridge_name not in ("article", "listicle"):
+        return None
+    headline = page.get("headline") or ""
+    if audience.lower() in headline.lower():
+        return None
+    return f'{cartridge_name}: ad_brief.audience {audience!r} is not named in the headline: {headline!r}'
+
+
+def find_soft_check_warnings(pages, ad_brief):
+    """One warning string per issue, across every written page. Never
+    raised, never gated -- purely REVIEW.md's own advisory section."""
+    warnings = []
+    for cartridge_name, page in pages.items():
+        headline_warning = find_headline_word_count_warning(page, cartridge_name)
+        if headline_warning:
+            warnings.append(headline_warning)
+        warnings += find_missing_section_proof_warnings(page, cartridge_name)
+        audience_warning = find_audience_headline_warning(page, cartridge_name, ad_brief)
+        if audience_warning:
+            warnings.append(audience_warning)
+    return warnings
+
+
 def _log_run_result(log, result, gate_log):
     """Fix cycle 4 item 5: `run_result: PASS|STOP attempts=<n> repairs=<m>`,
     summed across every cartridge write_and_gate_page got to before the run
@@ -725,6 +808,17 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     for name in selected:
         wc = count_words(pages[name])
         lines.append(f"- {name}: {wc} words")
+
+    # Fix cycle 16: soft checks (headline formula, proof-inside-section,
+    # audience-in-headline) -- advisory only, never a gate failure.
+    lines.append("")
+    lines.append("## Soft-check warnings (non-blocking)")
+    soft_warnings = find_soft_check_warnings(pages, ad_brief)
+    if soft_warnings:
+        for w in soft_warnings:
+            lines.append(f"- {w}")
+    else:
+        lines.append("- none")
 
     lines.append("")
     lines.append("## Review checklist")

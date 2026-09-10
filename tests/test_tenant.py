@@ -196,3 +196,59 @@ def test_activate_switches_the_active_vocabulary():
         assert vocab.BANNED_NAMES == ("acme",)
     finally:
         vocab.set_active(previous)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 9 (Thursday queue item 3): consult-CTA config.
+# ---------------------------------------------------------------------------
+
+
+def test_peak_saunas_cta_mode_defaults_to_buy():
+    assert TENANT.get("cta_mode") == "buy"
+
+
+def test_peak_saunas_cta_variants_consult_list_is_configured():
+    consult = TENANT.get("cta_variants.consult")
+    assert consult
+    assert any("{tenant_short_name}" in t for t in consult)
+
+
+def test_peak_saunas_tenant_short_name_is_configured():
+    assert TENANT.get("tenant_short_name")
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 10 (Thursday queue item 3): HSA/FSA via TrueMed --
+# pending, never verified, until Caleb signs off.
+# ---------------------------------------------------------------------------
+
+
+def test_hsa_fsa_truemed_claim_is_pending_not_verified():
+    pending = json.loads((TENANT.claims_dir / "pending.json").read_text())
+    ids = {c["id"] for c in pending}
+    assert "pending-hsa-fsa-truemed" in ids
+    entry = next(c for c in pending if c["id"] == "pending-hsa-fsa-truemed")
+    assert entry["status"] in ("pending_review", "needs-caleb")
+
+    verified = json.loads((TENANT.claims_dir / "verified.json").read_text())
+    verified_ids = {c["id"] for c in verified}
+    assert "pending-hsa-fsa-truemed" not in verified_ids
+    # No verified claim states the specific new trust line itself (an
+    # existing internal financing-terms claim mentions TrueMed only as
+    # background context, which is not the same as an approved page claim).
+    assert not any(entry["text"].lower() in c["text"].lower() for c in verified)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 16 item 11: aliases on the full-spectrum/red-light allowlist
+# claims.
+# ---------------------------------------------------------------------------
+
+
+def test_full_spectrum_and_red_light_claims_carry_the_expected_aliases():
+    verified = json.loads((TENANT.claims_dir / "verified.json").read_text())
+    by_id = {c["id"]: c for c in verified}
+    for cid in ("gbrain-allowlist-360-full-spectrum", "gbrain-allowlist-red-light"):
+        aliases = by_id[cid].get("aliases") or []
+        assert "4-in-1" in aliases
+        assert "medical-grade panel" in aliases

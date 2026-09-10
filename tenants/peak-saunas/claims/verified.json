@@ -637,7 +637,13 @@
     "category": "trust",
     "source": "gbrain:competitors/overview",
     "approved_by": "gbrain-seed",
-    "date": "2026-09-09"
+    "date": "2026-09-09",
+    "aliases": [
+      "4-in-1",
+      "near, mid, far infrared plus red light",
+      "medical-grade panel",
+      "medical grade red light panel"
+    ]
   },
   {
     "id": "gbrain-allowlist-free-shipping",
@@ -653,7 +659,13 @@
     "category": "spec",
     "source": "gbrain:competitors/overview",
     "approved_by": "gbrain-seed",
-    "date": "2026-09-09"
+    "date": "2026-09-09",
+    "aliases": [
+      "4-in-1",
+      "near, mid, far infrared plus red light",
+      "medical-grade panel",
+      "medical grade red light panel"
+    ]
   },
   {
     "id": "gbrain-allowlist-us-owned",

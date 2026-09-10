@@ -27,7 +27,7 @@ MAX_VERIFIED_CLAIMS_FOR_PROMPT = 120
 
 SEMANTIC_MATCH_SYSTEM = """You map each ad claim to the one verified claim it means the same thing as, or null.
 
-You will be given "ad_claims" (a list of strings) and "verified_claims" (a list of {"id": ..., "text": ...} objects).
+You will be given "ad_claims" (a list of strings) and "verified_claims" (a list of {"id": ..., "text": ...} objects, some also carrying an "aliases" list of known equivalent ad phrasings for that same claim -- treat an alias exactly like the claim's own "text" when judging whether an ad claim means the same thing).
 
 Output ONLY a single JSON object whose keys are EXACTLY the ad claim strings you were given (verbatim, unchanged) and whose values are each either a verified claim's "id" string, or null. No markdown fences, no commentary before or after.
 
@@ -41,9 +41,18 @@ Rules:
 
 
 def _trim_verified_claims_for_prompt(verified_claims, limit=MAX_VERIFIED_CLAIMS_FOR_PROMPT):
-    """id + text only (never category/source -- the model doesn't need them
-    to judge equivalent meaning), capped to `limit` items."""
-    return [{"id": c["id"], "text": c["text"]} for c in list(verified_claims)[:limit]]
+    """id + text (+ aliases, when the claim has any -- fix cycle 16 item 11:
+    a known ad phrasing like "4-in-1" is candidate text the model should see
+    alongside the claim's own wording, not just a deterministic-matcher-only
+    list) -- never category/source, the model doesn't need them to judge
+    equivalent meaning -- capped to `limit` items."""
+    trimmed = []
+    for c in list(verified_claims)[:limit]:
+        entry = {"id": c["id"], "text": c["text"]}
+        if c.get("aliases"):
+            entry["aliases"] = list(c["aliases"])
+        trimmed.append(entry)
+    return trimmed
 
 
 def semantic_match_claims(claims_made, verified_claims, *, client, model, budget=None, log=None):
@@ -64,6 +73,11 @@ def semantic_match_claims(claims_made, verified_claims, *, client, model, budget
         response = client.messages.create(
             model=model,
             max_tokens=1500,
+            # Fix cycle 16 item 11: deterministic output for this call --
+            # this is a fixed mapping decision, not creative writing, and a
+            # stable answer run-to-run is exactly what the Thursday queue's
+            # "semantic matcher variance" bug report asked for.
+            temperature=0,
             thinking={"type": "disabled"},
             system=SEMANTIC_MATCH_SYSTEM,
             messages=[{"role": "user", "content": user_content}],

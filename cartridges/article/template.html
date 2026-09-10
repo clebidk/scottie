@@ -36,6 +36,24 @@
   </div>
   {% endif %}
 
+  {% if page.alternatives_section %}
+  <section class="adv-alternatives">
+    <h2>{{ page.alternatives_section.heading }}</h2>
+    {% for p in page.alternatives_section.paragraphs %}
+    <p>{{ p.text }}</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if page.how_it_works_section %}
+  <section class="adv-how-it-works">
+    <h2>{{ page.how_it_works_section.heading }}</h2>
+    {% for p in page.how_it_works_section.paragraphs %}
+    <p>{{ p.text }}</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
   <section class="adv-turn">
     <h2>{{ page.turn_section.heading }}</h2>
     {% if page.turn_section.intro %}<p>{{ page.turn_section.intro }}</p>{% endif %}

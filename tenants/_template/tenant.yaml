@@ -52,3 +52,16 @@ claim_id_prefixes: [spec-, price-, pdp-, reviews-]
 default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: false
+
+# Cycle 16 item 9: consult-CTA variant. tenant_short_name is a short form of
+# the company name for a consult-mode CTA phrase, e.g. "Talk to {tenant_short_name}".
+# cta_mode: "buy" (leave every cartridge's own schema.json allowed_cta_texts
+# unchanged -- the safe default for a new tenant), "consult" (every
+# cartridge's allowed CTA texts become cta_variants.consult instead), or
+# "auto" (consult only when the ad's own angle matches a high-consideration
+# keyword -- see harness/write.py's HIGH_CONSIDERATION_ANGLE_KEYWORDS).
+tenant_short_name: CHANGE ME
+cta_mode: buy
+cta_variants:
+  buy: []
+  consult: []

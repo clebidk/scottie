@@ -14,6 +14,13 @@
     {% endif %}
     <h1>{{ page.hero.headline }}</h1>
     <p class="adv-dek">{{ page.hero.subhead }}</p>
+    {% if page.hero.proof_stats %}
+    <ul class="adv-proof-stats">
+      {% for stat in page.hero.proof_stats %}
+      <li><span class="adv-proof-value">{{ stat.value }}</span><span class="adv-proof-label">{{ stat.label }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if page.hero.financing_line %}
       {% if product.financing and product.financing.lender %}
       <p class="adv-financing">{{ page.hero.financing_line.text }}</p>

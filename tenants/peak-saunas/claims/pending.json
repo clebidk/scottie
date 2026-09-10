@@ -149,5 +149,16 @@
     "note": "Fix cycle 12 item 5: g Brain search for \"Longevity Lab\" confirms it is a real, current, separate high-ticket program (6-month, several-thousand-dollar tiers per a non-allowed-type pricing record not cited here), never included with a sauna purchase and never to be conflated with Peak Wellness Club. Exact quote and source: \"Peak Longevity Lab (PLL) -- Completely separate from PWC. High-ticket. Application-only. NOT included with sauna purchase. 160+ biomarker panel, Dedicated health coordinator, 6-month personalized health protocol.\" (outline/customer-support/peak-saunas-training-hub-v3-52ad71aa, type outline-doc; also support/training-hub-v3, type concept). Flagging defensively, not because any current ad references it: if a future ad ever does, this must never be implied as included with a sauna, and any dollar figure needs Caleb's explicit sign-off before it could move to verified.json -- pricing is tiered and high enough ($12k-$22k+ per non-cited internal pricing notes) that an error here would be a serious overclaim.",
     "status": "needs-caleb",
     "date_flagged": "2026-09-10"
+  },
+  {
+    "id": "pending-hsa-fsa-truemed",
+    "text": "HSA/FSA eligible via TrueMed",
+    "category": "trust",
+    "appeared_in": [
+      "g Brain: knowledge-map.md's own product-facts summary lists \"HSA/FSA via TrueMed\" alongside the other always-true product facts (full-spectrum IR, medical-grade RLT, EMF <3mG seated, lifetime warranty, Affirm/Shop Pay financing, free shipping)."
+    ],
+    "note": "Fix cycle 16 item 10 (Thursday queue item 3: \"HSA/FSA via TrueMed trust line, once verified\"): tenants/peak-saunas/docs/knowledge-map.md line 8 states \"HSA/FSA via TrueMed\" as an active-model fact, with policy/financing-and-payment named as one of the doc's own best-source slugs (g Brain policy slug: policy/financing-and-payment) -- but that slug was not itself opened/quoted as part of this cycle's task, so this is not yet a page-ready verified claim: no TrueMed program terms, eligibility scope, or a direct quote from policy/financing-and-payment has been captured here. Needs Caleb's sign-off (and the direct policy/financing-and-payment quote/source) before this can move to verified.json and appear as a trust line on any page.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-10"
   }
 ]

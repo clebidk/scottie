@@ -71,6 +71,7 @@ AD_BRIEF_RESPONSE = {
     "source_file": "hidden-costs-v2.transcript.txt",
     "input_type": "text",
     "transcript_or_text": FIXTURE.read_text(),
+    "audience": "",
 }
 
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
@@ -152,6 +153,7 @@ PRICE_INFERENCE_AD_BRIEF = {
     "source_file": "price-comparison-v2.transcript.txt",
     "input_type": "text",
     "transcript_or_text": "I think I'm going to buy the Peak sauna.",
+    "audience": "",
 }
 
 

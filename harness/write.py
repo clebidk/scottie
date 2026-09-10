@@ -188,9 +188,54 @@ def word_range_target(word_range):
 # so an existing caller/template with no "{model_name}" placeholder is
 # unaffected; str.format only substitutes a placeholder that's actually
 # present in the template string.
-def resolve_allowed_cta_texts(schema, short_name, model_name=None):
-    templates = schema.get("allowed_cta_texts") or []
-    return [t.format(short_name=short_name, model_name=model_name) for t in templates]
+#
+# Fix cycle 16 item 9 (Thursday queue item 3, "consult-CTA variant per
+# config"): a short, fixed list of angle keywords marking an ad as
+# high-consideration -- worth a human conversation before a self-serve
+# purchase -- for tenant.yaml's cta_mode "auto". Deliberately small, per the
+# brief ("a short list of angle keywords"), not exhaustive.
+HIGH_CONSIDERATION_ANGLE_KEYWORDS = (
+    "custom", "commercial", "installation", "install", "financing",
+    "consultation", "multi-person", "outdoor", "wholesale", "bulk",
+)
+
+
+def resolve_cta_mode(cta_mode, ad_angle=None):
+    """"buy" or "consult" -- resolves tenant.yaml's cta_mode ("buy",
+    "consult", or "auto") for this run. "auto" is "consult" when
+    `ad_angle` (ad_brief.angle) contains one of
+    HIGH_CONSIDERATION_ANGLE_KEYWORDS, else "buy". Any other/missing value
+    is treated as "buy" -- the safer, unchanged-behavior default."""
+    if cta_mode == "consult":
+        return "consult"
+    if cta_mode != "auto":
+        return "buy"
+    angle = (ad_angle or "").lower()
+    return "consult" if any(kw in angle for kw in HIGH_CONSIDERATION_ANGLE_KEYWORDS) else "buy"
+
+
+def resolve_allowed_cta_texts(schema, short_name, model_name=None, tenant=None, ad_angle=None):
+    """Fix cycle 16 item 9: when this run's resolved cta_mode (tenant.yaml's
+    cta_mode, via resolve_cta_mode) is "consult", the cartridge's own
+    schema.json allowed_cta_texts is set aside in favor of the tenant's own
+    cta_variants.consult list -- every cartridge becomes consult-CTA for
+    that run. "buy" (peak-saunas' default, and the default for a tenant that
+    never sets cta_mode) leaves schema's own list exactly as it always
+    was -- no behavior change for the common case. Cartridges never hardcode
+    a company's consult phrasing themselves; that list lives only in the
+    tenant's own cta_variants (see tenant.yaml)."""
+    tenant = tenant or tenant_mod.active()
+    mode = resolve_cta_mode(tenant.get("cta_mode", "buy"), ad_angle)
+    templates = None
+    if mode == "consult":
+        templates = tenant.get("cta_variants.consult") or None
+    if templates is None:
+        templates = schema.get("allowed_cta_texts") or []
+    tenant_short_name = tenant.get("tenant_short_name") or tenant.display_name
+    return [
+        t.format(short_name=short_name, model_name=model_name, tenant_short_name=tenant_short_name)
+        for t in templates
+    ]
 
 
 # Fix cycle 12 item 1: exemplars are the single largest piece of a writer

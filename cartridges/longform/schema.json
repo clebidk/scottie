@@ -16,6 +16,18 @@
       "properties": {
         "headline": {"type": "string"},
         "subhead": {"type": "string"},
+        "proof_stats": {
+          "type": "array",
+          "description": "Optional 2-3 stat proof row directly under the subhead, before the first body section -- verified claims only. Every item needs claim_ids; omit the row entirely rather than invent or pad a stat.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {"type": "string", "description": "The bold number/figure, e.g. '4.8/5' or 'Free'."},
+              "label": {"type": "string", "description": "Short sublabel, e.g. 'from 1,200+ reviews' or 'shipping, always'."},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        },
         "hero_image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
         "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
       }
