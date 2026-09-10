@@ -32,6 +32,13 @@ def global_voice_block(tenant=None):
     """
     tenant = tenant or tenant_mod.active()
     v = vocab.active()
+    # Fix cycle 21: claims/config.json's financing_lender (via tenant.yaml's
+    # own fallback default) is tenant-scoped, stable config -- same category
+    # as vocab.yaml's fixed sentences, already baked into this cached block --
+    # not a per-run value, so reading it here (rather than threading it in as
+    # a separate parameter) keeps cached_system_prefix's cache key exactly
+    # what it already was: a function of the tenant, nothing per-run.
+    financing_lender = tenant.claims_config.get("financing_lender")
 
     company = tenant.display_name
     author_name = (tenant.author("author") or {}).get("name") or "the page author"
@@ -73,6 +80,37 @@ def global_voice_block(tenant=None):
         else ""
     )
 
+    # Fix cycle 21: the ONLY sentence a page may ever state a financing offer
+    # in is vocab.allowed_financing_sentence(financing_lender) -- the
+    # no-lender sentence when no lender is configured, or the with-lender
+    # sentence (naming the actual configured lender) when one is. Before
+    # this cycle, this paragraph always named the no-lender sentence
+    # regardless of financing_lender -- the root cause of every rendered
+    # page showing "Financing is available at checkout." even once a lender
+    # (Bread Pay) was configured (docs/FIXLOG.md Cycle 18's own
+    # verification flagged this, unfixed at the time). Financing is still a
+    # single fixed sentence either way -- a lender being configured never
+    # means the writer may state a monthly figure or an APR; there's no real
+    # lender quote anywhere in this codebase to source one from (fix cycle 10).
+    allowed_financing_sentence = v.allowed_financing_sentence(financing_lender)
+    if financing_lender:
+        financing_rule = (
+            f"Financing: use facts_pack.product.financing. A lender ({financing_lender}) is configured for "
+            "this tenant, but the ONLY sentence you may write anywhere on the page that actually STATES a "
+            f'financing offer -- a monthly figure, a lender name, or that financing is available -- is exactly "{allowed_financing_sentence}", '
+            "verbatim, nothing added before or after it in that field. Never invent a monthly figure or APR, "
+            "and never name any other lender -- the configured lender's name only ever appears inside that one "
+            "exact sentence."
+        )
+    else:
+        financing_rule = (
+            "Financing: use facts_pack.product.financing. If financing.lender is null, you may discuss "
+            "financing as a general topic (e.g. contrasting it with the sticker price), but the ONLY sentence "
+            "you may write anywhere on the page that actually STATES a financing offer -- a monthly figure, a "
+            f'lender name, or that financing is available -- is exactly "{allowed_financing_sentence}", '
+            "verbatim, nothing added before or after it in that field. Never invent a monthly figure or lender name."
+        )
+
     return f"""## Voice and output rules
 
 Voice: plain, specific, no hype words ({hype_words_list}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
@@ -100,7 +138,7 @@ If the user message includes "exemplars", use them only as a voice and structure
 ## Guardrails
 {guardrails}
 
-Financing: use facts_pack.product.financing. If financing.lender is null, you may discuss financing as a general topic (e.g. contrasting it with the sticker price), but the ONLY sentence you may write anywhere on the page that actually STATES a financing offer -- a monthly figure, a lender name, or that financing is available -- is exactly "{v.allowed_financing_sentence_no_lender}", verbatim, nothing added before or after it in that field. Never invent a monthly figure or lender name.{lender_clause}
+{financing_rule}{lender_clause}
 
 Compare-at / list price: only mention a "was $X" / compare-at / strikethrough price if facts_pack.product.compare_at_price is non-null. If it is null, state only the current price.
 

@@ -13,6 +13,7 @@ from tests.support import REPO_ROOT, TENANT
 from harness.write import (
     build_initial_write_request,
     cached_system_prefix,
+    global_voice_block,
     load_cartridge_prompt,
     load_exemplars,
     max_tokens_for_word_range,
@@ -176,9 +177,11 @@ def test_write_page_retries_once_on_bad_json(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Fix cycle 6 item 3/4: the forbidden-word list sits at the very top of the
-# system prompt, verbatim; the financing prompt states the one sentence
-# that's allowed when no lender is configured.
+# Fix cycle 6 item 3/4 (broadened fix cycle 21): the forbidden-word list sits
+# at the very top of the system prompt, verbatim; the financing prompt
+# states the one sentence that's allowed -- the no-lender sentence, or (fix
+# cycle 21) the with-lender one once claims/config.json's financing_lender
+# is configured.
 # ---------------------------------------------------------------------------
 
 def test_write_page_puts_forbidden_word_list_at_top_of_system_prompt(tmp_path):
@@ -208,7 +211,15 @@ def test_write_page_puts_forbidden_word_list_at_top_of_system_prompt(tmp_path):
     assert system.index(ALWAYS_FORBIDDEN_TERMS[0]) < system.index("## JSON schema for page.json")
 
 
-def test_write_page_system_prompt_states_the_exact_financing_sentence(tmp_path):
+def test_write_page_system_prompt_states_the_with_lender_financing_sentence(tmp_path):
+    # Fix cycle 21: TENANT (peak-saunas) has financing_lender "Bread Pay"
+    # configured in its real claims/config.json (fix cycle 18) -- write_page
+    # now resolves that (via global_voice_block -> tenant.claims_config) and
+    # states the with-lender sentence, not the no-lender one. This is the
+    # actual root-cause fix: before this cycle, this paragraph always named
+    # the no-lender sentence regardless of financing_lender (docs/FIXLOG.md
+    # Cycle 18's own real-run verification flagged every rendered page
+    # keeping the stale no-lender sentence, unfixed at the time).
     client = FakeClient([json_response(ARTICLE_PAGE)])
     budget = Budget()
     log = RunLog("test-run", tmp_path / "run.log")
@@ -224,7 +235,25 @@ def test_write_page_system_prompt_states_the_exact_financing_sentence(tmp_path):
     )
     log.close()
     system = block_text(client.messages.calls[0]["system"])
-    assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in system
+    assert "Financing is available through Bread Pay at checkout." in system
+    assert ALLOWED_FINANCING_SENTENCE_NO_LENDER not in system
+
+
+def test_global_voice_block_states_the_no_lender_sentence_when_no_lender_is_configured():
+    # global_voice_block only reads tenant.claims_config, tenant.display_name,
+    # and tenant.author -- a minimal duck-typed double covers the no-lender
+    # branch directly without needing a second, fully-configured tenant
+    # fixture (TENANT, the only real one under test, has a lender configured).
+    class _NoLenderTenant:
+        claims_config = {"financing_lender": None}
+        display_name = "Test Co"
+
+        def author(self, role):
+            return {"name": "Test Author"}
+
+    block = global_voice_block(_NoLenderTenant())
+    assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in block
+    assert "Bread Pay" not in block
 
 
 def test_write_page_system_prompt_states_the_exact_warranty_sentence(tmp_path):

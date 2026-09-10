@@ -29,7 +29,11 @@
           }
         },
         "hero_image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
-        "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+        "financing_line": {
+          "type": "object",
+          "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- never a freeform monthly figure, APR, or lender name typed in directly here.",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        }
       }
     },
     "problem": {
@@ -120,7 +124,11 @@
       "description": "Headline + financing/warranty lines. CTA text/url are the shared page.cta_text/page.cta_url from the hero -- do not repeat them here.",
       "properties": {
         "headline": {"type": "string"},
-        "financing_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
+        "financing_line": {
+          "type": "object",
+          "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- never a freeform monthly figure, APR, or lender name typed in directly here.",
+          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+        },
         "warranty_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
       }
     },

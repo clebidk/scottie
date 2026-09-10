@@ -47,7 +47,7 @@
     },
     "closing": {
       "type": "object",
-      "description": "Closing block: 1 paragraph naming {{ tenant.name }}, the fixed warranty sentence, and the fixed no-lender financing sentence.",
+      "description": "Closing block: 1 paragraph naming {{ tenant.name }}, the fixed warranty sentence, and the allowed financing sentence given in the prompt's Financing rule.",
       "properties": {
         "headline": {
           "type": "string",
@@ -70,7 +70,7 @@
         },
         "financing_line": {
           "type": "object",
-          "description": "Must be exactly 'Financing is available at checkout.' while no lender is configured -- see the global voice block.",
+          "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- see the global voice block. Never a freeform monthly figure, APR, or lender name typed in directly here.",
           "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
         }
       }

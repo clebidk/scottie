@@ -25,6 +25,10 @@ trigger_word_synonyms:
 implied_claim_forbidden_terms: []
 
 allowed_financing_sentence_no_lender: "Financing is available at checkout."
+# {lender} is filled in with claims/config.json's financing_lender at read
+# time (harness/vocab.py Vocabulary.allowed_financing_sentence) -- keep this
+# tenant-neutral, no lender name baked in here.
+allowed_financing_sentence_with_lender_template: "Financing is available through {lender} at checkout."
 allowed_warranty_sentence: "CHANGE ME"
 allowed_warranty_spec_label: "Warranty"
 allowed_warranty_spec_value: "CHANGE ME"

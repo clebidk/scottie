@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from harness.budget import Budget, BudgetExceeded
-from harness.claims import ClaimsGateFailure, find_warranty_violations
+from harness.claims import ClaimsGateFailure, find_financing_violations, find_warranty_violations
 from harness.cli import (
     MAX_REPAIR_ATTEMPTS,
     apply_deterministic_fixes,
@@ -22,7 +22,13 @@ from harness.cli import (
     write_and_gate_page,
 )
 from harness.log import RunLog
-from harness.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_LABEL, ALLOWED_WARRANTY_SPEC_VALUE, ALWAYS_FORBIDDEN_TERMS
+from harness.vocab import (
+    ALLOWED_WARRANTY_SENTENCE,
+    ALLOWED_WARRANTY_SPEC_LABEL,
+    ALLOWED_WARRANTY_SPEC_VALUE,
+    ALWAYS_FORBIDDEN_TERMS,
+    allowed_financing_sentence,
+)
 from harness.write import parse_word_range, resolve_allowed_cta_texts
 from tests.conftest import FakeClient, FakeResponse, block_text, json_response
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
@@ -476,6 +482,80 @@ def test_write_and_gate_page_resolves_warranty_violation_via_deterministic_fix_w
     assert attempts == [[]]
     assert deterministic_fixes == [1]
     assert page["close"]["paragraphs"][0]["text"] == ALLOWED_WARRANTY_SENTENCE
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 21: financing wording, deterministic pre-repair -- same shape as
+# the warranty fix above (fix cycle 13 item 1). Before this cycle, no
+# deterministic fix existed for a financing_line violation at all (the gate
+# itself no-op'd once a lender was configured, so nothing was ever flagged
+# to fix in the first place -- docs/FIXLOG.md Cycle 18's own real-run
+# verification found every rendered page kept the stale no-lender sentence).
+# ---------------------------------------------------------------------------
+
+def test_apply_deterministic_fixes_resolves_a_financing_line_with_no_lender_configured():
+    page = {"hero": {"financing_line": {"text": "Financing is available for as low as $75/mo.", "claim_ids": []}}}
+    failures = find_financing_violations(page, financing_lender=None)
+    assert len(failures) == 1
+    fixed = apply_deterministic_fixes(page, failures, set(), financing_lender=None)
+    assert fixed == 1
+    assert page["hero"]["financing_line"]["text"] == allowed_financing_sentence(None)
+    assert find_financing_violations(page, financing_lender=None) == []
+
+
+def test_apply_deterministic_fixes_resolves_a_financing_line_once_a_lender_is_configured():
+    # The exact stale-sentence bug docs/FIXLOG.md Cycle 18 flagged: the page
+    # still states the no-lender sentence even though a lender is configured.
+    page = {"hero": {"financing_line": {"text": "Financing is available at checkout.", "claim_ids": []}}}
+    failures = find_financing_violations(page, financing_lender="Bread Pay")
+    assert len(failures) == 1
+    fixed = apply_deterministic_fixes(page, failures, set(), financing_lender="Bread Pay")
+    assert fixed == 1
+    assert page["hero"]["financing_line"]["text"] == "Financing is available through Bread Pay at checkout."
+    assert find_financing_violations(page, financing_lender="Bread Pay") == []
+
+
+def test_apply_deterministic_fixes_leaves_the_allowed_with_lender_sentence_unchanged():
+    page = {"hero": {"financing_line": {"text": "Financing is available through Bread Pay at checkout.", "claim_ids": []}}}
+    assert find_financing_violations(page, financing_lender="Bread Pay") == []
+    fixed = apply_deterministic_fixes(page, [], set(), financing_lender="Bread Pay")
+    assert fixed == 0
+    assert page["hero"]["financing_line"]["text"] == "Financing is available through Bread Pay at checkout."
+
+
+def test_write_and_gate_page_resolves_financing_violation_via_deterministic_fix_without_a_repair_call(tmp_path):
+    # Mirrors test_write_and_gate_page_resolves_warranty_violation_via_
+    # deterministic_fix_without_a_repair_call above, but for financing wording
+    # once a lender is configured -- exercised through the real
+    # write_and_gate_page path (not just apply_deterministic_fixes directly),
+    # confirming financing_lender reaches the deterministic pass end to end.
+    # article's schema.json declares financing_line as a bare string, not an
+    # object -- matches that shape (unlike hero/final_cta's {"text": ...}
+    # object in product-page/longform).
+    bad_page = dict(ARTICLE_PAGE, financing_line="Financing is available at checkout.")
+    client = FakeClient([json_response(bad_page)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, deterministic_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender="Bread Pay",
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+
+    assert len(client.messages.calls) == 1  # no repair call needed
+    assert attempts == [[]]
+    assert deterministic_fixes == [1]
+    assert page["financing_line"] == "Financing is available through Bread Pay at checkout."
 
 
 # ---------------------------------------------------------------------------

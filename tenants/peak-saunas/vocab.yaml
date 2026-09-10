@@ -46,10 +46,16 @@ implied_claim_forbidden_terms:
   - american-made
   - made in the usa
 
-# Fixed sentences. While no lender is configured, the financing sentence is the
-# only way financing may be stated anywhere on a page. The warranty sentence is
-# the only allowed prose form; the label/value pair is its spec-table form.
+# Fixed sentences. The financing sentence -- no-lender or with-lender,
+# whichever applies once claims/config.json's financing_lender is checked --
+# is the only way financing may be stated anywhere on a page. The warranty
+# sentence is the only allowed prose form; the label/value pair is its
+# spec-table form.
 allowed_financing_sentence_no_lender: "Financing is available at checkout."
+# Cycle 21: {lender} is filled in with the configured lender (Bread Pay) at
+# read time -- kept tenant-neutral here so the template itself carries no
+# lender name.
+allowed_financing_sentence_with_lender_template: "Financing is available through {lender} at checkout."
 allowed_warranty_sentence: "Limited lifetime warranty; full terms by component are published on the warranty page."
 allowed_warranty_spec_label: "Warranty"
 allowed_warranty_spec_value: "Limited lifetime warranty (terms by component)"

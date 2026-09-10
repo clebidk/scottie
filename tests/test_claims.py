@@ -4,6 +4,8 @@ from harness.claims import (
     ClaimsGateFailure,
     alias_match,
     classify_ad_claim_about,
+    classify_locked_topic,
+    evaluate_financing_claim,
     find_benefit_claim_shortfall,
     find_financing_violations,
     find_first_person_violations,
@@ -707,9 +709,33 @@ def test_find_financing_violations_flags_any_other_financing_line_text():
     assert "Financing is available at checkout." in hits[0]["issue"]
 
 
-def test_find_financing_violations_noop_once_a_lender_is_configured():
-    page = {"hero": {"financing_line": {"text": "Financing is available for as low as $75/mo with Affirm."}}}
+# Fix cycle 21: once a lender is configured, find_financing_violations no
+# longer no-ops -- it validates financing_line against the formatted
+# with-lender sentence instead, the same way it already validated against
+# the no-lender sentence. Before this fix, a page could (and did, see
+# docs/FIXLOG.md Cycle 18's verification) keep rendering the no-lender
+# sentence forever even with a real lender configured, because nothing
+# checked financing_line at all in that case.
+def test_find_financing_violations_allows_the_exact_with_lender_sentence():
+    page = {"hero": {"financing_line": {"text": "Financing is available through Affirm at checkout."}}}
     assert find_financing_violations(page, financing_lender="Affirm") == []
+
+
+def test_find_financing_violations_flags_the_no_lender_sentence_once_a_lender_is_configured():
+    # The exact bug docs/FIXLOG.md Cycle 18 flagged and left unfixed: the
+    # page renders the OLD (no-lender) sentence even though a lender is now
+    # configured. That must be a violation, not a pass.
+    page = {"hero": {"financing_line": {"text": "Financing is available at checkout."}}}
+    hits = find_financing_violations(page, financing_lender="Affirm")
+    assert len(hits) == 1
+    assert "Financing is available through Affirm at checkout." in hits[0]["issue"]
+
+
+def test_find_financing_violations_flags_a_monthly_figure_once_a_lender_is_configured():
+    page = {"hero": {"financing_line": {"text": "Financing is available for as low as $75/mo with Affirm."}}}
+    hits = find_financing_violations(page, financing_lender="Affirm")
+    assert len(hits) == 1
+    assert "Financing is available through Affirm at checkout." in hits[0]["issue"]
 
 
 def test_find_financing_violations_ignores_pages_with_no_financing_line_field():
@@ -993,6 +1019,65 @@ def test_financing_claim_is_always_an_overclaim_with_no_configured_lender():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_ad_brief_claims(ad_brief, [], policy="stop")
     assert exc_info.value.items[0]["topic"] == "financing"
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 21: once a lender is configured, a financing ad claim that names
+# it with no dollar figure/monthly payment/APR matches the formatted
+# with-lender sentence; a claim carrying any of those figures is still an
+# overclaim -- no real lender quote exists anywhere in this codebase to check
+# a specific figure against (unchanged gap from fix cycle 10).
+# ---------------------------------------------------------------------------
+
+def test_evaluate_financing_claim_matches_when_the_claim_names_the_lender_with_no_figure():
+    ok, fact = evaluate_financing_claim("Financing available through Bread Pay", "Bread Pay")
+    assert ok is True
+    assert fact == "Financing is available through Bread Pay at checkout."
+
+
+def test_evaluate_financing_claim_is_an_overclaim_when_it_carries_a_dollar_figure():
+    ok, fact = evaluate_financing_claim("Financing available from est. $257/mo through Bread Pay", "Bread Pay")
+    assert ok is False
+    assert fact == "Financing is available through Bread Pay at checkout."
+
+
+def test_evaluate_financing_claim_is_an_overclaim_when_it_carries_an_apr():
+    ok, fact = evaluate_financing_claim("0% APR financing through Bread Pay", "Bread Pay")
+    assert ok is False
+    assert fact == "Financing is available through Bread Pay at checkout."
+
+
+def test_evaluate_financing_claim_is_an_overclaim_when_it_names_no_lender_at_all():
+    ok, fact = evaluate_financing_claim("Financing is available", "Bread Pay")
+    assert ok is False
+    assert fact == "Financing is available through Bread Pay at checkout."
+
+
+def test_classify_locked_topic_routes_the_configured_lender_name_with_no_figure_to_financing():
+    # Before fix cycle 21, a claim naming only the configured lender (no
+    # dollar/monthly figure) fell through to the ordinary word-overlap path
+    # -- vocab.LENDER_NAME_RE only matches a *forbidden* lender name, and the
+    # configured lender is deliberately not on that list (fix cycle 18).
+    assert classify_locked_topic("Financing available through Bread Pay", "Bread Pay") == "financing"
+    assert classify_locked_topic("Financing available through Bread Pay", None) is None
+
+
+def test_financing_claim_naming_the_configured_lender_matches_in_the_full_gate():
+    ad_brief = {"claims_made": ["Financing available through Bread Pay"]}
+    matched, overclaims, alt_claims = gate_ad_brief_claims(
+        ad_brief, [], policy="stop", financing_lender="Bread Pay",
+    )
+    assert overclaims == []
+    assert matched[0]["claim"] == "Financing available through Bread Pay"
+
+
+def test_financing_claim_with_a_dollar_figure_still_overclaims_once_a_lender_is_configured():
+    ad_brief = {"claims_made": ["Financing available from est. $257/mo through Bread Pay"]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, [], policy="stop", financing_lender="Bread Pay")
+    item = exc_info.value.items[0]
+    assert item["topic"] == "financing"
+    assert item["verified_fact"] == "Financing is available through Bread Pay at checkout."
 
 
 def test_price_claim_matches_current_product_price_regardless_of_wording():

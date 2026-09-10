@@ -457,17 +457,49 @@ def _fix_warranty_violation(page, path, valid_claim_ids):
     return True
 
 
-def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None):
+# ---------------------------------------------------------------------------
+# Fix cycle 21: financing wording, deterministic pre-repair -- same rationale
+# and shape as _fix_warranty_violation above (fix cycle 13 item 1): a
+# financing_line gate failure always has the same fix (the one allowed
+# sentence for this run, no-lender or with-lender), so resolve it here,
+# before spending a real repair call on it.
+# ---------------------------------------------------------------------------
+
+
+def _fix_financing_violation(page, path, financing_lender):
+    """Replaces a financing-wording gate failure at `path` with the one
+    allowed financing sentence for this run (vocab.allowed_financing_sentence,
+    formatted with financing_lender when set). Returns True if the page was
+    changed. Unlike warranty, the fixed sentence carries no digit/lender-name
+    trigger of its own, so no claim_id needs attaching."""
+    try:
+        segs = _path_segments(path)
+        node = page
+        for seg in segs[:-1]:
+            node = node[seg]
+        key = segs[-1]
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(node, dict) or not isinstance(node.get(key), str):
+        return False
+    node[key] = vocab.allowed_financing_sentence(financing_lender)
+    return True
+
+
+def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
+                               financing_lender=None):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
     claim id leaked into a parenthetical, a trigger word with a safe
-    generic synonym (_TRIGGER_WORD_SYNONYMS), or a warranty-wording
-    violation (fix cycle 13 item 1) -- and leaving everything else (a
-    missing claim_id with no safe rewrite, a word-count or CTA violation,
-    EMF, a banned name) for a real repair call. Returns the number of
-    fields changed. `log`/`cartridge_name`, when both given, get one
-    "deterministic fix applied: warranty sentence" event per warranty field
-    fixed."""
+    generic synonym (_TRIGGER_WORD_SYNONYMS), a warranty-wording violation
+    (fix cycle 13 item 1), or a financing-wording violation (fix cycle 21) --
+    and leaving everything else (a missing claim_id with no safe rewrite, a
+    word-count or CTA violation, EMF, a banned name) for a real repair call.
+    Returns the number of fields changed. `log`/`cartridge_name`, when both
+    given, get one "deterministic fix applied: warranty sentence" (or
+    "...: financing sentence") event per field fixed. `financing_lender`
+    (fix cycle 21) is the run's configured lender, if any -- passed straight
+    through to vocab.allowed_financing_sentence for the financing fix."""
     fixed = 0
     for item in failures:
         raw_path = item.get("path")
@@ -481,6 +513,13 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None and cartridge_name is not None:
                     log.event(f"write.{cartridge_name}", "deterministic fix applied: warranty sentence")
+            continue
+
+        if "financing_line must be exactly" in issue:
+            if _fix_financing_violation(page, raw_path, financing_lender):
+                fixed += 1
+                if log is not None and cartridge_name is not None:
+                    log.event(f"write.{cartridge_name}", "deterministic fix applied: financing sentence")
             continue
 
         if term in _hype_synonyms() or term == "!":
@@ -661,7 +700,10 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         problems = _gate(page)
 
         fixed = (
-            apply_deterministic_fixes(page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name)
+            apply_deterministic_fixes(
+                page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
+                financing_lender=financing_lender,
+            )
             if problems else 0
         )
         if fixed:

@@ -115,7 +115,13 @@ that need Caleb's sign-off before they can move to `verified.json`.
   continues.
 - **`financing_lender`** -- `null` until a real lender is approved; while null, the
   writer's financing line is locked to "Financing is available at checkout." and any
-  lender name or figure in an ad claim is an AD OVERCLAIM.
+  lender name or figure in an ad claim is an AD OVERCLAIM. Once set (fix cycle 21), the
+  financing line is locked instead to "Financing is available through {lender} at
+  checkout." (`vocab.allowed_financing_sentence`) -- still a single fixed sentence, never
+  a freeform monthly figure or lender name; an ad claim naming the configured lender with
+  no $ amount, "/mo", "per month", or APR matches it, but any of those figures is still an
+  AD OVERCLAIM (no real lender quote exists anywhere in this codebase to check a specific
+  figure against).
 - **`allow_ai_renders`** -- `false` by default (fix cycle 15). Controls whether
   `ground.py` may select an `ai_generated: true` asset from
   `tenants/peak-saunas/brand/assets-listicle-pack.json` for Mini/Matterhorn. Real photos are always preferred;

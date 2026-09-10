@@ -303,18 +303,30 @@ def classify_ad_claim_about(ad_claim_text):
     return None
 
 
-def classify_locked_topic(ad_claim_text):
+def classify_locked_topic(ad_claim_text, financing_lender=None):
     """None, or one of "warranty"/"reviews"/"financing"/"price" -- checked in
     that order (a claim naming a lender and a dollar figure is financing,
     not price; a claim with a number and "5" after "out of" is reviews, not
     a bare digit). None means the ordinary word-overlap gate (match_claim)
     still applies -- this only locks the four topics that have their own
-    single source of truth to check against."""
+    single source of truth to check against.
+
+    Fix cycle 21: `financing_lender`, when given, also routes a claim to
+    "financing" if it names that exact (configured) lender, even with no
+    dollar/monthly figure -- e.g. "Financing available through Bread Pay".
+    Before this, a claim naming the configured lender alone (no figure)
+    fell through to the ordinary word-overlap path, since
+    vocab.LENDER_NAME_RE only matches a *forbidden* lender name and the
+    configured lender is deliberately not on that list (fix cycle 18)."""
     if _LOCKED_WARRANTY_RE.search(ad_claim_text):
         return "warranty"
     if _RATING_RE.search(ad_claim_text) or _REVIEW_COUNT_RE.search(ad_claim_text):
         return "reviews"
-    if _MONTHLY_FIGURE_RE.search(ad_claim_text) or vocab.LENDER_NAME_RE.search(ad_claim_text):
+    if (
+        _MONTHLY_FIGURE_RE.search(ad_claim_text)
+        or vocab.LENDER_NAME_RE.search(ad_claim_text)
+        or (financing_lender and financing_lender.lower() in ad_claim_text.lower())
+    ):
         return "financing"
     if _DOLLAR_AMOUNT_RE.search(ad_claim_text):
         return "price"
@@ -404,15 +416,37 @@ def evaluate_reviews_claim(ad_claim_text, reviews_claim):
     return True, reviews_claim["text"]
 
 
+# Fix cycle 21: any figure a lender-quote check has no source for -- a dollar
+# amount, a "/mo" or "per month" monthly payment (with or without a leading
+# $, unlike _MONTHLY_FIGURE_RE which requires one), or an APR. No real lender
+# quote exists anywhere in this codebase to verify a specific number against
+# (same gap cycle 10 documented), so any of these keeps a financing ad claim
+# an overclaim even once a lender is configured.
+_FINANCING_FIGURE_RE = re.compile(r"\$\s?[\d,]+(?:\.\d+)?|/\s?mo\b|\bper\s+month\b|\bapr\b", re.IGNORECASE)
+
+
 def evaluate_financing_claim(ad_claim_text, financing_lender):
-    """(ok, verified_fact_text). No lender quote is configured anywhere in
-    this codebase today -- claims/config.json's financing_lender is a bare
-    name, not a source of a monthly figure -- so a financing ad claim is
-    always an overclaim against the one true financing fact
-    (vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER) until Caleb wires up a real
-    lender quote to compare against. Not a gap in this cycle's fix; reported
-    as designed (see docs/FIXLOG.md Cycle 10)."""
-    return False, vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER
+    """(ok, verified_fact_text). Fix cycle 21: once claims/config.json's
+    financing_lender is configured, the one true financing fact is the
+    formatted with-lender sentence (vocab.allowed_financing_sentence(lender))
+    instead of the no-lender one -- an ad claim that names the configured
+    lender and states no dollar amount/monthly figure/APR (e.g. "Financing
+    available through Bread Pay") asserts nothing beyond what that sentence
+    already says, so it matches. Any claim carrying a $ amount, "/mo", "per
+    month", or an APR is still an overclaim -- no real lender quote exists
+    anywhere in this codebase to check a specific figure against (same gap
+    fix cycle 10 documented) -- reported against the with-lender sentence.
+    With no lender configured, behavior is unchanged from fix cycle 10:
+    always an overclaim against the no-lender sentence (see
+    docs/FIXLOG.md Cycle 10)."""
+    fact = vocab.allowed_financing_sentence(financing_lender)
+    if not financing_lender:
+        return False, fact
+    if _FINANCING_FIGURE_RE.search(ad_claim_text):
+        return False, fact
+    if financing_lender.lower() in ad_claim_text.lower():
+        return True, fact
+    return False, fact
 
 
 def evaluate_price_claim(ad_claim_text, product_price):
@@ -512,7 +546,7 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
             alternative_claims.append({"claim": claim, "about": about})
             continue
 
-        topic = classify_locked_topic(claim)
+        topic = classify_locked_topic(claim, financing_lender)
 
         if topic == "warranty":
             ok, fact = evaluate_warranty_claim(claim, verified_claims)
@@ -531,8 +565,23 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
             continue
 
         if topic == "financing":
+            # Fix cycle 21: with no lender configured, evaluate_financing_claim
+            # never returns ok=True (unchanged fix cycle 10 behavior) -- this
+            # branch only started needing the ok check once a configured
+            # lender made a real match possible.
             ok, fact = evaluate_financing_claim(claim, financing_lender)
-            overclaims.append(_overclaim_item(claim, topic, fact))
+            if ok:
+                # Synthetic id, same shape as the price branch's "price-<slug>"
+                # below -- there is no claims/verified.json entry for the
+                # fixed financing sentence itself (claims/verified.json's own
+                # "gbrain-financing-terms" is unrelated, stale g Brain figures
+                # naming a different lender -- see docs/FIXLOG.md Cycle 18's
+                # policy-financing-doc-stale note -- so it must not be reused
+                # here).
+                lender_id = re.sub(r"[^a-z0-9]+", "-", financing_lender.lower()).strip("-")
+                matched.append({"claim": claim, "matched_claim_id": f"financing-{lender_id}", "overlap": 1.0})
+            else:
+                overclaims.append(_overclaim_item(claim, topic, fact))
             continue
 
         if topic == "price":
@@ -924,13 +973,16 @@ def find_first_person_violations(page_json, speaker_pov):
     return hits
 
 
-# Fix cycle 6 item 4: while no lender is configured, the schema's dedicated
+# Fix cycle 6 item 4 (broadened fix cycle 21): the schema's dedicated
 # financing field (hero.financing_line / final_cta.financing_line in
 # product-page and longform -- the field GLOBAL_VOICE_BLOCK's financing
 # paragraph and every cartridge.md's own financing-line rule are actually
-# about) must state exactly ALLOWED_FINANCING_SENTENCE_NO_LENDER, verbatim.
-# Scoped to this one field, not scanned across every prose string, after
-# repeated live-verification failures (docs/FIXLOG.md Cycle 6) where a
+# about) must state exactly the one allowed financing sentence for this run
+# -- ALLOWED_FINANCING_SENTENCE_NO_LENDER while no lender is configured, or
+# the with-lender sentence (vocab.allowed_financing_sentence(financing_lender),
+# fix cycle 21) once one is -- verbatim, either way. Scoped to this one
+# field, not scanned across every prose string, after repeated
+# live-verification failures (docs/FIXLOG.md Cycle 6) where a
 # text-content-based version of this check kept flagging ordinary
 # buyer-education prose that merely discussed financing as a topic, or
 # that happened to also state an unrelated price/product-name digit in the
@@ -938,10 +990,19 @@ def find_first_person_violations(page_json, speaker_pov):
 # apart from an actually-invented financing figure. A lender name (or a
 # figure) invented anywhere else on the page is still caught: any other
 # lender name by find_forbidden_terms, any other invented number by the
-# digit/claim_id rule (item 2). No-op once a real lender is configured.
+# digit/claim_id rule (item 2).
+#
+# Fix cycle 21 note: cycle 18's real-run verification found this check
+# no-op'd entirely once a lender was configured (financing_lender truthy
+# skipped it outright), so a page could -- and did -- keep rendering the
+# no-lender sentence even with Bread Pay configured; nothing ever caught
+# it. Deliberately still scoped to only this one field, not reopened to a
+# broader "any text containing 'financ'" scan -- that shape was tried and
+# reverted during Cycle 6 (see its run log above) after repeatedly
+# false-positiving on ordinary buyer-education prose; nothing about the
+# with-lender case changes that risk.
 def find_financing_violations(page_json, financing_lender=None):
-    if financing_lender:
-        return []
+    allowed = vocab.allowed_financing_sentence(financing_lender)
     hits = []
 
     def walk(node, path):
@@ -950,14 +1011,12 @@ def find_financing_violations(page_json, financing_lender=None):
             if financing_line is not None:
                 text = financing_line.get("text") if isinstance(financing_line, dict) else financing_line
                 text_path = f"{path}.financing_line.text" if isinstance(financing_line, dict) else f"{path}.financing_line"
-                if isinstance(text, str) and text.strip() != vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER:
+                if isinstance(text, str) and text.strip() != allowed:
+                    configured = f"configured lender is {financing_lender!r}" if financing_lender else "no lender is configured"
                     hits.append(
                         {
                             "path": text_path,
-                            "issue": (
-                                "financing_line must be exactly "
-                                f"{vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured)"
-                            ),
+                            "issue": f"financing_line must be exactly {allowed!r} ({configured})",
                             "text": text,
                         }
                     )

@@ -24,7 +24,7 @@
         },
         "financing_line": {
           "type": "object",
-          "description": "text: 'Financing available' when facts_pack.product.financing.lender is null (no lender name, no monthly figure); otherwise may name the lender and monthly figure from facts_pack.product.financing.",
+          "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- never a freeform monthly figure, APR, or lender name typed in directly here, whether or not facts_pack.product.financing.lender is set.",
           "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
         },
         "hero_image": {

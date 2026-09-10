@@ -9,7 +9,7 @@ Opt-in only: `discover_cartridges` finds this cartridge, but `adv run`'s default
 2. Optional 3-stat proof row directly under the dek: live {{ tenant.reviews.platform_name }} rating and count, warranty term, free shipping -- only these, only if verified. Skip it rather than force a weak stat.
 3. 5-7 numbered items, in order (the page.json field is called `reasons`, not `items` -- see schema.json). Each item: number, an H2 title (<=10 words, no numeral -- the renderer draws the number), a 40-90 word body, one image slot (asset_id), and claim_ids for any fact stated in that item. Proof lives inside each item -- never a separate stacked proof section after the items.
 4. One CTA, shown twice: right after item 3, and again in the closing block. Same text and URL both times (page.cta_text / page.cta_url) -- never vary it.
-5. Closing block: optional short headline, 1 paragraph naming {{ tenant.name }}, the fixed warranty sentence, and "Financing is available at checkout." Disclosure and sources follow, same as every other cartridge.
+5. Closing block: optional short headline, 1 paragraph naming {{ tenant.name }}, the fixed warranty sentence, and the allowed financing sentence given in the prompt's Financing rule. Disclosure and sources follow, same as every other cartridge.
 
 ## Rules
 - 600-1,100 words. Word count covers proof_row and item bodies; headings, urls, asset ids, and claim ids are not part of the count (same accounting as every other cartridge -- see `adv/cli.py`'s `count_words`).
@@ -20,7 +20,7 @@ Opt-in only: `discover_cartridges` finds this cartridge, but `adv run`'s default
 - No claims outside verified_claims. Health statements cite the study and its population; never promise an outcome for {{ tenant.name }} hardware.
 - The proof row (if present) and every item's claim_ids may only cite facts_pack.verified_claims -- never invent a stat. Omit the proof row entirely if there's nothing verified to put in it (e.g. facts_pack.reviews_summary is null).
 - Images: one per item from the asset library, lifestyle or product over stock/illustration, referenced by asset_id only -- the renderer derives alt text, never write your own "alt" field. No before/after, no clinical settings.
-- Closing block: the warranty line must be exactly the fixed warranty sentence (see the global voice block); the financing line must be exactly "Financing is available at checkout." while no lender is configured. Neither may appear anywhere else on the page.
+- Closing block: the warranty line must be exactly the fixed warranty sentence (see the global voice block); the financing line must be exactly the allowed financing sentence given in the prompt's Financing rule, whether or not a lender is configured. Neither may appear anywhere else on the page.
 - Voice: plain, specific, second person or first person. No exclamation marks. No "game-changer", "unlock", "elevate", "journey".
 
 ## From the ad

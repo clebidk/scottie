@@ -120,6 +120,27 @@ def test_cartridges_use_placeholders_where_a_company_belongs():
     assert "{{ tenant.name }}" in text
 
 
+# Fix cycle 21: financing_line is now a fixed sentence formatted with the
+# tenant's actual configured lender at prompt-build time (harness/write.py's
+# global_voice_block) -- cartridges must stay tenant-neutral and never name
+# a lender directly, the same way they never name the company (above). Every
+# forbidden_lender_name across both tenants' vocab.yaml, plus the one real
+# configured lender (Bread Pay), covers every lender name currently known to
+# this codebase.
+LENDER_WORDS = ("Bread Pay", "Affirm", "Shop Pay", "Klarna", "Afterpay", "Sezzle")
+
+
+def test_cartridges_never_name_a_financing_lender():
+    offenders = []
+    for path in _files(REPO_ROOT / "cartridges", {".md", ".json"}):
+        text = path.read_text(errors="ignore")
+        for word in LENDER_WORDS:
+            for i, line in enumerate(text.splitlines(), 1):
+                if word.lower() in line.lower():
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}:{i}: {word}")
+    assert offenders == [], "a lender name leaked into a tenant-neutral cartridge:\n" + "\n".join(offenders)
+
+
 # ---------------------------------------------------------------------------
 # The tenant skeleton
 # ---------------------------------------------------------------------------
@@ -196,6 +217,39 @@ def test_activate_switches_the_active_vocabulary():
         assert vocab.BANNED_NAMES == ("acme",)
     finally:
         vocab.set_active(previous)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 21: allowed_financing_sentence_with_lender_template -- both
+# tenants' vocab.yaml declare it (checked generically above by
+# test_template_vocab_declares_every_key_the_engine_reads and
+# test_template_yaml_files_all_parse already parsing every key), and the
+# with-lender sentence formats correctly from it.
+# ---------------------------------------------------------------------------
+
+def test_both_tenants_vocab_yaml_declare_the_with_lender_financing_template():
+    template_data = yaml.safe_load((tenant_mod.TEMPLATE_DIR / "vocab.yaml").read_text())
+    live_data = yaml.safe_load((TENANT.root / "vocab.yaml").read_text())
+    assert "allowed_financing_sentence_with_lender_template" in template_data
+    assert "{lender}" in template_data["allowed_financing_sentence_with_lender_template"]
+    assert "{lender}" in live_data["allowed_financing_sentence_with_lender_template"]
+    # Tenant-neutral: no lender name baked into the template itself.
+    assert "bread pay" not in live_data["allowed_financing_sentence_with_lender_template"].lower()
+
+
+def test_allowed_financing_sentence_formats_the_with_lender_template():
+    data = yaml.safe_load((TENANT.root / "vocab.yaml").read_text())
+    v = vocab.Vocabulary(data)
+    assert v.allowed_financing_sentence("Bread Pay") == "Financing is available through Bread Pay at checkout."
+    # No lender given (or falsy) falls back to the no-lender sentence --
+    # same value as ALLOWED_FINANCING_SENTENCE_NO_LENDER for this tenant.
+    assert v.allowed_financing_sentence(None) == v.allowed_financing_sentence_no_lender
+    assert v.allowed_financing_sentence("") == v.allowed_financing_sentence_no_lender
+
+
+def test_allowed_financing_sentence_module_function_matches_the_active_vocabulary():
+    assert vocab.allowed_financing_sentence("Bread Pay") == "Financing is available through Bread Pay at checkout."
+    assert vocab.allowed_financing_sentence(None) == vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER
 
 
 # ---------------------------------------------------------------------------

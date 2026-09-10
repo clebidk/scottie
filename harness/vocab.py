@@ -41,6 +41,13 @@ class Vocabulary:
         self.allowed_financing_sentence_no_lender = data.get(
             "allowed_financing_sentence_no_lender", ""
         )
+        # Fix cycle 21: the with-lender counterpart to
+        # allowed_financing_sentence_no_lender above -- tenant-neutral (no
+        # lender name baked in), formatted with the tenant's actual
+        # configured lender at read time via allowed_financing_sentence().
+        self.allowed_financing_sentence_with_lender_template = data.get(
+            "allowed_financing_sentence_with_lender_template", ""
+        )
         self.allowed_warranty_sentence = data.get("allowed_warranty_sentence", "")
         self.allowed_warranty_spec_label = data.get("allowed_warranty_spec_label", "Warranty")
         self.allowed_warranty_spec_value = data.get("allowed_warranty_spec_value", "")
@@ -85,6 +92,18 @@ class Vocabulary:
         block, so a repair attempt cannot claim it forgot the list."""
         return heading + "\n" + "\n".join(self.always_forbidden_terms)
 
+    def allowed_financing_sentence(self, lender=None):
+        """The one allowed financing sentence for this run: the with-lender
+        template filled in with `lender` when given (truthy), else the
+        no-lender sentence. Fix cycle 21 -- single source of truth for both
+        the writer prompt (harness/write.py) and the gate
+        (harness/claims.py's find_financing_violations/
+        evaluate_financing_claim), mirroring ALLOWED_FINANCING_SENTENCE_NO_LENDER's
+        existing role for the no-lender case."""
+        if lender:
+            return self.allowed_financing_sentence_with_lender_template.format(lender=lender)
+        return self.allowed_financing_sentence_no_lender
+
 
 def activate(tenant):
     """Make `tenant`'s vocab.yaml the active vocabulary for this process."""
@@ -126,6 +145,7 @@ _ATTRS = {
     "TRIGGER_WORD_SYNONYMS": lambda v: v.trigger_word_synonyms,
     "IMPLIED_CLAIM_FORBIDDEN_TERMS": lambda v: v.implied_claim_forbidden_terms,
     "ALLOWED_FINANCING_SENTENCE_NO_LENDER": lambda v: v.allowed_financing_sentence_no_lender,
+    "ALLOWED_FINANCING_SENTENCE_WITH_LENDER_TEMPLATE": lambda v: v.allowed_financing_sentence_with_lender_template,
     "ALLOWED_WARRANTY_SENTENCE": lambda v: v.allowed_warranty_sentence,
     "ALLOWED_WARRANTY_SPEC_LABEL": lambda v: v.allowed_warranty_spec_label,
     "ALLOWED_WARRANTY_SPEC_VALUE": lambda v: v.allowed_warranty_spec_value,
@@ -144,3 +164,7 @@ def forbidden_words_block(
     heading="Forbidden words -- never use any of these, in any form, anywhere on the page:",
 ):
     return active().forbidden_words_block(heading)
+
+
+def allowed_financing_sentence(lender=None):
+    return active().allowed_financing_sentence(lender)
