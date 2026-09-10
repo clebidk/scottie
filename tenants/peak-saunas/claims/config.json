@@ -1,8 +1,8 @@
 {
-  "financing_lender": null,
+  "financing_lender": "Bread Pay",
   "show_compare_at_price": false,
   "reviews_source": "judgeme-live",
   "speaker_name": null,
   "ad_overclaim_policy": "stop",
-  "allow_ai_renders": false
+  "allow_ai_renders": true
 }

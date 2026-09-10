@@ -8,7 +8,7 @@
 # negotiable by any cartridge, prompt, or override.
 emf_terms: [emf, electromagnetic]
 banned_names: [sunlighten, crown, olympus, aspen]
-hype_words: [game-changer, unlock, elevate, journey, revolutionary, unleash]
+hype_words: [game-changer, unlock, elevate, journey, revolutionary, unleash, crate-protected]
 ban_exclamation_mark: true
 
 # Safe, case-preserving substitutions the deterministic pre-repair pass may
@@ -22,9 +22,14 @@ hype_synonyms:
   journey: process
   game-changer: big improvement
   game changer: big improvement
+  crate-protected: ships in a crate
+  crate protected: ships in a crate
 
 # Forbidden only while claims/config.json's financing_lender is unset (null).
-forbidden_lender_names: [bread pay, affirm, shop pay, klarna, afterpay, sezzle]
+# Cycle 18: Bread Pay is the configured lender (financing_lender in
+# claims/config.json) -- removed from this list. Every other provider Peak
+# does not offer stays forbidden.
+forbidden_lender_names: [affirm, shop pay, klarna, afterpay, sezzle]
 
 # Allowed only in a sentence that carries a claim_id.
 trigger_words: [medical, clinical, study, proven, emf, rated, reviews]

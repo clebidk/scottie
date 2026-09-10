@@ -100,7 +100,7 @@ claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-
 # listicle is opt-in only until it is approved for the default rotation.
 default_cartridge_pool: [article, product-page, longform]
 
-allow_ai_renders: false
+allow_ai_renders: true
 
 # Cycle 17 (cost reduction): which model each stage calls -- see
 # harness/config.py's DEFAULT_MODELS for what a key left out falls back to.

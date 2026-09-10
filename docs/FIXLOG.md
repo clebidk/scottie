@@ -406,3 +406,25 @@ One real bug surfaced only by the first live run (see fix 3 above): the spec's o
 - **`harness run tenants/peak-saunas/fixtures/still-infraredglow-4x5.png --tenant peak-saunas`** (`20260910-2142-still-infraredglow-4x5`): PASS, three pages, attempts=4 repairs=1 (longform's one repair ran on `claude-haiku-4-5` and passed). `ingest.vision` (still-image transcription) confirmed running on `claude-haiku-4-5`; `ad_claims.semantic_match` confirmed running on `claude-haiku-4-5`.
 - `git status`/`git diff --stat` on the server: clean both before the `"warn"` policy edit and after restoring `"stop"`.
 - Mac scratch clone `rm -rf`'d after this verification; nothing left on the Mac.
+
+## Cycle 18
+
+**Scope.** Caleb's 2026-09-10 decisions, tenant-only: `tenants/peak-saunas/*`, `tests/test_tenant_peak.py`, and this file. Nothing in `harness/` or `cartridges/` touched -- cycle 17 (cost work) is editing those concurrently.
+
+1. **Financing lender is Bread Pay (`claims/config.json`, `tenant.yaml`, `vocab.yaml`).** `financing_lender: "Bread Pay"` in both `claims/config.json` and `tenant.yaml`'s own `allow_ai_renders`-style mirror (tenant.yaml carries no `financing_lender` key to mirror, so only `claims/config.json` changed there). `vocab.yaml`'s `forbidden_lender_names` drops "bread pay", keeping Affirm/Shop Pay/Klarna/Afterpay/Sezzle forbidden. New pending item `policy-financing-doc-stale` (`claims/pending.json`) flags that g Brain `policy/financing-and-payment` still names only Affirm/Shop Pay and needs a team update; the two now-resolved discrepancy entries (`pending-financing-lender-bread-pay`, `gbrain-financing-lender-discrepancy`) are removed. Monthly-payment figures are unchanged -- still always an overclaim (`harness/claims.py`'s `evaluate_financing_claim` has no real lender quote to check against yet; that's harness code, out of scope this cycle, tracked since Cycle 10).
+2. **AI renders allowed (`claims/config.json`, `tenant.yaml`).** `allow_ai_renders: true` in both places (tenant.yaml's copy is a fallback default only -- `claims/config.json` already wins per `harness/tenant.py`'s `_CONFIG_KEYS_FROM_TENANT_YAML`). The "Rendering:" alt-prefix rule is engine code, untouched.
+3. **Six claims approved into `claims/verified.json`** (`approved_by: "Caleb"`, `date: "2026-09-10"`, every one carries a `source` and `aliases`): `pwc-included-free`, `pwc-leaderboard-lounge` (text kept verbatim from pending's `gbrain-pwc-leaderboard-sauna-lounge-real-features`), `pwc-expert-protocols` (text kept verbatim from pending's `gbrain-pwc-expert-protocols-real-feature`), `longevity-lab-program` (deliberately narrower than the pending entry -- no pricing, no "application-only" wording), `hsa-fsa-truemed`, `spec-mini-dimensions`. Five corresponding pending entries removed (`gbrain-peak-wellness-club-real-offering` -- including its pricing-conflict caution, resolved: Caleb confirms PWC is free -- `gbrain-pwc-leaderboard-sauna-lounge-real-features`, `gbrain-pwc-expert-protocols-real-feature`, `gbrain-longevity-lab-real-offering`, `pending-hsa-fsa-truemed`).
+4. **Crate wording (`claims/verified.json`, `vocab.yaml`).** Existing `gbrain-shipping-free-crate-origin` claim gains aliases `"crate-protected delivery"`, `"crate protected delivery"`, `"delivered in a crate"`. `vocab.yaml`'s `hype_words` (absolute ban, enforced on any page regardless of claim_id) gains `crate-protected`; `hype_synonyms` maps it (and `crate protected`) to `ships in a crate`, so the deterministic pre-repair pass can fix it without a model call.
+5. `authors.yaml` untouched -- author identity stays open.
+
+### Tests
+
+`tests/test_tenant_peak.py` (new, 13 tests): asserts the config values above, that all six new claims carry a `source` and `aliases`, the crate claim's new aliases, and that `crate-protected` is forbidden with the `ships in a crate` synonym.
+
+`.venv-local/bin/python -m pytest -q` on the Mac clone: **521 total, 517 passed, 4 failed.** The 4 failures are pre-existing engine tests that hardcode the tenant's *old* defaults, outside this cycle's edit scope (`harness/`, generic `tests/`, not `tenants/peak-saunas/` or `tests/test_tenant_peak.py`):
+- `tests/test_claims.py::test_find_forbidden_terms_catches_lender_name_when_lender_not_configured` -- built a page with "Bread Pay" and asserted it's still caught as a forbidden lender name; Bread Pay is the configured lender now, so it no longer is one.
+- `tests/test_ground.py::test_default_config_has_no_lender_and_hides_compare_at` -- asserted `financing_lender is None`.
+- `tests/test_ground.py::test_default_config_allow_ai_renders_is_false` -- asserted `allow_ai_renders is False`.
+- `tests/test_tenant.py::test_hsa_fsa_truemed_claim_is_pending_not_verified` -- asserted `pending-hsa-fsa-truemed` stays in `pending.json`; decision 3 explicitly moves it to `verified.json`.
+
+All four are direct, correct consequences of Caleb's decisions -- not a bug introduced here -- but they live in files this cycle is not authorized to touch. Flagged as a background follow-up rather than fixed in scope.

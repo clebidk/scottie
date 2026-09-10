@@ -721,7 +721,12 @@
     "category": "policy",
     "source": "gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy",
     "approved_by": "gbrain-seed",
-    "date": "2026-09-09"
+    "date": "2026-09-09",
+    "aliases": [
+      "crate-protected delivery",
+      "crate protected delivery",
+      "delivered in a crate"
+    ]
   },
   {
     "id": "gbrain-shipping-timing",
@@ -1082,5 +1087,80 @@
     "source": "gbrain:spec/kilimanjaro; https://peaksaunas.com/products/peak-saunas-kilimanjaro-5-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control",
     "approved_by": "gbrain-spec",
     "date": "2026-09-09"
+  },
+  {
+    "id": "pwc-included-free",
+    "text": "Peak Wellness Club is included free with every Peak sauna.",
+    "category": "trust",
+    "source": "gbrain:companies/peak-saunas; gbrain:companies/peak-saunas/peak-wellness-club",
+    "approved_by": "Caleb",
+    "date": "2026-09-10",
+    "aliases": [
+      "Peak Wellness Club",
+      "access to Peak Wellness Club",
+      "wellness club membership"
+    ]
+  },
+  {
+    "id": "pwc-leaderboard-lounge",
+    "text": "Leaderboard: live streak tracking, see how your usage compares across the community. The Sauna Lounge: private owner community, find other members, share results, ask questions.",
+    "category": "benefit",
+    "source": "gbrain:outline/customer-support/how-to-use-the-circle-app-peak-wellness-club-89f46819",
+    "approved_by": "Caleb",
+    "date": "2026-09-10",
+    "aliases": [
+      "live leaderboard",
+      "sauna lounge",
+      "leaderboard + sauna lounge"
+    ]
+  },
+  {
+    "id": "pwc-expert-protocols",
+    "text": "Celebrity & Expert Protocols: exact protocols from elite athletes, longevity doctors, high-performers, with temperature, duration, timing, and breathwork for each protocol.",
+    "category": "benefit",
+    "source": "gbrain:outline/sales/peak-wellness-club-team-knowledge-base-e0aab96a",
+    "approved_by": "Caleb",
+    "date": "2026-09-10",
+    "aliases": [
+      "expert studies + actionable protocols",
+      "expert protocols"
+    ]
+  },
+  {
+    "id": "longevity-lab-program",
+    "text": "Peak Longevity Lab is a post-purchase program offered to Peak owners.",
+    "category": "trust",
+    "source": "gbrain:outline/customer-support/peak-saunas-training-hub-v3-52ad71aa",
+    "approved_by": "Caleb",
+    "date": "2026-09-10",
+    "aliases": [
+      "Peak Longevity Lab",
+      "Longevity Lab"
+    ]
+  },
+  {
+    "id": "hsa-fsa-truemed",
+    "text": "Peak saunas may be eligible for HSA/FSA purchase through TrueMed.",
+    "category": "trust",
+    "source": "gbrain:policy/financing-and-payment",
+    "approved_by": "Caleb",
+    "date": "2026-09-10",
+    "aliases": [
+      "HSA/FSA eligible",
+      "HSA and FSA through TrueMed"
+    ]
+  },
+  {
+    "id": "spec-mini-dimensions",
+    "text": "Mini exterior dimensions: 31.1 in wide × 31.9 in deep × 66.9 in tall (factory spec sheet: 31.10 × 31.81 × 67.12 in).",
+    "category": "spec",
+    "source": "gbrain:kb/auto-fills/mini-dimensions; gbrain:outline/customer-support/sauna-dimensions-product-brochures-6e2ecfdf",
+    "approved_by": "Caleb",
+    "date": "2026-09-10",
+    "aliases": [
+      "31 by 32 inches",
+      "31 inches wide",
+      "31in wide"
+    ]
   }
 ]

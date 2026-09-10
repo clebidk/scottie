@@ -49,42 +49,30 @@
     "date_flagged": "2026-09-09"
   },
   {
-    "id": "pending-financing-lender-bread-pay",
-    "text": "\"with Bread Pay\" as the financing lender name in every product's financing_line (claims/products.json)",
+    "id": "policy-financing-doc-stale",
+    "text": "g Brain policy/financing-and-payment still names Affirm and Shop Pay Installments as the only two authorized financing providers and does not mention Bread Pay.",
     "category": "trust",
     "appeared_in": [
-      "stills: LessThan$300, LevelUpYourHealth, EnterYourInfraredGlow, UnforgettableGlow (financing pill, all read 'with Bread Pay')",
-      "live product pages (e.g. the Fuji PDP payment badge, fetched 2026-09-09)"
+      "gbrain:policy/financing-and-payment"
     ],
-    "note": "This build's brief explicitly specified 'Bread Pay' as the financing_line lender name, so claims/products.json uses it as instructed. Flagging: docs/guardrails.md (written concurrently from g Brain policy/financing-and-payment) states Peak's only authorized financing providers are Affirm and Shop Pay Installments, and explicitly calls out 'Bread Pay' on the live Fuji page as an unresolved discrepancy needing Caleb's decision -- either the live site/ad creative have drifted from policy, or the policy doc is stale. Do not treat financing_line's lender name as verified until this is resolved.",
-    "status": "pending_review",
-    "date_flagged": "2026-09-09"
-  },
-  {
-    "id": "gbrain-financing-lender-discrepancy",
-    "text": "DISCREPANCY: the live Fuji 2-Person product page (fetched 2026-09-09) displays a payment/financing logo with alt text \"Bread Pay\" (appears twice in the page HTML). \"Bread Pay\" is not one of the two providers gbrain policy authorizes (Affirm / Shop Pay Installments) \u2014 policy/financing-and-payment explicitly says never claim any other provider. Either the live site has drifted from policy, or the policy page is stale.",
-    "category": "trust",
-    "appeared_in": [
-      "gbrain:policy/financing-and-payment (contradicted by live https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy)"
-    ],
-    "note": "Flag for Caleb before any ad copy names a financing provider: confirm whether Bread Pay is now a live/approved lender (policy needs updating) or an unauthorized change on the storefront (needs fixing). Do not name any lender in generated copy until resolved.",
-    "status": "needs-caleb",
-    "date_flagged": "2026-09-09"
+    "note": "Cycle 18: Caleb confirmed Bread Pay is the configured financing_lender (claims/config.json, tenant.yaml) and the allowed financing sentence is now \"Financing is available through Bread Pay at checkout.\" g Brain's policy/financing-and-payment page (also cited by the older gbrain-financing-terms verified claim and by the now-resolved gbrain-financing-lender-discrepancy / pending-financing-lender-bread-pay pending entries) has not been updated to reflect this and still states Affirm/Shop Pay Installments only. The team needs to update that g Brain page so it matches the live lender.",
+    "status": "needs-team-update",
+    "date_flagged": "2026-09-10"
   },
   {
     "id": "gbrain-emf-position",
-    "text": "Peak conducts internal EMF testing on every sauna in every production batch; the average measured field reading is 3 mG (ultra-low range). Peak does NOT hold third-party or accredited-laboratory EMF certifications \u2014 no ISO/ANSI-accredited lab test report exists. Never claim third-party-tested EMF results, and never give a 'pacemaker safe' assurance without Austin's approval.",
+    "text": "Peak conducts internal EMF testing on every sauna in every production batch; the average measured field reading is 3 mG (ultra-low range). Peak does NOT hold third-party or accredited-laboratory EMF certifications — no ISO/ANSI-accredited lab test report exists. Never claim third-party-tested EMF results, and never give a 'pacemaker safe' assurance without Austin's approval.",
     "category": "health",
     "appeared_in": [
       "gbrain:kb/auto-fills/emf-testing-policy"
     ],
-    "note": "FLAG: do-not-lead-with. competitors/overview: 'Do NOT lead with an EMF/near-zero EMF angle.' knowledge-map.md also notes customers repeatedly challenge this claim for lack of public proof (unresolved) \u2014 treat as supporting/secondary copy only, never a headline claim, and never imply accredited testing.",
+    "note": "FLAG: do-not-lead-with. competitors/overview: 'Do NOT lead with an EMF/near-zero EMF angle.' knowledge-map.md also notes customers repeatedly challenge this claim for lack of public proof (unresolved) — treat as supporting/secondary copy only, never a headline claim, and never imply accredited testing.",
     "status": "needs-caleb",
     "date_flagged": "2026-09-09"
   },
   {
     "id": "gbrain-fuji-emf-figure",
-    "text": "No per-model EMF figure exists for Fuji specifically \u2014 only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
+    "text": "No per-model EMF figure exists for Fuji specifically — only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
     "category": "spec",
     "appeared_in": [
       "gbrain:spec/fuji (absence); gbrain:kb/auto-fills/emf-testing-policy"
@@ -95,7 +83,7 @@
   },
   {
     "id": "gbrain-everest-emf-figure",
-    "text": "No per-model EMF figure exists for Everest specifically \u2014 only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
+    "text": "No per-model EMF figure exists for Everest specifically — only the fleet-wide internal-testing average of 3 mG (see gbrain-emf-position) applies across all models.",
     "category": "spec",
     "appeared_in": [
       "gbrain:spec/everest (absence); gbrain:kb/auto-fills/emf-testing-policy"
@@ -103,62 +91,5 @@
     "note": "FLAG: do-not-lead-with (inherits the EMF claim's flag). Do not fabricate an Everest-specific EMF number.",
     "status": "needs-caleb",
     "date_flagged": "2026-09-09"
-  },
-  {
-    "id": "gbrain-peak-wellness-club-real-offering",
-    "text": "Peak Wellness Club (PWC) is a guided wellness platform included free with every Peak Sauna.",
-    "category": "trust",
-    "appeared_in": [
-      "stills: LessThan$300 (\"Includes Peak Wellness Club\")",
-      "stills: UnforgettableGlow (\"Includes Peak Wellness Club membership\")"
-    ],
-    "note": "Fix cycle 12 item 5: g Brain search for \"Peak Wellness Club\" confirms this is a real, current offering (launched 2026-03-13), not an invented feature -- the two ad claims above currently go unmatched because no verified claim for it exists yet. Exact quote and source: \"Peak Wellness Club (PWC) is a guided wellness platform included free with every Peak Sauna.\" (outline/sales/peak-wellness-club-team-knowledge-base-e0aab96a, type outline-doc). CAUTION -- pricing discrepancy in gbrain itself: this same allowed source's own \"Pricing (Quick Reference)\" section, and a second allowed source (outline/customer-support/how-to-use-the-circle-app-peak-wellness-club-89f46819), both state \"60-day free trial\" then \"$49/month\" after; a separate gbrain company-record (type \"company\", outside this task's retrieval allowlist -- seen only in a search snippet, not opened) instead says PWC is \"Currently FREE -- no trial, no cost\" and explicitly instructs never to say \"60-day trial\" or \"$49/month.\" These two records disagree on current pricing. Needs Caleb's sign-off on which is current before this claim (or any pricing detail) moves to verified.json.",
-    "status": "needs-caleb",
-    "date_flagged": "2026-09-10"
-  },
-  {
-    "id": "gbrain-pwc-leaderboard-sauna-lounge-real-features",
-    "text": "Leaderboard: live streak tracking, see how your usage compares across the community. The Sauna Lounge: private owner community, find other members, share results, ask questions.",
-    "category": "trust",
-    "appeared_in": [
-      "stills: LevelUpYourHealth (\"Product includes live leaderboard + sauna lounge features\")",
-      "stills: EnterYourInfraredGlow (\"Live leaderboard + sauna lounge features\")"
-    ],
-    "note": "Fix cycle 12 item 5: g Brain search for \"leaderboard\" and \"sauna lounge\" confirms both are real, current features inside Peak Wellness Club, not invented. Exact quotes and source: \"Leaderboard -- Live streak tracking. See how your usage compares across the community.\" and \"The Sauna Lounge -- Private owner community. Find other members, share results, ask questions.\" (both outline/customer-support/how-to-use-the-circle-app-peak-wellness-club-89f46819, type outline-doc). CAUTION -- a separate allowed-type page, outline/operations/pwc-sauna-lounge-engagement-audit-mar-21-2026-855a6fd4 (outline-doc), an engagement audit dated 2026-03-21, found the Sauna Lounge community had 16 of 18 posts with zero engagement and only 1 real comment from an external member in the audited 30-day window -- the feature exists but community activity was very low as of that audit. If an ad implies an active, bustling leaderboard/community, Caleb should confirm current engagement levels are more representative before this is approved as a page claim.",
-    "status": "needs-caleb",
-    "date_flagged": "2026-09-10"
-  },
-  {
-    "id": "gbrain-pwc-expert-protocols-real-feature",
-    "text": "Celebrity & Expert Protocols: exact protocols from elite athletes, longevity doctors, high-performers, with temperature, duration, timing, and breathwork for each protocol.",
-    "category": "trust",
-    "appeared_in": [
-      "stills: EnterYourInfraredGlow (\"Expert studies + actionable protocols included\")"
-    ],
-    "note": "Fix cycle 12 item 5: g Brain search for \"expert studies\" / \"actionable protocols\" confirms the \"actionable protocols\" half is real and current -- Peak Wellness Club includes named expert/celebrity protocols. Exact quote and source: \"Celebrity & Expert Protocols -- Exact protocols from elite athletes, longevity doctors, high-performers. Temperature, duration, timing, breathwork for each protocol.\" (outline/sales/peak-wellness-club-team-knowledge-base-e0aab96a, type outline-doc). The \"studies\" half of the ad's exact wording is NOT directly confirmed by any page of an allowed type -- a \"Key Research Studies Library\" reference exists elsewhere in gbrain, but only on a page type outside this task's retrieval allowlist (not opened, not cited here). Caleb should confirm whether \"expert studies\" (implying published/cited research) is accurate framing, or whether the page copy should say \"expert protocols\" instead, which is what the allowed source actually documents.",
-    "status": "needs-caleb",
-    "date_flagged": "2026-09-10"
-  },
-  {
-    "id": "gbrain-longevity-lab-real-offering",
-    "text": "Peak Longevity Lab (PLL): completely separate from Peak Wellness Club. High-ticket. Application-only. NOT included with sauna purchase. Includes a 160+ biomarker panel, a dedicated health coordinator, and a 6-month personalized health protocol.",
-    "category": "trust",
-    "appeared_in": [
-      "g Brain search only (fix cycle 12 item 5 assigned search list) -- not found as a literal claims_made string in any of the seven fixtures checked this cycle; searched per the assigned term \"Longevity Lab\", not because a current ad references it"
-    ],
-    "note": "Fix cycle 12 item 5: g Brain search for \"Longevity Lab\" confirms it is a real, current, separate high-ticket program (6-month, several-thousand-dollar tiers per a non-allowed-type pricing record not cited here), never included with a sauna purchase and never to be conflated with Peak Wellness Club. Exact quote and source: \"Peak Longevity Lab (PLL) -- Completely separate from PWC. High-ticket. Application-only. NOT included with sauna purchase. 160+ biomarker panel, Dedicated health coordinator, 6-month personalized health protocol.\" (outline/customer-support/peak-saunas-training-hub-v3-52ad71aa, type outline-doc; also support/training-hub-v3, type concept). Flagging defensively, not because any current ad references it: if a future ad ever does, this must never be implied as included with a sauna, and any dollar figure needs Caleb's explicit sign-off before it could move to verified.json -- pricing is tiered and high enough ($12k-$22k+ per non-cited internal pricing notes) that an error here would be a serious overclaim.",
-    "status": "needs-caleb",
-    "date_flagged": "2026-09-10"
-  },
-  {
-    "id": "pending-hsa-fsa-truemed",
-    "text": "HSA/FSA eligible via TrueMed",
-    "category": "trust",
-    "appeared_in": [
-      "g Brain: knowledge-map.md's own product-facts summary lists \"HSA/FSA via TrueMed\" alongside the other always-true product facts (full-spectrum IR, medical-grade RLT, EMF <3mG seated, lifetime warranty, Affirm/Shop Pay financing, free shipping)."
-    ],
-    "note": "Fix cycle 16 item 10 (Thursday queue item 3: \"HSA/FSA via TrueMed trust line, once verified\"): tenants/peak-saunas/docs/knowledge-map.md line 8 states \"HSA/FSA via TrueMed\" as an active-model fact, with policy/financing-and-payment named as one of the doc's own best-source slugs (g Brain policy slug: policy/financing-and-payment) -- but that slug was not itself opened/quoted as part of this cycle's task, so this is not yet a page-ready verified claim: no TrueMed program terms, eligibility scope, or a direct quote from policy/financing-and-payment has been captured here. Needs Caleb's sign-off (and the direct policy/financing-and-payment quote/source) before this can move to verified.json and appear as a trust line on any page.",
-    "status": "needs-caleb",
-    "date_flagged": "2026-09-10"
   }
 ]
