@@ -10,6 +10,8 @@ import re
 import urllib.request
 from pathlib import Path
 
+from ..textutil import safe_filename
+
 
 _FILE_D_RE = re.compile(r"/file/d/([a-zA-Z0-9_-]+)")
 _ID_PARAM_RE = re.compile(r"[?&]id=([a-zA-Z0-9_-]+)")
@@ -60,7 +62,10 @@ def download_drive_file(file_id, dest_dir):
 
     cd = headers.get("Content-Disposition", "")
     fname_m = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', cd)
-    filename = fname_m.group(1) if fname_m else file_id
+    # Cycle 22 finding R36: this filename comes from the REMOTE server, so it
+    # is untrusted input. Unsanitised, a Content-Disposition of
+    # `filename="../../../etc/x"` wrote outside the run directory.
+    filename = safe_filename(fname_m.group(1) if fname_m else file_id, fallback=file_id)
 
     dest = dest_dir / filename
     dest.write_bytes(data)

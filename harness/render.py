@@ -16,6 +16,7 @@ from PIL import Image
 
 from . import ingest
 from . import tenant as tenant_mod
+from .textutil import safe_filename
 from .claims import (
     ClaimsGateFailure,
     collect_claim_ids,
@@ -78,7 +79,15 @@ def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
     if byline_path.exists():
         raw = byline_path.read_text()
         try:
-            return jinja2.Template(raw).render(**context)
+            # Cycle 22 finding R37: this was a bare jinja2.Template, whose
+            # autoescape default is off -- the one unescaped render in the
+            # harness, and its output is injected into the page with `| safe`.
+            # Autoescape only ever escapes the SUBSTITUTED values (the author
+            # and contributor names, the two dates); the template's own markup
+            # is untouched, so both tenants' byline.html render byte-identically
+            # to before.
+            env = jinja2.Environment(autoescape=True)
+            return env.from_string(raw).render(**context)
         except jinja2.TemplateError as e:
             if log:
                 log.event("render", f"tenant brand/byline.html failed to render ({e}); using raw content")
@@ -393,7 +402,9 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
 
         data, ext = resize_asset_bytes(data, ext, log=log, asset_id=asset["id"])
 
-        dest_path = dest_dir / f"{asset['id']}{ext}"
+        # The id comes from tenant data and the extension from a URL path;
+        # neither is guaranteed to be a single safe path component.
+        dest_path = dest_dir / safe_filename(f"{asset['id']}{ext}", fallback="asset")
         dest_path.write_bytes(data)
         return dest_path
     except Exception as e:

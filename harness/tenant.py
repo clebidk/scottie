@@ -23,6 +23,7 @@ import yaml
 
 from .config import REPO_ROOT
 from .errors import HarnessError
+from .textutil import is_safe_tenant_name
 from . import exits
 
 TENANTS_DIR = REPO_ROOT / "tenants"
@@ -424,6 +425,16 @@ def known_tenant_keys():
 
 
 def tenant_dir(name):
+    """tenants/<name>, for a name that is a single path component.
+
+    Cycle 22 finding R36: this used to join whatever it was handed, so
+    `--tenant ../../x` read a tenant.yaml from outside the repository and
+    `harness tenant init ../evil` copied the template outside it."""
+    if not is_safe_tenant_name(name):
+        raise UnknownTenant(
+            f"invalid tenant name {name!r}: a tenant name is one directory under "
+            f"{TENANTS_DIR} -- letters, digits, dot, dash and underscore only."
+        )
     return TENANTS_DIR / name
 
 

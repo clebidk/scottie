@@ -31,3 +31,42 @@ def product_name_slug(name):
     `spec-<slug>-*`, and `pdp-<slug>-*` together; it must stay identical
     everywhere or a claim silently stops resolving."""
     return (name or "").lower().replace(" ", "-")
+
+
+# ---------------------------------------------------------------------------
+# Path safety (Cycle 22 finding R36)
+#
+# Two places build a filename out of a value this harness does not control: a
+# Drive download uses the remote server's Content-Disposition header, and an
+# asset file uses an id and an extension taken from a URL. Neither was checked,
+# so "../../.." in either escaped the run directory.
+# ---------------------------------------------------------------------------
+
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def safe_filename(name, *, fallback="file"):
+    """`name` reduced to a single, harmless path component.
+
+    Drops any directory part, collapses everything outside [A-Za-z0-9._-] to a
+    hyphen, and refuses a name that is empty or made only of dots -- so
+    "../../etc/passwd" becomes "passwd", "..", "." and "" become `fallback`,
+    and an ordinary "IMG_3988.JPG" is returned unchanged."""
+    # Both separators, whatever the platform: a header written on Windows can
+    # carry a backslash even when this is running on Linux.
+    base = str(name or "").replace("\\", "/").rsplit("/", 1)[-1]
+    base = _UNSAFE_FILENAME_CHARS.sub("-", base).strip("-")
+    if not base or set(base) <= {"."}:
+        return fallback
+    return base
+
+
+# A tenant name becomes a directory under tenants/, so it has to be one path
+# component and nothing else -- `--tenant ../../x` would otherwise read a
+# tenant.yaml from outside the repo, and `harness tenant init ../evil` would
+# copy the template outside it.
+TENANT_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]*$")
+
+
+def is_safe_tenant_name(name):
+    return bool(name) and ".." not in name and bool(TENANT_NAME_RE.match(name))
