@@ -18,6 +18,7 @@ from .claims import (
     collect_claim_ids,
     find_forbidden_visible_text,
     find_leaked_claim_ids_visible_text,
+    find_missing_attribution,
     strip_leaked_claim_ids,
 )
 
@@ -378,6 +379,13 @@ def render_page(
     # rendered, and that must still STOP the run rather than publish.
     hits = find_forbidden_visible_text(html)
     hits += find_leaked_claim_ids_visible_text(html, valid_claim_ids)
+    # Fix cycle 11 problem A item 3: post-render backstop for the same check
+    # gate_page_json already ran pre-write -- an attributed_to_customer item
+    # should never reach render_page without a visible attribution (the
+    # writer repair loop would have caught it), but this mirrors the
+    # EMF/leaked-claim-id defense-in-depth pattern rather than trusting the
+    # earlier gate alone.
+    hits += find_missing_attribution(page)
     if hits:
         raise ClaimsGateFailure(f"html_visible_text:{cartridge_name}", hits)
 

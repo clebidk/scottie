@@ -18,7 +18,11 @@
         "type": "object",
         "properties": {
           "text": {"type": "string"},
-          "claim_ids": {"type": "array"}
+          "claim_ids": {"type": "array"},
+          "attributed_to_customer": {
+            "type": "boolean",
+            "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id."
+          }
         }
       }
     },
@@ -35,7 +39,11 @@
               "type": "object",
               "properties": {
                 "text": {"type": "string"},
-                "claim_ids": {"type": "array"}
+                "claim_ids": {"type": "array"},
+                "attributed_to_customer": {
+                  "type": "boolean",
+                  "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id."
+                }
               }
             }
           }
@@ -70,7 +78,11 @@
             "type": "object",
             "properties": {
               "text": {"type": "string"},
-              "claim_ids": {"type": "array"}
+              "claim_ids": {"type": "array"},
+              "attributed_to_customer": {
+                "type": "boolean",
+                "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id."
+              }
             }
           }
         }

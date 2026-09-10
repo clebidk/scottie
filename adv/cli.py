@@ -157,13 +157,16 @@ def find_word_range_violation(page_json, word_range):
     }]
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
     problems = []
     try:
-        gate_page_json(page, facts_pack, cartridge_name, financing_lender=financing_lender, speaker_pov=speaker_pov)
+        gate_page_json(
+            page, facts_pack, cartridge_name,
+            financing_lender=financing_lender, speaker_pov=speaker_pov, ad_brief=ad_brief,
+        )
     except ClaimsGateFailure as e:
         problems += e.items
     problems += find_word_range_violation(page, word_range)
@@ -399,6 +402,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             page, facts_pack, cartridge_name,
             financing_lender=financing_lender, speaker_pov=speaker_pov,
             word_range=word_range, allowed_cta_texts=allowed_cta_texts,
+            ad_brief=ad_brief,
         )
 
     revision_note = None
@@ -411,10 +415,41 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     # its most recent mistake.
     failures_seen = []
     failures_seen_keys = set()
+    # Fix cycle 11 problem C: tokens actually spent by each write_page call
+    # made for THIS cartridge so far (initial write + repairs) -- used below
+    # to estimate whether the budget remaining can afford another one.
+    call_token_costs = []
     attempt = 0
     while True:
         attempt += 1
+        remaining = budget.token_limit - budget.tokens_used
+        log.event(
+            f"write.{cartridge_name}",
+            f"attempt {attempt}: budget remaining {remaining} tokens "
+            f"({budget.tokens_used}/{budget.token_limit} used)",
+        )
+        # Fix cycle 11 problem C: a repair attempt (attempt > 1 -- attempt 1
+        # always goes ahead) is skipped, and the run STOPs with a clear
+        # reason, once the remaining token budget can no longer afford the
+        # average cost of one write_page call on this cartridge so far --
+        # instead of thrashing into a hard BudgetExceeded mid-call (the
+        # price-comparison-v2.mov failure this cycle is fixing: 5 real
+        # attempts, ~$2.2, the 5th hitting the cap outright).
+        if call_token_costs:
+            avg_call_cost = sum(call_token_costs) / len(call_token_costs)
+            if remaining < avg_call_cost:
+                log.event(
+                    f"write.{cartridge_name}",
+                    f"repair skipped: budget (remaining {remaining} tokens < average call cost "
+                    f"{avg_call_cost:.0f} tokens)",
+                )
+                err = ClaimsGateFailure(f"page_json:{cartridge_name}", attempts[-1] if attempts else [])
+                err.attempts = attempts
+                err.deterministic_fixes = deterministic_fix_counts
+                err.budget_skipped = True
+                raise err
         budget.check()
+        tokens_before = budget.tokens_used
         page = write_page(
             cartridge_name=cartridge_name,
             cartridges_dir=cartridges_dir,
@@ -429,6 +464,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             revision_note=revision_note,
             ad_overclaims=ad_overclaims,
         )
+        call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
 
         fixed = apply_deterministic_fixes(page, problems, valid_claim_ids) if problems else 0

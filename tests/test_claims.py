@@ -9,9 +9,11 @@ from adv.claims import (
     find_forbidden_visible_text,
     find_leaked_claim_ids,
     find_leaked_claim_ids_visible_text,
+    find_missing_attribution,
     find_warranty_violations,
     gate_ad_brief_claims,
     gate_page_json,
+    speaker_numbers,
     strip_leaked_claim_ids,
     validate_page_claim_ids,
 )
@@ -1035,3 +1037,148 @@ def test_stop_policy_folds_overclaims_and_unmatched_into_one_failure():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
     assert len(exc_info.value.items) == 2
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 11 problem A: attributed_to_customer. The writer reproduces the
+# ad speaker's own cost math (price-comparison-v2.mov: "she put memberships
+# at around $200 a month, $2,400 a year") in prose; the plain digit rule
+# demands a claim_id no source exists for, and the repair loop thrashes.
+# A narrative paragraph marked attributed_to_customer is exempt from the
+# claim_id rule for a number ONLY when that number also appears in the ad
+# speaker's own words (ad_brief.speaker_experience / transcript_or_text),
+# and only when the sentence itself visibly reads as attributed and the
+# node sits somewhere a narrative paragraph is actually allowed to be.
+# ---------------------------------------------------------------------------
+
+SPEAKER_AD_BRIEF = {
+    "speaker_experience": [
+        "I've been seeing that the average unlimited sauna membership is around $200 a month. "
+        "So say $2,400 a year."
+    ],
+    "transcript_or_text": "",
+}
+
+
+def test_speaker_numbers_extracts_dollar_amounts_from_speaker_experience():
+    assert speaker_numbers(SPEAKER_AD_BRIEF) == {"$200", "$2,400".replace(",", "")}
+
+
+def test_attributed_paragraph_with_speaker_numbers_needs_no_claim_id():
+    page = {
+        "close": {
+            "paragraphs": [
+                {
+                    "text": "One customer told us she put her studio memberships at around $200 a "
+                             "month, or about $2,400 a year.",
+                    "attributed_to_customer": True,
+                }
+            ]
+        }
+    }
+    problems = validate_page_claim_ids(page, set(), speaker_number_set=speaker_numbers(SPEAKER_AD_BRIEF))
+    assert problems == []
+
+
+def test_attributed_paragraph_with_a_number_the_speaker_never_said_still_needs_a_claim_id():
+    # $5,450 is the sauna's own price, not anything the speaker said -- the
+    # exemption only ever covers numbers that trace back to her own words.
+    page = {
+        "close": {
+            "paragraphs": [
+                {
+                    "text": "One customer told us she estimated the sauna itself runs about $5,450.",
+                    "attributed_to_customer": True,
+                }
+            ]
+        }
+    }
+    problems = validate_page_claim_ids(page, set(), speaker_number_set=speaker_numbers(SPEAKER_AD_BRIEF))
+    assert len(problems) == 1
+    assert "not in the ad speaker's own words" in problems[0]["issue"]
+    assert "$5450" in problems[0]["issue"]
+
+
+def test_attributed_to_customer_rejected_outside_a_narrative_paragraph():
+    # Same well-attributed sentence, same in-speaker numbers -- but sitting
+    # on a proof bullet (turn_section.criteria) instead of a plain
+    # paragraph. The flag itself is rejected regardless of phrasing; per
+    # fix cycle 11 problem A, headings/proof/specs/FAQ can never be marked
+    # attributed.
+    page = {
+        "turn_section": {
+            "criteria": [
+                {
+                    "text": "One customer told us she put memberships at around $200 a month.",
+                    "attributed_to_customer": True,
+                }
+            ]
+        }
+    }
+    problems = validate_page_claim_ids(page, set(), speaker_number_set=speaker_numbers(SPEAKER_AD_BRIEF))
+    assert len(problems) == 2  # the rejected flag, and the now-unexempt number
+    issues = [p["issue"] for p in problems]
+    assert any("only allowed on a narrative paragraph" in i for i in issues)
+    assert any("contains a dollar amount" in i for i in issues)
+
+
+def test_find_missing_attribution_flags_a_marked_item_with_no_visible_attribution():
+    page = {"close": {"paragraphs": [{"text": "Memberships run about $200 a month.", "attributed_to_customer": True}]}}
+    hits = find_missing_attribution(page)
+    assert len(hits) == 1
+    assert "no visible attribution" in hits[0]["issue"]
+
+
+def test_find_missing_attribution_passes_with_the_word_customer():
+    page = {"close": {"paragraphs": [{"text": "One customer estimated memberships at $200 a month.", "attributed_to_customer": True}]}}
+    assert find_missing_attribution(page) == []
+
+
+def test_find_missing_attribution_passes_with_pronoun_plus_verb():
+    page = {"close": {"paragraphs": [{"text": "She told us memberships run about $200 a month.", "attributed_to_customer": True}]}}
+    assert find_missing_attribution(page) == []
+
+
+def test_find_missing_attribution_ignores_unmarked_items():
+    page = {"close": {"paragraphs": [{"text": "Memberships run about $200 a month."}]}}
+    assert find_missing_attribution(page) == []
+
+
+def test_gate_page_json_passes_the_real_price_comparison_scenario_end_to_end():
+    # The scenario fix cycle 11 problem A is fixing, exercised through the
+    # actual gate entry point: the writer restates the ad speaker's own cost
+    # math, attributed and phrased as her own estimate, in a narrative
+    # paragraph -- no claim_id, no STOP.
+    page = {
+        "close": {
+            "paragraphs": [
+                {
+                    "text": "One customer told us she put her studio memberships at around $200 a "
+                             "month, or about $2,400 a year.",
+                    "attributed_to_customer": True,
+                }
+            ]
+        }
+    }
+    facts_pack = {"verified_claims": VERIFIED_CLAIMS}
+    gate_page_json(page, facts_pack, "some-other-cartridge", ad_brief=SPEAKER_AD_BRIEF)  # does not raise
+
+
+def test_gate_page_json_still_stops_on_the_same_page_without_ad_brief():
+    # Regression guard: an existing caller that doesn't pass ad_brief (every
+    # gate_page_json call before this fix) gets the pre-fix behavior --
+    # no exemption is possible without speaker numbers to check against.
+    page = {
+        "close": {
+            "paragraphs": [
+                {
+                    "text": "One customer told us she put her studio memberships at around $200 a "
+                             "month, or about $2,400 a year.",
+                    "attributed_to_customer": True,
+                }
+            ]
+        }
+    }
+    facts_pack = {"verified_claims": VERIFIED_CLAIMS}
+    with pytest.raises(ClaimsGateFailure):
+        gate_page_json(page, facts_pack, "some-other-cartridge")

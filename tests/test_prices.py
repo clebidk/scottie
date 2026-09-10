@@ -1,6 +1,8 @@
 """fix 2: live price refresh. No network -- merge_products/build_live_price_claims
 are pure functions exercised directly with fake live-feed data."""
-from adv.prices import build_live_price_claims, format_price, merge_products
+import json
+
+from adv.prices import build_live_price_claims, format_price, merge_products, refresh_price_data
 
 OLD_PRODUCTS = {
     "peak-saunas-fuji": {
@@ -108,3 +110,88 @@ def test_format_price_omits_cents_for_a_whole_dollar_amount():
 
 def test_format_price_keeps_cents_when_non_zero():
     assert format_price("8250.50") == "$8,250.50"
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 11 problem B: every real `adv run` was rewriting
+# claims/products.json with refreshed prices/images and leaving the git tree
+# dirty. The live refresh now writes only to runs/products-cache.json; the
+# in-memory product list merges cache prices over claims/products.json at
+# run time; claims/products.json changes only by hand.
+# ---------------------------------------------------------------------------
+
+def _fake_fetch_page(live_products):
+    def fetch_page(page):
+        return {"products": live_products if page == 1 else []}
+    return fetch_page
+
+
+def test_refresh_price_data_never_writes_claims_products_json(tmp_path):
+    products_path = tmp_path / "products.json"
+    products_path.write_text(
+        json.dumps({"generated": "2026-01-01", "source": "x", "products": OLD_PRODUCTS}, indent=2) + "\n"
+    )
+    original_bytes = products_path.read_bytes()
+    cache_path = tmp_path / "products-cache.json"
+
+    live = [
+        {
+            "handle": "peak-saunas-fuji",
+            "title": "Fuji 2-Person Sauna",
+            "variants": [{"sku": "PEAK-FUJI", "title": "Default Title", "price": "9999.00", "available": True}],
+            "images": [{"src": "https://cdn.shopify.com/new.png"}],
+        }
+    ]
+    merged, price_claims_by_slug, live_products = refresh_price_data(
+        products_path=products_path,
+        cache_path=cache_path,
+        show_compare_at_price=False,
+        today_iso="2026-09-10",
+        fetch_page=_fake_fetch_page(live),
+    )
+
+    # claims/products.json is never rewritten -- untouched byte-for-byte --
+    # even though a live refresh with a changed price just happened.
+    assert products_path.read_bytes() == original_bytes
+
+    # ...but the in-memory result for THIS run reflects the live price: the
+    # merge (old_products loaded from claims/products.json + live_products)
+    # still happens, it's just never persisted back to disk.
+    assert merged["peak-saunas-fuji"]["price"] == "9999.00"
+    assert price_claims_by_slug["peak-saunas-fuji"]["text"] == "The Peak Saunas Fuji is priced at $9,999."
+    assert live_products == live
+
+    # The live refresh's only write anywhere is the existing raw-feed cache.
+    assert cache_path.exists()
+    cached = json.loads(cache_path.read_text())
+    assert cached["products"] == live
+
+
+def test_refresh_price_data_reflects_a_price_change_on_the_very_next_call_too(tmp_path):
+    # "the in-memory product list merges cache prices over
+    # claims/products.json at run time" holds across two separate calls
+    # (two separate `adv run` invocations), not just within the return
+    # value of one -- and the second call proves the merge is coming from
+    # the on-disk raw-feed cache (still within its TTL), not a second fetch,
+    # since fetch_page here raises if it's ever called again.
+    products_path = tmp_path / "products.json"
+    products_path.write_text(
+        json.dumps({"generated": "2026-01-01", "source": "x", "products": OLD_PRODUCTS}, indent=2) + "\n"
+    )
+    cache_path = tmp_path / "products-cache.json"
+    live = [{"handle": "peak-saunas-fuji", "title": "Fuji", "variants": [{"sku": "PEAK-FUJI", "price": "9999.00"}], "images": []}]
+
+    refresh_price_data(
+        products_path=products_path, cache_path=cache_path, show_compare_at_price=False,
+        today_iso="2026-09-10", fetch_page=_fake_fetch_page(live),
+    )
+
+    def _no_refetch(page):
+        raise AssertionError("should not re-fetch: the raw-feed cache is still fresh")
+
+    merged, price_claims_by_slug, _ = refresh_price_data(
+        products_path=products_path, cache_path=cache_path, show_compare_at_price=False,
+        today_iso="2026-09-10", fetch_page=_no_refetch,
+    )
+    assert merged["peak-saunas-fuji"]["price"] == "9999.00"
+    assert price_claims_by_slug["peak-saunas-fuji"]["text"] == "The Peak Saunas Fuji is priced at $9,999."

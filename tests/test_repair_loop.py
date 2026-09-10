@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from adv.budget import Budget
+from adv.budget import Budget, BudgetExceeded
 from adv.claims import ClaimsGateFailure
 from adv.cli import (
     MAX_REPAIR_ATTEMPTS,
@@ -23,7 +23,7 @@ from adv.cli import (
 from adv.log import RunLog
 from adv.vocab import ALWAYS_FORBIDDEN_TERMS
 from adv.write import parse_word_range, resolve_allowed_cta_texts
-from tests.conftest import FakeClient, json_response
+from tests.conftest import FakeClient, FakeResponse, json_response
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -388,3 +388,111 @@ def test_write_and_gate_page_resolves_leaked_claim_id_via_deterministic_fix(tmp_
     assert attempts == [[]]
     assert deterministic_fixes == [1]
     assert "gbrain-allowlist-red-light" not in page["close"]["paragraphs"][0]["text"]
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 11 problem C: the price-comparison-v2.mov run hit the token cap
+# mid-repair and exhausted budget. The repair loop now logs the remaining
+# budget at every attempt, and skips a repair (STOPping with a clear reason
+# instead of a BudgetExceeded exception) once the remaining token budget is
+# below the average cost of one writer call for this cartridge so far.
+# ---------------------------------------------------------------------------
+
+def test_repair_skipped_when_budget_cannot_afford_another_average_call(tmp_path):
+    # Every response costs 80 tokens (input+output) and always fails the
+    # gate (bad CTA) -- with a 100-token budget, attempt 1 leaves 20 tokens
+    # remaining, well under the 80-token average call cost, so attempt 2 is
+    # skipped rather than attempted (and rather than blowing the budget).
+    responses = [FakeResponse(json_response(BAD_ARTICLE_PAGE), input_tokens=40, output_tokens=40)] * 3
+    client = FakeClient(responses)
+    budget = Budget(wall_s=300, tokens=100, calls=12)
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        with pytest.raises(ClaimsGateFailure) as exc_info:
+            write_and_gate_page(
+                cartridge_name="article",
+                cartridges_dir=REPO_ROOT / "cartridges",
+                ad_brief=AD_BRIEF,
+                facts_pack=FACTS_PACK,
+                client=client,
+                model="claude-sonnet-5",
+                budget=budget,
+                log=log,
+                financing_lender=None,
+                speaker_pov=AD_BRIEF["speaker_pov"],
+            )
+    finally:
+        log.close()
+
+    # Only the initial write happened -- the repair was skipped, not attempted.
+    assert len(client.messages.calls) == 1
+    assert getattr(exc_info.value, "budget_skipped", False) is True
+
+    log_text = (tmp_path / "run.log").read_text()
+    assert "repair skipped: budget" in log_text
+    # budget remaining was logged on every attempt that did run.
+    assert "budget remaining" in log_text
+
+
+def test_repair_proceeds_when_budget_can_still_afford_another_average_call(tmp_path):
+    # Same shape, but a much larger budget -- the repair loop should behave
+    # exactly as before this fix: a second call happens and recovers.
+    responses = [
+        FakeResponse(json_response(BAD_ARTICLE_PAGE), input_tokens=40, output_tokens=40),
+        FakeResponse(json_response(ARTICLE_PAGE), input_tokens=40, output_tokens=40),
+    ]
+    client = FakeClient(responses)
+    budget = Budget(wall_s=300, tokens=150_000, calls=12)
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, deterministic_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+
+    assert page == ARTICLE_PAGE
+    assert len(client.messages.calls) == 2
+    log_text = (tmp_path / "run.log").read_text()
+    assert "repair skipped: budget" not in log_text
+
+
+def test_write_and_gate_page_never_raises_bare_budget_exceeded_from_a_skipped_repair(tmp_path):
+    # The whole point of fix cycle 11 problem C: a run that would previously
+    # hit BudgetExceeded mid-repair now STOPs with a clear ClaimsGateFailure
+    # reason instead -- cli.cmd_run's two except clauses treat these very
+    # differently (STOP vs. a generic "budget exceeded" exit).
+    responses = [FakeResponse(json_response(BAD_ARTICLE_PAGE), input_tokens=40, output_tokens=40)] * 3
+    client = FakeClient(responses)
+    budget = Budget(wall_s=300, tokens=100, calls=12)
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        try:
+            write_and_gate_page(
+                cartridge_name="article",
+                cartridges_dir=REPO_ROOT / "cartridges",
+                ad_brief=AD_BRIEF,
+                facts_pack=FACTS_PACK,
+                client=client,
+                model="claude-sonnet-5",
+                budget=budget,
+                log=log,
+                financing_lender=None,
+                speaker_pov=AD_BRIEF["speaker_pov"],
+            )
+            assert False, "expected ClaimsGateFailure"
+        except BudgetExceeded:
+            pytest.fail("budget skip should STOP with ClaimsGateFailure, not raise BudgetExceeded")
+        except ClaimsGateFailure:
+            pass
+    finally:
+        log.close()

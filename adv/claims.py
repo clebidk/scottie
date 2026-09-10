@@ -414,7 +414,53 @@ def _strip_digit_exempt_tokens(text, digit_exempt_terms):
     return _CAPACITY_TOKEN_RE.sub(" ", text)
 
 
-def _trigger_reason(text, digit_exempt_terms=None):
+# Fix cycle 11 problem A: an item the writer marks attributed_to_customer is
+# exempt from the ordinary digit/$/% claim_id rule when -- and only when --
+# every number in its own text also appears in the ad speaker's own words
+# (ad_brief.speaker_experience, or the raw transcript). Numbers are compared
+# as normalized tokens (comma grouping stripped, $ and % kept) so "$2,400"
+# in the writer's sentence matches "$2400" or "2,400" in the transcript.
+_NUMBER_TOKEN_RE = re.compile(r"\$?\d[\d,]*(?:\.\d+)?%?")
+
+
+def _extract_numbers(text):
+    return {m.group(0).replace(",", "") for m in _NUMBER_TOKEN_RE.finditer(text)}
+
+
+def speaker_numbers(ad_brief):
+    """Every number the ad speaker herself said, from ad_brief.speaker_experience
+    (her own hedged estimates, fix cycle 9 item 3) plus the raw transcript --
+    the set an attributed_to_customer sentence's own numbers must be a
+    subset of to earn the digit exemption below."""
+    if not ad_brief:
+        return set()
+    parts = [p for p in (ad_brief.get("speaker_experience") or []) if isinstance(p, str)]
+    transcript = ad_brief.get("transcript_or_text")
+    if isinstance(transcript, str):
+        parts.append(transcript)
+    return _extract_numbers(" ".join(parts))
+
+
+# Fix cycle 11 problem A item 2 (last sentence): attributed_to_customer is
+# only ever honored on a plain narrative paragraph -- the ad speaker's own
+# story -- never a heading, a proof/benefit bullet, a spec-table row, or an
+# FAQ item. Enumerated by exact page.json path shape, one entry per
+# cartridge schema, so a flag anywhere else (proof_bullets, specs_table,
+# faq, trust_strip, hero price/financing lines, turn_section.criteria,
+# how_it_works.steps -- all proof- or locked-topic shaped) is rejected by
+# validate_page_claim_ids below regardless of how the sentence is phrased.
+_ATTRIBUTABLE_PATH_RE = re.compile(
+    r"^\$\.(?:"
+    r"angle_section\.paragraphs\[\d+\]"          # product-page
+    r"|open\[\d+\]"                              # article
+    r"|body_sections\[\d+\]\.paragraphs\[\d+\]"  # article
+    r"|close\.paragraphs\[\d+\]"                 # article
+    r"|problem\.paragraphs\[\d+\]"               # longform
+    r")$"
+)
+
+
+def _trigger_reason(text, digit_exempt_terms=None, attributed_to_customer=False, speaker_number_set=None):
     """None if `text` carries nothing that requires a claim_id; otherwise a
     short human-readable reason (fix cycle 4: named in the gate failure so a
     repair attempt knows exactly what to remove or cite, instead of
@@ -425,15 +471,31 @@ def _trigger_reason(text, digit_exempt_terms=None):
     stripped before the digit check only -- a product name/title/capacity
     token doesn't count as an asserted number, but a real dollar amount or
     percentage still needs a claim_id even inside the product name's
-    sentence."""
+    sentence.
+
+    Fix cycle 11 problem A item 2: when `attributed_to_customer` is true and
+    `speaker_number_set` is given, the digit/$/% checks are replaced by a
+    number-by-number comparison against the ad speaker's own words -- a
+    number she never said still needs a claim_id like anywhere else, but one
+    she did say (her own estimate, e.g. "around $200 a month") no longer
+    does. The trigger-word check (medical/clinical/proven/rated/reviews/
+    study/emf) is unaffected either way -- attribution never excuses those."""
     unquoted = _QUOTED_SPAN_RE.sub(" ", text)
-    if "$" in unquoted:
-        return "contains a dollar amount"
-    if "%" in unquoted:
-        return "contains a percentage"
-    digit_check_text = _strip_digit_exempt_tokens(unquoted, digit_exempt_terms)
-    if re.search(r"\d", digit_check_text):
-        return "contains a number"
+
+    if attributed_to_customer and speaker_number_set is not None:
+        stripped = _strip_digit_exempt_tokens(unquoted, digit_exempt_terms)
+        unsupported = _extract_numbers(stripped) - speaker_number_set
+        if unsupported:
+            return f"contains a number not in the ad speaker's own words: {', '.join(sorted(unsupported))}"
+    else:
+        if "$" in unquoted:
+            return "contains a dollar amount"
+        if "%" in unquoted:
+            return "contains a percentage"
+        digit_check_text = _strip_digit_exempt_tokens(unquoted, digit_exempt_terms)
+        if re.search(r"\d", digit_check_text):
+            return "contains a number"
+
     m = _TRIGGER_WORD_RE.search(unquoted.lower())
     if m:
         return f'uses the word "{m.group(0)}"'
@@ -466,7 +528,7 @@ def collect_claim_ids(node):
     return ids
 
 
-def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None):
+def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None, speaker_number_set=None):
     problems = []
 
     def walk(node, path):
@@ -479,10 +541,31 @@ def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None)
             claim_id = node.get("claim_id") or None  # treat "" as not provided
             if claim_id is not None and claim_id not in valid_claim_ids:
                 problems.append({"path": path, "issue": f"claim_id {claim_id!r} does not exist"})
+
+            # Fix cycle 11 problem A item 2 (last sentence): the flag itself
+            # is only ever valid on a plain narrative paragraph -- reject it
+            # outright anywhere else (a heading, proof bullet, spec row, or
+            # FAQ item), regardless of how the sentence is phrased, rather
+            # than silently granting a digit exemption a locked/structured
+            # field should never get.
+            attributed = node.get("attributed_to_customer") is True
+            if attributed and not _ATTRIBUTABLE_PATH_RE.match(path):
+                problems.append(
+                    {
+                        "path": path,
+                        "issue": "attributed_to_customer is only allowed on a narrative paragraph -- "
+                                 "never a heading, proof bullet, spec-table row, or FAQ item",
+                    }
+                )
+                attributed = False
+
             if isinstance(node.get("text"), str):
                 text = node["text"]
                 has_ref = bool(claim_ids) or bool(claim_id)
-                reason = _trigger_reason(text, digit_exempt_terms)
+                reason = _trigger_reason(
+                    text, digit_exempt_terms,
+                    attributed_to_customer=attributed, speaker_number_set=speaker_number_set,
+                )
                 if reason and not has_ref:
                     problems.append(
                         {
@@ -500,6 +583,51 @@ def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None)
 
     walk(page_json, "$")
     return problems
+
+
+_ATTRIBUTION_CUSTOMER_RE = re.compile(r"\bcustomer\b", re.IGNORECASE)
+_ATTRIBUTION_PRONOUN_RE = re.compile(r"\b(?:she|he|they)\b", re.IGNORECASE)
+_ATTRIBUTION_VERB_RE = re.compile(r"\btold us\b|\bestimated\b|\bsaid\b", re.IGNORECASE)
+
+
+def _has_customer_attribution(text):
+    if _ATTRIBUTION_CUSTOMER_RE.search(text):
+        return True
+    return bool(_ATTRIBUTION_PRONOUN_RE.search(text) and _ATTRIBUTION_VERB_RE.search(text))
+
+
+def find_missing_attribution(page_json):
+    """Fix cycle 11 problem A item 3: an item marked attributed_to_customer
+    must visibly read, to a reader, as the ad speaker's own words -- not
+    just carry the flag internally. Requires "customer", or one of
+    "she"/"he"/"they" together with "told us"/"estimated"/"said", in the
+    sentence's own text. Called pre-render (gate_page_json, feeds the
+    writer repair loop) and post-render (render.render_page, a backstop) --
+    the same defense-in-depth pattern as the EMF/leaked-claim-id checks."""
+    hits = []
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            if node.get("attributed_to_customer") is True and isinstance(node.get("text"), str):
+                text = node["text"]
+                if not _has_customer_attribution(text):
+                    hits.append(
+                        {
+                            "path": path,
+                            "issue": 'attributed_to_customer item has no visible attribution -- the '
+                                     'sentence must contain "customer", or "she"/"he"/"they" plus '
+                                     '"told us"/"estimated"/"said"',
+                            "text": text,
+                        }
+                    )
+            for k, v in node.items():
+                walk(v, f"{path}.{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+
+    walk(page_json, "$")
+    return hits
 
 
 # Structural/reference fields, not prose the writer composed -- a product
@@ -773,10 +901,16 @@ def find_warranty_violations(page_json, verified_claims):
     return hits
 
 
-def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None):
+def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None, ad_brief=None):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
     digit_exempt_terms = facts_pack.get("digit_exempt_terms")
-    problems = validate_page_claim_ids(page_json, valid_ids, digit_exempt_terms)
+    # Fix cycle 11 problem A: only present when the caller has an ad_brief
+    # to check attributed_to_customer numbers against (cli.write_and_gate_page
+    # always does, in the real pipeline); None elsewhere, which
+    # validate_page_claim_ids/_trigger_reason treat as "no exemption" --
+    # same as before this fix for every existing caller/test.
+    speaker_number_set = speaker_numbers(ad_brief) if ad_brief is not None else None
+    problems = validate_page_claim_ids(page_json, valid_ids, digit_exempt_terms, speaker_number_set=speaker_number_set)
     problems += find_forbidden_terms(
         page_json, financing_lender=financing_lender, verified_claims=facts_pack.get("verified_claims")
     )
@@ -785,6 +919,7 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_leaked_claim_ids(page_json, valid_ids)
     problems += find_financing_violations(page_json, financing_lender=financing_lender)
     problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
+    problems += find_missing_attribution(page_json)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
 

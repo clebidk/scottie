@@ -1,9 +1,22 @@
 """Live price refresh (fix 2): at the start of `adv run`, fetch
-https://peaksaunas.com/products.json (paginated), refresh claims/products.json
-(keeping the `default` flag and any hand-written `short_name`), and build a
-fresh, in-memory price claim per product dated today with the product URL as
-source. The raw fetch is cached for 60 minutes in runs/products-cache.json;
-on fetch failure the cache is used and a warning logged.
+https://peaksaunas.com/products.json (paginated) and merge it with
+claims/products.json (keeping the `default` flag and any hand-written
+`short_name`) into an in-memory product list, and build a fresh price claim
+per product dated today with the product URL as source. The raw fetch is
+cached for 60 minutes in runs/products-cache.json; on fetch failure the
+cache is used and a warning logged.
+
+Fix cycle 11 problem B: the merge is in-memory only, every run -- it is
+never written back to claims/products.json. Every real `adv run` was
+refreshing prices/images there and leaving the git tree dirty (a routine
+"generated" date bump plus whatever else changed), which meant either
+committing a machine-written diff every cycle or leaving the tree dirty
+between runs. claims/products.json is hand-curated data now; it changes
+only when Caleb edits it. The live refresh's only write is the existing
+runs/products-cache.json cache (via save_cache, in get_live_products
+below) -- merge_products(old_products, live_products) already re-derives
+the same in-memory result every run from that (or a fresh fetch) plus
+claims/products.json, so nothing is lost by not persisting it.
 """
 import json
 import time
@@ -174,12 +187,18 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
 
 
 def refresh_price_data(*, products_path, cache_path, show_compare_at_price, today_iso, fetch_page=http_fetch_page, log=None):
-    """Full fix-2 flow: fetch (or reuse the cache for) the live catalog,
-    refresh claims/products.json on disk, and return
+    """Full fix-2 flow: fetch (or reuse the cache for) the live catalog, merge
+    it over claims/products.json in memory, and return
     (merged_products_by_slug, live_price_claims_by_slug, live_products).
     live_products (fix cycle 9 item 1) is the raw Shopify feed list this call
     used -- still carrying fields merge_products() drops, like body_html --
-    or [] if no live data and no cache were available."""
+    or [] if no live data and no cache were available.
+
+    Fix cycle 11 problem B: claims/products.json (`products_path`) is read
+    only, never written -- see this module's docstring. The only file this
+    function writes is the existing raw-feed cache at `cache_path`
+    (runs/products-cache.json), inside get_live_products, unchanged from
+    before this fix."""
     products_path = Path(products_path)
     old_doc = json.loads(products_path.read_text())
     old_products = old_doc.get("products", {})
@@ -193,10 +212,6 @@ def refresh_price_data(*, products_path, cache_path, show_compare_at_price, toda
 
     if live_products is not None:
         merged = merge_products(old_products, live_products)
-        products_path.write_text(
-            json.dumps({"generated": today_iso, "source": SHOPIFY_PRODUCTS_URL, "products": merged}, indent=2)
-            + "\n"
-        )
     else:
         merged = old_products
 
