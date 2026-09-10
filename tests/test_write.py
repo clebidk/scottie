@@ -22,6 +22,7 @@ from harness.write import (
 )
 from tests.conftest import FakeClient, block_text, json_response
 from tests.test_render import ARTICLE_PAGE, AD_BRIEF, FACTS_PACK
+from harness.write import resolve_cta_mode
 
 
 
@@ -343,7 +344,6 @@ def test_write_page_rejects_missing_required_key(tmp_path):
 # tenant.yaml's cta_mode/cta_variants.
 # ---------------------------------------------------------------------------
 
-from harness.write import resolve_cta_mode
 
 
 class _FakeCtaTenant:

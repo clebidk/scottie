@@ -9,6 +9,7 @@ import yaml
 from harness import tenant as tenant_mod
 from harness import vocab
 from tests.support import REPO_ROOT, TENANT
+from harness import config as harness_config
 
 # ---------------------------------------------------------------------------
 # Resolution order: --tenant flag > HARNESS_TENANT env > tenants/default.txt
@@ -351,7 +352,6 @@ def test_full_spectrum_and_red_light_claims_carry_the_expected_aliases():
 # tenant.yaml's models.<stage>, falling back to config.DEFAULT_MODELS.
 # ---------------------------------------------------------------------------
 
-from harness import config as harness_config
 
 
 class _FakeModelsTenant:

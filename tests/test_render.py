@@ -5,6 +5,9 @@ import pytest
 from harness.claims import ClaimsGateFailure
 from harness.render import asset_alt, build_sources_list, render_page, resolve_public_url
 from tests.support import REPO_ROOT, TENANT
+from PIL import Image
+from harness.render import ASSET_MAX_LONG_EDGE, ASSET_PNG_MAX_BYTES, download_asset, resize_asset_bytes
+from io import BytesIO
 
 
 FACTS_PACK = {
@@ -738,11 +741,8 @@ def test_disclosure_text_omits_financing_estimates(tmp_path):
 # Drive originals were inlined at full size.
 # ---------------------------------------------------------------------------
 
-from io import BytesIO
 
-from PIL import Image
 
-from harness.render import ASSET_MAX_LONG_EDGE, ASSET_PNG_MAX_BYTES, download_asset, resize_asset_bytes
 
 
 def _make_image_bytes(width, height, fmt="PNG", color=(120, 60, 200)):

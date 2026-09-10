@@ -264,7 +264,10 @@ def apply_hype_synonyms(text):
     wording)."""
     for word, replacement in _hype_synonyms().items():
         pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
-        text = pattern.sub(lambda m: _case_preserving_replacement(m, replacement), text)
+        # `replacement` bound as a default: the lambda is consumed inside this
+        # same iteration today, but closing over a loop variable is one
+        # refactor away from being a bug (ruff B023).
+        text = pattern.sub(lambda m, r=replacement: _case_preserving_replacement(m, r), text)
     text = text.replace("!", ".")
     return re.sub(r"\.{2,}", ".", text)
 
@@ -525,7 +528,9 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
             substitute = apply_hype_synonyms
         elif "claim id leaked into copy" in issue:
             path = raw_path
-            substitute = lambda text: strip_leaked_claim_ids(text, valid_claim_ids)[0]
+
+            def substitute(text, ids=valid_claim_ids):
+                return strip_leaked_claim_ids(text, ids)[0]
         elif "(contains a number)" in issue:
             # Fix cycle 12 item 2: same path-shape as the trigger-word case
             # below -- validate_page_claim_ids points at the containing
@@ -543,7 +548,9 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
             # string itself -- unlike the forbidden-term/leaked-id paths
             # above, which already point at the string.
             path = raw_path if raw_path.endswith(".text") else f"{raw_path}.text"
-            substitute = lambda text, w=word, r=replacement: _generic_word_sub(text, w, r)
+
+            def substitute(text, w=word, r=replacement):
+                return _generic_word_sub(text, w, r)
 
         try:
             current = _get_at_path(page, path)

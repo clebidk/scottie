@@ -2,6 +2,7 @@
 from harness import tenant as tenant_mod
 from harness.ground import LocalFactsSource, benefit_allowlist_ids, load_claims_config, select_drive_assets
 from tests.support import TENANT
+from harness.ground import select_listicle_pack_assets
 
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 MINI_SLUG = "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
@@ -394,7 +395,6 @@ def test_pick_product_named_model_still_wins_over_a_quoted_price():
 # False).
 # ---------------------------------------------------------------------------
 
-from harness.ground import select_listicle_pack_assets
 
 MATTERHORN_SLUG = "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control"
 

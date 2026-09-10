@@ -156,7 +156,9 @@ def test_rewrite_asset_srcs_replaces_known_paths_and_leaves_unknown_alone():
 
 def test_verify_cache_counts_hits_across_pulls():
     bodies = [b"old body", b"old body", b"NEW-MARKER body", b"NEW-MARKER body"]
-    fetch = lambda url: bodies.pop(0)
+    def fetch(url):
+        return bodies.pop(0)
+
     publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=FakeTransport())
     hits, pulls = publisher.verify_cache(
         "https://acme.com/pages/x", marker="NEW-MARKER", pulls=4, delay_s=0, sleep=lambda s: None, fetch=fetch
