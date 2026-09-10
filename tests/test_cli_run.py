@@ -9,11 +9,10 @@ import json
 from pathlib import Path
 
 from harness import cli, pipeline
-from harness.claims import ClaimsGateFailure
 from harness.prices import build_live_price_claims
 from tests.conftest import FakeClient, json_response
 from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE
-from tests.support import REPO_ROOT, TENANT
+from tests.support import TENANT
 
 FIXTURE = TENANT.fixtures_dir / "hidden-costs-v2.transcript.txt"
 

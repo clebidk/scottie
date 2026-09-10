@@ -6,7 +6,6 @@ had no matching verified claim and STOPped fixtures/product-features-v2.mov
 import json
 from pathlib import Path
 
-import pytest
 
 from harness.pdp_claims import extract_pdp_claims, save_pdp_claims_cache, seed_pdp_claims
 

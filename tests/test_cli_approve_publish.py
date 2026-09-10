@@ -9,7 +9,6 @@ real, not mocked away."""
 import argparse
 import json
 
-import pytest
 
 from harness import cli, runstate
 

@@ -741,7 +741,7 @@ def test_write_and_gate_page_never_raises_bare_budget_exceeded_from_a_skipped_re
                 financing_lender=None,
                 speaker_pov=AD_BRIEF["speaker_pov"],
             )
-            assert False, "expected ClaimsGateFailure"
+            raise AssertionError("expected ClaimsGateFailure")
         except BudgetExceeded:
             pytest.fail("budget skip should STOP with ClaimsGateFailure, not raise BudgetExceeded")
         except ClaimsGateFailure:

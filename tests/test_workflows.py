@@ -4,7 +4,6 @@ A workflow YAML owns the ORDER of stages; harness/pipeline.py owns what each
 stage does. These tests hold that line: the same input, seed, and canned model
 responses must produce the same pages through either entry point.
 """
-import argparse
 import json
 from pathlib import Path
 
@@ -14,7 +13,6 @@ from harness import cli, pipeline, workflows
 from tests.conftest import json_response
 from tests.test_cli_run import (
     AD_BRIEF_RESPONSE,
-    FUJI_SLUG,
     _base_args,
     _patch_network,
 )

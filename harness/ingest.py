@@ -5,11 +5,8 @@ input -> resolve (local path or Drive link/id) -> detect type -> transcribe
 call -> validated ad_brief dict.
 """
 import base64
-import http.cookiejar
 import mimetypes
-import re
 import subprocess
-import urllib.request
 from pathlib import Path
 
 from . import tenant as tenant_mod

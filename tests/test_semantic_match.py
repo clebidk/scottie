@@ -4,7 +4,6 @@ word-overlap matching runs. Every test here uses a fake Anthropic client --
 no network."""
 import json
 
-import pytest
 
 from harness.budget import Budget
 from harness.claims import match_claim
@@ -14,7 +13,7 @@ from harness.semantic_match import (
     _trim_verified_claims_for_prompt,
     semantic_match_claims,
 )
-from tests.conftest import FakeClient, FakeResponse, json_response
+from tests.conftest import FakeClient, json_response
 
 # Real claims/verified.json text for these two ids -- neither one's text
 # contains the digit "4" (or "1"), which is exactly why the "4-in-1" idiom

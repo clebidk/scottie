@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from harness.budget import Budget
 from harness.log import RunLog
@@ -24,7 +23,6 @@ from harness.write import (
 from tests.conftest import FakeClient, block_text, json_response
 from tests.test_render import ARTICLE_PAGE, AD_BRIEF, FACTS_PACK
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_load_exemplars_reads_markdown_reference_articles():

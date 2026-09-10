@@ -2,7 +2,6 @@
 claims gate (no forked copy of any check -- see cartridges/listicle/cartridge.md's
 "reuse the shared code; do not fork it" rule)."""
 import json
-from pathlib import Path
 
 import pytest
 
@@ -17,7 +16,6 @@ from harness.claims import ClaimsGateFailure, gate_page_json
 from harness.render import render_page
 from harness.write import parse_word_range, resolve_allowed_cta_texts
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "listicle"
 
 FACTS_PACK = {

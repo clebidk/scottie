@@ -3,9 +3,7 @@ overclaim truncation) and the skip-when-unconfigured fail-closed behavior.
 No network call is ever made when a channel is off or a credential is
 missing; every test here proves that by never faking a working transport for
 the skip path."""
-import urllib.error
 
-import pytest
 
 from harness import notify
 

@@ -1,7 +1,6 @@
 """Tenant resolution, the tenant skeleton, and the rule that the engine and the
 cartridges carry no company's words."""
 import json
-import re
 
 import pytest
 import yaml

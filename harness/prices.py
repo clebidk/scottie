@@ -20,20 +20,15 @@ claims/products.json, so nothing is lost by not persisting it.
 """
 import json
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 from . import tenant as tenant_mod
 from .sources.shopify_products import (
-    PAGE_LIMIT,
     fetch_all_live_products,
     http_fetch_page,
-    products_json_url,
 )
 
 CACHE_TTL_S = 60 * 60
-PAGE_LIMIT = 250
 
 
 def load_cache(cache_path):
@@ -142,7 +137,7 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
     URL as source -- never written to claims/verified.json. The compare-at
     figure is included only when show_compare_at_price is true (fix 1)."""
     claims = []
-    for slug, p in products.items():
+    for p in products.values():
         price = p.get("price")
         if price is None:
             continue

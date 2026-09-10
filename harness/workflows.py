@@ -6,7 +6,6 @@ registry), so `harness workflow run ad-to-pages --input ...` produces exactly
 what `harness run ...` produces. The YAML owns the ORDER; the code owns the
 BEHAVIOUR. Nothing about a stage lives in the YAML.
 """
-import sys
 from pathlib import Path
 
 import yaml
