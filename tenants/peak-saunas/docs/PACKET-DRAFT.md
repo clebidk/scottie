@@ -4,6 +4,18 @@
 message that has gone anywhere. Nothing in this file has been sent to anyone, published,
 or acted on.
 
+**Cycle 20 update:** every run's own `state.json`/`packet.json` (under
+`out/<run-id>/`) are now the live version of this document's `stamp` and
+"decisions still open" fields -- see `docs/PUBLISHING.md` for the full flow.
+The stamp above is set per run with `harness packet <run-dir> --stamp
+ship|redo|kill --by <email>`; a page only moves once `harness approve
+<run-dir> --by <email> --pages <cartridge>` (a listed reviewer only --
+Michael primary, Caleb backup, per `tenant.yaml`'s `reviewers`) has also run.
+`harness publish <run-dir> --page <cartridge> [--live]` is the one code path
+that can reach a Shopify page, and it refuses outright unless both of those
+are true -- it still makes no live Shopify call today, since
+`SHOPIFY_STORE`/`SHOPIFY_TOKEN` are not yet set in this tenant's `.env`.
+
 ```json
 {
   "outcome": "Four sample advertorial page sets (article, product-page, longform, and two listicle runs) are generated, claims-gated, and ready for Caleb's review -- none are published to the Peak Shopify page.",
@@ -96,6 +108,15 @@ gitignored and exists only there, never in a local clone.
   of the 105 listicle-pack files are AI composites, not photographs -- turning this on
   makes them eligible for selection (always alt-texted "Rendering:", never used as
   evidence of a real installation).
-- **Publish mode.** No `adv publish` exists at all today -- this is a placeholder for
-  when it does: whether a future publish path writes a draft Shopify page for review or
-  goes straight to a live page, and who holds the "ship" stamp authority day to day.
+- **Publish mode.** `harness publish` exists as of cycle 20 (`harness/publishers/`,
+  `docs/PUBLISHING.md`); it defaults to writing a draft (unpublished) Shopify page unless
+  `--live` is passed, and refuses to run at all without an approval and a `ship` stamp. Who
+  holds day-to-day "ship" stamp authority is still Caleb's call -- `reviewers` in
+  `tenant.yaml` lists Michael (primary) and Caleb (backup) for *approval*, but
+  `harness packet --stamp ship` has no separate authorization check today; the packet
+  stamp and reviewer approval are two independently-gated steps, not one.
+- **Shopify Admin API credentials.** `SHOPIFY_STORE` (the storefront's `*.myshopify.com`
+  admin domain) and `SHOPIFY_TOKEN` are not set in this tenant's `.env` -- `store_admin_domain`
+  in `tenant.yaml` is deliberately left `null` until the myshopify domain is confirmed. Until
+  both are set, `harness publish` fails closed with a one-line message and makes no network
+  call; `harness publish --dry-run` reports this without needing an approved run at all.

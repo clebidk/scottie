@@ -3,12 +3,19 @@ Description=Sweep the inbox for tenant @@TENANT@@ and run the ad-to-pages workfl
 
 [Service]
 Type=oneshot
+# Cycle 20: runs the named workflow (not `harness run` directly) with
+# --batch, so every swept file's initial cartridge writes go through the
+# Message Batches API (50%% off) instead of one synchronous call per
+# cartridge -- same pipeline stages either way (harness/pipeline.py
+# DEFAULT_STAGES == workflows/ad-to-pages.yaml's stage list), including the
+# new review_notify stage that puts each run in needs_review and notifies
+# the tenant's reviewers.
 ExecStart=/bin/bash -c 'set -euo pipefail; \
   inbox="@@REPO@@/tenants/@@TENANT@@/inbox"; \
   mkdir -p "$inbox/processed"; \
   shopt -s nullglob; \
   for f in "$inbox"/*; do \
     [ -f "$f" ] || continue; \
-    @@REPO@@/.venv/bin/harness run "$f" --tenant @@TENANT@@; \
+    @@REPO@@/.venv/bin/harness workflow run ad-to-pages --input "$f" --tenant @@TENANT@@ --batch; \
     mv "$f" "$inbox/processed/"; \
   done'

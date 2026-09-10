@@ -158,6 +158,16 @@ for a first test run, not for anything published.
 - `.env` -- copy `.env.example`, add the API key. Never commit it;
   `Tenant.load_env()` loads it into the process environment and nothing logs
   or prints its contents.
+- **Reviewers, publisher, notifications** (cycle 20 -- see
+  `docs/PUBLISHING.md`) -- `tenant.yaml`'s `reviewers` list (`name`, `email`,
+  `role: primary|backup`); an `approve`/`reject` from an email not on this
+  list is refused. `publisher: export` (the default -- no credentials
+  needed) or `shopify` (needs `SHOPIFY_STORE`/`SHOPIFY_TOKEN` in `.env`,
+  scopes `write_content`, `write_files`, `read_content`). `notifications:
+  {slack: true|false, email: [...]}`, plus `SLACK_WEBHOOK_URL`/`SMTP_*` in
+  `.env` for whichever channel is turned on -- both are optional and fail
+  closed, so it's safe to leave every one of these unset until a real
+  reviewer and a real storefront credential exist.
 
 ## 6. First dry run (5 min)
 
@@ -217,3 +227,6 @@ update, not `tenant.yaml`.
       (not committed) if an ad will actually be ingested
 - [ ] First dry run completed, `REVIEW.md` read before any page; `harness
       tenant list` shows the tenant as `ready`
+- [ ] `reviewers` filled in in `tenant.yaml`; `publisher` set deliberately
+      (default `export`); `notifications` set (default both off) -- see
+      `docs/PUBLISHING.md`

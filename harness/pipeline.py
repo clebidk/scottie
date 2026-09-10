@@ -119,6 +119,17 @@ def prepare_run(state):
     state.claims_config = tenant.claims_config
     state.facts_source = LocalFactsSource(tenant.claims_dir)
 
+    # Cycle 20: every run gets a state.json ("generated", one entry per
+    # selected page) and a packet.json (default stamp "BOT DRAFT · NOT
+    # SENT") the moment its run directory exists -- review_notify below
+    # advances state.json to "needs_review" once the run actually passes
+    # every gate; a STOP or a budget cap leaves both files at their initial
+    # values, since there is no page to review yet.
+    from . import runstate
+
+    runstate.init_state(state.run_dir, pages=selected)
+    runstate.init_packet(state.run_dir)
+
 
 def refresh_prices(state):
     """Live prices, then the product-page-derived claims, before ingest.
@@ -351,6 +362,28 @@ def render_pages(state):
         state.outputs.append(index_path)
 
 
+def review_notify(state):
+    """Cycle 20: the run passed every gate (a STOP or a budget cap never
+    reaches this stage) -- advance state.json to "needs_review" and notify
+    the tenant's reviewers (Slack/email, both optional, both fail closed;
+    see harness/notify.py). Runs right after render_pages, before
+    write_review, so REVIEW.md's path can be referenced in the message even
+    though the file itself is written by the next stage."""
+    from . import notify, runstate
+
+    runstate.mark_needs_review(state.run_dir, note="run passed the claims gate")
+    notify.notify_needs_review(
+        state.tenant,
+        run_id=state.run_id,
+        input_name=str(state.args.input),
+        pages=state.selected,
+        gate_log=state.gate_log,
+        ad_not_repeated=state.ad_not_repeated,
+        run_dir=str(state.run_dir),
+        log=state.log,
+    )
+
+
 def write_review(state):
     from .cli import write_review_md
 
@@ -380,6 +413,7 @@ STAGES = {
     "gate_ad_claims": gate_ad_claims,
     "write_pages": write_pages,
     "render_pages": render_pages,
+    "review_notify": review_notify,
     "write_review": write_review,
 }
 
@@ -391,6 +425,7 @@ DEFAULT_STAGES = (
     "gate_ad_claims",
     "write_pages",
     "render_pages",
+    "review_notify",
     "write_review",
 )
 

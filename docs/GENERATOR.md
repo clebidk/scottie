@@ -143,7 +143,11 @@ was derived from -- the same traps apply to anything `harness shopify-body` prod
 
 ## The publish gate
 
-There is no `harness publish`, no Shopify Admin API call, and no code path anywhere in this
-harness that pushes `shopify-body.html` to peaksaunas.com. This must never be built or run
-without a packet stamped `ship` (see `tenants/peak-saunas/docs/PACKET-DRAFT.md`) and Caleb's explicit,
-in-writing approval.
+Cycle 20 added `harness publish` (`harness/publishers/`; see `docs/PUBLISHING.md` for the
+full state machine, approval, and packet-stamp flow). It refuses to run unless the run's
+`state.json` shows that cartridge as `approved` **and** the run's `packet.json` is stamped
+`ship` (`harness packet <run-dir> --stamp ship --by <email>`) -- both together stand in for
+"Caleb's explicit, in-writing approval." Default publish is unpublished (a draft page);
+only `--live` creates or updates a live page, and `SHOPIFY_STORE`/`SHOPIFY_TOKEN` are not
+yet set for `peak-saunas`, so every live publish still fails closed today, with a one-line
+message and no network call, until those are configured.

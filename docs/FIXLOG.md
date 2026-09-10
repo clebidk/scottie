@@ -441,3 +441,127 @@ All four are direct, correct consequences of Caleb's decisions -- not a bug intr
 - **`harness review`** run on both run directories: `article-review.html`/`longform-review.html`/`product-page-review.html` written successfully for both.
 - `git status`/`git diff --stat` on the server: clean both before the `"warn"` policy edit and after restoring `"stop"`.
 - Mac scratch clone `rm -rf`'d after this verification; nothing left on the Mac.
+
+## Cycle 20
+
+**Scope.** Run states, human approval, publisher adapters (Shopify + export), and reviewer
+notifications. `harness/*`, `cartridges/` untouched, `tenants/_template/*`, `docs/`,
+`tests/` -- shared with a concurrent tenant-only agent on `tenants/peak-saunas/*` and
+`docs/FIXLOG.md`; rebased cleanly over its commits.
+
+1. **Run states.** `harness/runstate.py` -- every run directory gets `state.json`
+   (`state` in `generated | needs_review | approved | published | rejected`, a `pages`
+   map with the same states per cartridge, and a `history` list of `{state, by, at,
+   note}`) and `packet.json` (`{stamp, by, at, note}`, default `"BOT DRAFT · NOT SENT"`).
+   `harness/pipeline.py`'s `prepare_run` writes both the moment a run directory exists; a
+   new `review_notify` stage (inserted after `render_pages`, before `write_review`, in both
+   `DEFAULT_STAGES` and `workflows/ad-to-pages.yaml`) advances `state.json` to
+   `needs_review` once a run has passed every gate -- a STOP or a budget cap never reaches
+   it, so those runs stay at `generated`. New commands: `harness approve <run-dir> --by
+   <email> [--pages a,b] [--note ...]` and `harness reject <run-dir> --by <email> --note
+   ...`. `--by` must match `tenant.yaml`'s new `reviewers: [{name, email, role}]` list; an
+   unmatched email is refused with a one-line message and exit 1, never a traceback.
+   Approval with no `--pages` approves every page; a partial `--pages` approval leaves the
+   run-level state `needs_review` until every page is approved. Every approval also appends
+   one line to `tenants/<t>/evals/approvals.jsonl` (same append-only shape as
+   `evals/scores.jsonl`). `harness packet <run-dir> --stamp ship|redo|kill --by <email>`
+   sets the packet stamp.
+2. **Publisher adapters.** `harness/publishers/`: `base.py` (the `dry_run`/`publish`/
+   `upload_assets` interface), `shopify.py` (Admin REST API 2024-10, `urllib.request` only
+   -- no new dependency, matching `harness/prices.py`/`harness/sources/judgeme.py`; images
+   via `POST /files.json` base64 attachment, chosen over GraphQL `fileCreate`/staged
+   uploads since a page's handful of inline images don't need the staged-upload round trip
+   -- documented in `docs/PUBLISHING.md`; page create/update via `POST /pages.json`
+   `body_html`, `published: false` unless `--live`; every `src="assets/..."` rewritten to
+   its uploaded CDN URL before the page is created; `SHOPIFY_STORE`/`SHOPIFY_TOKEN` read
+   from the tenant's `.env`, both optional -- every method raises a clear
+   `ShopifyCredentialsMissing` with no network call when either is absent), `export.py`
+   (writes a self-contained `index.html` + `shopify-body.html` + `assets/` + a manual-upload
+   `README.md` per page -- the default for every tenant, and the fallback `harness publish`
+   behaves like without `publisher: shopify`). `tenant.yaml` gets `publisher: shopify|export`
+   and a `shopify_publish: {store, store_admin_domain}` block. `harness publish <run-dir>
+   --page <cartridge> [--live]` refuses unless `state.json`'s `pages.<cartridge>` is
+   `approved` **and** `packet.json`'s stamp is `ship`, each refusal printing the exact next
+   command and exiting 1. Default publish is unpublished (draft); `--live` also verifies the
+   storefront with 8 pulls, 2s apart, per the cache-epoch trap in
+   `tenants/peak-saunas/reference/peak-listicle-lp/README.md`. `harness publish --dry-run`
+   validates credentials/body with one `GET shop.json` (Shopify) and creates nothing,
+   skipping the approval/stamp gates entirely.
+3. **Notifications.** `harness/notify.py`: a Slack incoming webhook
+   (`SLACK_WEBHOOK_URL`) and plain-text SMTP email (`SMTP_HOST/PORT/USER/PASS`,
+   `NOTIFY_FROM`), both optional and both fail closed -- a channel that's off, or a missing
+   credential, logs `"notification skipped: no channel configured"` and never blocks a run
+   or a command; no secret is ever put in a message body or printed. Sent on: a run reaching
+   `needs_review` (tenant, run id, input name, pages, gate-history summary, the "AD CLAIMS
+   NOT REPEATED" count, every review file path, and the exact `harness approve` command),
+   on `approve`, and on `publish` (with the URL). Every message truncates an ad claim's text
+   to 120 characters before it can appear at all. `tenant.yaml` gets `notifications: {slack:
+   true|false, email: [...]}`.
+4. **Workflows and crons.** `workflows/ad-to-pages.yaml` gains the `review_notify` step
+   (after `render_pages`, before `write_review`) so `harness run`/`harness workflow run
+   ad-to-pages` stay identical (`tests/test_workflows.py`'s parity assertion still holds).
+   `crons/inbox-sweep.service` now calls `harness workflow run ad-to-pages --input "$f"
+   --tenant @@TENANT@@ --batch` instead of `harness run "$f" --tenant @@TENANT@@` (50% off
+   every swept file's initial cartridge writes). New `harness digest needs-review --tenant
+   <t> [--days 3]` lists every run still `needs_review` whose history shows it entered that
+   state more than `--days` days ago; new `crons/needs-review-digest.service`/`.timer`
+   (weekly, Monday 08:15) runs it; `workflows/weekly-digest.yaml` documents the same step as
+   an action-only specification, matching `sweep.yaml`/`score.yaml`'s convention (no
+   `stage:` step, so `harness workflow run weekly-digest` exits 1 with "runs no pipeline
+   stages" by design -- run the `digest` command directly).
+5. **Template and Peak tenant.yaml.** `tenants/_template/tenant.yaml` gains commented
+   `reviewers: []`, `publisher: export`, `shopify_publish: {store, store_admin_domain:
+   null}`, `notifications: {slack: false, email: []}`. `.env.example` gains `SHOPIFY_STORE`,
+   `SHOPIFY_TOKEN`, `SLACK_WEBHOOK_URL`, `SMTP_HOST/PORT/USER/PASS`, `NOTIFY_FROM`
+   placeholders. `tenants/peak-saunas/tenant.yaml`: `reviewers` is Michael
+   (michael@peaksaunas.com, primary) and Caleb (caleb@peaksaunas.com, backup); `publisher:
+   shopify` with `shopify_publish.store: peaksaunas.com` and `store_admin_domain: null` (the
+   real `*.myshopify.com` admin domain is not yet confirmed -- `SHOPIFY_STORE` must hold it
+   once known); `notifications.slack: true`, `email: []`.
+6. **Docs.** New `docs/PUBLISHING.md` (states, approval, packet stamp, publish flow,
+   Shopify scopes `write_content`/`write_files`/`read_content`, the cache-verification
+   trap, the export fallback). `docs/GENERATOR.md`'s stale "no `harness publish` exists"
+   publish-gate section rewritten to describe the real gate. `docs/TENANT-ONBOARDING.md`
+   gains a reviewers/publisher/notifications setup item (step 5) and a checklist line.
+   `README.md`'s command list and docs index updated. `tenants/peak-saunas/docs/
+   PACKET-DRAFT.md` updated to point at `state.json`/`packet.json` and the new commands as
+   the live version of the packet-draft concept, and its "Publish mode"/credentials open
+   items updated to match what's actually built.
+7. **Tests.** New `tests/test_runstate.py` (state-machine transitions, unknown-reviewer
+   refusal, partial-vs-full approval, packet stamp, the needs-review-backlog age query),
+   `tests/test_publishers.py` (Shopify adapter against a fake transport -- credentials
+   missing before any network call, `dry_run`/`publish` payload shape and unpublished
+   default, `upload_assets` + `src` rewriting, the 8-pull cache verification; export adapter
+   folder output), `tests/test_notify.py` (message formatting, the 120-char claim
+   truncation, skip-when-unconfigured proven by asserting `urlopen`/`SMTP` are never
+   called), `tests/test_cli_approve_publish.py` (the real `cmd_approve`/`cmd_reject`/
+   `cmd_packet`/`cmd_publish` end to end: publish refuses without approval, without a
+   `ship` stamp, and without Shopify credentials, each with a clear one-line message and no
+   traceback; a `--dry-run` reports the missing-credentials refusal with zero network
+   calls). **Test count: 572 (521 pre-existing + 51 new).** `.venv-local/bin/pytest -q` on
+   the Mac clone and `.venv/bin/python -m pytest -q` on the server: both **572 total, 568
+   passed, 4 failed** -- the 4 failures are the same pre-existing Cycle 18 tenant-data
+   mismatches noted there (`test_claims.py`/`test_ground.py`/`test_tenant.py` hardcoding the
+   tenant's old Bread-Pay/AI-render/pending-claim defaults), outside this cycle's scope
+   (`harness/`, generic `tests/`) and untouched by this cycle's own new tests, all 51 of
+   which pass.
+
+### Verify (server)
+
+- `harness approve` on an existing passing run under `tenants/peak-saunas/out` with `--by
+  michael@peaksaunas.com`: succeeds, `state.json` updated, one line appended to
+  `tenants/peak-saunas/evals/approvals.jsonl`. With a bogus email: refused, exit 1, one-line
+  message naming the tenant's `reviewers` list, no traceback.
+- `harness publish <run> --page article` (no credentials configured, no approval/stamp
+  yet): refused with a clear one-line message and no network call.
+- `harness publish <run> --page article --dry-run`: reports "no SHOPIFY_STORE / no
+  SHOPIFY_TOKEN configured" with zero network calls -- confirmed by grepping this session's
+  own log for any outbound Shopify/Slack request (none found).
+- `harness publish <run> --page article` against the `export` adapter: produces a
+  self-contained folder (`index.html`, `shopify-body.html`, `assets/`, `README.md`) under
+  `<run-dir>/article/export/`.
+- `git status` clean after verification; no live Shopify API call and no real Slack webhook
+  post were made at any point this cycle -- every network path in `harness/publishers/
+  shopify.py` and `harness/notify.py` was exercised only through a fake transport in tests,
+  or hit its fail-closed no-credentials path for real (no credentials exist in the tenant
+  env yet).

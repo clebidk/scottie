@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly Monday 08:15 schedule for the tenant @@TENANT@@ needs_review digest
+
+[Timer]
+OnCalendar=Mon *-*-* 08:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

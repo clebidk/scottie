@@ -1,0 +1,22 @@
+name: weekly-digest
+description: >-
+  Lists every run in needs_review whose history shows it entered that state
+  more than N days ago, so a reviewer backlog never goes silently stale
+  between the per-run needs_review notification (review_notify, in
+  ad-to-pages.yaml) and a human actually opening REVIEW.md.
+inputs:
+  - tenant
+  - days   # optional, default 3
+# NOTE: `stage:` names a real pipeline stage in harness/pipeline.py and is what
+# `harness workflow run` executes. `action:` names a step this workflow performs
+# around the pipeline; the runner does not execute those yet, so this workflow
+# is a specification, not a runnable pipeline. `harness workflow run` on it
+# exits 1 with "runs no pipeline stages" -- run `harness digest needs-review
+# --tenant <t> [--days N]` directly instead (crons/needs-review-digest.service
+# does exactly that, weekly).
+steps:
+  - action: weekly-digest
+    description: every run in needs_review whose needs_review history entry is older than `days` days
+    command: harness digest needs-review --tenant {tenant} --days {days}
+outputs:
+  - stdout only (no file written)

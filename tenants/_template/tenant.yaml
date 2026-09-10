@@ -79,3 +79,31 @@ cta_mode: buy
 cta_variants:
   buy: []
   consult: []
+
+# Cycle 20 (run states, approval, publishing). Who may `harness
+# approve`/`harness reject` a run -- an email not listed here is refused,
+# with a one-line message, no traceback. role is "primary" or "backup",
+# informational only today.
+reviewers: []
+#  - name: CHANGE ME
+#    email: CHANGE ME
+#    role: primary   # primary | backup
+
+# Which adapter `harness publish` uses (harness/publishers/). "export" (the
+# default, every new tenant starts here) writes a self-contained folder per
+# page for manual upload -- no credentials needed. "shopify" calls the
+# Shopify Admin REST API; needs SHOPIFY_STORE + SHOPIFY_TOKEN in this
+# tenant's .env (scopes: write_content, write_files, read_content -- see
+# docs/PUBLISHING.md).
+publisher: export
+shopify_publish:
+  store: CHANGE-ME.example   # the storefront's own domain -- documentation only, not used for API calls
+  store_admin_domain: null   # the *.myshopify.com admin domain; SHOPIFY_STORE (env) must hold this once known
+
+# Reviewer notifications sent on: a run reaching needs_review, an approve,
+# and a publish. Both channels are entirely optional and fail closed -- no
+# SLACK_WEBHOOK_URL / SMTP_* in .env just logs a skip, never blocks a run
+# or a command (harness/notify.py).
+notifications:
+  slack: false
+  email: []

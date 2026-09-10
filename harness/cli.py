@@ -12,7 +12,10 @@ import re
 import sys
 from pathlib import Path
 
+from . import notify
 from . import pipeline
+from . import runstate
+from . import shopify as shopify_body_mod
 from . import tenant as tenant_mod
 from . import vocab
 from . import workflows
@@ -28,7 +31,10 @@ from .claims import (
 from .config import FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
 from .ingest import run_ingest
 from .log import RunLog
+from .publishers.export import ExportPublisher
+from .publishers.shopify import ShopifyCredentialsMissing, ShopifyPublisher, rewrite_asset_srcs
 from .review import cmd_review
+from .runstate import UnknownReviewer
 from .shopify import write_shopify_body
 from .tenant import TenantNotConfigured, UnknownTenant
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
@@ -1025,8 +1031,9 @@ def cmd_tenant_list(args):
 def cmd_shopify_body(args):
     """`harness shopify-body <run-dir>/<cartridge>`: writes shopify-body.html
     and shopify-body.assets.json next to that cartridge's index.html. No
-    storefront API call anywhere in this path -- publishing is a separate,
-    not-yet-built step that must never run without an approved packet."""
+    storefront API call anywhere in this path -- see `harness publish`
+    (below) for the actual publish step, which refuses to run without an
+    approved state and a packet stamped "ship"."""
     tenant_mod.activate(tenant_mod.load_tenant(args.tenant))
     cartridge_dir = Path(args.cartridge_dir)
     index_path = cartridge_dir / "index.html"
@@ -1037,6 +1044,200 @@ def cmd_shopify_body(args):
     shopify_body_path, assets_manifest_path = write_shopify_body(cartridge_dir)
     print(f"Wrote {shopify_body_path}")
     print(f"Wrote {assets_manifest_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# harness approve / reject / packet / publish / digest (cycle 20)
+# ---------------------------------------------------------------------------
+
+def _tenant_name_from_run_dir(run_dir):
+    """tenants/<name>/out/<run-id> -> <name>, when the path has that shape;
+    None otherwise, so the caller falls back to normal --tenant resolution."""
+    parts = Path(run_dir).parts
+    if "tenants" in parts:
+        i = parts.index("tenants")
+        if i + 1 < len(parts):
+            return parts[i + 1]
+    return None
+
+
+def _resolve_tenant_for_run(args):
+    name = args.tenant or _tenant_name_from_run_dir(args.run_dir)
+    return tenant_mod.load_tenant(name)
+
+
+def cmd_approve(args):
+    """`harness approve <run-dir> --by <email> [--pages a,b] [--note ...]`:
+    approves the named pages (default: every page in the run) for a
+    reviewer listed in the tenant's tenant.yaml `reviewers`. An unknown
+    email is refused with a one-line message, exit 1, no traceback."""
+    tenant = _resolve_tenant_for_run(args)
+    run_dir = Path(args.run_dir)
+    pages = [p.strip() for p in args.pages.split(",") if p.strip()] if args.pages else None
+    try:
+        data = runstate.approve(run_dir, tenant, by=args.by, pages=pages, note=args.note or "")
+    except (UnknownReviewer, FileNotFoundError, KeyError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    approved_pages = pages or list(data["pages"])
+    print(f"Approved {','.join(approved_pages)} for {run_dir} (state={data['state']})")
+    notify.notify_approved(tenant, run_id=run_dir.name, by=args.by, pages=approved_pages, run_dir=str(run_dir))
+    return 0
+
+
+def cmd_reject(args):
+    """`harness reject <run-dir> --by <email> --note ...`: rejects the whole
+    run. Same reviewer check as approve."""
+    tenant = _resolve_tenant_for_run(args)
+    run_dir = Path(args.run_dir)
+    try:
+        data = runstate.reject(run_dir, tenant, by=args.by, note=args.note)
+    except (UnknownReviewer, FileNotFoundError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    print(f"Rejected {run_dir} (state={data['state']})")
+    return 0
+
+
+def cmd_packet(args):
+    """`harness packet <run-dir> --stamp ship|redo|kill --by <email> [--note
+    ...]`: sets the packet stamp `harness publish` checks. A new run starts
+    at "BOT DRAFT · NOT SENT" (harness/pipeline.py's prepare_run)."""
+    run_dir = Path(args.run_dir)
+    if not runstate.state_path(run_dir).exists():
+        print(f"no state.json under {run_dir} -- not a run directory this harness produced", file=sys.stderr)
+        return 1
+    data = runstate.set_packet_stamp(run_dir, stamp=args.stamp, by=args.by, note=args.note or "")
+    print(f"Packet for {run_dir} stamped {data['stamp']!r} by {data['by']}")
+    return 0
+
+
+def _make_publisher(tenant, *, export_dir):
+    """tenant.yaml's `publisher` key picks the adapter; `export` (the
+    default) needs no credentials at all."""
+    kind = tenant.get("publisher") or "export"
+    if kind == "shopify":
+        return ShopifyPublisher()  # reads SHOPIFY_STORE/SHOPIFY_TOKEN from the tenant's .env
+    return ExportPublisher(out_dir=export_dir)
+
+
+def _read_asset_manifest_bytes(cartridge_dir, assets_manifest):
+    out = []
+    for item in assets_manifest:
+        asset_path = cartridge_dir / item["local_path"]
+        out.append({**item, "bytes": asset_path.read_bytes() if asset_path.exists() else b""})
+    return out
+
+
+def cmd_publish(args):
+    """`harness publish <run-dir> --page <cartridge> [--live] [--dry-run]`:
+    refuses unless state.json's `pages[<cartridge>]` is "approved" AND
+    packet.json's stamp is "ship". Default publish is unpublished (a draft
+    page) unless `--live`; `--live` also verifies the storefront cache with
+    8 pulls, 2s apart (the cache-epoch trap in
+    tenants/peak-saunas/reference/peak-listicle-lp/README.md). `--dry-run`
+    only validates credentials and the page body (a GET on the shop
+    endpoint for the Shopify adapter) -- no approval or stamp required, and
+    nothing is created."""
+    tenant = _resolve_tenant_for_run(args)
+    run_dir = Path(args.run_dir)
+    cartridge_dir = run_dir / args.page
+    if not (cartridge_dir / "index.html").exists():
+        print(f"no index.html under {cartridge_dir}", file=sys.stderr)
+        return 1
+
+    shopify_body_html, assets_manifest = shopify_body_mod.build_shopify_body(cartridge_dir)
+    export_dir = cartridge_dir / "export"
+
+    if args.dry_run:
+        publisher = _make_publisher(tenant, export_dir=export_dir)
+        report = publisher.dry_run({"body_html": shopify_body_html, "assets": assets_manifest})
+        print(json.dumps(report, indent=2))
+        return 0 if report.get("ok") else 1
+
+    try:
+        state_data = runstate.load_state(run_dir)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    current_page_state = state_data["pages"].get(args.page)
+    if current_page_state != "approved":
+        print(
+            f"refusing to publish {args.page!r}: state is {current_page_state!r}, not 'approved'. "
+            f"Run `harness approve {run_dir} --by <email> --pages {args.page}` first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    packet = runstate.load_packet(run_dir)
+    if packet.get("stamp") != "ship":
+        print(
+            f"refusing to publish: packet stamp is {packet.get('stamp')!r}, not 'ship'. "
+            f"Run `harness packet {run_dir} --stamp ship --by <email>` first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    publisher = _make_publisher(tenant, export_dir=export_dir)
+    manifest_with_bytes = _read_asset_manifest_bytes(cartridge_dir, assets_manifest)
+
+    try:
+        if isinstance(publisher, ShopifyPublisher):
+            url_by_local_path = publisher.upload_assets(manifest_with_bytes)
+            body_html = rewrite_asset_srcs(shopify_body_html, url_by_local_path)
+        else:
+            publisher.upload_assets(manifest_with_bytes)
+            body_html = shopify_body_html
+    except ShopifyCredentialsMissing as e:
+        print(str(e), file=sys.stderr)
+        return 1
+
+    page_json = json.loads((cartridge_dir / "page.json").read_text())
+    page_payload = {
+        "title": page_json.get("headline") or f"{tenant.display_name} — {args.page}",
+        "body_html": body_html,
+        "storefront_host": tenant.get("site_host"),
+    }
+
+    try:
+        result = publisher.publish(page_payload, unpublished=not args.live)
+    except ShopifyCredentialsMissing as e:
+        print(str(e), file=sys.stderr)
+        return 1
+
+    print(f"Published {args.page} for {run_dir}: {json.dumps(result)}")
+
+    runstate.mark_published(
+        run_dir, page=args.page, by="operator",
+        note=f"url={result.get('url')} live={bool(args.live)}",
+    )
+    notify.notify_published(
+        tenant, run_id=run_dir.name, page=args.page,
+        url=result.get("url") or result.get("export_dir"),
+    )
+
+    if args.live and result.get("url") and isinstance(publisher, ShopifyPublisher):
+        hits, pulls = publisher.verify_cache(result["url"], marker=run_dir.name)
+        print(f"Cache verification: {hits}/{pulls} pulls returned the new body.")
+
+    return 0
+
+
+def cmd_digest_needs_review(args):
+    """`harness digest needs-review --tenant <t> [--days 3]`: every run in
+    needs_review whose history shows it entered that state more than
+    `--days` days ago -- the weekly backlog digest (crons/needs-review-digest,
+    workflows/weekly-digest.yaml)."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    rows = runstate.needs_review_runs(tenant, older_than_days=args.days)
+    if not rows:
+        print(f"No runs in needs_review older than {args.days} day(s) for {tenant.name}.")
+        return 0
+    print(f"{len(rows)} run(s) in needs_review older than {args.days} day(s) for {tenant.name}:")
+    for run_dir, data, entered_dt in rows:
+        pending_pages = [p for p, s in data["pages"].items() if s == "needs_review"]
+        print(f"  - {run_dir.name}: pending={','.join(pending_pages)} since {entered_dt.isoformat()}")
     return 0
 
 
@@ -1151,6 +1352,44 @@ def build_parser():
     p_shopify_body.add_argument("cartridge_dir", help="<run-dir>/<cartridge>, e.g. tenants/<t>/out/<run-id>/listicle")
     _add_tenant_flag(p_shopify_body)
     p_shopify_body.set_defaults(func=cmd_shopify_body)
+
+    p_approve = sub.add_parser("approve", help="approve a run's page(s) for publish")
+    p_approve.add_argument("run_dir")
+    p_approve.add_argument("--by", required=True, help="reviewer email; must match a tenant.yaml reviewers entry")
+    p_approve.add_argument("--pages", help="comma-separated cartridge names; default: every page in the run")
+    p_approve.add_argument("--note")
+    _add_tenant_flag(p_approve)
+    p_approve.set_defaults(func=cmd_approve)
+
+    p_reject = sub.add_parser("reject", help="reject a run (every page)")
+    p_reject.add_argument("run_dir")
+    p_reject.add_argument("--by", required=True, help="reviewer email; must match a tenant.yaml reviewers entry")
+    p_reject.add_argument("--note", required=True)
+    _add_tenant_flag(p_reject)
+    p_reject.set_defaults(func=cmd_reject)
+
+    p_packet = sub.add_parser("packet", help="stamp a run's packet.json (the publish gate)")
+    p_packet.add_argument("run_dir")
+    p_packet.add_argument("--stamp", required=True, choices=["ship", "redo", "kill"])
+    p_packet.add_argument("--by", required=True)
+    p_packet.add_argument("--note")
+    _add_tenant_flag(p_packet)
+    p_packet.set_defaults(func=cmd_packet)
+
+    p_publish = sub.add_parser("publish", help="publish one cartridge's page via the tenant's publisher adapter")
+    p_publish.add_argument("run_dir")
+    p_publish.add_argument("--page", required=True, help="cartridge name, e.g. article")
+    p_publish.add_argument("--live", action="store_true", help="publish live (default: unpublished draft)")
+    p_publish.add_argument("--dry-run", action="store_true", help="validate credentials and body only; creates nothing")
+    _add_tenant_flag(p_publish)
+    p_publish.set_defaults(func=cmd_publish)
+
+    p_digest = sub.add_parser("digest", help="reviewer-backlog and score digests")
+    digest_sub = p_digest.add_subparsers(dest="digest_command", required=True)
+    p_digest_nr = digest_sub.add_parser("needs-review", help="runs in needs_review older than N days")
+    p_digest_nr.add_argument("--days", type=int, default=3)
+    _add_tenant_flag(p_digest_nr)
+    p_digest_nr.set_defaults(func=cmd_digest_needs_review)
 
     p_claims = sub.add_parser("claims", help="manage a tenant's claims/verified.json")
     claims_sub = p_claims.add_subparsers(dest="claims_command", required=True)

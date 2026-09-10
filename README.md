@@ -40,7 +40,16 @@ harness claims list --tenant <t>
 harness tenant init <slug> | harness tenant list
 harness workflow run ad-to-pages --input <input> --tenant <t>
 harness workflow list
+harness approve <run-dir> --by <email> [--pages a,b] [--note ...]   # cycle 20
+harness reject <run-dir> --by <email> --note ...                    # cycle 20
+harness packet <run-dir> --stamp ship|redo|kill --by <email>        # cycle 20
+harness publish <run-dir> --page <cartridge> [--live] [--dry-run]   # cycle 20
+harness digest needs-review --tenant <t> [--days 3]                 # cycle 20
 ```
+
+Every run now ends in `needs_review`, not just `REVIEW.md` -- see
+`docs/PUBLISHING.md` for the full state machine, approval, packet-stamp gate,
+and publish flow.
 
 `harness workflow run ad-to-pages` produces exactly what `harness run` produces:
 both call the same stage functions, and the YAML only owns the order.
@@ -105,6 +114,8 @@ filled in, and that the workflow runner reproduces `harness run`.
 ## Documents
 
 - `docs/ARCHITECTURE.md` -- the ladder, the stages, the gates, the budgets.
+- `docs/PUBLISHING.md` -- run states, approval, the packet stamp, publishing,
+  and reviewer notifications (cycle 20).
 - `docs/TENANT-ONBOARDING.md` -- standing up a new company.
 - `docs/SPEC.md` -- the contract this harness is built against.
 - `docs/HARNESS-MAP.md` -- what exists, what is stubbed, what not to rewrite.

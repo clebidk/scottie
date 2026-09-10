@@ -26,6 +26,11 @@ steps:
   - stage: render_pages
     description: page.json -> index.html with byline, disclosure, sources, JSON-LD
     for_each: cartridge
+  - stage: review_notify
+    description: >-
+      state.json -> needs_review (every page passed), then notify the
+      tenant's reviewers (Slack/email, both optional, both fail closed --
+      see harness/notify.py and docs/PUBLISHING.md)
   - stage: write_review
     description: REVIEW.md -- claims matched, sources, word counts, gate history, cost
 outputs:
@@ -33,5 +38,7 @@ outputs:
   - tenants/{tenant}/out/{run_id}/facts_pack.json
   - tenants/{tenant}/out/{run_id}/{cartridge}/index.html
   - tenants/{tenant}/out/{run_id}/{cartridge}/page.json
+  - tenants/{tenant}/out/{run_id}/state.json
+  - tenants/{tenant}/out/{run_id}/packet.json
   - tenants/{tenant}/out/{run_id}/REVIEW.md
   - tenants/{tenant}/runs/{run_id}.log

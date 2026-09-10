@@ -1,0 +1,6 @@
+[Unit]
+Description=Weekly needs_review backlog digest for tenant @@TENANT@@
+
+[Service]
+Type=oneshot
+ExecStart=@@REPO@@/.venv/bin/harness digest needs-review --tenant @@TENANT@@ --days 3

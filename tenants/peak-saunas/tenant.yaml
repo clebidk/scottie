@@ -132,3 +132,25 @@ cta_variants:
   consult:
     - "Book a consult"
     - "Talk to {tenant_short_name}"
+
+# Cycle 20 (run states, approval, publishing). An approve/reject from an
+# email not on this list is refused.
+reviewers:
+  - name: Michael
+    email: michael@peaksaunas.com
+    role: primary
+  - name: Caleb
+    email: caleb@peaksaunas.com
+    role: backup
+
+# harness/publishers/shopify.py -- needs SHOPIFY_STORE + SHOPIFY_TOKEN in
+# tenants/peak-saunas/.env (neither is set yet; every publish path fails
+# closed with a clear message until they are -- see docs/PUBLISHING.md).
+publisher: shopify
+shopify_publish:
+  store: peaksaunas.com     # the live storefront domain -- documentation only, not used for API calls
+  store_admin_domain: null  # the *.myshopify.com admin domain is not yet confirmed; SHOPIFY_STORE must hold it once known
+
+notifications:
+  slack: true
+  email: []
