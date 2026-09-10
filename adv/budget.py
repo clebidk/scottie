@@ -16,17 +16,20 @@ class BudgetExceeded(Exception):
 class Budget:
     # Fix cycle 12 item 1: exemplar trimming (write.load_exemplars -- at most
     # the first 700 words of each of at most 2 exemplars) cuts a typical
-    # article-cartridge call from ~36,800 prompt tokens down substantially,
-    # so three cartridges at two repairs each now fit comfortably inside a
-    # bigger token/call budget without needing the wall clock raised past
-    # 300s -- measured directly on the server during Cycle 12 verification
-    # (docs/FIXLOG.md Cycle 12): a real `adv run` exercising all three
-    # cartridges with a forced repair on each stayed under 220s elapsed,
-    # well inside 300s, once exemplars were trimmed. tokens/calls raised to
-    # 220,000/14 (from 150,000/12) so a numeric-heavy fixture (e.g.
-    # price-comparison-v2.mov) has real headroom for a second repair on
-    # every cartridge instead of hitting the budget-aware repair skip (fix
-    # cycle 11 problem C) as often.
+    # writer call's prompt from ~12,000-12,700 tokens (measured, see below)
+    # down from the pre-fix ~36,800-token average, so three cartridges with
+    # real repairs now fit comfortably inside a bigger token/call budget
+    # without needing the wall clock raised past 300s -- measured directly
+    # on the server during Cycle 12 verification (docs/FIXLOG.md Cycle 12):
+    # a real `adv run fixtures/price-comparison-v2.mov` (the fixture Cycles
+    # 10-11 flagged as the slowest/most repair-prone) hit 2 real repairs
+    # across its 3 cartridges (article + product-page, 1 each) and finished
+    # in 173.3s elapsed -- 42% of the 300s cap, with 117,672/220,000 tokens
+    # (53%) and 7/14 calls used. No real run this cycle came close to
+    # needing 420s; 300s stays as-is. tokens/calls raised to 220,000/14
+    # (from 150,000/12) so a numeric-heavy fixture has real headroom for a
+    # second repair on every cartridge instead of hitting the budget-aware
+    # repair skip (fix cycle 11 problem C) as often.
     def __init__(self, wall_s=300, tokens=220_000, calls=14):
         self.wall_s = wall_s
         self.token_limit = tokens
