@@ -28,6 +28,7 @@ from .claims import (
     strip_leaked_claim_ids,
     warranty_claim_id,
 )
+from . import doctor as doctor_mod
 from . import exits
 from .config import FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
 from .errors import HarnessError
@@ -1281,6 +1282,32 @@ def cmd_digest_needs_review(args):
 
 
 # ---------------------------------------------------------------------------
+# harness doctor
+# ---------------------------------------------------------------------------
+
+def cmd_doctor(args):
+    """`harness doctor --tenant <t>`: can this tenant actually run?
+
+    Files, tenant.yaml validity, credentials BY NAME (never a value), model
+    reachability through the models endpoint (which spends no tokens),
+    whisper/ffmpeg, and whether a run's directories are writable -- one
+    pass/fail table. Exit 1 if anything failed."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    checks = doctor_mod.run_checks(
+        tenant,
+        ffmpeg_bin=args.ffmpeg_bin,
+        whisper_bin=args.whisper_bin,
+        whisper_model=args.whisper_model,
+        offline=args.offline,
+    )
+    print(doctor_mod.format_table(tenant, checks))
+    failed = [c for c in checks if c.status == doctor_mod.FAIL]
+    return exits.USAGE if failed else exits.OK
+
+
+# ---------------------------------------------------------------------------
 # harness claims add / list
 # ---------------------------------------------------------------------------
 
@@ -1409,6 +1436,14 @@ def build_parser():
     p_shopify_body.add_argument("cartridge_dir", help="<run-dir>/<cartridge>, e.g. tenants/<t>/out/<run-id>/listicle")
     _add_tenant_flag(p_shopify_body)
     p_shopify_body.set_defaults(func=cmd_shopify_body)
+
+    p_doctor = sub.add_parser("doctor", help="check that a tenant can actually run")
+    p_doctor.add_argument("--offline", action="store_true", help="skip the models-endpoint check")
+    p_doctor.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
+    p_doctor.add_argument("--whisper-bin", default=WHISPER_BIN)
+    p_doctor.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tenant_flag(p_doctor)
+    p_doctor.set_defaults(func=cmd_doctor)
 
     p_approve = sub.add_parser("approve", help="approve a run's page(s) for publish")
     p_approve.add_argument("run_dir")
