@@ -100,6 +100,31 @@ def overlap_ratio(ad_tokens, verified_tokens):
     return len(set(ad_tokens) & set(verified_tokens)) / len(set(ad_tokens))
 
 
+# Fix cycle 12 item 4: a marketing combination-count idiom ("4-in-1: near,
+# mid, far infrared + red light") isn't a single checkable fact the way a
+# price or a review count is -- it's shorthand for "N things combined",
+# verifiable (if at all) only by combining several verified claims (here:
+# the full-spectrum claim covers 3 of the 4, the red-light claim covers the
+# 4th), never by one claim's own text containing the literal digit "4". The
+# numeric-token guard would otherwise reject a true, semantically-correct
+# mapping to either claim just because neither one's text happens to
+# contain "4" or "1" -- same rationale as claims.py's own pre-existing
+# capacity-token exemption (a product's own "2-Person" doesn't count as an
+# asserted number either, see _CAPACITY_TOKEN_RE elsewhere in this file).
+_COMBO_COUNT_IDIOM_RE = re.compile(r"\b(\d+)-in-1\b", re.IGNORECASE)
+
+
+def _combo_idiom_numbers(text):
+    """Numbers (as numeric_tokens-shaped strings) that appear only as part
+    of an "N-in-1" combination-count idiom in the raw (pre-normalize) claim
+    text -- both the leading count and the idiom's own trailing "1"."""
+    numbers = set()
+    for m in _COMBO_COUNT_IDIOM_RE.finditer(text):
+        numbers.add(m.group(1))
+        numbers.add("1")
+    return numbers
+
+
 def numeric_tokens(tokens):
     """From an already-normalize()d token list, the subset of tokens that
     carry a digit, with any $/% stripped (commas and the .00 cents suffix are
@@ -120,9 +145,29 @@ _SHORT_CLAIM_THRESHOLD = 0.5
 _DEFAULT_THRESHOLD = 0.6
 
 
-def match_claim(ad_claim_text, verified_claims):
+def match_claim(ad_claim_text, verified_claims, semantic_mapping=None):
+    """(matched_verified_claim_or_None, overlap_ratio). Fix cycle 12 item 4:
+    if `semantic_mapping` (claims.semantic_match's {ad_claim_text:
+    verified_id_or_None} return shape) proposes a verified id for this exact
+    claim text, that mapping is used IF AND ONLY IF the same numeric-token
+    guard below (every numeric token in the ad claim must also appear in the
+    verified claim's own text) also passes -- the model's semantic judgment
+    can recognize equivalent meaning ("4-in-1: near, mid, far infrared + red
+    light" -> the full-spectrum/red-light allowlist claims), but it never
+    gets to override the numeric guard on its own. A rejected or missing
+    mapping falls through to ordinary word-overlap matching below, exactly
+    as before this fix."""
     ad_tokens = normalize(ad_claim_text)
-    ad_numbers = numeric_tokens(ad_tokens)
+    ad_numbers = numeric_tokens(ad_tokens) - _combo_idiom_numbers(ad_claim_text)
+
+    if semantic_mapping:
+        proposed_id = semantic_mapping.get(ad_claim_text)
+        if proposed_id:
+            by_id = {vc["id"]: vc for vc in verified_claims}
+            proposed = by_id.get(proposed_id)
+            if proposed and ad_numbers <= numeric_tokens(normalize(proposed["text"])):
+                return proposed, 1.0
+
     threshold = _SHORT_CLAIM_THRESHOLD if len(ad_tokens) <= _SHORT_CLAIM_MAX_TOKENS else _DEFAULT_THRESHOLD
     best, best_ratio = None, 0.0
     for vc in verified_claims:
@@ -173,6 +218,44 @@ _REVIEW_COUNT_RE = re.compile(r"\b[\d,]+\+?\s*reviews?\b", re.IGNORECASE)
 _MONTHLY_FIGURE_RE = re.compile(r"\$\s?[\d,]+(?:\.\d+)?\s*(?:/|a\s+|per\s+)\s*(?:mo\b|month\b)", re.IGNORECASE)
 _LENDER_NAME_RE = re.compile("|".join(re.escape(n) for n in FORBIDDEN_LENDER_NAMES), re.IGNORECASE)
 _DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
+
+
+# Fix cycle 12 item 3 (second half): the red-X column of a comparative
+# still/ad ("the other option leaves you drained", "the competing model
+# takes 3 hours") is never a claim about Peak's own product -- it's never
+# checkable against claims/verified.json (there's nothing in this codebase
+# that could verify or refute a statement about a competitor), and the
+# writer's own guardrails already forbid stating a competitor "fact" that
+# isn't the ad speaker's own experience (write.GLOBAL_VOICE_BLOCK: "Competitor
+# statements are only ever the speaker's own experience, never a sourced
+# fact about a competitor"). Classified by the claim's own grammatical
+# subject -- the real fixtures phrase these consistently as "Comparison
+# option ...", "Competing product(s) ...", "Competitor product(s)/model(s)
+# ..." (docs/SWEEP-2026-09-10.md fixtures 5-7). Deliberately narrower than
+# "any sentence mentioning a competitor" -- a claim like "Competitor saunas
+# leak dangerous levels of EMF radiation" (tests/test_cli_run.py, pre-dating
+# this fix) is a specific factual assertion about a named rival, not the
+# red-X still's generic "the other option" framing, and is left to the
+# ordinary unmatched-claim path (it still never matches, and still never
+# stops the run under "warn" -- just reported as a not-repeated claim
+# instead of an "about: alternative" one).
+_ALTERNATIVE_SUBJECT_RE = re.compile(
+    r"\b(?:comparison option|competing (?:product|model)s?|"
+    r"competitor(?:'s)? (?:product|model)s?|"
+    r"the other (?:option|brand)|other brands)\b",
+    re.IGNORECASE,
+)
+
+
+def classify_ad_claim_about(ad_claim_text):
+    """None, or "alternative" -- a claim whose grammatical subject is the
+    competing/comparison option, not Peak's own product. An "alternative"
+    claim is never run through any matching check (locked-topic or word
+    overlap), never required to match a verified claim, and never stops the
+    run under either ad_overclaim_policy -- see gate_ad_brief_claims."""
+    if _ALTERNATIVE_SUBJECT_RE.search(ad_claim_text):
+        return "alternative"
+    return None
 
 
 def classify_locked_topic(ad_claim_text):
@@ -308,13 +391,36 @@ def _overclaim_item(claim, topic, verified_fact):
     return {"claim": claim, "topic": topic, "verified_fact": verified_fact, "message": message}
 
 
+def _not_repeated_item(item):
+    """Normalizes a plain-unmatched item (gate_ad_claims/match_claim shape:
+    claim + best_overlap) or a locked-topic overclaim item (_overclaim_item
+    shape: claim + topic + verified_fact + message, already normalized) into
+    the common shape used for REVIEW.md's "AD CLAIMS NOT REPEATED ON PAGE"
+    section and the writer's DO NOT REPEAT block under policy "warn"
+    (fix cycle 12 item 3). An overclaim item already has "message"; a plain-
+    unmatched item doesn't, so build one from its best_overlap score."""
+    if "message" in item:
+        return item
+    reason = f"no verified claim matched (best word overlap {item['best_overlap']})"
+    return {
+        "claim": item["claim"],
+        "verified_fact": None,
+        "message": f'AD CLAIM NOT REPEATED: "{item["claim"]}" — {reason}',
+    }
+
+
 def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_claim=None,
-                          financing_lender=None, policy="stop", log=None):
+                          financing_lender=None, policy="stop", log=None, semantic_mapping=None):
     """Runs the ad_brief.claims_made list through the gate against the FULL
     claims/verified.json universe (not the per-product facts_pack subset --
     an ad claim can reference anything approved in verified.json, regardless
     of which product ends up being written about). speaker_experience is
     never passed through this gate.
+
+    Fix cycle 12 item 3 (first half): a claim about the alternative/
+    comparison option (classify_ad_claim_about) is never matched against
+    anything and never stops the run under either policy -- see
+    `alternative_claims` below.
 
     Fix cycle 10: a claim on a locked topic (warranty/reviews/financing/
     price -- classify_locked_topic) is never matched by word overlap; each
@@ -324,17 +430,36 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
     picked product (fix cycle 10 item 1 -- product-picking now runs before
     this gate), used for the price check's "current price".
 
-    Returns (matched, overclaims). `overclaims` is every locked-topic item
-    that failed its check, whether or not the run stops for it -- non-empty
-    only when policy == "warn" and at least one occurred (under policy ==
-    "stop" a non-empty overclaims list is folded into the raised failure
-    instead). Raises ClaimsGateFailure if any non-locked claim is unmatched
-    (always, under both policies) or, under policy == "stop", if any
-    locked-topic claim failed its check."""
-    matched, plain_unmatched, overclaims = [], [], []
+    Fix cycle 12 item 4: `semantic_mapping` (claims.semantic_match's return
+    shape: {ad_claim_text: verified_id_or_None}), if given, is consulted by
+    match_claim BEFORE word-overlap for a plain (non-locked, non-alternative)
+    claim -- never for a locked-topic claim, which always stays with its own
+    evaluator above.
+
+    Fix cycle 12 item 3 (second half): policy == "warn" no longer only
+    exempts a locked-topic overclaim -- EVERY unmatched or overclaimed claim
+    (plain or locked-topic) is dropped from what the writer may use instead
+    of stopping the run: returned in `not_repeated`, never raised. Under
+    policy == "stop" (default), behavior is unchanged from fix cycle 10: any
+    unmatched or overclaimed claim (plain or locked-topic) stops the run.
+
+    Returns (matched, not_repeated, alternative_claims). `not_repeated` is
+    every claim that failed its check (plain-unmatched or locked-topic
+    overclaim), normalized via `_not_repeated_item` -- non-empty only under
+    policy == "warn" (under "stop" these are folded into the raised failure
+    instead, same as before). `alternative_claims` is every claim classified
+    "about: alternative" -- always returned, regardless of policy, since
+    those never stop the run either way. Raises ClaimsGateFailure under
+    policy == "stop" if any plain or locked-topic claim failed its check."""
+    matched, plain_unmatched, overclaims, alternative_claims = [], [], [], []
     product_price = (product or {}).get("price")
 
     for claim in ad_brief.get("claims_made", []):
+        about = classify_ad_claim_about(claim)
+        if about == "alternative":
+            alternative_claims.append({"claim": claim, "about": about})
+            continue
+
         topic = classify_locked_topic(claim)
 
         if topic == "warranty":
@@ -367,7 +492,7 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
                 overclaims.append({"claim": claim, "topic": topic, "verified_fact": None, "message": message})
             continue
 
-        best, ratio = match_claim(claim, verified_claims)
+        best, ratio = match_claim(claim, verified_claims, semantic_mapping=semantic_mapping)
         if best:
             matched.append({"claim": claim, "matched_claim_id": best["id"], "overlap": round(ratio, 3)})
         else:
@@ -376,14 +501,21 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
     if log:
         for item in overclaims:
             log.event("ad_claims", item["message"])
+        for item in alternative_claims:
+            log.event("ad_claims", f'ad statement about alternative (not repeated): "{item["claim"]}"')
 
-    stop_items = list(plain_unmatched)
-    if policy != "warn":
-        stop_items += overclaims
+    if policy == "warn":
+        not_repeated = [_not_repeated_item(i) for i in plain_unmatched] + [_not_repeated_item(i) for i in overclaims]
+        if log:
+            for item in plain_unmatched:
+                log.event("ad_claims", _not_repeated_item(item)["message"])
+        return matched, not_repeated, alternative_claims
+
+    stop_items = list(plain_unmatched) + list(overclaims)
     if stop_items:
         raise ClaimsGateFailure("ad_claims", stop_items)
 
-    return matched, overclaims
+    return matched, [], alternative_claims
 
 
 # ---------------------------------------------------------------------------

@@ -36,3 +36,18 @@ def test_budget_trips_on_wall_clock():
     with pytest.raises(BudgetExceeded) as exc_info:
         b.check()
     assert exc_info.value.kind == "wall_s"
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 12 item 1: raised default caps -- exemplar trimming (write.
+# load_exemplars: at most 700 words of at most 2 exemplars) cut the typical
+# per-call prompt enough that three cartridges at two repairs each fit inside
+# a bigger budget without needing more wall clock (measured on the server,
+# docs/FIXLOG.md Cycle 12).
+# ---------------------------------------------------------------------------
+
+def test_budget_defaults_raised_by_cycle_12():
+    b = Budget()
+    assert b.token_limit == 220_000
+    assert b.call_limit == 14
+    assert b.wall_s == 300

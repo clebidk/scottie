@@ -15,6 +15,7 @@ from adv.cli import (
     apply_deterministic_fixes,
     apply_hype_synonyms,
     build_revision_note,
+    convert_incidental_numerals,
     find_cta_violation,
     find_word_range_violation,
     get_cta_text,
@@ -397,6 +398,90 @@ def test_write_and_gate_page_resolves_leaked_claim_id_via_deterministic_fix(tmp_
 # instead of a BudgetExceeded exception) once the remaining token budget is
 # below the average cost of one writer call for this cartridge so far.
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Fix cycle 12 item 2: incidental numerals. "driving to a studio at 7 a.m."
+# tripped the plain digit rule -- convert_incidental_numerals writes a
+# numeral time or a standalone 1-12 out as words before ever calling the
+# writer again, without touching a claim-cited sentence (it only ever runs
+# on a text field the "contains a number" gate already flagged as having no
+# claim_ids -- see apply_deterministic_fixes's own "(contains a number)"
+# branch below).
+# ---------------------------------------------------------------------------
+
+def test_convert_incidental_numerals_handles_am_pm_and_oclock():
+    assert convert_incidental_numerals("driving to a studio at 7 a.m.") == "driving to a studio at seven in the morning"
+    assert convert_incidental_numerals("she left around 3pm") == "she left around three in the afternoon"
+    assert convert_incidental_numerals("back by 9 o'clock") == "back by nine o'clock"
+
+
+def test_convert_incidental_numerals_handles_standalone_counts():
+    assert convert_incidental_numerals("It has 2 rooms and 3 doors.") == "It has two rooms and three doors."
+    assert convert_incidental_numerals("a 5-figure purchase") == "a five-figure purchase"
+
+
+def test_convert_incidental_numerals_capitalizes_at_sentence_start():
+    assert convert_incidental_numerals("7 a.m. is early.") == "Seven in the morning is early."
+
+
+def test_convert_incidental_numerals_leaves_numbers_outside_1_to_12_alone():
+    assert convert_incidental_numerals("13 hours later") == "13 hours later"
+    assert convert_incidental_numerals("a 20 minute drive") == "a 20 minute drive"
+
+
+def test_convert_incidental_numerals_leaves_prices_percentages_and_thousands_alone():
+    assert convert_incidental_numerals("priced at $5,450") == "priced at $5,450"
+    assert convert_incidental_numerals("9,000 reviews") == "9,000 reviews"
+    assert convert_incidental_numerals("a 4.9 rating") == "a 4.9 rating"
+    assert convert_incidental_numerals("up 5% this year") == "up 5% this year"
+
+
+def test_convert_incidental_numerals_leaves_the_capacity_token_alone():
+    # claims._CAPACITY_TOKEN_RE / digit_exempt_terms already handle this
+    # sentence shape upstream -- convert_incidental_numerals must not fight
+    # that by rewriting the capacity digit itself.
+    assert convert_incidental_numerals("the Peak Fuji 2-Person Infrared Sauna") == "the Peak Fuji 2-Person Infrared Sauna"
+
+
+def test_apply_deterministic_fixes_resolves_an_incidental_numeral_failure():
+    page = {"open": [{"text": "She was driving to a studio at 7 a.m. when it happened."}]}
+    failures = [{
+        "path": "$.open[0]",
+        "issue": "text needs at least one claim_id (contains a number) -- cite a verified claim_id, or rewrite the sentence without it",
+        "text": page["open"][0]["text"],
+    }]
+    fixed = apply_deterministic_fixes(page, failures, set())
+    assert fixed == 1
+    new_text = page["open"][0]["text"]
+    assert "7 a.m." not in new_text
+    assert "seven in the morning" in new_text
+
+
+def test_apply_deterministic_fixes_does_not_touch_dollar_or_percentage_failures():
+    # These reasons are distinct from "(contains a number)" -- the numeral
+    # conversion branch must not fire for them (there's no safe deterministic
+    # fix for an invented dollar amount or percentage).
+    page = {"hero": {"text": "It costs $50 more."}}
+    failures = [{
+        "path": "$.hero",
+        "issue": "text needs at least one claim_id (contains a dollar amount) -- cite a verified claim_id, or rewrite the sentence without it",
+        "text": page["hero"]["text"],
+    }]
+    fixed = apply_deterministic_fixes(page, failures, set())
+    assert fixed == 0
+    assert page["hero"]["text"] == "It costs $50 more."
+
+
+def test_write_and_gate_page_resolves_incidental_numeral_via_deterministic_fix(tmp_path):
+    bad_page = dict(ARTICLE_PAGE, open=[{"text": "She was up by 7 a.m. most mornings."}])
+
+    (page, attempts, deterministic_fixes), client = _write_and_gate([json_response(bad_page)], tmp_path)
+
+    assert len(client.messages.calls) == 1  # no repair call needed
+    assert attempts == [[]]
+    assert deterministic_fixes == [1]
+    assert "7 a.m." not in page["open"][0]["text"]
+
 
 def test_repair_skipped_when_budget_cannot_afford_another_average_call(tmp_path):
     # Every response costs 80 tokens (input+output) and always fails the

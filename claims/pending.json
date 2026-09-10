@@ -103,5 +103,51 @@
     "note": "FLAG: do-not-lead-with (inherits the EMF claim's flag). Do not fabricate an Everest-specific EMF number.",
     "status": "needs-caleb",
     "date_flagged": "2026-09-09"
+  },
+  {
+    "id": "gbrain-peak-wellness-club-real-offering",
+    "text": "Peak Wellness Club (PWC) is a guided wellness platform included free with every Peak Sauna.",
+    "category": "trust",
+    "appeared_in": [
+      "stills: LessThan$300 (\"Includes Peak Wellness Club\")",
+      "stills: UnforgettableGlow (\"Includes Peak Wellness Club membership\")"
+    ],
+    "note": "Fix cycle 12 item 5: g Brain search for \"Peak Wellness Club\" confirms this is a real, current offering (launched 2026-03-13), not an invented feature -- the two ad claims above currently go unmatched because no verified claim for it exists yet. Exact quote and source: \"Peak Wellness Club (PWC) is a guided wellness platform included free with every Peak Sauna.\" (outline/sales/peak-wellness-club-team-knowledge-base-e0aab96a, type outline-doc). CAUTION -- pricing discrepancy in gbrain itself: this same allowed source's own \"Pricing (Quick Reference)\" section, and a second allowed source (outline/customer-support/how-to-use-the-circle-app-peak-wellness-club-89f46819), both state \"60-day free trial\" then \"$49/month\" after; a separate gbrain company-record (type \"company\", outside this task's retrieval allowlist -- seen only in a search snippet, not opened) instead says PWC is \"Currently FREE -- no trial, no cost\" and explicitly instructs never to say \"60-day trial\" or \"$49/month.\" These two records disagree on current pricing. Needs Caleb's sign-off on which is current before this claim (or any pricing detail) moves to verified.json.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-10"
+  },
+  {
+    "id": "gbrain-pwc-leaderboard-sauna-lounge-real-features",
+    "text": "Leaderboard: live streak tracking, see how your usage compares across the community. The Sauna Lounge: private owner community, find other members, share results, ask questions.",
+    "category": "trust",
+    "appeared_in": [
+      "stills: LevelUpYourHealth (\"Product includes live leaderboard + sauna lounge features\")",
+      "stills: EnterYourInfraredGlow (\"Live leaderboard + sauna lounge features\")"
+    ],
+    "note": "Fix cycle 12 item 5: g Brain search for \"leaderboard\" and \"sauna lounge\" confirms both are real, current features inside Peak Wellness Club, not invented. Exact quotes and source: \"Leaderboard -- Live streak tracking. See how your usage compares across the community.\" and \"The Sauna Lounge -- Private owner community. Find other members, share results, ask questions.\" (both outline/customer-support/how-to-use-the-circle-app-peak-wellness-club-89f46819, type outline-doc). CAUTION -- a separate allowed-type page, outline/operations/pwc-sauna-lounge-engagement-audit-mar-21-2026-855a6fd4 (outline-doc), an engagement audit dated 2026-03-21, found the Sauna Lounge community had 16 of 18 posts with zero engagement and only 1 real comment from an external member in the audited 30-day window -- the feature exists but community activity was very low as of that audit. If an ad implies an active, bustling leaderboard/community, Caleb should confirm current engagement levels are more representative before this is approved as a page claim.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-10"
+  },
+  {
+    "id": "gbrain-pwc-expert-protocols-real-feature",
+    "text": "Celebrity & Expert Protocols: exact protocols from elite athletes, longevity doctors, high-performers, with temperature, duration, timing, and breathwork for each protocol.",
+    "category": "trust",
+    "appeared_in": [
+      "stills: EnterYourInfraredGlow (\"Expert studies + actionable protocols included\")"
+    ],
+    "note": "Fix cycle 12 item 5: g Brain search for \"expert studies\" / \"actionable protocols\" confirms the \"actionable protocols\" half is real and current -- Peak Wellness Club includes named expert/celebrity protocols. Exact quote and source: \"Celebrity & Expert Protocols -- Exact protocols from elite athletes, longevity doctors, high-performers. Temperature, duration, timing, breathwork for each protocol.\" (outline/sales/peak-wellness-club-team-knowledge-base-e0aab96a, type outline-doc). The \"studies\" half of the ad's exact wording is NOT directly confirmed by any page of an allowed type -- a \"Key Research Studies Library\" reference exists elsewhere in gbrain, but only on a page type outside this task's retrieval allowlist (not opened, not cited here). Caleb should confirm whether \"expert studies\" (implying published/cited research) is accurate framing, or whether the page copy should say \"expert protocols\" instead, which is what the allowed source actually documents.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-10"
+  },
+  {
+    "id": "gbrain-longevity-lab-real-offering",
+    "text": "Peak Longevity Lab (PLL): completely separate from Peak Wellness Club. High-ticket. Application-only. NOT included with sauna purchase. Includes a 160+ biomarker panel, a dedicated health coordinator, and a 6-month personalized health protocol.",
+    "category": "trust",
+    "appeared_in": [
+      "g Brain search only (fix cycle 12 item 5 assigned search list) -- not found as a literal claims_made string in any of the seven fixtures checked this cycle; searched per the assigned term \"Longevity Lab\", not because a current ad references it"
+    ],
+    "note": "Fix cycle 12 item 5: g Brain search for \"Longevity Lab\" confirms it is a real, current, separate high-ticket program (6-month, several-thousand-dollar tiers per a non-allowed-type pricing record not cited here), never included with a sauna purchase and never to be conflated with Peak Wellness Club. Exact quote and source: \"Peak Longevity Lab (PLL) -- Completely separate from PWC. High-ticket. Application-only. NOT included with sauna purchase. 160+ biomarker panel, Dedicated health coordinator, 6-month personalized health protocol.\" (outline/customer-support/peak-saunas-training-hub-v3-52ad71aa, type outline-doc; also support/training-hub-v3, type concept). Flagging defensively, not because any current ad references it: if a future ad ever does, this must never be implied as included with a sauna, and any dollar figure needs Caleb's explicit sign-off before it could move to verified.json -- pricing is tiered and high enough ($12k-$22k+ per non-cited internal pricing notes) that an error here would be a serious overclaim.",
+    "status": "needs-caleb",
+    "date_flagged": "2026-09-10"
   }
 ]

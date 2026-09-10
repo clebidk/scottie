@@ -61,6 +61,8 @@ Claim ids never appear in any text field. Cite in prose only as (source name, ye
 
 If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to "a customer" -- or to the name in facts_pack.speaker_name if that field is non-null -- e.g. "One customer told us she..." or a short quoted line clearly credited to that customer. The page author (Austin) never speaks in the ad speaker's first person.
 
+Outside a sentence that carries a claim_id, write numbers as words, not numerals -- "seven in the morning", not "7 a.m."; "five-figure", not "5-figure"; "two hours", not "2 hours". This applies especially to an illustrative or incidental number with nothing to cite (a time of day, a small count, an age) -- it has no claim_id to give it, so numerals there read as an invented, uncited fact even when you didn't mean it as one. Never use a numeral for a time, a count, or an age unless that exact sentence's own claim_ids array cites a verified claim for it.
+
 A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "One customer told us she put her studio memberships at around $200 a month, or about $2,400 a year." The sentence must itself read as attributed: say "customer", or "she"/"he"/"they" together with "told us"/"estimated"/"said" -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
 
 If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published Peak Saunas article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
@@ -151,11 +153,33 @@ def resolve_allowed_cta_texts(schema, short_name, model_name=None):
     return [t.format(short_name=short_name, model_name=model_name) for t in templates]
 
 
+# Fix cycle 12 item 1: exemplars are the single largest piece of a writer
+# call's input -- a real fixture (cartridges/article/exemplars/
+# best-sauna-brands-2026.md) is 5,600+ words on its own, and sending it
+# whole was the main driver of the ~36,800-token average article write.
+# Trimmed to the first 700 words: still enough for the model to pick up
+# voice/structure (the point of an exemplar per write_page's own guidance --
+# "use them only as a voice and structure reference"), at a fraction of the
+# token cost. Never applied to a .json exemplar (a page.json-shaped object,
+# not prose) -- there are none in this repo today, and truncating structured
+# JSON by word count would just produce invalid JSON; the 2-exemplar cap
+# below is the control for those.
+EXEMPLAR_MAX_WORDS = 700
+
+
+def _truncate_words(text, limit):
+    words = text.split()
+    if len(words) <= limit:
+        return text
+    return " ".join(words[:limit])
+
+
 def load_exemplars(cartridge_dir, limit=2):
     """Up to `limit` exemplars from cartridges/<name>/exemplars/. A .json file
     is parsed as a page.json-shaped object; a .md/.txt file is a real
     reference article and is passed through as text (voice/structure
-    reference, not something to copy verbatim)."""
+    reference, not something to copy verbatim), trimmed to the first
+    EXEMPLAR_MAX_WORDS words (fix cycle 12 item 1)."""
     ex_dir = Path(cartridge_dir) / "exemplars"
     if not ex_dir.exists():
         return []
@@ -165,24 +189,26 @@ def load_exemplars(cartridge_dir, limit=2):
         if f.suffix == ".json":
             exemplars.append(json.loads(f.read_text()))
         else:
-            exemplars.append({"reference_article": f.read_text()})
+            exemplars.append({"reference_article": _truncate_words(f.read_text(), EXEMPLAR_MAX_WORDS)})
     return exemplars
 
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-               word_range=None, allowed_cta_texts=None, revision_note=None, ad_overclaims=None):
+               word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
     message so the writer sees exactly what to fix) are all optional -- a
     caller that doesn't pass them gets the pre-cycle-4 behavior.
 
-    ad_overclaims (fix cycle 10 item 4): only ever set when
-    claims/config.json's ad_overclaim_policy is "warn" and the ad-claims gate
-    found a locked-topic claim (warranty/reviews/financing/price) that didn't
-    match its locked fact but didn't stop the run either -- each item's own
-    claim text and verified_fact (claims.gate_ad_brief_claims's return
-    shape) are told to the writer as statements to never repeat."""
+    ad_not_repeated (fix cycle 10 item 4, broadened fix cycle 12 item 3): only
+    ever set when claims/config.json's ad_overclaim_policy is "warn" and the
+    ad-claims gate found a claim (plain-unmatched OR a locked-topic claim
+    that didn't match its locked fact) that didn't stop the run -- each
+    item's own claim text and verified_fact (claims.gate_ad_brief_claims's
+    return shape; verified_fact is None for a plain-unmatched claim -- there
+    is no single fact to point to) are told to the writer as statements to
+    never repeat."""
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir)
     # A repair attempt (revision_note set) already saw the exemplars on the
@@ -229,9 +255,9 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     if hard_constraints:
         system += "\n\n## Hard constraints for this run\n" + "\n".join(f"- {c}" for c in hard_constraints)
 
-    if ad_overclaims:
+    if ad_not_repeated:
         lines = ["## DO NOT REPEAT these ad statements; use the verified fact instead"]
-        for item in ad_overclaims:
+        for item in ad_not_repeated:
             fact = item.get("verified_fact")
             if fact:
                 lines.append(f'- Ad said: "{item["claim"]}" -- verified fact: "{fact}"')
@@ -252,6 +278,18 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     messages = [{"role": "user", "content": user_content}]
     for attempt in range(2):
         budget.check()
+        # Fix cycle 12 item 1: log an approximate prompt size (chars / 4, the
+        # usual rough chars-per-token estimate) BEFORE the call -- so a
+        # prompt-bloat regression (e.g. exemplar trimming silently stops
+        # working) shows up in the log even without waiting for the real
+        # usage.input_tokens number the API returns after the call.
+        approx_prompt_chars = len(system) + sum(
+            len(m["content"]) if isinstance(m["content"], str) else 0 for m in messages
+        )
+        log.event(
+            stage,
+            f"prompt size: ~{approx_prompt_chars // 4} tokens (estimate, {approx_prompt_chars} chars)",
+        )
         response = client.messages.create(
             model=model,
             max_tokens=6000,

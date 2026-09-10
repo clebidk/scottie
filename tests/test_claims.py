@@ -2,6 +2,7 @@ import pytest
 
 from adv.claims import (
     ClaimsGateFailure,
+    classify_ad_claim_about,
     find_benefit_claim_shortfall,
     find_financing_violations,
     find_first_person_violations,
@@ -41,7 +42,7 @@ def test_matched_ad_claim_passes():
     # anchor against the picked product's current price now, not word
     # overlap -- pass `product` the way cli.cmd_run does.
     ad_brief = {"claims_made": ["The Peak Saunas Fuji is priced at $8250."]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
     assert overclaims == []
     assert len(matched) == 1
     assert matched[0]["matched_claim_id"] == "price-fuji"
@@ -50,7 +51,7 @@ def test_matched_ad_claim_passes():
 def test_matched_ad_claim_with_comma_formatted_price():
     # "$8,250" (ad phrasing) must parse the same as "$8250.00" (product price).
     ad_brief = {"claims_made": ["The Peak Saunas Fuji is priced at $8,250."]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
     assert overclaims == []
     assert len(matched) == 1
     assert matched[0]["matched_claim_id"] == "price-fuji"
@@ -67,7 +68,7 @@ def test_unmatched_ad_claim_stops():
 def test_speaker_experience_never_gated():
     # speaker_experience isn't passed to the gate at all -- claims_made only.
     ad_brief = {"claims_made": [], "speaker_experience": ["I hated calling for a price."]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
     assert matched == []
     assert overclaims == []
 
@@ -145,7 +146,7 @@ def test_ad_claim_with_wrong_number_does_not_match_despite_word_overlap():
 
 def test_ad_claim_with_no_numbers_is_unaffected_by_numeric_check():
     ad_brief = {"claims_made": ["Austin Laudenslager is the Founder and CEO of Peak Saunas."]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
     assert overclaims == []
     assert matched[0]["matched_claim_id"] == "founder-ceo"
 
@@ -175,7 +176,7 @@ SHIPPING_CRATE_CLAIM = [
 
 def test_crate_protected_delivery_matches_the_verified_shipping_claim():
     ad_brief = {"claims_made": ["Crate-protected delivery"]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, SHIPPING_CRATE_CLAIM)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, SHIPPING_CRATE_CLAIM)
     assert overclaims == []
     assert matched[0]["matched_claim_id"] == "gbrain-shipping-free-crate-origin"
     assert matched[0]["overlap"] == 1.0
@@ -219,7 +220,7 @@ BLUETOOTH_SPEAKER_CLAIM = [
 
 def test_short_ad_claim_matches_at_the_lower_threshold():
     ad_brief = {"claims_made": ["It has Bluetooth capabilities"]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, BLUETOOTH_SPEAKER_CLAIM)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, BLUETOOTH_SPEAKER_CLAIM)
     assert overclaims == []
     assert matched[0]["matched_claim_id"] == "pdp-mini-speakers"
     assert matched[0]["overlap"] == 0.5
@@ -943,7 +944,7 @@ def test_false_warranty_claim_is_ad_overclaim_never_matched():
 
 def test_exact_allowed_warranty_sentence_matches():
     ad_brief = {"claims_made": [ALLOWED_WARRANTY_SENTENCE]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
     assert overclaims == []
     assert matched[0]["matched_claim_id"] == "warranty-terms"
 
@@ -968,7 +969,7 @@ def test_false_review_stats_claim_is_ad_overclaim():
 
 def test_review_stats_claim_matching_live_figures_passes():
     ad_brief = {"claims_made": ["We're rated 4.6 out of 5 with 8,200 reviews"]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, [], policy="stop", reviews_claim=REVIEWS_LIVE_CLAIM)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, [], policy="stop", reviews_claim=REVIEWS_LIVE_CLAIM)
     assert overclaims == []
     assert matched[0]["matched_claim_id"] == "reviews-live"
 
@@ -992,7 +993,7 @@ def test_price_claim_matches_current_product_price_regardless_of_wording():
     # claim's own text -- the numeric anchor matches on the dollar amount
     # alone (fix cycle 10 item 2, replacing word-overlap price matching).
     ad_brief = {"claims_made": ["Infrared sauna is on sale right now for $8,250"]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, [], policy="stop", product=FUJI_PRODUCT)
+    matched, overclaims, alt_claims = gate_ad_brief_claims(ad_brief, [], policy="stop", product=FUJI_PRODUCT)
     assert overclaims == []
     assert matched[0]["matched_claim_id"] == "price-fuji"
 
@@ -1006,25 +1007,34 @@ def test_price_claim_matching_no_product_price_is_unmatched_with_specific_messag
 
 
 # ---------------------------------------------------------------------------
-# Fix cycle 10 item 4: ad_overclaim_policy -- "stop" (default) stops the run
-# on any locked-topic overclaim, same as an ordinary unmatched claim; "warn"
-# lets a locked-topic overclaim through (returned, not raised), but a
-# non-locked unmatched claim still stops under either policy.
+# Fix cycle 10 item 4 / fix cycle 12 item 3: ad_overclaim_policy -- "stop"
+# (default) stops the run on ANY unmatched or overclaimed claim, plain or
+# locked-topic, unchanged since cycle 10. "warn" (broadened in cycle 12) no
+# longer stops the run for EITHER kind -- every failed claim (plain-unmatched
+# or locked-topic overclaim) is dropped from what the writer may use and
+# returned in `not_repeated` instead of raised.
 # ---------------------------------------------------------------------------
 
 def test_warn_policy_does_not_stop_on_locked_topic_overclaim():
     ad_brief = {"claims_made": ["It includes a free lifetime warranty if it doesn't work"]}
-    matched, overclaims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
+    matched, not_repeated, alt_claims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
     assert matched == []
-    assert len(overclaims) == 1
-    assert overclaims[0]["topic"] == "warranty"
+    assert len(not_repeated) == 1
+    assert not_repeated[0]["topic"] == "warranty"
 
 
-def test_warn_policy_still_stops_on_non_locked_unmatched_claim():
+def test_warn_policy_does_not_stop_on_plain_unmatched_claim_either():
+    # Fix cycle 12 item 3: this used to be the one case "warn" didn't cover
+    # -- a plain (non-locked-topic) unmatched claim always stopped the run
+    # regardless of policy. Now it doesn't: it's dropped from what the
+    # writer may use and reported, same as a locked-topic overclaim.
     ad_brief = {"claims_made": ["Competitor saunas leak dangerous levels of EMF radiation."]}
-    with pytest.raises(ClaimsGateFailure) as exc_info:
-        gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
-    assert "topic" not in exc_info.value.items[0]
+    matched, not_repeated, alt_claims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
+    assert matched == []
+    assert len(not_repeated) == 1
+    assert "topic" not in not_repeated[0]
+    assert not_repeated[0]["claim"] == "Competitor saunas leak dangerous levels of EMF radiation."
+    assert not_repeated[0]["message"].startswith("AD CLAIM NOT REPEATED:")
 
 
 def test_stop_policy_folds_overclaims_and_unmatched_into_one_failure():
@@ -1037,6 +1047,58 @@ def test_stop_policy_folds_overclaims_and_unmatched_into_one_failure():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
     assert len(exc_info.value.items) == 2
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 12 item 3 (second half): a claim about the alternative/comparison
+# option (the red-X column of a comparative still) is never matched, never
+# usable on the page, and never stops the run under either policy.
+# ---------------------------------------------------------------------------
+
+def test_alternative_claim_never_matched_never_stops_under_stop_policy():
+    ad_brief = {"claims_made": ["Competing products have only basic manual controls"]}
+    matched, not_repeated, alt_claims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, policy="stop")
+    assert matched == []
+    assert not_repeated == []
+    assert len(alt_claims) == 1
+    assert alt_claims[0]["about"] == "alternative"
+    assert alt_claims[0]["claim"] == "Competing products have only basic manual controls"
+
+
+def test_alternative_claim_never_stops_under_warn_policy_either():
+    ad_brief = {"claims_made": ["Comparison option takes 3 hours to do"]}
+    matched, not_repeated, alt_claims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, policy="warn")
+    assert matched == []
+    assert not_repeated == []
+    assert len(alt_claims) == 1
+
+
+def test_alternative_claim_mixed_with_a_plain_unmatched_claim_under_stop():
+    # An alternative claim never contributes to a STOP -- only the plain
+    # unmatched claim alongside it does.
+    ad_brief = {
+        "claims_made": [
+            "Competitor products have weak far-infrared only",
+            "It's only 31 by 32 inches",
+        ]
+    }
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, policy="stop")
+    assert len(exc_info.value.items) == 1
+    assert exc_info.value.items[0]["claim"] == "It's only 31 by 32 inches"
+
+
+def test_classify_ad_claim_about_recognizes_the_real_fixture_phrasings():
+    # docs/SWEEP-2026-09-10.md fixtures 5-7's actual claims_made strings.
+    for text in (
+        "Product includes 4-in-1: Near, Mid, Far IR + Red Light",
+        "Competing products lack red light therapy",
+        "Competitor products have basic manual controls",
+        "Comparison option leaves skin dull",
+    ):
+        if "Competing" in text or "Competitor" in text or "Comparison" in text:
+            assert classify_ad_claim_about(text) == "alternative", text
+    assert classify_ad_claim_about("Product includes 4-in-1: Near, Mid, Far IR + Red Light") is None
 
 
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .reviews import fetch_reviews_claim
+from .semantic_match import semantic_match_claims
 from .vocab import forbidden_words_block
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
@@ -325,6 +326,84 @@ def _generic_word_sub(text, word, replacement):
     return pattern.sub(lambda m: _case_preserving_replacement(m, replacement), text)
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 12 item 2: incidental numerals. "driving to a studio at 7 a.m."
+# tripped the plain digit rule -- 7 a.m. isn't a claim, it's an illustrative
+# time with nothing to cite, but the gate can't tell that apart from an
+# invented fact. Rather than force a claim_id (there isn't one) or a real
+# repair call every time, a small deterministic pass converts a numeral time
+# (1-12 followed by a.m./p.m./o'clock) or a standalone numeral 1-12 to
+# words before ever calling the writer again -- this only ever runs on a
+# text field that already has no claim_ids (that's the only way the "contains
+# a number" failure fires at all -- see claims._trigger_reason), so it never
+# touches a claim-cited sentence. A number outside 1-12, or one already
+# formatted as a price/percentage/thousands-separated figure, is left alone
+# for a real repair call -- those usually ARE an invented fact, not
+# incidental phrasing.
+# ---------------------------------------------------------------------------
+
+_NUMERAL_WORDS = {
+    1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+    7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
+}
+
+# Trailing lookahead, not \b: "a.m."/"p.m." end in a period (a non-word
+# char), so a \b right after one fails to match whenever the next character
+# is also non-word (a space, end of sentence) -- exactly the common case
+# ("at 7 a.m. when it happened").
+_TIME_NUMERAL_RE = re.compile(
+    r"\b([1-9]|1[0-2])\s?(a\.m\.|am|p\.m\.|pm|o'clock)(?![a-zA-Z0-9])", re.IGNORECASE
+)
+
+# A standalone 1-12, not part of a larger figure: not preceded by a digit,
+# '.', ',', '$', '%', or '-' (a price, a decimal, a thousands group, or a
+# capacity token like "2-Person" -- those are real numbers, not incidental
+# phrasing), and not followed by ',digit' (thousands separator), '.digit'
+# (decimal), '%', or '-Person'/'-person' (capacity token).
+_STANDALONE_NUMERAL_RE = re.compile(
+    r"(?<![\d.,$%-])\b([1-9]|1[0-2])\b(?!\s*(?:[.,]\d|%|-[Pp]erson))"
+)
+
+
+def _capitalize_if_sentence_start(text, start, replacement):
+    """True if `replacement` should be capitalized because it opens the
+    string or follows sentence-ending punctuation."""
+    before = text[:start].rstrip()
+    return before == "" or before[-1:] in ".!?"
+
+
+def convert_incidental_numerals(text):
+    """Fix cycle 12 item 2: numerals 1-12 followed by a.m./p.m./o'clock, and
+    standalone numerals 1-12 elsewhere in non-cited narrative text, written
+    out as words -- "7 a.m." -> "seven in the morning", "2 hours" ->
+    "two hours". Everything else (13+, a price, a percentage, a
+    thousands-grouped or decimal figure, a product capacity token) is left
+    untouched."""
+
+    def time_repl(m):
+        word = _NUMERAL_WORDS[int(m.group(1))]
+        suffix = m.group(2).lower()
+        if suffix in ("a.m.", "am"):
+            phrase = f"{word} in the morning"
+        elif suffix in ("p.m.", "pm"):
+            phrase = f"{word} in the afternoon"
+        else:
+            phrase = f"{word} o'clock"
+        if _capitalize_if_sentence_start(text, m.start(), phrase):
+            phrase = phrase[:1].upper() + phrase[1:]
+        return phrase
+
+    text = _TIME_NUMERAL_RE.sub(time_repl, text)
+
+    def standalone_repl(m):
+        word = _NUMERAL_WORDS[int(m.group(1))]
+        if _capitalize_if_sentence_start(text, m.start(), word):
+            word = word[:1].upper() + word[1:]
+        return word
+
+    return _STANDALONE_NUMERAL_RE.sub(standalone_repl, text)
+
+
 def apply_deterministic_fixes(page, failures, valid_claim_ids):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
@@ -347,6 +426,12 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids):
         elif "claim id leaked into copy" in issue:
             path = raw_path
             substitute = lambda text: strip_leaked_claim_ids(text, valid_claim_ids)[0]
+        elif "(contains a number)" in issue:
+            # Fix cycle 12 item 2: same path-shape as the trigger-word case
+            # below -- validate_page_claim_ids points at the containing
+            # node, not the "text" string itself.
+            path = raw_path if raw_path.endswith(".text") else f"{raw_path}.text"
+            substitute = convert_incidental_numerals
         else:
             m = _TRIGGER_WORD_ISSUE_RE.search(issue)
             word = m.group(1) if m else None
@@ -375,7 +460,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids):
 
 
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-                         financing_lender, speaker_pov, ad_overclaims=None):
+                         financing_lender, speaker_pov, ad_not_repeated=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -462,7 +547,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             word_range=word_range,
             allowed_cta_texts=allowed_cta_texts,
             revision_note=revision_note,
-            ad_overclaims=ad_overclaims,
+            ad_not_repeated=ad_not_repeated,
         )
         call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
@@ -504,7 +589,7 @@ def _log_run_result(log, result, gate_log):
     log.result(result, total_attempts, total_repairs)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None, product_warning=None, ad_overclaims=None):
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None):
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -519,16 +604,25 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     if product_warning:
         lines.append(f"**WARNING: {product_warning}**")
         lines.append("")
-    # Fix cycle 10 item 4: only ever present under ad_overclaim_policy "warn"
-    # -- under "stop" a locked-topic overclaim raises ClaimsGateFailure
+    # Fix cycle 12 item 3: only ever present under ad_overclaim_policy "warn"
+    # -- under "stop" any unmatched/overclaimed claim raises ClaimsGateFailure
     # before this function is ever called, so this run never reaches here
     # with one. The page itself was already written with instructions never
     # to repeat these; this is the record that the ad itself still needs a
-    # correction.
-    if ad_overclaims:
-        lines.append("**AD OVERCLAIMS — page corrected, ad needs fixing**")
-        for item in ad_overclaims:
+    # correction. Broadened from fix cycle 10's "AD OVERCLAIMS" (locked-topic
+    # only) to cover every unmatched-or-overclaimed claim, plain or locked.
+    if ad_not_repeated:
+        lines.append("**AD CLAIMS NOT REPEATED ON PAGE — ad needs fixing**")
+        for item in ad_not_repeated:
             lines.append(f"- {item['message']}")
+        lines.append("")
+    # Fix cycle 12 item 3: a claim about the alternative/comparison option
+    # (claims.classify_ad_claim_about) never goes through matching at all --
+    # listed here purely for visibility, under either policy.
+    if ad_alternative_claims:
+        lines.append("**Ad statements about alternatives (not repeated)**")
+        for item in ad_alternative_claims:
+            lines.append(f'- "{item["claim"]}"')
         lines.append("")
     lines.append("## Ad claims matched")
     for m in gate_matched:
@@ -736,19 +830,37 @@ def cmd_run(args):
         # overlap; ad_overclaim_policy controls whether a locked-topic miss
         # alone stops the run.
         policy = claims_config.get("ad_overclaim_policy", "stop")
-        gate_matched, ad_overclaims = gate_ad_brief_claims(
+        all_verified_claims = facts_source.all_verified_claims(live_price_claims_by_slug, extra_claims=pdp_claims)
+
+        # Fix cycle 12 item 4: one real Claude call proposing a semantic
+        # (equivalent-meaning) mapping before word-overlap matching runs --
+        # falls back to {} (pure overlap) on any failure. Made unconditionally
+        # (not policy-gated) since it only ever widens what can match, on
+        # both policies.
+        semantic_mapping = semantic_match_claims(
+            ad_brief.get("claims_made", []),
+            all_verified_claims,
+            client=client,
+            model=config.DEFAULT_MODEL,
+            budget=budget,
+            log=log,
+        )
+
+        gate_matched, ad_not_repeated, ad_alternative_claims = gate_ad_brief_claims(
             ad_brief,
-            facts_source.all_verified_claims(live_price_claims_by_slug, extra_claims=pdp_claims),
+            all_verified_claims,
             product=product,
             reviews_claim=reviews_claim,
             financing_lender=claims_config.get("financing_lender"),
             policy=policy,
             log=log,
+            semantic_mapping=semantic_mapping,
         )
         log.gate_result(
             "PASS",
             f"{len(gate_matched)} ad claim(s) matched"
-            + (f", {len(ad_overclaims)} ad overclaim(s) allowed under 'warn' policy" if ad_overclaims else ""),
+            + (f", {len(ad_not_repeated)} ad claim(s) not repeated under 'warn' policy" if ad_not_repeated else "")
+            + (f", {len(ad_alternative_claims)} ad statement(s) about the alternative" if ad_alternative_claims else ""),
         )
 
         # Fix cycle 2 item 8: log a warning for every URL that still contains
@@ -773,7 +885,7 @@ def cmd_run(args):
                     log=log,
                     financing_lender=claims_config.get("financing_lender"),
                     speaker_pov=ad_brief.get("speaker_pov"),
-                    ad_overclaims=ad_overclaims,
+                    ad_not_repeated=ad_not_repeated,
                 )
             except ClaimsGateFailure as e:
                 attempts = getattr(e, "attempts", [e.items])
@@ -843,7 +955,8 @@ def cmd_run(args):
         emf_urls=emf_urls,
         gate_log=gate_log,
         product_warning=product_warning,
-        ad_overclaims=ad_overclaims,
+        ad_not_repeated=ad_not_repeated,
+        ad_alternative_claims=ad_alternative_claims,
     )
     _log_run_result(log, "PASS", gate_log)
     log.close()

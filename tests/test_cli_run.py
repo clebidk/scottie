@@ -93,6 +93,7 @@ def _base_args(**overrides):
 def test_run_dry_run_produces_three_pages(monkeypatch):
     responses = [
         json_response(AD_BRIEF_RESPONSE),
+        json_response({}),  # fix cycle 12 item 4: semantic-match call, no mappings
         json_response(ARTICLE_PAGE),
         json_response(PRODUCT_PAGE_PAGE),
         json_response(LONGFORM_PAGE),
@@ -154,7 +155,11 @@ PRICE_INFERENCE_AD_BRIEF = {
 
 
 def test_run_reaches_price_based_product_inference_in_the_real_pipeline_order(monkeypatch):
-    responses = [json_response(PRICE_INFERENCE_AD_BRIEF), json_response(ARTICLE_PAGE)]
+    responses = [
+        json_response(PRICE_INFERENCE_AD_BRIEF),
+        json_response({}),  # fix cycle 12 item 4: semantic-match call, no mappings
+        json_response(ARTICLE_PAGE),
+    ]
     client = FakeClient(responses)
     monkeypatch.setattr(cli, "make_client", lambda: client)
     _patch_network(monkeypatch)
@@ -177,7 +182,10 @@ def test_run_stops_on_unmatched_claim(monkeypatch):
     # generic unmatched-claim STOP path.
     bad_ad_brief = dict(AD_BRIEF_RESPONSE)
     bad_ad_brief["claims_made"] = ["Competitor saunas cost twice as much as Peak."]
-    responses = [json_response(bad_ad_brief)]
+    responses = [
+        json_response(bad_ad_brief),
+        json_response({}),  # fix cycle 12 item 4: semantic-match call, no mappings
+    ]
     client = FakeClient(responses)
     monkeypatch.setattr(cli, "make_client", lambda: client)
     _patch_network(monkeypatch)

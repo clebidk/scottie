@@ -27,6 +27,79 @@ def test_load_exemplars_missing_dir_returns_empty(tmp_path):
     assert load_exemplars(tmp_path / "no-such-cartridge") == []
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 12 item 1: exemplars are the largest piece of a writer call's
+# prompt (one real exemplar, cartridges/article/exemplars/
+# best-sauna-brands-2026.md, is 5,600+ words on its own) -- trimmed to the
+# first 700 words each, at most 2 exemplars (the pre-existing `limit`
+# default, unchanged), never on a repair call (test_write_page_omits_
+# exemplars_on_a_repair_attempt above, unchanged).
+# ---------------------------------------------------------------------------
+
+def test_load_exemplars_trims_each_reference_article_to_700_words():
+    exemplars = load_exemplars(REPO_ROOT / "cartridges" / "article")
+    assert len(exemplars) == 2
+    for e in exemplars:
+        assert len(e["reference_article"].split()) <= 700
+
+
+def test_load_exemplars_trims_a_short_file_not_at_all(tmp_path):
+    cartridge_dir = tmp_path / "cartridge"
+    (cartridge_dir / "exemplars").mkdir(parents=True)
+    short_text = "word " * 50
+    (cartridge_dir / "exemplars" / "short.md").write_text(short_text)
+    exemplars = load_exemplars(cartridge_dir)
+    assert len(exemplars) == 1
+    assert exemplars[0]["reference_article"] == short_text
+
+
+def test_load_exemplars_trims_a_long_file_to_exactly_700_words(tmp_path):
+    cartridge_dir = tmp_path / "cartridge"
+    (cartridge_dir / "exemplars").mkdir(parents=True)
+    long_text = " ".join(f"word{i}" for i in range(2000))
+    (cartridge_dir / "exemplars" / "long.md").write_text(long_text)
+    exemplars = load_exemplars(cartridge_dir)
+    assert len(exemplars) == 1
+    trimmed_words = exemplars[0]["reference_article"].split()
+    assert len(trimmed_words) == 700
+    assert trimmed_words == [f"word{i}" for i in range(700)]
+
+
+def test_load_exemplars_still_caps_at_2_files(tmp_path):
+    cartridge_dir = tmp_path / "cartridge"
+    ex_dir = cartridge_dir / "exemplars"
+    ex_dir.mkdir(parents=True)
+    for name in ("a.md", "b.md", "c.md"):
+        (ex_dir / name).write_text("short reference text")
+    exemplars = load_exemplars(cartridge_dir)
+    assert len(exemplars) == 2
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 12 item 1: "Log prompt token size per call."
+# ---------------------------------------------------------------------------
+
+def test_write_page_logs_an_approximate_prompt_size(tmp_path):
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log_path = tmp_path / "run.log"
+    log = RunLog("test-run", log_path)
+    write_page(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        client=client,
+        model="claude-sonnet-5",
+        budget=budget,
+        log=log,
+    )
+    log.close()
+    log_text = log_path.read_text()
+    assert "prompt size:" in log_text
+    assert "tokens (estimate," in log_text
+
+
 def test_write_page_valid_on_first_try(tmp_path):
     client = FakeClient([json_response(ARTICLE_PAGE)])
     budget = Budget()

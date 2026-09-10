@@ -54,16 +54,28 @@ framing).
   warranty, review statistics, financing, or a price that doesn't match the
   product's current price is checked against its own locked fact, never by
   word overlap (see `adv/claims.py`'s `gate_ad_brief_claims`). With `"stop"`,
-  any such AD OVERCLAIM stops the run (`exit 2`), same as an ordinary
-  unmatched ad claim -- the default, and the safer setting for an unreviewed
-  ad. With `"warn"`, an AD OVERCLAIM on one of those four locked topics no
-  longer stops the run: it's written to `REVIEW.md` under a bold **AD
-  OVERCLAIMS — page corrected, ad needs fixing** heading and to the run log,
-  the writer is told never to repeat that statement and to use the verified
-  fact instead, and the run continues. A claim that's simply unmatched on
-  any other topic (not one of the four locked ones) still stops the run
-  under either setting -- `"warn"` only relaxes the four locked topics, not
-  ordinary claim verification.
+  any unmatched-or-overclaimed claim -- locked-topic or plain -- stops the
+  run (`exit 2`) -- the default, and the safer setting for an unreviewed ad.
+  With `"warn"` (fix cycle 12 item 3 broadened this from locked-topic-only):
+  EVERY unmatched-or-overclaimed claim, locked-topic or plain, is dropped
+  from what the writer may use instead of stopping the run -- written to
+  `REVIEW.md` under a bold **AD CLAIMS NOT REPEATED ON PAGE — ad needs
+  fixing** heading (with the reason and the verified fact when one exists)
+  and to the run log, the writer is told never to repeat each one and to use
+  the verified fact instead when there is one, and the run continues.
+  A claim about the alternative/comparison option (the red-X column of a
+  comparative still -- `adv/claims.py`'s `classify_ad_claim_about`) is a
+  separate case: it's never checked against anything and never stops the run
+  under either policy, listed in `REVIEW.md` under **Ad statements about
+  alternatives (not repeated)** purely for visibility.
+- Before word-overlap matching, one real Claude call (fix cycle 12 item 4,
+  `adv/semantic_match.py`) proposes a semantic (equivalent-meaning) mapping
+  from each ad claim to a verified claim id -- e.g. "4-in-1: near, mid, far
+  infrared + red light" to the full-spectrum and red-light allowlist claims.
+  A proposed mapping is only ever accepted if the same numeric-token guard
+  `match_claim` already enforces for word-overlap also passes in code; a
+  locked-topic claim (warranty/reviews/financing/price) is never eligible.
+  Falls back to pure word-overlap matching if the call fails for any reason.
 
 ## Review a run
 
