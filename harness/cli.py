@@ -37,9 +37,9 @@ from .review import cmd_review
 from .runstate import UnknownReviewer
 from .shopify import write_shopify_body
 from .tenant import TenantNotConfigured, UnknownTenant
+from .textutil import NON_PROSE_KEYS
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Exit codes: 1 bad usage, 2 claims gate STOP, 3 budget cap, 4 tenant not set up.
 EXIT_TENANT_NOT_CONFIGURED = 4
@@ -60,13 +60,12 @@ MAX_REPAIR_ATTEMPTS = 2
 # excluded from the main-content word count. cta_url (fix cycle 3 item 4's
 # single top-level CTA field) is the flattened equivalent of the old nested
 # cta.url -- excluded the same way.
-_NON_PROSE_KEYS = {"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
 
 
 def _collect_prose_strings(node, out):
     if isinstance(node, dict):
         for k, v in node.items():
-            if k in _NON_PROSE_KEYS:
+            if k in NON_PROSE_KEYS:
                 continue
             _collect_prose_strings(v, out)
     elif isinstance(node, list):

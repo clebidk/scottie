@@ -21,7 +21,8 @@ from pathlib import Path
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+from .config import REPO_ROOT
+
 TENANTS_DIR = REPO_ROOT / "tenants"
 TEMPLATE_DIR = TENANTS_DIR / "_template"
 DEFAULT_FILE = TENANTS_DIR / "default.txt"

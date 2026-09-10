@@ -6,11 +6,12 @@ registry), so `harness workflow run ad-to-pages --input ...` produces exactly
 what `harness run ...` produces. The YAML owns the ORDER; the code owns the
 BEHAVIOUR. Nothing about a stage lives in the YAML.
 """
-from pathlib import Path
 
 import yaml
 
-WORKFLOWS_DIR = Path(__file__).resolve().parent.parent / "workflows"
+from .config import REPO_ROOT
+
+WORKFLOWS_DIR = REPO_ROOT / "workflows"
 
 
 def list_workflows():

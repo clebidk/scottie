@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 
 from . import tenant as tenant_mod
+from .textutil import product_name_slug
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -98,7 +99,7 @@ def extract_pdp_claims(product, raw_product, today_iso):
         return []
 
     sentences = _sentences(_plain_text(body_html))
-    name_slug = product["name"].lower().replace(" ", "-")
+    name_slug = product_name_slug(product["name"])
 
     banned_re = banned_term_re()
     claims = []

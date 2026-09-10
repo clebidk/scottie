@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 
 from . import tenant as tenant_mod
+from .textutil import product_name_slug
 from .sources.shopify_products import (
     fetch_all_live_products,
     http_fetch_page,
@@ -141,7 +142,7 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
         price = p.get("price")
         if price is None:
             continue
-        name_slug = p["name"].lower().replace(" ", "-")
+        name_slug = product_name_slug(p["name"])
         text = tenant_mod.active().format(
             "price_claim_template", product_name=p["name"], price=format_price(price)
         )
@@ -193,7 +194,7 @@ def refresh_price_data(*, products_path, cache_path, show_compare_at_price, toda
     price_claims = build_live_price_claims(merged, today_iso, show_compare_at_price)
     price_claims_by_slug = {}
     for slug, p in merged.items():
-        name_slug = p["name"].lower().replace(" ", "-")
+        name_slug = product_name_slug(p["name"])
         for c in price_claims:
             if c["id"] == f"price-{name_slug}":
                 price_claims_by_slug[slug] = c

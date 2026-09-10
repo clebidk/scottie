@@ -5,6 +5,12 @@ CLI flag, so local dev and tests never depend on these existing. Anything that
 names a company lives in tenant data, not here.
 """
 import os
+from pathlib import Path
+
+# The repository root, as one definition. harness/cli.py, harness/pipeline.py,
+# harness/tenant.py and harness/workflows.py each derived this from their own
+# __file__ (four identical expressions); every one of them now imports it.
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 DEFAULT_MODEL = "claude-sonnet-5"
 

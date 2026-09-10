@@ -37,6 +37,7 @@ import re
 
 from . import tenant as tenant_mod
 from . import vocab
+from .textutil import DOLLAR_AMOUNT_RE, NON_PROSE_KEYS
 
 # Every word list and fixed sentence below comes from the active tenant's
 # vocab.yaml, read through the `vocab` module on each access -- importing the
@@ -253,7 +254,6 @@ _LOCKED_WARRANTY_RE = re.compile(r"\b(?:warrant\w*|guarantee\w*)\b", re.IGNORECA
 _RATING_RE = re.compile(r"\b\d(?:\.\d+)?\s*(?:/|out of)\s*5\b|\b\d(?:\.\d+)?\s*stars?\b", re.IGNORECASE)
 _REVIEW_COUNT_RE = re.compile(r"\b[\d,]+\+?\s*reviews?\b", re.IGNORECASE)
 _MONTHLY_FIGURE_RE = re.compile(r"\$\s?[\d,]+(?:\.\d+)?\s*(?:/|a\s+|per\s+)\s*(?:mo\b|month\b)", re.IGNORECASE)
-_DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
 
 
 # Fix cycle 12 item 3 (second half): the red-X column of a comparative
@@ -328,7 +328,7 @@ def classify_locked_topic(ad_claim_text, financing_lender=None):
         or (financing_lender and financing_lender.lower() in ad_claim_text.lower())
     ):
         return "financing"
-    if _DOLLAR_AMOUNT_RE.search(ad_claim_text):
+    if DOLLAR_AMOUNT_RE.search(ad_claim_text):
         return "price"
     return None
 
@@ -458,7 +458,7 @@ def evaluate_price_claim(ad_claim_text, product_price):
     own wording. product_price is this run's already-picked product's
     current price (fix cycle 10 item 1 -- product-picking now runs before
     this gate)."""
-    amounts = [float(m.group(1).replace(",", "")) for m in _DOLLAR_AMOUNT_RE.finditer(ad_claim_text)]
+    amounts = [float(m.group(1).replace(",", "")) for m in DOLLAR_AMOUNT_RE.finditer(ad_claim_text)]
     if product_price is not None:
         for amt in amounts:
             if abs(amt - float(product_price)) <= 1.0:
@@ -869,7 +869,6 @@ def find_missing_attribution(page_json):
 # URL or asset id can legitimately contain "emf" (the Shopify handle does)
 # without it ever reaching rendered copy. Fix 4: "The product URL may still
 # contain the word; that is fine."
-_NON_PROSE_KEYS = {"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku"}
 _URL_RE = re.compile(r"https?://\S+")
 
 
@@ -905,7 +904,7 @@ def find_forbidden_terms(page_json, financing_lender=None, verified_claims=None)
                     hits.append({"path": path, "term": term, "issue": f"forbidden term {term!r} found", "text": node})
         elif isinstance(node, dict):
             for k, v in node.items():
-                if k in _NON_PROSE_KEYS:
+                if k in NON_PROSE_KEYS:
                     continue
                 walk(v, f"{path}.{k}")
         elif isinstance(node, list):
@@ -1153,7 +1152,7 @@ def find_warranty_violations(page_json, verified_claims):
                 )
         elif isinstance(node, dict):
             for k, v in node.items():
-                if k in _NON_PROSE_KEYS:
+                if k in NON_PROSE_KEYS:
                     continue
                 walk(v, f"{path}.{k}")
         elif isinstance(node, list):
@@ -1305,7 +1304,7 @@ def find_leaked_claim_ids(page_json, valid_claim_ids):
                     )
         elif isinstance(node, dict):
             for k, v in node.items():
-                if k in _NON_PROSE_KEYS:
+                if k in NON_PROSE_KEYS:
                     continue
                 walk(v, f"{path}.{k}")
         elif isinstance(node, list):

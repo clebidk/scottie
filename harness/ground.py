@@ -9,6 +9,7 @@ from typing import Protocol
 
 from . import tenant as tenant_mod
 from .prices import format_price
+from .textutil import DOLLAR_AMOUNT_RE, product_name_slug
 from .tenant import DEFAULT_CLAIMS_CONFIG as DEFAULT_CONFIG
 
 # Fix 8: for the chosen product's Drive assets, prefer lifestyle/interior,
@@ -60,7 +61,6 @@ def load_claims_config(claims_dir):
 # amount"; speaker_experience is deliberately excluded (a hedge like "around
 # $200 a month" is the speaker's own estimate, not a quoted price, and
 # ingest.py fix cycle 9 item 3 already keeps it out of claims_made).
-_DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
 
 
 def _quoted_dollar_amounts(ad_brief):
@@ -68,7 +68,7 @@ def _quoted_dollar_amounts(ad_brief):
     fields += [c for c in ad_brief.get("claims_made", []) if isinstance(c, str)]
     text = " ".join(f for f in fields if isinstance(f, str))
     amounts = []
-    for m in _DOLLAR_AMOUNT_RE.finditer(text):
+    for m in DOLLAR_AMOUNT_RE.finditer(text):
         try:
             amounts.append(float(m.group(1).replace(",", "")))
         except ValueError:
@@ -293,7 +293,7 @@ class LocalFactsSource:
             {"id": f"asset-{product['slug']}-{i + 1}", "url": url, "kind": "image", "alt": f"{product['name']} sauna"}
             for i, url in enumerate(product.get("image_urls", []))
         ]
-        name_slug = product["name"].lower().replace(" ", "-")
+        name_slug = product_name_slug(product["name"])
         drive_assets = select_drive_assets(self._load_assets_index(), name_slug)
         listicle_pack_assets = []
         if name_slug in listicle_pack_models():

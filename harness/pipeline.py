@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from .budget import Budget, BudgetExceeded
+from .config import REPO_ROOT
 from .claims import ClaimsGateFailure, gate_ad_brief_claims
 from .ground import LocalFactsSource
 from .ingest import download_drive_file, run_ingest
@@ -25,7 +26,6 @@ from .render import http_fetch_bytes, render_page
 from .semantic_match import semantic_match_claims
 from .sources.judgeme import fetch_reviews_claim
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 CARTRIDGES_DIR = REPO_ROOT / "cartridges"
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
