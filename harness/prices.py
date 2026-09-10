@@ -25,46 +25,15 @@ import urllib.request
 from pathlib import Path
 
 from . import tenant as tenant_mod
+from .sources.shopify_products import (
+    PAGE_LIMIT,
+    fetch_all_live_products,
+    http_fetch_page,
+    products_json_url,
+)
 
 CACHE_TTL_S = 60 * 60
 PAGE_LIMIT = 250
-
-
-def products_json_url(tenant=None):
-    """The tenant's public product feed URL (tenant.yaml's
-    shopify.products_json)."""
-    tenant = tenant or tenant_mod.active()
-    return tenant.get("shopify.products_json") or ""
-
-
-_BROWSER_HEADERS = {
-    # A storefront bot check can block a non-browser User-Agent.
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-}
-
-
-def http_fetch_page(page):
-    """Default `fetch_page`: one page of the live Shopify product feed, or
-    None past the last page."""
-    url = f"{products_json_url()}?limit={PAGE_LIMIT}&page={page}"
-    req = urllib.request.Request(url, headers=_BROWSER_HEADERS)
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
-
-def fetch_all_live_products(fetch_page=http_fetch_page):
-    """All pages of the live Shopify product feed, concatenated."""
-    products = []
-    page = 1
-    while True:
-        data = fetch_page(page)
-        page_products = (data or {}).get("products", [])
-        if not page_products:
-            break
-        products.extend(page_products)
-        page += 1
-    return products
 
 
 def load_cache(cache_path):

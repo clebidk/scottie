@@ -415,22 +415,3 @@ class LocalFactsSource:
             "speaker_name": config.get("speaker_name"),
             "digit_exempt_terms": digit_exempt_terms,
         }
-
-
-class GBrainSource:
-    """FactsSource backed by g Brain, through the retrieval allowlist in
-    SPEC.md section 3 (page types product/concept/campaign/spec/policy/kb/
-    reference/book-analysis; never customer/order/email/support_ticket/
-    conversation/slack_log/person).
-
-    Not implemented in V1: docs/knowledge-map.md is being written concurrently
-    by another agent and g Brain retrieval isn't wired up yet. Wire this in
-    once that document exists and defines how to query g Brain for a given
-    product/ad_brief.
-    """
-
-    def facts_for(self, product_slug, ad_brief):
-        raise NotImplementedError(
-            "GBrainSource is a stub; wire it in after docs/knowledge-map.md lands "
-            "(see class docstring). Use LocalFactsSource until then."
-        )

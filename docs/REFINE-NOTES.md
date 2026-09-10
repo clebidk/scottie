@@ -61,9 +61,9 @@ known string.
 **Cycle 14 -- the listicle cartridge and Shopify body builder.** The one addition, not a
 refinement: a fourth cartridge (`cartridges/listicle/`) matching the "N reasons" format
 already shipped live at `/pages/5-reasons-to-love-peak-saunas`, and a new
-`adv/shopify.py` that turns any cartridge's rendered HTML into a paste-ready Shopify body
-snippet. Built to prove out, not fork, the existing contract: `adv/claims.py` and
-`adv/write.py` were not touched at all -- every claim gate already walks `page.json`
+`harness/shopify.py` that turns any cartridge's rendered HTML into a paste-ready Shopify body
+snippet. Built to prove out, not fork, the existing contract: `harness/claims.py` and
+`harness/write.py` were not touched at all -- every claim gate already walks `page.json`
 generically by cartridge name, so listicle passed through unmodified, verified by tests
 that reuse the same `gate_page_json` call every other cartridge uses. The only real wiring
 was a `DEFAULT_CARTRIDGE_POOL` constant so listicle stays opt-in until Caleb approves it
@@ -71,26 +71,26 @@ for the random-3 default.
 
 **Cycle 15 -- image downscaling and the listicle pack's AI-render gate.** Two small,
 targeted fixes. The Mini sample review file was 46 MB because a Drive original was
-inlined into `adv review`'s HTML at full size -- the Drive audit had already flagged 42 of
+inlined into `harness review`'s HTML at full size -- the Drive audit had already flagged 42 of
 105 pack files over 6 MB. Fix: every downloaded asset is now downscaled to a 1600px long
 edge and re-encoded (JPEG quality 82; a PNG only converts to JPEG if still over 1.5 MB
 after resize) before it reaches disk, with original/final byte counts logged. Separately,
 the audit's own "AI renders: policy decision needed" flag -- 34 of 105 pack files are AI
 composites, not photographs -- had no code enforcement; `ground.py` now reads the pack for
 Mini/Matterhorn, prefers real photos, and never selects an `ai_generated: true` row unless
-`claims/config.json`'s new `allow_ai_renders` key is explicitly true (default false), with
+`tenants/peak-saunas/claims/config.json`'s new `allow_ai_renders` key is explicitly true (default false), with
 the renderer prefixing "Rendering:" to any AI-composite alt text used.
 
 ## Deliberately not rewritten
 
-- **`adv/claims.py`'s gate logic.** Iterated across 13+ cycles (locked-topic evaluators,
+- **`harness/claims.py`'s gate logic.** Iterated across 13+ cycles (locked-topic evaluators,
   semantic matcher, alternative-claim classifier, warranty pre-repair). Touching it needs
   a new, reproducible false-MATCH or false-STOP on a real fixture -- not a desire to
   simplify a file that has earned its own complexity the hard way.
-- **`adv/write.py`'s generic cartridge-loading path.** Already cartridge-agnostic; a
+- **`harness/write.py`'s generic cartridge-loading path.** Already cartridge-agnostic; a
   rewrite would only be justified by a type that genuinely can't express its rules through
   `cartridge.md`/`schema.json`. The listicle didn't need that.
-- **The legacy Mac artifact and `docs/existing-page-generator.md`'s CLI.** Both stayed
+- **The legacy Mac artifact and `tenants/peak-saunas/docs/existing-page-generator.md`'s CLI.** Both stayed
   read-only reference -- the listicle's markup/CSS DNA and the Shopify publish plumbing
   shape came from them, but neither was extended in place, to avoid forking effort away
   from the one system of record on prod.
@@ -104,10 +104,10 @@ the renderer prefixing "Rendering:" to any AI-composite alt text used.
   and still pattern-matches on a fixed sentence shape; a genuinely new honest phrasing can
   still misfire until observed and patched, the same reactive cycle the alternative-claim
   classifier is in.
-- **No Shopify publish.** `adv shopify-body` only writes files under `out/`; no Admin API
-  call, no `adv publish`, nothing in this harness pushes to peaksaunas.com.
+- **No Shopify publish.** `harness shopify-body` only writes files under `out/`; no Admin API
+  call, no `harness publish`, nothing in this harness pushes to peaksaunas.com.
 - **Quiz and comparison cartridges absent.** `cartridges/` holds article, longform,
-  product-page, and listicle only -- the remaining two are `brand/NOTES.md`'s own
+  product-page, and listicle only -- the remaining two are `tenants/peak-saunas/brand/NOTES.md`'s own
   "(Week 2)" scope, not started.
 - **No self-grading loop.** `docs/SPEC.md`'s V1.5 writer-to-grader-to-writer loop has no
   code; `rubric.md` exists per cartridge but is documentation only, never executed.

@@ -5,16 +5,16 @@
 On prod (`ssh prod`, `cd ~/advertorial`):
 
 ```
-.venv/bin/adv run <drive-link-or-file> --cartridges listicle
+.venv/bin/harness run <drive-link-or-file> --cartridges listicle
 ```
 
-`<drive-link-or-file>` is either a Google Drive link/id or a local path under `fixtures/`
+`<drive-link-or-file>` is either a Google Drive link/id or a local path under `tenants/peak-saunas/fixtures/`
 (video, still image, or text). This runs the full pipeline -- ingest, ground, claims gate,
 write, render -- for the listicle cartridge only. It takes 1-3 minutes of real work (one
 to a few real Claude calls) plus however long ingest takes for a video transcript.
 
-A run either **PASSes** (writes `out/<run-id>/listicle/index.html` and `page.json`) or
-**STOPs** with exit code 2 (an ad claim couldn't be matched to `claims/verified.json`;
+A run either **PASSes** (writes `tenants/peak-saunas/out/<run-id>/listicle/index.html` and `page.json`) or
+**STOPs** with exit code 2 (an ad claim couldn't be matched to `tenants/peak-saunas/claims/verified.json`;
 `unmatched_claims.json` is written instead of a partial page) or exit code 3 (a budget cap
 -- wall clock / tokens / Claude calls -- was hit). A STOP or a budget exit is never a
 partial page; there is nothing to review in either case except the log.
@@ -22,10 +22,10 @@ partial page; there is nothing to review in either case except the log.
 Next, review the run:
 
 ```
-.venv/bin/adv review out/<run-id>
+.venv/bin/harness review tenants/peak-saunas/out/<run-id>
 ```
 
-Writes `out/<run-id>/listicle-review.html` -- a self-contained file with every image
+Writes `tenants/peak-saunas/out/<run-id>/listicle-review.html` -- a self-contained file with every image
 inlined as a `data:` URI, safe to send as one attachment. As of fix cycle 15 every asset
 is downscaled to a 1600px long edge before this step ever runs, so the review file stays
 well under 12 MB. Pull it to your Mac with `make review RUN=<run-id>`.
@@ -33,7 +33,7 @@ well under 12 MB. Pull it to your Mac with `make review RUN=<run-id>`.
 Then, if the page is going to Shopify:
 
 ```
-.venv/bin/adv shopify-body out/<run-id>/listicle
+.venv/bin/harness shopify-body tenants/peak-saunas/out/<run-id>/listicle
 ```
 
 Writes `shopify-body.html` (the page body only -- no `<html>`, `<head>`, `<header>`,
@@ -42,7 +42,7 @@ intended Shopify Files CDN filename) next to that run's `index.html`. This only 
 writes local files; it makes no Shopify API call. See "The publish gate" below before
 this goes anywhere near a live page.
 
-**Reading `REVIEW.md`.** Every run writes `out/<run-id>/REVIEW.md`: the product picked
+**Reading `REVIEW.md`.** Every run writes `tenants/peak-saunas/out/<run-id>/REVIEW.md`: the product picked
 (with a `**WARNING:**` line if it was defaulted rather than named in the ad), the gate
 history (attempts/repairs/failures per cartridge), word count, cost estimate, and the
 claims actually used. Under `ad_overclaim_policy: "warn"`, it also carries a bold **AD
@@ -80,10 +80,10 @@ Edit the five pieces:
 - **`exemplars/`** (optional) -- up to 2 reference `.md`/`.txt` files, trimmed to 700
   words each before being sent to the writer.
 
-No registration step exists: `adv/cli.py`'s `discover_cartridges()` finds any
+No registration step exists: `harness/cli.py`'s `discover_cartridges()` finds any
 `cartridges/<name>/` directory with a `cartridge.md` automatically -- `--cartridges
 <new-name>` works the moment the folder exists. If the new type should join the no-flag
-random-3 default, add its name to `adv/cli.py`'s `DEFAULT_CARTRIDGE_POOL`; otherwise it
+random-3 default, add its name to `harness/cli.py`'s `DEFAULT_CARTRIDGE_POOL`; otherwise it
 stays opt-in, the same way listicle shipped.
 
 **What the shared gates enforce automatically**, with zero cartridge-specific code: EMF
@@ -93,21 +93,21 @@ fixed-sentence gates; first-person attribution rules; hype-word and incidental-n
 substitution; the word-range and CTA-allowlist gates once `cartridge.md`/`schema.json`
 state them. These all walk `page.json` generically by content, not by cartridge name, so
 a new type inherits every one of them the moment it exists -- as cycle 14's listicle build
-proved by adding zero lines to `adv/claims.py` or `adv/write.py`.
+proved by adding zero lines to `harness/claims.py` or `harness/write.py`.
 
 ## Add a verified claim
 
 ```
-.venv/bin/adv claims add "Peak ships free on every order." --category trust \
+.venv/bin/harness claims add "Peak ships free on every order." --category trust \
   --source https://peaksaunas.com/policies/shipping-policy [--approved-by Caleb]
-.venv/bin/adv claims list
+.venv/bin/harness claims list
 ```
 
-Appends to `claims/verified.json` -- the only write path into it, and the only thing the
-writer is ever allowed to cite. `claims/pending.json` holds ad claims seen in creative
+Appends to `tenants/peak-saunas/claims/verified.json` -- the only write path into it, and the only thing the
+writer is ever allowed to cite. `tenants/peak-saunas/claims/pending.json` holds ad claims seen in creative
 that need Caleb's sign-off before they can move to `verified.json`.
 
-## Config keys (`claims/config.json`)
+## Config keys (`tenants/peak-saunas/claims/config.json`)
 
 - **`ad_overclaim_policy`** -- `"stop"` (default) or `"warn"`. `"stop"`: any unmatched or
   overclaimed ad claim stops the run. `"warn"`: every such claim is dropped from what the
@@ -118,7 +118,7 @@ that need Caleb's sign-off before they can move to `verified.json`.
   lender name or figure in an ad claim is an AD OVERCLAIM.
 - **`allow_ai_renders`** -- `false` by default (fix cycle 15). Controls whether
   `ground.py` may select an `ai_generated: true` asset from
-  `brand/assets-listicle-pack.json` for Mini/Matterhorn. Real photos are always preferred;
+  `tenants/peak-saunas/brand/assets-listicle-pack.json` for Mini/Matterhorn. Real photos are always preferred;
   an AI composite used while this is `true` gets "Rendering:" prefixed to its alt text by
   the renderer.
 - **`speaker_name`** -- `null` (anonymous "a customer") unless Caleb has a consented real
@@ -128,12 +128,12 @@ that need Caleb's sign-off before they can move to `verified.json`.
 
 ## Shopify traps
 
-(From `reference/peak-listicle-lp/README.md`, the live reference this cartridge's markup
-was derived from -- the same traps apply to anything `adv shopify-body` produces.)
+(From `tenants/peak-saunas/reference/peak-listicle-lp/README.md`, the live reference this cartridge's markup
+was derived from -- the same traps apply to anything `harness shopify-body` produces.)
 
 - The Aurora page template wraps `body_html` in `.container--small` with
   `.page__content{margin:3.2rem 0 0}`. Full-bleed comes from `:has()` rules at the top of
-  `shopify-body.html` (`adv/shopify.py`'s `AURORA_FULL_BLEED_RULES`) that neutralise the
+  `shopify-body.html` (`harness/shopify.py`'s `AURORA_FULL_BLEED_RULES`) that neutralise the
   container padding, the section spacing, the `.page__content` margin, and the duplicate
   `.page__title`. Removing them re-narrows the page.
 - Editing a live page in Shopify admin's rich-text editor can strip the `<style>` block.
@@ -143,7 +143,7 @@ was derived from -- the same traps apply to anything `adv shopify-body` produces
 
 ## The publish gate
 
-There is no `adv publish`, no Shopify Admin API call, and no code path anywhere in this
+There is no `harness publish`, no Shopify Admin API call, and no code path anywhere in this
 harness that pushes `shopify-body.html` to peaksaunas.com. This must never be built or run
-without a packet stamped `ship` (see `docs/PACKET-DRAFT.md`) and Caleb's explicit,
+without a packet stamped `ship` (see `tenants/peak-saunas/docs/PACKET-DRAFT.md`) and Caleb's explicit,
 in-writing approval.
