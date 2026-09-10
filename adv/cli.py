@@ -372,7 +372,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids):
 
 
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-                         financing_lender, speaker_pov):
+                         financing_lender, speaker_pov, ad_overclaims=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -427,6 +427,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             word_range=word_range,
             allowed_cta_texts=allowed_cta_texts,
             revision_note=revision_note,
+            ad_overclaims=ad_overclaims,
         )
         problems = _gate(page)
 
@@ -467,7 +468,7 @@ def _log_run_result(log, result, gate_log):
     log.result(result, total_attempts, total_repairs)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None, product_warning=None):
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None, product_warning=None, ad_overclaims=None):
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -481,6 +482,17 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     # operator needs to catch before a page ships grounded on the wrong SKU.
     if product_warning:
         lines.append(f"**WARNING: {product_warning}**")
+        lines.append("")
+    # Fix cycle 10 item 4: only ever present under ad_overclaim_policy "warn"
+    # -- under "stop" a locked-topic overclaim raises ClaimsGateFailure
+    # before this function is ever called, so this run never reaches here
+    # with one. The page itself was already written with instructions never
+    # to repeat these; this is the record that the ad itself still needs a
+    # correction.
+    if ad_overclaims:
+        lines.append("**AD OVERCLAIMS — page corrected, ad needs fixing**")
+        for item in ad_overclaims:
+            lines.append(f"- {item['message']}")
         lines.append("")
     lines.append("## Ad claims matched")
     for m in gate_matched:
@@ -653,21 +665,16 @@ def cmd_run(args):
         budget.check()
         facts_source = LocalFactsSource(claims_dir)
 
-        # Gate against the FULL verified.json universe (with this run's live
-        # price claims and freshly-seeded PDP claims substituted/added in) --
-        # an ad claim can reference anything approved, not just the eventual
-        # product's curated facts_pack subset.
-        gate_matched = gate_ad_brief_claims(
-            ad_brief, facts_source.all_verified_claims(live_price_claims_by_slug, extra_claims=pdp_claims)
-        )
-        log.gate_result("PASS", f"{len(gate_matched)} ad claim(s) matched")
-
-        # Fix cycle 8 problem 1b: pick_product_with_warning names the exact
-        # model mentioned in the ad (word-boundary match, first-mentioned wins
-        # if several); if none is named it falls back to the default product
-        # and hands back a warning that goes into REVIEW.md below. Fix cycle
-        # 9 item 2: failing that, it also checks for a quoted price matching
-        # exactly one active product before defaulting.
+        # Fix cycle 10 item 1: product-picking now runs BEFORE the ad-claims
+        # gate (it used to run after, so price-based product inference (fix
+        # cycle 9 item 2) never got a chance in the real pipeline -- the gate
+        # STOPped on a price claim first every time). Fix cycle 8 problem 1b:
+        # pick_product_with_warning names the exact model mentioned in the ad
+        # (word-boundary match, first-mentioned wins if several); if none is
+        # named it falls back to the default product and hands back a warning
+        # that goes into REVIEW.md below. Fix cycle 9 item 2: failing that, it
+        # also checks for a quoted price matching exactly one active product
+        # before defaulting.
         product, product_warning = facts_source.pick_product_with_warning(args.product, ad_brief)
         if product_warning:
             log.event("run", product_warning)
@@ -683,6 +690,30 @@ def cmd_run(args):
             pdp_claims=pdp_claims,
         )
         (run_dir / "facts_pack.json").write_text(json.dumps(facts_pack, indent=2))
+
+        # Gate against the FULL verified.json universe (with this run's live
+        # price claims and freshly-seeded PDP claims substituted/added in) --
+        # an ad claim can reference anything approved, not just the eventual
+        # product's curated facts_pack subset. Fix cycle 10 items 2-4: a
+        # locked-topic claim (warranty/reviews/financing/price) is checked
+        # against product/reviews_claim/financing_lender instead of word
+        # overlap; ad_overclaim_policy controls whether a locked-topic miss
+        # alone stops the run.
+        policy = claims_config.get("ad_overclaim_policy", "stop")
+        gate_matched, ad_overclaims = gate_ad_brief_claims(
+            ad_brief,
+            facts_source.all_verified_claims(live_price_claims_by_slug, extra_claims=pdp_claims),
+            product=product,
+            reviews_claim=reviews_claim,
+            financing_lender=claims_config.get("financing_lender"),
+            policy=policy,
+            log=log,
+        )
+        log.gate_result(
+            "PASS",
+            f"{len(gate_matched)} ad claim(s) matched"
+            + (f", {len(ad_overclaims)} ad overclaim(s) allowed under 'warn' policy" if ad_overclaims else ""),
+        )
 
         # Fix cycle 2 item 8: log a warning for every URL that still contains
         # "emf" (the Shopify handle), so it stays visible in REVIEW.md even
@@ -706,6 +737,7 @@ def cmd_run(args):
                     log=log,
                     financing_lender=claims_config.get("financing_lender"),
                     speaker_pov=ad_brief.get("speaker_pov"),
+                    ad_overclaims=ad_overclaims,
                 )
             except ClaimsGateFailure as e:
                 attempts = getattr(e, "attempts", [e.items])
@@ -775,6 +807,7 @@ def cmd_run(args):
         emf_urls=emf_urls,
         gate_log=gate_log,
         product_warning=product_warning,
+        ad_overclaims=ad_overclaims,
     )
     _log_run_result(log, "PASS", gate_log)
     log.close()

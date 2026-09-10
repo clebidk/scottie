@@ -122,6 +122,55 @@ def test_run_dry_run_produces_three_pages(monkeypatch):
     assert facts_pack["product"]["slug"] == FUJI_SLUG
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 10 item 1: product-picking now runs BEFORE the ad-claims gate in
+# cmd_run's real order -- before this fix, gate_ad_brief_claims always ran
+# first and STOPped on a price ad claim before pick_product_with_warning's
+# price-based inference (fix cycle 9 item 2) ever got a chance to run for
+# real (it was only ever verified in isolation, per docs/FIXLOG.md Cycle 9's
+# "Not fixed" section). No model name is named anywhere in this ad_brief --
+# only the quoted $5,450 price, which is the Mini's and no other active
+# product's -- so a PASS here, grounded on the Mini, is proof the real
+# pipeline order reaches price inference now.
+# ---------------------------------------------------------------------------
+
+MINI_SLUG = "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+
+PRICE_INFERENCE_AD_BRIEF = {
+    "hook": "I keep hearing all the benefits of infrared saunas.",
+    "promise": "See if it pencils out compared to a membership.",
+    "angle": "The math works out cheaper than a sauna membership.",
+    "claims_made": ["Infrared sauna is on sale right now for $5,450."],
+    "speaker_experience": ["I ran the math myself before deciding."],
+    "features_shown": [],
+    "objections_raised": [],
+    "cta": "Buy now",
+    "tone": "candid",
+    "speaker_pov": "first_person",
+    "source_file": "price-comparison-v2.transcript.txt",
+    "input_type": "text",
+    "transcript_or_text": "I think I'm going to buy the Peak sauna.",
+}
+
+
+def test_run_reaches_price_based_product_inference_in_the_real_pipeline_order(monkeypatch):
+    responses = [json_response(PRICE_INFERENCE_AD_BRIEF), json_response(ARTICLE_PAGE)]
+    client = FakeClient(responses)
+    monkeypatch.setattr(cli, "make_client", lambda: client)
+    _patch_network(monkeypatch)
+
+    exit_code = cli.cmd_run(_base_args(cartridges="article", product=None))
+    assert exit_code == 0
+
+    out_dirs = sorted((REPO_ROOT / "out").glob("*-hidden-costs-v2-transcript"))
+    run_dir = out_dirs[-1]
+    facts_pack = json.loads((run_dir / "facts_pack.json").read_text())
+    assert facts_pack["product"]["slug"] == MINI_SLUG
+
+    review_md = (run_dir / "REVIEW.md").read_text()
+    assert "product inferred from quoted price $5,450" in review_md
+
+
 def test_run_stops_on_unmatched_claim(monkeypatch):
     # Not an EMF claim -- fix 7 (below) drops EMF-mentioning claims instead of
     # stopping, so this uses a different, still-unsourced claim to test the

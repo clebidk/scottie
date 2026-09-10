@@ -2,7 +2,12 @@
 
 (a) Every ad_brief.claims_made string must token-overlap >= 0.6 with some
     verified claim's normalized text, AND every numeric token in the ad claim
-    must also appear in that verified claim's text, or the run STOPs.
+    must also appear in that verified claim's text, or the run STOPs. Fix
+    cycle 10: a claim on a locked topic (warranty/reviews/financing/price --
+    classify_locked_topic) skips word overlap entirely and is checked
+    against its own locked fact instead; a failure is an AD OVERCLAIM, not a
+    plain unmatched item, and claims/config.json's ad_overclaim_policy
+    ("stop", default, or "warn") controls whether that alone stops the run.
 (b) Every page.json node with a "claim_ids" list must reference existing ids;
     every node with a "text" field containing a digit, %, $, or one of the
     trigger words must carry a non-empty claim_ids list, or the run STOPs.
@@ -146,17 +151,239 @@ def gate_ad_claims(claims_made, verified_claims):
     return matched, unmatched
 
 
-def gate_ad_brief_claims(ad_brief, verified_claims):
+# ---------------------------------------------------------------------------
+# Fix cycle 10 items 2-4: locked-topic ad claims. Fix cycle 9 left a real gap
+# -- a false ad claim on one of these topics could clear the ordinary
+# word-overlap bar against a superficially similar verified claim and get
+# reported as MATCHED. Example that motivated this: "free lifetime warranty
+# if it doesn't work" overlaps gbrain-allowlist-lifetime-warranty's "Limited
+# Lifetime warranty." at 0.667 -- comfortably above the 0.6 bar -- even
+# though the real warranty is per-component (3yr/1yr on most parts) and
+# carries no "if it doesn't work" no-questions-asked guarantee anywhere.
+# Warranty, review-stats, financing, and price claims never go through
+# match_claim's word overlap at all now -- each is checked against its own
+# locked fact instead, and a failure is reported as an AD OVERCLAIM (or, for
+# price, the specific "matches no current product price" message) rather
+# than silently folded into "matched".
+# ---------------------------------------------------------------------------
+
+_LOCKED_WARRANTY_RE = re.compile(r"\b(?:warrant\w*|guarantee\w*)\b", re.IGNORECASE)
+_RATING_RE = re.compile(r"\b\d(?:\.\d+)?\s*(?:/|out of)\s*5\b|\b\d(?:\.\d+)?\s*stars?\b", re.IGNORECASE)
+_REVIEW_COUNT_RE = re.compile(r"\b[\d,]+\+?\s*reviews?\b", re.IGNORECASE)
+_MONTHLY_FIGURE_RE = re.compile(r"\$\s?[\d,]+(?:\.\d+)?\s*(?:/|a\s+|per\s+)\s*(?:mo\b|month\b)", re.IGNORECASE)
+_LENDER_NAME_RE = re.compile("|".join(re.escape(n) for n in FORBIDDEN_LENDER_NAMES), re.IGNORECASE)
+_DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
+
+
+def classify_locked_topic(ad_claim_text):
+    """None, or one of "warranty"/"reviews"/"financing"/"price" -- checked in
+    that order (a claim naming a lender and a dollar figure is financing,
+    not price; a claim with a number and "5" after "out of" is reviews, not
+    a bare digit). None means the ordinary word-overlap gate (match_claim)
+    still applies -- this only locks the four topics that have their own
+    single source of truth to check against."""
+    if _LOCKED_WARRANTY_RE.search(ad_claim_text):
+        return "warranty"
+    if _RATING_RE.search(ad_claim_text) or _REVIEW_COUNT_RE.search(ad_claim_text):
+        return "reviews"
+    if _MONTHLY_FIGURE_RE.search(ad_claim_text) or _LENDER_NAME_RE.search(ad_claim_text):
+        return "financing"
+    if _DOLLAR_AMOUNT_RE.search(ad_claim_text):
+        return "price"
+    return None
+
+
+_ALLOWED_WARRANTY_FORMS = (
+    ALLOWED_WARRANTY_SENTENCE.lower(),
+    ALLOWED_WARRANTY_SPEC_VALUE.lower(),
+    ALLOWED_WARRANTY_SPEC_LABEL.lower(),
+)
+
+
+def _warranty_fact(verified_claims):
+    by_id = {c["id"]: c for c in (verified_claims or [])}
+    if "warranty-terms" in by_id:
+        return by_id["warranty-terms"]["text"]
+    for c in verified_claims or ():
+        if "warrant" in c.get("id", "").lower():
+            return c["text"]
+    return None
+
+
+def evaluate_warranty_claim(ad_claim_text, verified_claims):
+    """(ok, verified_fact_text). ok only if the ad claim IS one of the fixed
+    allowed forms, or verbatim contains a verified warranty claim's own text
+    -- the same rule find_warranty_violations already enforces on page copy
+    (fix cycle 7 item 1), applied here to the ad's own spoken claim instead
+    of the writer's prose."""
+    stripped = ad_claim_text.strip().lower()
+    fact = _warranty_fact(verified_claims)
+    if stripped in _ALLOWED_WARRANTY_FORMS:
+        return True, fact
+    for c in verified_claims or ():
+        if "warrant" in c.get("id", "").lower() and c.get("text") and c["text"].lower() in ad_claim_text.lower():
+            return True, c["text"]
+    return False, fact
+
+
+_REVIEWS_LIVE_RE = re.compile(r"Rated\s+([\d.]+)\s+out of 5 across\s+([\d,]+)\s+reviews", re.IGNORECASE)
+
+
+def _ad_rating(text):
+    m = re.search(r"(\d(?:\.\d+)?)\s*(?:/|out of)\s*5\b", text, re.IGNORECASE)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"(\d(?:\.\d+)?)\s*stars?\b", text, re.IGNORECASE)
+    return float(m.group(1)) if m else None
+
+
+def _ad_review_count(text):
+    m = _REVIEW_COUNT_RE.search(text)
+    if not m:
+        return None
+    digits = re.sub(r"[^\d]", "", m.group(0))
+    return int(digits) if digits else None
+
+
+def evaluate_reviews_claim(ad_claim_text, reviews_claim):
+    """(ok, verified_fact_text). Needs a real live reviews_claim (this run's
+    adv.reviews.fetch_reviews_claim result) to compare against -- there is
+    no static fallback, same as the rest of the reviews feature. ok only if
+    every number the ad claim states (rating and/or review count) equals
+    the live figure within rounding: rating equal at one decimal place;
+    review count within 1% of the live count (so "about 9,000" still
+    matches a live count of 8,978)."""
+    if reviews_claim is None:
+        return False, None
+    m = _REVIEWS_LIVE_RE.search(reviews_claim.get("text", ""))
+    if not m:
+        return False, reviews_claim.get("text")
+    live_rating, live_count = float(m.group(1)), int(m.group(2).replace(",", ""))
+    ad_rating, ad_count = _ad_rating(ad_claim_text), _ad_review_count(ad_claim_text)
+    if ad_rating is None and ad_count is None:
+        return False, reviews_claim["text"]
+    if ad_rating is not None and round(ad_rating, 1) != round(live_rating, 1):
+        return False, reviews_claim["text"]
+    if ad_count is not None and abs(ad_count - live_count) > max(1, round(live_count * 0.01)):
+        return False, reviews_claim["text"]
+    return True, reviews_claim["text"]
+
+
+def evaluate_financing_claim(ad_claim_text, financing_lender):
+    """(ok, verified_fact_text). No lender quote is configured anywhere in
+    this codebase today -- claims/config.json's financing_lender is a bare
+    name, not a source of a monthly figure -- so a financing ad claim is
+    always an overclaim against the one true financing fact
+    (vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER) until Caleb wires up a real
+    lender quote to compare against. Not a gap in this cycle's fix; reported
+    as designed (see docs/FIXLOG.md Cycle 10)."""
+    return False, ALLOWED_FINANCING_SENTENCE_NO_LENDER
+
+
+def evaluate_price_claim(ad_claim_text, product_price):
+    """(ok, message_or_None). ok if any dollar amount in the ad claim is
+    within $1 of product_price -- fix cycle 10 item 2's numeric anchor,
+    replacing the word-overlap match a price claim used to go through, so
+    "on sale right now for $5,450" matches purely on the number instead of
+    STOPping because "sale" appears nowhere in the verified price claim's
+    own wording. product_price is this run's already-picked product's
+    current price (fix cycle 10 item 1 -- product-picking now runs before
+    this gate)."""
+    amounts = [float(m.group(1).replace(",", "")) for m in _DOLLAR_AMOUNT_RE.finditer(ad_claim_text)]
+    if product_price is not None:
+        for amt in amounts:
+            if abs(amt - float(product_price)) <= 1.0:
+                return True, None
+    from .prices import format_price
+
+    shown = format_price(amounts[0]) if amounts else "amount"
+    return False, f"quoted price {shown} matches no current product price"
+
+
+def _overclaim_item(claim, topic, verified_fact):
+    if verified_fact:
+        message = f'AD OVERCLAIM: "{claim}" — verified fact: "{verified_fact}"'
+    else:
+        message = f'AD OVERCLAIM: "{claim}" — no verified {topic} fact available'
+    return {"claim": claim, "topic": topic, "verified_fact": verified_fact, "message": message}
+
+
+def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_claim=None,
+                          financing_lender=None, policy="stop", log=None):
     """Runs the ad_brief.claims_made list through the gate against the FULL
     claims/verified.json universe (not the per-product facts_pack subset --
     an ad claim can reference anything approved in verified.json, regardless
-    of which product ends up being written about). Raises ClaimsGateFailure
-    on any unmatched claim. speaker_experience is never passed through this
-    gate."""
-    matched, unmatched = gate_ad_claims(ad_brief.get("claims_made", []), verified_claims)
-    if unmatched:
-        raise ClaimsGateFailure("ad_claims", unmatched)
-    return matched
+    of which product ends up being written about). speaker_experience is
+    never passed through this gate.
+
+    Fix cycle 10: a claim on a locked topic (warranty/reviews/financing/
+    price -- classify_locked_topic) is never matched by word overlap; each
+    is checked against its own locked fact (product's current price for
+    price, reviews_claim for reviews, financing_lender for financing, the
+    fixed warranty forms for warranty). `product` is this run's already-
+    picked product (fix cycle 10 item 1 -- product-picking now runs before
+    this gate), used for the price check's "current price".
+
+    Returns (matched, overclaims). `overclaims` is every locked-topic item
+    that failed its check, whether or not the run stops for it -- non-empty
+    only when policy == "warn" and at least one occurred (under policy ==
+    "stop" a non-empty overclaims list is folded into the raised failure
+    instead). Raises ClaimsGateFailure if any non-locked claim is unmatched
+    (always, under both policies) or, under policy == "stop", if any
+    locked-topic claim failed its check."""
+    matched, plain_unmatched, overclaims = [], [], []
+    product_price = (product or {}).get("price")
+
+    for claim in ad_brief.get("claims_made", []):
+        topic = classify_locked_topic(claim)
+
+        if topic == "warranty":
+            ok, fact = evaluate_warranty_claim(claim, verified_claims)
+            if ok:
+                matched.append({"claim": claim, "matched_claim_id": "warranty-terms", "overlap": 1.0})
+            else:
+                overclaims.append(_overclaim_item(claim, topic, fact))
+            continue
+
+        if topic == "reviews":
+            ok, fact = evaluate_reviews_claim(claim, reviews_claim)
+            if ok:
+                matched.append({"claim": claim, "matched_claim_id": reviews_claim["id"], "overlap": 1.0})
+            else:
+                overclaims.append(_overclaim_item(claim, topic, fact))
+            continue
+
+        if topic == "financing":
+            ok, fact = evaluate_financing_claim(claim, financing_lender)
+            overclaims.append(_overclaim_item(claim, topic, fact))
+            continue
+
+        if topic == "price":
+            ok, message = evaluate_price_claim(claim, product_price)
+            if ok:
+                price_id = f"price-{product['slug']}" if product else "price"
+                matched.append({"claim": claim, "matched_claim_id": price_id, "overlap": 1.0})
+            else:
+                overclaims.append({"claim": claim, "topic": topic, "verified_fact": None, "message": message})
+            continue
+
+        best, ratio = match_claim(claim, verified_claims)
+        if best:
+            matched.append({"claim": claim, "matched_claim_id": best["id"], "overlap": round(ratio, 3)})
+        else:
+            plain_unmatched.append({"claim": claim, "best_overlap": round(ratio, 3)})
+
+    if log:
+        for item in overclaims:
+            log.event("ad_claims", item["message"])
+
+    stop_items = list(plain_unmatched)
+    if policy != "warn":
+        stop_items += overclaims
+    if stop_items:
+        raise ClaimsGateFailure("ad_claims", stop_items)
+
+    return matched, overclaims
 
 
 # ---------------------------------------------------------------------------

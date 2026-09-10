@@ -168,12 +168,19 @@ def load_exemplars(cartridge_dir, limit=2):
 
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-               word_range=None, allowed_cta_texts=None, revision_note=None):
+               word_range=None, allowed_cta_texts=None, revision_note=None, ad_overclaims=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
     message so the writer sees exactly what to fix) are all optional -- a
-    caller that doesn't pass them gets the pre-cycle-4 behavior."""
+    caller that doesn't pass them gets the pre-cycle-4 behavior.
+
+    ad_overclaims (fix cycle 10 item 4): only ever set when
+    claims/config.json's ad_overclaim_policy is "warn" and the ad-claims gate
+    found a locked-topic claim (warranty/reviews/financing/price) that didn't
+    match its locked fact but didn't stop the run either -- each item's own
+    claim text and verified_fact (claims.gate_ad_brief_claims's return
+    shape) are told to the writer as statements to never repeat."""
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir)
     # A repair attempt (revision_note set) already saw the exemplars on the
@@ -219,6 +226,16 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     )
     if hard_constraints:
         system += "\n\n## Hard constraints for this run\n" + "\n".join(f"- {c}" for c in hard_constraints)
+
+    if ad_overclaims:
+        lines = ["## DO NOT REPEAT these ad statements; use the verified fact instead"]
+        for item in ad_overclaims:
+            fact = item.get("verified_fact")
+            if fact:
+                lines.append(f'- Ad said: "{item["claim"]}" -- verified fact: "{fact}"')
+            else:
+                lines.append(f'- Ad said: "{item["claim"]}" -- not verified; do not state this on the page at all')
+        system += "\n\n" + "\n".join(lines)
 
     user_payload = {"ad_brief": ad_brief, "facts_pack": facts_pack}
     if exemplars:

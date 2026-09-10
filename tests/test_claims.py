@@ -15,11 +15,19 @@ from adv.claims import (
     strip_leaked_claim_ids,
     validate_page_claim_ids,
 )
+from adv.vocab import ALLOWED_WARRANTY_SENTENCE
 
 VERIFIED_CLAIMS = [
     {"id": "price-fuji", "text": "The Peak Saunas Fuji is priced at $8250.00 (list/compare-at $14032.00).", "category": "price", "source": "https://peaksaunas.com/products/fuji"},
     {"id": "founder-ceo", "text": "Austin Laudenslager is the Founder & CEO of Peak Saunas.", "category": "trust", "source": "https://peaksaunas.com/pages/austin-laudenslager"},
 ]
+
+# Fix cycle 10 item 2: a price ad claim now matches on the numeric anchor
+# against this run's already-picked product's current price, not word
+# overlap against a static claims/verified.json price entry -- these tests
+# pass this fake "picked product" the same way cli.cmd_run does after fix
+# cycle 10 item 1's reordering.
+FUJI_PRODUCT = {"slug": "fuji", "name": "Fuji", "price": 8250.00}
 
 # gate_page_json still takes a facts_pack dict (page.json can only cite what
 # the writer was actually given).
@@ -27,16 +35,21 @@ FACTS_PACK = {"verified_claims": VERIFIED_CLAIMS}
 
 
 def test_matched_ad_claim_passes():
+    # Fix cycle 10 item 2: a dollar-amount ad claim matches on the numeric
+    # anchor against the picked product's current price now, not word
+    # overlap -- pass `product` the way cli.cmd_run does.
     ad_brief = {"claims_made": ["The Peak Saunas Fuji is priced at $8250."]}
-    matched = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
+    assert overclaims == []
     assert len(matched) == 1
     assert matched[0]["matched_claim_id"] == "price-fuji"
 
 
 def test_matched_ad_claim_with_comma_formatted_price():
-    # "$8,250" (ad phrasing) must normalize the same as "$8250.00" (verified.json).
+    # "$8,250" (ad phrasing) must parse the same as "$8250.00" (product price).
     ad_brief = {"claims_made": ["The Peak Saunas Fuji is priced at $8,250."]}
-    matched = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
+    assert overclaims == []
     assert len(matched) == 1
     assert matched[0]["matched_claim_id"] == "price-fuji"
 
@@ -52,8 +65,9 @@ def test_unmatched_ad_claim_stops():
 def test_speaker_experience_never_gated():
     # speaker_experience isn't passed to the gate at all -- claims_made only.
     ad_brief = {"claims_made": [], "speaker_experience": ["I hated calling for a price."]}
-    matched = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
     assert matched == []
+    assert overclaims == []
 
 
 def test_page_json_text_with_dollar_and_no_claim_ids_rejected():
@@ -119,16 +133,18 @@ def test_digit_outside_a_quote_still_needs_a_claim_id():
 
 def test_ad_claim_with_wrong_number_does_not_match_despite_word_overlap():
     # Same words as price-fuji ("The Peak Saunas Fuji is priced at $...."),
-    # different number -- must NOT match on word overlap alone.
+    # a number that's neither the picked product's price -- must NOT match.
     ad_brief = {"claims_made": ["The Peak Saunas Fuji is priced at $9,750."]}
     with pytest.raises(ClaimsGateFailure) as exc_info:
-        gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+        gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS, product=FUJI_PRODUCT)
     assert exc_info.value.stage == "ad_claims"
+    assert exc_info.value.items[0]["message"] == "quoted price $9,750 matches no current product price"
 
 
 def test_ad_claim_with_no_numbers_is_unaffected_by_numeric_check():
     ad_brief = {"claims_made": ["Austin Laudenslager is the Founder and CEO of Peak Saunas."]}
-    matched = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    matched, overclaims = gate_ad_brief_claims(ad_brief, VERIFIED_CLAIMS)
+    assert overclaims == []
     assert matched[0]["matched_claim_id"] == "founder-ceo"
 
 
@@ -157,7 +173,8 @@ SHIPPING_CRATE_CLAIM = [
 
 def test_crate_protected_delivery_matches_the_verified_shipping_claim():
     ad_brief = {"claims_made": ["Crate-protected delivery"]}
-    matched = gate_ad_brief_claims(ad_brief, SHIPPING_CRATE_CLAIM)
+    matched, overclaims = gate_ad_brief_claims(ad_brief, SHIPPING_CRATE_CLAIM)
+    assert overclaims == []
     assert matched[0]["matched_claim_id"] == "gbrain-shipping-free-crate-origin"
     assert matched[0]["overlap"] == 1.0
 
@@ -200,7 +217,8 @@ BLUETOOTH_SPEAKER_CLAIM = [
 
 def test_short_ad_claim_matches_at_the_lower_threshold():
     ad_brief = {"claims_made": ["It has Bluetooth capabilities"]}
-    matched = gate_ad_brief_claims(ad_brief, BLUETOOTH_SPEAKER_CLAIM)
+    matched, overclaims = gate_ad_brief_claims(ad_brief, BLUETOOTH_SPEAKER_CLAIM)
+    assert overclaims == []
     assert matched[0]["matched_claim_id"] == "pdp-mini-speakers"
     assert matched[0]["overlap"] == 0.5
 
@@ -881,3 +899,139 @@ def test_gate_page_json_stops_on_warranty_violation():
     with pytest.raises(ClaimsGateFailure) as exc_info:
         gate_page_json(page, WARRANTY_FACTS_PACK, "product-page")
     assert any("warranty wording" in item["issue"] for item in exc_info.value.items)
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 10 items 2-4: locked-topic ad claims (warranty/reviews/financing/
+# price) never match by word overlap -- each is checked against its own
+# locked fact, and a failure is reported as an AD OVERCLAIM, never silently
+# folded into "matched". Problem B: "free lifetime warranty if it doesn't
+# work" cleared the general 0.6 word-overlap bar against
+# gbrain-allowlist-lifetime-warranty's "Limited Lifetime warranty." at 0.667
+# even though the real warranty is per-component, not an unconditional
+# money-back guarantee -- that's the bug these tests pin down.
+# ---------------------------------------------------------------------------
+
+WARRANTY_TERMS_CLAIM = [
+    {
+        "id": "warranty-terms",
+        "text": (
+            "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; "
+            "cabinetry and structure 7 years; control system and power supply 3 years; red "
+            "light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; "
+            "WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original "
+            "purchaser only and requires installation within 6 months of delivery."
+        ),
+        "category": "trust",
+        "source": "https://peaksaunas.com/policies/warranty-policy",
+    }
+]
+
+
+def test_false_warranty_claim_is_ad_overclaim_never_matched():
+    ad_brief = {"claims_made": ["It includes a free lifetime warranty if it doesn't work"]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
+    items = exc_info.value.items
+    assert len(items) == 1
+    assert items[0]["topic"] == "warranty"
+    assert items[0]["message"].startswith("AD OVERCLAIM:")
+    assert "verified fact" in items[0]["message"]
+
+
+def test_exact_allowed_warranty_sentence_matches():
+    ad_brief = {"claims_made": [ALLOWED_WARRANTY_SENTENCE]}
+    matched, overclaims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
+    assert overclaims == []
+    assert matched[0]["matched_claim_id"] == "warranty-terms"
+
+
+REVIEWS_LIVE_CLAIM = {
+    "id": "reviews-live",
+    "text": "Rated 4.6 out of 5 across 8,200 reviews on Judge.me (fetched 2026-09-09).",
+    "category": "trust",
+    "source": "https://judge.me/reviews/stores/peaksaunas.com",
+}
+
+
+def test_false_review_stats_claim_is_ad_overclaim():
+    ad_brief = {"claims_made": ["We're rated 4.9 out of 5 with 9,000 reviews"]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, [], policy="stop", reviews_claim=REVIEWS_LIVE_CLAIM)
+    items = exc_info.value.items
+    assert len(items) == 1
+    assert items[0]["topic"] == "reviews"
+    assert "AD OVERCLAIM" in items[0]["message"]
+
+
+def test_review_stats_claim_matching_live_figures_passes():
+    ad_brief = {"claims_made": ["We're rated 4.6 out of 5 with 8,200 reviews"]}
+    matched, overclaims = gate_ad_brief_claims(ad_brief, [], policy="stop", reviews_claim=REVIEWS_LIVE_CLAIM)
+    assert overclaims == []
+    assert matched[0]["matched_claim_id"] == "reviews-live"
+
+
+def test_review_stats_claim_with_no_live_data_is_ad_overclaim():
+    ad_brief = {"claims_made": ["We're rated 4.9 out of 5"]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, [], policy="stop", reviews_claim=None)
+    assert exc_info.value.items[0]["topic"] == "reviews"
+
+
+def test_financing_claim_is_always_an_overclaim_with_no_configured_lender():
+    ad_brief = {"claims_made": ["Financing available from est. $257/mo through Bread Pay"]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, [], policy="stop")
+    assert exc_info.value.items[0]["topic"] == "financing"
+
+
+def test_price_claim_matches_current_product_price_regardless_of_wording():
+    # "on sale right now for" shares almost no words with a verified price
+    # claim's own text -- the numeric anchor matches on the dollar amount
+    # alone (fix cycle 10 item 2, replacing word-overlap price matching).
+    ad_brief = {"claims_made": ["Infrared sauna is on sale right now for $8,250"]}
+    matched, overclaims = gate_ad_brief_claims(ad_brief, [], policy="stop", product=FUJI_PRODUCT)
+    assert overclaims == []
+    assert matched[0]["matched_claim_id"] == "price-fuji"
+
+
+def test_price_claim_matching_no_product_price_is_unmatched_with_specific_message():
+    ad_brief = {"claims_made": ["Infrared sauna is on sale right now for $5,450"]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, [], policy="stop", product=FUJI_PRODUCT)
+    item = exc_info.value.items[0]
+    assert item["message"] == "quoted price $5,450 matches no current product price"
+
+
+# ---------------------------------------------------------------------------
+# Fix cycle 10 item 4: ad_overclaim_policy -- "stop" (default) stops the run
+# on any locked-topic overclaim, same as an ordinary unmatched claim; "warn"
+# lets a locked-topic overclaim through (returned, not raised), but a
+# non-locked unmatched claim still stops under either policy.
+# ---------------------------------------------------------------------------
+
+def test_warn_policy_does_not_stop_on_locked_topic_overclaim():
+    ad_brief = {"claims_made": ["It includes a free lifetime warranty if it doesn't work"]}
+    matched, overclaims = gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
+    assert matched == []
+    assert len(overclaims) == 1
+    assert overclaims[0]["topic"] == "warranty"
+
+
+def test_warn_policy_still_stops_on_non_locked_unmatched_claim():
+    ad_brief = {"claims_made": ["Competitor saunas leak dangerous levels of EMF radiation."]}
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="warn")
+    assert "topic" not in exc_info.value.items[0]
+
+
+def test_stop_policy_folds_overclaims_and_unmatched_into_one_failure():
+    ad_brief = {
+        "claims_made": [
+            "It includes a free lifetime warranty if it doesn't work",
+            "Competitor saunas leak dangerous levels of EMF radiation.",
+        ]
+    }
+    with pytest.raises(ClaimsGateFailure) as exc_info:
+        gate_ad_brief_claims(ad_brief, WARRANTY_TERMS_CLAIM, policy="stop")
+    assert len(exc_info.value.items) == 2

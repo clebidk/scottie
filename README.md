@@ -39,6 +39,32 @@ appeared in creative but aren't yet sourced/approved (see that file for the curr
 list -- medical-grade wording, the review rating, the EMF comparison, the "4-in-1"
 framing).
 
+## Config (`claims/config.json`)
+
+- `financing_lender` -- null until a real lender is approved; while null, the
+  writer's financing line is locked to the fixed no-lender sentence and any
+  financing figure/lender name in an ad claim is reported as an AD OVERCLAIM.
+- `show_compare_at_price` -- whether a product's list/compare-at price is
+  ever offered to the writer alongside its current price.
+- `reviews_source` -- currently only `judgeme-live` (the live Judge.me widget
+  fetch); review numbers never come from a hardcoded placeholder.
+- `speaker_name` -- null (anonymous "a customer") unless Caleb has a
+  consented real name on file for the ad speaker's first-person story.
+- `ad_overclaim_policy` -- `"stop"` (default) or `"warn"`. An ad claim about
+  warranty, review statistics, financing, or a price that doesn't match the
+  product's current price is checked against its own locked fact, never by
+  word overlap (see `adv/claims.py`'s `gate_ad_brief_claims`). With `"stop"`,
+  any such AD OVERCLAIM stops the run (`exit 2`), same as an ordinary
+  unmatched ad claim -- the default, and the safer setting for an unreviewed
+  ad. With `"warn"`, an AD OVERCLAIM on one of those four locked topics no
+  longer stops the run: it's written to `REVIEW.md` under a bold **AD
+  OVERCLAIMS — page corrected, ad needs fixing** heading and to the run log,
+  the writer is told never to repeat that statement and to use the verified
+  fact instead, and the run continues. A claim that's simply unmatched on
+  any other topic (not one of the four locked ones) still stops the run
+  under either setting -- `"warn"` only relaxes the four locked topics, not
+  ordinary claim verification.
+
 ## Review a run
 
 ```

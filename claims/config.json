@@ -2,5 +2,6 @@
   "financing_lender": null,
   "show_compare_at_price": false,
   "reviews_source": "judgeme-live",
-  "speaker_name": null
+  "speaker_name": null,
+  "ad_overclaim_policy": "stop"
 }

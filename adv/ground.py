@@ -14,6 +14,11 @@ DEFAULT_CONFIG = {
     "show_compare_at_price": False,
     "reviews_source": "judgeme-live",
     "speaker_name": None,
+    # Fix cycle 10 item 4: "stop" (default) -- an AD OVERCLAIM on a locked
+    # topic (warranty/reviews/financing/price) stops the run, same as an
+    # ordinary unmatched claim. "warn" -- a locked-topic AD OVERCLAIM no
+    # longer stops the run; see claims.gate_ad_brief_claims and README.md.
+    "ad_overclaim_policy": "stop",
 }
 
 # Fix 8: for the chosen product's Drive assets, prefer lifestyle/interior,
