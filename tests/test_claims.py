@@ -1111,6 +1111,15 @@ def test_classify_ad_claim_about_recognizes_competing_saunas_phrasing():
     assert classify_ad_claim_about("Competitor saunas have only basic manual controls") == "alternative"
 
 
+def test_classify_ad_claim_about_recognizes_comparison_product_phrasing():
+    # Also found live in the same Cycle 12 sweep (still-infraredglow-4x5.png):
+    # "comparison" was only ever paired with "option" in the noun list, so
+    # "Comparison product has no red light therapy" fell through to
+    # word-overlap and false-MATCHED warranty-terms at 0.6 overlap.
+    assert classify_ad_claim_about("Comparison product has no red light therapy") == "alternative"
+    assert classify_ad_claim_about("Comparison product has basic manual controls only") == "alternative"
+
+
 def test_classify_ad_claim_about_leaves_a_specific_named_rival_claim_alone():
     # A claim with no "competitor"/"competing" grammatical subject at all --
     # still a plain unmatched claim (never matches, never stops under
