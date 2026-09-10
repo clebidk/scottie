@@ -11,10 +11,15 @@ inputs:
   - publish      # 1-5, would publish
   - by           # optional scorer name
   - note         # optional
+# NOTE: `stage:` names a real pipeline stage in harness/pipeline.py and is what
+# `harness workflow run` executes. `action:` names a step this workflow performs
+# around the pipeline; the runner does not execute those yet, so this workflow
+# is a specification, not a runnable pipeline. `harness workflow run` on it
+# exits 1 with "runs no pipeline stages".
 steps:
-  - stage: load_run
+  - action: load_run
     description: read the run's REVIEW.md and page.json files
-  - stage: append_score
+  - action: append_score
     description: one JSON line appended to the tenant's score sheet
 outputs:
   - tenants/{tenant}/evals/scores.jsonl

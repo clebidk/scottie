@@ -2,7 +2,7 @@
 but sourced to Judge.me itself, so it gets its own distinct "Judge.me
 reviews for Peak Saunas" line in the Sources list instead of colliding with
 the product page's own line."""
-from adv.reviews import JUDGEME_STORE_URL, build_reviews_claim, parse_review_data
+from harness.sources.judgeme import build_reviews_claim, parse_review_data, store_url
 
 
 def test_build_reviews_claim_sources_judgeme_not_the_product_page():
@@ -11,7 +11,7 @@ def test_build_reviews_claim_sources_judgeme_not_the_product_page():
         {"rating": 4.8, "count": 3958},
         "2026-09-09",
     )
-    assert claim["source"] == JUDGEME_STORE_URL
+    assert claim["source"] == store_url()
     assert claim["source"] != "https://peaksaunas.com/products/peak-saunas-fuji"
     assert "4.8" in claim["text"]
     assert "3,958" in claim["text"]

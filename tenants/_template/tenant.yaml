@@ -42,7 +42,9 @@ whisper_prompt: ""         # short vocabulary list: brand name, category words, 
 
 pdp_facts: {}              # fact-name -> list of literal phrases to look for in a product page
 
-benefit_allowlist_ids: []
+benefit_allowlist_ids: []       # product-benefit claims every page may cite
+universal_claim_ids: []         # claims every product's facts_pack always carries
+listicle_pack_models: []        # models a listicle asset pack covers, if any
 warranty_claim_id: ""
 excluded_benefit_ids: []
 claim_id_prefixes: [spec-, price-, pdp-, reviews-]

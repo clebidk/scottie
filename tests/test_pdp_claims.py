@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from adv.pdp_claims import extract_pdp_claims, save_pdp_claims_cache, seed_pdp_claims
+from harness.pdp_claims import extract_pdp_claims, save_pdp_claims_cache, seed_pdp_claims
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MINI_BODY_HTML = (REPO_ROOT / "tests" / "fixtures" / "mini-body-html-sample.html").read_text()

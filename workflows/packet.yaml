@@ -6,13 +6,18 @@ description: >-
 inputs:
   - run_dir
   - tenant
+# NOTE: `stage:` names a real pipeline stage in harness/pipeline.py and is what
+# `harness workflow run` executes. `action:` names a step this workflow performs
+# around the pipeline; the runner does not execute those yet, so this workflow
+# is a specification, not a runnable pipeline. `harness workflow run` on it
+# exits 1 with "runs no pipeline stages".
 steps:
-  - stage: load_run
+  - action: load_run
     description: ad_brief.json, facts_pack.json, REVIEW.md, each page.json
-  - stage: build_review_html
+  - action: build_review_html
     description: self-contained <cartridge>-review.html, images inlined
     for_each: cartridge
-  - stage: build_packet
+  - action: build_packet
     description: >-
       the draft packet -- angle, product, cartridges, claims matched, ad claims
       not repeated, sources, word counts, open questions, and the ship/hold

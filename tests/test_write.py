@@ -1,15 +1,16 @@
 from pathlib import Path
 
-from adv.budget import Budget
-from adv.log import RunLog
+from harness.budget import Budget
+from harness.log import RunLog
 import json
 
-from adv.vocab import (
+from harness.vocab import (
     ALLOWED_FINANCING_SENTENCE_NO_LENDER,
     ALLOWED_WARRANTY_SENTENCE,
     ALWAYS_FORBIDDEN_TERMS,
 )
-from adv.write import load_exemplars, resolve_allowed_cta_texts, write_page
+from tests.support import REPO_ROOT, TENANT
+from harness.write import load_exemplars, resolve_allowed_cta_texts, write_page
 from tests.conftest import FakeClient, json_response
 from tests.test_render import ARTICLE_PAGE, AD_BRIEF, FACTS_PACK
 
@@ -17,14 +18,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_load_exemplars_reads_markdown_reference_articles():
-    exemplars = load_exemplars(REPO_ROOT / "cartridges" / "article")
+    exemplars = load_exemplars(TENANT.exemplars_dir("article"))
     assert len(exemplars) == 2
     assert all("reference_article" in e for e in exemplars)
     assert "Peak Saunas" in exemplars[0]["reference_article"]
 
 
 def test_load_exemplars_missing_dir_returns_empty(tmp_path):
-    assert load_exemplars(tmp_path / "no-such-cartridge") == []
+    assert load_exemplars(tmp_path / "no-such-exemplars-dir") == []
 
 
 # ---------------------------------------------------------------------------
@@ -37,28 +38,28 @@ def test_load_exemplars_missing_dir_returns_empty(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_load_exemplars_trims_each_reference_article_to_700_words():
-    exemplars = load_exemplars(REPO_ROOT / "cartridges" / "article")
+    exemplars = load_exemplars(TENANT.exemplars_dir("article"))
     assert len(exemplars) == 2
     for e in exemplars:
         assert len(e["reference_article"].split()) <= 700
 
 
 def test_load_exemplars_trims_a_short_file_not_at_all(tmp_path):
-    cartridge_dir = tmp_path / "cartridge"
-    (cartridge_dir / "exemplars").mkdir(parents=True)
+    ex_dir = tmp_path / "exemplars"
+    ex_dir.mkdir(parents=True)
     short_text = "word " * 50
-    (cartridge_dir / "exemplars" / "short.md").write_text(short_text)
-    exemplars = load_exemplars(cartridge_dir)
+    (ex_dir / "short.md").write_text(short_text)
+    exemplars = load_exemplars(ex_dir)
     assert len(exemplars) == 1
     assert exemplars[0]["reference_article"] == short_text
 
 
 def test_load_exemplars_trims_a_long_file_to_exactly_700_words(tmp_path):
-    cartridge_dir = tmp_path / "cartridge"
-    (cartridge_dir / "exemplars").mkdir(parents=True)
+    ex_dir = tmp_path / "exemplars"
+    ex_dir.mkdir(parents=True)
     long_text = " ".join(f"word{i}" for i in range(2000))
-    (cartridge_dir / "exemplars" / "long.md").write_text(long_text)
-    exemplars = load_exemplars(cartridge_dir)
+    (ex_dir / "long.md").write_text(long_text)
+    exemplars = load_exemplars(ex_dir)
     assert len(exemplars) == 1
     trimmed_words = exemplars[0]["reference_article"].split()
     assert len(trimmed_words) == 700
@@ -66,12 +67,11 @@ def test_load_exemplars_trims_a_long_file_to_exactly_700_words(tmp_path):
 
 
 def test_load_exemplars_still_caps_at_2_files(tmp_path):
-    cartridge_dir = tmp_path / "cartridge"
-    ex_dir = cartridge_dir / "exemplars"
+    ex_dir = tmp_path / "exemplars"
     ex_dir.mkdir(parents=True)
     for name in ("a.md", "b.md", "c.md"):
         (ex_dir / name).write_text("short reference text")
-    exemplars = load_exemplars(cartridge_dir)
+    exemplars = load_exemplars(ex_dir)
     assert len(exemplars) == 2
 
 

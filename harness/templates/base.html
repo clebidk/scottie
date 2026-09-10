@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Peak Saunas{% endblock %}</title>
+<title>{% block title %}{{ tenant_name }}{% endblock %}</title>
 <style>{{ brand_css | safe }}</style>
 {% if json_ld %}
 <script type="application/ld+json">{{ json_ld | tojson }}</script>
@@ -15,7 +15,7 @@
 
 <footer class="adv-footer">
   {% block byline %}{% endblock %}
-  <p class="adv-disclosure">This page is an advertisement published by Peak Saunas, which sells the products described. Every specific claim on this page is sourced; see Sources below. Prices were current as of the publish date above and may have changed since.</p>
+  <p class="adv-disclosure">{{ disclosure_text }}</p>
   {% if sources %}
   <div class="adv-sources">
     <h3>Sources</h3>

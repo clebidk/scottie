@@ -85,6 +85,13 @@ benefit_allowlist_ids:
   - gbrain-allowlist-us-owned
   - gbrain-allowlist-lifetime-warranty
 
+# Claims every product's facts_pack always carries, whichever model a run is
+# about -- the founder claim plus the three policy claims.
+universal_claim_ids: [founder-ceo, warranty-terms, shipping-policy, returns-policy]
+
+# Models the listicle asset pack (brand/assets-listicle-pack.json) covers.
+listicle_pack_models: [mini, matterhorn]
+
 warranty_claim_id: warranty-terms
 excluded_benefit_ids: [warranty-terms, shipping-policy, returns-policy]
 claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-, returns-, founder-]

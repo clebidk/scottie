@@ -4,8 +4,8 @@ Purpose: a stripped product page for one hero SKU, matched to the ad's angle. Fo
 Audience temperature: warm.
 
 ## Structure (in order)
-1. Header: "Advertisement" label small, Peak logo, no nav.
-2. Hero: product short_name, one-line promise taken from the ad angle, price, financing line (the exact sentence "Financing is available at checkout." unless a lender is configured). Hero image from asset library. CTA is `cta_text`/`cta_url` (top-level, see Rules) -- exactly one of schema.json's `allowed_cta_texts`, e.g. "Shop the Peak Fuji 2-Person Infrared Sauna" or "Buy the Peak Fuji 2-Person Infrared Sauna".
+1. Header: "Advertisement" label small, the tenant logo, no nav.
+2. Hero: product short_name, one-line promise taken from the ad angle, price, financing line (the exact sentence "Financing is available at checkout." unless a lender is configured). Hero image from asset library. CTA is `cta_text`/`cta_url` (top-level, see Rules) -- exactly one of schema.json's `allowed_cta_texts`, with {short_name} filled in with the product's actual short_name.
 3. Three proof bullets: each one verified claim with a short label and a one-line explanation. Choose the three that match the ad's angle, and make at least 3 of them product-benefit claims (see Rules).
 4. Angle section: 1 H2 + 2–4 short paragraphs or an image-and-text pair that expands what the ad said.
 5. Specs table: 6–10 rows from facts_pack.specs.

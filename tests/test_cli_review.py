@@ -5,8 +5,8 @@ folder of loose image files."""
 import argparse
 import base64
 
-from adv import cli
-from adv.cli import count_words
+from harness import cli
+from harness.cli import count_words
 
 
 def _make_run_dir(tmp_path):

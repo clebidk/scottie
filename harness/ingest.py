@@ -12,6 +12,7 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+from . import tenant as tenant_mod
 from .jsonutil import extract_json
 
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".webm"}
@@ -107,19 +108,25 @@ def detect_type(path):
 # Video -> transcript (ffmpeg + whisper.cpp)
 # ---------------------------------------------------------------------------
 
-# Fix cycle 8 problem 1a: whisper-cli's own vocabulary has no idea "Peak
-# Saunas" or its model names exist -- on fixtures/product-features-v2.mov it
-# heard "Sonna" for "Sauna". whisper.cpp's initial prompt biases decoding
-# toward a short vocabulary list without changing the model; it's not a
-# transcript prefix, so it never appears in the output itself.
-WHISPER_INITIAL_PROMPT = (
-    "Peak Saunas. Sauna, infrared sauna, red light therapy. Models: Fuji, "
-    "Everest, Rainier, Shasta, Denali, Matterhorn, Patagonia, El Capitan, "
-    "Kilimanjaro, Mini."
-)
+def whisper_initial_prompt(tenant=None):
+    """whisper-cli's own vocabulary has no idea a tenant's brand or model names
+    exist -- one fixture was heard as "Sonna" for "Sauna". whisper.cpp's initial
+    prompt biases decoding toward a short vocabulary list without changing the
+    model; it is not a transcript prefix, so it never appears in the output.
+    Comes from tenant.yaml's whisper_prompt."""
+    tenant = tenant or tenant_mod.active()
+    return tenant.get("whisper_prompt") or ""
 
 
-def video_to_transcript(path, workdir, ffmpeg_bin, whisper_bin, whisper_model):
+def __getattr__(name):
+    """WHISPER_INITIAL_PROMPT stays readable as a module attribute (it was one
+    before it became tenant data), resolved through the active tenant."""
+    if name == "WHISPER_INITIAL_PROMPT":
+        return whisper_initial_prompt()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def video_to_transcript(path, workdir, ffmpeg_bin, whisper_bin, whisper_model, initial_prompt=None):
     path = Path(path)
     workdir = Path(workdir)
     wav_path = workdir / (path.stem + ".wav")
@@ -134,13 +141,11 @@ def video_to_transcript(path, workdir, ffmpeg_bin, whisper_bin, whisper_model):
         check=True, capture_output=True, text=True,
     )
 
-    result = subprocess.run(
-        [
-            whisper_bin, "-m", str(whisper_model), "-f", str(wav_path), "-nt", "-np", "-t", "3",
-            "--prompt", WHISPER_INITIAL_PROMPT,
-        ],
-        check=True, capture_output=True, text=True,
-    )
+    cmd = [whisper_bin, "-m", str(whisper_model), "-f", str(wav_path), "-nt", "-np", "-t", "3"]
+    prompt = whisper_initial_prompt() if initial_prompt is None else initial_prompt
+    if prompt:
+        cmd += ["--prompt", prompt]
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     return result.stdout.strip()
 
 
@@ -285,21 +290,31 @@ def build_ad_brief(*, transcript_or_text, source_file, input_type, client, model
 # Orchestration
 # ---------------------------------------------------------------------------
 
-def drop_emf_claims(ad_brief, log):
-    """Fix cycle 2 item 7: EMF is absolute -- an ad claim or feature that
-    mentions it is dropped from ad_brief (logged, never a STOP), so the page
-    simply never covers that angle. Returns the list of dropped strings."""
+def drop_banned_topic_claims(ad_brief, log, terms=None):
+    """A tenant's absolute word bans apply to the ad itself, not just the page:
+    an ad claim or feature mentioning one is dropped from ad_brief (logged,
+    never a STOP), so the page simply never covers that angle. Terms come from
+    the tenant's vocab.yaml. Returns the list of dropped strings."""
+    from . import vocab
+
+    if terms is None:
+        terms = vocab.EMF_TERMS
+    terms = [t.lower() for t in terms]
     dropped = []
     for key in ("claims_made", "features_shown"):
         kept = []
         for item in ad_brief.get(key, []):
-            if isinstance(item, str) and "emf" in item.lower():
+            if isinstance(item, str) and any(t in item.lower() for t in terms):
                 dropped.append(item)
-                log.event("ingest", f"dropped EMF claim: {item}")
+                log.event("ingest", f"dropped banned-topic claim: {item}")
             else:
                 kept.append(item)
         ad_brief[key] = kept
     return dropped
+
+
+# Kept as the historical name used by the CLI and the tests.
+drop_emf_claims = drop_banned_topic_claims
 
 
 def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, whisper_bin, whisper_model):

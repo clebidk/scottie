@@ -15,6 +15,7 @@ import jinja2
 from PIL import Image
 
 from . import ingest
+from . import tenant as tenant_mod
 from .claims import (
     ClaimsGateFailure,
     collect_claim_ids,
@@ -24,32 +25,43 @@ from .claims import (
     strip_leaked_claim_ids,
 )
 
-FALLBACK_BYLINE = """<p class="adv-byline-author">By {author}, Founder &amp; CEO, Peak Saunas</p>
-<p class="adv-byline-contributor">Reviewed by {contributor}</p>
+FALLBACK_BYLINE = """<p class="adv-byline-author">{author_line}</p>
+<p class="adv-byline-contributor">{contributor_line}</p>
 <p class="adv-byline-dates">Published {published} &middot; Updated {updated}</p>"""
 
-# Bare name for author: brand/byline.html's own template text appends
-# ", Founder & CEO, Peak Saunas" after {{author}} -- passing the full title
-# here would duplicate it. contributor keeps its title since no template
-# appends one for that slot.
-AUTHOR_NAME = "Austin Laudenslager"
-CONTRIBUTOR_NAME = "Caleb Niednagel, Technology Lead"
+
+def byline_names(tenant=None):
+    """(author, contributor) as the tenant's own byline.html expects them.
+
+    A tenant's byline.html template appends the author's title itself after
+    {{ author }}, so the author slot is the bare name; the contributor slot has
+    no template-supplied title, so it carries its own."""
+    tenant = tenant or tenant_mod.active()
+    author = tenant.author("author")
+    contributor = tenant.author("contributor")
+    author_name = author.get("name", "")
+    contributor_name = contributor.get("name", "")
+    if contributor.get("title"):
+        contributor_name = f"{contributor_name}, {contributor['title']}"
+    return author_name, contributor_name
 
 
 def load_brand_css(brand_dir, log=None):
     css_path = Path(brand_dir) / "base.css"
-    if css_path.exists():
+    if css_path.exists() and css_path.read_text().strip():
         return css_path.read_text()
     if log:
-        log.event("render", "brand/base.css not found; using adv/fallback.css")
+        log.event("render", "tenant brand/base.css not found or empty; using harness/fallback.css")
     return (Path(__file__).parent / "fallback.css").read_text()
 
 
-def load_byline_html(brand_dir, published, updated, log=None):
+def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
+    tenant = tenant or tenant_mod.active()
     byline_path = Path(brand_dir) / "byline.html"
+    author_name, contributor_name = byline_names(tenant)
     context = {
-        "author": AUTHOR_NAME,
-        "contributor": CONTRIBUTOR_NAME,
+        "author": author_name,
+        "contributor": contributor_name,
         "published": published,
         "updated": updated,
     }
@@ -59,11 +71,22 @@ def load_byline_html(brand_dir, published, updated, log=None):
             return jinja2.Template(raw).render(**context)
         except jinja2.TemplateError as e:
             if log:
-                log.event("render", f"brand/byline.html failed to render ({e}); using raw content")
+                log.event("render", f"tenant brand/byline.html failed to render ({e}); using raw content")
             return raw
     if log:
-        log.event("render", "brand/byline.html not found; using fallback byline markup")
-    return FALLBACK_BYLINE.format(**context)
+        log.event("render", "tenant brand/byline.html not found; using fallback byline markup")
+    author = tenant.author("author")
+    contributor = tenant.author("contributor")
+    return FALLBACK_BYLINE.format(
+        author_line=(tenant.authors.get("byline_author_template") or "By {author_name}").format(
+            author_name=context["author"], author_title=author.get("title", ""), tenant_name=tenant.display_name
+        ),
+        contributor_line=(
+            tenant.authors.get("byline_contributor_template") or "Reviewed by {contributor_name}"
+        ).format(contributor_name=contributor.get("name", ""), contributor_title=contributor.get("title", "")),
+        published=published,
+        updated=updated,
+    )
 
 
 # Fix cycle 2 item 9: the Sources list must show a short, human-readable
@@ -74,13 +97,6 @@ def load_byline_html(brand_dir, published, updated, log=None):
 # claims -- specs, price -- share the same product-page URL) with a specific
 # label, derived from the URL path (or a claim's own "label" field, when a
 # future claim needs one the path can't describe).
-_SOURCE_PATH_LABELS = {
-    "/pages/warranty": "Warranty",
-    "/policies/shipping-policy": "Shipping policy",
-    "/policies/refund-policy": "Refund policy",
-    "/pages/austin-laudenslager": "Austin Laudenslager",
-}
-
 _URL_IN_TEXT_RE = re.compile(r"https?://\S+")
 
 
@@ -98,30 +114,37 @@ def resolve_public_url(source, *, fallback_url=None):
     return fallback_url
 
 
-def source_label(url, *, product_name=None, explicit_label=None):
+def source_label(url, *, product_name=None, explicit_label=None, tenant=None):
     """A short, human-readable label for `url` -- never the raw URL itself.
-    An explicit "label" field on the claim always wins; otherwise the label
-    is derived from the URL's host and path."""
+    An explicit "label" field on the claim always wins; otherwise the label is
+    derived from the URL's host and path, using the tenant's own site host,
+    label prefix, and source_path_labels map."""
     if explicit_label:
         return explicit_label
+    tenant = tenant or tenant_mod.active()
+    prefix = tenant.get("source_label_prefix") or tenant.display_name
     if not url or not url.startswith("http"):
-        return "Peak Saunas"
+        return prefix
     parsed = urlparse(url)
     host = parsed.netloc.replace("www.", "")
-    if host == "judge.me":
-        return "Judge.me reviews for Peak Saunas"
-    if host != "peaksaunas.com":
+    review_host = urlparse(tenant.get("reviews.store_url") or "").netloc.replace("www.", "")
+    if review_host and host == review_host:
+        return tenant.format(
+            "review_source_label", platform_name=tenant.get("reviews.platform_name") or host
+        ) or host
+    if host != (tenant.get("site_host") or ""):
         return host
     path = parsed.path.rstrip("/")
     if path.startswith("/products/"):
-        return f"Peak Saunas – {product_name or 'product'} product page"
-    if path in _SOURCE_PATH_LABELS:
-        return f"Peak Saunas – {_SOURCE_PATH_LABELS[path]}"
+        return tenant.format("product_page_label", product_name=product_name or "product") or f"{prefix} – product page"
+    path_labels = tenant.get("source_path_labels") or {}
+    if path in path_labels:
+        return f"{prefix} – {path_labels[path]}"
     fallback = path.rsplit("/", 1)[-1].replace("-", " ").title()
-    return f"Peak Saunas – {fallback}" if fallback else "Peak Saunas"
+    return f"{prefix} – {fallback}" if fallback else prefix
 
 
-def build_sources_list(used_claim_ids, verified_by_id, product_name=None, product_url=None):
+def build_sources_list(used_claim_ids, verified_by_id, product_name=None, product_url=None, tenant=None):
     """One entry per distinct public source URL referenced by
     `used_claim_ids` (fix cycle 3 item 1) -- claim texts are never shown on
     the page, only in REVIEW.md; the page gets a label (link text) and the
@@ -139,11 +162,14 @@ def build_sources_list(used_claim_ids, verified_by_id, product_name=None, produc
         if not url:
             continue
         if url not in seen:
-            seen[url] = source_label(url, product_name=product_name, explicit_label=claim.get("label"))
+            seen[url] = source_label(url, product_name=product_name, explicit_label=claim.get("label"), tenant=tenant)
     return [{"url": url, "label": label} for url, label in seen.items()]
 
 
-def build_json_ld(cartridge_name, page, facts_pack, published, updated):
+def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=None):
+    tenant = tenant or tenant_mod.active()
+    author_name = (tenant.author("author") or {}).get("name", "")
+    publisher_name = tenant.display_name
     product = facts_pack["product"]
     if cartridge_name == "article":
         return {
@@ -151,10 +177,10 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated):
             "@type": "Article",
             "headline": page.get("headline", ""),
             "description": page.get("dek", ""),
-            "author": {"@type": "Person", "name": "Austin Laudenslager"},
+            "author": {"@type": "Person", "name": author_name},
             "datePublished": published,
             "dateModified": updated,
-            "publisher": {"@type": "Organization", "name": "Peak Saunas"},
+            "publisher": {"@type": "Organization", "name": publisher_name},
         }
     if cartridge_name == "product-page":
         return {
@@ -218,8 +244,9 @@ _ASSET_KIND_ALT_SUFFIXES = {
 }
 
 
-def asset_alt(asset, product_short_name):
-    product_short_name = product_short_name or "Peak Saunas"
+def asset_alt(asset, product_short_name, tenant=None):
+    tenant = tenant or tenant_mod.active()
+    product_short_name = product_short_name or tenant.get("asset_alt_fallback") or tenant.display_name
     suffix = _ASSET_KIND_ALT_SUFFIXES.get(asset.get("kind"), "photo")
     alt = f"{product_short_name} – {suffix}"
     # Fix cycle 15 item 2: an AI-composite render (brand/assets-listicle-pack
@@ -377,7 +404,9 @@ def render_page(
     download_assets=True,
     fetch_url=http_fetch_bytes,
     drive_downloader=ingest.download_drive_file,
+    tenant=None,
 ):
+    tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir)]),
@@ -385,7 +414,7 @@ def render_page(
     )
 
     brand_css = load_brand_css(brand_dir, log)
-    byline_html = load_byline_html(brand_dir, published, updated, log)
+    byline_html = load_byline_html(brand_dir, published, updated, log, tenant=tenant)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -399,10 +428,10 @@ def render_page(
         # asset's own kind + the product's short_name -- never the writer's
         # invented "alt" field (the template no longer reads it), since a
         # model-invented alt can describe something that isn't in the image.
-        asset["alt"] = asset_alt(asset, product_short_name)
+        asset["alt"] = asset_alt(asset, product_short_name, tenant=tenant)
     used_claim_ids = collect_claim_ids(page)
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
-    sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"))
+    sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant)
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
@@ -423,7 +452,7 @@ def render_page(
             else:
                 assets_by_id[asset_id]["url"] = f"assets/{local_path.name}"
 
-    json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated)
+    json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 
     template = env.get_template("template.html")
     html = template.render(
@@ -439,6 +468,9 @@ def render_page(
         published=published,
         updated=updated,
         cartridge=cartridge_name,
+        tenant=tenant,
+        tenant_name=tenant.display_name,
+        disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
     )
 
     # Fix cycle 5 item 2: last line of defense -- a claim id printed in

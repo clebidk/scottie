@@ -11,16 +11,17 @@
 (b) Every page.json node with a "claim_ids" list must reference existing ids;
     every node with a "text" field containing a digit, %, $, or one of the
     trigger words must carry a non-empty claim_ids list, or the run STOPs.
-(c) No page.json string anywhere may contain "EMF" (any case), a discontinued
-    model name, "Sunlighten", or -- when claims/config.json's financing_lender
-    is null -- any known financing-lender name, or the run STOPs.
+(c) No page.json string anywhere may contain one of the tenant's absolutely
+    banned terms (vocab.yaml: banned topics, competitor names, discontinued
+    model names, hype words) or -- when claims/config.json's financing_lender
+    is null -- a known financing-lender name, or the run STOPs.
 (d) Fix cycle 2 item 11: if ad_brief.speaker_pov is "first_person", no page.json
     prose string outside a quoted-testimonial container may put the ad
     speaker's story in the author's own first person ("I ran...", "I don't...").
 (e) Fix cycle 2 item 9: after rendering, the page's visible text (tags,
-    scripts, and styles stripped, entities unescaped) may not contain "emf" or
-    "electromagnetic" -- href/src attribute values are exempt because tag-
-    stripping removes them along with the tag.
+    scripts, and styles stripped, entities unescaped) may not contain one of
+    the tenant's visible_text_forbidden_terms -- href/src attribute values are
+    exempt because tag-stripping removes them along with the tag.
 (f) Fix cycle 3 item 3: each cartridge's persuasive section (proof_bullets /
     how_it_works / turn_section.criteria) must carry a minimum count of
     product-benefit claim_ids (spec/benefit/trust category, excluding price/
@@ -29,16 +30,12 @@
 import html
 import re
 
-from .vocab import (
-    ALLOWED_FINANCING_SENTENCE_NO_LENDER,
-    ALLOWED_WARRANTY_SENTENCE,
-    ALLOWED_WARRANTY_SPEC_LABEL,
-    ALLOWED_WARRANTY_SPEC_VALUE,
-    ALWAYS_FORBIDDEN_TERMS,
-    FORBIDDEN_LENDER_NAMES,
-    IMPLIED_CLAIM_FORBIDDEN_TERMS,
-    TRIGGER_WORDS,
-)
+from . import tenant as tenant_mod
+from . import vocab
+
+# Every word list and fixed sentence below comes from the active tenant's
+# vocab.yaml, read through the `vocab` module on each access -- importing the
+# names directly would bind one tenant's values at import time.
 
 STOPWORDS = {
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "to", "of", "in",
@@ -72,7 +69,7 @@ class ClaimsGateFailure(Exception):
 # Fix cycle 9 item 4: a small, hand-picked set of synonym pairs so
 # semantically equivalent phrasing overlaps cleanly instead of STOPping on a
 # wording mismatch -- e.g. the ad's "crate-protected delivery" against
-# gbrain-shipping-free-crate-origin's own text ("... a PeakGuard custom
+# a shipping claim's own text (e.g. "... a branded custom
 # protective wooden crate ... Free shipping ..."): "protected"/"protective"
 # and "delivery"/"shipping" mean the same thing here but share no token.
 # Applied inside normalize() so both sides of a comparison see the same
@@ -216,13 +213,12 @@ _LOCKED_WARRANTY_RE = re.compile(r"\b(?:warrant\w*|guarantee\w*)\b", re.IGNORECA
 _RATING_RE = re.compile(r"\b\d(?:\.\d+)?\s*(?:/|out of)\s*5\b|\b\d(?:\.\d+)?\s*stars?\b", re.IGNORECASE)
 _REVIEW_COUNT_RE = re.compile(r"\b[\d,]+\+?\s*reviews?\b", re.IGNORECASE)
 _MONTHLY_FIGURE_RE = re.compile(r"\$\s?[\d,]+(?:\.\d+)?\s*(?:/|a\s+|per\s+)\s*(?:mo\b|month\b)", re.IGNORECASE)
-_LENDER_NAME_RE = re.compile("|".join(re.escape(n) for n in FORBIDDEN_LENDER_NAMES), re.IGNORECASE)
 _DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
 
 
 # Fix cycle 12 item 3 (second half): the red-X column of a comparative
 # still/ad ("the other option leaves you drained", "the competing model
-# takes 3 hours") is never a claim about Peak's own product -- it's never
+# takes 3 hours") is never a claim about the tenant's own product -- it's never
 # checkable against claims/verified.json (there's nothing in this codebase
 # that could verify or refute a statement about a competitor), and the
 # writer's own guardrails already forbid stating a competitor "fact" that
@@ -234,7 +230,7 @@ _DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
 # so far: "Comparison option ..." and "Competing product(s)/sauna(s) ..." and
 # "Competitor(') product(s)/sauna(s)/model(s) ..." (docs/SWEEP-2026-09-10.md
 # fixtures 5-7), plus two live phrasings that fell through this classifier's
-# earlier, narrower version and word-overlap false-matched Peak's own
+# earlier, narrower version and word-overlap false-matched the tenant's own
 # warranty-terms claim -- exactly the false-MATCHED-overclaim risk fix cycle
 # 10 problem B was about, just for a competitor claim instead of a warranty
 # one (both caught during Cycle 12's own Sweep 3, see docs/FIXLOG.md Cycle
@@ -243,7 +239,7 @@ _DOLLAR_AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
 # therapy" (0.6 overlap -- "comparison" was only paired with "option", never
 # "product"). Deliberately still narrower than "any sentence mentioning a
 # competitor": a specific factual assertion about a named rival with no red-X
-# "the other option" framing at all (e.g. "a review site rated Peak below
+# "the other option" framing at all (e.g. "a review site rated this brand below
 # every major competitor" -- no claim here even uses "competitor"/"competing"/
 # "comparison" as its own grammatical subject) is left to the ordinary
 # unmatched-claim path -- it still never matches, and still never stops the
@@ -258,7 +254,7 @@ _ALTERNATIVE_SUBJECT_RE = re.compile(
 
 def classify_ad_claim_about(ad_claim_text):
     """None, or "alternative" -- a claim whose grammatical subject is the
-    competing/comparison option, not Peak's own product. An "alternative"
+    competing/comparison option, not the tenant's own product. An "alternative"
     claim is never run through any matching check (locked-topic or word
     overlap), never required to match a verified claim, and never stops the
     run under either ad_overclaim_policy -- see gate_ad_brief_claims."""
@@ -278,24 +274,31 @@ def classify_locked_topic(ad_claim_text):
         return "warranty"
     if _RATING_RE.search(ad_claim_text) or _REVIEW_COUNT_RE.search(ad_claim_text):
         return "reviews"
-    if _MONTHLY_FIGURE_RE.search(ad_claim_text) or _LENDER_NAME_RE.search(ad_claim_text):
+    if _MONTHLY_FIGURE_RE.search(ad_claim_text) or vocab.LENDER_NAME_RE.search(ad_claim_text):
         return "financing"
     if _DOLLAR_AMOUNT_RE.search(ad_claim_text):
         return "price"
     return None
 
 
-_ALLOWED_WARRANTY_FORMS = (
-    ALLOWED_WARRANTY_SENTENCE.lower(),
-    ALLOWED_WARRANTY_SPEC_VALUE.lower(),
-    ALLOWED_WARRANTY_SPEC_LABEL.lower(),
-)
+def _allowed_warranty_forms():
+    return (
+        vocab.ALLOWED_WARRANTY_SENTENCE.lower(),
+        vocab.ALLOWED_WARRANTY_SPEC_VALUE.lower(),
+        vocab.ALLOWED_WARRANTY_SPEC_LABEL.lower(),
+    )
+
+
+def warranty_claim_id():
+    """The tenant's own warranty claim id (tenant.yaml's warranty_claim_id)."""
+    return tenant_mod.active().get("warranty_claim_id") or "warranty-terms"
 
 
 def _warranty_fact(verified_claims):
     by_id = {c["id"]: c for c in (verified_claims or [])}
-    if "warranty-terms" in by_id:
-        return by_id["warranty-terms"]["text"]
+    wid = warranty_claim_id()
+    if wid in by_id:
+        return by_id[wid]["text"]
     for c in verified_claims or ():
         if "warrant" in c.get("id", "").lower():
             return c["text"]
@@ -310,7 +313,7 @@ def evaluate_warranty_claim(ad_claim_text, verified_claims):
     of the writer's prose."""
     stripped = ad_claim_text.strip().lower()
     fact = _warranty_fact(verified_claims)
-    if stripped in _ALLOWED_WARRANTY_FORMS:
+    if stripped in _allowed_warranty_forms():
         return True, fact
     for c in verified_claims or ():
         if "warrant" in c.get("id", "").lower() and c.get("text") and c["text"].lower() in ad_claim_text.lower():
@@ -369,7 +372,7 @@ def evaluate_financing_claim(ad_claim_text, financing_lender):
     (vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER) until Caleb wires up a real
     lender quote to compare against. Not a gap in this cycle's fix; reported
     as designed (see docs/FIXLOG.md Cycle 10)."""
-    return False, ALLOWED_FINANCING_SENTENCE_NO_LENDER
+    return False, vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER
 
 
 def evaluate_price_claim(ad_claim_text, product_price):
@@ -474,7 +477,7 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
         if topic == "warranty":
             ok, fact = evaluate_warranty_claim(claim, verified_claims)
             if ok:
-                matched.append({"claim": claim, "matched_claim_id": "warranty-terms", "overlap": 1.0})
+                matched.append({"claim": claim, "matched_claim_id": warranty_claim_id(), "overlap": 1.0})
             else:
                 overclaims.append(_overclaim_item(claim, topic, fact))
             continue
@@ -535,11 +538,10 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
 # words that happen to contain a trigger word ("frustrated" contains
 # "rated", "previews"/"interviews" contain "reviews") -- caught live on the
 # hidden-costs-v2 fixture during fix-cycle-2 verification.
-_TRIGGER_WORD_RE = re.compile(r"\b(?:" + "|".join(TRIGGER_WORDS) + r")\b")
 
 
 # Fix cycle 6 item 2: a digit inside the product's own short_name/title/model
-# name (e.g. the "2" in "Peak Fuji 2-Person Infrared Sauna") or a generic
+# name (e.g. the "2" in a short_name like "Acme 2-Person Cabin") or a generic
 # capacity token ("2-Person") is not a number the writer is asserting --
 # stripping these before the digit check means writing the product's own
 # name no longer forces a claim_id onto a sentence that has nothing else to
@@ -637,7 +639,7 @@ def _trigger_reason(text, digit_exempt_terms=None, attributed_to_customer=False,
         if re.search(r"\d", digit_check_text):
             return "contains a number"
 
-    m = _TRIGGER_WORD_RE.search(unquoted.lower())
+    m = vocab.TRIGGER_WORD_RE.search(unquoted.lower())
     if m:
         return f'uses the word "{m.group(0)}"'
     return None
@@ -790,16 +792,16 @@ def find_forbidden_terms(page_json, financing_lender=None, verified_claims=None)
     text actually carries the phrase -- checked against `verified_claims`
     (facts_pack["verified_claims"]) so a future genuinely-verified claim
     about support location isn't blocked forever."""
-    forbidden = list(ALWAYS_FORBIDDEN_TERMS)
+    forbidden = list(vocab.ALWAYS_FORBIDDEN_TERMS)
     if not financing_lender:
-        forbidden += list(FORBIDDEN_LENDER_NAMES)
+        forbidden += list(vocab.FORBIDDEN_LENDER_NAMES)
     verified_text_blob = " ".join(c.get("text", "").lower() for c in (verified_claims or []))
-    forbidden += [t for t in IMPLIED_CLAIM_FORBIDDEN_TERMS if t not in verified_text_blob]
+    forbidden += [t for t in vocab.IMPLIED_CLAIM_FORBIDDEN_TERMS if t not in verified_text_blob]
     hits = []
 
     def walk(node, path):
         if isinstance(node, str):
-            # A citation URL inline in prose (e.g. "(Peak Saunas, 2026,
+            # A citation URL inline in prose (e.g. "(the brand, 2026,
             # https://.../near-zero-emf-...)") may legitimately contain a
             # forbidden term as part of the product's own URL/handle -- fix 4:
             # "The product URL may still contain the word; that is fine."
@@ -822,7 +824,7 @@ def find_forbidden_terms(page_json, financing_lender=None, verified_claims=None)
     return hits
 
 
-# Fix cycle 2 item 2 / item 11: the page author (Austin) must never speak in
+# Fix cycle 2 item 2 / item 11: the page author must never speak in
 # the ad speaker's first person. A simple heuristic: "I" directly followed by
 # one of these common first-person-anecdote verbs. Kept deliberately simple
 # per the fix note -- not a full grammar check.
@@ -905,13 +907,13 @@ def find_financing_violations(page_json, financing_lender=None):
             if financing_line is not None:
                 text = financing_line.get("text") if isinstance(financing_line, dict) else financing_line
                 text_path = f"{path}.financing_line.text" if isinstance(financing_line, dict) else f"{path}.financing_line"
-                if isinstance(text, str) and text.strip() != ALLOWED_FINANCING_SENTENCE_NO_LENDER:
+                if isinstance(text, str) and text.strip() != vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER:
                     hits.append(
                         {
                             "path": text_path,
                             "issue": (
                                 "financing_line must be exactly "
-                                f"{ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured)"
+                                f"{vocab.ALLOWED_FINANCING_SENTENCE_NO_LENDER!r} (no lender is configured)"
                             ),
                             "text": text,
                         }
@@ -986,7 +988,7 @@ _WARRANTY_SENTENCE_CORE_RE = re.compile(
 # a bare "lifetime" check flagged "A warranty document you can actually read
 # component by component, not just a one-line lifetime promise." -- that's
 # buyer-education commentary CONTRASTING a vague "lifetime promise" against
-# reading real per-component terms, not a claim that Peak's own warranty is
+# reading real per-component terms, not a claim that the tenant's own warranty is
 # blanket lifetime coverage. The word "warranty" and the word "lifetime" both
 # appear, but never adjacent -- the actual assertion this gate needs to catch
 # is specifically the phrase "lifetime warranty" (the two words together,
@@ -999,11 +1001,11 @@ def find_warranty_violations(page_json, verified_claims):
     verified_warranty_texts = {
         c["text"].strip() for c in (verified_claims or []) if "warranty" in c.get("id", "").lower() and c.get("text")
     }
-    allowed_label_lower = ALLOWED_WARRANTY_SPEC_LABEL.lower()
+    allowed_label_lower = vocab.ALLOWED_WARRANTY_SPEC_LABEL.lower()
 
     def is_allowed(text):
         stripped = text.strip()
-        if stripped.lower() in (ALLOWED_WARRANTY_SENTENCE.lower(), ALLOWED_WARRANTY_SPEC_VALUE.lower()):
+        if stripped.lower() in (vocab.ALLOWED_WARRANTY_SENTENCE.lower(), vocab.ALLOWED_WARRANTY_SPEC_VALUE.lower()):
             return True
         if stripped.lower() == allowed_label_lower:
             return True
@@ -1021,9 +1023,9 @@ def find_warranty_violations(page_json, verified_claims):
                     {
                         "path": path,
                         "issue": (
-                            f"warranty wording must be exactly {ALLOWED_WARRANTY_SENTENCE!r}, "
-                            f"the spec-table pair ({ALLOWED_WARRANTY_SPEC_LABEL!r}: "
-                            f"{ALLOWED_WARRANTY_SPEC_VALUE!r}), or a verbatim quote of a verified "
+                            f"warranty wording must be exactly {vocab.ALLOWED_WARRANTY_SENTENCE!r}, "
+                            f"the spec-table pair ({vocab.ALLOWED_WARRANTY_SPEC_LABEL!r}: "
+                            f"{vocab.ALLOWED_WARRANTY_SPEC_VALUE!r}), or a verbatim quote of a verified "
                             "warranty claim's own text"
                         ),
                         "text": node,
@@ -1068,28 +1070,32 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
 # ---------------------------------------------------------------------------
 # Fix cycle 5: a claim id belongs only in a node's own "claim_ids"/"claim_id"
 # field -- never inside prose the writer composed. Observed twice in run
-# 20260909-2021-hidden-costs-v2: "the Peak Fuji 2-Person Infrared Sauna
+# 20260909-2021-hidden-costs-v2: "the full product short_name
 # (spec-fuji-capacity), which is priced at $8,250". A reader has no idea
 # what "spec-fuji-capacity" means; it's an internal id, not a citation.
 # ---------------------------------------------------------------------------
 
 # An id-shaped token: lowercase letters, digits, and hyphens, at least one
 # hyphen (a bare word like "sauna" never matches). Flags both a leaked known
-# id and a hallucinated one in the same family (see KNOWN_CLAIM_ID_PREFIXES)
+# id and a hallucinated one in the same family (see known_claim_id_prefixes())
 # that was never in claims/verified.json to begin with.
 _ID_SHAPED_TOKEN_RE = re.compile(r"\b[a-z]+(?:-[a-z0-9]+){1,}\b")
 
 # The id-family prefixes actually used in claims/verified.json. A token
 # starting with one of these reads as an internal id even if it doesn't
 # happen to be one of this run's own valid_claim_ids.
-KNOWN_CLAIM_ID_PREFIXES = (
-    "price-", "spec-", "reviews-", "warranty-", "shipping-", "returns-",
-    "founder-", "gbrain-", "benefit-", "trust-",
-)
+_FALLBACK_CLAIM_ID_PREFIXES = ("price-", "spec-", "reviews-", "benefit-", "trust-")
+
+
+def known_claim_id_prefixes():
+    """tenant.yaml's claim_id_prefixes -- the id families this tenant's own
+    claims store actually uses."""
+    prefixes = tenant_mod.active().get("claim_id_prefixes") or ()
+    return tuple(prefixes) or _FALLBACK_CLAIM_ID_PREFIXES
 
 
 def _looks_like_claim_id(token, valid_claim_ids):
-    return token in valid_claim_ids or token.startswith(KNOWN_CLAIM_ID_PREFIXES)
+    return token in valid_claim_ids or token.startswith(known_claim_id_prefixes())
 
 
 def find_leaked_claim_ids(page_json, valid_claim_ids):
@@ -1182,8 +1188,11 @@ BENEFIT_CLAIM_CATEGORIES = {"spec", "benefit", "trust"}
 # returns") -- these are trust/price category claims that don't say anything
 # about what the product does, so they don't count toward the minimum even
 # though their category would otherwise qualify.
-_EXCLUDED_BENEFIT_IDS = {"warranty-terms", "shipping-policy", "returns-policy"}
 _EXCLUDED_BENEFIT_ID_PREFIXES = ("price-",)
+
+
+def _excluded_benefit_ids():
+    return set(tenant_mod.active().get("excluded_benefit_ids") or ())
 
 _BENEFIT_SECTION_GETTERS = {
     "product-page": lambda page: page.get("proof_bullets", []),
@@ -1193,7 +1202,7 @@ _BENEFIT_SECTION_GETTERS = {
 
 
 def _is_benefit_claim_id(claim_id, verified_by_id):
-    if claim_id in _EXCLUDED_BENEFIT_IDS or claim_id.startswith(_EXCLUDED_BENEFIT_ID_PREFIXES):
+    if claim_id in _excluded_benefit_ids() or claim_id.startswith(_EXCLUDED_BENEFIT_ID_PREFIXES):
         return False
     claim = verified_by_id.get(claim_id)
     return bool(claim) and claim.get("category") in BENEFIT_CLAIM_CATEGORIES
@@ -1232,7 +1241,6 @@ _SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE 
 _COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
 
-VISIBLE_TEXT_FORBIDDEN_TERMS = ("emf", "electromagnetic")
 
 
 def strip_html_to_visible_text(rendered_html):
@@ -1246,12 +1254,15 @@ def strip_html_to_visible_text(rendered_html):
     return html.unescape(without_tags)
 
 
-def find_forbidden_visible_text(rendered_html, terms=VISIBLE_TEXT_FORBIDDEN_TERMS):
-    """EMF is absolute (fix cycle 2 item 6/9): scan the page as a reader would
-    see it, not as page.json's structured fields. Catches a citation URL or a
+def find_forbidden_visible_text(rendered_html, terms=None):
+    """A tenant's absolute bans (vocab.yaml's visible_text_forbidden_terms) are
+    checked once more after rendering: scan the page as a reader would see it,
+    not as page.json's structured fields. Catches a citation URL or a
     Sources-list link that got printed as visible link text even though it
     was exempt as a structural field pre-render. href/src attribute values
     are exempt -- they disappear along with their tag."""
+    if terms is None:
+        terms = vocab.VISIBLE_TEXT_FORBIDDEN_TERMS
     text = strip_html_to_visible_text(rendered_html).lower()
     hits = []
     for term in terms:

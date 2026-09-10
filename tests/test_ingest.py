@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from adv import ingest
-from adv.budget import Budget
-from adv.log import RunLog
+from harness import ingest
+from harness.budget import Budget
+from harness.log import RunLog
 from tests.conftest import FakeClient, json_response
 
 
@@ -15,7 +15,7 @@ from tests.conftest import FakeClient, json_response
 # ---------------------------------------------------------------------------
 
 def test_video_to_transcript_passes_whisper_initial_prompt(tmp_path):
-    with patch("adv.ingest.subprocess.run") as mock_run:
+    with patch("harness.ingest.subprocess.run") as mock_run:
         mock_run.return_value.stdout = "a transcript"
         (tmp_path / "in.mov").write_bytes(b"fake")
         result = ingest.video_to_transcript(

@@ -1,71 +1,53 @@
-"""`adv` console entry point: run / ingest / claims add|list / review / score."""
+"""`harness` console entry point: run / ingest / claims / review / score /
+shopify-body / tenant / workflow.
+
+The CLI resolves which tenant a command is for (--tenant > HARNESS_TENANT >
+tenants/default.txt), activates it, and hands the pipeline a Tenant object. No
+company-specific value is read from anywhere else.
+"""
 import argparse
-import base64
 import datetime
 import json
-import mimetypes
-import random
 import re
 import sys
 from pathlib import Path
 
-from . import config
+from . import pipeline
+from . import tenant as tenant_mod
+from . import vocab
+from . import workflows
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from .claims import (
     ClaimsGateFailure,
     collect_claim_ids,
-    gate_ad_brief_claims,
     gate_page_json,
     strip_leaked_claim_ids,
+    warranty_claim_id,
 )
-from .ground import LocalFactsSource, load_claims_config
-from .ingest import download_drive_file, run_ingest
+from .config import DEFAULT_MODEL, FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
+from .ingest import run_ingest
 from .log import RunLog
-from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
-from .prices import refresh_price_data
-from .render import http_fetch_bytes, render_page
-from .reviews import fetch_reviews_claim
-from .semantic_match import semantic_match_claims
+from .review import cmd_review
 from .shopify import write_shopify_body
-from .vocab import (
-    ALLOWED_WARRANTY_SENTENCE,
-    ALLOWED_WARRANTY_SPEC_LABEL,
-    ALLOWED_WARRANTY_SPEC_VALUE,
-    forbidden_words_block,
-)
+from .tenant import TenantNotConfigured, UnknownTenant
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# Exit codes: 1 bad usage, 2 claims gate STOP, 3 budget cap, 4 tenant not set up.
+EXIT_TENANT_NOT_CONFIGURED = 4
 
-def slugify(input_arg):
-    name = Path(input_arg).stem or input_arg
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", name).strip("-").lower()
-    return slug or "run"
-
-
-def make_run_id(slug):
-    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M")
-    return f"{ts}-{slug}"
-
-
-def discover_cartridges():
-    cart_dir = REPO_ROOT / "cartridges"
-    if not cart_dir.exists():
-        return []
-    return sorted(p.name for p in cart_dir.iterdir() if p.is_dir() and (p / "cartridge.md").exists())
-
-
-# listicle is opt-in only until Caleb approves it for the default rotation
-# (cartridges/listicle/cartridge.md) -- discover_cartridges() finds it (so
-# `--cartridges listicle` and the unknown-cartridge check both work), but
-# `adv run`'s no-flag default random-3 pick draws only from this set.
-DEFAULT_CARTRIDGE_POOL = ("article", "product-page", "longform")
+# Run-shaping helpers live in harness/pipeline.py, which owns the stage list.
+# Re-exported here because they are part of the CLI's own surface.
+discover_cartridges = pipeline.discover_cartridges
+slugify = pipeline.slugify
+make_run_id = pipeline.make_run_id
+MAX_REPAIR_ATTEMPTS = 2
 
 
 # ---------------------------------------------------------------------------
-# adv run
+# harness run
 # ---------------------------------------------------------------------------
 
 # Fix 10: page.json keys that hold structural/reference data, not prose --
@@ -88,20 +70,29 @@ def _collect_prose_strings(node, out):
         out.append(node)
 
 
-def find_emf_urls(facts_pack):
-    """Fix cycle 2 item 8: the Shopify handle for Fuji (and other models)
-    contains "near-zero-emf" -- pages link to the product URL as-is (that's
-    Caleb's call on the Shopify side), but every such URL is logged per run
-    so it stays visible in REVIEW.md."""
+def find_forbidden_term_urls(facts_pack, terms=None):
+    """Every URL this run uses whose own path contains one of the tenant's
+    banned terms. A storefront handle is outside this harness's control, so a
+    page still links to the product URL as-is -- but each such URL is logged
+    per run and listed in REVIEW.md so it stays visible."""
+    if terms is None:
+        terms = vocab.VISIBLE_TEXT_FORBIDDEN_TERMS
+    terms = [t.lower() for t in terms]
+    if not terms:
+        return []
     urls = []
     product_url = facts_pack.get("product", {}).get("url")
-    if product_url and "emf" in product_url.lower():
+    if product_url and any(t in product_url.lower() for t in terms):
         urls.append(product_url)
     for claim in facts_pack.get("verified_claims", []):
         source = claim.get("source", "")
-        if source.startswith("http") and "emf" in source.lower() and source not in urls:
+        if source.startswith("http") and any(t in source.lower() for t in terms) and source not in urls:
             urls.append(source)
     return urls
+
+
+# Kept as the historical name used by the tests.
+find_emf_urls = find_forbidden_term_urls
 
 
 def count_words(page_json):
@@ -121,9 +112,6 @@ def count_words(page_json):
 # MAX_REPAIR_ATTEMPTS times. Ad-claim gate failures (gate_ad_brief_claims, in
 # cmd_run) are unaffected -- those still STOP immediately, no retry.
 # ---------------------------------------------------------------------------
-
-MAX_REPAIR_ATTEMPTS = 2
-
 
 # article's CTA lives at page.cta.text (fix cycle 3 item 4 left article's
 # single nested cta object alone); longform and product-page have a flat
@@ -203,7 +191,7 @@ def build_revision_note(attempt, failures):
     system prompt, so a repair attempt can't claim it forgot the list."""
     lines = [
         f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS})",
-        forbidden_words_block(),
+        vocab.forbidden_words_block(),
         "",
         "Your page.json failed the gate checks below (every failure seen across every attempt "
         "so far on this page, not just your most recent one). Fix every one of them and return "
@@ -246,7 +234,7 @@ def build_revision_note(attempt, failures):
 # call. This is what breaks the "fix A, break B, re-break A" cycle observed
 # on the hidden-costs-v2 verification run: attempt 1 hit the hype word
 # "unlock"; attempt 2's rewrite fixed it but tripped the digit/claim_id gate
-# on the product's own short_name ("Peak Fuji 2-Person Infrared Sauna");
+# on the product's own short_name (which carries its capacity digit);
 # attempt 3's rewrite fixed that but reintroduced "unlock" -- exhausting
 # MAX_REPAIR_ATTEMPTS on two bugs that each had a one-line deterministic fix.
 # ---------------------------------------------------------------------------
@@ -254,16 +242,8 @@ def build_revision_note(attempt, failures):
 # Case-preserving, whole-word substitution only -- never rewrites inside
 # another word ("unlocking" is matched as its own key, not as "unlock" plus
 # leftover "ing").
-_HYPE_SYNONYMS = {
-    "unlock": "get",
-    "unlocks": "gets",
-    "unlocking": "getting",
-    "elevate": "improve",
-    "elevates": "improves",
-    "journey": "process",
-    "game-changer": "big improvement",
-    "game changer": "big improvement",
-}
+def _hype_synonyms():
+    return vocab.HYPE_SYNONYMS
 
 
 def _case_preserving_replacement(match, replacement):
@@ -274,11 +254,11 @@ def _case_preserving_replacement(match, replacement):
 
 
 def apply_hype_synonyms(text):
-    """Whole-word, case-preserving substitution of every vocab.HYPE_WORDS
-    term this cycle has a safe synonym for, plus exclamation mark -> period
-    (fix cycle 4 banned '!' outright; a rewrite sometimes just swaps the
-    sentence's punctuation instead of its wording)."""
-    for word, replacement in _HYPE_SYNONYMS.items():
+    """Whole-word, case-preserving substitution of every hype word the tenant's
+    vocab.yaml gives a safe synonym for, plus exclamation mark -> period (a
+    rewrite sometimes just swaps the sentence's punctuation instead of its
+    wording)."""
+    for word, replacement in _hype_synonyms().items():
         pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
         text = pattern.sub(lambda m: _case_preserving_replacement(m, replacement), text)
     text = text.replace("!", ".")
@@ -323,10 +303,8 @@ def _set_at_path(page, path, value):
 # (medical/clinical/proven/rated/reviews/emf) either already have prompt-
 # level guidance (reviews) or don't have a safe drop-in synonym, so a real
 # repair call still handles those.
-_TRIGGER_WORD_SYNONYMS = {
-    "study": "research",
-    "studies": "research",
-}
+def _trigger_word_synonyms():
+    return vocab.TRIGGER_WORD_SYNONYMS
 
 # claims.validate_page_claim_ids's trigger-word issue text, e.g. 'text needs
 # at least one claim_id (uses the word "study") -- cite a verified claim_id,
@@ -430,13 +408,13 @@ def convert_incidental_numerals(text):
 
 
 def _warranty_claim_id(valid_claim_ids):
-    """The verified claim id to cite for the fixed warranty sentence --
-    "warranty-terms" if present (the real id in claims/verified.json as of
-    this fix), else the first id in this run's own valid_claim_ids that
-    looks like a warranty claim, else None (attach no claim_ids rather than
-    guess)."""
-    if "warranty-terms" in valid_claim_ids:
-        return "warranty-terms"
+    """The verified claim id to cite for the fixed warranty sentence -- the
+    tenant's own warranty_claim_id if this run has it, else the first id in
+    valid_claim_ids that looks like a warranty claim, else None (attach no
+    claim_ids rather than guess)."""
+    configured = warranty_claim_id()
+    if configured in valid_claim_ids:
+        return configured
     for cid in sorted(valid_claim_ids):
         if "warranty" in cid.lower():
             return cid
@@ -460,13 +438,13 @@ def _fix_warranty_violation(page, path, valid_claim_ids):
         return False
 
     if key == "value" and "label" in node:
-        node["label"] = ALLOWED_WARRANTY_SPEC_LABEL
-        node["value"] = ALLOWED_WARRANTY_SPEC_VALUE
+        node["label"] = vocab.ALLOWED_WARRANTY_SPEC_LABEL
+        node["value"] = vocab.ALLOWED_WARRANTY_SPEC_VALUE
         if "claim_id" in node:
             node["claim_id"] = _warranty_claim_id(valid_claim_ids) or node["claim_id"]
         return True
 
-    node[key] = ALLOWED_WARRANTY_SENTENCE
+    node[key] = vocab.ALLOWED_WARRANTY_SENTENCE
     claim_id = _warranty_claim_id(valid_claim_ids)
     if "claim_ids" in node and claim_id:
         node["claim_ids"] = [claim_id]
@@ -499,7 +477,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                     log.event(f"write.{cartridge_name}", "deterministic fix applied: warranty sentence")
             continue
 
-        if term in _HYPE_SYNONYMS or term == "!":
+        if term in _hype_synonyms() or term == "!":
             path = raw_path
             substitute = apply_hype_synonyms
         elif "claim id leaked into copy" in issue:
@@ -514,7 +492,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
         else:
             m = _TRIGGER_WORD_ISSUE_RE.search(issue)
             word = m.group(1) if m else None
-            replacement = _TRIGGER_WORD_SYNONYMS.get(word)
+            replacement = _trigger_word_synonyms().get(word)
             if not replacement:
                 continue
             # validate_page_claim_ids's trigger-word path points at the
@@ -539,7 +517,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
 
 
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-                         financing_lender, speaker_pov, ad_not_repeated=None):
+                         financing_lender, speaker_pov, ad_not_repeated=None, tenant=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -552,9 +530,10 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     is the parallel list of how many fields the pre-repair pass fixed on
     that attempt. Raises ClaimsGateFailure (stage page_json:<cartridge>,
     with .attempts and .deterministic_fixes set) if every attempt fails."""
+    tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
-    cartridge_md = (cartridge_dir / "cartridge.md").read_text()
-    schema = json.loads((cartridge_dir / "schema.json").read_text())
+    cartridge_md = tenant.render((cartridge_dir / "cartridge.md").read_text())
+    schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
     word_range = parse_word_range(cartridge_md)
     allowed_cta_texts = resolve_allowed_cta_texts(
         schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"]
@@ -627,6 +606,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             allowed_cta_texts=allowed_cta_texts,
             revision_note=revision_note,
             ad_not_repeated=ad_not_repeated,
+            tenant=tenant,
         )
         call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
@@ -671,7 +651,8 @@ def _log_run_result(log, result, gate_log):
     log.result(result, total_attempts, total_repairs)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, emf_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None):
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, forbidden_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None, emf_urls=None):
+    forbidden_urls = forbidden_urls if forbidden_urls is not None else emf_urls
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -757,20 +738,20 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
         lines.append("- First-person attribution: not applicable (ad_brief.speaker_pov is not first_person).")
 
     lines.append("")
-    lines.append("## EMF handling")
+    lines.append("## Banned-topic handling")
     dropped = ad_brief.get("_dropped_emf_claims") or []
     if dropped:
-        lines.append("Dropped from ad_brief during ingest (fix 7):")
+        lines.append("Dropped from ad_brief during ingest:")
         for text in dropped:
-            lines.append(f"- dropped EMF claim: {text}")
+            lines.append(f"- dropped claim: {text}")
     else:
-        lines.append("- no EMF claims/features were dropped from ad_brief during ingest.")
-    if emf_urls:
-        lines.append("URLs that still contain \"emf\" (Shopify handle; pages link to it as-is -- fix 8):")
-        for url in emf_urls:
+        lines.append("- no claims/features were dropped from ad_brief during ingest.")
+    if forbidden_urls:
+        lines.append("URLs that still contain a banned term (storefront handle; pages link to it as-is):")
+        for url in forbidden_urls:
             lines.append(f"- {url}")
     else:
-        lines.append("- no URL used by this run contains \"emf\".")
+        lines.append("- no URL used by this run contains a banned term.")
 
     lines.append("")
     lines.append("## Gate history")
@@ -804,270 +785,60 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
 
 
 def cmd_run(args):
-    client = make_client()
-    budget = Budget()
-    slug = slugify(args.input)
-    run_id = make_run_id(slug)
-    run_dir = REPO_ROOT / "out" / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    log = RunLog(run_id, REPO_ROOT / "runs" / f"{run_id}.log")
+    """ingest -> ground -> gate -> write -> render -> REVIEW.md, for one tenant.
 
-    seed = args.seed if args.seed is not None else random.randrange(1_000_000)
-    log.seed(seed)
-    rng = random.Random(seed)
+    The stage list lives in harness/pipeline.py; `harness workflow run
+    ad-to-pages` runs the same functions in the order workflows/ad-to-pages.yaml
+    gives, so the two commands cannot drift apart."""
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    state = pipeline.RunState(tenant=tenant, args=args, client=make_client())
+    return pipeline.execute(state, pipeline.DEFAULT_STAGES)
 
-    available = discover_cartridges()
-    if args.cartridges:
-        selected = [c.strip() for c in args.cartridges.split(",") if c.strip()]
-        unknown = [c for c in selected if c not in available]
-        if unknown:
-            print(f"unknown cartridge(s): {unknown}; available: {available}", file=sys.stderr)
-            log.close()
-            return 1
-    else:
-        default_pool = [c for c in available if c in DEFAULT_CARTRIDGE_POOL] or available
-        selected = rng.sample(default_pool, k=min(3, len(default_pool)))
-    log.cartridges(selected)
 
-    claims_dir = REPO_ROOT / "claims"
-    claims_config = load_claims_config(claims_dir)
+def cmd_workflow_run(args):
+    """Run one workflow's pipeline stages, in the order its YAML gives."""
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    workflow = workflows.load_workflow(args.name)
+    names = workflows.stage_names(workflow)
+    if not names:
+        print(f"workflow {args.name!r} runs no pipeline stages", file=sys.stderr)
+        return 1
+    state = pipeline.RunState(tenant=tenant, args=args, client=make_client())
+    return pipeline.execute(state, names)
 
-    # Fix cycle 4 item 5: cartridge_name -> {"attempts": [failures_per_attempt]}
-    # from the writer repair loop below, kept outside the try block so a STOP
-    # can still log a run_result line with real attempts/repairs counts for
-    # whatever cartridges were processed before the STOP.
-    gate_log = {}
 
-    # Fix 2: live prices, at the start of the run, before ingest. Cached for
-    # 60 minutes in runs/products-cache.json; falls back to the cache (with a
-    # logged warning) on fetch failure.
-    today_iso = datetime.date.today().isoformat()
-    merged_products, live_price_claims_by_slug, live_products = refresh_price_data(
-        products_path=claims_dir / "products.json",
-        cache_path=REPO_ROOT / "runs" / "products-cache.json",
-        show_compare_at_price=claims_config.get("show_compare_at_price", False),
-        today_iso=today_iso,
-        log=log,
-    )
-
-    # Fix cycle 9 item 1: PDP claim seeding, right after the live price
-    # refresh above (same raw feed data, still carrying body_html) -- every
-    # active product's page states facts (app control, outlet/electrical,
-    # speakers, wood, red light, crate shipping, capacity, assembly) that
-    # claims/verified.json doesn't carry. In-memory only for this run;
-    # regenerated into runs/pdp-claims-cache.json alongside the price cache,
-    # never written into claims/verified.json.
-    live_products_by_handle = {p.get("handle"): p for p in live_products}
-    pdp_claims = seed_pdp_claims(merged_products, live_products_by_handle, today_iso)
-    save_pdp_claims_cache(REPO_ROOT / "runs" / "pdp-claims-cache.json", pdp_claims)
-
-    try:
-        ad_brief = run_ingest(
-            input_arg=args.input,
-            workdir=run_dir,
-            client=client,
-            model=config.DEFAULT_MODEL,
-            budget=budget,
-            log=log,
-            ffmpeg_bin=args.ffmpeg_bin,
-            whisper_bin=args.whisper_bin,
-            whisper_model=args.whisper_model,
-        )
-        (run_dir / "ad_brief.json").write_text(json.dumps(ad_brief, indent=2))
-
-        budget.check()
-        facts_source = LocalFactsSource(claims_dir)
-
-        # Fix cycle 10 item 1: product-picking now runs BEFORE the ad-claims
-        # gate (it used to run after, so price-based product inference (fix
-        # cycle 9 item 2) never got a chance in the real pipeline -- the gate
-        # STOPped on a price claim first every time). Fix cycle 8 problem 1b:
-        # pick_product_with_warning names the exact model mentioned in the ad
-        # (word-boundary match, first-mentioned wins if several); if none is
-        # named it falls back to the default product and hands back a warning
-        # that goes into REVIEW.md below. Fix cycle 9 item 2: failing that, it
-        # also checks for a quoted price matching exactly one active product
-        # before defaulting.
-        product, product_warning = facts_source.pick_product_with_warning(args.product, ad_brief)
-        if product_warning:
-            log.event("run", product_warning)
-        live_price_claim = live_price_claims_by_slug.get(product["slug"])
-        reviews_claim = fetch_reviews_claim(product["url"], today_iso, log=log)
-
-        facts_pack = facts_source.facts_for(
-            product["slug"],
-            ad_brief,
-            config=claims_config,
-            live_price_claim=live_price_claim,
-            reviews_claim=reviews_claim,
-            pdp_claims=pdp_claims,
-        )
-        (run_dir / "facts_pack.json").write_text(json.dumps(facts_pack, indent=2))
-
-        # Gate against the FULL verified.json universe (with this run's live
-        # price claims and freshly-seeded PDP claims substituted/added in) --
-        # an ad claim can reference anything approved, not just the eventual
-        # product's curated facts_pack subset. Fix cycle 10 items 2-4: a
-        # locked-topic claim (warranty/reviews/financing/price) is checked
-        # against product/reviews_claim/financing_lender instead of word
-        # overlap; ad_overclaim_policy controls whether a locked-topic miss
-        # alone stops the run.
-        policy = claims_config.get("ad_overclaim_policy", "stop")
-        all_verified_claims = facts_source.all_verified_claims(live_price_claims_by_slug, extra_claims=pdp_claims)
-
-        # Fix cycle 12 item 4: one real Claude call proposing a semantic
-        # (equivalent-meaning) mapping before word-overlap matching runs --
-        # falls back to {} (pure overlap) on any failure. Made unconditionally
-        # (not policy-gated) since it only ever widens what can match, on
-        # both policies.
-        semantic_mapping = semantic_match_claims(
-            ad_brief.get("claims_made", []),
-            all_verified_claims,
-            client=client,
-            model=config.DEFAULT_MODEL,
-            budget=budget,
-            log=log,
-        )
-
-        gate_matched, ad_not_repeated, ad_alternative_claims = gate_ad_brief_claims(
-            ad_brief,
-            all_verified_claims,
-            product=product,
-            reviews_claim=reviews_claim,
-            financing_lender=claims_config.get("financing_lender"),
-            policy=policy,
-            log=log,
-            semantic_mapping=semantic_mapping,
-        )
-        log.gate_result(
-            "PASS",
-            f"{len(gate_matched)} ad claim(s) matched"
-            + (f", {len(ad_not_repeated)} ad claim(s) not repeated under 'warn' policy" if ad_not_repeated else "")
-            + (f", {len(ad_alternative_claims)} ad statement(s) about the alternative" if ad_alternative_claims else ""),
-        )
-
-        # Fix cycle 2 item 8: log a warning for every URL that still contains
-        # "emf" (the Shopify handle), so it stays visible in REVIEW.md even
-        # though the page is allowed to link to it as-is.
-        emf_urls = find_emf_urls(facts_pack)
-        for url in emf_urls:
-            log.event("run", f"URL contains 'emf': {url}")
-
-        pages = {}
-        for cartridge_name in selected:
-            budget.check()
-            try:
-                page, attempts, deterministic_fixes = write_and_gate_page(
-                    cartridge_name=cartridge_name,
-                    cartridges_dir=REPO_ROOT / "cartridges",
-                    ad_brief=ad_brief,
-                    facts_pack=facts_pack,
-                    client=client,
-                    model=config.DEFAULT_MODEL,
-                    budget=budget,
-                    log=log,
-                    financing_lender=claims_config.get("financing_lender"),
-                    speaker_pov=ad_brief.get("speaker_pov"),
-                    ad_not_repeated=ad_not_repeated,
-                )
-            except ClaimsGateFailure as e:
-                attempts = getattr(e, "attempts", [e.items])
-                gate_log[cartridge_name] = {
-                    "attempts": attempts,
-                    "deterministic_fixes": getattr(e, "deterministic_fixes", [0] * len(attempts)),
-                }
-                raise
-            gate_log[cartridge_name] = {"attempts": attempts, "deterministic_fixes": deterministic_fixes}
-            pages[cartridge_name] = page
-
-        published = updated = datetime.date.today().isoformat()
-        outputs = []
-        for cartridge_name, page in pages.items():
-            index_path = render_page(
-                cartridge_name=cartridge_name,
-                page=page,
-                ad_brief=ad_brief,
-                facts_pack=facts_pack,
-                cartridges_dir=REPO_ROOT / "cartridges",
-                brand_dir=REPO_ROOT / "brand",
-                templates_dir=REPO_ROOT / "adv" / "templates",
-                out_dir=run_dir / cartridge_name,
-                published=published,
-                updated=updated,
-                log=log,
-                fetch_url=http_fetch_bytes,
-                drive_downloader=download_drive_file,
-            )
-            outputs.append(index_path)
-
-    except ClaimsGateFailure as e:
-        (run_dir / "unmatched_claims.json").write_text(
-            json.dumps({"stage": e.stage, "items": e.items}, indent=2)
-        )
-        log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
-        log.event("run", str(e))
-        cost = log.cost_estimate()
-        log.budget_summary(budget.summary())
-        _log_run_result(log, "STOP", gate_log)
-        log.close()
-        print(f"Claims gate STOPPED at stage {e.stage!r}: {len(e.items)} unmatched item(s).", file=sys.stderr)
-        print(json.dumps(e.items, indent=2), file=sys.stderr)
-        print(f"See {run_dir / 'unmatched_claims.json'}", file=sys.stderr)
-        return 2
-
-    except BudgetExceeded as e:
-        log.event("run", f"budget exceeded: {e}")
-        log.budget_summary(budget.summary())
-        _log_run_result(log, "STOP", gate_log)
-        log.close()
-        print(f"budget exceeded: {e}", file=sys.stderr)
-        return 3
-
-    cost = log.cost_estimate()
-    log.budget_summary(budget.summary())
-    write_review_md(
-        run_dir,
-        ad_brief=ad_brief,
-        facts_pack=facts_pack,
-        product_name=facts_pack["product"]["name"],
-        selected=selected,
-        pages=pages,
-        budget=budget,
-        cost=cost,
-        gate_matched=gate_matched,
-        emf_urls=emf_urls,
-        gate_log=gate_log,
-        product_warning=product_warning,
-        ad_not_repeated=ad_not_repeated,
-        ad_alternative_claims=ad_alternative_claims,
-    )
-    _log_run_result(log, "PASS", gate_log)
-    log.close()
-
-    print(f"Run complete: {run_dir}")
-    for p in outputs:
-        print(f" - {p}")
+def cmd_workflow_list(args):
+    for name in workflows.list_workflows():
+        workflow = workflows.load_workflow(name)
+        print(f"{name:16s} {(workflow.get('description') or '').strip().splitlines()[0] if workflow.get('description') else ''}")
     return 0
 
 
 # ---------------------------------------------------------------------------
-# adv ingest
+# harness ingest
 # ---------------------------------------------------------------------------
 
 def cmd_ingest(args):
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
     client = make_client()
     budget = Budget()
-    run_id = make_run_id(slugify(args.input))
-    out_dir = REPO_ROOT / "out" / run_id
+    run_id = pipeline.make_run_id(pipeline.slugify(args.input))
+    out_dir = tenant.out_dir / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    log = RunLog(run_id, REPO_ROOT / "runs" / f"{run_id}.log")
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
 
     try:
         ad_brief = run_ingest(
             input_arg=args.input,
             workdir=out_dir,
             client=client,
-            model=config.DEFAULT_MODEL,
+            model=DEFAULT_MODEL,
             budget=budget,
             log=log,
             ffmpeg_bin=args.ffmpeg_bin,
@@ -1089,68 +860,38 @@ def cmd_ingest(args):
 
 
 # ---------------------------------------------------------------------------
-# adv review (fix cycle 3 item 8): one self-contained review.html per
-# cartridge, images inlined as data URIs, for sending to Caleb. Simple regex
-# on src="assets/..." -- no HTML parser needed.
+# harness tenant init / list
 # ---------------------------------------------------------------------------
 
-_ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
+def cmd_tenant_init(args):
+    root = tenant_mod.init_tenant(args.name)
+    print(f"Created {root} from {tenant_mod.TEMPLATE_DIR.name}.")
+    print(f"Next: work through {root / 'README.md'}. Until its claims store is")
+    print("filled in, a run for this tenant exits 4 with a 'tenant not configured' message.")
+    return 0
 
 
-def inline_assets_as_data_uris(html_text, assets_dir):
-    """Replace every `src="assets/<file>"` with a data: URI of that file's
-    bytes, read from `assets_dir`. A referenced file that's missing on disk
-    is left as-is (better a broken image than a crashed command)."""
-
-    def replace(match):
-        filename = match.group(1)
-        asset_path = Path(assets_dir) / filename
-        if not asset_path.exists():
-            return match.group(0)
-        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        b64 = base64.b64encode(asset_path.read_bytes()).decode("ascii")
-        return f'src="data:{mime};base64,{b64}"'
-
-    return _ASSET_SRC_RE.sub(replace, html_text)
-
-
-def cmd_review(args):
-    run_dir = Path(args.run_dir)
-    if not run_dir.is_dir():
-        print(f"no such run dir: {run_dir}", file=sys.stderr)
-        return 1
-
-    written = []
-    for cartridge_dir in sorted(p for p in run_dir.iterdir() if p.is_dir()):
-        index_path = cartridge_dir / "index.html"
-        if not index_path.exists():
-            continue
-        html_text = index_path.read_text()
-        review_html = inline_assets_as_data_uris(html_text, cartridge_dir / "assets")
-        review_path = run_dir / f"{cartridge_dir.name}-review.html"
-        review_path.write_text(review_html)
-        written.append(review_path)
-
-    if not written:
-        print(f"no cartridge output (index.html) found under {run_dir}", file=sys.stderr)
-        return 1
-
-    for p in written:
-        print(f"Wrote {p}")
+def cmd_tenant_list(args):
+    active = tenant_mod.resolve_tenant_name(None) if tenant_mod.DEFAULT_FILE.exists() else None
+    for name in tenant_mod.list_tenants():
+        tenant = tenant_mod.load_tenant(name)
+        missing = tenant.missing_pieces()
+        status = "ready" if not missing else f"not configured ({', '.join(missing)})"
+        marker = "*" if name == active else " "
+        print(f"{marker} {name:20s} {status}")
     return 0
 
 
 # ---------------------------------------------------------------------------
-# adv shopify-body
+# harness shopify-body
 # ---------------------------------------------------------------------------
 
 def cmd_shopify_body(args):
-    """`adv shopify-body <run-dir>/<cartridge>`: writes shopify-body.html and
-    shopify-body.assets.json next to that cartridge's index.html. No Shopify
-    API call anywhere in this path -- see cartridges/listicle/README's
-    "Shopify traps" section for why publishing is a separate, not-yet-built
-    step that must never run without a packet stamped `ship` and Caleb's
-    approval."""
+    """`harness shopify-body <run-dir>/<cartridge>`: writes shopify-body.html
+    and shopify-body.assets.json next to that cartridge's index.html. No
+    storefront API call anywhere in this path -- publishing is a separate,
+    not-yet-built step that must never run without an approved packet."""
+    tenant_mod.activate(tenant_mod.load_tenant(args.tenant))
     cartridge_dir = Path(args.cartridge_dir)
     index_path = cartridge_dir / "index.html"
     if not index_path.exists():
@@ -1164,11 +905,12 @@ def cmd_shopify_body(args):
 
 
 # ---------------------------------------------------------------------------
-# adv claims add / list
+# harness claims add / list
 # ---------------------------------------------------------------------------
 
 def cmd_claims_add(args):
-    verified_path = REPO_ROOT / "claims" / "verified.json"
+    tenant = tenant_mod.load_tenant(args.tenant)
+    verified_path = tenant.claims_dir / "verified.json"
     verified = json.loads(verified_path.read_text()) if verified_path.exists() else []
 
     base_id = re.sub(r"[^a-z0-9]+", "-", args.text.lower()).strip("-")[:40] or "claim"
@@ -1183,7 +925,7 @@ def cmd_claims_add(args):
         "text": args.text,
         "category": args.category,
         "source": args.source,
-        "approved_by": args.approved_by or "Caleb",
+        "approved_by": args.approved_by or (tenant.author("contributor") or {}).get("name") or "operator",
         "date": datetime.date.today().isoformat(),
     }
     verified.append(entry)
@@ -1193,7 +935,8 @@ def cmd_claims_add(args):
 
 
 def cmd_claims_list(args):
-    verified_path = REPO_ROOT / "claims" / "verified.json"
+    tenant = tenant_mod.load_tenant(args.tenant)
+    verified_path = tenant.claims_dir / "verified.json"
     verified = json.loads(verified_path.read_text()) if verified_path.exists() else []
     for c in verified:
         print(f"{c['id']:32s} [{c['category']:10s}] {c['text']}  ({c['source']})")
@@ -1201,19 +944,21 @@ def cmd_claims_list(args):
 
 
 # ---------------------------------------------------------------------------
-# adv score
+# harness score -- see evals/rubric.md for what each axis means.
 # ---------------------------------------------------------------------------
 
 def cmd_score(args):
-    scores_path = REPO_ROOT / "evals" / "scores.jsonl"
+    tenant = tenant_mod.load_tenant(args.tenant)
+    scores_path = tenant.evals_path
     scores_path.parent.mkdir(parents=True, exist_ok=True)
     entry = {
+        "tenant": tenant.name,
         "run_dir": args.run_dir,
         "angle": args.angle,
         "brand": args.brand,
         "claims": args.claims,
         "publish": args.publish,
-        "by": args.by or "Caleb",
+        "by": args.by or (tenant.author("contributor") or {}).get("name") or "operator",
         "note": args.note or "",
         "scored_at": datetime.datetime.now().isoformat(timespec="seconds"),
     }
@@ -1227,36 +972,47 @@ def cmd_score(args):
 # argparse wiring
 # ---------------------------------------------------------------------------
 
+def _add_tenant_flag(parser):
+    parser.add_argument(
+        "--tenant",
+        help="which company this command is for; default: HARNESS_TENANT, else tenants/default.txt",
+    )
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(prog="adv")
+    parser = argparse.ArgumentParser(prog="harness")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_run = sub.add_parser("run", help="ingest -> ground -> gate -> write -> render")
     p_run.add_argument("input")
-    p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random of the available set")
+    p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
-    p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else products.json default")
-    p_run.add_argument("--ffmpeg-bin", default=config.FFMPEG_BIN)
-    p_run.add_argument("--whisper-bin", default=config.WHISPER_BIN)
-    p_run.add_argument("--whisper-model", default=config.WHISPER_MODEL)
+    p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
+    p_run.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
+    p_run.add_argument("--whisper-bin", default=WHISPER_BIN)
+    p_run.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tenant_flag(p_run)
     p_run.set_defaults(func=cmd_run)
 
     p_ingest = sub.add_parser("ingest", help="ad -> ad_brief.json only, for debugging")
     p_ingest.add_argument("input")
-    p_ingest.add_argument("--ffmpeg-bin", default=config.FFMPEG_BIN)
-    p_ingest.add_argument("--whisper-bin", default=config.WHISPER_BIN)
-    p_ingest.add_argument("--whisper-model", default=config.WHISPER_MODEL)
+    p_ingest.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
+    p_ingest.add_argument("--whisper-bin", default=WHISPER_BIN)
+    p_ingest.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tenant_flag(p_ingest)
     p_ingest.set_defaults(func=cmd_ingest)
 
     p_review = sub.add_parser("review", help="write a self-contained review.html per cartridge (images inlined)")
     p_review.add_argument("run_dir")
+    _add_tenant_flag(p_review)
     p_review.set_defaults(func=cmd_review)
 
     p_shopify_body = sub.add_parser("shopify-body", help="write shopify-body.html + shopify-body.assets.json for one cartridge's output")
-    p_shopify_body.add_argument("cartridge_dir", help="<run-dir>/<cartridge>, e.g. out/20260910-1200-my-ad/listicle")
+    p_shopify_body.add_argument("cartridge_dir", help="<run-dir>/<cartridge>, e.g. tenants/<t>/out/<run-id>/listicle")
+    _add_tenant_flag(p_shopify_body)
     p_shopify_body.set_defaults(func=cmd_shopify_body)
 
-    p_claims = sub.add_parser("claims", help="manage claims/verified.json")
+    p_claims = sub.add_parser("claims", help="manage a tenant's claims/verified.json")
     claims_sub = p_claims.add_subparsers(dest="claims_command", required=True)
 
     p_claims_add = claims_sub.add_parser("add")
@@ -1264,12 +1020,14 @@ def build_parser():
     p_claims_add.add_argument("--category", required=True, choices=["spec", "price", "comparison", "health", "trust"])
     p_claims_add.add_argument("--source", required=True)
     p_claims_add.add_argument("--approved-by")
+    _add_tenant_flag(p_claims_add)
     p_claims_add.set_defaults(func=cmd_claims_add)
 
     p_claims_list = claims_sub.add_parser("list")
+    _add_tenant_flag(p_claims_list)
     p_claims_list.set_defaults(func=cmd_claims_list)
 
-    p_score = sub.add_parser("score", help="record a human score for a run into evals/scores.jsonl")
+    p_score = sub.add_parser("score", help="record a human score for a run (see evals/rubric.md)")
     p_score.add_argument("run_dir")
     p_score.add_argument("--angle", type=int, required=True)
     p_score.add_argument("--brand", type=int, required=True)
@@ -1277,7 +1035,32 @@ def build_parser():
     p_score.add_argument("--publish", type=int, required=True)
     p_score.add_argument("--by")
     p_score.add_argument("--note")
+    _add_tenant_flag(p_score)
     p_score.set_defaults(func=cmd_score)
+
+    p_tenant = sub.add_parser("tenant", help="create and inspect tenants")
+    tenant_sub = p_tenant.add_subparsers(dest="tenant_command", required=True)
+    p_tenant_init = tenant_sub.add_parser("init", help="copy tenants/_template to tenants/<name>")
+    p_tenant_init.add_argument("name")
+    p_tenant_init.set_defaults(func=cmd_tenant_init)
+    p_tenant_list = tenant_sub.add_parser("list", help="every tenant and whether it is configured")
+    p_tenant_list.set_defaults(func=cmd_tenant_list)
+
+    p_workflow = sub.add_parser("workflow", help="run a named pipeline from workflows/")
+    workflow_sub = p_workflow.add_subparsers(dest="workflow_command", required=True)
+    p_workflow_run = workflow_sub.add_parser("run", help="run one workflow's stages, in its own order")
+    p_workflow_run.add_argument("name")
+    p_workflow_run.add_argument("--input", required=True)
+    p_workflow_run.add_argument("--cartridges")
+    p_workflow_run.add_argument("--seed", type=int)
+    p_workflow_run.add_argument("--product")
+    p_workflow_run.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
+    p_workflow_run.add_argument("--whisper-bin", default=WHISPER_BIN)
+    p_workflow_run.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tenant_flag(p_workflow_run)
+    p_workflow_run.set_defaults(func=cmd_workflow_run)
+    p_workflow_list = workflow_sub.add_parser("list", help="every workflow in workflows/")
+    p_workflow_list.set_defaults(func=cmd_workflow_list)
 
     return parser
 
@@ -1285,7 +1068,22 @@ def build_parser():
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args) or 0
+    try:
+        return args.func(args) or 0
+    except TenantNotConfigured as e:
+        # A tenant that has been created but not filled in is an operator
+        # problem, not a crash -- one line, exit 4, no traceback.
+        print(str(e), file=sys.stderr)
+        return EXIT_TENANT_NOT_CONFIGURED
+    except UnknownTenant as e:
+        print(str(e), file=sys.stderr)
+        return EXIT_TENANT_NOT_CONFIGURED
+
+
+def main_adv_alias(argv=None):
+    """The old `adv` entry point, kept for one release. Same CLI, one warning."""
+    print("adv is deprecated and will be removed; use `harness` instead.", file=sys.stderr)
+    return main(argv)
 
 
 if __name__ == "__main__":

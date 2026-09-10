@@ -1,30 +1,28 @@
 """Product-page (PDP) claim seeding -- fix cycle 9 item 1.
 
-The Shopify product page's own body_html states facts (app control, outlet/
-electrical, speakers, wood species, red light, crate shipping, capacity,
-assembly) that claims/verified.json never carried, so a true, on-the-page
-statement had no verified claim to match against and STOPped a run at the
-ad_claims gate (e.g. the Mini's own page says "runs from the Peak Saunas
-app" and "plugs into a standard 120V outlet ... no electrician", but nothing
-in claims/verified.json said so before this fix).
+A product page's own body_html states facts that a hand-curated
+claims/verified.json often never carried, so a true, on-the-page statement had
+no verified claim to match against and STOPped a run at the ad_claims gate.
 
-At the start of every `adv run` (after the live price refresh), extract a
-fixed, conservative set of facts from each active product's body_html -- one
-phrase check per fact, only if the page states it, text = the page's own
-sentence containing the phrase (first sentence in document order that
-mentions it). These claims are in-memory only for the run that generated
-them: written to runs/pdp-claims-cache.json (regenerated alongside
-runs/products-cache.json on every run) and merged into that run's
-verified-claims universe -- never into claims/verified.json, which stays
-hand-curated.
+At the start of every run (after the live price refresh), extract a fixed,
+conservative set of facts from each active product's body_html -- one phrase
+check per fact, only if the page states it, text = the page's own sentence
+containing the phrase. Which facts, and which phrases signal each, come from
+the tenant's own tenant.yaml `pdp_facts` map; nothing is inferred.
 
-Never produces a claim that mentions EMF.
+These claims are in-memory only for the run that generated them: written to the
+tenant's runs/pdp-claims-cache.json and merged into that run's verified-claims
+universe -- never into claims/verified.json, which stays hand-curated.
+
+Never produces a claim containing one of the tenant's banned terms.
 """
 import html
 import json
 import re
 import time
 from pathlib import Path
+
+from . import tenant as tenant_mod
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -34,23 +32,28 @@ _WHITESPACE_RE = re.compile(r"\s+")
 _SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([,.;:!?])")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _CAPACITY_RE = re.compile(r"\b[1-6]-person\b", re.IGNORECASE)
-_EMF_RE = re.compile(r"emf|electromagnetic", re.IGNORECASE)
 
-# fact -> trigger phrases (case-insensitive substring match against the
-# page's plain text, sentence by sentence). A fact is only ever created if
-# one of its own phrases is literally present on the page -- conservative by
-# design, no inference. "capacity" has no fixed phrase list; it's matched by
-# _CAPACITY_RE below instead, since the number varies per product.
-PDP_FACTS = (
-    ("app-control", ("peak saunas app",)),
-    ("electrical", ("120v", "standard household outlet", "no electrician")),
-    ("speakers", ("bluetooth speaker",)),
-    ("wood", ("hemlock", "cedar")),
-    ("red-light", ("medical-grade red light",)),
-    ("crate-shipping", ("protective crate", "crate")),
-    ("capacity", ()),
-    ("assembly", ("clasp-together", "assembly")),
-)
+
+def pdp_facts(tenant=None):
+    """((fact, (phrase, ...)), ...) from tenant.yaml's pdp_facts map.
+
+    A fact is only ever created if one of its own phrases is literally present
+    on the page -- conservative by design, no inference. A fact with an empty
+    phrase list is matched by _CAPACITY_RE instead, since the number varies per
+    product."""
+    tenant = tenant or tenant_mod.active()
+    return tuple((k, tuple(v or ())) for k, v in (tenant.get("pdp_facts") or {}).items())
+
+
+def banned_term_re(tenant=None):
+    """Matches any of the tenant's absolute banned terms, or nothing when it
+    has none."""
+    from . import vocab
+
+    terms = vocab.EMF_TERMS
+    if not terms:
+        return re.compile(r"(?!x)x")
+    return re.compile("|".join(re.escape(t) for t in terms), re.IGNORECASE)
 
 
 def _plain_text(body_html):
@@ -97,14 +100,15 @@ def extract_pdp_claims(product, raw_product, today_iso):
     sentences = _sentences(_plain_text(body_html))
     name_slug = product["name"].lower().replace(" ", "-")
 
+    banned_re = banned_term_re()
     claims = []
-    for fact, phrases in PDP_FACTS:
-        if fact == "capacity":
+    for fact, phrases in pdp_facts():
+        if not phrases:
             capacity_matches = [s for s in sentences if _CAPACITY_RE.search(s)]
             sentence = min(capacity_matches, key=len) if capacity_matches else None
         else:
             sentence = _best_matching_sentence(sentences, phrases)
-        if not sentence or _EMF_RE.search(sentence):
+        if not sentence or banned_re.search(sentence):
             continue
         claims.append(
             {

@@ -5,7 +5,7 @@
   "properties": {
     "headline": {
       "type": "string",
-      "description": "Curiosity or contrarian headline. Never contains 'Peak' or a price."
+      "description": "Curiosity or contrarian headline. Never contains the company name or a price."
     },
     "dek": {
       "type": "string",
@@ -52,7 +52,7 @@
     },
     "turn_section": {
       "type": "object",
-      "description": "One H2 that moves from the topic to 'what to look for', 3-4 criteria that Peak meets. Still no hard sell. Fix cycle 3 item 3: at least 1 criterion must carry a product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
+      "description": "One H2 that moves from the topic to 'what to look for', 3-4 criteria that {{ tenant.name }} meets. Still no hard sell. Fix cycle 3 item 3: at least 1 criterion must carry a product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
       "properties": {
         "heading": {"type": "string"},
         "intro": {"type": "string"},
@@ -70,7 +70,7 @@
     },
     "close": {
       "type": "object",
-      "description": "1 paragraph naming Peak.",
+      "description": "1 paragraph naming {{ tenant.name }}.",
       "properties": {
         "paragraphs": {
           "type": "array",

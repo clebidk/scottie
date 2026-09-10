@@ -2,7 +2,7 @@
 are pure functions exercised directly with fake live-feed data."""
 import json
 
-from adv.prices import build_live_price_claims, format_price, merge_products, refresh_price_data
+from harness.prices import build_live_price_claims, format_price, merge_products, refresh_price_data
 
 OLD_PRODUCTS = {
     "peak-saunas-fuji": {

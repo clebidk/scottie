@@ -1,18 +1,18 @@
-"""Live price refresh (fix 2): at the start of `adv run`, fetch
-https://peaksaunas.com/products.json (paginated) and merge it with
+"""Live price refresh: at the start of a run, fetch the tenant's public
+Shopify product feed (paginated) and merge it with the tenant's
 claims/products.json (keeping the `default` flag and any hand-written
 `short_name`) into an in-memory product list, and build a fresh price claim
 per product dated today with the product URL as source. The raw fetch is
 cached for 60 minutes in runs/products-cache.json; on fetch failure the
 cache is used and a warning logged.
 
-Fix cycle 11 problem B: the merge is in-memory only, every run -- it is
-never written back to claims/products.json. Every real `adv run` was
+The merge is in-memory only, every run -- it is
+never written back to claims/products.json. Every real run was
 refreshing prices/images there and leaving the git tree dirty (a routine
 "generated" date bump plus whatever else changed), which meant either
 committing a machine-written diff every cycle or leaving the tree dirty
 between runs. claims/products.json is hand-curated data now; it changes
-only when Caleb edits it. The live refresh's only write is the existing
+only when an operator edits it. The live refresh's only write is the existing
 runs/products-cache.json cache (via save_cache, in get_live_products
 below) -- merge_products(old_products, live_products) already re-derives
 the same in-memory result every run from that (or a fresh fetch) plus
@@ -24,13 +24,21 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-SHOPIFY_PRODUCTS_URL = "https://peaksaunas.com/products.json"
+from . import tenant as tenant_mod
+
 CACHE_TTL_S = 60 * 60
 PAGE_LIMIT = 250
 
 
+def products_json_url(tenant=None):
+    """The tenant's public product feed URL (tenant.yaml's
+    shopify.products_json)."""
+    tenant = tenant or tenant_mod.active()
+    return tenant.get("shopify.products_json") or ""
+
+
 _BROWSER_HEADERS = {
-    # peaksaunas.com's Cloudflare bot check can block a non-browser User-Agent.
+    # A storefront bot check can block a non-browser User-Agent.
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
 }
@@ -39,7 +47,7 @@ _BROWSER_HEADERS = {
 def http_fetch_page(page):
     """Default `fetch_page`: one page of the live Shopify product feed, or
     None past the last page."""
-    url = f"{SHOPIFY_PRODUCTS_URL}?limit={PAGE_LIMIT}&page={page}"
+    url = f"{products_json_url()}?limit={PAGE_LIMIT}&page={page}"
     req = urllib.request.Request(url, headers=_BROWSER_HEADERS)
     with urllib.request.urlopen(req, timeout=20) as resp:
         return json.loads(resp.read().decode("utf-8"))
@@ -125,7 +133,8 @@ def merge_products(old_products, live_products):
             "slug": slug,
             "name": old["name"],
             "title": lp.get("title", old.get("title", "")),
-            "url": f"https://peaksaunas.com/products/{slug}",
+            "url": tenant_mod.active().get("shopify.product_url_template", "").format(slug=slug)
+            or old.get("url", ""),
             "price": prices[0] if prices else old.get("price"),
             "compare_at_price": compare_prices[0] if compare_prices else old.get("compare_at_price"),
             "image_urls": image_urls or old.get("image_urls", []),
@@ -169,7 +178,9 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
         if price is None:
             continue
         name_slug = p["name"].lower().replace(" ", "-")
-        text = f"The Peak Saunas {p['name']} is priced at {format_price(price)}."
+        text = tenant_mod.active().format(
+            "price_claim_template", product_name=p["name"], price=format_price(price)
+        )
         compare_at = p.get("compare_at_price")
         if show_compare_at_price and compare_at:
             text = text[:-1] + f" (list/compare-at {format_price(compare_at)})."

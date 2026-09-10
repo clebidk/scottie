@@ -8,19 +8,8 @@ import re
 from pathlib import Path
 
 from .jsonutil import extract_json
-from .vocab import (
-    ALLOWED_FINANCING_SENTENCE_NO_LENDER,
-    ALLOWED_WARRANTY_SENTENCE,
-    ALLOWED_WARRANTY_SPEC_LABEL,
-    ALLOWED_WARRANTY_SPEC_VALUE,
-    BANNED_NAMES,
-    EMF_TERMS,
-    FORBIDDEN_LENDER_NAMES,
-    HYPE_WORDS,
-    IMPLIED_CLAIM_FORBIDDEN_TERMS,
-    TRIGGER_WORDS,
-    forbidden_words_block,
-)
+from . import tenant as tenant_mod
+from . import vocab
 
 TYPE_MAP = {
     "string": str,
@@ -31,58 +20,98 @@ TYPE_MAP = {
     "boolean": bool,
 }
 
-# Fix cycle 4 item 4: these sentences are generated from adv/vocab.py's word
-# lists so the writer prompt and claims.gate_page_json's forbidden-term check
-# can never drift apart -- add a word in one place (vocab.py) and both sides
-# pick it up.
-_HYPE_WORDS_LIST = ", ".join(f'"{w}"' for w in HYPE_WORDS)
-_EMF_UPPER = EMF_TERMS[0].upper()
-_FIRST_BANNED_NAME = BANNED_NAMES[0].title()
-_OTHER_BANNED_NAMES_LIST = ", ".join(n.title() for n in BANNED_NAMES[1:])
-_LENDER_NAMES_LIST = ", ".join(n.title() for n in FORBIDDEN_LENDER_NAMES)
-_TRIGGER_WORDS_LIST = ", ".join(f'"{w.upper() if w == "emf" else w}"' for w in TRIGGER_WORDS)
-_IMPLIED_CLAIM_TERMS_LIST = ", ".join(f'"{t}"' for t in IMPLIED_CLAIM_FORBIDDEN_TERMS)
 
-GLOBAL_VOICE_BLOCK = f"""## Voice and output rules
+def global_voice_block(tenant=None):
+    """The voice/guardrail block appended to every writer system prompt.
 
-Voice: plain, specific, no hype words ({_HYPE_WORDS_LIST}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
+    Built fresh per call from the active tenant's vocab.yaml and tenant.yaml
+    (company name, author name, competitor aliases, fixed sentences), so the
+    writer prompt and the deterministic gate can never drift apart -- add a
+    word to vocab.yaml and both sides pick it up with no code change.
+    """
+    tenant = tenant or tenant_mod.active()
+    v = vocab.active()
+
+    company = tenant.display_name
+    author_name = (tenant.author("author") or {}).get("name") or "the page author"
+    hype_words_list = ", ".join(f'"{w}"' for w in v.hype_words) or "(none configured)"
+    trigger_words_list = ", ".join(f'"{w.upper() if len(w) <= 3 else w}"' for w in v.trigger_words)
+    implied_terms_list = ", ".join(f'"{t}"' for t in v.implied_claim_forbidden_terms)
+    lender_names_list = ", ".join(n.title() for n in v.forbidden_lender_names)
+
+    # Absolute word bans, stated one group at a time so each reads as a real
+    # sentence rather than a list dump. Every group is tenant data.
+    ban_sentences = []
+    for term in v.emf_terms:
+        ban_sentences.append(
+            f'Never write "{term.upper()}" in any form, anywhere, including as an abbreviation '
+            "inside a claim -- this applies even to facts_pack's own internal-only data on the topic."
+        )
+        break
+    if v.banned_names:
+        names = ", ".join(n.title() for n in v.banned_names)
+        ban_sentences.append(f"Never name any of these: {names}.")
+    for wrong, right in (v.competitor_aliases or {}).items():
+        ban_sentences.append(f'Refer to that competitor as "{right}", never "{wrong.title()}".')
+    ban_sentences.append(
+        "Never claim third-party or accredited-laboratory testing of any kind. Competitor "
+        "statements are only ever the speaker's own experience, never a sourced fact about a "
+        "competitor, unless a verified claim covers it."
+    )
+    guardrails = " ".join(ban_sentences)
+
+    lender_clause = (
+        f" Never name a financing lender ({lender_names_list}, or any other) unless "
+        "financing.lender is non-null and IS that name."
+        if lender_names_list
+        else ""
+    )
+    implied_clause = (
+        f" Never write {implied_terms_list} unless a verified claim's own text actually states it."
+        if implied_terms_list
+        else ""
+    )
+
+    return f"""## Voice and output rules
+
+Voice: plain, specific, no hype words ({hype_words_list}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
 
 Never write the byline, publish/update dates, the "Advertisement" label, or the disclosure paragraph -- the renderer injects those automatically.
 
-Every piece of text that states a number, a percentage, a dollar amount, or uses the words {_TRIGGER_WORDS_LIST} MUST carry a non-empty "claim_ids" array referencing an id from facts_pack.verified_claims. Never invent a claim id. If you cannot support a statement with a verified claim, do not make the statement. Each row in facts_pack.specs already carries its own "claim_id" -- when you restate a spec fact in prose (not just in a specs table), copy that same claim_id into the prose sentence's claim_ids array; do not state a spec number in prose without it. The id goes in that JSON array field ONLY -- never typed out as part of the sentence itself, in parentheses or otherwise. WRONG: "the price, $8,250, is listed on the product page (price-fuji)" or "a heater system built around full-spectrum infrared (spec-fuji-infrared-wavelength-range)". RIGHT: drop the parenthetical entirely and put "price-fuji" / "spec-fuji-infrared-wavelength-range" in that sentence's own "claim_ids" array instead -- a claim id is never something a reader sees. This includes an illustrative or hypothetical number used to make a rhetorical point ("a $50 impulse buy versus an $8,000 purchase", "a standard 2-person cabin") -- there is no claim_id for a made-up example, so make the same point in words instead ("a small impulse buy" vs. "a major purchase"). It also includes the current year or any other calendar year stated in your own narration as color commentary (e.g. "a reasonable thing to want in 2026") -- there is no claim_id for a bare year either; drop it or put it inside a direct quote credited to the ad speaker instead.
+Every piece of text that states a number, a percentage, a dollar amount, or uses the words {trigger_words_list} MUST carry a non-empty "claim_ids" array referencing an id from facts_pack.verified_claims. Never invent a claim id. If you cannot support a statement with a verified claim, do not make the statement. Each row in facts_pack.specs already carries its own "claim_id" -- when you restate a spec fact in prose (not just in a specs table), copy that same claim_id into the prose sentence's claim_ids array; do not state a spec number in prose without it. The id goes in that JSON array field ONLY -- never typed out as part of the sentence itself, in parentheses or otherwise. WRONG: "the price, $8,250, is listed on the product page (price-model)" or "a heater system built around full-spectrum infrared (spec-model-wavelength-range)". RIGHT: drop the parenthetical entirely and put "price-model" / "spec-model-wavelength-range" in that sentence's own "claim_ids" array instead -- a claim id is never something a reader sees. This includes an illustrative or hypothetical number used to make a rhetorical point ("a $50 impulse buy versus an $8,000 purchase", "a standard 2-person cabin") -- there is no claim_id for a made-up example, so make the same point in words instead ("a small impulse buy" vs. "a major purchase"). It also includes the current year or any other calendar year stated in your own narration as color commentary (e.g. "a reasonable thing to want in 2026") -- there is no claim_id for a bare year either; drop it or put it inside a direct quote credited to the ad speaker instead.
 
 Reference images only by an asset id from facts_pack.assets, in an "asset_id" field -- never by URL directly. Never write your own "alt" field for an image -- the renderer derives alt text on its own.
 
 Write a dollar amount exactly as it appears in the source claim's text (e.g. "$8,250", no ".00" unless the claim's own figure has non-zero cents) -- never reformat it, and never add a ".00" that isn't in the claim text.
 
-Never write a URL anywhere in body text (prose, headings, alt text, quotes). Cite a source inline as "(source name, year)" -- e.g. "(Peak Saunas product page, 2026)" -- using a short human-readable name for the source, never the raw URL. The renderer builds the Sources list and its links on its own from claim_ids; the URL never needs to appear as text you write.
+Never write a URL anywhere in body text (prose, headings, alt text, quotes). Cite a source inline as "(source name, year)" -- e.g. "({company} product page, 2026)" -- using a short human-readable name for the source, never the raw URL. The renderer builds the Sources list and its links on its own from claim_ids; the URL never needs to appear as text you write.
 
 Claim ids never appear in any text field. Cite in prose only as (source name, year). Put ids only in claim_ids -- never in a headline, paragraph, label, or quote, even in parentheses next to the source name.
 
-If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to "a customer" -- or to the name in facts_pack.speaker_name if that field is non-null -- e.g. "One customer told us she..." or a short quoted line clearly credited to that customer. The page author (Austin) never speaks in the ad speaker's first person.
+If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to "a customer" -- or to the name in facts_pack.speaker_name if that field is non-null -- e.g. "One customer told us she..." or a short quoted line clearly credited to that customer. The page author ({author_name}) never speaks in the ad speaker's first person.
 
 Outside a sentence that carries a claim_id, write numbers as words, not numerals -- "seven in the morning", not "7 a.m."; "five-figure", not "5-figure"; "two hours", not "2 hours". This applies especially to an illustrative or incidental number with nothing to cite (a time of day, a small count, an age) -- it has no claim_id to give it, so numerals there read as an invented, uncited fact even when you didn't mean it as one. Never use a numeral for a time, a count, or an age unless that exact sentence's own claim_ids array cites a verified claim for it.
 
 A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "One customer told us she put her studio memberships at around $200 a month, or about $2,400 a year." The sentence must itself read as attributed: say "customer", or "she"/"he"/"they" together with "told us"/"estimated"/"said" -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
 
-If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published Peak Saunas article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
+If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
 
 ## Guardrails
-Never write "{_EMF_UPPER}" in any form, anywhere, including as an abbreviation inside a claim -- this applies even to facts_pack's own internal-only EMF testing data. Never write "{_FIRST_BANNED_NAME}". Refer to the competitor as "Sun", never "Sun Home". Never name {_OTHER_BANNED_NAMES_LIST} (discontinued Peak models). Never claim third-party or accredited-laboratory testing of any kind. Competitor statements are only ever the speaker's own experience, never a sourced fact about a competitor, unless a verified claim covers it.
+{guardrails}
 
-Financing: use facts_pack.product.financing. If financing.lender is null, you may discuss financing as a general topic (e.g. contrasting it with the sticker price), but the ONLY sentence you may write anywhere on the page that actually STATES a financing offer -- a monthly figure, a lender name, or that financing is available -- is exactly "{ALLOWED_FINANCING_SENTENCE_NO_LENDER}", verbatim, nothing added before or after it in that field. Never invent a monthly figure or lender name. Never name a financing lender ({_LENDER_NAMES_LIST}, or any other) unless financing.lender is non-null and IS that name.
+Financing: use facts_pack.product.financing. If financing.lender is null, you may discuss financing as a general topic (e.g. contrasting it with the sticker price), but the ONLY sentence you may write anywhere on the page that actually STATES a financing offer -- a monthly figure, a lender name, or that financing is available -- is exactly "{v.allowed_financing_sentence_no_lender}", verbatim, nothing added before or after it in that field. Never invent a monthly figure or lender name.{lender_clause}
 
 Compare-at / list price: only mention a "was $X" / compare-at / strikethrough price if facts_pack.product.compare_at_price is non-null. If it is null, state only the current price.
 
-Warranty: the verified warranty claim covers each component differently (e.g. heating elements and cabinetry are covered longer than electronics like the control system or chromotherapy lighting) -- never write a sentence describing what's covered by component from memory (e.g. "lifetime warranty on the cabin, heating elements, and electronics" is false for electronics). Anywhere any text mentions warranty, write EXACTLY "{ALLOWED_WARRANTY_SENTENCE}" -- or, in a spec-table row, the label "{ALLOWED_WARRANTY_SPEC_LABEL}" with value exactly "{ALLOWED_WARRANTY_SPEC_VALUE}" -- or quote the verified warranty claim's own text verbatim. Never invent or paraphrase per-component warranty wording. Warranty may appear AT MOST ONCE on the whole page, either as one proof point/bullet or one specs-table row (never both, never a second time anywhere else on the page), and every time it appears it must use the fixed sentence verbatim -- do not shorten it to a label like "Limited lifetime warranty" or "Backed by a limited lifetime warranty" on its own, and do not paraphrase it even if the paraphrase is honest; use the exact sentence, word for word, or leave warranty out of that section entirely.
+Warranty: the verified warranty claim covers each component differently (e.g. heating elements and cabinetry are covered longer than electronics like the control system or accent lighting) -- never write a sentence describing what's covered by component from memory. Anywhere any text mentions warranty, write EXACTLY "{v.allowed_warranty_sentence}" -- or, in a spec-table row, the label "{v.allowed_warranty_spec_label}" with value exactly "{v.allowed_warranty_spec_value}" -- or quote the verified warranty claim's own text verbatim. Never invent or paraphrase per-component warranty wording. Warranty may appear AT MOST ONCE on the whole page, either as one proof point/bullet or one specs-table row (never both, never a second time anywhere else on the page), and every time it appears it must use the fixed sentence verbatim -- do not shorten it to a label on its own, and do not paraphrase it even if the paraphrase is honest; use the exact sentence, word for word, or leave warranty out of that section entirely.
 
-Implied claims: never infer a second, unverified fact from a verified claim -- a verified claim proves only what it literally says, nothing else. Being US-owned does not verify support is domestic; free shipping does not verify delivery speed; a star rating does not verify the product is "best". Never write {_IMPLIED_CLAIM_TERMS_LIST} unless a verified claim's own text actually states it.
+Implied claims: never infer a second, unverified fact from a verified claim -- a verified claim proves only what it literally says, nothing else. Being US-owned does not verify support is domestic; free shipping does not verify delivery speed; a star rating does not verify the product is "best".{implied_clause}
 
-Reviews: use facts_pack.reviews_summary and its claim_ids exactly as given. If facts_pack.reviews_summary is null, do not state any review count or star rating anywhere on the page -- never use the placeholder figures "9,000", "10,000", or "4.9" for a review count or rating. The word "reviews" itself is not banned, but it always needs a claim_id -- this trips writers repeatedly in generic buyer-education prose that has no claim_id to give it, e.g. "look at ratings and reviews from other buyers", "a star average built on a handful of reviews". Say "customer feedback" or "what other buyers say" instead in that kind of sentence -- every time, not just the first draft -- unless you are citing facts_pack.reviews_summary's actual claim_id.
+Reviews: use facts_pack.reviews_summary and its claim_ids exactly as given. If facts_pack.reviews_summary is null, do not state any review count or star rating anywhere on the page, and never use a remembered or placeholder figure for a review count or rating. The word "reviews" itself is not banned, but it always needs a claim_id -- this trips writers repeatedly in generic buyer-education prose that has no claim_id to give it, e.g. "look at ratings and reviews from other buyers", "a star average built on a handful of reviews". Say "customer feedback" or "what other buyers say" instead in that kind of sentence -- every time, not just the first draft -- unless you are citing facts_pack.reviews_summary's actual claim_id.
 
-Same rule, same trap, for "study"/"studies", "clinical", "medical", "proven", and "rated": each always needs a claim_id, and each trips writers in the same generic buyer-education prose that has nothing in facts_pack.verified_claims to cite -- e.g. "a careful buyer treats sauna research as useful background", "any brand citing a study should show its work". If you're not citing a specific verified claim_id when you make the point, rephrase without the trigger word: say "outside research" or "independent sources" instead of "a study"/"studies", describe a feature in plain terms instead of calling it "clinical" or "medical", and drop "proven"/"rated" rather than asserting them unsupported. When you ARE citing a real verified claim (e.g. the medical-grade red light therapy claim), use the word freely and put its claim_id in that sentence's claim_ids array as usual.
+Same rule, same trap, for "study"/"studies", "clinical", "medical", "proven", and "rated": each always needs a claim_id, and each trips writers in the same generic buyer-education prose that has nothing in facts_pack.verified_claims to cite -- e.g. "a careful buyer treats research as useful background", "any brand citing a study should show its work". If you're not citing a specific verified claim_id when you make the point, rephrase without the trigger word: say "outside research" or "independent sources" instead of "a study"/"studies", describe a feature in plain terms instead of calling it "clinical" or "medical", and drop "proven"/"rated" rather than asserting them unsupported. When you ARE citing a real verified claim, use the word freely and put its claim_id in that sentence's claim_ids array as usual.
 
-Refer to the product by facts_pack.product.short_name, not facts_pack.product.name alone and never by a raw marketing title -- e.g. "Peak Fuji 2-Person Infrared Sauna", not "Fuji" or a Shopify product title, on FIRST mention in each major section (hero, each FAQ answer, each step, etc.). The short_name itself contains a digit (its capacity, e.g. "2-Person") -- any sentence that uses the full short_name needs a claim_id too; put the matching capacity spec row's claim_id from facts_pack.specs into that sentence's "claim_ids" array (the JSON field), every single time you write the short_name out, including in an FAQ answer or a step that isn't otherwise about specs -- the id itself is never printed as text next to the short_name or anywhere else. WRONG: "the Peak Fuji 2-Person Infrared Sauna (spec-fuji-capacity), which is priced at $8,250" -- the id in parentheses is a bug, not a citation. RIGHT: "the Peak Fuji 2-Person Infrared Sauna, which is priced at $8,250" with "claim_ids": ["spec-fuji-capacity", "price-fuji"] on that sentence's own JSON node; no parenthetical at all unless it's a plain-English "(source name, year)" citation. To avoid re-triggering this on every sentence (and to avoid sounding like a repeated ad slogan), after that first mention in a section just say "the sauna" or "this model" for the rest of that section -- you don't need the full short_name, or a claim_id, again until the next section.
+Refer to the product by facts_pack.product.short_name, not facts_pack.product.name alone and never by a raw marketing title -- on FIRST mention in each major section (hero, each FAQ answer, each step, etc.). A short_name often contains a digit (its capacity, e.g. "2-Person") -- any sentence that uses the full short_name needs a claim_id too; put the matching capacity spec row's claim_id from facts_pack.specs into that sentence's "claim_ids" array (the JSON field), every single time you write the short_name out, including in an FAQ answer or a step that isn't otherwise about specs -- the id itself is never printed as text next to the short_name or anywhere else. WRONG: "the full product short_name (spec-model-capacity), which is priced at $8,250" -- the id in parentheses is a bug, not a citation. RIGHT: the same sentence with no parenthetical at all and "claim_ids": ["spec-model-capacity", "price-model"] on that sentence's own JSON node. To avoid re-triggering this on every sentence (and to avoid sounding like a repeated ad slogan), after that first mention in a section just say "the sauna" or "this model" for the rest of that section -- you don't need the full short_name, or a claim_id, again until the next section.
 
 Output ONLY a single JSON object matching the schema you were given. No markdown fences, no commentary before or after."""
 
@@ -103,9 +132,20 @@ def validate_schema(data, schema):
     return errors
 
 
-def load_cartridge_prompt(cartridge_dir):
-    cartridge_md = (cartridge_dir / "cartridge.md").read_text()
-    schema = json.loads((cartridge_dir / "schema.json").read_text())
+def load_cartridge_prompt(cartridge_dir, tenant=None):
+    """cartridge.md and schema.json, with the tenant's placeholders filled in.
+
+    A cartridge is tenant-neutral on disk: it says {{ tenant.name }} where a
+    company belongs. Both files are rendered here, at load time, so the writer
+    never sees a placeholder and the cartridge never carries one company's
+    words. A tenant's own cartridge-overrides/<name>/cartridge.md, when present,
+    is appended after the shared rules."""
+    tenant = tenant or tenant_mod.active()
+    cartridge_md = tenant.render((cartridge_dir / "cartridge.md").read_text())
+    override = tenant.cartridge_overrides(cartridge_dir.name)
+    if override:
+        cartridge_md += "\n\n## Tenant overrides\n" + tenant.render(override.read_text())
+    schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
     return cartridge_md, schema
 
 
@@ -174,13 +214,17 @@ def _truncate_words(text, limit):
     return " ".join(words[:limit])
 
 
-def load_exemplars(cartridge_dir, limit=2):
-    """Up to `limit` exemplars from cartridges/<name>/exemplars/. A .json file
+def load_exemplars(exemplars_dir, limit=2):
+    """Up to `limit` exemplars from tenants/<tenant>/exemplars/<cartridge>/.
+    Exemplars are a tenant's own approved pages, not part of the cartridge
+    definition, so they live with the tenant. A .json file
     is parsed as a page.json-shaped object; a .md/.txt file is a real
     reference article and is passed through as text (voice/structure
     reference, not something to copy verbatim), trimmed to the first
     EXEMPLAR_MAX_WORDS words (fix cycle 12 item 1)."""
-    ex_dir = Path(cartridge_dir) / "exemplars"
+    if not exemplars_dir:
+        return []
+    ex_dir = Path(exemplars_dir)
     if not ex_dir.exists():
         return []
     files = sorted(ex_dir.glob("*.json")) + sorted(ex_dir.glob("*.md")) + sorted(ex_dir.glob("*.txt"))
@@ -194,7 +238,8 @@ def load_exemplars(cartridge_dir, limit=2):
 
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
-               word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None):
+               word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
+               tenant=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -209,15 +254,16 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     return shape; verified_fact is None for a plain-unmatched claim -- there
     is no single fact to point to) are told to the writer as statements to
     never repeat."""
+    tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
-    cartridge_md, schema = load_cartridge_prompt(cartridge_dir)
+    cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
     # A repair attempt (revision_note set) already saw the exemplars on the
     # first attempt -- it needs to fix specific flagged issues, not re-learn
     # voice/structure, and exemplars are the single largest piece of a call's
     # input tokens (up to ~45KB of reference text). Skipping them on repairs
     # buys real budget headroom for the repair loop without changing what
     # the writer is told to fix.
-    exemplars = load_exemplars(cartridge_dir) if not revision_note else []
+    exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
 
     hard_constraints = []
     if word_range:
@@ -244,13 +290,13 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     # run where a repair attempt fixed one forbidden word but reintroduced
     # another two attempts later.
     system = (
-        forbidden_words_block()
+        vocab.forbidden_words_block()
         + "\n\n"
         + cartridge_md
         + "\n\n## JSON schema for page.json\n"
         + json.dumps(schema, indent=2)
         + "\n\n"
-        + GLOBAL_VOICE_BLOCK
+        + global_voice_block(tenant)
     )
     if hard_constraints:
         system += "\n\n## Hard constraints for this run\n" + "\n".join(f"- {c}" for c in hard_constraints)

@@ -1,36 +1,49 @@
-"""`adv shopify-body`: rendered out/<run>/<cartridge>/index.html ->
-shopify-body.html, the page body only, for pasting into a Shopify page's
-body_html.
+"""`harness shopify-body`: a rendered index.html -> shopify-body.html, the page
+body only, for pasting into a storefront page's body_html.
 
-No Shopify API calls anywhere in this module -- publishing is a separate,
-not-yet-built step (see cartridges/listicle/README's "Shopify traps"
-section). This module only transforms a file already on disk.
+No storefront API calls anywhere in this module -- publishing is a separate,
+not-yet-built step. This module only transforms a file already on disk.
 
-Regex-based HTML transforms, matching the style already used elsewhere in
-this codebase (adv/claims.py's strip_html_to_visible_text /
-strip_leaked_claim_ids) rather than adding a new HTML-parsing dependency --
-the input is always this harness's own Jinja output, not arbitrary HTML, so
-a handful of targeted patterns are enough.
+Regex-based HTML transforms, matching the style already used elsewhere in this
+codebase (claims.py's strip_html_to_visible_text / strip_leaked_claim_ids)
+rather than adding a new HTML-parsing dependency -- the input is always this
+harness's own Jinja output, not arbitrary HTML, so a handful of targeted
+patterns are enough.
 """
 import json
 import re
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Aurora full-bleed :has() rules, copied verbatim from the live, shipped
-# reference/peak-listicle-lp/shopify-body.html. These neutralise the Aurora
-# page template's .container padding, its per-section spacing variables, and
-# the duplicate .page__title/.page__content chrome that would otherwise
-# narrow and double-frame a full-bleed page -- see that file's own README
-# ("Traps") for how they were derived. Never edit these to match a page's
-# own class names; they must stay targeted at ".pk-lp" (every cartridge
-# template's shopify-body-eligible markup keeps that class on its root
-# element for exactly this reason).
-# ---------------------------------------------------------------------------
-AURORA_FULL_BLEED_RULES = """/* full-bleed: break out of the Aurora page container (copied from reference/peak-listicle-lp/shopify-body.html) */
-.section:has(.pk-lp) .container{max-width:100%;width:100%;padding:0;--gsc-section-spacing-top:0px;--gsc-section-spacing-bottom:0px}
-.section:has(.pk-lp) .page__title{display:none}
-.section:has(.pk-lp) .page__content{margin:0;opacity:1;transform:none;animation:none}"""
+from . import tenant as tenant_mod
+
+def full_bleed_css(tenant=None):
+    """The tenant theme's own full-bleed rules (tenant.yaml's
+    theme.full_bleed_css), pasted verbatim at the top of the output.
+
+    A storefront theme wraps a page in its own container, padding, and title
+    chrome, which would narrow and double-frame a full-bleed page. These rules
+    neutralise that. They are theme-specific and derived by hand against the
+    live theme, so they live in tenant data, never here -- and they stay
+    targeted at the theme's configured root class (every cartridge template
+    keeps that class on its root element for exactly this reason), never at a
+    page's own class names."""
+    tenant = tenant or tenant_mod.active()
+    return (tenant.get("theme.full_bleed_css") or "").strip()
+
+
+def internal_link_re(tenant=None):
+    """Matches an absolute href pointing at the tenant's own site."""
+    tenant = tenant or tenant_mod.active()
+    host = tenant.get("site_host") or ""
+    if not host:
+        return re.compile(r"(?!x)x")
+    return re.compile(r'href="https?://(?:www\.)?' + re.escape(host) + r'(/[^"]*)"')
+
+
+def default_cta_url(tenant=None):
+    tenant = tenant or tenant_mod.active()
+    return tenant.get("default_cta_url") or "/"
+
 
 _BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.IGNORECASE | re.DOTALL)
 _HEADER_FOOTER_NAV_TAG_RE = re.compile(r"</?(?:header|footer|nav)\b[^>]*>", re.IGNORECASE)
@@ -39,7 +52,6 @@ _SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>(?:(?!</script>).)*?</script>", r
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 _SRC_RE = re.compile(r'src="([^"]+)"')
 _ALT_RE = re.compile(r'alt="([^"]*)"')
-_INTERNAL_LINK_RE = re.compile(r'href="https?://(?:www\.)?peaksaunas\.com(/[^"]*)"')
 
 
 def _slugify(text, fallback="asset"):
@@ -51,8 +63,8 @@ def strip_document_chrome(html):
     """Rendered index.html -> the <body> content only, with <header>,
     <footer>, and <nav> TAGS removed (unwrapped -- their content, e.g. the
     "Advertisement" label, byline, disclosure paragraph, and Sources list,
-    stays in place; only the structural tags themselves go, since Shopify's
-    Aurora theme supplies its own page chrome and a bare <header>/<footer>
+    stays in place; only the structural tags themselves go, since the
+    storefront theme supplies its own page chrome and a bare <header>/<footer>
     inside body_html would just be inert, confusing markup). <html>/<head>
     never reach this function's output at all -- only what was inside
     <body> is extracted in the first place."""
@@ -63,9 +75,9 @@ def strip_document_chrome(html):
 
 def extract_page_css(body_html):
     """(remaining_html, joined_css) -- every <style> block's own CSS text
-    (a cartridge template's own scoped rules; brand/base.css's full
+    (a cartridge template's own scoped rules; the tenant's brand/base.css full
     stylesheet lives in <head> and was never part of `body_html` to begin
-    with), pulled out so it can be combined with AURORA_FULL_BLEED_RULES
+    with), pulled out so it can be combined with the theme's full-bleed rules
     and placed at the very top of shopify-body.html instead of wherever it
     happened to render inline."""
     css_parts = [c.strip() for c in _STYLE_BLOCK_RE.findall(body_html)]
@@ -85,20 +97,20 @@ def extract_motion_script(body_html):
     return body_html, None
 
 
-def relativize_internal_links(html):
-    """Every absolute https://peaksaunas.com/... href becomes a relative
-    path (Shopify pages should link internally, not back out to the full
-    domain) -- e.g. a product-specific CTA becomes href="/products/fuji".
+def relativize_internal_links(html, tenant=None):
+    """Every absolute href pointing at the tenant's own site becomes a relative
+    path (a storefront page should link internally, not back out to the full
+    domain) -- e.g. a product-specific CTA becomes href="/products/<slug>".
     A CTA that resolves to an empty path (shouldn't happen; cta_url is a
-    required page.json field) falls back to "/collections/all" -- the
-    task's documented default for a page that isn't product-specific."""
-    html = _INTERNAL_LINK_RE.sub(lambda m: f'href="{m.group(1)}"', html)
-    return html.replace('href=""', 'href="/collections/all"')
+    required page.json field) falls back to the tenant's default_cta_url."""
+    tenant = tenant or tenant_mod.active()
+    html = internal_link_re(tenant).sub(lambda m: f'href="{m.group(1)}"', html)
+    return html.replace('href=""', f'href="{default_cta_url(tenant)}"')
 
 
 def build_asset_manifest(html, cartridge_name):
     """Every relative assets/... image the shopify-body html references,
-    with an intended Shopify Files CDN filename derived from its
+    with an intended storefront CDN filename derived from its
     renderer-generated alt text (already a meaningful, human-readable
     description -- see render.asset_alt) so a later publish step has a
     real name to upload under instead of the bare local asset id."""
@@ -135,9 +147,10 @@ def build_shopify_body(cartridge_dir):
     body, motion_script = extract_motion_script(body)
     body = relativize_internal_links(body).strip()
 
-    style_block = "<style>\n" + AURORA_FULL_BLEED_RULES
+    theme_css = full_bleed_css()
+    style_block = "<style>\n" + theme_css
     if page_css:
-        style_block += "\n\n" + page_css
+        style_block += ("\n\n" if theme_css else "") + page_css
     style_block += "\n</style>"
 
     parts = [style_block, body]

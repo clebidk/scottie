@@ -8,14 +8,14 @@ import argparse
 import json
 from pathlib import Path
 
-from adv import cli
-from adv.claims import ClaimsGateFailure
-from adv.prices import build_live_price_claims
+from harness import cli, pipeline
+from harness.claims import ClaimsGateFailure
+from harness.prices import build_live_price_claims
 from tests.conftest import FakeClient, json_response
 from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE
+from tests.support import REPO_ROOT, TENANT
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-FIXTURE = REPO_ROOT / "fixtures" / "hidden-costs-v2.transcript.txt"
+FIXTURE = TENANT.fixtures_dir / "hidden-costs-v2.transcript.txt"
 
 
 def _patch_network(monkeypatch):
@@ -40,9 +40,9 @@ def _patch_network(monkeypatch):
         # is fine: this dry run doesn't exercise PDP claim seeding.
         return products, by_slug, []
 
-    monkeypatch.setattr(cli, "refresh_price_data", fake_refresh_price_data)
-    monkeypatch.setattr(cli, "fetch_reviews_claim", lambda url, today_iso, log=None: None)
-    monkeypatch.setattr(cli, "http_fetch_bytes", lambda url: b"\xff\xd8\xff\xe0fake-jpeg-bytes")
+    monkeypatch.setattr(pipeline, "refresh_price_data", fake_refresh_price_data)
+    monkeypatch.setattr(pipeline, "fetch_reviews_claim", lambda url, today_iso, log=None: None)
+    monkeypatch.setattr(pipeline, "http_fetch_bytes", lambda url: b"\xff\xd8\xff\xe0fake-jpeg-bytes")
 
     def fake_download_drive_file(file_id, dest_dir):
         dest_dir = Path(dest_dir)
@@ -51,7 +51,7 @@ def _patch_network(monkeypatch):
         dest.write_bytes(b"\xff\xd8\xff\xe0fake-drive-bytes")
         return dest
 
-    monkeypatch.setattr(cli, "download_drive_file", fake_download_drive_file)
+    monkeypatch.setattr(pipeline, "download_drive_file", fake_download_drive_file)
 
 
 AD_BRIEF_RESPONSE = {
@@ -85,6 +85,7 @@ def _base_args(**overrides):
         ffmpeg_bin="/usr/bin/ffmpeg",
         whisper_bin="/nonexistent/whisper-cli",
         whisper_model="/nonexistent/model.bin",
+        tenant=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -106,7 +107,7 @@ def test_run_dry_run_produces_three_pages(monkeypatch):
     assert exit_code == 0
 
     # find the run dir we just created (newest matching slug under out/)
-    out_dirs = sorted((REPO_ROOT / "out").glob("*-hidden-costs-v2-transcript"))
+    out_dirs = sorted((TENANT.out_dir).glob("*-hidden-costs-v2-transcript"))
     assert out_dirs, "expected a run dir under out/"
     run_dir = out_dirs[-1]
 
@@ -167,7 +168,7 @@ def test_run_reaches_price_based_product_inference_in_the_real_pipeline_order(mo
     exit_code = cli.cmd_run(_base_args(cartridges="article", product=None))
     assert exit_code == 0
 
-    out_dirs = sorted((REPO_ROOT / "out").glob("*-hidden-costs-v2-transcript"))
+    out_dirs = sorted((TENANT.out_dir).glob("*-hidden-costs-v2-transcript"))
     run_dir = out_dirs[-1]
     facts_pack = json.loads((run_dir / "facts_pack.json").read_text())
     assert facts_pack["product"]["slug"] == MINI_SLUG
@@ -197,7 +198,7 @@ def test_run_stops_on_unmatched_claim(monkeypatch):
     exit_code = cli.cmd_run(_base_args())
     assert exit_code == 2
 
-    out_dirs = sorted((REPO_ROOT / "out").glob("*-hidden-costs-v2-transcript"))
+    out_dirs = sorted((TENANT.out_dir).glob("*-hidden-costs-v2-transcript"))
     run_dir = out_dirs[-1]
     unmatched = json.loads((run_dir / "unmatched_claims.json").read_text())
     assert unmatched["stage"] == "ad_claims"
@@ -226,7 +227,7 @@ def test_run_drops_emf_claim_instead_of_stopping(monkeypatch):
     exit_code = cli.cmd_run(_base_args())
     assert exit_code == 0
 
-    out_dirs = sorted((REPO_ROOT / "out").glob("*-hidden-costs-v2-transcript"))
+    out_dirs = sorted((TENANT.out_dir).glob("*-hidden-costs-v2-transcript"))
     run_dir = out_dirs[-1]
 
     ad_brief = json.loads((run_dir / "ad_brief.json").read_text())
@@ -238,4 +239,4 @@ def test_run_drops_emf_claim_instead_of_stopping(monkeypatch):
     ]
 
     review_md = (run_dir / "REVIEW.md").read_text()
-    assert "dropped EMF claim: Competitor saunas leak dangerous levels of EMF radiation." in review_md
+    assert "dropped claim: Competitor saunas leak dangerous levels of EMF radiation." in review_md

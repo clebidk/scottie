@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from adv.budget import Budget, BudgetExceeded
+from harness.budget import Budget, BudgetExceeded
 
 
 def test_budget_passes_under_caps():

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from adv.jsonutil import extract_json
+from harness.jsonutil import extract_json
 
 
 def test_extract_json_parses_plain_json():

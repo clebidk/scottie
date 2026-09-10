@@ -7,24 +7,9 @@ import re
 from pathlib import Path
 from typing import Protocol
 
+from . import tenant as tenant_mod
 from .prices import format_price
-
-DEFAULT_CONFIG = {
-    "financing_lender": None,
-    "show_compare_at_price": False,
-    "reviews_source": "judgeme-live",
-    "speaker_name": None,
-    # Fix cycle 10 item 4: "stop" (default) -- an AD OVERCLAIM on a locked
-    # topic (warranty/reviews/financing/price) stops the run, same as an
-    # ordinary unmatched claim. "warn" -- a locked-topic AD OVERCLAIM no
-    # longer stops the run; see claims.gate_ad_brief_claims and README.md.
-    "ad_overclaim_policy": "stop",
-    # Fix cycle 15 item 2: brand/assets-listicle-pack.json's ai_generated:
-    # true rows (Firefly/Gemini/gpt-image composites, not photographs) are
-    # never eligible for selection -- see select_listicle_pack_assets --
-    # unless Caleb has explicitly turned this on.
-    "allow_ai_renders": False,
-}
+from .tenant import DEFAULT_CLAIMS_CONFIG as DEFAULT_CONFIG
 
 # Fix 8: for the chosen product's Drive assets, prefer lifestyle/interior,
 # then render, then installation shots. Never video/logo/ugc in V1.
@@ -32,31 +17,26 @@ DRIVE_ASSET_TIERS = (("lifestyle", "interior"), ("render",), ("installation",))
 DRIVE_ASSET_NEVER_KINDS = {"video", "logo", "ugc"}
 DRIVE_ASSET_MAX = 6
 
-# Fix cycle 15 item 2: brand/assets-listicle-pack.json only has real coverage
-# for these two models (docs/DRIVE-AUDIT-LISTICLE.md's counts) -- wiring it
-# in for a model it has no assets for would just add empty lookups.
-LISTICLE_PACK_MODELS = {"mini", "matterhorn"}
+def listicle_pack_models(tenant=None):
+    """The models the tenant's own listicle asset pack actually covers
+    (tenant.yaml's listicle_pack_models). Wiring the pack in for a model it has
+    no assets for would just add empty lookups."""
+    tenant = tenant or tenant_mod.active()
+    return {m.lower() for m in (tenant.get("listicle_pack_models") or ())}
 # Real photos first (photo_product/photo_install, plus still_video -- brand
 # generally, not model-specific); an ai_render only ever becomes eligible via
 # select_listicle_pack_assets's own allow_ai_renders gate.
 LISTICLE_PACK_TIERS = (("photo_product", "photo_install", "still_video"), ("ai_render",))
 LISTICLE_PACK_ASSET_MAX = 6
 
-# Fix cycle 3 item 3: these are cleared, product-wide (not per-model) claims
-# from claims/seed-from-gbrain.json's allowlist ("Only state verified claims:
-# medical-grade red light, free shipping, 360 full spectrum, US-owned,
-# Lifetime warranty"). They're already merged into claims/verified.json with
-# sources -- the gap fixed here is that facts_for()'s universal_ids never
-# surfaced them into facts_pack, so the writer had nothing to cite when
-# describing what the sauna actually does (only price/shipping/warranty/
-# returns made it through). Every product gets all five.
-BENEFIT_ALLOWLIST_IDS = {
-    "gbrain-allowlist-red-light",
-    "gbrain-allowlist-free-shipping",
-    "gbrain-allowlist-360-full-spectrum",
-    "gbrain-allowlist-us-owned",
-    "gbrain-allowlist-lifetime-warranty",
-}
+def benefit_allowlist_ids(tenant=None):
+    """Cleared, product-wide (not per-model) claims every product's facts_pack
+    always carries -- what the product actually does or is built with, as
+    opposed to price/shipping/warranty/returns. From tenant.yaml's
+    benefit_allowlist_ids; without them the writer has nothing to cite when
+    describing the product itself."""
+    tenant = tenant or tenant_mod.active()
+    return set(tenant.get("benefit_allowlist_ids") or ())
 
 
 class FactsSource(Protocol):
@@ -64,7 +44,10 @@ class FactsSource(Protocol):
 
 
 def load_claims_config(claims_dir):
-    """claims/config.json, with defaults filled in for any missing key."""
+    """The tenant's claims/config.json, with defaults filled in for any missing
+    key. Kept as a directory-taking function so a caller with only a claims dir
+    (a test, a one-off script) still works; a full run goes through
+    tenant.claims_config, which layers tenant.yaml's defaults underneath."""
     config_path = Path(claims_dir) / "config.json"
     config = dict(DEFAULT_CONFIG)
     if config_path.exists():
@@ -286,7 +269,7 @@ class LocalFactsSource:
         # amount that lines up (within $1) with exactly one active product's
         # current price, infer that product rather than falling through to
         # the default. price-comparison-v2.mov never names a model ("I think
-        # I'm going to buy the Peak sauna") but does say "$5,450", which is
+        # I'm going to buy the sauna") but does say "$5,450", which is
         # the Mini's price and no other active model's.
         price_pick = _pick_by_quoted_price(active_products, ad_brief)
         if price_pick:
@@ -313,7 +296,7 @@ class LocalFactsSource:
         name_slug = product["name"].lower().replace(" ", "-")
         drive_assets = select_drive_assets(self._load_assets_index(), name_slug)
         listicle_pack_assets = []
-        if name_slug in LISTICLE_PACK_MODELS:
+        if name_slug in listicle_pack_models():
             listicle_pack_assets = select_listicle_pack_assets(
                 self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders"))
             )
@@ -336,9 +319,9 @@ class LocalFactsSource:
             if c["id"].startswith(f"spec-{name_slug}-") or c["id"].startswith(f"gbrain-{name_slug}-")
         }
         universal_ids = (
-            {"founder-ceo", "warranty-terms", "shipping-policy", "returns-policy", price_id}
+            set(tenant_mod.active().get("universal_claim_ids") or ()) | {price_id}
             | spec_ids
-            | BENEFIT_ALLOWLIST_IDS
+            | benefit_allowlist_ids()
         )
         verified_claims = [
             {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}
@@ -395,7 +378,7 @@ class LocalFactsSource:
         # Fix cycle 6 item 2: every product's short_name/title/model name
         # across the whole catalog (not just the one this run is about) --
         # claims.py strips these out of a text field before checking it for
-        # a bare digit, so writing "Peak Fuji 2-Person Infrared Sauna" never
+        # a bare digit, so writing a short_name with a capacity digit never
         # by itself forces a claim_id onto a sentence that has nothing else
         # to cite. A generic "N-Person" capacity token is covered separately
         # by claims.py's own regex, not by this list.
