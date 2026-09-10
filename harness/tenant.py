@@ -492,6 +492,23 @@ def active():
     return _ACTIVE
 
 
+def active_or_none():
+    """The active tenant, or None if nothing has activated one yet -- unlike
+    active(), this never resolves the default tenant as a side effect. Exists
+    so a caller can snapshot and restore this module's global without forcing
+    it to be set (harness/vocab.py has the same pair)."""
+    return _ACTIVE
+
+
+def set_active(tenant):
+    """Install an already-loaded Tenant (or None) as the active one, without
+    the vocab cascade activate() performs. Used to put the global back where a
+    caller found it."""
+    global _ACTIVE
+    _ACTIVE = tenant
+    return _ACTIVE
+
+
 def init_tenant(name):
     """Copy tenants/_template to tenants/<name>. Returns the new directory.
     Refuses to overwrite an existing tenant."""

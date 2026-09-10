@@ -769,6 +769,7 @@ def test_resize_asset_bytes_leaves_a_small_image_under_the_cap_untouched_in_size
     assert new_ext == ".png"
 
 
+@pytest.mark.slow
 def test_resize_asset_bytes_converts_a_png_over_1_5mb_to_jpeg():
     # A large, low-compressibility PNG (random-ish per-pixel noise defeats
     # PNG's lossless compression) that stays over ASSET_PNG_MAX_BYTES even
@@ -839,6 +840,7 @@ def test_download_asset_resizes_a_real_downloaded_image(tmp_path):
     assert path.stat().st_size < len(large)
 
 
+@pytest.mark.slow
 def test_render_page_then_review_stays_under_12mb_with_a_large_fake_image(tmp_path):
     """Regression for the 46 MB Mini sample review file: a large Drive
     original downloaded at render time must be downscaled before it ever

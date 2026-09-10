@@ -29,3 +29,12 @@ harness = ["fallback.css", "templates/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# --strict-markers so a typo'd marker is an error, not a silently ignored one.
+# `-m "not live"` keeps the default run offline: a `live` test is one that
+# genuinely needs the network or a real model call. There are none today; the
+# marker exists so that adding one is a deliberate act rather than an accident.
+addopts = "--strict-markers -m 'not live'"
+markers = [
+    "slow: more than a second of real work (image re-encoding). Still offline, still run by default.",
+    "live: needs the network or a real model call. Deselected by default; run with `-m live`.",
+]

@@ -129,6 +129,12 @@ def active():
     return _ACTIVE
 
 
+def active_or_none():
+    """The active Vocabulary, or None -- unlike active(), never loads the
+    default tenant as a side effect. See harness/tenant.py's own pair."""
+    return _ACTIVE
+
+
 # Module-level names, resolved through the active vocabulary on every access.
 # PEP 562: this only runs for names not already defined in the module.
 _ATTRS = {

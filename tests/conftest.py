@@ -1,8 +1,16 @@
-"""Shared test doubles. No network calls anywhere in tests -- every Anthropic
-client is this fake, injected explicitly."""
+"""Shared test doubles and the two suite-wide guarantees.
+
+No network calls anywhere in tests -- every Anthropic client is this fake,
+injected explicitly, and since Cycle 22 that is enforced rather than assumed
+(see _no_network below).
+"""
 import json
+import socket
 
 import pytest
+
+from harness import tenant as tenant_mod
+from harness import vocab
 
 
 class FakeUsage:
@@ -77,3 +85,47 @@ def block_text(content):
 @pytest.fixture
 def fake_client_factory():
     return lambda responses: FakeClient(responses)
+
+
+# ---------------------------------------------------------------------------
+# Cycle 22 findings R31/R32: two things that were conventions, now guarantees.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _restore_active_tenant():
+    """harness/tenant.py and harness/vocab.py each keep the active tenant in a
+    module-level global, and cli.cmd_run calls activate() without ever putting
+    it back. Every test that ran after tests/test_cli_run.py therefore saw a
+    different active tenant depending on collection order -- and every module
+    that falls back to tenant_mod.active() / vocab.active() (render_page, the
+    claims gate, the writer prompt) reads that global. Exactly one test used to
+    do this correctly, with its own try/finally."""
+    previous_tenant = tenant_mod.active_or_none()
+    previous_vocab = vocab.active_or_none()
+    try:
+        yield
+    finally:
+        tenant_mod.set_active(previous_tenant)
+        vocab.set_active(previous_vocab)
+
+
+@pytest.fixture(autouse=True)
+def _no_network(request, monkeypatch):
+    """README.md has always said the suite makes no network calls. That was
+    true, but only by convention -- nothing stopped a new test that forgot to
+    inject a fake fetcher from hitting a real storefront, a real Drive file, or
+    a real model. Any attempt to open a socket now fails the test that made it.
+
+    A test marked `live` opts out. There are none today."""
+    if request.node.get_closest_marker("live"):
+        return
+
+    def _blocked(*args, **kwargs):
+        raise AssertionError(
+            "this test tried to open a network connection -- the suite runs "
+            "offline. Inject a fake client/fetcher, or mark the test `live`."
+        )
+
+    monkeypatch.setattr(socket.socket, "connect", _blocked)
+    monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
+    monkeypatch.setattr(socket, "create_connection", _blocked)
