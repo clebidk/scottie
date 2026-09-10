@@ -280,10 +280,6 @@ def drop_banned_topic_claims(ad_brief, log, terms=None):
     return dropped
 
 
-# Kept as the historical name used by the CLI and the tests.
-drop_emf_claims = drop_banned_topic_claims
-
-
 def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, whisper_bin, whisper_model):
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -312,5 +308,8 @@ def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, wh
         budget=budget,
         log=log,
     )
-    ad_brief["_dropped_emf_claims"] = drop_emf_claims(ad_brief, log)
+    # The key name is part of ad_brief.json's shape (it is written to disk and
+    # sent to the writer), so it keeps the historical spelling; the function
+    # behind it does not have to.
+    ad_brief["_dropped_emf_claims"] = drop_banned_topic_claims(ad_brief, log)
     return ad_brief

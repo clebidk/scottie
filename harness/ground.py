@@ -133,7 +133,7 @@ def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
 
 def select_listicle_pack_assets(pack_index, model_slug, allow_ai_renders, limit=LISTICLE_PACK_ASSET_MAX):
     """Up to `limit` assets from brand/assets-listicle-pack.json for
-    model_slug ("mini" or "matterhorn"), real photos (photo_product,
+    model_slug (whichever models the pack covers), real photos (photo_product,
     photo_install) and brand stills (still_video) first, an ai_render only if
     `allow_ai_renders` is true (claims/config.json's allow_ai_renders, default
     False) -- never selected otherwise, per docs/DRIVE-AUDIT-LISTICLE.md's
@@ -223,11 +223,11 @@ class LocalFactsSource:
 
     def pick_product_with_warning(self, product_slug, ad_brief):
         """Cycle 8 problem 1b: an explicit --product still wins outright. Otherwise
-        match each active model's real name (never an alias -- "mini", "peak
-        mini", "sauna mini", "el cap", "1-person" etc. are not model names, only
-        the product's own `name` field is matched) against the ad's transcript/
-        brief, case-insensitively and on a whole word/phrase boundary so "Fuji"
-        doesn't match inside some unrelated longer word. If exactly one model is
+        match each active model's real name (never an alias, a nickname, or a
+        capacity phrase -- only the product's own `name` field is matched)
+        against the ad's transcript/brief, case-insensitively and on a whole
+        word/phrase boundary so a short model name does not match inside some
+        unrelated longer word. If exactly one model is
         named, pick it. If several are named, pick whichever is mentioned first
         in the haystack. If none is named, fall back to the default product (or
         the first active one if none is marked default) and return a warning
@@ -270,7 +270,7 @@ class LocalFactsSource:
         # current price, infer that product rather than falling through to
         # the default. price-comparison-v2.mov never names a model ("I think
         # I'm going to buy the sauna") but does say "$5,450", which is
-        # the Mini's price and no other active model's.
+        # exactly one active model's price and no other's.
         price_pick = _pick_by_quoted_price(active_products, ad_brief)
         if price_pick:
             amount, product = price_pick
@@ -308,7 +308,7 @@ class LocalFactsSource:
         # ever carried the handful of fields Shopify already exposed (capacity,
         # cabin material, max temp, ...) -- per-model facts seeded from g Brain
         # (dimensions, electrical, red light, heater, wood: `spec-<model>-*`,
-        # and the older `gbrain-<model>-*` Fuji/Everest set) were never wired
+        # and the older `gbrain-<model>-*` set) were never wired
         # into facts_pack at all, so the writer had nothing to cite even once
         # the claim existed in claims/verified.json. Any verified claim whose
         # id is namespaced to this model is citable, not just the ones already
@@ -369,7 +369,7 @@ class LocalFactsSource:
             reviews_summary = {"text": reviews_claim["text"], "claim_ids": [reviews_claim["id"]]}
 
         # Fix 1: financing never carries a lender/monthly figure unless
-        # claims/config.json's financing_lender has been set by Caleb, and a
+        # claims/config.json's financing_lender has been set by an operator, and a
         # compare-at price is never even offered to the writer unless
         # show_compare_at_price is true.
         financing = {"available": True, "lender": config.get("financing_lender"), "monthly": None}
@@ -410,7 +410,7 @@ class LocalFactsSource:
             "verified_claims": verified_claims,
             "assets": assets,
             # Fix 2 (cycle 2): the ad speaker's first-person story is
-            # attributed to "a customer" unless Caleb has put a real,
+            # attributed to "a customer" unless an operator has put a real,
             # consented name in claims/config.json.
             "speaker_name": config.get("speaker_name"),
             "digit_exempt_terms": digit_exempt_terms,

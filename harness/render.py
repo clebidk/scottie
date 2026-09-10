@@ -105,7 +105,7 @@ def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
 
 # Fix cycle 2 item 9: the Sources list must show a short, human-readable
 # link label -- never the raw URL as visible text (that's exactly how the
-# Fuji product URL's "near-zero-emf" handle was leaking into visible copy).
+# a product URL's own handle was leaking into visible copy).
 #
 # Fix cycle 3 item 1: dedupe to one line per distinct source URL (several
 # claims -- specs, price -- share the same product-page URL) with a specific
@@ -306,8 +306,8 @@ def http_fetch_bytes(url):
         return resp.read()
 
 
-# Fix cycle 15 item 1: a Drive original inlined at full size (the Mini
-# sample review file was 46 MB) blows well past anything worth emailing. Every
+# Fix cycle 15 item 1: a Drive original inlined at full size (one sample
+# review file was 46 MB) blows well past anything worth emailing. Every
 # asset actually downloaded into out/<run>/<cartridge>/assets/ is downscaled
 # to this long edge and re-encoded before it ever reaches disk.
 ASSET_MAX_LONG_EDGE = 1600
@@ -488,7 +488,7 @@ def render_page(
     )
 
     # Fix cycle 5 item 2: last line of defense -- a claim id printed in
-    # parentheses inline in rendered copy (e.g. "(spec-fuji-capacity)")
+    # parentheses inline in rendered copy (e.g. "(spec-<model>-capacity)")
     # reads as an internal SKU to a reader. write_and_gate_page's repair
     # loop (claims.find_leaked_claim_ids) and the post-render scan just
     # below (find_leaked_claim_ids_visible_text) should already have caught

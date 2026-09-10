@@ -166,8 +166,8 @@ class ShopifyPublisher(Publisher):
         """Fetches `storefront_url` `pulls` times, `delay_s` apart, counting
         how many responses contain `marker` (a short, distinctive substring
         of the new body) -- the storefront cache-epoch trap documented in
-        tenants/peak-saunas/reference/peak-listicle-lp/README.md ("verify
-        with >= 8 pulls, not one"). Only ever called under `--live`."""
+        a tenant's own storefront notes ("verify with >= 8 pulls, not
+        one"). Only ever called under `--live`."""
         fetch = fetch or self._default_fetch
         hits = 0
         for i in range(pulls):

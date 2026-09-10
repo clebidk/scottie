@@ -1,6 +1,7 @@
 """Tenant resolution, the tenant skeleton, and the rule that the engine and the
 cartridges carry no company's words."""
 import json
+import re
 
 import pytest
 import yaml
@@ -97,6 +98,37 @@ def test_render_leaves_an_unknown_placeholder_alone():
 
 TENANT_WORDS = ("Peak", "Austin", "Judge.me", "Aurora")
 
+# Cycle 22 finding R7: the list above is matched case-sensitively and holds
+# four proper nouns, so it missed a lowercase "peak-saunas" in a docstring and
+# every model name in the catalog -- fifteen leaks in harness/ comments and
+# docstrings. This is the wider list, applied to harness/ only.
+#
+# It is deliberately NOT applied to cartridges/: three cartridge.md files name
+# a model in a worked CTA example, and a cartridge.md is prompt text, so
+# rewriting one changes what the writer is told. That is tracked as an open
+# finding (R39) rather than fixed here.
+ENGINE_TENANT_WORDS = TENANT_WORDS + (
+    "peak-saunas", "Peak Saunas", "Caleb", "Niednagel", "Laudenslager",
+    "Fuji", "Everest", "Rainier", "Shasta", "Denali", "Matterhorn",
+    "Patagonia", "El Capitan", "Kilimanjaro",
+)
+
+# An adapter is named after the outside system it talks to -- harness/sources/
+# judgeme.py, harness/publishers/shopify.py -- the same way a database driver
+# is. That is a dependency's name, not a tenant's value, so the module's own
+# path is exempt; its CONTENTS are scanned like anything else.
+_VENDOR_ADAPTER_PATHS = ("sources/judgeme.py", "publishers/shopify.py")
+
+# One known, deliberate exception. harness/cli.py's build_revision_note quotes
+# a real claim id as the worked example of "a claim id printed as text", and
+# that string is PROMPT text -- it is sent to the model inside every REVISION
+# REQUIRED block. harness/write.py's own system prompt already uses the
+# generic "spec-model-capacity" form for the same example, so making the two
+# agree is a one-word prompt edit and a product decision, not a mechanical
+# cleanup. Tracked as an open finding; exempted here rather than silently
+# widening the whole rule.
+_PROMPT_TEXT_EXEMPTIONS = {("harness/cli.py", "Fuji")}
+
 
 def _files(root, suffixes):
     return [p for p in root.rglob("*") if p.is_file() and p.suffix in suffixes]
@@ -104,13 +136,19 @@ def _files(root, suffixes):
 
 @pytest.mark.parametrize("root", ["harness", "cartridges"])
 def test_no_tenant_specific_words_in_the_engine_or_the_cartridges(root):
+    # Whole words, case-insensitively: a bare substring match would flag
+    # "speaker"/"speaks" for containing "peak", which is why the original
+    # list had to stay case-sensitive to be usable at all.
+    patterns = [(w, re.compile(r"\b" + re.escape(w) + r"\b", re.IGNORECASE))
+                for w in (ENGINE_TENANT_WORDS if root == "harness" else TENANT_WORDS)]
     offenders = []
     for path in _files(REPO_ROOT / root, {".py", ".md", ".json", ".html", ".css", ".yaml"}):
         text = path.read_text(errors="ignore")
-        for word in TENANT_WORDS:
-            for i, line in enumerate(text.splitlines(), 1):
-                if word in line:
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}:{i}: {word}")
+        for i, line in enumerate(text.splitlines(), 1):
+            for word, pattern in patterns:
+                rel = str(path.relative_to(REPO_ROOT))
+                if pattern.search(line) and (rel, word) not in _PROMPT_TEXT_EXEMPTIONS:
+                    offenders.append(f"{rel}:{i}: {word}")
     assert offenders == [], "tenant-specific words leaked into tenant-neutral code:\n" + "\n".join(offenders)
 
 

@@ -1254,8 +1254,8 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
 # Fix cycle 5: a claim id belongs only in a node's own "claim_ids"/"claim_id"
 # field -- never inside prose the writer composed. Observed twice in run
 # 20260909-2021-hidden-costs-v2: "the full product short_name
-# (spec-fuji-capacity), which is priced at $8,250". A reader has no idea
-# what "spec-fuji-capacity" means; it's an internal id, not a citation.
+# (spec-<model>-capacity), which is priced at $8,250". A reader has no idea
+# what "spec-<model>-capacity" means; it's an internal id, not a citation.
 # ---------------------------------------------------------------------------
 
 # An id-shaped token: lowercase letters, digits, and hyphens, at least one
@@ -1339,7 +1339,7 @@ def strip_leaked_claim_ids(html_text, valid_claim_ids):
     find_leaked_claim_ids_visible_text (post-render) above should already
     have caught this and sent it back for a rewrite -- this only fires if
     both missed it. Quietly removes a parenthesized known claim id from the
-    rendered HTML (e.g. "(spec-fuji-capacity)" -> "") rather than failing an
+    rendered HTML (e.g. "(spec-<model>-capacity)" -> "") rather than failing an
     already-written run over it. Returns (cleaned_html, [removed_ids])."""
     removed = []
 

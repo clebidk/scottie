@@ -97,10 +97,6 @@ def find_forbidden_term_urls(facts_pack, terms=None):
     return urls
 
 
-# Kept as the historical name used by the tests.
-find_emf_urls = find_forbidden_term_urls
-
-
 def count_words(page_json):
     """Word count of a page's main content only: every prose string in
     page.json (the byline and disclosure blocks are renderer-injected and
@@ -824,8 +820,8 @@ def _log_run_result(log, result, gate_log):
     log.result(result, total_attempts, total_repairs)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, forbidden_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None, emf_urls=None):
-    forbidden_urls = forbidden_urls if forbidden_urls is not None else emf_urls
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, forbidden_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None):
+    forbidden_urls = forbidden_urls or []
     lines = [
         f"# REVIEW: {run_dir.name}",
         "",
@@ -1178,7 +1174,7 @@ def cmd_publish(args):
     packet.json's stamp is "ship". Default publish is unpublished (a draft
     page) unless `--live`; `--live` also verifies the storefront cache with
     8 pulls, 2s apart (the cache-epoch trap in
-    tenants/peak-saunas/reference/peak-listicle-lp/README.md). `--dry-run`
+    the tenant's own storefront notes). `--dry-run`
     only validates credentials and the page body (a GET on the shop
     endpoint for the Shopify adapter) -- no approval or stamp required, and
     nothing is created."""

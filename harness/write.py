@@ -272,7 +272,7 @@ def word_range_target(word_range):
 # menu of choices) and the gate (what it compares cta_text against) call this
 # same function, so they can't end up comparing against different strings.
 # Fix cycle 7 item 3: schema.json can also template "{model_name}" (e.g.
-# "Shop the {model_name}" -> "Shop the Fuji") -- model_name defaults to None
+# "Shop the {model_name}" -> "Shop the <model>") -- model_name defaults to None
 # so an existing caller/template with no "{model_name}" placeholder is
 # unaffected; str.format only substitutes a placeholder that's actually
 # present in the template string.
@@ -307,7 +307,7 @@ def resolve_allowed_cta_texts(schema, short_name, model_name=None, tenant=None, 
     cta_mode, via resolve_cta_mode) is "consult", the cartridge's own
     schema.json allowed_cta_texts is set aside in favor of the tenant's own
     cta_variants.consult list -- every cartridge becomes consult-CTA for
-    that run. "buy" (peak-saunas' default, and the default for a tenant that
+    that run. "buy" (the default for a tenant that
     never sets cta_mode) leaves schema's own list exactly as it always
     was -- no behavior change for the common case. Cartridges never hardcode
     a company's consult phrasing themselves; that list lives only in the
