@@ -566,3 +566,7 @@ notifications. `harness/*`, `cartridges/` untouched, `tenants/_template/*`, `doc
   shopify.py` and `harness/notify.py` was exercised only through a fake transport in tests,
   or hit its fail-closed no-credentials path for real (no credentials exist in the tenant
   env yet).
+
+## Known issue (operator, 2026-09-10 22:30)
+- Slack notifications disabled in tenants/peak-saunas/tenant.yaml (slack: false) until the deliberate Friday-morning test: cycle 20 verification runs posted 7 real messages because the webhook was already saved. Re-enable with one test before Friday review.
+- Run id collision: pipeline.make_run_id truncates to the minute; concurrent runs of the same fixture share a run dir. Fix: add seconds + 4-char random suffix. Assigned to cycle 22 or a follow-up.

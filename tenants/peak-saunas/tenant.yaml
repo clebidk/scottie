@@ -152,5 +152,5 @@ shopify_publish:
   store_admin_domain: null  # the *.myshopify.com admin domain is not yet confirmed; SHOPIFY_STORE must hold it once known
 
 notifications:
-  slack: true
+  slack: false
   email: []
