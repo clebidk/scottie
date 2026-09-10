@@ -187,6 +187,13 @@ def test_run_stops_on_unmatched_claim(monkeypatch):
     # item 3's classify_ad_claim_about would otherwise classify it "about:
     # alternative" instead (never stops the run under any policy), which is
     # not what this test is checking.
+    # This test exercises ad_overclaim_policy "stop" specifically -- pin it
+    # regardless of the tenant's committed default (Cycle 19: the default is
+    # now "warn"), so the test stays hermetic against claims/config.json's
+    # real on-disk value rather than depending on it.
+    stop_claims_config = dict(TENANT.claims_config, ad_overclaim_policy="stop")
+    monkeypatch.setattr(type(TENANT), "claims_config", property(lambda self: stop_claims_config))
+
     bad_ad_brief = dict(AD_BRIEF_RESPONSE)
     bad_ad_brief["claims_made"] = ["Peak Saunas ships every order within two business days."]
     responses = [

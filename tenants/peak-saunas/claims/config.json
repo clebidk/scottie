@@ -3,6 +3,6 @@
   "show_compare_at_price": false,
   "reviews_source": "judgeme-live",
   "speaker_name": null,
-  "ad_overclaim_policy": "stop",
+  "ad_overclaim_policy": "warn",
   "allow_ai_renders": true
 }
