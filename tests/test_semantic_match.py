@@ -6,10 +6,10 @@ import json
 
 import pytest
 
-from adv.budget import Budget
-from adv.claims import match_claim
-from adv.log import RunLog
-from adv.semantic_match import (
+from harness.budget import Budget
+from harness.claims import match_claim
+from harness.log import RunLog
+from harness.semantic_match import (
     MAX_VERIFIED_CLAIMS_FOR_PROMPT,
     _trim_verified_claims_for_prompt,
     semantic_match_claims,

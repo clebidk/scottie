@@ -1,0 +1,22 @@
+# Who signs a generated page. The renderer injects the byline; the writer never
+# writes it. brand/byline.html's own template appends the author's title after
+# {{author}}, so `author.name` here is the bare name.
+author:
+  name: Austin Laudenslager
+  title: Founder & CEO
+  bio: >-
+    Founder and CEO of Peak Saunas. Writes the buyer-education pieces on the
+    site and signs every advertorial published under the brand.
+  page: https://peaksaunas.com/pages/austin-laudenslager
+
+contributor:
+  name: Caleb Niednagel
+  title: Technology Lead
+  bio: >-
+    Technology Lead at Peak Saunas. Reviews every generated page for claim
+    safety before it is published.
+
+# Rendered as "By {author.name}, {author.title}, {tenant.name}" / "Reviewed by
+# {contributor.name}, {contributor.title}".
+byline_author_template: "By {author_name}, {author_title}, {tenant_name}"
+byline_contributor_template: "Reviewed by {contributor_name}, {contributor_title}"

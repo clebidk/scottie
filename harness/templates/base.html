@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ tenant_name }}{% endblock %}</title>
+<style>{{ brand_css | safe }}</style>
+{% if json_ld %}
+<script type="application/ld+json">{{ json_ld | tojson }}</script>
+{% endif %}
+</head>
+<body>
+<main class="adv-wrap">
+{% block content %}{% endblock %}
+
+<footer class="adv-footer">
+  {% block byline %}{% endblock %}
+  <p class="adv-disclosure">{{ disclosure_text }}</p>
+  {% if sources %}
+  <div class="adv-sources">
+    <h3>Sources</h3>
+    <ul>
+    {% for s in sources %}
+      <li><a href="{{ s.url }}" rel="nofollow">{{ s.label }}</a></li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</footer>
+</main>
+</body>
+</html>

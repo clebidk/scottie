@@ -1,6 +1,6 @@
 import pytest
 
-from adv.claims import (
+from harness.claims import (
     ClaimsGateFailure,
     classify_ad_claim_about,
     find_benefit_claim_shortfall,
@@ -18,7 +18,7 @@ from adv.claims import (
     strip_leaked_claim_ids,
     validate_page_claim_ids,
 )
-from adv.vocab import ALLOWED_WARRANTY_SENTENCE
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE
 
 VERIFIED_CLAIMS = [
     {"id": "price-fuji", "text": "The Peak Saunas Fuji is priced at $8250.00 (list/compare-at $14032.00).", "category": "price", "source": "https://peaksaunas.com/products/fuji"},
@@ -186,7 +186,7 @@ def test_crate_protected_delivery_fails_without_the_synonym_mapping():
     # Sanity check on the regression itself: without the synonym mapping,
     # "protected"/"delivery" share no token with "protective"/"shipping" and
     # overlap is exactly 1/3 (only "crate" matches) -- below the 0.6 gate.
-    from adv.claims import normalize, overlap_ratio
+    from harness.claims import normalize, overlap_ratio
 
     ad_tokens = ["crate", "protected", "delivery"]  # pre-synonym tokens
     verified_tokens = normalize(SHIPPING_CRATE_CLAIM[0]["text"])

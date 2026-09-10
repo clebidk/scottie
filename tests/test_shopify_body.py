@@ -6,9 +6,9 @@ import argparse
 import json
 from pathlib import Path
 
-from adv.cli import cmd_shopify_body
-from adv.render import render_page
-from adv.shopify import AURORA_FULL_BLEED_RULES, build_shopify_body, write_shopify_body
+from harness.cli import cmd_shopify_body
+from harness.render import render_page
+from harness.shopify import build_shopify_body, full_bleed_css, write_shopify_body
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -79,7 +79,7 @@ def _render_listicle(out_dir):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=out_dir / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-10",
         updated="2026-09-10",
@@ -91,7 +91,7 @@ def test_shopify_body_starts_with_the_aurora_full_bleed_has_rules(tmp_path):
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     html, _ = build_shopify_body(out_dir)
-    assert html.startswith("<style>\n" + AURORA_FULL_BLEED_RULES)
+    assert html.startswith("<style>\n" + full_bleed_css())
     assert ".section:has(.pk-lp) .container{" in html
     assert ".section:has(.pk-lp) .page__title{display:none}" in html
     assert ".section:has(.pk-lp) .page__content{" in html
@@ -207,7 +207,7 @@ def test_build_shopify_body_works_on_a_non_listicle_cartridge(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=out_dir / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-10",
         updated="2026-09-10",
@@ -216,14 +216,14 @@ def test_build_shopify_body_works_on_a_non_listicle_cartridge(tmp_path):
     html, manifest = build_shopify_body(out_dir)
     assert "<header" not in html.lower()
     assert "Advertisement" in html
-    assert html.startswith("<style>\n" + AURORA_FULL_BLEED_RULES)
+    assert html.startswith("<style>\n" + full_bleed_css())
     assert manifest == []
 
 
 def test_cmd_shopify_body_cli_wiring(tmp_path):
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
-    args = argparse.Namespace(cartridge_dir=str(out_dir))
+    args = argparse.Namespace(cartridge_dir=str(out_dir), tenant=None)
     assert cmd_shopify_body(args) == 0
     assert (out_dir / "shopify-body.html").exists()
     assert (out_dir / "shopify-body.assets.json").exists()
@@ -232,6 +232,6 @@ def test_cmd_shopify_body_cli_wiring(tmp_path):
 def test_cmd_shopify_body_errors_without_an_index_html(tmp_path, capsys):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
-    args = argparse.Namespace(cartridge_dir=str(empty_dir))
+    args = argparse.Namespace(cartridge_dir=str(empty_dir), tenant=None)
     assert cmd_shopify_body(args) == 1
     assert "no index.html" in capsys.readouterr().err

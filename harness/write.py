@@ -1,0 +1,386 @@
+"""One Claude call per cartridge: (ad_brief, facts_pack) -> page.json.
+
+System prompt = cartridge.md + schema.json + a global voice block.
+User message = ad_brief + facts_pack + up to 2 exemplars if present.
+"""
+import json
+import re
+from pathlib import Path
+
+from .jsonutil import extract_json
+from . import tenant as tenant_mod
+from . import vocab
+
+TYPE_MAP = {
+    "string": str,
+    "array": list,
+    "object": dict,
+    "number": (int, float),
+    "integer": int,
+    "boolean": bool,
+}
+
+
+def global_voice_block(tenant=None):
+    """The voice/guardrail block appended to every writer system prompt.
+
+    Built fresh per call from the active tenant's vocab.yaml and tenant.yaml
+    (company name, author name, competitor aliases, fixed sentences), so the
+    writer prompt and the deterministic gate can never drift apart -- add a
+    word to vocab.yaml and both sides pick it up with no code change.
+    """
+    tenant = tenant or tenant_mod.active()
+    v = vocab.active()
+
+    company = tenant.display_name
+    author_name = (tenant.author("author") or {}).get("name") or "the page author"
+    hype_words_list = ", ".join(f'"{w}"' for w in v.hype_words) or "(none configured)"
+    trigger_words_list = ", ".join(f'"{w.upper() if len(w) <= 3 else w}"' for w in v.trigger_words)
+    implied_terms_list = ", ".join(f'"{t}"' for t in v.implied_claim_forbidden_terms)
+    lender_names_list = ", ".join(n.title() for n in v.forbidden_lender_names)
+
+    # Absolute word bans, stated one group at a time so each reads as a real
+    # sentence rather than a list dump. Every group is tenant data.
+    ban_sentences = []
+    for term in v.emf_terms:
+        ban_sentences.append(
+            f'Never write "{term.upper()}" in any form, anywhere, including as an abbreviation '
+            "inside a claim -- this applies even to facts_pack's own internal-only data on the topic."
+        )
+        break
+    if v.banned_names:
+        names = ", ".join(n.title() for n in v.banned_names)
+        ban_sentences.append(f"Never name any of these: {names}.")
+    for wrong, right in (v.competitor_aliases or {}).items():
+        ban_sentences.append(f'Refer to that competitor as "{right}", never "{wrong.title()}".')
+    ban_sentences.append(
+        "Never claim third-party or accredited-laboratory testing of any kind. Competitor "
+        "statements are only ever the speaker's own experience, never a sourced fact about a "
+        "competitor, unless a verified claim covers it."
+    )
+    guardrails = " ".join(ban_sentences)
+
+    lender_clause = (
+        f" Never name a financing lender ({lender_names_list}, or any other) unless "
+        "financing.lender is non-null and IS that name."
+        if lender_names_list
+        else ""
+    )
+    implied_clause = (
+        f" Never write {implied_terms_list} unless a verified claim's own text actually states it."
+        if implied_terms_list
+        else ""
+    )
+
+    return f"""## Voice and output rules
+
+Voice: plain, specific, no hype words ({hype_words_list}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
+
+Never write the byline, publish/update dates, the "Advertisement" label, or the disclosure paragraph -- the renderer injects those automatically.
+
+Every piece of text that states a number, a percentage, a dollar amount, or uses the words {trigger_words_list} MUST carry a non-empty "claim_ids" array referencing an id from facts_pack.verified_claims. Never invent a claim id. If you cannot support a statement with a verified claim, do not make the statement. Each row in facts_pack.specs already carries its own "claim_id" -- when you restate a spec fact in prose (not just in a specs table), copy that same claim_id into the prose sentence's claim_ids array; do not state a spec number in prose without it. The id goes in that JSON array field ONLY -- never typed out as part of the sentence itself, in parentheses or otherwise. WRONG: "the price, $8,250, is listed on the product page (price-model)" or "a heater system built around full-spectrum infrared (spec-model-wavelength-range)". RIGHT: drop the parenthetical entirely and put "price-model" / "spec-model-wavelength-range" in that sentence's own "claim_ids" array instead -- a claim id is never something a reader sees. This includes an illustrative or hypothetical number used to make a rhetorical point ("a $50 impulse buy versus an $8,000 purchase", "a standard 2-person cabin") -- there is no claim_id for a made-up example, so make the same point in words instead ("a small impulse buy" vs. "a major purchase"). It also includes the current year or any other calendar year stated in your own narration as color commentary (e.g. "a reasonable thing to want in 2026") -- there is no claim_id for a bare year either; drop it or put it inside a direct quote credited to the ad speaker instead.
+
+Reference images only by an asset id from facts_pack.assets, in an "asset_id" field -- never by URL directly. Never write your own "alt" field for an image -- the renderer derives alt text on its own.
+
+Write a dollar amount exactly as it appears in the source claim's text (e.g. "$8,250", no ".00" unless the claim's own figure has non-zero cents) -- never reformat it, and never add a ".00" that isn't in the claim text.
+
+Never write a URL anywhere in body text (prose, headings, alt text, quotes). Cite a source inline as "(source name, year)" -- e.g. "({company} product page, 2026)" -- using a short human-readable name for the source, never the raw URL. The renderer builds the Sources list and its links on its own from claim_ids; the URL never needs to appear as text you write.
+
+Claim ids never appear in any text field. Cite in prose only as (source name, year). Put ids only in claim_ids -- never in a headline, paragraph, label, or quote, even in parentheses next to the source name.
+
+If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to "a customer" -- or to the name in facts_pack.speaker_name if that field is non-null -- e.g. "One customer told us she..." or a short quoted line clearly credited to that customer. The page author ({author_name}) never speaks in the ad speaker's first person.
+
+Outside a sentence that carries a claim_id, write numbers as words, not numerals -- "seven in the morning", not "7 a.m."; "five-figure", not "5-figure"; "two hours", not "2 hours". This applies especially to an illustrative or incidental number with nothing to cite (a time of day, a small count, an age) -- it has no claim_id to give it, so numerals there read as an invented, uncited fact even when you didn't mean it as one. Never use a numeral for a time, a count, or an age unless that exact sentence's own claim_ids array cites a verified claim for it.
+
+A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "One customer told us she put her studio memberships at around $200 a month, or about $2,400 a year." The sentence must itself read as attributed: say "customer", or "she"/"he"/"they" together with "told us"/"estimated"/"said" -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
+
+If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
+
+## Guardrails
+{guardrails}
+
+Financing: use facts_pack.product.financing. If financing.lender is null, you may discuss financing as a general topic (e.g. contrasting it with the sticker price), but the ONLY sentence you may write anywhere on the page that actually STATES a financing offer -- a monthly figure, a lender name, or that financing is available -- is exactly "{v.allowed_financing_sentence_no_lender}", verbatim, nothing added before or after it in that field. Never invent a monthly figure or lender name.{lender_clause}
+
+Compare-at / list price: only mention a "was $X" / compare-at / strikethrough price if facts_pack.product.compare_at_price is non-null. If it is null, state only the current price.
+
+Warranty: the verified warranty claim covers each component differently (e.g. heating elements and cabinetry are covered longer than electronics like the control system or accent lighting) -- never write a sentence describing what's covered by component from memory. Anywhere any text mentions warranty, write EXACTLY "{v.allowed_warranty_sentence}" -- or, in a spec-table row, the label "{v.allowed_warranty_spec_label}" with value exactly "{v.allowed_warranty_spec_value}" -- or quote the verified warranty claim's own text verbatim. Never invent or paraphrase per-component warranty wording. Warranty may appear AT MOST ONCE on the whole page, either as one proof point/bullet or one specs-table row (never both, never a second time anywhere else on the page), and every time it appears it must use the fixed sentence verbatim -- do not shorten it to a label on its own, and do not paraphrase it even if the paraphrase is honest; use the exact sentence, word for word, or leave warranty out of that section entirely.
+
+Implied claims: never infer a second, unverified fact from a verified claim -- a verified claim proves only what it literally says, nothing else. Being US-owned does not verify support is domestic; free shipping does not verify delivery speed; a star rating does not verify the product is "best".{implied_clause}
+
+Reviews: use facts_pack.reviews_summary and its claim_ids exactly as given. If facts_pack.reviews_summary is null, do not state any review count or star rating anywhere on the page, and never use a remembered or placeholder figure for a review count or rating. The word "reviews" itself is not banned, but it always needs a claim_id -- this trips writers repeatedly in generic buyer-education prose that has no claim_id to give it, e.g. "look at ratings and reviews from other buyers", "a star average built on a handful of reviews". Say "customer feedback" or "what other buyers say" instead in that kind of sentence -- every time, not just the first draft -- unless you are citing facts_pack.reviews_summary's actual claim_id.
+
+Same rule, same trap, for "study"/"studies", "clinical", "medical", "proven", and "rated": each always needs a claim_id, and each trips writers in the same generic buyer-education prose that has nothing in facts_pack.verified_claims to cite -- e.g. "a careful buyer treats research as useful background", "any brand citing a study should show its work". If you're not citing a specific verified claim_id when you make the point, rephrase without the trigger word: say "outside research" or "independent sources" instead of "a study"/"studies", describe a feature in plain terms instead of calling it "clinical" or "medical", and drop "proven"/"rated" rather than asserting them unsupported. When you ARE citing a real verified claim, use the word freely and put its claim_id in that sentence's claim_ids array as usual.
+
+Refer to the product by facts_pack.product.short_name, not facts_pack.product.name alone and never by a raw marketing title -- on FIRST mention in each major section (hero, each FAQ answer, each step, etc.). A short_name often contains a digit (its capacity, e.g. "2-Person") -- any sentence that uses the full short_name needs a claim_id too; put the matching capacity spec row's claim_id from facts_pack.specs into that sentence's "claim_ids" array (the JSON field), every single time you write the short_name out, including in an FAQ answer or a step that isn't otherwise about specs -- the id itself is never printed as text next to the short_name or anywhere else. WRONG: "the full product short_name (spec-model-capacity), which is priced at $8,250" -- the id in parentheses is a bug, not a citation. RIGHT: the same sentence with no parenthetical at all and "claim_ids": ["spec-model-capacity", "price-model"] on that sentence's own JSON node. To avoid re-triggering this on every sentence (and to avoid sounding like a repeated ad slogan), after that first mention in a section just say "the sauna" or "this model" for the rest of that section -- you don't need the full short_name, or a claim_id, again until the next section.
+
+Output ONLY a single JSON object matching the schema you were given. No markdown fences, no commentary before or after."""
+
+
+def validate_schema(data, schema):
+    if not isinstance(data, dict):
+        return ["page.json is not a JSON object"]
+    errors = []
+    for key in schema.get("required", []):
+        if key not in data:
+            errors.append(f"missing required key: {key}")
+    for key, prop in schema.get("properties", {}).items():
+        if key in data and isinstance(prop, dict):
+            typ_name = prop.get("type")
+            expected = TYPE_MAP.get(typ_name)
+            if expected and not isinstance(data[key], expected):
+                errors.append(f"key {key!r} expected type {typ_name}, got {type(data[key]).__name__}")
+    return errors
+
+
+def load_cartridge_prompt(cartridge_dir, tenant=None):
+    """cartridge.md and schema.json, with the tenant's placeholders filled in.
+
+    A cartridge is tenant-neutral on disk: it says {{ tenant.name }} where a
+    company belongs. Both files are rendered here, at load time, so the writer
+    never sees a placeholder and the cartridge never carries one company's
+    words. A tenant's own cartridge-overrides/<name>/cartridge.md, when present,
+    is appended after the shared rules."""
+    tenant = tenant or tenant_mod.active()
+    cartridge_md = tenant.render((cartridge_dir / "cartridge.md").read_text())
+    override = tenant.cartridge_overrides(cartridge_dir.name)
+    if override:
+        cartridge_md += "\n\n## Tenant overrides\n" + tenant.render(override.read_text())
+    schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
+    return cartridge_md, schema
+
+
+# Fix cycle 4 item 2: parsed once from cartridge.md's own "N-M words" Rules
+# line (article/longform/product-page all state it the same way) rather than
+# hardcoding the range a second time anywhere else. Matches an en dash or a
+# hyphen between the two numbers.
+_WORD_RANGE_RE = re.compile(r"([\d,]+)\s*[–-]\s*([\d,]+)\s*words")
+
+
+def parse_word_range(cartridge_md):
+    """(min_words, max_words) parsed from cartridge_md's "N-M words" rule, or
+    None if the pattern isn't found."""
+    m = _WORD_RANGE_RE.search(cartridge_md)
+    if not m:
+        return None
+    return int(m.group(1).replace(",", "")), int(m.group(2).replace(",", ""))
+
+
+def word_range_target(word_range):
+    """A word count comfortably clear of the minimum without demanding a big
+    expansion -- a quarter of the way into the range, not the midpoint. Used
+    by both the writer prompt (aim here) and the gate's failure message
+    (expand toward here) so a repair asks for a modest, achievable amount of
+    new content rather than tempting a rewrite big enough to introduce a
+    fresh violation elsewhere."""
+    lo, hi = word_range
+    return lo + (hi - lo) // 4
+
+
+# Fix cycle 4 item 3: schema.json's "allowed_cta_texts" is a list of CTA
+# templates, e.g. "Shop the {short_name}". The writer has to submit the
+# already-substituted, concrete text in page.json (there's nowhere else for
+# the placeholder to be filled in before then), so this substitutes the
+# product's actual short_name once, here -- both the prompt (the writer's
+# menu of choices) and the gate (what it compares cta_text against) call this
+# same function, so they can't end up comparing against different strings.
+# Fix cycle 7 item 3: schema.json can also template "{model_name}" (e.g.
+# "Shop the {model_name}" -> "Shop the Fuji") -- model_name defaults to None
+# so an existing caller/template with no "{model_name}" placeholder is
+# unaffected; str.format only substitutes a placeholder that's actually
+# present in the template string.
+def resolve_allowed_cta_texts(schema, short_name, model_name=None):
+    templates = schema.get("allowed_cta_texts") or []
+    return [t.format(short_name=short_name, model_name=model_name) for t in templates]
+
+
+# Fix cycle 12 item 1: exemplars are the single largest piece of a writer
+# call's input -- a real fixture (cartridges/article/exemplars/
+# best-sauna-brands-2026.md) is 5,600+ words on its own, and sending it
+# whole was the main driver of the ~36,800-token average article write.
+# Trimmed to the first 700 words: still enough for the model to pick up
+# voice/structure (the point of an exemplar per write_page's own guidance --
+# "use them only as a voice and structure reference"), at a fraction of the
+# token cost. Never applied to a .json exemplar (a page.json-shaped object,
+# not prose) -- there are none in this repo today, and truncating structured
+# JSON by word count would just produce invalid JSON; the 2-exemplar cap
+# below is the control for those.
+EXEMPLAR_MAX_WORDS = 700
+
+
+def _truncate_words(text, limit):
+    words = text.split()
+    if len(words) <= limit:
+        return text
+    return " ".join(words[:limit])
+
+
+def load_exemplars(exemplars_dir, limit=2):
+    """Up to `limit` exemplars from tenants/<tenant>/exemplars/<cartridge>/.
+    Exemplars are a tenant's own approved pages, not part of the cartridge
+    definition, so they live with the tenant. A .json file
+    is parsed as a page.json-shaped object; a .md/.txt file is a real
+    reference article and is passed through as text (voice/structure
+    reference, not something to copy verbatim), trimmed to the first
+    EXEMPLAR_MAX_WORDS words (fix cycle 12 item 1)."""
+    if not exemplars_dir:
+        return []
+    ex_dir = Path(exemplars_dir)
+    if not ex_dir.exists():
+        return []
+    files = sorted(ex_dir.glob("*.json")) + sorted(ex_dir.glob("*.md")) + sorted(ex_dir.glob("*.txt"))
+    exemplars = []
+    for f in files[:limit]:
+        if f.suffix == ".json":
+            exemplars.append(json.loads(f.read_text()))
+        else:
+            exemplars.append({"reference_article": _truncate_words(f.read_text(), EXEMPLAR_MAX_WORDS)})
+    return exemplars
+
+
+def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
+               word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
+               tenant=None):
+    """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
+    and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
+    prior failed gate check on this same cartridge, appended to the user
+    message so the writer sees exactly what to fix) are all optional -- a
+    caller that doesn't pass them gets the pre-cycle-4 behavior.
+
+    ad_not_repeated (fix cycle 10 item 4, broadened fix cycle 12 item 3): only
+    ever set when claims/config.json's ad_overclaim_policy is "warn" and the
+    ad-claims gate found a claim (plain-unmatched OR a locked-topic claim
+    that didn't match its locked fact) that didn't stop the run -- each
+    item's own claim text and verified_fact (claims.gate_ad_brief_claims's
+    return shape; verified_fact is None for a plain-unmatched claim -- there
+    is no single fact to point to) are told to the writer as statements to
+    never repeat."""
+    tenant = tenant or tenant_mod.active()
+    cartridge_dir = Path(cartridges_dir) / cartridge_name
+    cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
+    # A repair attempt (revision_note set) already saw the exemplars on the
+    # first attempt -- it needs to fix specific flagged issues, not re-learn
+    # voice/structure, and exemplars are the single largest piece of a call's
+    # input tokens (up to ~45KB of reference text). Skipping them on repairs
+    # buys real budget headroom for the repair loop without changing what
+    # the writer is told to fix.
+    exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
+
+    hard_constraints = []
+    if word_range:
+        lo, hi = word_range
+        target = word_range_target(word_range)
+        hard_constraints.append(
+            f"Body word count must be between {lo} and {hi} -- aim for roughly {target} words, "
+            f"not the bare minimum of {lo}. Undershooting {lo} fails review and sends this "
+            "back for a full rewrite, which costs more than writing enough the first time, so "
+            "give each section real substance (concrete detail, not padding) rather than "
+            "stopping as soon as the structure is technically complete. Count words in section "
+            "bodies only -- headings, urls, asset ids, claim ids, and the cta_url are not part "
+            "of the count."
+        )
+    if allowed_cta_texts:
+        options = "; ".join(f'"{t}"' for t in allowed_cta_texts)
+        hard_constraints.append(
+            f"The CTA text must be exactly one of: {options}. Do not invent any other CTA wording."
+        )
+
+    # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
+    # top of the system prompt (and again inside every REVISION REQUIRED
+    # block below) -- observed cycling on the hidden-costs-v2 verification
+    # run where a repair attempt fixed one forbidden word but reintroduced
+    # another two attempts later.
+    system = (
+        vocab.forbidden_words_block()
+        + "\n\n"
+        + cartridge_md
+        + "\n\n## JSON schema for page.json\n"
+        + json.dumps(schema, indent=2)
+        + "\n\n"
+        + global_voice_block(tenant)
+    )
+    if hard_constraints:
+        system += "\n\n## Hard constraints for this run\n" + "\n".join(f"- {c}" for c in hard_constraints)
+
+    if ad_not_repeated:
+        lines = ["## DO NOT REPEAT these ad statements; use the verified fact instead"]
+        for item in ad_not_repeated:
+            fact = item.get("verified_fact")
+            if fact:
+                lines.append(f'- Ad said: "{item["claim"]}" -- verified fact: "{fact}"')
+            else:
+                lines.append(f'- Ad said: "{item["claim"]}" -- not verified; do not state this on the page at all')
+        system += "\n\n" + "\n".join(lines)
+
+    user_payload = {"ad_brief": ad_brief, "facts_pack": facts_pack}
+    if exemplars:
+        user_payload["exemplars"] = exemplars
+
+    user_content = json.dumps(user_payload)
+    if revision_note:
+        user_content += "\n\n" + revision_note
+
+    stage = f"write.{cartridge_name}"
+    last_error = None
+    messages = [{"role": "user", "content": user_content}]
+    for attempt in range(2):
+        budget.check()
+        # Fix cycle 12 item 1: log an approximate prompt size (chars / 4, the
+        # usual rough chars-per-token estimate) BEFORE the call -- so a
+        # prompt-bloat regression (e.g. exemplar trimming silently stops
+        # working) shows up in the log even without waiting for the real
+        # usage.input_tokens number the API returns after the call.
+        approx_prompt_chars = len(system) + sum(
+            len(m["content"]) if isinstance(m["content"], str) else 0 for m in messages
+        )
+        log.event(
+            stage,
+            f"prompt size: ~{approx_prompt_chars // 4} tokens (estimate, {approx_prompt_chars} chars)",
+        )
+        response = client.messages.create(
+            model=model,
+            max_tokens=6000,
+            # This is bounded JSON extraction, not a reasoning task -- disable
+            # thinking so the full max_tokens budget goes to visible output.
+            # Sonnet 5 runs adaptive thinking by default when unset, and
+            # thinking tokens count against max_tokens; without this the
+            # model can exhaust the budget on hidden reasoning and return an
+            # empty/truncated response (observed in practice on longform).
+            thinking={"type": "disabled"},
+            system=system,
+            messages=messages,
+        )
+        usage = response.usage
+        budget.record_call(usage.input_tokens, usage.output_tokens)
+        log.call(stage, model, usage.input_tokens, usage.output_tokens)
+
+        text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
+        try:
+            page = extract_json(text)
+            errors = validate_schema(page, schema)
+            if errors:
+                raise ValueError("; ".join(errors))
+            return page
+        except Exception as e:
+            last_error = e
+            log.event(stage, f"invalid page.json on attempt {attempt + 1}: {e}")
+            # Fix cycle 6 verification: this retry used to resend the exact
+            # same messages, blindly re-rolling with no reason to behave
+            # differently -- caught live when a response came back empty
+            # ("Expecting value: line 1 column 1") and, on the very next
+            # attempt with no feedback, came back missing a required key
+            # instead. Feed the bad response and the specific error back as
+            # a real multi-turn correction instead.
+            messages = messages + [
+                {"role": "assistant", "content": text or "(empty response)"},
+                {
+                    "role": "user",
+                    "content": (
+                        f"That response was not valid JSON matching the schema: {e}. Return ONLY a "
+                        "complete, corrected JSON object matching the schema -- no markdown fences, "
+                        "no commentary before or after."
+                    ),
+                },
+            ]
+            continue
+
+    raise ValueError(f"{stage} failed after retry: {last_error}")

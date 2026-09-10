@@ -12,4 +12,4 @@ Not executed in V1 (grader lands in V1.5). Eleven one-line checks, derived from 
 8. FAQ has 5-7 questions, each with a claim_ids-backed answer where the answer contains a number, $, %, or a trigger word.
 9. 4-6 images total, all resolved from asset ids in facts_pack.assets.
 10. Voice is confident and specific, second person, no hype words, no fake urgency (no countdowns).
-11. First-person attribution: if ad_brief.speaker_pov is first_person, the speaker's story is attributed to "a customer" (or facts_pack.speaker_name) -- never told in the author's (Austin's) own first person.
+11. First-person attribution: if ad_brief.speaker_pov is first_person, the speaker's story is attributed to "a customer" (or facts_pack.speaker_name) -- never told in the author's ({{ authors.author.name }}'s) own first person.

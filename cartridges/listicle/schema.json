@@ -5,7 +5,7 @@
   "properties": {
     "headline": {
       "type": "string",
-      "description": "'N Reasons ...' formula, 8-14 words. Name the audience when the ad names one (e.g. 'N Reasons Busy Parents Are Switching to Peak Saunas'). N must match the number of entries in reasons."
+      "description": "'N Reasons ...' formula, 8-14 words. Name the audience when the ad names one (e.g. 'N Reasons Busy Parents Are Switching to {{ tenant.name }}'). N must match the number of entries in reasons."
     },
     "dek": {
       "type": "string",
@@ -13,7 +13,7 @@
     },
     "proof_row": {
       "type": "array",
-      "description": "Optional 3-stat proof row directly under the dek. Only verified claims: live Judge.me rating and count, warranty term, free shipping. Omit entirely rather than pad it out -- never invent a fourth stat, and never include a review stat when facts_pack.reviews_summary is null.",
+      "description": "Optional 3-stat proof row directly under the dek. Only verified claims: live {{ tenant.reviews.platform_name }} rating and count, warranty term, free shipping. Omit entirely rather than pad it out -- never invent a fourth stat, and never include a review stat when facts_pack.reviews_summary is null.",
       "items": {
         "type": "object",
         "properties": {
@@ -47,7 +47,7 @@
     },
     "closing": {
       "type": "object",
-      "description": "Closing block: 1 paragraph naming Peak, the fixed warranty sentence, and the fixed no-lender financing sentence.",
+      "description": "Closing block: 1 paragraph naming {{ tenant.name }}, the fixed warranty sentence, and the fixed no-lender financing sentence.",
       "properties": {
         "headline": {
           "type": "string",

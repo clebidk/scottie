@@ -1,0 +1,27 @@
+name: packet
+description: >-
+  Turn one finished run into a review packet a human can act on without
+  opening the harness: what the ad claimed, what the page says, what was
+  dropped, and what still needs a decision.
+inputs:
+  - run_dir
+  - tenant
+# NOTE: `stage:` names a real pipeline stage in harness/pipeline.py and is what
+# `harness workflow run` executes. `action:` names a step this workflow performs
+# around the pipeline; the runner does not execute those yet, so this workflow
+# is a specification, not a runnable pipeline. `harness workflow run` on it
+# exits 1 with "runs no pipeline stages".
+steps:
+  - action: load_run
+    description: ad_brief.json, facts_pack.json, REVIEW.md, each page.json
+  - action: build_review_html
+    description: self-contained <cartridge>-review.html, images inlined
+    for_each: cartridge
+  - action: build_packet
+    description: >-
+      the draft packet -- angle, product, cartridges, claims matched, ad claims
+      not repeated, sources, word counts, open questions, and the ship/hold
+      recommendation
+outputs:
+  - tenants/{tenant}/out/{run_id}/{cartridge}-review.html
+  - tenants/{tenant}/out/{run_id}/PACKET-DRAFT.md

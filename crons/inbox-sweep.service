@@ -1,0 +1,14 @@
+[Unit]
+Description=Sweep the inbox for tenant @@TENANT@@ and run the ad-to-pages workflow on new files
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'set -euo pipefail; \
+  inbox="@@REPO@@/tenants/@@TENANT@@/inbox"; \
+  mkdir -p "$inbox/processed"; \
+  shopt -s nullglob; \
+  for f in "$inbox"/*; do \
+    [ -f "$f" ] || continue; \
+    @@REPO@@/.venv/bin/harness run "$f" --tenant @@TENANT@@; \
+    mv "$f" "$inbox/processed/"; \
+  done'

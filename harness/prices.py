@@ -1,0 +1,206 @@
+"""Live price refresh: at the start of a run, fetch the tenant's public
+Shopify product feed (paginated) and merge it with the tenant's
+claims/products.json (keeping the `default` flag and any hand-written
+`short_name`) into an in-memory product list, and build a fresh price claim
+per product dated today with the product URL as source. The raw fetch is
+cached for 60 minutes in runs/products-cache.json; on fetch failure the
+cache is used and a warning logged.
+
+The merge is in-memory only, every run -- it is
+never written back to claims/products.json. Every real run was
+refreshing prices/images there and leaving the git tree dirty (a routine
+"generated" date bump plus whatever else changed), which meant either
+committing a machine-written diff every cycle or leaving the tree dirty
+between runs. claims/products.json is hand-curated data now; it changes
+only when an operator edits it. The live refresh's only write is the existing
+runs/products-cache.json cache (via save_cache, in get_live_products
+below) -- merge_products(old_products, live_products) already re-derives
+the same in-memory result every run from that (or a fresh fetch) plus
+claims/products.json, so nothing is lost by not persisting it.
+"""
+import json
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from . import tenant as tenant_mod
+from .sources.shopify_products import (
+    PAGE_LIMIT,
+    fetch_all_live_products,
+    http_fetch_page,
+    products_json_url,
+)
+
+CACHE_TTL_S = 60 * 60
+PAGE_LIMIT = 250
+
+
+def load_cache(cache_path):
+    cache_path = Path(cache_path)
+    if not cache_path.exists():
+        return None
+    try:
+        return json.loads(cache_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def save_cache(cache_path, live_products):
+    cache_path = Path(cache_path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps({"fetched_at": time.time(), "products": live_products}, indent=2))
+
+
+def get_live_products(cache_path, fetch_page=http_fetch_page, log=None):
+    """Live products, from the network if the 60-minute cache is stale/absent,
+    else from cache. On fetch failure, falls back to the cache (however old)
+    and logs a warning; if there's no cache either, re-raises."""
+    cached = load_cache(cache_path)
+    if cached and (time.time() - cached.get("fetched_at", 0)) < CACHE_TTL_S:
+        return cached["products"]
+
+    try:
+        live_products = fetch_all_live_products(fetch_page=fetch_page)
+        save_cache(cache_path, live_products)
+        return live_products
+    except Exception as e:
+        if log:
+            log.event("prices", f"live products.json fetch failed ({e}); using cache")
+        if cached:
+            return cached["products"]
+        raise
+
+
+def merge_products(old_products, live_products):
+    """Refresh claims/products.json's slug -> entry map with live price/image/
+    variant data, keeping each entry's hand-curated `default`, `short_name`,
+    `active`, and `specs` fields. Only refreshes the curated products already in
+    old_products -- the live feed also includes spare parts/accessories/other
+    SKUs that were never curated (no specs, no real short_name), and those
+    are intentionally left out rather than polluting the catalog."""
+    merged = {}
+    for lp in live_products:
+        slug = lp.get("handle")
+        if not slug or slug not in old_products:
+            continue
+        old = old_products[slug]
+        variants = lp.get("variants", [])
+        prices = [v["price"] for v in variants if v.get("price")]
+        compare_prices = [v["compare_at_price"] for v in variants if v.get("compare_at_price")]
+        image_urls = [img["src"] for img in lp.get("images", []) if img.get("src")]
+        variants_summary = [
+            {
+                "sku": v.get("sku"),
+                "title": v.get("title"),
+                "price": v.get("price"),
+                "available": v.get("available"),
+            }
+            for v in variants
+        ]
+        entry = {
+            "slug": slug,
+            "name": old["name"],
+            "title": lp.get("title", old.get("title", "")),
+            "url": tenant_mod.active().get("shopify.product_url_template", "").format(slug=slug)
+            or old.get("url", ""),
+            "price": prices[0] if prices else old.get("price"),
+            "compare_at_price": compare_prices[0] if compare_prices else old.get("compare_at_price"),
+            "image_urls": image_urls or old.get("image_urls", []),
+            "variants_summary": variants_summary or old.get("variants_summary", []),
+            "specs": old.get("specs", []),
+        }
+        if old.get("default"):
+            entry["default"] = True
+        if old.get("short_name"):
+            entry["short_name"] = old["short_name"]
+        # Fix cycle 8 problem 1b: `active` (whether the picker may ever
+        # select this model -- false for discontinued models) is curated
+        # data like `default`/`short_name`, not something the live Shopify
+        # feed knows about. Without this the picker's discontinued-model
+        # exclusion would silently reset on the very next `adv run`.
+        if "active" in old:
+            entry["active"] = old["active"]
+        merged[slug] = entry
+
+    for slug, old in old_products.items():
+        merged.setdefault(slug, old)
+    return merged
+
+
+def format_price(amount):
+    """Fix cycle 3 item 2: "$8,250" -- no ".00" cents suffix, comma
+    thousands separator, cents kept only when non-zero (e.g. "$8,250.50")."""
+    amount = float(amount)
+    if amount == int(amount):
+        return f"${int(amount):,}"
+    return f"${amount:,.2f}"
+
+
+def build_live_price_claims(products, today_iso, show_compare_at_price):
+    """One in-memory price claim per product, dated today with the product
+    URL as source -- never written to claims/verified.json. The compare-at
+    figure is included only when show_compare_at_price is true (fix 1)."""
+    claims = []
+    for slug, p in products.items():
+        price = p.get("price")
+        if price is None:
+            continue
+        name_slug = p["name"].lower().replace(" ", "-")
+        text = tenant_mod.active().format(
+            "price_claim_template", product_name=p["name"], price=format_price(price)
+        )
+        compare_at = p.get("compare_at_price")
+        if show_compare_at_price and compare_at:
+            text = text[:-1] + f" (list/compare-at {format_price(compare_at)})."
+        claims.append(
+            {
+                "id": f"price-{name_slug}",
+                "text": text,
+                "category": "price",
+                "source": p["url"],
+                "approved_by": "live-fetch",
+                "date": today_iso,
+            }
+        )
+    return claims
+
+
+def refresh_price_data(*, products_path, cache_path, show_compare_at_price, today_iso, fetch_page=http_fetch_page, log=None):
+    """Full fix-2 flow: fetch (or reuse the cache for) the live catalog, merge
+    it over claims/products.json in memory, and return
+    (merged_products_by_slug, live_price_claims_by_slug, live_products).
+    live_products (fix cycle 9 item 1) is the raw Shopify feed list this call
+    used -- still carrying fields merge_products() drops, like body_html --
+    or [] if no live data and no cache were available.
+
+    Fix cycle 11 problem B: claims/products.json (`products_path`) is read
+    only, never written -- see this module's docstring. The only file this
+    function writes is the existing raw-feed cache at `cache_path`
+    (runs/products-cache.json), inside get_live_products, unchanged from
+    before this fix."""
+    products_path = Path(products_path)
+    old_doc = json.loads(products_path.read_text())
+    old_products = old_doc.get("products", {})
+
+    try:
+        live_products = get_live_products(cache_path, fetch_page=fetch_page, log=log)
+    except Exception as e:
+        if log:
+            log.event("prices", f"no live data and no cache available ({e}); keeping claims/products.json as-is")
+        live_products = None
+
+    if live_products is not None:
+        merged = merge_products(old_products, live_products)
+    else:
+        merged = old_products
+
+    price_claims = build_live_price_claims(merged, today_iso, show_compare_at_price)
+    price_claims_by_slug = {}
+    for slug, p in merged.items():
+        name_slug = p["name"].lower().replace(" ", "-")
+        for c in price_claims:
+            if c["id"] == f"price-{name_slug}":
+                price_claims_by_slug[slug] = c
+                break
+    return merged, price_claims_by_slug, (live_products or [])

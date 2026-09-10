@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh product price/spec cache for tenant @@TENANT@@
+
+[Service]
+Type=oneshot
+ExecStart=@@REPO@@/.venv/bin/harness cache refresh-products --tenant @@TENANT@@

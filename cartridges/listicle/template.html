@@ -3,13 +3,13 @@
 {% block content %}
 <style>
 /* Listicle cartridge -- section rhythm, item layout, and reveal-on-scroll
-   motion reproduced from reference/peak-listicle-lp/index.html (the live,
+   motion reproduced from the tenant's own shipped reference page (the live,
    already-shipped "5 Reasons" page), adapted to brand/base.css's tokens:
    DM Sans / Poppins (already self-hosted via brand_css's own @font-face
    rules, so no external font load here) and the #16C47F accent on white,
    replacing the reference's navy --pk-primary with the site's documented
    dark-section token. The ".pk-lp" class (kept alongside ".adv-listicle")
-   is also what `adv shopify-body`'s Aurora full-bleed :has() rules target
+   is also what `harness shopify-body`'s theme full-bleed :has() rules target
    -- do not rename or drop it.
    ---------------------------------------------------------------------- */
 .adv-listicle{
@@ -66,7 +66,7 @@
 .adv-listicle .pk-cta p{font-size:1rem;line-height:1.6;color:rgba(255,255,255,.82);font-family:var(--pk-sans);margin:0 0 1.75rem;max-width:32rem}
 .adv-listicle .lst-fine{font-size:.8125rem;color:rgba(255,255,255,.7);margin-top:1.25rem}
 
-/* reveal-on-scroll motion, reproduced from reference/peak-listicle-lp/index.html */
+/* reveal-on-scroll motion, reproduced from the tenant's shipped reference page */
 .adv-listicle .pk-reveal{opacity:0;transform:translateY(40px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
 .adv-listicle .pk-reveal.pk-in{opacity:1;transform:none}
 .adv-listicle .pk-zoom{opacity:0;transform:scale(1.05);transition:opacity 1.2s cubic-bezier(0,0,.58,1),transform 1.2s cubic-bezier(0,0,.58,1)}

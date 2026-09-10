@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly schedule for the tenant @@TENANT@@ product cache refresh
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

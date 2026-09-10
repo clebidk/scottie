@@ -5,7 +5,7 @@
   "properties": {
     "cta_text": {
       "type": "string",
-      "description": "Fix cycle 3 item 4: the ONE CTA button text for this page. Must be exactly one of this schema's top-level allowed_cta_texts, with {short_name} filled in with the product's actual short_name (fix cycle 4 item 3) -- e.g. 'Shop the Peak Fuji 2-Person Infrared Sauna'. The renderer reuses it verbatim in the hero and the repeat CTA -- choose it once here, never repeat/vary it elsewhere."
+      "description": "Fix cycle 3 item 4: the ONE CTA button text for this page. Must be exactly one of this schema's top-level allowed_cta_texts, with {short_name} filled in with the product's actual short_name (fix cycle 4 item 3) . The renderer reuses it verbatim in the hero and the repeat CTA -- choose it once here, never repeat/vary it elsewhere."
     },
     "cta_url": {
       "type": "string",

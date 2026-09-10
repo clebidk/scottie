@@ -2,15 +2,15 @@
 gate checks (word range, CTA allowlist) that feed it. A page that fails a
 page-level gate check gets a second (and third) chance with a "REVISION
 REQUIRED" block before the run STOPs -- these tests exercise that directly
-against adv.cli.write_and_gate_page, with a fake Anthropic client standing in
+against harness.cli.write_and_gate_page, with a fake Anthropic client standing in
 for the writer, rather than through the full `adv run` pipeline."""
 from pathlib import Path
 
 import pytest
 
-from adv.budget import Budget, BudgetExceeded
-from adv.claims import ClaimsGateFailure, find_warranty_violations
-from adv.cli import (
+from harness.budget import Budget, BudgetExceeded
+from harness.claims import ClaimsGateFailure, find_warranty_violations
+from harness.cli import (
     MAX_REPAIR_ATTEMPTS,
     apply_deterministic_fixes,
     apply_hype_synonyms,
@@ -21,9 +21,9 @@ from adv.cli import (
     get_cta_text,
     write_and_gate_page,
 )
-from adv.log import RunLog
-from adv.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_LABEL, ALLOWED_WARRANTY_SPEC_VALUE, ALWAYS_FORBIDDEN_TERMS
-from adv.write import parse_word_range, resolve_allowed_cta_texts
+from harness.log import RunLog
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_LABEL, ALLOWED_WARRANTY_SPEC_VALUE, ALWAYS_FORBIDDEN_TERMS
+from harness.write import parse_word_range, resolve_allowed_cta_texts
 from tests.conftest import FakeClient, FakeResponse, json_response
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
 

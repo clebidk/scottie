@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from adv.claims import ClaimsGateFailure
-from adv.render import asset_alt, build_sources_list, render_page, resolve_public_url
+from harness.claims import ClaimsGateFailure
+from harness.render import asset_alt, build_sources_list, render_page, resolve_public_url
+from tests.support import REPO_ROOT, TENANT
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
 FACTS_PACK = {
     "product": {
@@ -162,7 +162,7 @@ def test_render_page(tmp_path, cartridge_name, page, expect_byline, expect_json_
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / cartridge_name,
         published="2026-09-09",
         updated="2026-09-09",
@@ -196,7 +196,7 @@ def test_render_page_shows_financing_available_with_no_lender(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -216,7 +216,7 @@ def test_render_page_uses_short_name_in_title_and_json_ld(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -245,7 +245,7 @@ def test_render_page_downloads_used_assets_and_rewrites_urls(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-09",
         updated="2026-09-09",
@@ -281,7 +281,7 @@ def test_render_page_skips_asset_that_downloads_as_html(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-09",
         updated="2026-09-09",
@@ -312,7 +312,7 @@ def test_disclosure_paragraph_is_inside_main_or_article(tmp_path, cartridge_name
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / cartridge_name,
         published="2026-09-09",
         updated="2026-09-09",
@@ -341,7 +341,7 @@ def test_product_page_hides_reviews_block_when_reviews_summary_is_null(tmp_path)
         facts_pack=FACTS_PACK,  # reviews_summary is None
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -362,7 +362,7 @@ def test_longform_hides_reviews_block_when_reviews_summary_is_null(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "longform",
         published="2026-09-09",
         updated="2026-09-09",
@@ -386,7 +386,7 @@ def test_render_page_sources_list_uses_label_not_raw_url_as_link_text(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -410,7 +410,7 @@ def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -476,7 +476,7 @@ def test_render_page_sources_list_resolves_compound_and_internal_only_sources(tm
         facts_pack=facts_pack,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -503,7 +503,7 @@ def test_render_page_raises_on_emf_leak_into_visible_text(tmp_path):
             facts_pack=FACTS_PACK,
             cartridges_dir=REPO_ROOT / "cartridges",
             brand_dir=tmp_path / "brand-does-not-exist",
-            templates_dir=REPO_ROOT / "adv" / "templates",
+            templates_dir=REPO_ROOT / "harness" / "templates",
             out_dir=out_dir,
             published="2026-09-09",
             updated="2026-09-09",
@@ -541,7 +541,7 @@ def test_render_page_strips_leaked_claim_id_and_logs(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-09",
         updated="2026-09-09",
@@ -567,8 +567,8 @@ def test_real_byline_html_is_page_neutral(tmp_path):
         ad_brief=AD_BRIEF,
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
-        brand_dir=REPO_ROOT / "brand",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        brand_dir=TENANT.brand_dir,
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "article",
         published="2026-09-09",
         updated="2026-09-09",
@@ -594,7 +594,7 @@ def test_product_page_cta_text_appears_exactly_twice(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -613,7 +613,7 @@ def test_longform_cta_text_appears_in_hero_sticky_and_final(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "longform",
         published="2026-09-09",
         updated="2026-09-09",
@@ -639,7 +639,7 @@ def test_hero_image_alt_is_renderer_derived_not_writer_supplied(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "product-page",
         published="2026-09-09",
         updated="2026-09-09",
@@ -662,7 +662,7 @@ def test_disclosure_text_omits_financing_estimates(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "article",
         published="2026-09-09",
         updated="2026-09-09",
@@ -689,7 +689,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from adv.render import ASSET_MAX_LONG_EDGE, ASSET_PNG_MAX_BYTES, download_asset, resize_asset_bytes
+from harness.render import ASSET_MAX_LONG_EDGE, ASSET_PNG_MAX_BYTES, download_asset, resize_asset_bytes
 
 
 def _make_image_bytes(width, height, fmt="PNG", color=(120, 60, 200)):
@@ -791,7 +791,7 @@ def test_render_page_then_review_stays_under_12mb_with_a_large_fake_image(tmp_pa
     original downloaded at render time must be downscaled before it ever
     reaches out/<run>/<cartridge>/assets/, so `adv review`'s data-URI-inlined
     HTML stays well under the 12 MB per-page ceiling."""
-    from adv.cli import cmd_review
+    from harness.cli import cmd_review
     import argparse
 
     large = _make_image_bytes(6000, 4000, fmt="PNG")
@@ -808,7 +808,7 @@ def test_render_page_then_review_stays_under_12mb_with_a_large_fake_image(tmp_pa
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-09",
         updated="2026-09-09",

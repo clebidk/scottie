@@ -1,0 +1,13 @@
+author:
+  name: CHANGE ME
+  title: CHANGE ME
+  bio: ""
+  page: ""
+
+contributor:
+  name: CHANGE ME
+  title: CHANGE ME
+  bio: ""
+
+byline_author_template: "By {author_name}, {author_title}, {tenant_name}"
+byline_contributor_template: "Reviewed by {contributor_name}, {contributor_title}"

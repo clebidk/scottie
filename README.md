@@ -1,147 +1,95 @@
-# advertorial
+# harness
 
-Turns one ad (video, still, or text) into three publishable landing pages for
-Peak Saunas, each in a different style, matched to the ad's angle, with every
-claim traceable to a verified source. See `docs/SPEC.md` for the full contract.
+Turns one ad (video, still, or text) into publishable landing pages, each in a
+different style, matched to the ad's angle, with every claim traceable to a
+verified source.
 
-## Pipeline
+The engine is company-agnostic. Everything about a company -- its claims, its
+brand, its authors, its forbidden words, its theme -- lives in
+`tenants/<name>/`. `harness/` never reads a company value from code.
 
-```
-input -> ingest -> ad_brief.json -> ground -> facts_pack.json -> claims_gate -> writer x3 -> page.json x3 -> renderer -> out/<run>/<cartridge>/index.html
-                                                                    | STOP (unmatched claim)
-                                                                    -> unmatched_claims.json
-```
-
-## Documents
-
-- `docs/SPEC.md` -- the full contract this harness implements.
-- `docs/HARNESS-MAP.md` -- what's done, what's stubbed, and the smallest bone-level changes
-  for the next round of work.
-- `docs/REFINE-NOTES.md` -- what was refined vs. rebuilt in fix cycles 12-15, each bone
-  with the failure symptom that justified touching it, and what was deliberately left
-  alone.
-- `docs/LISTICLE-GENERATOR.md` -- how to generate a listicle in under 10 minutes, how to
-  add a new cartridge type, the config keys, and the Shopify traps/publish gate.
-- `docs/IMAGE-MAP.md` -- Drive folder id -> local index file -> how slots are filled per
-  cartridge -> where files land per run -> what the Shopify assets manifest is for.
-- `docs/PACKET-DRAFT.md` -- the draft coach-packet object for the four current sample runs,
-  stamped `BOT DRAFT · NOT SENT`, plus the decisions still open for Caleb.
-- `docs/RESEARCH-LISTICLE.md` -- the listicle-format research memo (competitive landscape,
-  the live reference teardown, the synthesis that shaped the cartridge's rules).
-- `docs/DRIVE-AUDIT-LISTICLE.md` -- the audit of `brand/assets-listicle-pack.json`'s 105
-  files (counts, role map, the AI-render policy question).
-- `docs/FIXLOG.md` -- every fix cycle, in order, with the failure it addressed and how it
-  was verified.
-- `docs/guardrails.md` -- the compliance rules (EMF, overclaiming, lender names) every
-  cartridge is gated against.
-- `docs/knowledge-map.md` -- the g Brain source map for product/spec facts.
-- `docs/existing-page-generator.md` -- the separate, root-owned Shopify-publish CLI this
-  harness's own publish adapter will eventually reuse the plumbing from.
-- `docs/ENVIRONMENT.md`, `docs/STYLES.md`, `docs/design-notes-batch50.md`,
-  `docs/SWEEP-2026-09-09.md`, `docs/SWEEP-2026-09-10.md`, `docs/SWEEP-2026-09-10b.md` --
-  environment setup notes, brand style notes, and dated full-fixture sweep results.
-
-## Run it
-
-On prod (`ssh prod`, project dir `/home/deploy/advertorial`):
+## Five-minute start
 
 ```
-.venv/bin/adv run <input>                 # local path or a Google Drive link/id
-.venv/bin/adv run <input> --cartridges article,product-page,longform --seed 42 --product <slug>
-.venv/bin/adv ingest <input>               # ad_brief.json only, for debugging
+python3 -m venv .venv && .venv/bin/pip install -e .
+
+# Which company a command is for: --tenant > HARNESS_TENANT > tenants/default.txt
+.venv/bin/harness tenant list
+.venv/bin/harness run tenants/peak-saunas/fixtures/hidden-costs-v2.mov --tenant peak-saunas
 ```
 
-`adv run` STOPs (exit 2) if any ad claim can't be matched to `claims/verified.json`,
-and writes `unmatched_claims.json` into the run's output directory instead of a
-partial page. Exit 3 means a budget cap (wall clock / tokens / Claude calls) was
-hit -- also never a partial page.
+That writes one folder per run under `tenants/<tenant>/out/<run-id>/`:
+`ad_brief.json`, `facts_pack.json`, `REVIEW.md`, and `<cartridge>/index.html` +
+`page.json` per cartridge. Read `REVIEW.md` first -- it says which ad claims
+matched, which were dropped, every source used, and what the run cost.
 
-## Add a claim
+Exit codes: `0` done, `1` bad usage, `2` a claims-gate STOP (see
+`unmatched_claims.json`), `3` a budget cap, `4` the tenant is not configured
+yet. A STOP or a budget cap never leaves a partial page.
 
-```
-.venv/bin/adv claims add "Peak ships free on every order." --category trust --source https://peaksaunas.com/policies/shipping-policy [--approved-by Caleb]
-.venv/bin/adv claims list
-```
-
-This appends to `claims/verified.json`. `claims/pending.json` holds ad claims that
-appeared in creative but aren't yet sourced/approved (see that file for the current
-list -- medical-grade wording, the review rating, the EMF comparison, the "4-in-1"
-framing).
-
-## Config (`claims/config.json`)
-
-- `financing_lender` -- null until a real lender is approved; while null, the
-  writer's financing line is locked to the fixed no-lender sentence and any
-  financing figure/lender name in an ad claim is reported as an AD OVERCLAIM.
-- `show_compare_at_price` -- whether a product's list/compare-at price is
-  ever offered to the writer alongside its current price.
-- `reviews_source` -- currently only `judgeme-live` (the live Judge.me widget
-  fetch); review numbers never come from a hardcoded placeholder.
-- `speaker_name` -- null (anonymous "a customer") unless Caleb has a
-  consented real name on file for the ad speaker's first-person story.
-- `ad_overclaim_policy` -- `"stop"` (default) or `"warn"`. An ad claim about
-  warranty, review statistics, financing, or a price that doesn't match the
-  product's current price is checked against its own locked fact, never by
-  word overlap (see `adv/claims.py`'s `gate_ad_brief_claims`). With `"stop"`,
-  any unmatched-or-overclaimed claim -- locked-topic or plain -- stops the
-  run (`exit 2`) -- the default, and the safer setting for an unreviewed ad.
-  With `"warn"` (fix cycle 12 item 3 broadened this from locked-topic-only):
-  EVERY unmatched-or-overclaimed claim, locked-topic or plain, is dropped
-  from what the writer may use instead of stopping the run -- written to
-  `REVIEW.md` under a bold **AD CLAIMS NOT REPEATED ON PAGE — ad needs
-  fixing** heading (with the reason and the verified fact when one exists)
-  and to the run log, the writer is told never to repeat each one and to use
-  the verified fact instead when there is one, and the run continues.
-  A claim about the alternative/comparison option (the red-X column of a
-  comparative still -- `adv/claims.py`'s `classify_ad_claim_about`) is a
-  separate case: it's never checked against anything and never stops the run
-  under either policy, listed in `REVIEW.md` under **Ad statements about
-  alternatives (not repeated)** purely for visibility.
-- Before word-overlap matching, one real Claude call (fix cycle 12 item 4,
-  `adv/semantic_match.py`) proposes a semantic (equivalent-meaning) mapping
-  from each ad claim to a verified claim id -- e.g. "4-in-1: near, mid, far
-  infrared + red light" to the full-spectrum and red-light allowlist claims.
-  A proposed mapping is only ever accepted if the same numeric-token guard
-  `match_claim` already enforces for word-overlap also passes in code; a
-  locked-topic claim (warranty/reviews/financing/price) is never eligible.
-  Falls back to pure word-overlap matching if the call fails for any reason.
-
-## Review a run
+## Commands
 
 ```
-.venv/bin/adv review out/<run-id>   # writes <cartridge>-review.html per cartridge, images inlined as data URIs
-make review RUN=<run-id> [OUT=<local-path>]   # runs the above on prod, rsyncs the review.html files back
+harness run <input> [--cartridges a,b] [--seed N] [--product <slug>] --tenant <t>
+harness ingest <input> --tenant <t>          # ad_brief.json only, for debugging
+harness review <run-dir> --tenant <t>        # self-contained review.html, images inlined
+harness shopify-body <run-dir>/<cartridge>   # page body for a storefront paste
+harness score <run-dir> --angle N --brand N --claims N --publish N --tenant <t>
+harness claims add "..." --category spec --source https://... --tenant <t>
+harness claims list --tenant <t>
+harness tenant init <slug> | harness tenant list
+harness workflow run ad-to-pages --input <input> --tenant <t>
+harness workflow list
 ```
 
-## Score a run
+`harness workflow run ad-to-pages` produces exactly what `harness run` produces:
+both call the same stage functions, and the YAML only owns the order.
+
+`adv` still works as an alias for one more release; it prints a deprecation line
+and runs the same CLI.
+
+## Layout
 
 ```
-.venv/bin/adv score out/<run-id> --angle 4 --brand 5 --claims 5 --publish 4 [--by Caleb] [--note "..."]
+harness/        the engine: ingest, ground, claims gate, writer, renderer,
+                budget, log, CLI. Tenant-neutral. sources/ holds the input
+                adapters (Drive, product feed, reviews, knowledge base).
+cartridges/     page types: article, product-page, longform, listicle. Each is
+                cartridge.md (voice/structure), schema.json (page.json shape),
+                template.html (Jinja), rubric.md. No company's words -- a
+                cartridge says {{ tenant.name }} where a company belongs.
+agents/         role briefs, one per pipeline job, as markdown with front-matter.
+workflows/      named pipelines as YAML. `stage:` steps are executed by the
+                runner; `action:` steps are specification only.
+crons/          systemd USER unit templates + install.sh. Nothing is enabled.
+evals/          the generic 4-axis score sheet. Scores land per tenant.
+tenants/        one directory per company (see tenants/_template/README.md).
+docs/           harness-level docs. Tenant-specific notes live with the tenant.
+tests/          pytest. No network calls anywhere; every model client is a fake.
 ```
 
-Appends to `evals/scores.jsonl`.
+## Adding a company
 
-## Where things live
+```
+harness tenant init acme-co
+```
 
-- `adv/` -- the harness (ingest, ground, claims gate, writer, renderer, budget, log, CLI).
-- `cartridges/<name>/` -- `cartridge.md` (voice/structure rules), `schema.json`
-  (page.json shape), `template.html` (Jinja), `rubric.md` (10-point check, not
-  executed in V1), `exemplars/` (optional, up to 2 used per write call).
-- `claims/products.json` -- scraped from `https://peaksaunas.com/products.json`.
-- `claims/verified.json` -- claims with a source URL; the only things the writer
-  can cite. Add to it with `adv claims add`.
-- `claims/pending.json` -- ad claims seen in creative that need Caleb's sign-off
-  before they can move to `verified.json`.
-- `brand/` -- owned by a different agent (tokens.json, base.css, byline.html,
-  NOTES.md). The renderer uses `brand/base.css` and `brand/byline.html` when they
-  exist and falls back to `adv/fallback.css` / a built-in byline block (with a
-  logged warning) when they don't.
-- `out/<run-id>/` -- one folder per run: `ad_brief.json`, `facts_pack.json`,
-  `REVIEW.md`, `unmatched_claims.json` (only on a STOP), and `<cartridge>/index.html`
-  + `page.json` per cartridge written.
-- `runs/<run-id>.log` -- per-run log: stages, model calls, token usage, seed,
-  cartridges chosen, gate result, budget totals, an estimated cost line.
-- `evals/scores.jsonl` -- human scores from `adv score`.
+Then work through `tenants/acme-co/README.md`. `docs/TENANT-ONBOARDING.md` walks
+the same list with the reasons behind each step. Until the claims store is
+filled in, a run for that tenant exits 4 with `tenant not configured: missing
+...` rather than producing anything.
+
+## Where a value lives
+
+| To change | Edit |
+|---|---|
+| A forbidden word, or a fixed warranty/financing sentence | `tenants/<t>/vocab.yaml` |
+| The company name, site, theme, review source, CTA default | `tenants/<t>/tenant.yaml` |
+| Who signs and who reviews a page | `tenants/<t>/authors.yaml` |
+| What a page may claim | `tenants/<t>/claims/verified.json` |
+| Financing lender, review source, overclaim policy | `tenants/<t>/claims/config.json` |
+| A page type's structure or voice | `cartridges/<name>/cartridge.md`, `schema.json` |
+| One company's twist on a page type | `tenants/<t>/cartridge-overrides/<name>/cartridge.md` |
 
 ## Tests
 
@@ -149,16 +97,18 @@ Appends to `evals/scores.jsonl`.
 make test
 ```
 
-Creates `.venv-local/`, installs `pytest jinja2 anthropic python-dotenv`, and runs
-the suite. Every test injects a fake Anthropic client (`tests/conftest.py`) --
-no network calls, no real whisper/ffmpeg (the CLI dry-run test uses the `.txt`
-fixture, which takes the passthrough ingest path).
+Every test injects a fake model client (`tests/conftest.py`) -- no network, no
+whisper, no ffmpeg. The suite also enforces that `harness/` and `cartridges/`
+contain no company's words, that the tenant skeleton refuses to run until it is
+filled in, and that the workflow runner reproduces `harness run`.
 
-## Deploy
+## Documents
 
-```
-make deploy   # rsync adv/ cartridges/ claims/ brand/ tests/ docs/ pyproject.toml Makefile to prod
-make install  # pip install -e . && pip install jinja2, on prod
-make run INPUT=fixtures/hidden-costs-v2.mov
-make pull-out # rsync prod's out/ back to ./out/
-```
+- `docs/ARCHITECTURE.md` -- the ladder, the stages, the gates, the budgets.
+- `docs/TENANT-ONBOARDING.md` -- standing up a new company.
+- `docs/SPEC.md` -- the contract this harness is built against.
+- `docs/HARNESS-MAP.md` -- what exists, what is stubbed, what not to rewrite.
+- `docs/GENERATOR.md` -- how a page type is built end to end.
+- `docs/IMAGE-MAP.md`, `docs/REFINE-NOTES.md`, `docs/FIXLOG.md` -- assets,
+  refinement notes, and the per-cycle fix record.
+- `docs/RESTRUCTURE-2026-09-10.md` -- what this restructure moved, and why.

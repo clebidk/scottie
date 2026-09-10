@@ -6,16 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from adv.cli import (
-    DEFAULT_CARTRIDGE_POOL,
+from tests.support import REPO_ROOT, TENANT
+from harness.cli import (
     check_page_gates,
     discover_cartridges,
     find_cta_violation,
     get_cta_text,
 )
-from adv.claims import ClaimsGateFailure, gate_page_json
-from adv.render import render_page
-from adv.write import parse_word_range, resolve_allowed_cta_texts
+from harness.claims import ClaimsGateFailure, gate_page_json
+from harness.render import render_page
+from harness.write import parse_word_range, resolve_allowed_cta_texts
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "listicle"
@@ -107,8 +107,9 @@ def test_listicle_is_discovered():
 
 
 def test_listicle_is_not_in_the_default_cartridge_pool():
-    assert "listicle" not in DEFAULT_CARTRIDGE_POOL
-    assert set(DEFAULT_CARTRIDGE_POOL) == {"article", "product-page", "longform"}
+    pool = TENANT.get("default_cartridge_pool")
+    assert "listicle" not in pool
+    assert set(pool) == {"article", "product-page", "longform"}
 
 
 def test_word_range_parses_600_to_1100():
@@ -200,7 +201,7 @@ def test_render_listicle_page(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "listicle",
         published="2026-09-10",
         updated="2026-09-10",
@@ -243,7 +244,7 @@ def test_render_listicle_page_downloads_used_item_images(tmp_path):
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "adv" / "templates",
+        templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=out_dir,
         published="2026-09-10",
         updated="2026-09-10",

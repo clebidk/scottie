@@ -1,0 +1,37 @@
+name: ad-to-pages
+description: >-
+  One ad in, one publishable page per selected cartridge out. This is what
+  `harness run` executes; running it as a workflow produces the same result.
+inputs:
+  - input        # local path, or a Drive link/id
+  - tenant
+  - cartridges   # optional, comma-separated; default is a random draw of 3
+  - seed         # optional
+  - product      # optional slug or model name
+steps:
+  - stage: prepare_run
+    description: open the run directory, the run log, and the budget
+  - stage: refresh_prices
+    description: live product feed (60-minute cache), then page-derived claims
+  - stage: ingest
+    description: transcript or on-image text -> ad_brief.json
+  - stage: ground
+    description: pick the product, build facts_pack.json
+  - stage: gate_ad_claims
+    description: every ad claim must match a verified claim
+    on_fail: stop            # exit 2, writes unmatched_claims.json
+  - stage: write_pages
+    description: one writer call per cartridge, then the gate-repair loop
+    for_each: cartridge
+  - stage: render_pages
+    description: page.json -> index.html with byline, disclosure, sources, JSON-LD
+    for_each: cartridge
+  - stage: write_review
+    description: REVIEW.md -- claims matched, sources, word counts, gate history, cost
+outputs:
+  - tenants/{tenant}/out/{run_id}/ad_brief.json
+  - tenants/{tenant}/out/{run_id}/facts_pack.json
+  - tenants/{tenant}/out/{run_id}/{cartridge}/index.html
+  - tenants/{tenant}/out/{run_id}/{cartridge}/page.json
+  - tenants/{tenant}/out/{run_id}/REVIEW.md
+  - tenants/{tenant}/runs/{run_id}.log

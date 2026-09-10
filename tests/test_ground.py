@@ -1,15 +1,15 @@
 from pathlib import Path
 
-from adv.ground import BENEFIT_ALLOWLIST_IDS, LocalFactsSource, load_claims_config, select_drive_assets
+from harness.ground import LocalFactsSource, benefit_allowlist_ids, load_claims_config, select_drive_assets
+from tests.support import REPO_ROOT, TENANT
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 MINI_SLUG = "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 EL_CAPITAN_SLUG = "peak-saunas-el-capitan-4-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control"
 
 
 def test_specs_carry_claim_id_and_facts_pack_includes_them():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     facts_pack = source.facts_for(FUJI_SLUG, {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""})
 
     assert facts_pack["specs"], "expected at least one spec row"
@@ -20,7 +20,7 @@ def test_specs_carry_claim_id_and_facts_pack_includes_them():
 
 
 def test_default_product_is_fuji_when_nothing_named():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     facts_pack = source.facts_for(None, {"transcript_or_text": "just a generic ad about saunas", "hook": "", "promise": "", "angle": ""})
     assert facts_pack["product"]["slug"] == FUJI_SLUG
 
@@ -34,17 +34,17 @@ def test_default_product_is_fuji_when_nothing_named():
 # ---------------------------------------------------------------------------
 
 def test_facts_pack_includes_benefit_allowlist_claims():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     facts_pack = source.facts_for(FUJI_SLUG, {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""})
     verified_ids = {c["id"] for c in facts_pack["verified_claims"]}
-    assert BENEFIT_ALLOWLIST_IDS <= verified_ids
-    for cid in BENEFIT_ALLOWLIST_IDS:
+    assert benefit_allowlist_ids() <= verified_ids
+    for cid in benefit_allowlist_ids():
         claim = next(c for c in facts_pack["verified_claims"] if c["id"] == cid)
         assert claim["source"], f"{cid} has no source"
 
 
 def test_facts_pack_stays_small():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     facts_pack = source.facts_for(FUJI_SLUG, {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""})
     import json
 
@@ -59,7 +59,7 @@ def test_facts_pack_stays_small():
 # ---------------------------------------------------------------------------
 
 def test_default_config_has_no_lender_and_hides_compare_at():
-    config = load_claims_config(REPO_ROOT / "claims")
+    config = load_claims_config(TENANT.claims_dir)
     assert config["financing_lender"] is None
     assert config["show_compare_at_price"] is False
     # Fix cycle 2 item 2: no speaker name is cleared for use by default --
@@ -68,7 +68,7 @@ def test_default_config_has_no_lender_and_hides_compare_at():
 
 
 def test_facts_for_passes_speaker_name_through_from_config():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
 
     facts_pack = source.facts_for(FUJI_SLUG, ad_brief, config={"speaker_name": None})
@@ -79,7 +79,7 @@ def test_facts_for_passes_speaker_name_through_from_config():
 
 
 def test_facts_for_financing_and_compare_at_respect_config():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
 
     facts_pack = source.facts_for(FUJI_SLUG, ad_brief, config={"financing_lender": None, "show_compare_at_price": False})
@@ -92,7 +92,7 @@ def test_facts_for_financing_and_compare_at_respect_config():
 
 
 def test_facts_for_uses_live_price_claim_over_static_one():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
     live_claim = {
         "id": "price-fuji",
@@ -157,7 +157,7 @@ def test_select_drive_assets_ids_and_url_pattern():
 
 
 def test_facts_for_merges_shopify_images_first_then_drive_assets(monkeypatch):
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     monkeypatch.setattr(source, "_load_assets_index", lambda: FAKE_ASSETS_INDEX)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
     facts_pack = source.facts_for(FUJI_SLUG, ad_brief)
@@ -183,7 +183,7 @@ def _ad_brief(text):
 
 
 def test_pick_product_matches_single_named_model_case_insensitively():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = _ad_brief("I just ordered the Peak Sauna Mini and I could not be more excited.")
     product, warning = source.pick_product_with_warning(None, ad_brief)
     assert product["slug"] == MINI_SLUG
@@ -191,7 +191,7 @@ def test_pick_product_matches_single_named_model_case_insensitively():
 
 
 def test_pick_product_word_boundary_rejects_alias_only_mentions():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     # "el cap", "1-person", "2-person", "sauna mini" alone are not model
     # names -- only the product's own `name` field counts.
     ad_brief = _ad_brief("This is a 1-person sauna, great for el cap weekend trips.")
@@ -201,7 +201,7 @@ def test_pick_product_word_boundary_rejects_alias_only_mentions():
 
 
 def test_pick_product_full_alias_phrase_still_matches_the_real_name_inside_it():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     # "sauna mini" contains the real model word "mini" as a whole word --
     # that's a legitimate match, not a false alias hit.
     ad_brief = _ad_brief("Ask about our sauna mini today.")
@@ -211,7 +211,7 @@ def test_pick_product_full_alias_phrase_still_matches_the_real_name_inside_it():
 
 
 def test_pick_product_picks_first_mentioned_when_several_named():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = _ad_brief("Compare the El Capitan against the Fuji -- both are great.")
     product, warning = source.pick_product_with_warning(None, ad_brief)
     assert product["slug"] == EL_CAPITAN_SLUG
@@ -219,7 +219,7 @@ def test_pick_product_picks_first_mentioned_when_several_named():
 
 
 def test_pick_product_defaults_and_warns_when_no_model_named():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = _ad_brief("I love my new infrared sauna, it's changed my life.")
     product, warning = source.pick_product_with_warning(None, ad_brief)
     assert product.get("default") is True
@@ -227,7 +227,7 @@ def test_pick_product_defaults_and_warns_when_no_model_named():
 
 
 def test_pick_product_ignores_discontinued_model_even_if_named():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = _ad_brief("I've heard great things about the Peak Crown.")
     product, warning = source.pick_product_with_warning(None, ad_brief)
     assert product["name"] != "Crown"
@@ -236,7 +236,7 @@ def test_pick_product_ignores_discontinued_model_even_if_named():
 
 
 def test_pick_product_explicit_product_slug_wins_and_never_warns():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = _ad_brief("no model named here at all")
     product, warning = source.pick_product_with_warning("mini", ad_brief)
     assert product["slug"] == MINI_SLUG
@@ -244,7 +244,7 @@ def test_pick_product_explicit_product_slug_wins_and_never_warns():
 
 
 def test_pick_product_backward_compatible_wrapper_returns_product_only():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = _ad_brief("I just ordered the Peak Sauna Mini.")
     product = source.pick_product(None, ad_brief)
     assert product["slug"] == MINI_SLUG
@@ -258,7 +258,7 @@ def test_pick_product_backward_compatible_wrapper_returns_product_only():
 # ---------------------------------------------------------------------------
 
 def test_facts_pack_includes_gbrain_spec_claims_for_mini():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     facts_pack = source.facts_for(MINI_SLUG, _ad_brief(""))
     verified_ids = {c["id"] for c in facts_pack["verified_claims"]}
     assert "spec-mini-electrical" in verified_ids
@@ -266,7 +266,7 @@ def test_facts_pack_includes_gbrain_spec_claims_for_mini():
 
 
 def test_facts_pack_includes_gbrain_dimensions_claims_for_fuji_and_everest():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     fuji_pack = source.facts_for(FUJI_SLUG, _ad_brief(""))
     fuji_ids = {c["id"] for c in fuji_pack["verified_claims"]}
     assert "gbrain-fuji-dimensions" in fuji_ids
@@ -279,7 +279,7 @@ def test_facts_pack_includes_gbrain_dimensions_claims_for_fuji_and_everest():
 
 
 def test_facts_pack_never_includes_an_emf_claim():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     for slug in (MINI_SLUG, FUJI_SLUG):
         facts_pack = source.facts_for(slug, _ad_brief(""))
         for c in facts_pack["verified_claims"]:
@@ -293,7 +293,7 @@ def test_facts_pack_never_includes_an_emf_claim():
 # ---------------------------------------------------------------------------
 
 def test_facts_for_merges_pdp_claims_for_the_chosen_product_only():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     pdp_claims = [
         {"id": "pdp-mini-app-control", "text": "Runs from the Peak Saunas app.", "category": "spec", "source": "https://peaksaunas.com/products/mini", "approved_by": "site", "date": "2026-09-09"},
         {"id": "pdp-fuji-app-control", "text": "Some other product's claim.", "category": "spec", "source": "https://peaksaunas.com/products/fuji", "approved_by": "site", "date": "2026-09-09"},
@@ -305,20 +305,20 @@ def test_facts_for_merges_pdp_claims_for_the_chosen_product_only():
 
 
 def test_facts_for_with_no_pdp_claims_is_unaffected():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     facts_pack = source.facts_for(MINI_SLUG, _ad_brief(""))
     assert not any(c["id"].startswith("pdp-") for c in facts_pack["verified_claims"])
 
 
 def test_all_verified_claims_includes_extra_claims():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     extra = [{"id": "pdp-mini-app-control", "text": "Runs from the Peak Saunas app.", "category": "spec", "source": "x", "approved_by": "site", "date": "2026-09-09"}]
     claims = source.all_verified_claims(extra_claims=extra)
     assert any(c["id"] == "pdp-mini-app-control" for c in claims)
 
 
 def test_all_verified_claims_with_no_extra_claims_is_unaffected():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     claims = source.all_verified_claims()
     assert not any(c["id"].startswith("pdp-") for c in claims)
 
@@ -339,7 +339,7 @@ PRICE_COMPARISON_TRANSCRIPT = (
 
 
 def test_pick_product_infers_from_quoted_price_when_no_model_named():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = {
         "transcript_or_text": PRICE_COMPARISON_TRANSCRIPT,
         "hook": "",
@@ -353,7 +353,7 @@ def test_pick_product_infers_from_quoted_price_when_no_model_named():
 
 
 def test_pick_product_price_inference_ignores_amounts_that_match_no_product():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = {
         "transcript_or_text": "",
         "hook": "",
@@ -369,7 +369,7 @@ def test_pick_product_price_inference_ignores_amounts_that_match_no_product():
 
 
 def test_pick_product_named_model_still_wins_over_a_quoted_price():
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     ad_brief = {
         "transcript_or_text": "I love my Peak Fuji, on sale right now for $5,450.",
         "hook": "",
@@ -391,7 +391,7 @@ def test_pick_product_named_model_still_wins_over_a_quoted_price():
 # False).
 # ---------------------------------------------------------------------------
 
-from adv.ground import select_listicle_pack_assets
+from harness.ground import select_listicle_pack_assets
 
 MATTERHORN_SLUG = "peak-saunas-matterhorn-3-person-full-spectrum-infrared-sauna-with-two-xl-medical-grade-red-light-therapy-smart-wifi-app-control"
 
@@ -446,12 +446,12 @@ def test_select_listicle_pack_assets_ids_and_url_pattern():
 
 
 def test_default_config_allow_ai_renders_is_false():
-    config = load_claims_config(REPO_ROOT / "claims")
+    config = load_claims_config(TENANT.claims_dir)
     assert config["allow_ai_renders"] is False
 
 
 def test_facts_for_wires_in_listicle_pack_assets_for_mini(monkeypatch):
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
     facts_pack = source.facts_for(MINI_SLUG, ad_brief, config={"allow_ai_renders": False})
@@ -461,7 +461,7 @@ def test_facts_for_wires_in_listicle_pack_assets_for_mini(monkeypatch):
 
 
 def test_facts_for_wires_in_listicle_pack_assets_for_matterhorn(monkeypatch):
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
     facts_pack = source.facts_for(MATTERHORN_SLUG, ad_brief, config={"allow_ai_renders": False})
@@ -470,7 +470,7 @@ def test_facts_for_wires_in_listicle_pack_assets_for_matterhorn(monkeypatch):
 
 
 def test_facts_for_does_not_wire_in_listicle_pack_assets_for_other_products(monkeypatch):
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
     facts_pack = source.facts_for(FUJI_SLUG, ad_brief, config={"allow_ai_renders": True})
@@ -479,7 +479,7 @@ def test_facts_for_does_not_wire_in_listicle_pack_assets_for_other_products(monk
 
 
 def test_facts_for_allows_ai_generated_listicle_asset_when_config_set(monkeypatch):
-    source = LocalFactsSource(REPO_ROOT / "claims")
+    source = LocalFactsSource(TENANT.claims_dir)
     monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: FAKE_LISTICLE_PACK_INDEX)
     ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
     facts_pack = source.facts_for(MINI_SLUG, ad_brief, config={"allow_ai_renders": True})

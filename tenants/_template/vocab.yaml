@@ -1,0 +1,33 @@
+# Forbidden and fixed vocabulary. The engine treats all of this as data.
+# Anything left empty simply means "no rule of that kind for this tenant".
+
+emf_terms: []
+banned_names: []                  # competitors and discontinued models
+hype_words: [game-changer, unlock, elevate, journey, revolutionary, unleash]
+ban_exclamation_mark: true
+
+hype_synonyms:
+  unlock: get
+  unlocks: gets
+  unlocking: getting
+  elevate: improve
+  elevates: improves
+  journey: process
+  game-changer: big improvement
+  game changer: big improvement
+
+forbidden_lender_names: []
+trigger_words: [medical, clinical, study, proven, rated, reviews]
+trigger_word_synonyms:
+  study: research
+  studies: research
+
+implied_claim_forbidden_terms: []
+
+allowed_financing_sentence_no_lender: "Financing is available at checkout."
+allowed_warranty_sentence: "CHANGE ME"
+allowed_warranty_spec_label: "Warranty"
+allowed_warranty_spec_value: "CHANGE ME"
+
+visible_text_forbidden_terms: []
+competitor_aliases: {}

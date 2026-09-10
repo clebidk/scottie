@@ -1,0 +1,25 @@
+name: score
+description: >-
+  Record a human's four-axis score for one finished run. See evals/rubric.md
+  for what each axis means and what a 1, a 3, and a 5 look like.
+inputs:
+  - run_dir
+  - tenant
+  - angle        # 1-5, angle match
+  - brand        # 1-5, brand fit
+  - claims       # 1-5, claim safety
+  - publish      # 1-5, would publish
+  - by           # optional scorer name
+  - note         # optional
+# NOTE: `stage:` names a real pipeline stage in harness/pipeline.py and is what
+# `harness workflow run` executes. `action:` names a step this workflow performs
+# around the pipeline; the runner does not execute those yet, so this workflow
+# is a specification, not a runnable pipeline. `harness workflow run` on it
+# exits 1 with "runs no pipeline stages".
+steps:
+  - action: load_run
+    description: read the run's REVIEW.md and page.json files
+  - action: append_score
+    description: one JSON line appended to the tenant's score sheet
+outputs:
+  - tenants/{tenant}/evals/scores.jsonl

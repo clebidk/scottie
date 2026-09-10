@@ -1,0 +1,25 @@
+name: sweep
+description: >-
+  Run ad-to-pages over every fixture in the tenant's fixtures directory and
+  report one line per fixture. Used to check that a harness change did not
+  break a case that used to pass.
+inputs:
+  - tenant
+  - cartridges   # optional; applied to every fixture
+  - pattern      # optional glob, default "*"
+# NOTE: `stage:` names a real pipeline stage in harness/pipeline.py and is what
+# `harness workflow run` executes. `action:` names a step this workflow performs
+# around the pipeline; the runner does not execute those yet, so this workflow
+# is a specification, not a runnable pipeline. `harness workflow run` on it
+# exits 1 with "runs no pipeline stages".
+steps:
+  - action: collect_fixtures
+    description: every file in tenants/{tenant}/fixtures matching pattern
+  - action: run_workflow
+    workflow: ad-to-pages
+    for_each: fixture
+    continue_on_fail: true   # a STOP on one fixture never ends the sweep
+  - action: summarize
+    description: one line per fixture -- PASS/STOP/BUDGET, run id, cost, reason
+outputs:
+  - tenants/{tenant}/out/sweep-{date}.md
