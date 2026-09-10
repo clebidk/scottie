@@ -538,13 +538,14 @@ notifications. `harness/*`, `cartridges/` untouched, `tenants/_template/*`, `doc
    `cmd_packet`/`cmd_publish` end to end: publish refuses without approval, without a
    `ship` stamp, and without Shopify credentials, each with a clear one-line message and no
    traceback; a `--dry-run` reports the missing-credentials refusal with zero network
-   calls). **Test count: 572 (521 pre-existing + 51 new).** `.venv-local/bin/pytest -q` on
-   the Mac clone and `.venv/bin/python -m pytest -q` on the server: both **572 total, 568
-   passed, 4 failed** -- the 4 failures are the same pre-existing Cycle 18 tenant-data
-   mismatches noted there (`test_claims.py`/`test_ground.py`/`test_tenant.py` hardcoding the
-   tenant's old Bread-Pay/AI-render/pending-claim defaults), outside this cycle's scope
-   (`harness/`, generic `tests/`) and untouched by this cycle's own new tests, all 51 of
-   which pass.
+   calls). **Test count: 572 (521 pre-existing + 51 new).** Before rebasing over the
+   concurrent tenant-only agent's `7d51c9d` ("Fix 4 tests hardcoded to peak-saunas'
+   pre-Cycle-18 defaults"), `.venv-local/bin/pytest -q` on the Mac clone showed the same 4
+   pre-existing Cycle 18 tenant-data failures noted there, all outside this cycle's scope
+   and untouched by this cycle's own new tests. After rebasing over that fix,
+   `.venv-local/bin/pytest -q` on the Mac clone shows **572 total, 572 passed, 0 failed**;
+   see the server verification block below for `.venv/bin/python -m pytest -q` on the
+   server.
 
 ### Verify (server)
 
