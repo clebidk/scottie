@@ -2,6 +2,10 @@
 
 Branch `restructure`, off `master` at `def540f` (Cycle 15). Not merged.
 
+`master` has since gained `df48b71` (a four-line FIXLOG note); this branch does
+not include it, so a merge will want that commit brought in first. Nothing else
+on `master` moved.
+
 This was a reorganization with config indirection, not a rewrite. Every module
 kept its logic. What changed is where files live, what they are called, and how
 a company-specific value is resolved. The claims gate, the repair loop, the
@@ -224,6 +228,43 @@ the prompt instead of quietly producing a sentence with a hole in it.
 Secrets: the API key lives in `tenants/<t>/.env`, loaded by `tenant.load_env()`.
 `harness/anthropic_client.py` reads it from the environment only, and it is never
 logged, printed, or put in a prompt. `tenants/*/.env` is gitignored.
+
+## Verified on the server, 2026-09-10
+
+Run in a throwaway worktree (`git worktree add ../advertorial-restructure
+restructure`) so `master` stayed untouched, with its own venv, the `.env`
+copied to `tenants/peak-saunas/.env`, and `models`/`vendor` symlinked from
+`~/advertorial`. Media fixtures (`*.mov`, `*.png`) are untracked and were
+symlinked in the same way.
+
+| Check | Result |
+|---|---|
+| `pytest -q` | 390 passed |
+| `harness run .../hidden-costs-v2.mov --tenant peak-saunas` | PASS, three pages, 1m52s, 3 attempts / 0 repairs, est. $0.3078 |
+| `harness run ... --cartridges listicle` | PASS, one page, 47s, 1 attempt / 0 repairs, est. $0.1013 |
+| `harness workflow run ad-to-pages --input .../hidden-costs-v2.transcript.txt` | PASS, three pages, est. $0.3103 |
+| `harness tenant init demo-co` then a run against it | exit 4, one-line `tenant not configured: missing ...`, no traceback |
+| `grep -rn "Peak\|Austin\|Judge.me\|Aurora" harness/ cartridges/` | no matches |
+| `git status` | clean |
+| Output location | `tenants/peak-saunas/out/<run-id>/` |
+
+Two observations from the live runs, neither caused by this restructure:
+
+- `founder-warranty-demo.txt` STOPs at the ad-claims gate on a warranty
+  overclaim, through `harness run` and `harness workflow run` alike. The ad
+  restates part of the warranty ("cabinetry and structure for 7 years") which
+  is true but is not one of the fixed allowed forms, and the tenant's
+  `ad_overclaim_policy` is `stop`. `evaluate_warranty_claim` is byte-identical
+  to `master`'s apart from the tenant lookup, so this is the gate behaving as
+  designed on a fixture built to exercise it.
+- A repeat of the transcript run STOPped on an `attributed_to_customer` item
+  with no visible attribution, after two repairs. Real model calls are not
+  deterministic -- `--seed` pins cartridge selection and the product, not the
+  model -- so a run-to-run difference here is ordinary. The claim that the
+  workflow runner reproduces `harness run` is proved deterministically in
+  `tests/test_workflows.py`, which byte-compares every `page.json` from both
+  entry points against a fake client, and asserts the workflow's stage list
+  equals `pipeline.DEFAULT_STAGES`.
 
 ## What a reviewer should check before merging to master
 
