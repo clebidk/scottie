@@ -35,6 +35,39 @@ TENANT_ENV_VAR = "HARNESS_TENANT"
 # tenant has not been configured.
 PLACEHOLDER = "CHANGE ME"
 
+# Cycle 22 finding R22: the tenant file format's own version. Bumped only when
+# a change to tenant.yaml's shape would make an older file WRONG -- a renamed
+# key, changed nesting, or a default that silently comes to mean something
+# else. Not bumped when a key is merely added, since Tenant.get already falls
+# back for a key a tenant never set.
+TENANT_SCHEMA_VERSION = 1
+
+# Without these a run cannot produce a correct page: name and slug identify the
+# company, site_host/site_url decide what counts as an internal link and how a
+# source is labelled.
+REQUIRED_TENANT_KEYS = ("name", "slug", "site_url", "site_host")
+
+# Keys whose type the engine relies on. A `models:` that parsed as a string
+# because of a YAML indentation slip used to surface as a TypeError deep inside
+# the writer; this turns it into one line at load time.
+TENANT_KEY_TYPES = {
+    "shopify": dict,
+    "reviews": dict,
+    "theme": dict,
+    "models": dict,
+    "cta_variants": dict,
+    "notifications": dict,
+    "pdp_facts": dict,
+    "source_path_labels": dict,
+    "default_cartridge_pool": list,
+    "benefit_allowlist_ids": list,
+    "universal_claim_ids": list,
+    "excluded_benefit_ids": list,
+    "listicle_pack_models": list,
+    "claim_id_prefixes": list,
+    "reviewers": list,
+}
+
 
 class TenantNotConfigured(HarnessError):
     """A tenant directory exists but cannot produce a page yet."""
@@ -46,6 +79,13 @@ class UnknownTenant(HarnessError):
     """No directory under tenants/ for the requested name."""
 
     exit_code = exits.TENANT_NOT_CONFIGURED
+
+
+class TenantFileInvalid(TenantNotConfigured):
+    """A tenant file exists but does not parse, or fails validation. A subclass
+    of TenantNotConfigured so it keeps the same exit code and the same one-line
+    treatment in cli.main -- an operator fixing a typo in their own YAML should
+    never see a parser traceback."""
 
 
 # claims/config.json's defaults. Kept here (not in ground.py) so the config a
@@ -91,9 +131,24 @@ def resolve_tenant_name(flag=None):
 
 
 def _load_yaml(path, default=None):
-    if not Path(path).exists():
+    path = Path(path)
+    if not path.exists():
         return {} if default is None else default
-    return yaml.safe_load(Path(path).read_text()) or {}
+    try:
+        return yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError as e:
+        raise TenantFileInvalid(f"{path} is not valid YAML: {e}") from None
+
+
+def _load_json(path):
+    """json.loads with the file named in the message. A malformed
+    claims/verified.json used to surface as a bare JSONDecodeError with no
+    indication of which of a tenant's several JSON files it came from."""
+    path = Path(path)
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise TenantFileInvalid(f"{path} is not valid JSON: {e}") from None
 
 
 def _flatten(prefix, node, out):
@@ -200,7 +255,7 @@ class Tenant:
             config["reviews_source"] = source
         path = self.claims_dir / "config.json"
         if path.exists():
-            config.update(json.loads(path.read_text()))
+            config.update(_load_json(path))
         return config
 
     # Fix cycle 17 (model tiering): tenant.yaml's `models:` section may
@@ -267,13 +322,68 @@ class Tenant:
         products = self.claims_dir / "products.json"
         if not verified.exists():
             missing.append("claims/verified.json")
-        elif not json.loads(verified.read_text()):
+        elif not _load_json(verified):
             missing.append("claims/verified.json (no approved claims)")
         if not products.exists():
             missing.append("claims/products.json")
-        elif not (json.loads(products.read_text()).get("products") or {}):
+        elif not (_load_json(products).get("products") or {}):
             missing.append("claims/products.json (no products)")
         return missing
+
+    @property
+    def schema_version(self):
+        return self.config.get("schema_version", TENANT_SCHEMA_VERSION)
+
+    def validate(self):
+        """(errors, warnings) for this tenant's tenant.yaml.
+
+        Cycle 22 finding R21: nothing checked a tenant file at load. A typo'd
+        key was silently ignored -- Tenant.get returns the default for a key
+        that is not there, so a misconfigured tenant produced plausible-looking
+        wrong pages instead of stopping.
+
+        An error means the file is wrong in a way that produces a bad page or a
+        crash; require_configured raises on any. A warning means something an
+        operator should look at but that the engine can run through, and is
+        reported by `harness doctor` and `harness tenant list` rather than
+        blocking a run."""
+        errors, warnings = [], []
+
+        version = self.config.get("schema_version")
+        if version is None:
+            warnings.append(
+                f"tenant.yaml has no schema_version; assuming {TENANT_SCHEMA_VERSION}. "
+                f"Add `schema_version: {TENANT_SCHEMA_VERSION}` to be explicit."
+            )
+        elif version != TENANT_SCHEMA_VERSION:
+            errors.append(
+                f"tenant.yaml schema_version is {version!r}, but this harness reads version "
+                f"{TENANT_SCHEMA_VERSION}. Compare against tenants/_template/tenant.yaml."
+            )
+
+        for key in REQUIRED_TENANT_KEYS:
+            value = self.config.get(key)
+            if not value:
+                errors.append(f"tenant.yaml is missing a value for {key!r}")
+            elif PLACEHOLDER in str(value):
+                errors.append(f"tenant.yaml's {key!r} is still the {PLACEHOLDER!r} placeholder")
+
+        for key, expected in TENANT_KEY_TYPES.items():
+            value = self.config.get(key)
+            if key in self.config and value is not None and not isinstance(value, expected):
+                errors.append(
+                    f"tenant.yaml's {key!r} must be a {expected.__name__}, "
+                    f"got {type(value).__name__}"
+                )
+
+        unknown = sorted(set(self.config) - known_tenant_keys())
+        if unknown:
+            warnings.append(
+                "tenant.yaml has key(s) this harness never reads: "
+                + ", ".join(repr(k) for k in unknown)
+                + " -- check the spelling against tenants/_template/tenant.yaml."
+            )
+        return errors, warnings
 
     def require_configured(self):
         """Raise TenantNotConfigured unless this tenant can produce a page."""
@@ -282,6 +392,12 @@ class Tenant:
             raise TenantNotConfigured(
                 f"tenant not configured: missing {', '.join(missing)} "
                 f"under {self.root}. See {self.root / 'README.md'} for the checklist."
+            )
+        errors, _warnings = self.validate()
+        if errors:
+            raise TenantFileInvalid(
+                f"{self.root / 'tenant.yaml'} is not valid:\n"
+                + "\n".join(f"  - {e}" for e in errors)
             )
 
     def load_env(self):
@@ -297,6 +413,14 @@ class Tenant:
 
     def __repr__(self):
         return f"<Tenant {self.name} at {self.root}>"
+
+
+def known_tenant_keys():
+    """Every top-level key tenants/_template/tenant.yaml declares, plus
+    schema_version. Derived from the template rather than restated here, so
+    adding a key to the template is all it takes -- there is no second list to
+    forget to update."""
+    return set(_load_yaml(TEMPLATE_DIR / "tenant.yaml")) | {"schema_version"}
 
 
 def tenant_dir(name):

@@ -2,6 +2,12 @@
 # CHANGE ME. The engine reads company-specific strings only from this file,
 # authors.yaml, vocab.yaml, and claims/config.json.
 
+# The tenant file format this file is written against. `harness doctor` and
+# every `harness` command check it; a mismatch stops the run with one line
+# rather than half-reading a file whose keys have moved. Bumped only when a
+# change would make an older tenant.yaml wrong, never when a key is added.
+schema_version: 1
+
 name: CHANGE ME            # display name, e.g. "Acme Saunas"
 slug: CHANGE ME            # directory name, e.g. "acme-saunas"
 site_url: https://CHANGE-ME.example

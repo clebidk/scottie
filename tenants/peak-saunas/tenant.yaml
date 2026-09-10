@@ -2,6 +2,12 @@
 # Every company-specific string the engine needs lives here (or in authors.yaml,
 # vocab.yaml, claims/config.json). harness/ never hardcodes any of it.
 
+# The tenant file format this file is written against. `harness doctor` and
+# every `harness` command check it; a mismatch stops the run with one line
+# rather than half-reading a file whose keys have moved. Bumped only when a
+# change would make an older tenant.yaml wrong, never when a key is added.
+schema_version: 1
+
 name: Peak Saunas
 slug: peak-saunas
 site_url: https://peaksaunas.com
