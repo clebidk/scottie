@@ -73,18 +73,21 @@ Edit the five pieces:
   run).
 - **`template.html`** -- Jinja template rendering that shape to HTML. Keep the root
   element's class matching the pattern any other full-bleed cartridge uses if this type
-  will ever go to Shopify (see `IMAGE-MAP.md`/`shopify.py`'s `AURORA_FULL_BLEED_RULES`,
-  keyed to `.pk-lp`).
+  will ever go to Shopify (see `IMAGE-MAP.md` and
+  `harness/shopify.py`'s `full_bleed_css()`, which reads the tenant's own
+  `theme.full_bleed_css`, keyed to its `theme.root_class`).
 - **`rubric.md`** -- a 10-point manual-review checklist (not executed in V1, but written
   for a human reviewer).
-- **`exemplars/`** (optional) -- up to 2 reference `.md`/`.txt` files, trimmed to 700
-  words each before being sent to the writer.
+Exemplars are NOT part of a cartridge: they are one tenant's approved pages, and
+live in `tenants/<tenant>/exemplars/<cartridge>/` -- up to 2 reference `.md`/`.txt`
+files, trimmed to 700 words each before being sent to the writer
+(`harness/write.py`'s `load_exemplars`).
 
-No registration step exists: `harness/cli.py`'s `discover_cartridges()` finds any
+No registration step exists: `harness/pipeline.py`'s `discover_cartridges()` finds any
 `cartridges/<name>/` directory with a `cartridge.md` automatically -- `--cartridges
 <new-name>` works the moment the folder exists. If the new type should join the no-flag
-random-3 default, add its name to `harness/cli.py`'s `DEFAULT_CARTRIDGE_POOL`; otherwise it
-stays opt-in, the same way listicle shipped.
+random-3 default, add its name to that tenant's own `tenant.yaml`
+`default_cartridge_pool`; otherwise it stays opt-in, the same way listicle shipped.
 
 **What the shared gates enforce automatically**, with zero cartridge-specific code: EMF
 and forbidden-term scanning across the whole rendered page (body, alt text, meta, JSON-LD,
@@ -139,7 +142,8 @@ was derived from -- the same traps apply to anything `harness shopify-body` prod
 
 - The Aurora page template wraps `body_html` in `.container--small` with
   `.page__content{margin:3.2rem 0 0}`. Full-bleed comes from `:has()` rules at the top of
-  `shopify-body.html` (`harness/shopify.py`'s `AURORA_FULL_BLEED_RULES`) that neutralise the
+  `shopify-body.html` (`harness/shopify.py`'s `full_bleed_css()`, reading the tenant's own
+  `theme.full_bleed_css`) that neutralise the
   container padding, the section spacing, the `.page__content` margin, and the duplicate
   `.page__title`. Removing them re-narrows the page.
 - Editing a live page in Shopify admin's rich-text editor can strip the `<style>` block.

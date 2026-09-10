@@ -72,13 +72,14 @@ drift apart.
 
 | Stage | Owning module | Produces |
 |---|---|---|
-| `prepare_run` | `harness/pipeline.py` | `run_id`, `run_dir`, the run log, the seed/rng, the selected cartridges, `claims_config`, the facts source |
+| `prepare_run` | `harness/pipeline.py`, `harness/runstate.py` | `run_id`, `run_dir`, the run log, the seed/rng, the selected cartridges, `claims_config`, the facts source, plus `state.json` and `packet.json` |
 | `refresh_prices` | `harness/prices.py`, `harness/pdp_claims.py` | live product prices merged into `state.merged_products`, page-derived PDP claims, both cached under `tenants/<t>/runs/` |
 | `ingest` | `harness/ingest.py` | `ad_brief.json` |
 | `ground` | `harness/ground.py`, `harness/sources/judgeme.py` | `facts_pack.json` (the chosen product, plus its claim universe) |
 | `gate_ad_claims` | `harness/claims.py`, `harness/semantic_match.py` | matched/unmatched ad claims, or a STOP |
 | `write_pages` | `harness/write.py`, `harness/cli.py` (`write_and_gate_page`) | one `page.json` per selected cartridge |
 | `render_pages` | `harness/render.py` | one `index.html` per cartridge (byline, disclosure, sources, JSON-LD injected by the renderer, never by the model) |
+| `review_notify` | `harness/runstate.py`, `harness/notify.py` | `state.json` advanced to `needs_review`; the tenant's reviewers notified (both channels optional, both fail closed) |
 | `write_review` | `harness/cli.py` (`write_review_md`) | `REVIEW.md` |
 
 ## Gates
@@ -86,8 +87,12 @@ drift apart.
 Four things end a run early, each with its own exit code (`harness/cli.py`
 `main`, `harness/pipeline.py` `execute`):
 
-- **Exit 1** -- bad usage (e.g. `--cartridges` names a cartridge that does not
-  exist: `UnknownCartridge`).
+- **Exit 1** -- bad usage, or a refused operation: an argparse usage error, a
+  `--cartridges` naming a cartridge that does not exist (`UnknownCartridge`), an
+  unknown workflow or `--product`, or a publish refused by the approval gate.
+  The codes themselves live in `harness/exits.py` and are printed by
+  `harness --help`; `main` turns anything from `harness/errors.py`'s hierarchy
+  into one line and the matching code, never a traceback.
 - **Exit 2** -- claims gate STOP (`ClaimsGateFailure`). This fires in two
   places: `gate_ad_claims`, when an ad claim cannot be matched (or is an
   overclaim on a locked topic) against `claims/verified.json`'s universe; and
@@ -98,8 +103,9 @@ Four things end a run early, each with its own exit code (`harness/cli.py`
   exactly what the deterministic gate checks: ad-claim overlap and locked-topic
   overclaims (a), claim_id references and trigger-word/number sourcing (b),
   absolute banned terms and unapproved lender names (c), first-person
-  attribution (d), rendered visible-text bans (e), and a per-cartridge minimum
-  of product-benefit claim_ids (f).
+  attribution (d), rendered visible-text bans (e), a per-cartridge minimum of
+  product-benefit claim_ids (f), longform's proof_stats (g), and the one-CTA
+  rule (h).
 - **Exit 3** -- budget cap exceeded (`BudgetExceeded`, see Budgets below).
 - **Exit 4** -- tenant not configured (`TenantNotConfigured`), raised before
   any stage runs.

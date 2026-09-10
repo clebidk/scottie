@@ -138,9 +138,9 @@ No secret is ever put into a message body or printed. An ad claim flagged as
 an overclaim is truncated to 120 characters before it can appear in any
 message -- a notification can never repeat a full flagged claim verbatim.
 
-`peak-saunas` has `notifications.slack: true` and no `SLACK_WEBHOOK_URL` set
-yet -- every notification this cycle logs a skip; nothing has been posted to
-a real Slack channel.
+`peak-saunas` has `notifications.slack: false` and `notifications.email: []`,
+and no `SLACK_WEBHOOK_URL` or SMTP credentials are set -- every notification
+logs a skip; nothing has been posted to a real Slack channel.
 
 ## Weekly backlog digest
 

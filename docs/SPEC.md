@@ -52,7 +52,7 @@ Rule: no self-improvement layer turns on before a scored corpus exists. Self-mod
 
 **Loops**: V1 has none. V1.5: writer → grader → writer, max 3 rounds, stop at rubric ≥ 8/10 or budget hit, then hand to human with the grader's notes. No early quit: the loop cannot return a page below threshold without flagging it.
 
-**Budgets** (the "grind" idea): per run, hard caps on wall clock (5 min), tokens (150k), and Claude calls (12). Logged per run. Exceeding a cap fails the run loudly; it never returns a partial page as done.
+**Budgets** (the "grind" idea): per run, hard caps on wall clock, tokens, and Claude calls, logged per run. Exceeding a cap fails the run loudly; it never returns a partial page as done. The live values are `harness/budget.py`'s own defaults -- 300 s, 220,000 tokens, 14 calls as of Cycle 22; v0.2 of this spec said 5 min / 150k / 12, raised in Cycle 12 after measurement (see `docs/FIXLOG.md`).
 
 **Guardrails**
 - Retrieval allowlist: grounder may read only g Brain page types `product`, `concept`, `campaign`, `spec`, `policy`, `kb`, `reference`, `book-analysis`. Never `customer`, `order`, `email`, `support_ticket`, `conversation`, `slack_log`, `person`. This is the privileged-context leak the QM talk names; for a retail tenant it is customer data on a public page.
@@ -108,7 +108,7 @@ Cartridges [NEEDS INPUT — your five descriptions; which three ship Friday]:
 
 ## 8. Runtime
 - Host prod, `/home/deploy/advertorial`. Verified 2026-09-08: Python 3.14 venv, anthropic 1.4.0, whisper.cpp + small.en (8 s per 30 s clip), ffmpeg. See ENVIRONMENT.md.
-- CLI: `harness run <input> --tenant <t>`, `harness claims add`, `harness score <run>`, `harness tenant init`, `harness workflow run`. `harness publish` is week 2 and does not exist yet. `adv` remains an alias entry point for one release.
+- CLI: `harness run <input> --tenant <t>`, `harness claims add`, `harness score <run>`, `harness tenant init`, `harness workflow run`. `harness publish` landed in Cycle 20 (approval + packet gated, drafts unless `--live`); it has not yet run against a live storefront. `adv` remains an alias entry point for one release.
 - Inputs: Drive link (public download by id, tested) or local path. Watched inbox in week 2 [NEEDS INPUT — drop location].
 - Model: claude-sonnet-5 for writers and grader. Cost per ad ≈ $0.20–0.40 (V1), ≈ $1 with the V1.5 loop.
 - Logs: `tenants/<t>/runs/<run-id>.log` — model ids, tokens, calls, seed, budget use, gate result.

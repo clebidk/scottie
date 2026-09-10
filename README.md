@@ -23,14 +23,16 @@ That writes one folder per run under `tenants/<tenant>/out/<run-id>/`:
 `page.json` per cartridge. Read `REVIEW.md` first -- it says which ad claims
 matched, which were dropped, every source used, and what the run cost.
 
-Exit codes: `0` done, `1` bad usage, `2` a claims-gate STOP (see
-`unmatched_claims.json`), `3` a budget cap, `4` the tenant is not configured
-yet. A STOP or a budget cap never leaves a partial page.
+Exit codes: `0` done, `1` bad usage or a refused operation, `2` a claims-gate
+STOP (see `unmatched_claims.json`), `3` a budget cap, `4` the tenant is not
+configured yet. A STOP or a budget cap never leaves a partial page. They are
+defined once in `harness/exits.py` and printed by `harness --help`; an argparse
+usage error is `1` too, so `2` always means a gate stopped the run.
 
 ## Commands
 
 ```
-harness run <input> [--cartridges a,b] [--seed N] [--product <slug>] --tenant <t>
+harness run <input> [--cartridges a,b] [--seed N] [--product <slug>] [--batch] --tenant <t>
 harness ingest <input> --tenant <t>          # ad_brief.json only, for debugging
 harness review <run-dir> --tenant <t>        # self-contained review.html, images inlined
 harness shopify-body <run-dir>/<cartridge>   # page body for a storefront paste
@@ -45,7 +47,13 @@ harness reject <run-dir> --by <email> --note ...                    # cycle 20
 harness packet <run-dir> --stamp ship|redo|kill --by <email>        # cycle 20
 harness publish <run-dir> --page <cartridge> [--live] [--dry-run]   # cycle 20
 harness digest needs-review --tenant <t> [--days 3]                 # cycle 20
+harness doctor --tenant <t> [--offline]                             # cycle 22
 ```
+
+`harness doctor` answers "can this tenant run?" in one table: files, a validated
+`tenant.yaml`, which credentials are set (by NAME -- never a value), whether the
+configured models are reachable, whether whisper/ffmpeg are installed, and whether
+a run's directories are writable. Exit 1 if anything that blocks a run failed.
 
 Every run now ends in `needs_review`, not just `REVIEW.md` -- see
 `docs/PUBLISHING.md` for the full state machine, approval, packet-stamp gate,
@@ -61,8 +69,12 @@ and runs the same CLI.
 
 ```
 harness/        the engine: ingest, ground, claims gate, writer, renderer,
-                budget, log, CLI. Tenant-neutral. sources/ holds the input
-                adapters (Drive, product feed, reviews, knowledge base).
+                budget, log, CLI, doctor. Tenant-neutral. sources/ holds the
+                input adapters (Drive, product feed, reviews, knowledge base);
+                publishers/ holds the output adapters (Shopify, export).
+                exits.py and errors.py own the exit codes and the one
+                user-facing error path; textutil.py holds the helpers more
+                than one module needs.
 cartridges/     page types: article, product-page, longform, listicle. Each is
                 cartridge.md (voice/structure), schema.json (page.json shape),
                 template.html (Jinja), rubric.md. No company's words -- a
@@ -107,9 +119,16 @@ make test
 ```
 
 Every test injects a fake model client (`tests/conftest.py`) -- no network, no
-whisper, no ffmpeg. The suite also enforces that `harness/` and `cartridges/`
-contain no company's words, that the tenant skeleton refuses to run until it is
-filled in, and that the workflow runner reproduces `harness run`.
+whisper, no ffmpeg. Since Cycle 22 that is enforced rather than assumed: an
+autouse fixture blocks socket connections, so a test that forgets to inject a
+fake fails instead of quietly reaching a real storefront. The suite also
+enforces that `harness/` and `cartridges/` contain no company's words, that the
+tenant skeleton refuses to run until it is filled in, and that the workflow
+runner reproduces `harness run`.
+
+`pytest -m "not slow"` skips the two image-re-encoding tests. `ruff check` is
+clean; its configuration and the reason for each excluded rule are in
+`pyproject.toml`.
 
 ## Documents
 

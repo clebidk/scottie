@@ -54,7 +54,9 @@ reached 46 MB.
 `harness shopify-body tenants/peak-saunas/out/<run-id>/<cartridge>` writes `shopify-body.assets.json` alongside
 `shopify-body.html`: one entry per image the page body references, each with its local
 `assets/...` path, the renderer-derived alt text, and an intended Shopify Files CDN
-filename (`pk-<cartridge>-<NN>-<slug-of-alt>.<ext>`). It exists for a later, not-yet-built
-publish step to know what to upload and what filename to give each file on the Shopify
-Files CDN -- the image `src` in `shopify-body.html` itself stays a relative local path
-until that step exists. No Shopify API call is made anywhere in this harness today.
+filename (`pk-<cartridge>-<NN>-<slug-of-alt>.<ext>`). It tells `harness publish` (Cycle 20,
+`harness/publishers/shopify.py`) what to upload and what filename to give each file on
+the Shopify Files CDN; `rewrite_asset_srcs` then swaps each relative `assets/...` src for
+the returned CDN URL. The `src` in `shopify-body.html` on disk stays a relative local
+path. A publish refuses to run unless `state.json` says the page is approved and
+`packet.json` is stamped `ship`, and it creates an unpublished draft unless `--live`.

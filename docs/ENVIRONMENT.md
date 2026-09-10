@@ -12,7 +12,7 @@ Everything lives under /home/deploy/advertorial.
 - ffmpeg: /usr/bin/ffmpeg 8.0.1-3ubuntu2
 
 ## Transcription Timing
-Fixture: `~/advertorial/fixtures/hidden-costs-v2.wav` (16kHz mono), -t 3.
+Fixture: `~/advertorial/tenants/peak-saunas/fixtures/hidden-costs-v2.wav` (16kHz mono), -t 3.
 Wall clock: 8.422s real / 23.881s user / 0.608s sys.
 Output matched `transcript-small.txt` exactly (no word diffs).
 

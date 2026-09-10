@@ -39,11 +39,11 @@ command takes `--tenant`, defaulting through `HARNESS_TENANT` to `tenants/defaul
 | Stage | Owning file | Notes |
 |---|---|---|
 | ingest (ad -> `ad_brief.json`) | `harness/ingest.py` | Drive-link/local-path resolution, whisper transcript or Claude-vision still-image read, `drop_emf_claims` runs here before the ad-claims gate ever sees an EMF mention. |
-| grounder (-> `facts_pack.json`) | `harness/ground.py` | `LocalFactsSource` is the real, working implementation (products.json, specs, assets, Drive image selection). `GBrainSource` (line 372) is a stub that raises `NotImplementedError("GBrainSource is a stub; wire it in after tenants/peak-saunas/docs/knowledge-map.md lands ...")` -- grounding today never reads g Brain live. |
+| grounder (-> `facts_pack.json`) | `harness/ground.py` | `LocalFactsSource` is the real, working implementation (products.json, specs, assets, Drive image selection). `GBrainSource` (`harness/sources/gbrain.py:16`) is a stub that raises `NotImplementedError` -- grounding today never reads g Brain live. |
 | live price/claim refresh | `harness/prices.py`, `harness/pdp_claims.py` | Pulls `peaksaunas.com/products.json` and derives claims from Shopify `body_html` at run time; never hardcodes a price. |
 | claims gate | `harness/claims.py` | `gate_ad_brief_claims`, locked-topic evaluators, `classify_ad_claim_about`, warranty-violation and word-overlap/numeric-guard matching. Deterministic, no model call except the semantic-match pre-pass. |
 | semantic claim matching | `harness/semantic_match.py` | One real Claude call per run proposing meaning-based claim mappings; falls back to `{}` (pure word-overlap) on any failure. |
-| writer (-> `page.json` x N) | `harness/write.py` | `write_page`/`write_and_gate_page`, cartridge-agnostic: loads `cartridge.md`, `schema.json`, up to 2 trimmed exemplars, drives the repair loop against `check_page_gates`. |
+| writer (-> `page.json` x N) | `harness/write.py`, `harness/cli.py` | `write_page` (in `write.py`) is cartridge-agnostic: loads `cartridge.md`, `schema.json`, up to 2 trimmed exemplars. `write_and_gate_page` and `check_page_gates` -- the repair loop itself -- live in `cli.py`, which review R2 flags as the wrong home for them. |
 | deterministic pre-repair | `harness/cli.py` | `apply_deterministic_fixes` -- hype-word substitution, incidental-numeral conversion, warranty-sentence fix -- resolves specific gate failures without spending a model call. |
 | renderer (-> `index.html`) | `harness/render.py` | Injects byline/dates/disclosure/ad-label and JSON-LD; the model never writes these fields. Falls back to `harness/fallback.css`/a built-in byline if `tenants/peak-saunas/brand/base.css`/`tenants/peak-saunas/brand/byline.html` are missing. |
 | budget/log | `harness/budget.py`, `harness/log.py` | Wall-clock/token/call caps (currently 300s / 220,000 tokens / 14 calls); per-run structured log with an estimated-cost line. |
@@ -55,19 +55,21 @@ command takes `--tenant`, defaulting through `HARNESS_TENANT` to `tenants/defaul
 
 ## Done vs. stubbed
 
-**Done and load-bearing** (per `docs/FIXLOG.md` cycles 1-13 and `tenants/peak-saunas/docs/SWEEP-2026-09-10b.md`, all
+**Done and load-bearing** (per `docs/FIXLOG.md` cycles 1-21 and `tenants/peak-saunas/docs/SWEEP-2026-09-10b.md`, all
 seven fixtures currently PASS): ingest (video + still), claims gate with locked-topic evaluators and
 semantic matching, deterministic pre-repair for hype words/numerals/warranty wording, live price and
 Shopify-body-derived claims, budgeted repair loop, renderer with byline/disclosure/JSON-LD injection,
 `harness review`/`harness score` recording.
 
 **Stubbed or absent**:
-- `GBrainSource` (`harness/ground.py:372`) -- grounding runs entirely on `LocalFactsSource` today; g Brain
+- `GBrainSource` (`harness/sources/gbrain.py:16`) -- grounding runs entirely on `LocalFactsSource` today; g Brain
   retrieval described in `docs/SPEC.md` section 3 ("Long-term: g Brain ... read through a retrieval
   allowlist") is not wired into a live run.
-- **Shopify publish** -- no Admin API call exists anywhere in `harness/*.py` (confirmed by grep); `adv
-  publish` is listed as "week 2" in `docs/SPEC.md` section 8 but has no `cmd_publish` in `cli.py`
-  today.
+- **Shopify publish** -- exists since Cycle 20: `cmd_publish` in `cli.py`, `harness/publishers/`
+  (`shopify.py` Admin REST 2024-10, `export.py` for a tenant with no credentials). It refuses to
+  run without an approved `state.json` and a `packet.json` stamped `ship`, and drafts unless
+  `--live`. It has never run against a live storefront -- `SHOPIFY_STORE`/`SHOPIFY_TOKEN` are
+  unset, so it fails closed. See `docs/PUBLISHING.md`.
 - **Quiz and comparison cartridges** -- `cartridges/` holds `article`, `longform`, `product-page`,
   and `listicle` (opt-in); styles 4 and 5 from `tenants/peak-saunas/brand/NOTES.md` are
   `[NEEDS INPUT]`/unbuilt, matching `docs/SPEC.md`'s "Friday set: 1, 2, 3."

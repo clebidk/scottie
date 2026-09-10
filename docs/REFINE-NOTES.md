@@ -66,8 +66,8 @@ snippet. Built to prove out, not fork, the existing contract: `harness/claims.py
 `harness/write.py` were not touched at all -- every claim gate already walks `page.json`
 generically by cartridge name, so listicle passed through unmodified, verified by tests
 that reuse the same `gate_page_json` call every other cartridge uses. The only real wiring
-was a `DEFAULT_CARTRIDGE_POOL` constant so listicle stays opt-in until Caleb approves it
-for the random-3 default.
+was the tenant's own `default_cartridge_pool` in `tenant.yaml`, so listicle stays opt-in
+until it is approved for the random-3 default.
 
 **Cycle 15 -- image downscaling and the listicle pack's AI-render gate.** Two small,
 targeted fixes. The Mini sample review file was 46 MB because a Drive original was
@@ -104,8 +104,11 @@ the renderer prefixing "Rendering:" to any AI-composite alt text used.
   and still pattern-matches on a fixed sentence shape; a genuinely new honest phrasing can
   still misfire until observed and patched, the same reactive cycle the alternative-claim
   classifier is in.
-- **No Shopify publish.** `harness shopify-body` only writes files under `out/`; no Admin API
-  call, no `harness publish`, nothing in this harness pushes to peaksaunas.com.
+- **Shopify publish exists but has never run.** Cycle 20 added `harness publish` and
+  `harness/publishers/shopify.py` (Admin REST 2024-10). It refuses to run without an
+  approved `state.json` and a `packet.json` stamped `ship`, drafts unless `--live`, and
+  fails closed today because `SHOPIFY_STORE`/`SHOPIFY_TOKEN` are unset -- so nothing in
+  this harness has yet pushed to a live storefront.
 - **Quiz and comparison cartridges absent.** `cartridges/` holds article, longform,
   product-page, and listicle only -- the remaining two are `tenants/peak-saunas/brand/NOTES.md`'s own
   "(Week 2)" scope, not started.

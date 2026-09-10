@@ -28,8 +28,9 @@ Key by key, what it actually controls:
 - `site_host` -- compared against a claim's source URL in `render.py`'s
   `source_label`; a mismatch falls back to a generic label instead of
   "product page" / `source_path_labels`, so Sources list entries look wrong.
-- `shopify.products_json` / `.product_url_template` -- `prices.py`'s
-  `products_json_url()` fetches live prices in `refresh_prices`. Wrong URL: no
+- `shopify.products_json` / `.product_url_template` --
+  `harness/sources/shopify_products.py`'s `products_json_url()` supplies the feed
+  URL that `harness/prices.py` fetches in `refresh_prices`. Wrong URL: no
   crash, just silently stale prices from the products.json you curated.
 - `reviews.source` (`none` / `judgeme-live`), `.platform_name`, `.store_url` --
   when not `none`, the `ground` stage calls `sources/judgeme.py` for a live
@@ -68,8 +69,13 @@ it literally.
 ## 2. Claims store -- this is what makes a run possible (15-20 min)
 
 `tenant.require_configured()` (called by `harness run`, `harness workflow
-run`) checks three things under `tenants/<slug>/claims/`; skip any of them and
-the run exits 4.
+run`) checks `tenant.yaml` (present, with a `name` that is no longer `CHANGE
+ME`), `claims/verified.json` and `claims/products.json`; skip any of them and
+the run exits 4. Since Cycle 22 it also validates `tenant.yaml` itself --
+`schema_version`, the required keys, and their types -- and `harness doctor`
+reports the softer problems it only warns about, such as a misspelled key.
+`claims/config.json` is NOT required: a missing one falls back to
+`DEFAULT_CLAIMS_CONFIG` in `harness/tenant.py`.
 
 **`products.json`** -- `{"products": {<slug>: {...}}}`, one curated entry per
 product you'll write about, exactly one with `"default": true`. Illustrative
@@ -98,7 +104,7 @@ harness claims add "The Acme Ridgeline is priced at $3,950." \
 which appends an entry shaped like:
 
 ```json
-{"id": "price-ridgeline", "text": "The Acme Ridgeline is priced at $3,950.",
+{"id": "the-acme-ridgeline-is-priced-at-3-950", "text": "The Acme Ridgeline is priced at $3,950.",
  "category": "price", "source": "https://acmesaunas.example/products/acme-2-person-sauna",
  "approved_by": "operator", "date": "2026-09-10"}
 ```
