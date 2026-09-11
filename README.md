@@ -40,6 +40,7 @@ harness score <run-dir> --angle N --brand N --claims N --publish N --tenant <t>
 harness claims add "..." --category spec --source https://... --tenant <t>
 harness claims list --tenant <t>
 harness tenant init <slug> | harness tenant list
+harness brand import --tenant <t> (--drive-folder <url-or-id> | --local <dir>) [--dry-run] [--force]  # cycle 27
 harness workflow run ad-to-pages --input <input> --tenant <t>
 harness workflow list
 harness approve <run-dir> --by <email> [--pages a,b] [--note ...]   # cycle 20

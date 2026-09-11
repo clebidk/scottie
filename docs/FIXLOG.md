@@ -1064,3 +1064,92 @@ total, not this revise's; the revise's own cost is the separate $0.0812 line).
 prior cycle's own FIXLOG entry also did) appends to those files; neither is tracked or
 gitignored today. Pre-existing test-isolation gap, not touched this cycle -- named here rather
 than silently worked around.
+
+## Cycle 27 (brand-kit import)
+
+Tenant-agnostic `harness brand import --tenant <t> (--drive-folder <url-or-id> | --local
+<dir>) [--dry-run] [--force]`, so any tenant (not just Peak, whose brand files were all
+hand-extracted in earlier cycles) can point the harness at a Drive folder or a local
+directory and get a usable `brand/` layer.
+
+**Enumeration, no OAuth.** `harness/sources/drive.py`'s `list_public_folder(folder_id,
+fetch=None)` parses a Drive folder's own public HTML listing (`data-id="<id>"` plus a
+`data-tooltip`/`aria-label` name, deduplicated by id) -- the same no-OAuth, public-link-only
+adapter pattern `download_drive_file` already used for a single file. A folder that isn't
+shared "Anyone with the link" comes back as a sign-in wall with no `data-id` entries;
+`list_public_folder` raises `DriveFolderNotPublic` with the exact message the task asked for:
+"Drive folder is not link-public; share it as Anyone with the link, or upload the files into
+tenants/<t>/brand/incoming/ and rerun with --local". An entry with no recognizable file
+extension is treated as a subfolder (Peak's own "Logo Files" is exactly this shape) and walked
+one level deep. `--local <dir>` runs the identical classify/extract pipeline over files
+already on disk.
+
+**Classification** (`harness/brand_import.py:classify_file`) follows the task's own priority
+order -- logo (svg/png/jpg with logo/mark/wordmark/favicon in the name) before brand guide
+(pdf, or guide/brand/style in the name) before fonts (ttf/otf/woff/woff2) before palette
+(json/txt/ase named color/palette/tokens) before photo (everything else image-shaped) before
+other. Worth knowing: "style" is a plain substring match per the task spec, so it also matches
+inside "lifestyle" -- noted in the module rather than special-cased for one word. Every
+downloaded/copied file lands in `tenants/<t>/brand/incoming/` (gitignored) with a
+`manifest.json`.
+
+**Extraction.** Logo: svg preferred, else largest-by-bytes raster, copied to `brand/logo.<ext>`;
+dominant accent colors come from Pillow quantization on a raster (near-white/near-black
+filtered out unless they're all there is) -- an svg logo skips this (no rasterizer dependency
+added) and is flagged in BRAND-IMPORT.md for a human to pick colors from the guide/palette
+instead. Brand guide: rendered to up to 6 page images (`pdftoppm` if on PATH, else Pillow for
+an already-an-image guide file; unrenderable is named in BRAND-IMPORT.md, not silently
+dropped) and sent in **one** vision call (well under the "at most 3 real model calls" cap) with
+a system prompt that explicitly tells the model every word inside the guide's pages is
+reference material, never an instruction to it -- strict-JSON-only response
+(`{colors, fonts, logo_rules, voice, dont}`). Palette file: hex codes parsed out of
+`.json`/`.txt`; `.ase` (binary Adobe Swatch Exchange) is not parsed -- named for a human
+instead of guessed at. Fonts: copied into `brand/fonts/`, family/weight best-effort guessed
+from the filename; a guide-named font with no matching font file is assumed to be a Google
+Font and gets an `@import` line instead of an `@font-face`.
+
+**Non-destructive merge.** `tokens.json` gets a new top-level `brand_import` key (never
+touches Peak's ~90 existing flat dotted-key scalars, which live at the top level directly) --
+`merge_dict()` recurses so a re-import's existing sub-key always wins unless `--force`, a new
+sub-key is always added, and every leaf is tagged `"source": "brand-import:<file>"`.
+`tenant.yaml`'s `brand:` section gets the same merge rule, but via a targeted regex splice
+(`write_tenant_yaml_brand_section`) that locates and rewrites only the `brand:` block's own
+text -- a full YAML round-trip of the whole file would silently drop every comment in a file
+as heavily annotated as `tenant.yaml`, which is exactly the unasked-for rewrite the merge rule
+exists to prevent. `base.css` is regenerated from the imported tokens only when it doesn't
+exist, or is still the empty template stub (comments only, no rules -- checked by stripping
+`/* ... */` before testing for content, so a freshly `tenant init`'d tenant's stub doesn't
+read as "hand-tuned" the way Peak's real base.css must), or with `--force`.
+
+**Contrast gate.** WCAG relative-luminance contrast, text-on-background warns below 4.5:1;
+accent-on-background below 3:1 is refused (not set at all) without `--force` -- a real finding
+during test-writing: Peak's own brand-guide green `#16C47F` on white is ~2.27:1, so a real
+import against Peak's actual guide may hit this refusal and need `--force` or a manual pick;
+flagged here rather than silently downgrading the gate to make a fixture pass.
+
+**Renderer wiring.** `harness/render.py`'s `find_tenant_logo(brand_dir)` (checked svg first,
+matching the importer's own logo choice) + `render_page` copying it into the run's
+self-contained `assets/` folder, same treatment Fix 8 already gives an ad-sourced asset. New
+`logo_url` template var, used by `product-page` and `longform` (the two cartridges whose own
+`cartridge.md` already calls for "the tenant logo" in the header -- neither template actually
+rendered one before this cycle). New `.adv-brand-logo` rule in `harness/structure.css`
+(`tests/test_css_coverage.py` requires it). `harness review`'s asset-inlining and the Shopify
+publisher's CDN-URL rewrite both already match any `src="assets/..."`, so the logo needs no
+changes there.
+
+**Tests** (`tests/test_brand_import.py`, 42 new): the folder-listing parser against a small
+synthetic HTML sample (and its dedup, its not-public refusal with the exact message, an empty
+-but-public folder not being mistaken for a refusal, one level of subfolder recursion); the
+classifier; `merge_dict` (existing wins, `--force` overwrites, inputs never mutated,
+source-tagging); the `tenant.yaml` `brand:` splice (rest of the file, including comments,
+untouched); WCAG contrast math; `base.css` generation and its not-overwritten/`--force`-
+overwritten cases; palette hex parsing and the `.ase` no-op; dominant-color extraction (a
+solid-color PNG, and an svg returning `[]`); and a demo-tenant end-to-end
+(`tenants/_template` copied into a `tmp_path` "tenants dir", never the real `tenants/`) that
+imports a locally-built logo + palette.txt and confirms both the logo `<img>` and the imported
+accent color actually land in `render_page`'s output HTML/`base.css` -- no `tenants/demo-co`
+left in the repo, no real network or model call anywhere in the suite (the demo fixture has no
+brand-guide file, so the one vision call this module makes is never exercised in tests).
+
+`.venv-local/bin/pytest -q` on the Mac clone: **776 total, 776 passed, 0 failed** (734 + 42
+new). `.venv-local/bin/ruff check .`: clean.

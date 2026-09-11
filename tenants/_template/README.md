@@ -31,6 +31,17 @@ with `tenant not configured: ...` rather than producing a page.
 - [ ] `brand/tokens.json`, `brand/base.css`, `brand/byline.html`. Without
       base.css/byline.html the renderer falls back to the harness defaults and
       logs a warning -- fine for a first run, not for a published page.
+- [ ] Fastest path to the above: `harness brand import --tenant <slug>
+      --drive-folder <url-or-id>` (a Drive folder shared "Anyone with the
+      link", holding some mix of a logo, a brand guide PDF/image, a palette
+      file, and/or font files) or `harness brand import --tenant <slug>
+      --local <dir>` (the same files already on disk). Writes `brand/logo.*`,
+      merges into `brand/tokens.json` and this file's `brand:` section
+      (never clobbers a value you already set, unless `--force`), regenerates
+      `brand/base.css` only if it's still the empty template stub, and writes
+      `brand/BRAND-IMPORT.md` listing what it found, what it chose, and what
+      still needs a human decision. Run with `--dry-run` first to see what it
+      would do.
 
 ## 5. Optional, but do it before the first real run
 - [ ] `tenant.yaml`: `theme.full_bleed_css` if pages will be pasted into a

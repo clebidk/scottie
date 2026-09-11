@@ -113,3 +113,10 @@ shopify_publish:
 notifications:
   slack: false
   email: []
+
+# Cycle 27: `harness brand import --tenant <slug> --drive-folder <url-or-id>`
+# (or `--local <dir>`) fills this in from a logo/brand-guide/palette/fonts
+# folder and merges it here -- logo_path, primary_hex, accent_hex,
+# font_families. A value already here wins over a re-import unless --force.
+# Safe to leave empty; nothing in the engine requires it.
+brand: {}

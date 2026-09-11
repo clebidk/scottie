@@ -10,12 +10,28 @@ import re
 import urllib.request
 from pathlib import Path
 
+from ..errors import HarnessError
 from ..textutil import safe_filename
 
 
 _FILE_D_RE = re.compile(r"/file/d/([a-zA-Z0-9_-]+)")
 _ID_PARAM_RE = re.compile(r"[?&]id=([a-zA-Z0-9_-]+)")
 _BARE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{15,}$")
+
+_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
+
+FOLDER_NOT_PUBLIC_MESSAGE = (
+    "Drive folder is not link-public; share it as Anyone with the link, or "
+    "upload the files into tenants/<t>/brand/incoming/ and rerun with --local"
+)
+
+
+class DriveFolderNotPublic(HarnessError):
+    """A `harness brand import --drive-folder` folder that Drive would not
+    serve an anonymous listing for -- not shared "Anyone with the link"."""
 
 
 def parse_drive_id(input_arg):
@@ -70,5 +86,84 @@ def download_drive_file(file_id, dest_dir):
     dest = dest_dir / filename
     dest.write_bytes(data)
     return dest
+
+
+# ---------------------------------------------------------------------------
+# Folder listing (Cycle 27) -- still no OAuth: the public folder HTML itself,
+# not the Drive API. Google serves a logged-out visitor a page whose file
+# entries carry a `data-id="<file id>"` attribute plus a tooltip/aria-label
+# holding the display name; a folder that is NOT shared "Anyone with the
+# link" instead redirects to a sign-in page with no such attributes.
+# ---------------------------------------------------------------------------
+
+# One entry: `data-id="<id>"` followed, within the same element or a nearby
+# one, by a name-bearing attribute (`data-tooltip` or `aria-label`). The
+# non-greedy `.{0,400}?` window keeps this from crossing into the next
+# entry's own data-id on a long line.
+_FOLDER_ENTRY_RE = re.compile(
+    r'data-id="([a-zA-Z0-9_-]{10,})"'
+    r'(?:(?!data-id=).){0,400}?'
+    r'(?:data-tooltip|aria-label)="([^"]+)"',
+    re.DOTALL,
+)
+
+# Google Drive's own name for a sign-in wall -- present when the folder is
+# not link-public, absent on a real (even empty) public folder listing.
+_SIGNIN_WALL_MARKERS = (
+    "accounts.google.com/signin",
+    "accounts.google.com/servicelogin",
+    "sign in - google accounts",
+    "you need access",
+    "request access",
+)
+
+
+def _clean_entry_name(raw):
+    """An aria-label often trails extra words Drive adds for the icon button
+    ("My Logo.png More actions", "My Logo.png, Owned by me, PNG"). Keep the
+    filename: everything before the first comma, or before a trailing " More"
+    if there's no comma."""
+    name = raw.split(",", 1)[0].strip()
+    name = re.sub(r"\s+More(\s+actions)?$", "", name).strip()
+    return name
+
+
+def default_fetch_folder_html(folder_id):
+    """Real fetch of a Drive folder's public HTML listing, with a browser
+    User-Agent (an unadorned urllib request gets a stripped-down page with no
+    file entries)."""
+    url = f"https://drive.google.com/drive/folders/{folder_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": _BROWSER_USER_AGENT})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return resp.read().decode("utf-8", errors="ignore")
+
+
+def list_public_folder(folder_id, fetch=None):
+    """[{"id": ..., "name": ...}, ...] for every file Drive's own public HTML
+    listing for `folder_id` shows, deduplicated by id (first name seen wins --
+    Drive's page can repeat an entry for a grid vs. list view).
+
+    `fetch` is an injectable `folder_id -> html str` callable so tests never
+    touch the network; defaults to `default_fetch_folder_html`.
+
+    Raises DriveFolderNotPublic (with the exact operator-facing message the
+    tenant-onboarding flow expects) when the fetched page is a sign-in wall
+    instead of a listing."""
+    fetch = fetch or default_fetch_folder_html
+    html = fetch(folder_id)
+
+    entries = []
+    seen_ids = set()
+    for file_id, raw_name in _FOLDER_ENTRY_RE.findall(html):
+        if file_id in seen_ids:
+            continue
+        seen_ids.add(file_id)
+        entries.append({"id": file_id, "name": _clean_entry_name(raw_name)})
+
+    if not entries:
+        lowered = html.lower()
+        if any(marker in lowered for marker in _SIGNIN_WALL_MARKERS):
+            raise DriveFolderNotPublic(FOLDER_NOT_PUBLIC_MESSAGE)
+    return entries
 
 

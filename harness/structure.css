@@ -55,6 +55,17 @@ img { max-width: 100%; height: auto; }
   margin-bottom: 12px;
 }
 
+/* Cycle 27 (brand import): the tenant logo a page header shows when
+   tenants/<t>/brand/logo.<ext> exists (harness/render.py's find_tenant_logo).
+   Height-capped, not width-capped, so a wide wordmark and a square mark both
+   sit at a consistent header scale. */
+.adv-brand-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+  margin-bottom: 12px;
+}
+
 h1, h2, h3 { line-height: 1.2; }
 h1 { font-size: 2rem; margin: 0 0 8px; }
 h2 { font-size: 1.4rem; margin: 2em 0 0.5em; }

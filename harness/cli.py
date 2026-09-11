@@ -12,6 +12,7 @@ import re
 import sys
 from pathlib import Path
 
+from . import brand_import
 from . import notify
 from . import pipeline
 from . import runstate
@@ -1076,6 +1077,53 @@ def cmd_tenant_list(args):
 
 
 # ---------------------------------------------------------------------------
+# harness brand import
+# ---------------------------------------------------------------------------
+
+def cmd_brand_import(args):
+    """`harness brand import --tenant <t> (--drive-folder <url-or-id> | --local
+    <dir>) [--dry-run] [--force]`. See harness/brand_import.py's module
+    docstring for the full pipeline; this just wires the CLI plumbing every
+    other command already uses (tenant load, RunLog, Budget, exit codes)."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant.load_env()
+    run_id = f"brand-import-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    budget = Budget()
+    try:
+        # A client is only actually called if a brand guide file needs its
+        # vision-model pass (import_brand_kit notes the gap in
+        # BRAND-IMPORT.md rather than failing when there isn't one) -- built
+        # unconditionally here, same as every other model-using command,
+        # so a real .env's key is validated up front rather than mid-run.
+        client = make_client()
+        result = brand_import.import_brand_kit(
+            tenant,
+            drive_folder=args.drive_folder,
+            local_dir=args.local,
+            dry_run=args.dry_run,
+            force=args.force,
+            client=client,
+            model=tenant.model_for("ingest"),
+            budget=budget,
+            log=log,
+        )
+    except BudgetExceeded as e:
+        log.event("brand_import", f"budget exceeded: {e}")
+        log.close()
+        print(f"budget exceeded: {e}", file=sys.stderr)
+        return 3
+    log.cost_estimate()
+    log.close()
+    print(result.as_markdown(tenant_name=tenant.display_name))
+    if args.dry_run:
+        print("\n(--dry-run: nothing under tenants/ was written)")
+    else:
+        print(f"\nWrote {tenant.brand_dir / 'BRAND-IMPORT.md'}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # harness shopify-body
 # ---------------------------------------------------------------------------
 
@@ -1594,6 +1642,21 @@ def build_parser():
     p_tenant_init.set_defaults(func=cmd_tenant_init)
     p_tenant_list = tenant_sub.add_parser("list", help="every tenant and whether it is configured")
     p_tenant_list.set_defaults(func=cmd_tenant_list)
+
+    p_brand = sub.add_parser("brand", help="import a brand kit from a Drive folder or a local directory")
+    brand_sub = p_brand.add_subparsers(dest="brand_command", required=True)
+    p_brand_import = brand_sub.add_parser(
+        "import", help="logo/brand-guide/palette/fonts -> tenants/<t>/brand/* and tenant.yaml's brand: section"
+    )
+    p_brand_import.add_argument("--drive-folder", help="Drive folder URL or id (must be link-public)")
+    p_brand_import.add_argument("--local", help="local directory to import from instead of Drive")
+    p_brand_import.add_argument("--dry-run", action="store_true", help="report what would change; write nothing")
+    p_brand_import.add_argument(
+        "--force", action="store_true",
+        help="overwrite base.css and any existing tokens.json/tenant.yaml brand value this import also produces",
+    )
+    _add_tenant_flag(p_brand_import)
+    p_brand_import.set_defaults(func=cmd_brand_import)
 
     p_workflow = sub.add_parser("workflow", help="run a named pipeline from workflows/")
     workflow_sub = p_workflow.add_subparsers(dest="workflow_command", required=True)

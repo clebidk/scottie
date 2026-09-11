@@ -156,7 +156,58 @@ or empty, the renderer logs a warning and the page still gets the full
 `structure.css` layer on its own -- fine for a first test run, not for
 anything published (no tenant tokens/fonts/brand colors without it).
 `brand/byline.html` has no such fallback layering: missing, the renderer
-uses a plain built-in byline instead.
+uses a plain built-in byline instead. If `brand/logo.<ext>` exists (svg,
+png, jpg, or webp) the renderer copies it into the run's self-contained
+`assets/` folder and the product-page/longform templates show it in the
+page header (`.adv-brand-logo` in `harness/structure.css`); no logo file,
+no `<img>` -- nothing else changes.
+
+### Brand kit import (Cycle 27)
+
+`harness brand import --tenant <slug> --drive-folder <url-or-id>
+[--dry-run] [--force]` turns a Drive folder into the brand files above,
+without OAuth:
+
+1. **Share the folder "Anyone with the link"** (view access is enough) and
+   copy its URL or id. The folder can hold a logo (svg/png/jpg with "logo",
+   "mark", "wordmark", or "favicon" in the filename -- a subfolder like
+   "Logo Files" is walked one level deep), a brand guide (a PDF, or any file
+   with "guide"/"brand"/"style" in the name), a palette file (`.json`/`.txt`
+   named "color"/"palette"/"tokens" -- hex codes are parsed out of it;
+   `.ase` swatch files are not read, and are flagged in BRAND-IMPORT.md for
+   a human to open by hand), font files (`.ttf`/`.otf`/`.woff`/`.woff2`),
+   and photos (indexed for later, not wired into a page yet).
+2. **Not link-public?** The command fails with the exact message: "Drive
+   folder is not link-public; share it as Anyone with the link, or upload
+   the files into `tenants/<t>/brand/incoming/` and rerun with `--local`" --
+   `--local <dir>` runs the identical classify/extract pipeline over files
+   already on disk instead of Drive.
+3. **Run `--dry-run` first.** It reports what it found and what it would
+   write, without touching anything under `tenants/<slug>/`.
+4. **A brand guide PDF/image gets one real model call** (vision, capped at 6
+   rendered pages) that returns strict JSON only -- colors, fonts, logo
+   rules, voice, don'ts. Anything written inside the guide's pages is
+   treated as reference material, never as an instruction to the model.
+   `pdftoppm` renders PDF pages; without it (or for anything else that can't
+   be rendered) the gap is named in BRAND-IMPORT.md instead of silently
+   skipped.
+5. **Nothing you already set is clobbered.** `tokens.json` and `tenant.yaml`'s
+   `brand:` section are merged: an existing key's value always wins over a
+   re-import unless `--force`; a new key is always added; every imported
+   value is tagged `"source": "brand-import:<file>"`. `base.css` is only
+   (re)generated when it's missing or still the empty template stub, or with
+   `--force` -- a hand-tuned `base.css` (Peak's, for instance) is never
+   touched otherwise.
+6. **A color that would be unreadable is caught, not shipped.** WCAG
+   contrast is checked text-on-background (warns below 4.5:1) and
+   accent-on-background (refuses to set the accent below 3:1, unless
+   `--force`) -- both land in `brand/BRAND-IMPORT.md`'s "what needs a human
+   decision" section along with anything else the import couldn't resolve on
+   its own (an unreadable `.ase` file, an unrendered guide, ambiguous logo
+   usage rules from the guide).
+
+Read `brand/BRAND-IMPORT.md` after every import: what was found, what was
+chosen, what still needs you, and the raw model JSON from the brand guide.
 
 ## 5. Optional, but do before a real run
 
