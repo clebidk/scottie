@@ -72,14 +72,14 @@ other tunnel hostname this deployment already routes):
 
 ```yaml
 ingress:
-  - hostname: review.peaksaunas.com
+  - hostname: review.peaksaunasteam.com
     service: http://127.0.0.1:4870
   # ... existing ingress rules ...
   - service: http_status:404
 ```
 
 Then, in the Cloudflare Zero Trust dashboard, add an Access application for
-`review.peaksaunas.com` with an email-OTP (or Google/GitHub) identity
+`review.peaksaunasteam.com` with an email-OTP (or Google/GitHub) identity
 provider, policy restricted to the reviewer emails in `tenant.yaml`'s
 `reviewers` list. Once that's live, set `REVIEW_TRUST_CF_ACCESS=true` in
 `tenants/<tenant>/.env` so the app trusts Access's
@@ -93,7 +93,7 @@ If this deployment terminates TLS with Caddy instead of (or in addition to)
 a tunnel, add a vhost (`Caddyfile`, alongside the storefront's own vhosts):
 
 ```
-review.peaksaunas.com {
+review.peaksaunasteam.com {
     reverse_proxy 127.0.0.1:4870
 }
 ```
