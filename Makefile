@@ -56,3 +56,7 @@ sweep:
 
 pull-out:
 	rsync -az $(PROD):$(REMOTE_DIR)/tenants/$(TENANT)/out/ ./out/$(TENANT)/
+
+# Mirror the full harness (all tenants, private) to GitHub; run after every cycle.
+push-github:
+	git push github master --tags
