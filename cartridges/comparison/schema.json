@@ -27,7 +27,7 @@
   "properties": {
     "eyebrow": {
       "type": "string",
-      "description": "Literal '<A> vs. <B>' naming the run's product and the compared subject, e.g. 'the Fuji vs. the Mini' for {{ tenant.name }}'s own lineup. Never a competitor name the tenant forbids."
+      "description": "Literal '<A> vs. <B>' naming the run's product and the compared subject, e.g. 'Model A vs. Model B' for {{ tenant.name }}'s own lineup. Never a competitor name the tenant forbids."
     },
     "headline": {
       "type": "string",

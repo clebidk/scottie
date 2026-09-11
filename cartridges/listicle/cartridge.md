@@ -2,7 +2,7 @@
 
 Purpose: a numbered "N reasons" pre-sell -- the format the tenant has already shipped live as a standalone landing page. Fast to scan, image-led, one reason per screen.
 Audience temperature: warm-to-cold. The reader may already know the category; the ad's own hook decides which.
-Opt-in only: `discover_cartridges` finds this cartridge, but `adv run`'s default random-3 selection never includes it -- it only runs when `--cartridges listicle` (or a comma list containing it) is passed explicitly, until Caleb approves it for the default rotation.
+Opt-in only: `discover_cartridges` finds this cartridge, but `adv run`'s default random-3 selection never includes it -- it only runs when `--cartridges listicle` (or a comma list containing it) is passed explicitly, until it is approved for the default rotation.
 
 ## Structure (in order)
 1. Header block: "Advertisement" label, headline, dek, byline block (same include as article -- `{{ byline_html | safe }}`, not the base-template footer byline block).

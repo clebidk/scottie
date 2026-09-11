@@ -104,10 +104,10 @@ TENANT_WORDS = ("Peak", "Austin", "Judge.me", "Aurora")
 # every model name in the catalog -- fifteen leaks in harness/ comments and
 # docstrings. This is the wider list, applied to harness/ only.
 #
-# It is deliberately NOT applied to cartridges/: three cartridge.md files name
-# a model in a worked CTA example, and a cartridge.md is prompt text, so
-# rewriting one changes what the writer is told. That is tracked as an open
-# finding (R39) rather than fixed here.
+# K1 fix (Cycle 28): this used to be applied to harness/ only -- cartridges/
+# and harness/blocks/ are now scanned too (below), with product short names
+# added to the list, since a product name leaking into tenant-neutral prompt
+# text is the same class of bug as a company name leaking into engine code.
 ENGINE_TENANT_WORDS = TENANT_WORDS + (
     "peak-saunas", "Peak Saunas", "Caleb", "Niednagel", "Laudenslager",
     "Fuji", "Everest", "Rainier", "Shasta", "Denali", "Matterhorn",
@@ -128,20 +128,50 @@ _VENDOR_ADAPTER_PATHS = ("sources/judgeme.py", "publishers/shopify.py")
 # agree is a one-word prompt edit and a product decision, not a mechanical
 # cleanup. Tracked as an open finding; exempted here rather than silently
 # widening the whole rule.
-_PROMPT_TEXT_EXEMPTIONS = {("harness/repair.py", "Fuji")}
+#
+# K1 fix (kimi/long-run merge, Cycle 28): the scan below now also runs over
+# cartridges/ and harness/blocks/ with the tenant word list widened by every
+# product short name in tenants/peak-saunas/claims/products.json (this is
+# what caught cartridges/comparison/schema.json:30's "the Fuji vs. the Mini").
+# Two more of the same class of exemption as the repair.py one above turned up
+# doing that: product-page/cartridge.md and longform/cartridge.md both quote
+# "Shop the Fuji" as the worked example of the `{short_name}`/`{model_name}`
+# CTA-text substitution -- PROMPT text, not tenant leakage into engine logic.
+_PROMPT_TEXT_EXEMPTIONS = {
+    ("harness/repair.py", "Fuji"),
+    ("cartridges/product-page/cartridge.md", "Fuji"),
+    ("cartridges/longform/cartridge.md", "Fuji"),
+}
+
+
+def _peak_saunas_product_short_names():
+    """Every product's short `name` from products.json, e.g. "Fuji", "Mini" --
+    read from data, not hardcoded, so a new product is covered automatically."""
+    data = json.loads((TENANT.claims_dir / "products.json").read_text())
+    return tuple(sorted({p["name"] for p in data["products"].values() if p.get("name")}))
+
+
+# cartridges/ and harness/blocks/ are tenant-neutral the same way the rest of
+# harness/ is, so they are scanned with the same word list widened by every
+# tenant product's short name -- a product name is exactly the kind of
+# tenant-specific word this rule exists to catch (K1: cartridges/comparison/
+# schema.json:30 named "the Fuji vs. the Mini" as a worked example).
+CARTRIDGE_AND_BLOCKS_TENANT_WORDS = tuple(sorted(
+    set(ENGINE_TENANT_WORDS) | set(_peak_saunas_product_short_names())
+))
 
 
 def _files(root, suffixes):
     return [p for p in root.rglob("*") if p.is_file() and p.suffix in suffixes]
 
 
-@pytest.mark.parametrize("root", ["harness", "cartridges"])
+@pytest.mark.parametrize("root", ["harness", "cartridges", "harness/blocks"])
 def test_no_tenant_specific_words_in_the_engine_or_the_cartridges(root):
     # Whole words, case-insensitively: a bare substring match would flag
     # "speaker"/"speaks" for containing "peak", which is why the original
     # list had to stay case-sensitive to be usable at all.
     patterns = [(w, re.compile(r"\b" + re.escape(w) + r"\b", re.IGNORECASE))
-                for w in (ENGINE_TENANT_WORDS if root == "harness" else TENANT_WORDS)]
+                for w in (ENGINE_TENANT_WORDS if root == "harness" else CARTRIDGE_AND_BLOCKS_TENANT_WORDS)]
     offenders = []
     for path in _files(REPO_ROOT / root, {".py", ".md", ".json", ".html", ".css", ".yaml"}):
         text = path.read_text(errors="ignore")
