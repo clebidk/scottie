@@ -59,4 +59,4 @@ pull-out:
 
 # Mirror the full harness (all tenants, private) to GitHub; run after every cycle.
 push-github:
-	git push github master --tags
+	git push github master master:main --tags
