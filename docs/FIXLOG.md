@@ -1122,3 +1122,116 @@ hidden by default / shown with the flag, now also checking ad name + product app
 
 `.venv-local/bin/pytest -q` on the Mac clone: **738 total, 738 passed, 0 failed** (734 + 4 net
 new). `.venv-local/bin/ruff check .`: clean.
+
+## Cycle 28 — merge kimi/long-run
+
+Merged the external `kimi/long-run` branch (12 commits, 130 files,
++17,665/-1,214) into `master` after `docs/REVIEW-KIMI-LONG-RUN.md`'s review
+(reviewed at `67b4fef` against `master` at `3eb4a2b`, in a throwaway worktree
+on prod) came back **MERGE WITH FIXES**: the engineering itself was judged
+unusually disciplined (the `cli.py` split is a genuine move, not a rewrite;
+generated pages byte-identical to master), with two required fixes before
+the merge commit, neither touching the gate's own logic.
+
+The twelve commits, in order:
+
+1. `f83805c` phase 0 (bootstrap): `evals/fake_run.py` -- the suite's dry run as a standalone command
+2. `ceab311` phase 1 (baseline): `docs/KIMI-BASELINE.md` + `evals/baseline/` regression reference
+3. `a8ee766` phase 2 (checks): deterministic image/link/JSON-LD/HTML checks in the page gate
+4. `3557741` phase 3 (blocks): `harness/blocks` registry, block gate, writer block selection, daily spend cap
+5. `b0b4f59` R1/R2 (+R5): split the domain logic out of `cli.py`; the import cycle dies
+6. `b9af67d` R11: one page walker (`textutil.walk_page`) replaces ten hand-written recursions
+7. `9535a08` R23: config precedence stays; disagreements become visible
+8. `9188fc4` R20 + R24 + R9: shared budget-abort tail, call-time config paths, spec glossary
+9. `88a70cf` phase 5 (eval-export): `harness dataset export` + `harness eval report`
+10. `9072c20` phase 6 (comparison-cartridge): draft comparison cartridge, sourced table schema, competitor claims home
+11. `d375553` phase 7 (runbook): `docs/PROMPTING.md` + the repair loop's OnFailAction vocabulary
+12. `67b4fef` `evals/soak.py`: the 200-generation dry-run driver + the run's report
+
+Merged on top of Cycle 26b (master had moved to `551c6ac` by the time the
+merge landed): one conflict, in `harness/pipeline.py`'s `execute()` --
+Cycle 26b's review-html-build block called the old pre-split
+`_log_run_result` (a lazy `from .cli import _log_run_result`, the
+circular-import workaround R1/R2 removed); resolved to
+`review_md.log_run_result`, keeping Cycle 26b's build-review-html-on-success
+block intact. Everything else auto-merged clean.
+
+### K1 -- tenant product names in an engine-level cartridge schema
+
+`cartridges/comparison/schema.json:30` named Peak's own products as the
+worked example ("... e.g. 'the Fuji vs. the Mini' for {{ tenant.name }}'s
+own lineup") -- the same class of leak as R40, and new with this branch.
+Replaced with a neutral `'Model A vs. Model B'` example.
+
+The R40 tenant-neutrality scan (`tests/test_tenant.py`) used to run over
+`harness/` only; it now also runs over `cartridges/` and `harness/blocks/`,
+widened by every product's short name read live from
+`tenants/peak-saunas/claims/products.json` (not hardcoded, so a new product
+is covered automatically) rather than just the fixed proper-noun list.
+That caught one more real leak, `cartridges/listicle/cartridge.md:5`'s
+"until Caleb approves it for the default rotation" -- fixed by dropping the
+name. Two worked "Shop the Fuji" CTA examples in `product-page`/`longform`
+`cartridge.md` are legitimate prompt text (the worked example of the
+`{short_name}`/`{model_name}` substitution), not tenant leakage, and are
+exempted the same way `harness/repair.py`'s existing `Fuji` example already
+was. `harness/blocks/` itself came back clean under the wider list.
+
+### K2 -- the daily spend cap was advisory, not enforced
+
+`harness/budget.py:89-143` checked the cap once, before a run
+(`pipeline.py:182`), and recorded spend only after (`pipeline.py:498/522/536`,
+`cli.py:118`) -- two runs starting in the same window both read $0
+committed and both proceeded; a ledger write failure
+(`spend_ledger_path`'s file being read-only or `runs/` being full) was
+logged and silently swallowed, making the cap infinite.
+
+Fixed by reserving first: `budget.reserve_spend()` (replaces
+`check_daily_cap`) runs once, at run start, before any model call. Under an
+exclusive `fcntl.flock` on a lock file beside the ledger it reads today's
+committed total -- finalized runs' actual cost, plus every reservation
+whose run hasn't finalized yet -- and either appends this run's own
+reservation (`{"run_id", "reserved_usd", "ts"}`; the estimate is the
+tenant's `budget.per_run_usd` if set, else the median of the last 10
+finalized runs' cost, else $0.60) or refuses with exit 3 and `daily spend
+cap reached: $X of $Y (tenant <t>)` -- the whole read-decide-append happens
+inside the lock, so two runs starting at once can't both see $0 and both
+proceed. A ledger write failure during this step now raises
+`LedgerWriteError` (a `BudgetExceeded` subclass, so every existing abort
+path -- `pipeline.execute`, `cli.cmd_ingest` -- catches it unchanged)
+instead of being swallowed: the run stops before ingest ever spends a
+token. `record_spend()` at run end still logs-and-swallows a write failure
+(the run already happened; crashing over bookkeeping now would be worse
+than a missing line, same argument the original design made) -- the
+reservation it should have reconciled just stays live until `harness spend
+reconcile` drops it, which it only does once the run's own log shows a
+final `run_result:` line **and** the reservation is more than 2 hours old
+(a reservation with no final state on disk is left alone; it may still be
+running). Bare `harness spend` prints today's spent/reserved/cap.
+
+`tests/test_budget.py`: real two-thread concurrent `reserve_spend` under a
+cap that allows exactly one reservation (only one passes, verified by
+result and by the ledger holding exactly one reservation); an unwritable
+`runs/` directory refuses with a clean `LedgerWriteError`, not a raw
+`OSError`; `reconcile_stale_reservations` drops a stale reservation whose
+run's log shows `run_result:` while leaving an equally stale one with no
+final state alone, and leaves a fresh one alone regardless of final state.
+
+### Non-blocking (F2, F3 -- F1 skipped)
+
+`README.md` and `docs/GENERATOR.md` now document `harness dataset export`,
+`harness eval report`, `harness spend`/`harness spend reconcile`, the
+`harness/blocks/` layout registry, and the comparison cartridge (F2). This
+entry is F3.
+
+### Verify
+
+Full suite green on the merge commit (not just the branch tip): **827
+passed**. `ruff check .`: clean. Both `evals.fake_run` dry runs
+(`founder-warranty-demo.txt`, `hidden-costs-v2.transcript.txt`) stay
+byte-identical to `evals/baseline/` on all three cartridges -- K1/K2 only
+touch a prompt-text example and spend bookkeeping, never page generation.
+Real-run verification (`harness run
+tenants/peak-saunas/fixtures/hidden-costs-v2.mov --tenant peak-saunas`,
+foreground, 600s, on a server worktree of the merge branch) and the landing
+onto `master` happen after this entry -- see the merge commit and this
+cycle's operator report for that run's result and cost.

@@ -50,7 +50,29 @@ harness digest needs-review --tenant <t> [--days 3]                 # cycle 20
 harness doctor --tenant <t> [--offline]                             # cycle 22
 harness serve --tenant <t> [--host 127.0.0.1] [--port 4870]         # cycle 26, reviewer web app
 harness revise <run-dir> --page <cartridge> [--by <email>]          # cycle 26
+harness dataset export --tenant <t> [--out PATH]                    # kimi/long-run, fine-tune records
+harness eval report --tenant <t>                                    # kimi/long-run, scores by cartridge/block/angle/reviewer
+harness spend --tenant <t>                                          # cycle 28, today's spend/reservations/cap
+harness spend reconcile --tenant <t>                                # cycle 28, drop stale reservations
 ```
+
+`harness dataset export` writes one JSONL record per (run, cartridge) --
+`ad_brief`, `facts_pack` summary, cartridge/block content versions,
+`page.json`, gate history, deterministic check results, and the human score
+joined from `evals/scores.jsonl` -- to `tenants/<t>/evals/dataset.jsonl` by
+default. `harness eval report` aggregates `evals/scores.jsonl` by cartridge,
+block, angle, and reviewer against the rubric's publish bar.
+
+`harness spend` reports the tenant's daily spend-cap ledger: today's
+finalized cost, open reservations (runs that started but haven't recorded
+their actual cost yet), and the cap. A tenant with `budget.daily_usd` set
+(`claims/config.json` wins over `tenant.yaml`) refuses to start a new run --
+exit 3, before any model call -- once today's finalized cost plus every open
+reservation plus the new run's own reservation would exceed the cap; unset
+means uncapped, as before. `harness spend reconcile` drops reservations
+older than 2 hours whose run already reached a final state but never wrote
+its own final ledger line (a crash, or the write itself failing) -- see
+`harness/budget.py` for the full mechanics.
 
 `harness doctor` answers "can this tenant run?" in one table: files, a validated
 `tenant.yaml`, which credentials are set (by NAME -- never a value), whether the
@@ -78,10 +100,22 @@ harness/        the engine: ingest, ground, claims gate, writer, renderer,
                 exits.py and errors.py own the exit codes and the one
                 user-facing error path; textutil.py holds the helpers more
                 than one module needs.
-cartridges/     page types: article, product-page, longform, listicle. Each is
-                cartridge.md (voice/structure), schema.json (page.json shape),
-                template.html (Jinja), rubric.md. No company's words -- a
-                cartridge says {{ tenant.name }} where a company belongs.
+cartridges/     page types: article, product-page, longform, listicle,
+                comparison (opt-in: sourced spec table + honest "alternative
+                strengths" section, never picked by the no-flag random-3
+                default). Each is cartridge.md (voice/structure), schema.json
+                (page.json shape), template.html (Jinja), rubric.md. No
+                company's words -- a cartridge says {{ tenant.name }} where a
+                company belongs.
+harness/blocks/ the layout-block registry (registry.json + one block.html/
+                block.css per block, shadcn registry-item shape): named,
+                swappable layout variants (e.g. a proof row as a stat strip
+                or as cards) a cartridge's schema.json can offer per slot via
+                block_slots. Blocks are layout only -- harness/blocks/gate.py
+                rejects any block containing copy words, a <script>, an
+                inline handler, an unsized <img>, a non-var(--…) color, or a
+                fixed width over 390px, so a block can never smuggle in
+                copy or a company's words.
 agents/         role briefs, one per pipeline job, as markdown with front-matter.
 workflows/      named pipelines as YAML. `stage:` steps are executed by the
                 runner; `action:` steps are specification only.

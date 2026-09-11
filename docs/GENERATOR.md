@@ -107,6 +107,76 @@ state them. These all walk `page.json` generically by content, not by cartridge 
 a new type inherits every one of them the moment it exists -- as cycle 14's listicle build
 proved by adding zero lines to `harness/claims.py` or `harness/write.py`.
 
+## Layout blocks (`harness/blocks/`)
+
+kimi/long-run's block registry gives a cartridge named, swappable layout
+variants for one slot -- e.g. a proof row rendered as a stat strip or as
+cards -- without a copy change. Each block is a folder under
+`harness/blocks/<name>/`: `block.html` (a Jinja partial that binds every
+piece of content from a placeholder -- no literal copy, ever), an optional
+`block.css` (required when the block's `registry.json` entry sets
+`styling: "self"`), and `screenshot.svg` (a wireframe capture). `registry.json`
+lists every block in the shadcn registry-item shape.
+
+A cartridge opts a slot into blocks by adding it to `schema.json`'s
+`block_slots`, e.g.:
+
+```json
+"block_slots": {
+  "proof": {
+    "description": "Layout block for the header proof-stat row.",
+    "blocks": ["proof-stat-row", "proof-stat-row-cards"],
+    "default": "proof-stat-row"
+  }
+}
+```
+
+The writer records its pick in `page.json`'s top-level `"blocks": {"<slot>":
+"<block-id>"}` (omit a slot to render its default), and the template
+includes it with `{% include page.blocks.get("<slot>", "<default>") ~
+"/block.html" %}`.
+
+**A block can never smuggle in copy or a company's word.**
+`harness/blocks/gate.py` rejects, per block: any of the same literal copy
+words the page-level gate rejects; any tenant word (the R40 scan --
+`tests/test_tenant.py` -- also runs over `harness/blocks/` directly, not
+just as part of `harness/`); a `<script>` tag; an inline event handler; an
+`<img>` with no explicit size; a color that isn't a `var(--…)` token; and a
+fixed width over 390px (a block must never break the mobile-first layout).
+`tests/test_blocks.py` runs every registered block through this gate.
+
+## The comparison cartridge (opt-in)
+
+`cartridges/comparison/` is the sourced "<product> vs. <alternative>" page:
+a spec table where every cell needs `claim_ids`, 2-4 "deep dive" sections on
+dimensions the run's product wins, and a **required**
+`alternative_strengths` section -- real, sourced strengths of the
+alternative, so the page can never read as a one-sided attack ad. Competitor
+entries only ever load from `tenants/<t>/claims/competitors/` when they
+carry an `approved_by`; an unapproved entry is invisible to the writer. Like
+every cartridge it is opt-in only -- it does not appear in the no-flag
+random-3 default, the same way listicle doesn't -- so a tenant chooses it
+explicitly with `--cartridges comparison`.
+
+## Eval data (`harness dataset export`, `harness eval report`)
+
+```
+.venv/bin/harness dataset export --tenant peak-saunas [--out PATH]
+.venv/bin/harness eval report --tenant peak-saunas
+```
+
+`dataset export` writes one JSONL record per (run, cartridge) to
+`tenants/<t>/evals/dataset.jsonl` by default -- `ad_brief`, a `facts_pack`
+summary, the cartridge/block content versions used, `page.json`, gate
+history, deterministic check results, and the human score joined from
+`evals/scores.jsonl` when one exists. It re-runs the deterministic checks
+over the *stored* run artifacts rather than re-generating anything, so an
+old run and a new run export the same shape. This is the record a future
+fine-tune would be built from -- not before ~200 human-scored pages
+(fix cycle correction 7). `eval report` aggregates `evals/scores.jsonl` by
+cartridge, block, angle, and reviewer against the rubric's publish bar
+(mean would-publish >= 4).
+
 ## Add a verified claim
 
 ```
