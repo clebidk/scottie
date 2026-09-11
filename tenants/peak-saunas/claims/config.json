@@ -4,5 +4,8 @@
   "reviews_source": "judgeme-live",
   "speaker_name": null,
   "ad_overclaim_policy": "warn",
-  "allow_ai_renders": true
+  "allow_ai_renders": true,
+  "budget": {
+    "daily_usd": 10.0
+  }
 }
