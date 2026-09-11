@@ -763,3 +763,54 @@ write the sweep doc; exactly one Slack test notification.
 See report for the real-run verification against `hidden-costs-v2.mov` and
 `product-features-v2.mov --cartridges listicle`, the per-template static mobile checks, and the
 server test count.
+
+## Cycle 24 (final Friday sweep, 2026-09-11)
+
+No code changes this cycle -- pure verification sweep confirming Cycle 23's run-id and
+CSS-layering fixes hold under a full real-run pass, plus the recurring per-fixture PASS/STOP
+and content checks.
+
+1. **Full fixture sweep, all real `harness run` calls, foreground, one at a time, 600s timeout,
+   default three cartridges (article/longform/product-page) on all seven fixtures, plus
+   `--cartridges listicle` on `hidden-costs-v2.mov` and `product-features-v2.mov`.** Seven of
+   seven fixtures PASS, both listicle runs PASS. Two attempts STOPped at the claims gate
+   (`price-comparison-v2.mov`'s 1st attempt, `still-infraredglow-4x5.png`'s 1st attempt) on a
+   trigger-word/no-claim_id pattern already on record from prior sweeps -- not a Cycle 23
+   regression; both converged cleanly on their real 2nd attempt. Total real spend across the
+   nine final PASS attempts: **$1.9612**. See `tenants/peak-saunas/docs/SWEEP-2026-09-11-final.md`
+   for the full run-id table, attempts/repairs, word counts, and both STOP writeups.
+2. **Cycle 23 fixes reconfirmed clean under real runs.** Run-id collision fix: all nine runs
+   this cycle got unique `YYYYMMDD-HHMMSS-<slug>-<4char>` directories, including two same-input
+   reruns within the same session (`price-comparison-v2`, `still-infraredglow-4x5`) that landed
+   in distinct directories as designed. CSS-layering fix: all 23 rendered pages load
+   `structure.css` before the tenant's `brand/base.css`, all 80 real `<img>` tags across those
+   pages carry `width`/`height` attributes (0 missing), and all 7 `longform` pages'
+   `.adv-sticky-cta` bar has a matching CSS rule and is actually used in the body. No
+   regressions found.
+3. **New findings, not code changes (flagged as follow-ups, not fixed this cycle):**
+   `cartridges/product-page/template.html` never renders a byline block at all (confirmed via
+   template source -- no "byline" reference; only unused `.adv-byline`/`.byline` CSS rules
+   exist), so all 7 `product-page` pages this sweep have no byline line, by cartridge design,
+   not a per-run defect. Separately, `cartridges/article/template.html`'s financing paragraph
+   is conditional on the writer populating `page.financing_line`; 2 of 7 `article` pages this
+   sweep left it unset and instead paraphrased financing into body prose, not verbatim to the
+   fixed sentence "Financing is available through Bread Pay at checkout." -- confirmed via each
+   run's own `page.json` (`financing_line: null`) and the rendered prose. Neither is a
+   claims-gate or EMF/lender violation. See `docs/SWEEP-2026-09-11-final.md`'s byline and
+   financing sections for detail and exact text.
+4. **Banned-term check.** Zero hits across all 23 pages, checked directly against each page's
+   own visible text with `harness.claims.find_forbidden_visible_text` (not a raw grep), run via
+   a one-off script through `.venv/bin/python` -- no tenant `.env` read or printed at any point.
+5. **Deliverables.** Every PASS run's `harness review` and `harness shopify-body` outputs
+   generated per cartridge; the 23 `*-review.html` files copied and renamed
+   `<ad>-<cartridge>-review.html` under `tenants/peak-saunas/out/FRIDAY-2026-09-11/`, with a
+   `README.md` index (file listing, sizes, the sweep table). No Shopify call was made at any
+   point -- `shopify-body` only renders a static local export.
+6. **Policy / tree state.** `ad_overclaim_policy` unchanged (`"warn"`).
+   `notifications.slack` unchanged (`false`) -- no Slack message sent or attempted this cycle.
+   `git status` clean on the server after this cycle's commits (`out/`/`runs/` sweep artifacts
+   gitignored; the pre-existing untracked `tenants/peak-saunas/evals/approvals.jsonl`, unrelated,
+   still present and untouched).
+7. **Tests.** Server: `~/advertorial/.venv/bin/pip install -e . -q` (clean, no output) then
+   `.venv/bin/python -m pytest -q` -- **695 total, 695 passed, 0 failed**, matching Cycle 23's
+   count exactly (no test changes this cycle, sweep-only).

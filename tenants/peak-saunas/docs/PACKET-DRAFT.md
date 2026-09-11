@@ -4,6 +4,116 @@
 message that has gone anywhere. Nothing in this file has been sent to anyone, published,
 or acted on.
 
+**Cycle 24 update (final Friday sweep, 2026-09-11):** all seven fixtures plus both listicle
+runs PASS again after Cycle 23's run-id and CSS-layering fixes -- see
+`docs/SWEEP-2026-09-11-final.md` for the full table, the two STOPped-then-retried attempts
+(fixtures 3 and 6), the byline/financing/banned-term/mobile findings. Every run below is
+`needs_review`, every packet stamp is still `BOT DRAFT · NOT SENT` -- **nothing has been
+approved or published this cycle either.**
+
+### Cycle 24 final run ids (needs_review, nothing approved or published)
+
+| Ad | Cartridges | Run id | State | Pages |
+|---|---|---|---|---|
+| hidden-costs-v2.mov | article, longform, product-page | `out/20260911-001517-hidden-costs-v2-7tnk` | needs_review | article, longform, product-page: needs_review |
+| hidden-costs-v2.mov | listicle | `out/20260911-004038-hidden-costs-v2-widd` | needs_review | listicle: needs_review |
+| product-features-v2.mov | article, longform, product-page | `out/20260911-001800-product-features-v2-3i3w` | needs_review | article, longform, product-page: needs_review |
+| product-features-v2.mov | listicle | `out/20260911-004216-product-features-v2-imuh` | needs_review | listicle: needs_review |
+| price-comparison-v2.mov | article, longform, product-page | `out/20260911-002507-price-comparison-v2-cur2` | needs_review | article, longform, product-page: needs_review |
+| still-lessthan300-4x5.png | article, longform, product-page | `out/20260911-002807-still-lessthan300-4x5-wngk` | needs_review | article, longform, product-page: needs_review |
+| still-levelup-4x5.png | article, longform, product-page | `out/20260911-003029-still-levelup-4x5-fg3w` | needs_review | article, longform, product-page: needs_review |
+| still-infraredglow-4x5.png | article, longform, product-page | `out/20260911-003614-still-infraredglow-4x5-nvz3` | needs_review | article, longform, product-page: needs_review |
+| still-unforgettable-4x5.png | article, longform, product-page | `out/20260911-003834-still-unforgettable-4x5-ffl3` | needs_review | article, longform, product-page: needs_review |
+
+Page paths (all relative to `~/advertorial` on the server, `ssh prod`):
+`tenants/peak-saunas/out/<run-id>/<cartridge>/index.html`, `.../page.json`,
+`.../shopify-body.html`, `.../shopify-body.assets.json`, plus each run's own `REVIEW.md`,
+`<cartridge>-review.html`, `state.json`, `packet.json`. Deliverable copies (renamed
+`<ad>-<cartridge>-review.html`) are also under
+`tenants/peak-saunas/out/FRIDAY-2026-09-11/` -- see that folder's own `README.md`.
+
+**Exact `harness approve` / `harness publish --dry-run` commands, per run (none run this
+cycle):**
+
+```
+harness approve tenants/peak-saunas/out/20260911-001517-hidden-costs-v2-7tnk --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-001517-hidden-costs-v2-7tnk --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-001517-hidden-costs-v2-7tnk --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-001517-hidden-costs-v2-7tnk --page product-page --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-004038-hidden-costs-v2-widd --by caleb@peaksaunas.com --pages listicle
+harness publish tenants/peak-saunas/out/20260911-004038-hidden-costs-v2-widd --page listicle --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --page product-page --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-004216-product-features-v2-imuh --by caleb@peaksaunas.com --pages listicle
+harness publish tenants/peak-saunas/out/20260911-004216-product-features-v2-imuh --page listicle --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --page product-page --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-002807-still-lessthan300-4x5-wngk --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-002807-still-lessthan300-4x5-wngk --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-002807-still-lessthan300-4x5-wngk --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-002807-still-lessthan300-4x5-wngk --page product-page --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-003029-still-levelup-4x5-fg3w --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-003029-still-levelup-4x5-fg3w --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-003029-still-levelup-4x5-fg3w --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-003029-still-levelup-4x5-fg3w --page product-page --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-003614-still-infraredglow-4x5-nvz3 --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-003614-still-infraredglow-4x5-nvz3 --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-003614-still-infraredglow-4x5-nvz3 --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-003614-still-infraredglow-4x5-nvz3 --page product-page --dry-run
+
+harness approve tenants/peak-saunas/out/20260911-003834-still-unforgettable-4x5-ffl3 --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-003834-still-unforgettable-4x5-ffl3 --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-003834-still-unforgettable-4x5-ffl3 --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-003834-still-unforgettable-4x5-ffl3 --page product-page --dry-run
+```
+
+`--by` must be `michael@peaksaunas.com` (primary) or `caleb@peaksaunas.com` (backup, used
+above) per `tenant.yaml`'s `reviewers` list. `--dry-run` only validates credentials/page body
+and makes no other call -- and today it fails closed immediately since
+`SHOPIFY_STORE`/`SHOPIFY_TOKEN` are still not set (see "Open items" below); none of the
+commands above have been run.
+
+**The never-line (unchanged, still the standing rule):** No EMF mentions, anywhere, ever
+(confirmed 0 visible-text hits across all 23 Cycle 24 pages). No lender names while
+`financing_lender` is unconfigured (still configured: Bread Pay). No unverified claims --
+every specific claim on a page must trace to a `claims/verified.json` id. No AI-rendered image
+without "Rendering:" leading its alt text. No publish, ever, without a packet stamped `ship`
+and Caleb's explicit written approval.
+
+**Stamp: `BOT DRAFT · NOT SENT`**
+
+**Cycle 24 open items:**
+- **Shopify Admin API credentials -- still open.** `SHOPIFY_STORE`/`SHOPIFY_TOKEN` are not set
+  in `peak-saunas`'s `.env`; the Shopify token has not yet been saved. Candidate storefront
+  admin domain: `bd4b8d-2.myshopify.com` -- needs Caleb's confirmation before it's written to
+  `tenant.yaml`'s `store_admin_domain`. `harness publish` fails closed with a one-line message
+  and makes no network call until both are set; no Shopify call was made at any point this
+  cycle either.
+- **Slack notifications off, on purpose.** `tenant.yaml`'s `notifications.slack: false`,
+  unchanged this cycle -- pending Caleb's decision to flip it back on. No message was sent or
+  attempted this cycle.
+- Carried over unresolved from Cycle 19 (unchanged this cycle -- see the "Decisions still
+  open for Caleb" section below): the `.adv-cta`/`.adv-sticky-cta`/image-sizing CSS gap is
+  **now fixed** (Cycle 23) and reconfirmed clean this cycle (see
+  `docs/SWEEP-2026-09-11-final.md`'s mobile-pass section); the pending-claim approvals,
+  `allow_ai_renders`, and publish-mode ownership questions remain open.
+- **New, Cycle 24: `product-page` cartridge never renders a byline; `article` cartridge's
+  financing line is writer-dependent (2 of 7 runs this cycle paraphrased it in prose instead
+  of using the fixed sentence).** See `docs/SWEEP-2026-09-11-final.md`'s byline and financing
+  sections. Not a claims-gate violation in either case -- flagging as a follow-up, not fixed
+  under this cycle's sweep-only scope.
+
 **Cycle 19 update:** the byline decision is applied (author = Austin Laudenslager, Founder
 & CEO; contributor = "Peak Saunas Editorial Team", no named person; reviewer = Caleb
 Niednagel, Technology Lead -- see `tenants/peak-saunas/authors.yaml`), `ad_overclaim_policy`
