@@ -154,6 +154,24 @@ def test_choose_guide_prefers_a_name_that_says_guide_over_a_bigger_non_guide_pdf
     assert chosen["name"] == "Acme BRAND GUIDE.pdf"
 
 
+def test_choose_logo_prefers_png_over_a_bigger_jpg(tmp_path):
+    # Regression for a real finding: a big JPEG photo of the logo must not
+    # beat a smaller, cleaner PNG just because it has more bytes.
+    small_png = tmp_path / "favicon-logo.png"
+    small_png.write_bytes(b"x" * 100)
+    big_jpg = tmp_path / "logo-social-profile.jpg"
+    big_jpg.write_bytes(b"x" * 50_000)
+    assert brand_import.choose_logo([small_png, big_jpg]) == small_png
+
+
+def test_choose_logo_prefers_svg_over_any_raster(tmp_path):
+    svg = tmp_path / "logo.svg"
+    svg.write_bytes(b"x" * 10)
+    png = tmp_path / "logo.png"
+    png.write_bytes(b"x" * 50_000)
+    assert brand_import.choose_logo([svg, png]) == svg
+
+
 def test_choose_guide_falls_back_to_largest_when_none_say_guide(tmp_path):
     small = tmp_path / "Acme style-a.pdf"
     small.write_bytes(b"x" * 100)

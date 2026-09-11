@@ -177,13 +177,19 @@ def download_incoming(entries, incoming_dir):
 
 def choose_logo(logo_files):
     """The best logo candidate: an .svg if any, else the largest-by-bytes
-    raster. `logo_files` is a list of Paths already classified "logo"."""
+    .png, else the largest-by-bytes .jpg/.jpeg -- svg-then-png-then-jpg, not
+    just "the biggest raster regardless of format": a real folder can (and,
+    per Cycle 27 server verification, does) hold a large but busy JPEG photo
+    of the logo alongside a clean transparent PNG favicon, and the PNG is
+    the better logo asset even when it's the smaller file. `logo_files` is a
+    list of Paths already classified "logo"."""
     if not logo_files:
         return None
-    svgs = [p for p in logo_files if p.suffix.lower() == ".svg"]
-    if svgs:
-        return svgs[0]
-    return max(logo_files, key=lambda p: p.stat().st_size)
+    for exts in ((".svg",), (".png",), (".jpg", ".jpeg")):
+        candidates = [p for p in logo_files if p.suffix.lower() in exts]
+        if candidates:
+            return max(candidates, key=lambda p: p.stat().st_size)
+    return None
 
 
 def _rgb_to_hex(rgb):
