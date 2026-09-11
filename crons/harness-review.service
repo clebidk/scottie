@@ -1,0 +1,12 @@
+[Unit]
+Description=Reviewer web app (harness serve) for tenant @@TENANT@@
+
+[Service]
+Type=simple
+EnvironmentFile=@@REPO@@/tenants/@@TENANT@@/.env
+ExecStart=@@REPO@@/.venv/bin/harness serve --tenant @@TENANT@@ --port 4870
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

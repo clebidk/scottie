@@ -48,6 +48,8 @@ harness packet <run-dir> --stamp ship|redo|kill --by <email>        # cycle 20
 harness publish <run-dir> --page <cartridge> [--live] [--dry-run]   # cycle 20
 harness digest needs-review --tenant <t> [--days 3]                 # cycle 20
 harness doctor --tenant <t> [--offline]                             # cycle 22
+harness serve --tenant <t> [--host 127.0.0.1] [--port 4870]         # cycle 26, reviewer web app
+harness revise <run-dir> --page <cartridge> [--by <email>]          # cycle 26
 ```
 
 `harness doctor` answers "can this tenant run?" in one table: files, a validated
@@ -57,7 +59,8 @@ a run's directories are writable. Exit 1 if anything that blocks a run failed.
 
 Every run now ends in `needs_review`, not just `REVIEW.md` -- see
 `docs/PUBLISHING.md` for the full state machine, approval, packet-stamp gate,
-and publish flow.
+and publish flow. `docs/REVIEW-SITE.md` covers `harness serve` (auth, running
+it as a systemd unit, exposing it publicly) and `harness revise`.
 
 `harness workflow run ad-to-pages` produces exactly what `harness run` produces:
 both call the same stage functions, and the YAML only owns the order.

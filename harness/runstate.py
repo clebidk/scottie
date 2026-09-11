@@ -18,6 +18,12 @@ from pathlib import Path
 
 STATES = ("generated", "needs_review", "approved", "published", "rejected")
 
+# Cycle 26: a per-page state a run-level state never takes -- set by
+# request_changes below, cleared back to "needs_review" once harness revise
+# writes a new version (mark_revised). Kept separate from STATES because
+# nothing here ever sets the run-level state to it.
+PAGE_CHANGES_REQUESTED = "changes_requested"
+
 DEFAULT_PACKET_STAMP = "BOT DRAFT · NOT SENT"
 VALID_STAMPS = ("ship", "redo", "kill")
 
@@ -156,6 +162,75 @@ def reject(run_dir, tenant, *, by, note=""):
     data["history"].append({"state": "rejected", "by": by, "at": _now(), "note": note})
     save_state(run_dir, data)
     return data
+
+
+def request_changes(run_dir, tenant, *, page, by, scores=None, notes="", cuts=None, note=""):
+    """Cycle 26: the review site's "Request changes" action. `by` must be a
+    listed reviewer, same rule as approve/reject. Appends one feedback entry
+    {page, by, at, scores, notes, cuts} to state.json's "feedback" list (kept
+    forever, oldest first -- harness revise reads the LAST entry for `page`)
+    and sets that page's state to "changes_requested". The run-level state is
+    left alone (it can still be "needs_review" with other pages untouched)."""
+    reviewer = find_reviewer(tenant, by)
+    if reviewer is None:
+        raise UnknownReviewer(
+            f"{by!r} is not a listed reviewer for tenant {tenant.name!r}; "
+            f"see {tenant.name}/tenant.yaml's reviewers list."
+        )
+    data = load_state(run_dir)
+    if page not in data["pages"]:
+        raise KeyError(f"unknown page {page!r} for this run; run has: {list(data['pages'])}")
+    entry = {
+        "page": page, "by": by, "at": _now(),
+        "scores": scores or {}, "notes": notes or "", "cuts": list(cuts or []),
+    }
+    data.setdefault("feedback", []).append(entry)
+    data["pages"][page] = PAGE_CHANGES_REQUESTED
+    data["history"].append({"state": PAGE_CHANGES_REQUESTED, "by": by, "at": _now(), "note": f"page={page}" + (f"; {note}" if note else "")})
+    save_state(run_dir, data)
+    return data
+
+
+def latest_feedback(run_dir, page):
+    """The last feedback entry recorded for `page` (request_changes above),
+    or None if there is none yet."""
+    data = load_state(run_dir)
+    for entry in reversed(data.get("feedback", [])):
+        if entry.get("page") == page:
+            return entry
+    return None
+
+
+def mark_revised(run_dir, *, page, version, by="system", note=""):
+    """Called by harness revise once a new version has been written: the
+    page goes back to "needs_review" (a human needs to look at the new
+    version) and history records which version this was."""
+    data = load_state(run_dir)
+    if page not in data["pages"]:
+        raise KeyError(f"unknown page {page!r} for this run; run has: {list(data['pages'])}")
+    data["pages"][page] = "needs_review"
+    data["history"].append({
+        "state": "needs_review", "by": by, "at": _now(),
+        "note": f"page={page}; revised to v{version}" + (f"; {note}" if note else ""),
+    })
+    save_state(run_dir, data)
+    return data
+
+
+def set_revise_status(run_dir, *, page, status, detail=""):
+    """Cycle 26: the review site launches `harness revise` as a background
+    subprocess and polls this on page reload -- status is one of "running",
+    "done", "failed". Stored under state.json's "revise_status" key, keyed by
+    page, so it survives the subprocess exiting and the process restarting."""
+    data = load_state(run_dir)
+    data.setdefault("revise_status", {})[page] = {"status": status, "detail": detail, "at": _now()}
+    save_state(run_dir, data)
+    return data
+
+
+def get_revise_status(run_dir, page):
+    data = load_state(run_dir)
+    return (data.get("revise_status") or {}).get(page)
 
 
 def mark_published(run_dir, *, page, by="operator", note=""):

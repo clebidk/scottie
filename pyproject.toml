@@ -9,6 +9,10 @@ dependencies = [
     "jinja2",
     "pillow",
     "pyyaml",
+    # Cycle 26: harness/serve.py, the reviewer web app -- a small, mature
+    # WSGI framework rather than hand-rolling routing/auth/multipart-form
+    # parsing over the stdlib http.server.
+    "flask",
 ]
 
 [project.scripts]

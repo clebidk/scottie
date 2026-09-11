@@ -1151,6 +1151,44 @@ def cmd_reject(args):
     return 0
 
 
+def cmd_revise(args):
+    """`harness revise <run-dir> --page <cartridge> [--by <email>]`: applies
+    the latest reviewer feedback for that page (harness/revise.py) -- cut:
+    lines deterministically, then a bounded writer+repair pass for any
+    free-text notes -- and writes a new version. See harness/revise.py for
+    the full behavior."""
+    from . import revise as revise_mod
+
+    tenant = _resolve_tenant_for_run(args)
+    run_dir = Path(args.run_dir)
+    try:
+        result = revise_mod.revise_page(run_dir, args.page, by=args.by, tenant=tenant)
+    except revise_mod.ReviseError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    status = "PASS" if not result["gate_problems"] else "FAIL"
+    print(
+        f"Revised {args.page} for {run_dir} -> v{result['version']} "
+        f"({len(result['applied_cuts'])} cut(s), writer called={result['model_called']}, gate={status})"
+    )
+    return 0
+
+
+def cmd_serve(args):
+    """`harness serve --tenant <t> [--host 127.0.0.1] [--port 4870]`: the
+    reviewer web app (harness/serve.py). Refuses to start with a clear
+    message if the tenant env has no REVIEW_PASSWORD (see serve.py's
+    build_app for the auth rule)."""
+    from . import serve as serve_mod
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    app = serve_mod.build_app(tenant)
+    app.run(host=args.host, port=args.port)
+    return 0
+
+
 def cmd_packet(args):
     """`harness packet <run-dir> --stamp ship|redo|kill --by <email> [--note
     ...]`: sets the packet stamp `harness publish` checks. A new run starts
@@ -1361,24 +1399,40 @@ def cmd_claims_list(args):
 # harness score -- see evals/rubric.md for what each axis means.
 # ---------------------------------------------------------------------------
 
-def cmd_score(args):
-    tenant = tenant_mod.load_tenant(args.tenant)
+def record_score(tenant, *, run_dir, angle, brand, claims, publish, by=None, note="", page=None):
+    """Appends one line to tenants/<t>/evals/scores.jsonl. Shared by cmd_score
+    (below) and harness/serve.py's reviewer web app's feedback form, so both
+    write the exact same schema -- `page` is new in Cycle 26 (the review site
+    scores one page of a multi-page run at a time) and is only added to the
+    entry when given, so every score `harness score` itself ever wrote, and
+    every one it writes from here on, keeps the same shape."""
     scores_path = tenant.evals_path
     scores_path.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "tenant": tenant.name,
-        "run_dir": args.run_dir,
-        "angle": args.angle,
-        "brand": args.brand,
-        "claims": args.claims,
-        "publish": args.publish,
-        "by": args.by or (tenant.author("contributor") or {}).get("name") or "operator",
-        "note": args.note or "",
+        "run_dir": str(run_dir),
+        "angle": angle,
+        "brand": brand,
+        "claims": claims,
+        "publish": publish,
+        "by": by or (tenant.author("contributor") or {}).get("name") or "operator",
+        "note": note or "",
         "scored_at": datetime.datetime.now().isoformat(timespec="seconds"),
     }
+    if page is not None:
+        entry["page"] = page
     with open(scores_path, "a") as f:
         f.write(json.dumps(entry) + "\n")
-    print(f"Recorded score for {args.run_dir} -> {scores_path}")
+    return entry
+
+
+def cmd_score(args):
+    tenant = tenant_mod.load_tenant(args.tenant)
+    record_score(
+        tenant, run_dir=args.run_dir, angle=args.angle, brand=args.brand,
+        claims=args.claims, publish=args.publish, by=args.by, note=args.note,
+    )
+    print(f"Recorded score for {args.run_dir} -> {tenant.evals_path}")
     return 0
 
 
@@ -1478,6 +1532,19 @@ def build_parser():
     p_packet.add_argument("--note")
     _add_tenant_flag(p_packet)
     p_packet.set_defaults(func=cmd_packet)
+
+    p_revise = sub.add_parser("revise", help="apply the latest reviewer feedback for one page and write a new version")
+    p_revise.add_argument("run_dir")
+    p_revise.add_argument("--page", required=True, help="cartridge name, e.g. article")
+    p_revise.add_argument("--by", help="who ran this revise (defaults to the feedback's own reviewer email)")
+    _add_tenant_flag(p_revise)
+    p_revise.set_defaults(func=cmd_revise)
+
+    p_serve = sub.add_parser("serve", help="run the reviewer web app")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=4870)
+    _add_tenant_flag(p_serve)
+    p_serve.set_defaults(func=cmd_serve)
 
     p_publish = sub.add_parser("publish", help="publish one cartridge's page via the tenant's publisher adapter")
     p_publish.add_argument("run_dir")

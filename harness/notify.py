@@ -174,3 +174,13 @@ def notify_approved(tenant, *, run_id, by, pages, run_dir, log=None):
 def notify_published(tenant, *, run_id, page, url, log=None):
     text = f"[{tenant.display_name}] Run {run_id} page {page!r} published\nURL: {url}"
     return _send(tenant, f"[{tenant.display_name}] run {run_id} published", text, log=log)
+
+
+def notify_revise_complete(tenant, *, run_id, page, version, result, run_dir, log=None):
+    """Cycle 26: sent when `harness revise` (run standalone or launched by the
+    review site) finishes writing a new version of one page."""
+    text = (
+        f"[{tenant.display_name}] Run {run_id} page {page!r} revised to v{version} ({result})\n"
+        f"Run dir: {run_dir}"
+    )
+    return _send(tenant, f"[{tenant.display_name}] run {run_id} page {page} revised", text, log=log)

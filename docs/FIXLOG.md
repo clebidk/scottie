@@ -904,3 +904,108 @@ server: **702 total, 702 passed, 0 failed**, matching the Mac clone exactly.
   Cycle 25 update note.
 - `git status` on the server: clean except the pre-existing untracked
   `tenants/peak-saunas/evals/approvals.jsonl`, unrelated.
+
+## Cycle 26
+
+**Assignment.** A reviewer web app (`harness serve`) so a reviewer can see and act on a run
+from a browser instead of the CLI, plus a feedback-driven revision command (`harness revise`)
+that applies what a reviewer asked for and writes a new, versioned page.
+
+1. **`harness/runstate.py`**: new `request_changes` (the "Request changes" action -- validates
+   the reviewer against `tenant.yaml`'s `reviewers` list, same rule as `approve`/`reject`;
+   appends `{page, by, at, scores, notes, cuts}` to `state.json`'s `feedback` list; sets that
+   page's state to the new `PAGE_CHANGES_REQUESTED` ("changes_requested") value -- a per-page
+   state the run-level `state` never takes), `latest_feedback` (the last feedback entry for a
+   page), `mark_revised` (page back to `needs_review` once a new version is written), and
+   `set_revise_status`/`get_revise_status` (so the review site can poll a background revise's
+   progress across process restarts -- stored in `state.json`, not in memory).
+2. **`harness/revise.py` (new)**: `harness revise <run-dir> --page <cartridge> [--by <email>]`.
+   Reads the latest feedback entry; `cut:` lines are pulled out of the reviewer's free-text
+   notes by `parse_cuts_and_notes` and applied deterministically (`apply_cuts_to_page`) --
+   a normalized-whitespace sentence match, recursive over every string field, dropping a list
+   item whose own `text` field the cut emptied out. No model call for cuts alone. Free-text
+   notes left over, if any, get one writer call (`write_page` with a "REVIEWER NOTES -- apply
+   these changes and keep everything else" block carrying the current, already-cut page as
+   context) whose result feeds `write_and_gate_page`'s existing bounded repair loop (via its
+   `initial_page` param, the same one `--batch` mode uses) -- so a revise gets the SAME
+   word-range/CTA/financing/warranty/claim-id/vocab gates and repair behavior a fresh run does,
+   with no new gate logic written for this cycle. Fresh budget per revise: 60k tokens / 4 calls
+   (`REVISE_TOKEN_BUDGET`/`REVISE_CALL_BUDGET`), separate from a run's own 220k/14. Before
+   writing, the current `page.json`/`index.html`/`<page>-review.html` are renamed to
+   `.vN.`/`-review.vN.html` (N starting at 1); the new version is rendered with the same
+   `render_page` a fresh run uses, `harness/review.py`'s `build_reviews` regenerates the
+   run's review HTML, and a `## Revision: <page> vN` section is APPENDED to `REVIEW.md` (the
+   original generation report from `cli.write_review_md` is never rewritten -- reconstructing
+   its `gate_matched`/`budget`/`ad_not_repeated` context at revise time would mean duplicating
+   most of `pipeline.py`'s own bookkeeping for no real benefit). `runstate.mark_revised` puts
+   the page back to `needs_review`; `notify.notify_revise_complete` (new) fires the same
+   fail-closed way every other notification in this harness does. A repair loop that exhausts
+   every attempt (`ClaimsGateFailure`) or the revise budget (`BudgetExceeded`) leaves every file
+   on disk untouched and re-raises as `ReviseError` -- same "never write a page that failed the
+   gate as though it passed" rule a fresh run follows; the reviewer's feedback is still there to
+   revise from again.
+3. **`harness/cli.py`**: `cmd_revise` (thin wrapper -- calls `revise.revise_page`, prints the
+   result, exit 1 on `ReviseError`) and its `revise` subparser. `cmd_score`'s body extracted
+   into `record_score(tenant, *, run_dir, angle, brand, claims, publish, by=None, note="",
+   page=None)` so both `harness score` (unchanged output -- `page` is only added to the JSON
+   line when given) and the review site's per-page feedback form write the exact same
+   `scores.jsonl` schema through the exact same function -- no duplicated write path. `cmd_serve`
+   (new) loads/activates the tenant, calls `serve.build_app`, runs it.
+4. **`harness/serve.py` (new)**: the reviewer web app. Plain HTML/CSS built the same way
+   `cli.write_review_md` builds Markdown (Python string joins, `html.escape` on every value
+   that came from disk or a reviewer) -- no template files, no CDN, no JS framework; a few
+   lines of inline JS toggle an iframe's CSS class between 1200px/390px widths. Auth:
+   Cloudflare Access header (`REVIEW_TRUST_CF_ACCESS=true` + a matching
+   `Cf-Access-Authenticated-User-Email`, falling back to basic auth if the header is absent so
+   a direct request can't skip auth) else HTTP basic auth (`hmac.compare_digest` against
+   `REVIEW_PASSWORD`); `build_app` refuses to construct the app at all without
+   `REVIEW_PASSWORD` set. `/` lists runs (state, ad, product, cartridges, cost and "claims not
+   repeated" count scraped from `REVIEW.md` -- neither is persisted as JSON anywhere else --
+   and reviewer actions from `state.json` history), newest first. `/run/<id>` shows the source
+   ad (an image route for `input_type: still`, the transcript inline for `video`/`text`), the
+   ad brief, and each page: an iframe of `<page>-review.html`, the width toggle, existing
+   feedback history, and a feedback form (four 1-5 selects, a "Notes and cuts" textarea, three
+   buttons). "Approve page"/"Request changes" call `runstate.approve`/`request_changes` for
+   that one page; "Reject page" calls the existing `runstate.reject`, which -- like the CLI's
+   own `harness reject` -- rejects the WHOLE run (no per-page reject exists in `runstate.py`;
+   the button says so). "Request changes" with its "Regenerate now" box ticked launches
+   `python -m harness.cli revise ... ` as a background `subprocess.Popen`, logged to
+   `tenants/<t>/runs/<run>-revise-<page>.background.log`; its status is polled by re-reading
+   `state.json` on reload (`runstate.set_revise_status`/`get_revise_status`), not by any
+   in-process state. "Approve all" only renders once every page has at least one recorded
+   score. Path safety (`_safe_path`/`_safe_dir`): every request-supplied path component goes
+   through `textutil.safe_filename` (Cycle 22 finding R36, reused here for a URL path instead
+   of a single filename) and the resolved path must still be inside the tenant's `out_dir` (or
+   `fixtures_dir` for a still image) -- both enforced, both tested directly and through real
+   HTTP requests attempting `..%2f` traversal.
+5. **`crons/harness-review.service` (new)** + **`crons/install.sh`**: the review service is a
+   long-running server with no matching `.timer`, unlike every other unit here, so it's
+   excluded from the generic `*.service`/`*.timer` render loop and only rendered + `systemctl
+   --user enable --now`'d when `--with-review` is passed (falls back to a `nohup`, still bound
+   to 127.0.0.1, with a printed command, if `systemctl --user` isn't available). Its
+   `EnvironmentFile` points at `tenants/<tenant>/.env`, `Restart=on-failure`.
+6. **`docs/REVIEW-SITE.md` (new)**: the exact Caddy vhost stanza and Cloudflare Tunnel ingress
+   YAML for `review.<domain>` -> `127.0.0.1:4870`, why Cloudflare Access with email OTP is the
+   recommended gate, the interim `ssh -L 4870:127.0.0.1:4870 prod` access path, and how to set
+   `REVIEW_PASSWORD` without ever printing it.
+7. **`pyproject.toml`**: added `flask` -- a small, mature WSGI framework for `harness/serve.py`
+   rather than hand-rolling routing/auth/multipart-form parsing over `http.server`.
+8. **Tests** (32 new -- `tests/test_revise.py` 9, `tests/test_serve.py` 19, 4 more appended to
+   `tests/test_path_safety.py`): cut-only revise makes no model call (a `make_client_fn` that
+   raises if called) and removes the sentence; a cut only drops the list item whose own text it
+   emptied, leaving an unrelated sibling paragraph untouched; notes-only revise calls the
+   writer exactly once (asserted on the fake client's own call log) and the REVISION block it
+   sent carries the reviewer's notes and "keep everything else"; a second revise on the same
+   page produces v2 with v1 still on disk; `ReviseError` with no feedback recorded and for an
+   unknown page. Serve: no-auth 401, wrong password 401, non-reviewer 403, correct reviewer
+   200; CF Access header trusted when enabled, rejected for an unlisted email, and falls back
+   to basic auth when the header is missing; run list and run detail render (iframe, form,
+   "Notes and cuts" help text); a page-review route serves the real HTML; the approve action
+   writes both `scores.jsonl` (with `page` set) and `state.json` through `record_score` and
+   `runstate.approve`; request-changes records `cuts`/`notes` split correctly; reject flips the
+   whole run; "Approve all" only appears once every page has a score; three traversal attempts
+   (`..%2f` in a review-html request, `..%2f` as a run id, and `_safe_path` called directly)
+   all come back 404/None. Every existing test still passes. `.venv-local/bin/pytest -q` on the
+   Mac clone: **734 total, 734 passed, 0 failed**
+   (702 + 32 new). `.venv-local/bin/ruff check .`: clean.
+

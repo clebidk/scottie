@@ -1,10 +1,15 @@
 """Cycle 22 findings R36/R37: nothing this harness does not control decides
 where a file is written, and the one unescaped Jinja render is escaped.
+
+Cycle 26 adds harness/serve.py's _safe_path -- the reviewer web app's own
+reuse of safe_filename (R36) for a URL path instead of a single filename;
+tests/test_serve.py exercises it through real HTTP requests, the tests below
+check the helper itself directly.
 """
 import jinja2
 import pytest
 
-from harness import render, tenant as tenant_mod
+from harness import render, serve, tenant as tenant_mod
 from harness.pipeline import make_run_id, slugify
 from harness.tenant import UnknownTenant
 from harness.textutil import is_safe_tenant_name, safe_filename
@@ -181,3 +186,43 @@ def test_the_real_tenants_byline_is_unchanged_by_autoescape():
         assert jinja2.Template(raw).render(**context) == (
             jinja2.Environment(autoescape=True).from_string(raw).render(**context)
         )
+
+
+# ---------------------------------------------------------------------------
+# Cycle 26: harness/serve.py's _safe_path
+# ---------------------------------------------------------------------------
+
+def test_safe_path_rejects_dotdot_traversal(tmp_path):
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "inside.txt").write_text("ok")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret")
+    assert serve._safe_path(base, "../outside.txt") is None
+    assert serve._safe_path(base, "../../outside.txt") is None
+    assert serve._safe_path(base, "a/../../outside.txt") is None
+
+
+def test_safe_path_rejects_absolute_and_empty(tmp_path):
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "inside.txt").write_text("ok")
+    assert serve._safe_path(base, "/etc/passwd") is None
+    assert serve._safe_path(base, "") is None
+    assert serve._safe_path(base, "does-not-exist.txt") is None
+
+
+def test_safe_path_allows_a_real_file_inside_base(tmp_path):
+    base = tmp_path / "base"
+    (base / "sub").mkdir(parents=True)
+    (base / "sub" / "file.txt").write_text("ok")
+    result = serve._safe_path(base, "sub/file.txt")
+    assert result == (base / "sub" / "file.txt").resolve()
+
+
+def test_safe_dir_rejects_traversal_in_run_id(tmp_path):
+    base = tmp_path / "out"
+    base.mkdir()
+    (base / "real-run").mkdir()
+    assert serve._safe_dir(base, "../out") is None
+    assert serve._safe_dir(base, "real-run") is not None
