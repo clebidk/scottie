@@ -316,3 +316,15 @@ def needs_review_runs(tenant, *, older_than_days=3):
         if entered_dt <= cutoff:
             out.append((run_dir, data, entered_dt))
     return out
+
+
+def tenant_name_from_run_dir(run_dir):
+    """tenants/<name>/out/<run-id> -> <name>, when the path has that shape;
+    None otherwise, so the caller falls back to normal --tenant resolution.
+    (Review R2: moved out of cli.py; revise.py needs it too.)"""
+    parts = Path(run_dir).parts
+    if "tenants" in parts:
+        i = parts.index("tenants")
+        if i + 1 < len(parts):
+            return parts[i + 1]
+    return None

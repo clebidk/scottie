@@ -1,0 +1,5 @@
+<ul class="bk-proof-stat-row-cards">
+  {% for stat in stats %}
+  <li class="bk-proof-stat-row-cards__card"><strong class="bk-proof-stat-row-cards__value">{{ stat.value }}</strong><span class="bk-proof-stat-row-cards__label">{{ stat.label }}</span></li>
+  {% endfor %}
+</ul>

@@ -229,9 +229,9 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
     there is no feedback to revise from, or the page/run doesn't exist."""
     run_dir = Path(run_dir)
     if tenant is None:
-        from .cli import _tenant_name_from_run_dir
+        from .runstate import tenant_name_from_run_dir
 
-        tenant = tenant_mod.load_tenant(_tenant_name_from_run_dir(run_dir))
+        tenant = tenant_mod.load_tenant(tenant_name_from_run_dir(run_dir))
     tenant.load_env()
     tenant_mod.activate(tenant)
 
@@ -264,7 +264,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
 
     if notes.strip():
         model_called = True
-        from .cli import cartridge_write_constraints, write_and_gate_page
+        from .repair import cartridge_write_constraints, write_and_gate_page
 
         client = make_client_fn()
         budget = Budget(wall_s=600, tokens=REVISE_TOKEN_BUDGET, calls=REVISE_CALL_BUDGET)
@@ -313,7 +313,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
         # gate still runs so a broken cut (e.g. one that hollows out a
         # required section) is visible in REVIEW.md/state.json rather than
         # silently shipped, but nothing here can fix a failure automatically.
-        from .cli import cartridge_write_constraints, check_page_gates
+        from .repair import cartridge_write_constraints, check_page_gates
 
         _schema, word_range, allowed_cta_texts = cartridge_write_constraints(
             page_name, CARTRIDGES_DIR, facts_pack, ad_brief, tenant

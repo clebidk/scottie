@@ -152,3 +152,95 @@ def test_an_invalid_tenant_file_still_exits_4():
     from harness import exits
 
     assert TenantFileInvalid.exit_code == exits.TENANT_NOT_CONFIGURED
+
+
+# ---------------------------------------------------------------------------
+# Review 2026-09-11 R23: tenant.yaml vs claims/config.json overlap -- the
+# precedence (config.json wins) is deliberate and unchanged; disagreements
+# must be VISIBLE (run log + doctor), not silently absorbed.
+# ---------------------------------------------------------------------------
+
+def _tenant_with_configs(tmp_path, *, yaml_extra="", json_config=None, name="acme"):
+    import json as _json
+
+    root = tmp_path / name
+    (root / "claims").mkdir(parents=True)
+    (root / "tenant.yaml").write_text(VALID + yaml_extra)
+    (root / "claims" / "verified.json").write_text(
+        '[{"id": "spec-x", "text": "x", "category": "spec", "source": "https://acme.example"}]'
+    )
+    (root / "claims" / "products.json").write_text(
+        '{"products": {"x": {"slug": "x", "name": "X", "url": "https://acme.example/x", "price": "1"}}}'
+    )
+    if json_config is not None:
+        (root / "claims" / "config.json").write_text(_json.dumps(json_config))
+    return Tenant(name, root)
+
+
+def test_config_disagreement_is_detected(tmp_path):
+    t = _tenant_with_configs(
+        tmp_path,
+        yaml_extra="ad_overclaim_policy: warn\n",
+        json_config={"ad_overclaim_policy": "stop"},
+    )
+    assert t.config_disagreements() == [("ad_overclaim_policy", "warn", "stop")]
+
+
+def test_no_disagreement_when_values_agree_or_a_key_is_only_in_one_file(tmp_path):
+    agree = _tenant_with_configs(
+        tmp_path, yaml_extra="ad_overclaim_policy: warn\n", json_config={"ad_overclaim_policy": "warn"}, name="agree"
+    )
+    assert agree.config_disagreements() == []
+    only_yaml = _tenant_with_configs(tmp_path, yaml_extra="ad_overclaim_policy: warn\n", json_config={}, name="only-yaml")
+    assert only_yaml.config_disagreements() == []
+    only_json = _tenant_with_configs(tmp_path, json_config={"ad_overclaim_policy": "stop"}, name="only-json")
+    assert only_json.config_disagreements() == []
+    no_json = _tenant_with_configs(tmp_path, yaml_extra="ad_overclaim_policy: warn\n", name="no-json")
+    assert no_json.config_disagreements() == []
+
+
+def test_config_json_still_wins_precedence_is_unchanged(tmp_path):
+    """The behavior-preserving pin: R23 adds visibility, not a precedence
+    change -- claims/config.json's value is the one the run reads."""
+    t = _tenant_with_configs(
+        tmp_path,
+        yaml_extra="ad_overclaim_policy: warn\n",
+        json_config={"ad_overclaim_policy": "stop"},
+    )
+    assert t.claims_config["ad_overclaim_policy"] == "stop"
+
+
+def test_doctor_warns_on_a_config_disagreement(tmp_path):
+    from harness import doctor
+
+    t = _tenant_with_configs(
+        tmp_path,
+        yaml_extra="ad_overclaim_policy: warn\n",
+        json_config={"ad_overclaim_policy": "stop"},
+    )
+    rows = doctor.check_config(t)
+    warn_rows = [c for c in rows if c.name == "config ad_overclaim_policy"]
+    assert len(warn_rows) == 1
+    assert warn_rows[0].status == doctor.WARN
+    assert "claims/config.json" in warn_rows[0].detail
+
+
+def test_prepare_run_logs_a_config_disagreement(monkeypatch, tmp_path):
+    import argparse
+
+    from harness import pipeline
+    from tests.support import TENANT
+
+    monkeypatch.setattr(
+        type(TENANT), "config_disagreements",
+        lambda self: [("ad_overclaim_policy", "warn", "stop")],
+    )
+    args = argparse.Namespace(
+        input="tenants/peak-saunas/fixtures/founder-warranty-demo.txt",
+        cartridges="article", seed=42, product=None,
+    )
+    state = pipeline.RunState(tenant=TENANT, args=args, client=None)
+    pipeline.prepare_run(state)
+    log_text = (TENANT.runs_dir / f"{state.run_id}.log").read_text()
+    assert "config disagreement" in log_text
+    assert "claims/config.json wins" in log_text

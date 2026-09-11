@@ -1,0 +1,6 @@
+<section class="bk-closing-offer">
+  <h2 class="bk-closing-offer__headline">{{ headline }}</h2>
+  {% if text %}<p class="bk-closing-offer__text">{{ text }}</p>{% endif %}
+  <p class="bk-closing-offer__cta"><a class="bk-closing-offer__button" href="{{ cta.url }}">{{ cta.text }}</a></p>
+  {% if note %}<p class="bk-closing-offer__note">{{ note }}</p>{% endif %}
+</section>

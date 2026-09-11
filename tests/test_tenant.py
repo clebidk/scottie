@@ -120,7 +120,7 @@ ENGINE_TENANT_WORDS = TENANT_WORDS + (
 # path is exempt; its CONTENTS are scanned like anything else.
 _VENDOR_ADAPTER_PATHS = ("sources/judgeme.py", "publishers/shopify.py")
 
-# One known, deliberate exception. harness/cli.py's build_revision_note quotes
+# One known, deliberate exception. harness/repair.py's build_revision_note quotes
 # a real claim id as the worked example of "a claim id printed as text", and
 # that string is PROMPT text -- it is sent to the model inside every REVISION
 # REQUIRED block. harness/write.py's own system prompt already uses the
@@ -128,7 +128,7 @@ _VENDOR_ADAPTER_PATHS = ("sources/judgeme.py", "publishers/shopify.py")
 # agree is a one-word prompt edit and a product decision, not a mechanical
 # cleanup. Tracked as an open finding; exempted here rather than silently
 # widening the whole rule.
-_PROMPT_TEXT_EXEMPTIONS = {("harness/cli.py", "Fuji")}
+_PROMPT_TEXT_EXEMPTIONS = {("harness/repair.py", "Fuji")}
 
 
 def _files(root, suffixes):

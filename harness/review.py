@@ -5,7 +5,6 @@ directory. Simple regex on src="assets/..." -- no HTML parser needed.
 import base64
 import mimetypes
 import re
-import sys
 from pathlib import Path
 
 _ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
@@ -55,17 +54,3 @@ def build_reviews(run_dir):
         if path is not None:
             written.append(path)
     return written
-
-
-def cmd_review(args):
-    run_dir = Path(args.run_dir)
-    if not run_dir.is_dir():
-        print(f"no such run dir: {run_dir}", file=sys.stderr)
-        return 1
-    written = build_reviews(run_dir)
-    if not written:
-        print(f"no cartridge output (index.html) found under {run_dir}", file=sys.stderr)
-        return 1
-    for p in written:
-        print(f"Wrote {p}")
-    return 0

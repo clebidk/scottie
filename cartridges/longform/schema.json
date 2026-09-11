@@ -1,7 +1,22 @@
 {
   "type": "object",
-  "allowed_cta_texts": ["See pricing", "Shop the {short_name}", "Shop the {model_name}"],
-  "required": ["cta_text", "cta_url", "hero", "problem", "how_it_works", "specs_and_proof", "social_proof", "faq", "final_cta", "images"],
+  "allowed_cta_texts": [
+    "See pricing",
+    "Shop the {short_name}",
+    "Shop the {model_name}"
+  ],
+  "required": [
+    "cta_text",
+    "cta_url",
+    "hero",
+    "problem",
+    "how_it_works",
+    "specs_and_proof",
+    "social_proof",
+    "faq",
+    "final_cta",
+    "images"
+  ],
   "properties": {
     "cta_text": {
       "type": "string",
@@ -14,25 +29,51 @@
     "hero": {
       "type": "object",
       "properties": {
-        "headline": {"type": "string"},
-        "subhead": {"type": "string"},
+        "headline": {
+          "type": "string"
+        },
+        "subhead": {
+          "type": "string"
+        },
         "proof_stats": {
           "type": "array",
           "description": "Optional 2-3 stat proof row directly under the subhead, before the first body section -- verified claims only. Every item needs claim_ids; omit the row entirely rather than invent or pad a stat.",
           "items": {
             "type": "object",
             "properties": {
-              "value": {"type": "string", "description": "The bold number/figure, e.g. '4.8/5' or 'Free'."},
-              "label": {"type": "string", "description": "Short sublabel, e.g. 'from 1,200+ reviews' or 'shipping, always'."},
-              "claim_ids": {"type": "array"}
+              "value": {
+                "type": "string",
+                "description": "The bold number/figure, e.g. '4.8/5' or 'Free'."
+              },
+              "label": {
+                "type": "string",
+                "description": "Short sublabel, e.g. 'from 1,200+ reviews' or 'shipping, always'."
+              },
+              "claim_ids": {
+                "type": "array"
+              }
             }
           }
         },
-        "hero_image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
+        "hero_image": {
+          "type": "object",
+          "properties": {
+            "asset_id": {
+              "type": "string"
+            }
+          }
+        },
         "financing_line": {
           "type": "object",
           "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- never a freeform monthly figure, APR, or lender name typed in directly here.",
-          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
+          }
         }
       }
     },
@@ -40,14 +81,20 @@
       "type": "object",
       "description": "H2 + 2-3 paragraphs on the reader's problem as the ad frames it; objections from the ad become the problem statements.",
       "properties": {
-        "heading": {"type": "string"},
+        "heading": {
+          "type": "string"
+        },
         "paragraphs": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"},
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              },
               "attributed_to_customer": {
                 "type": "boolean",
                 "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id."
@@ -61,16 +108,31 @@
       "type": "object",
       "description": "H2 + 3 steps or feature blocks, each with an image slot. Technical facts from facts_pack.specs only. Fix cycle 3 item 3: at least 3 steps combined must carry a product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
       "properties": {
-        "heading": {"type": "string"},
+        "heading": {
+          "type": "string"
+        },
         "steps": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "title": {"type": "string"},
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"},
-              "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
+              "title": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              },
+              "image": {
+                "type": "object",
+                "properties": {
+                  "asset_id": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         }
@@ -82,11 +144,34 @@
       "properties": {
         "specs_table": {
           "type": "array",
-          "items": {"type": "object", "properties": {"label": {"type": "string"}, "value": {"type": "string"}, "claim_id": {"type": "string"}}}
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              },
+              "claim_id": {
+                "type": "string"
+              }
+            }
+          }
         },
         "proof_points": {
           "type": "array",
-          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              }
+            }
+          }
         }
       }
     },
@@ -96,9 +181,21 @@
       "properties": {
         "reviews_summary": {
           "type": "object",
-          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
+          }
         },
-        "quotes": {"type": "array", "items": {"type": "string"}}
+        "quotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "faq": {
@@ -111,9 +208,15 @@
             "type": "object",
             "description": "text is the answer (named 'text', not 'answer', so the claims gate's trigger-word check applies to it).",
             "properties": {
-              "question": {"type": "string"},
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"}
+              "question": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              }
             }
           }
         }
@@ -123,19 +226,55 @@
       "type": "object",
       "description": "Headline + financing/warranty lines. CTA text/url are the shared page.cta_text/page.cta_url from the hero -- do not repeat them here.",
       "properties": {
-        "headline": {"type": "string"},
+        "headline": {
+          "type": "string"
+        },
         "financing_line": {
           "type": "object",
           "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- never a freeform monthly figure, APR, or lender name typed in directly here.",
-          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
+          }
         },
-        "warranty_line": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+        "warranty_line": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
+          }
+        }
       }
     },
     "images": {
       "type": "array",
       "description": "4-6 images total from the asset library, referenced by asset id (this list is a convenience index of everything used).",
-      "items": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
+      "items": {
+        "type": "object",
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "block_slots": {
+    "proof": {
+      "description": "Layout block for the hero proof-stat row. To choose a variant, set the top-level page.json field \"blocks\": {\"proof\": \"<block-id>\"} to one of the listed ids; omit \"blocks\" to render the default.",
+      "blocks": [
+        "proof-stat-row",
+        "proof-stat-row-cards"
+      ],
+      "default": "proof-stat-row"
     }
   }
 }

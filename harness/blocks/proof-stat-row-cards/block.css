@@ -1,0 +1,7 @@
+.bk-proof-stat-row-cards { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0; margin: 0 0 20px; }
+.bk-proof-stat-row-cards__card { border: 1px solid var(--adv-border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+.bk-proof-stat-row-cards__value { font-size: 1.3rem; }
+.bk-proof-stat-row-cards__label { color: var(--adv-muted); font-size: 0.85rem; }
+@media (max-width: 480px) {
+  .bk-proof-stat-row-cards { grid-template-columns: 1fr; }
+}

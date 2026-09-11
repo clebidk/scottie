@@ -6,9 +6,9 @@ import json
 import pytest
 
 from tests.support import REPO_ROOT, TENANT
-from harness.cli import (
+from harness.cli import discover_cartridges
+from harness.repair import (
     check_page_gates,
-    discover_cartridges,
     find_cta_violation,
     get_cta_text,
 )

@@ -43,7 +43,7 @@ def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pac
     from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
     from anthropic.types.messages.batch_create_params import Request
 
-    from .cli import cartridge_write_constraints
+    from .repair import cartridge_write_constraints
 
     requests = []
     schemas = {}

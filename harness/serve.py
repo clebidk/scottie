@@ -26,7 +26,7 @@ from flask import Flask, Response, abort, g, redirect, request, send_file, url_f
 from . import notify
 from . import runstate
 from . import textutil
-from .cli import record_score
+from .evals import record_score
 from .config import REPO_ROOT
 
 SCORE_FIELDS = ("angle", "brand", "claims", "publish")

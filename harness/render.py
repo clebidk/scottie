@@ -4,6 +4,7 @@ Injects byline, dates, the "Advertisement" label, the disclosure paragraph,
 a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
+import functools
 import io
 import json
 import re
@@ -14,9 +15,11 @@ from urllib.parse import urlparse
 import jinja2
 from PIL import Image
 
+from . import blocks
 from . import ingest
+from . import pagechecks
 from . import tenant as tenant_mod
-from .textutil import safe_filename
+from .textutil import safe_filename, walk_page
 from .claims import (
     ClaimsGateFailure,
     collect_claim_ids,
@@ -257,6 +260,18 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
             if q and a:
                 mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
         return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
+    if cartridge_name == "comparison":
+        # Kimi long-run phase 6: same FAQPage shape as longform, but the
+        # comparison schema's faq items are {question, answer} (the
+        # faq-accordion block's binding names).
+        faq_items = page.get("faq", {}).get("questions", []) if isinstance(page.get("faq"), dict) else []
+        mains = []
+        for item in faq_items:
+            q = item.get("question") if isinstance(item, dict) else None
+            a = item.get("answer") if isinstance(item, dict) else None
+            if q and a:
+                mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
+        return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
     return {}
 
 
@@ -296,18 +311,9 @@ def asset_alt(asset, product_short_name, tenant=None):
 def collect_asset_ids(node):
     """Every "asset_id" referenced anywhere in page.json."""
     ids = set()
-
-    def walk(n):
-        if isinstance(n, dict):
-            if n.get("asset_id"):
-                ids.add(n["asset_id"])
-            for v in n.values():
-                walk(v)
-        elif isinstance(n, list):
-            for v in n:
-                walk(v)
-
-    walk(node)
+    for _path, n in walk_page(node):
+        if isinstance(n, dict) and n.get("asset_id"):
+            ids.add(n["asset_id"])
     return ids
 
 
@@ -461,7 +467,9 @@ def render_page(
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir)]),
+        # blocks.BLOCKS_DIR last: a cartridge's own template.html and the
+        # shared templates win; block partials resolve as "<name>/block.html".
+        loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)]),
         autoescape=jinja2.select_autoescape(["html"]),
     )
 
@@ -531,6 +539,12 @@ def render_page(
         cartridge=cartridge_name,
         tenant=tenant,
         tenant_name=tenant.display_name,
+        # Kimi long-run phase 3: a cartridge template composes a block with
+        # {% include block_choice("slot", "default-name") ~ "/block.html" %};
+        # the writer's recorded page.json "blocks" pick wins when it names a
+        # registered block (blocks.choice validates, so the include path can
+        # never escape the blocks directory).
+        block_choice=functools.partial(blocks.choice, page),
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
     )
 
@@ -566,6 +580,16 @@ def render_page(
     hits += find_missing_attribution(page)
     if hits:
         raise ClaimsGateFailure(f"html_visible_text:{cartridge_name}", hits)
+
+    # Kimi long-run phase 2: structural backstops on the rendered document.
+    # Same fail-before-write pattern as the visible-text backstop above; a
+    # failure here is a template/renderer/tenant-file bug, never something a
+    # writer repair could fix (see harness/pagechecks.py's module docstring).
+    structural_hits = pagechecks.find_html_validity_violations(html)
+    structural_hits += pagechecks.find_rendered_json_ld_violations(html, cartridge_name)
+    structural_hits += pagechecks.find_rendered_internal_link_violations(html, tenant=tenant)
+    if structural_hits:
+        raise ClaimsGateFailure(f"html_structure:{cartridge_name}", structural_hits)
 
     (out_dir / "index.html").write_text(html)
     (out_dir / "page.json").write_text(json.dumps(page, indent=2))

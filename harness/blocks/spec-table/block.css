@@ -1,0 +1,7 @@
+.bk-spec-table { margin: 0 0 24px; overflow-x: auto; }
+.bk-spec-table table { width: 100%; border-collapse: collapse; }
+.bk-spec-table th { text-align: left; color: var(--adv-muted); font-weight: normal; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--adv-border); white-space: nowrap; }
+.bk-spec-table td { padding: 8px 0; border-bottom: 1px solid var(--adv-border); }
+@media (max-width: 480px) {
+  .bk-spec-table table { display: block; }
+}

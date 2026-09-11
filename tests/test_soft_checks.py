@@ -1,13 +1,13 @@
-"""Fix cycle 16: soft checks (harness/cli.py). Every one of these is a
-REVIEW.md advisory line only -- never a gate failure, never a repair-loop
-trigger, and none of them ever raise."""
-from harness.cli import (
+"""Fix cycle 16: soft checks (harness/repair.py since the R2 split). Every
+one of these is a REVIEW.md advisory line only -- never a gate failure,
+never a repair-loop trigger, and none of them ever raise."""
+from harness.repair import (
     find_audience_headline_warning,
     find_headline_word_count_warning,
     find_missing_section_proof_warnings,
     find_soft_check_warnings,
-    write_review_md,
 )
+from harness.review_md import write_review_md
 
 
 # ---------------------------------------------------------------------------

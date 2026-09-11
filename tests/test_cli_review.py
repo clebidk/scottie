@@ -6,7 +6,8 @@ import argparse
 import base64
 
 from harness import cli
-from harness.cli import count_words
+from harness.repair import count_words
+from harness import review_md as review_md_mod
 
 
 def _make_run_dir(tmp_path):
@@ -72,7 +73,7 @@ def test_write_review_md_no_warning_when_within_word_budget(tmp_path):
     run_dir.mkdir()
     words = " ".join(["word"] * 300)
     ok_page = {"hero": {"promise": words}}
-    cli.write_review_md(
+    review_md_mod.write_review_md(
         run_dir,
         ad_brief={"angle": "a"},
         facts_pack={"verified_claims": []},
@@ -96,7 +97,7 @@ def test_write_review_md_shows_product_warning_when_defaulted(tmp_path):
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     ok_page = {"hero": {"promise": " ".join(["word"] * 300)}}
-    cli.write_review_md(
+    review_md_mod.write_review_md(
         run_dir,
         ad_brief={"angle": "a"},
         facts_pack={"verified_claims": []},
@@ -116,7 +117,7 @@ def test_write_review_md_no_product_warning_when_model_was_named(tmp_path):
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     ok_page = {"hero": {"promise": " ".join(["word"] * 300)}}
-    cli.write_review_md(
+    review_md_mod.write_review_md(
         run_dir,
         ad_brief={"angle": "a"},
         facts_pack={"verified_claims": []},

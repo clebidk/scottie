@@ -287,7 +287,70 @@ class LocalFactsSource:
         default_product = active_products[0] if active_products else next(iter(products.values()))
         return default_product, f"product not named in ad; defaulted to {default_product['name']}"
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None):
+    def _comparison_targets(self, product):
+        """Kimi long-run phase 6: the subjects a comparison cartridge may put
+        in its spec table, and the claims that back their rows.
+
+        Two sources:
+        - the tenant's OWN other active products (from claims/products.json;
+          discontinued models -- active: false -- are never targets), each
+          row citing the model's own spec-/price- claim from
+          claims/verified.json;
+        - claims/competitors/*.json entries, each one a sourced comparison
+          subject -- loaded ONLY once its file carries an approved_by (a
+          pending file is skipped, so no run can name a competitor before
+          an operator approves the competitor claims; see the directory's
+          README).
+
+        Returns (targets, backing_claims): targets is the writer-facing list;
+        backing_claims is the claim entries (id/text/category/source) that
+        must join facts_pack.verified_claims so the page gate can cite the
+        rows."""
+        self._load()
+        targets = []
+        backing = []
+        by_id = {c["id"]: c for c in self._verified}
+        for p in self._products.values():
+            if p["slug"] == product["slug"] or not p.get("active", True):
+                continue
+            rows = []
+            price_claim = by_id.get(f"price-{product_name_slug(p['name'])}")
+            if price_claim:
+                rows.append({"label": "Price", "text": price_claim["text"], "claim_ids": [price_claim["id"]]})
+                backing.append(price_claim)
+            for s in p.get("specs", []):
+                claim = by_id.get(s.get("claim_id") or "")
+                if claim:
+                    rows.append({"label": s["label"], "text": s["value"], "claim_ids": [claim["id"]]})
+                    backing.append(claim)
+            if rows:
+                targets.append({"id": product_name_slug(p["name"]), "name": p["name"],
+                                "short_name": p.get("short_name", p["name"]),
+                                "kind": "own-product", "rows": rows})
+
+        competitors_dir = self.claims_dir / "competitors"
+        if competitors_dir.is_dir():
+            for path in sorted(competitors_dir.glob("*.json")):
+                entry = json.loads(path.read_text())
+                if not entry.get("approved_by"):
+                    continue  # pending operator approval -- never loaded
+                rows = []
+                for row in entry.get("rows", []):
+                    claim = {"id": row["id"], "text": row["text"], "category": "comparison", "source": row["source"]}
+                    rows.append({"label": row["label"], "text": row["text"], "claim_ids": [row["id"]]})
+                    backing.append(claim)
+                if rows:
+                    targets.append({"id": entry["id"], "name": entry["name"],
+                                    "kind": entry.get("kind", "competitor"), "rows": rows})
+        # dedupe backing claims by id, preserving order
+        seen, unique = set(), []
+        for c in backing:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                unique.append(c)
+        return targets, unique
+
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -395,7 +458,7 @@ class LocalFactsSource:
             }
         )
 
-        return {
+        pack = {
             "product": {
                 "name": product["name"],
                 "short_name": product.get("short_name", product["name"]),
@@ -419,3 +482,17 @@ class LocalFactsSource:
             "speaker_name": config.get("speaker_name"),
             "digit_exempt_terms": digit_exempt_terms,
         }
+        if include_comparison:
+            # Kimi long-run phase 6: only a run whose selected cartridges
+            # include comparison gets the targets list (and the backing
+            # claims joined into the citable universe) -- every other run's
+            # facts_pack is byte-identical to before.
+            targets, backing_claims = self._comparison_targets(product)
+            pack["comparison_targets"] = targets
+            existing_ids = {c["id"] for c in pack["verified_claims"]}
+            pack["verified_claims"] = pack["verified_claims"] + [
+                {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}
+                for c in backing_claims
+                if c["id"] not in existing_ids
+            ]
+        return pack

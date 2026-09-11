@@ -1,0 +1,6 @@
+<p class="bk-star-rating-line">
+  <span class="bk-star-rating-line__stars" aria-hidden="true">★★★★★</span>
+  {% if rating %}<strong class="bk-star-rating-line__rating">{{ rating }}</strong>{% endif %}
+  {% if count %}<span class="bk-star-rating-line__count">{{ count }}</span>{% endif %}
+  {% if url %}<a class="bk-star-rating-line__link" href="{{ url }}">{{ label }}</a>{% endif %}
+</p>

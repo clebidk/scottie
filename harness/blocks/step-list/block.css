@@ -1,0 +1,7 @@
+.bk-step-list { list-style: none; counter-reset: bk-step; padding: 0; margin: 0 0 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.bk-step-list__step { counter-increment: bk-step; display: flex; flex-direction: column; gap: 6px; }
+.bk-step-list__step::before { content: counter(bk-step); width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--adv-accent); color: var(--adv-accent); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.bk-step-list__text { color: var(--adv-muted); font-size: 0.95rem; }
+@media (max-width: 480px) {
+  .bk-step-list { grid-template-columns: 1fr; }
+}

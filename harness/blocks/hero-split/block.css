@@ -1,0 +1,13 @@
+.bk-hero-split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center; margin: 0 0 28px; }
+.bk-hero-split__media img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.bk-hero-split__eyebrow { color: var(--adv-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; margin: 0 0 8px; }
+.bk-hero-split__title { margin: 0 0 12px; line-height: 1.15; }
+.bk-hero-split__subhead { color: var(--adv-muted); margin: 0 0 16px; }
+.bk-hero-split__button { display: inline-block; background: var(--adv-accent); color: var(--adv-bg); padding: 12px 22px; border-radius: 6px; text-decoration: none; }
+.bk-hero-split__stats { list-style: none; display: flex; gap: 16px; padding: 0; margin: 16px 0 0; }
+.bk-hero-split__stats li { display: flex; flex-direction: column; }
+.bk-hero-split__stats span { color: var(--adv-muted); font-size: 0.85rem; }
+@media (max-width: 480px) {
+  .bk-hero-split { grid-template-columns: 1fr; }
+  .bk-hero-split__button { display: block; text-align: center; }
+}

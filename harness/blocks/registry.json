@@ -1,0 +1,510 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "harness-blocks",
+  "homepage": "https://github.com/clebidk/scottie",
+  "items": [
+    {
+      "name": "hero-editorial",
+      "type": "registry:block",
+      "category": "hero",
+      "title": "Editorial hero",
+      "description": "Eyebrow tag, H1, optional subhead, hero image, one CTA. Seeded from design-notes-batch50.md 01-01-clarifion.",
+      "files": [
+        {"path": "hero-editorial/block.html", "type": "registry:component"},
+        {"path": "hero-editorial/block.css", "type": "registry:style"},
+        {"path": "hero-editorial/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "title shrinks, CTA goes full-width under 480px",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "hero-editorial/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 01-01-clarifion",
+        "sections": ["hero"],
+        "bindings": {"eyebrow": "optional string", "headline": "string", "subhead": "optional string", "image": "optional asset {url, alt, width, height}", "cta": "{text, url}"}
+      }
+    },
+    {
+      "name": "hero-split",
+      "type": "registry:block",
+      "category": "hero",
+      "title": "Split hero",
+      "description": "Photo one side, headline + subhead + CTA + stat stack the other. Seeded from 01-07-gruns.",
+      "files": [
+        {"path": "hero-split/block.html", "type": "registry:component"},
+        {"path": "hero-split/block.css", "type": "registry:style"},
+        {"path": "hero-split/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "collapses to one column under 480px, CTA full-width",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "hero-split/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 01-07-gruns",
+        "sections": ["hero"],
+        "bindings": {"eyebrow": "optional string", "headline": "string", "subhead": "optional string", "image": "optional asset {url, alt, width, height}", "cta": "{text, url}", "stats": "optional list of {value, label} -- verified claims only"}
+      }
+    },
+    {
+      "name": "hero-fullbleed",
+      "type": "registry:block",
+      "category": "hero",
+      "title": "Full-bleed hero with overlay headline",
+      "description": "Full-bleed photo, headline in a contrast box overlaid, one CTA. Seeded from 01-02-jones-road.",
+      "files": [
+        {"path": "hero-fullbleed/block.html", "type": "registry:component"},
+        {"path": "hero-fullbleed/block.css", "type": "registry:style"},
+        {"path": "hero-fullbleed/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "overlay lifts below the image under 480px so text never covers the photo on a small screen",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "hero-fullbleed/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 01-02-jones-road",
+        "sections": ["hero"],
+        "bindings": {"headline": "string", "subhead": "optional string", "image": "optional asset {url, alt, width, height}", "cta": "{text, url}"}
+      }
+    },
+    {
+      "name": "proof-stat-row",
+      "type": "registry:block",
+      "category": "proof",
+      "title": "Three-stat proof row",
+      "description": "Bold number plus two-line sublabel, two or three across, directly under hero copy. Seeded from 03-09-function-health and 01-07-gruns. Every stat carries a verified claim id; the block itself holds no copy. Extracted from the longform cartridge's hero proof row (its markup contract is the adv-proof-stats classes in structure.css).",
+      "files": [
+        {"path": "proof-stat-row/block.html", "type": "registry:component"},
+        {"path": "proof-stat-row/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "structure",
+        "mobile_rules": "single column under 480px (structure.css media block)",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "proof-stat-row/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 03-09-function-health",
+        "sections": ["proof"],
+        "bindings": {"stats": "list of {value, label, claim_ids} -- verified claims only"}
+      }
+    },
+    {
+      "name": "proof-stat-row-cards",
+      "type": "registry:block",
+      "category": "proof",
+      "title": "Proof stats as cards",
+      "description": "The proof-stat-row variant as bordered cards. Same bindings, different layout -- the writer's page.json blocks.proof pick chooses between them.",
+      "files": [
+        {"path": "proof-stat-row-cards/block.html", "type": "registry:component"},
+        {"path": "proof-stat-row-cards/block.css", "type": "registry:style"},
+        {"path": "proof-stat-row-cards/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "single column under 480px",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "proof-stat-row-cards/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 03-09-function-health",
+        "sections": ["proof"],
+        "bindings": {"stats": "list of {value, label, claim_ids} -- verified claims only"}
+      }
+    },
+    {
+      "name": "press-logo-strip",
+      "type": "registry:block",
+      "category": "proof",
+      "title": "Press / logo strip",
+      "description": "A row of logo images directly under the hero. Seeded from 01-01-clarifion. Every logo is an asset-library image (the run's manifest) -- never a hotlink, never an invented affiliation.",
+      "files": [
+        {"path": "press-logo-strip/block.html", "type": "registry:component"},
+        {"path": "press-logo-strip/block.css", "type": "registry:style"},
+        {"path": "press-logo-strip/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "logos wrap and tighten under 480px",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "press-logo-strip/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 01-01-clarifion",
+        "sections": ["proof"],
+        "bindings": {"heading": "optional string", "logos": "list of asset {url, alt, width, height}"}
+      }
+    },
+    {
+      "name": "star-rating-line",
+      "type": "registry:block",
+      "category": "proof",
+      "title": "Star rating line",
+      "description": "Stars plus rating and review count on one line. Seeded from 02-04-remarkable. Rating and count bind from the live reviews claim only -- never a hardcoded number.",
+      "files": [
+        {"path": "star-rating-line/block.html", "type": "registry:component"},
+        {"path": "star-rating-line/block.css", "type": "registry:style"},
+        {"path": "star-rating-line/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "wraps under 480px",
+        "motion": "none",
+        "screenshot": "star-rating-line/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 02-04-remarkable",
+        "sections": ["proof"],
+        "bindings": {"rating": "optional string from the live reviews claim", "count": "optional string from the live reviews claim", "url": "optional reviews link", "label": "link label when url is set"}
+      }
+    },
+    {
+      "name": "trust-strip",
+      "type": "registry:block",
+      "category": "proof",
+      "title": "Trust strip",
+      "description": "Icon row of trust items (warranty, shipping, returns). Seeded from 02-02-eightsleep. Layout only: every item's text comes from verified claims through the page gate.",
+      "files": [
+        {"path": "trust-strip/block.html", "type": "registry:component"},
+        {"path": "trust-strip/block.css", "type": "registry:style"},
+        {"path": "trust-strip/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "two columns under 480px",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "trust-strip/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 02-02-eightsleep",
+        "sections": ["proof", "trust"],
+        "bindings": {"items": "list of {label, text} -- verified claims only"}
+      }
+    },
+    {
+      "name": "checkmark-bullets",
+      "type": "registry:block",
+      "category": "proof",
+      "title": "Checkmark bullet list",
+      "description": "Three-bullet checkmark list between headline and CTA. Seeded from 03-01-ag1.",
+      "files": [
+        {"path": "checkmark-bullets/block.html", "type": "registry:component"},
+        {"path": "checkmark-bullets/block.css", "type": "registry:style"},
+        {"path": "checkmark-bullets/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "plain list on every width",
+        "motion": "none",
+        "screenshot": "checkmark-bullets/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 03-01-ag1",
+        "sections": ["proof", "hero"],
+        "bindings": {"items": "list of {text} -- verified claims only"}
+      }
+    },
+    {
+      "name": "numbered-reason",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Numbered reason",
+      "description": "Number badge, heading, body text, optional image -- one listicle-style reason. Seeded from the listicle reference page.",
+      "files": [
+        {"path": "numbered-reason/block.html", "type": "registry:component"},
+        {"path": "numbered-reason/block.css", "type": "registry:style"},
+        {"path": "numbered-reason/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "number badge shrinks under 480px",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "numbered-reason/screenshot.svg",
+        "source_pattern": "the first tenant's shipped listicle reference page (structure only)",
+        "sections": ["reason", "body"],
+        "bindings": {"number": "string or int", "heading": "string", "text": "string", "image": "optional asset {url, alt, width, height}"}
+      }
+    },
+    {
+      "name": "feature-grid",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Feature grid",
+      "description": "Three-across label/text cells for scannable specs. Seeded from 02-09-ember's 3-icon spec strip.",
+      "files": [
+        {"path": "feature-grid/block.html", "type": "registry:component"},
+        {"path": "feature-grid/block.css", "type": "registry:style"},
+        {"path": "feature-grid/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "single column under 480px",
+        "motion": "none of its own; the host page's scroll observer may reveal it",
+        "screenshot": "feature-grid/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 02-09-ember",
+        "sections": ["body", "specs"],
+        "bindings": {"items": "list of {label, text} -- verified claims only"}
+      }
+    },
+    {
+      "name": "spec-table",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Spec table",
+      "description": "Label/value rows. Data always from facts_pack specs; the block is the table shell only.",
+      "files": [
+        {"path": "spec-table/block.html", "type": "registry:component"},
+        {"path": "spec-table/block.css", "type": "registry:style"},
+        {"path": "spec-table/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "horizontal scroll container under 480px",
+        "motion": "none",
+        "screenshot": "spec-table/screenshot.svg",
+        "source_pattern": "existing cartridge specs tables",
+        "sections": ["specs", "body"],
+        "bindings": {"rows": "list of {label, value} -- from facts_pack specs"}
+      }
+    },
+    {
+      "name": "comparison-table",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Comparison table",
+      "description": "Schema-only comparison table shell: header columns plus label/cells rows. Every cell's data comes from verified claims (the comparison cartridge requires a claim id per cell); the block holds no data and no copy.",
+      "files": [
+        {"path": "comparison-table/block.html", "type": "registry:component"},
+        {"path": "comparison-table/block.css", "type": "registry:style"},
+        {"path": "comparison-table/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "horizontal scroll container under 480px",
+        "motion": "none",
+        "screenshot": "comparison-table/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md section 05 wireframe",
+        "sections": ["comparison", "body"],
+        "bindings": {"columns": "list of column label strings", "rows": "list of {label, cells} -- a cell is a plain string or a {text, claim_ids} object; the comparison cartridge requires claim ids on every cell"}
+      }
+    },
+    {
+      "name": "testimonial",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Testimonial",
+      "description": "Single blockquote with attribution. Renders only verified quotes -- the page gate's claim/attribution checks decide what may be quoted; the block is the frame.",
+      "files": [
+        {"path": "testimonial/block.html", "type": "registry:component"},
+        {"path": "testimonial/block.css", "type": "registry:style"},
+        {"path": "testimonial/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "plain block on every width",
+        "motion": "none",
+        "screenshot": "testimonial/screenshot.svg",
+        "source_pattern": "standard advertorial pattern",
+        "sections": ["social_proof", "body"],
+        "bindings": {"quote": "string -- a verified quote only", "attribution": "optional string"}
+      }
+    },
+    {
+      "name": "faq-accordion",
+      "type": "registry:block",
+      "category": "body",
+      "title": "FAQ accordion",
+      "description": "Question/answer items as native details/summary disclosure elements -- no JavaScript. Seeded from 02-04-remarkable's below-fold FAQ.",
+      "files": [
+        {"path": "faq-accordion/block.html", "type": "registry:component"},
+        {"path": "faq-accordion/block.css", "type": "registry:style"},
+        {"path": "faq-accordion/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "plain stacked items on every width",
+        "motion": "native details/summary disclosure; no script",
+        "screenshot": "faq-accordion/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 02-04-remarkable",
+        "sections": ["faq", "body"],
+        "bindings": {"items": "list of {question, answer}"}
+      }
+    },
+    {
+      "name": "pull-quote",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Pull quote",
+      "description": "Centered oversized quote with optional attribution. For attributed customer statements only.",
+      "files": [
+        {"path": "pull-quote/block.html", "type": "registry:component"},
+        {"path": "pull-quote/block.css", "type": "registry:style"},
+        {"path": "pull-quote/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "plain block on every width",
+        "motion": "none",
+        "screenshot": "pull-quote/screenshot.svg",
+        "source_pattern": "standard advertorial pattern",
+        "sections": ["body", "social_proof"],
+        "bindings": {"text": "string -- an attributed statement only", "attribution": "optional string"}
+      }
+    },
+    {
+      "name": "step-list",
+      "type": "registry:block",
+      "category": "body",
+      "title": "How-it-works step list",
+      "description": "Numbered steps, three across. Seeded from 04-09-stitchfix's How it Works teaser.",
+      "files": [
+        {"path": "step-list/block.html", "type": "registry:component"},
+        {"path": "step-list/block.css", "type": "registry:style"},
+        {"path": "step-list/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "single column under 480px",
+        "motion": "none",
+        "screenshot": "step-list/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 04-09-stitchfix",
+        "sections": ["how_it_works", "body"],
+        "bindings": {"items": "list of {heading, text}"}
+      }
+    },
+    {
+      "name": "sticky-cta-bar",
+      "type": "registry:block",
+      "category": "cta",
+      "title": "Sticky bottom CTA bar",
+      "description": "Bottom bar repeating the page's one CTA, with optional microcopy. Seeded from 02-02-eightsleep. The one-CTA page gate still applies: the bar repeats the shared CTA, never a second phrase.",
+      "files": [
+        {"path": "sticky-cta-bar/block.html", "type": "registry:component"},
+        {"path": "sticky-cta-bar/block.css", "type": "registry:style"},
+        {"path": "sticky-cta-bar/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "stacks and goes full-width under 480px",
+        "motion": "position sticky only; no script",
+        "screenshot": "sticky-cta-bar/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 02-02-eightsleep",
+        "sections": ["cta"],
+        "bindings": {"cta": "{text, url} -- the page's one CTA, verbatim", "note": "optional microcopy string"}
+      }
+    },
+    {
+      "name": "closing-offer",
+      "type": "registry:block",
+      "category": "cta",
+      "title": "Closing offer card",
+      "description": "Final CTA card: headline, one line, the shared CTA button, optional note. The one-CTA page gate still applies.",
+      "files": [
+        {"path": "closing-offer/block.html", "type": "registry:component"},
+        {"path": "closing-offer/block.css", "type": "registry:style"},
+        {"path": "closing-offer/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "button goes full-width under 480px",
+        "motion": "none",
+        "screenshot": "closing-offer/screenshot.svg",
+        "source_pattern": "standard advertorial pattern",
+        "sections": ["cta", "close"],
+        "bindings": {"headline": "string", "text": "optional string", "cta": "{text, url} -- the page's one CTA, verbatim", "note": "optional microcopy string"}
+      }
+    },
+    {
+      "name": "financing-line",
+      "type": "registry:block",
+      "category": "cta",
+      "title": "Financing microcopy line",
+      "description": "The single financing line under a CTA. Seeded from 02-08-peloton's under-CTA microcopy. The text binding is always the tenant's fixed allowed financing sentence resolved at render time -- the block can never state a monthly figure or name a lender on its own.",
+      "files": [
+        {"path": "financing-line/block.html", "type": "registry:component"},
+        {"path": "financing-line/block.css", "type": "registry:style"},
+        {"path": "financing-line/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "plain line on every width",
+        "motion": "none",
+        "screenshot": "financing-line/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md 02-08-peloton",
+        "sections": ["cta", "hero"],
+        "bindings": {"text": "the allowed financing sentence, resolved from vocab at render time"}
+      }
+    },
+    {
+      "name": "verdict-box",
+      "type": "registry:block",
+      "category": "comparison",
+      "title": "Verdict box",
+      "description": "The bottom-line verdict of a comparison page: eyebrow, heading, verdict text, one CTA. Seeded from the section-05 wireframe's bottom-line section.",
+      "files": [
+        {"path": "verdict-box/block.html", "type": "registry:component"},
+        {"path": "verdict-box/block.css", "type": "registry:style"},
+        {"path": "verdict-box/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "Apache-2.0",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "button goes full-width under 480px",
+        "motion": "none",
+        "screenshot": "verdict-box/screenshot.svg",
+        "source_pattern": "design-notes-batch50.md section 05 wireframe",
+        "sections": ["verdict", "close"],
+        "bindings": {"eyebrow": "optional string", "heading": "string", "paragraphs": "list of {text}", "cta": "{text, url} -- the page's one CTA, verbatim"}
+      }
+    }
+  ]
+}

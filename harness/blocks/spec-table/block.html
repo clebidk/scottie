@@ -1,0 +1,9 @@
+<div class="bk-spec-table">
+  <table>
+    <tbody>
+      {% for row in rows %}
+      <tr><th scope="row">{{ row.label }}</th><td>{{ row.value }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,8 @@
+<ul class="bk-feature-grid">
+  {% for item in items %}
+  <li class="bk-feature-grid__cell">
+    <strong class="bk-feature-grid__label">{{ item.label }}</strong>
+    <span class="bk-feature-grid__text">{{ item.text }}</span>
+  </li>
+  {% endfor %}
+</ul>

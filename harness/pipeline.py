@@ -15,6 +15,10 @@ import random
 import sys
 from pathlib import Path
 
+from . import budget as budget_mod
+from . import pagechecks
+from . import repair
+from . import review_md
 from .budget import Budget, BudgetExceeded
 from .config import REPO_ROOT
 from .claims import ClaimsGateFailure, gate_ad_brief_claims
@@ -151,6 +155,14 @@ def prepare_run(state):
     state.selected = selected
     state.log.cartridges(selected)
     state.claims_config = tenant.claims_config
+    # R23: tenant.yaml and claims/config.json disagreeing on an overlapping
+    # key is legal (config.json wins) but invisible without this line.
+    for key, yaml_value, json_value in tenant.config_disagreements():
+        state.log.event(
+            "run",
+            f"config disagreement: {key!r} is {yaml_value!r} in tenant.yaml but {json_value!r} "
+            "in claims/config.json -- claims/config.json wins",
+        )
     state.facts_source = LocalFactsSource(tenant.claims_dir)
 
     # Cycle 20: every run gets a state.json ("generated", one entry per
@@ -169,6 +181,11 @@ def prepare_run(state):
     dry_run = type(state.client).__name__ == "FakeClient"
     runstate.init_state(state.run_dir, pages=selected, dry_run=dry_run)
     runstate.init_packet(state.run_dir)
+
+    # Kimi long-run phase 3: the tenant's daily spend cap gates starting a
+    # new run at all (the per-run Budget bounds a run already in flight).
+    # Uncapped when the tenant sets no budget.daily_usd -- the default.
+    budget_mod.check_daily_cap(tenant, today_iso=state.today_iso, log=state.log)
 
 
 def refresh_prices(state):
@@ -231,6 +248,10 @@ def ground(state):
         live_price_claim=live_price_claim,
         reviews_claim=state.reviews_claim,
         pdp_claims=state.pdp_claims,
+        # Kimi long-run phase 6: only a run with the comparison cartridge
+        # selected gets comparison targets (and their backing claims) in its
+        # facts_pack -- every other run's facts_pack is unchanged.
+        include_comparison="comparison" in state.selected,
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
 
@@ -276,9 +297,7 @@ def gate_ad_claims(state):
         ),
     )
 
-    from .cli import find_forbidden_term_urls
-
-    state.forbidden_urls = find_forbidden_term_urls(state.facts_pack)
+    state.forbidden_urls = pagechecks.find_forbidden_term_urls(state.facts_pack)
     for url in state.forbidden_urls:
         state.log.event("run", f"URL contains a forbidden term: {url}")
 
@@ -329,8 +348,6 @@ def _write_initial_pages_via_batch(state, write_model):
 
 
 def write_pages(state):
-    from .cli import write_and_gate_page
-
     write_model = state.tenant.model_for("write")
     repair_first_model = state.tenant.model_for("repair_first")
     repair_next_model = state.tenant.model_for("repair_next")
@@ -348,7 +365,7 @@ def write_pages(state):
         state.budget.check()
         initial_page, initial_call_tokens = initial_pages.get(cartridge_name, (None, 0))
         try:
-            page, attempts, deterministic_fixes = write_and_gate_page(
+            page, attempts, deterministic_fixes = repair.write_and_gate_page(
                 cartridge_name=cartridge_name,
                 cartridges_dir=CARTRIDGES_DIR,
                 ad_brief=state.ad_brief,
@@ -425,9 +442,7 @@ def review_notify(state):
 
 
 def write_review(state):
-    from .cli import write_review_md
-
-    write_review_md(
+    review_md.write_review_md(
         state.run_dir,
         ad_brief=state.ad_brief,
         facts_pack=state.facts_pack,
@@ -478,13 +493,27 @@ class UnknownStage(Exception):
     pass
 
 
+def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None, gate_log=None, stage="run"):
+    """The budget-STOP tail, shared by execute() and cli.cmd_ingest (review
+    R20 -- cmd_ingest used to re-implement its own thinner version): log the
+    event, record the spend into the tenant's daily ledger (phase 3), write
+    the budget summary and the run_result line, close the log. The caller
+    prints the one-line message and returns exit 3."""
+    log.event(stage, f"budget exceeded: {e}")
+    if tenant is not None:
+        budget_mod.record_spend(tenant, run_id=run_id, cost=log.cost_estimate(),
+                                today_iso=today_iso or datetime.date.today().isoformat(), log=log)
+    log.budget_summary(budget.summary())
+    review_md.log_run_result(log, "STOP", gate_log or {})
+    log.close()
+
+
 def execute(state, stage_names=DEFAULT_STAGES):
     """Run the named stages in order. Returns the process exit code.
 
     A gate STOP is exit 2 and never leaves a partial page; a budget overrun is
     exit 3, likewise. The cost estimate and REVIEW.md are written last, so a
     STOP still records what the run spent."""
-    from .cli import _log_run_result
 
     stage_names = list(stage_names)
     unknown = [n for n in stage_names if n not in STAGES and n != "write_review"]
@@ -496,6 +525,8 @@ def execute(state, stage_names=DEFAULT_STAGES):
             if name == "write_review":
                 state.cost = state.log.cost_estimate()
                 state.log.budget_summary(state.budget.summary())
+                budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
+                                        today_iso=state.today_iso, log=state.log)
             STAGES[name](state)
     except UnknownCartridge as e:
         print(str(e), file=sys.stderr)
@@ -508,9 +539,10 @@ def execute(state, stage_names=DEFAULT_STAGES):
         )
         state.log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
         state.log.event("run", str(e))
-        state.log.cost_estimate()
+        budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
+                                today_iso=state.today_iso, log=state.log)
         state.log.budget_summary(state.budget.summary())
-        _log_run_result(state.log, "STOP", state.gate_log)
+        review_md.log_run_result(state.log, "STOP", state.gate_log)
         state.log.close()
         print(
             f"Claims gate STOPPED at stage {e.stage!r}: {len(e.items)} unmatched item(s).",
@@ -520,14 +552,12 @@ def execute(state, stage_names=DEFAULT_STAGES):
         print(f"See {state.run_dir / 'unmatched_claims.json'}", file=sys.stderr)
         return 2
     except BudgetExceeded as e:
-        state.log.event("run", f"budget exceeded: {e}")
-        state.log.budget_summary(state.budget.summary())
-        _log_run_result(state.log, "STOP", state.gate_log)
-        state.log.close()
+        abort_budget_run(state.log, state.budget, e, tenant=state.tenant, run_id=state.run_id,
+                         today_iso=state.today_iso, gate_log=state.gate_log)
         print(f"budget exceeded: {e}", file=sys.stderr)
         return 3
 
-    _log_run_result(state.log, "PASS", state.gate_log)
+    review_md.log_run_result(state.log, "PASS", state.gate_log)
     # Cycle 26b (bug 1): build every page's <page>-review.html right away so
     # the review site's iframe never shows "Not Found" for a run that only
     # went through `harness run` -- same function `harness review` uses

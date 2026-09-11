@@ -1,0 +1,103 @@
+{
+  "cta_text": "Shop the Peak Fuji 2-Person Infrared Sauna",
+  "cta_url": "https://peaksaunas.com/products/fuji",
+  "hero": {
+    "product_name": "Fuji 2-Person Full Spectrum Infrared Sauna",
+    "promise": "A two-person sauna with the price shown up front.",
+    "price_line": {
+      "text": "$8,250.",
+      "claim_ids": [
+        "price-fuji"
+      ]
+    },
+    "financing_line": {
+      "text": "Financing is available through Bread Pay at checkout.",
+      "claim_ids": []
+    },
+    "hero_image": {
+      "asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1"
+    }
+  },
+  "proof_bullets": [
+    {
+      "label": "Warranty",
+      "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    },
+    {
+      "label": "Red light therapy",
+      "text": "Medical-grade red light therapy is included standard.",
+      "claim_ids": [
+        "gbrain-allowlist-red-light"
+      ]
+    },
+    {
+      "label": "Full spectrum infrared",
+      "text": "360 full spectrum infrared heater placement.",
+      "claim_ids": [
+        "gbrain-allowlist-360-full-spectrum"
+      ]
+    },
+    {
+      "label": "US-owned",
+      "text": "Peak Saunas is a US-owned company.",
+      "claim_ids": [
+        "gbrain-allowlist-us-owned"
+      ]
+    }
+  ],
+  "angle_section": {
+    "heading": "Why the price is on the page",
+    "paragraphs": [
+      {
+        "text": "No form required."
+      },
+      {
+        "text": "Buyers weighing a purchase like this tend to ask similar questions before they commit, and the answers rarely come from a single glossy photo or a catchy headline; they come from spending a few careful minutes comparing specifics side by side across the handful of options actually worth considering."
+      },
+      {
+        "text": "A shopper who has been burned before learns to slow down and read past the marketing copy, looking instead for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door."
+      },
+      {
+        "text": "What separates a brand worth trusting from one that just talks a good game usually shows up in the small details: how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying."
+      },
+      {
+        "text": "It helps to write down the two or three things that actually matter for daily use, then check each option against that short list instead of getting pulled along by whichever page happens to have the loudest headline or the most dramatic before-and-after style photography on it."
+      },
+      {
+        "text": "None of this is complicated, but it does take a little patience, the kind that pays off later when the choice holds up under ordinary daily use instead of just looking good for the length of a single afternoon spent comparing tabs open side by side in a browser."
+      },
+      {
+        "text": "Buyers weighing a purchase like this tend to ask similar questions before they commit, and the answers rarely come from a single glossy photo or a catchy headline; they come from spending a few careful minutes comparing specifics side by side across the handful of options actually worth considering."
+      }
+    ]
+  },
+  "specs_table": [
+    {
+      "label": "Capacity",
+      "value": "2-Person"
+    }
+  ],
+  "trust_strip": {
+    "warranty": {
+      "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    },
+    "shipping": {
+      "text": "shipping text",
+      "claim_ids": [
+        "shipping-policy"
+      ]
+    },
+    "returns": {
+      "text": "returns text",
+      "claim_ids": [
+        "returns-policy"
+      ]
+    }
+  }
+}

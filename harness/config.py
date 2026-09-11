@@ -28,8 +28,20 @@ DEFAULT_MODELS = {
     "matcher": "claude-haiku-4-5",
 }
 
-REPO_DIR = os.environ.get("HARNESS_REPO_DIR", os.path.expanduser("~/advertorial"))
+# Review 2026-09-11 R24: the deployment root is resolved at CALL time, not
+# import time -- HARNESS_REPO_DIR set (or changed) after import now wins, and
+# tests can point the tool defaults at a tmp root with monkeypatch.setenv.
+def repo_dir():
+    """The deployment root the whisper binary/model defaults hang off of."""
+    return os.environ.get("HARNESS_REPO_DIR", os.path.expanduser("~/advertorial"))
+
 
 FFMPEG_BIN = "/usr/bin/ffmpeg"
-WHISPER_BIN = os.path.join(REPO_DIR, "vendor/whisper.cpp/build/bin/whisper-cli")
-WHISPER_MODEL = os.path.join(REPO_DIR, "models/ggml-small.en.bin")
+
+
+def whisper_bin():
+    return os.path.join(repo_dir(), "vendor/whisper.cpp/build/bin/whisper-cli")
+
+
+def whisper_model():
+    return os.path.join(repo_dir(), "models/ggml-small.en.bin")

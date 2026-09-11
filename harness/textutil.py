@@ -34,6 +34,44 @@ def product_name_slug(name):
 
 
 # ---------------------------------------------------------------------------
+# Review 2026-09-11 R11: one page.json walker for the whole engine. The
+# recursive walk was hand-written ten times in claims.py alone (plus
+# render.py, repair.py, pagechecks.py), each re-deriving its path formatting
+# and skip rules. The copies that "differ" differ only in their skip_keys --
+# which is a parameter here, not a reason to re-write the recursion.
+#
+# revise.py's _apply_cut is deliberately NOT unified into this: it is a
+# transform (returns a new tree, drops emptied items), not a read-only visit.
+# ---------------------------------------------------------------------------
+
+def walk_page(node, path="$", *, skip_keys=()):
+    """Yield (path, node) for every node in a page.json-shaped tree,
+    pre-order, the root ("$") included. `skip_keys` is a collection of dict
+    keys whose values are never descended into (e.g. NON_PROSE_KEYS for a
+    prose-only scan). Paths look like "$.body_sections[0].paragraphs[1].text"
+    -- the same formatting every hand-written copy used."""
+    yield path, node
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in skip_keys:
+                continue
+            yield from walk_page(v, f"{path}.{k}", skip_keys=skip_keys)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from walk_page(v, f"{path}[{i}]", skip_keys=skip_keys)
+
+
+_PATH_KEY_RE = re.compile(r"\.([^.\[\]]+)")
+
+
+def path_keys(path):
+    """The dict-key segments of a walk_page path ("$.a.b[0].c" ->
+    ["a", "b", "c"]; list indices are not keys). For checks whose rule
+    depends on an ancestor key, e.g. "inside a quotes container"."""
+    return _PATH_KEY_RE.findall(path)
+
+
+# ---------------------------------------------------------------------------
 # Path safety (Cycle 22 finding R36)
 #
 # Two places build a filename out of a value this harness does not control: a

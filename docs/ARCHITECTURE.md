@@ -77,10 +77,10 @@ drift apart.
 | `ingest` | `harness/ingest.py` | `ad_brief.json` |
 | `ground` | `harness/ground.py`, `harness/sources/judgeme.py` | `facts_pack.json` (the chosen product, plus its claim universe) |
 | `gate_ad_claims` | `harness/claims.py`, `harness/semantic_match.py` | matched/unmatched ad claims, or a STOP |
-| `write_pages` | `harness/write.py`, `harness/cli.py` (`write_and_gate_page`) | one `page.json` per selected cartridge |
+| `write_pages` | `harness/write.py`, `harness/repair.py` (`write_and_gate_page`) | one `page.json` per selected cartridge |
 | `render_pages` | `harness/render.py` | one `index.html` per cartridge (byline, disclosure, sources, JSON-LD injected by the renderer, never by the model) |
 | `review_notify` | `harness/runstate.py`, `harness/notify.py` | `state.json` advanced to `needs_review`; the tenant's reviewers notified (both channels optional, both fail closed) |
-| `write_review` | `harness/cli.py` (`write_review_md`) | `REVIEW.md` |
+| `write_review` | `harness/review_md.py` (`write_review_md`) | `REVIEW.md` |
 
 ## Gates
 
@@ -114,7 +114,7 @@ A gate STOP never writes a partial page: `write_and_gate_page` only returns a
 page once it has fully passed the gate, and `render_pages`/`write_review`
 never run on a cartridge that raised.
 
-Inside the per-page repair loop (`harness/cli.py`
+Inside the per-page repair loop (`harness/repair.py`
 `write_and_gate_page`/`apply_deterministic_fixes`), a **deterministic
 pre-repair pass** runs before any model call: it fixes a forbidden hype word,
 a leaked claim id, a safe trigger-word synonym, an incidental numeral, or a
@@ -122,7 +122,9 @@ warranty-wording mismatch with plain text substitution, then re-runs the gate.
 Only failures that survive that pass ever reach a real repair call. The
 repair loop is capped at `MAX_REPAIR_ATTEMPTS = 2` real model calls beyond the
 initial write (3 attempts total per cartridge); exhausting the cap raises
-`ClaimsGateFailure`.
+`ClaimsGateFailure`. Borrowing guardrails-ai's `OnFailAction` vocabulary
+(docs/RESEARCH-HARNESS-LANDSCAPE.md #11): the pre-repair pass is `fix`, the
+model repair is `reask`, and the STOP is `exception`.
 
 ## Budgets
 
@@ -170,7 +172,8 @@ files never hardcode a company name.
 harness/       the engine: pipeline, tenant resolution, ingest, grounding,
                claims gate, writer, renderer, budget, vocab
 cartridges/    tenant-neutral page types (article, listicle, longform,
-               product-page): cartridge.md, rubric.md, schema.json, template.html
+               product-page, comparison [draft, opt-in]): cartridge.md,
+               rubric.md, schema.json, template.html
 agents/        Markdown specs for each worker (ingest, grounder, writer,
                gate-repair, reviewer, design-audit, drive-index, research)
 workflows/     named pipelines as YAML; only steps keyed `stage:` execute
@@ -194,4 +197,4 @@ tests/         pytest suite covering claims, render, write, budget, tenant, ...
 | Change a run's budget caps | `harness/budget.py` |
 | Change stage order or add a stage | `harness/pipeline.py` (`STAGES`, `DEFAULT_STAGES`) and, if it should run under `harness workflow run`, the matching `workflows/*.yaml` |
 | Change which tenant runs by default | `tenants/default.txt` |
-| Change the repair loop's retry count or fixes | `harness/cli.py` (`MAX_REPAIR_ATTEMPTS`, `apply_deterministic_fixes`) |
+| Change the repair loop's retry count or fixes | `harness/repair.py` (`MAX_REPAIR_ATTEMPTS`, `apply_deterministic_fixes`) |

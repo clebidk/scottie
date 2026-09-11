@@ -1,0 +1,10 @@
+<section class="bk-numbered-reason">
+  <div class="bk-numbered-reason__number" aria-hidden="true">{{ number }}</div>
+  <div class="bk-numbered-reason__body">
+    <h2 class="bk-numbered-reason__heading">{{ heading }}</h2>
+    <p class="bk-numbered-reason__text">{{ text }}</p>
+    {% if image %}
+    <img class="bk-numbered-reason__image" src="{{ image.url }}" alt="{{ image.alt }}" {% if image.width %}width="{{ image.width }}" height="{{ image.height }}"{% endif %}>
+    {% endif %}
+  </div>
+</section>

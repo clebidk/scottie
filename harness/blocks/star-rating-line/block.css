@@ -1,0 +1,7 @@
+.bk-star-rating-line { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; }
+.bk-star-rating-line__stars { color: var(--adv-accent); letter-spacing: 0.1em; }
+.bk-star-rating-line__count { color: var(--adv-muted); }
+.bk-star-rating-line__link { color: var(--adv-muted); }
+@media (max-width: 480px) {
+  .bk-star-rating-line { flex-wrap: wrap; }
+}

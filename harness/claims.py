@@ -38,7 +38,7 @@ import re
 from . import tenant as tenant_mod
 from . import exits
 from . import vocab
-from .textutil import DOLLAR_AMOUNT_RE, NON_PROSE_KEYS
+from .textutil import DOLLAR_AMOUNT_RE, NON_PROSE_KEYS, path_keys, walk_page
 
 # Every word list and fixed sentence below comes from the active tenant's
 # vocab.yaml, read through the `vocab` module on each access -- importing the
@@ -749,27 +749,19 @@ def collect_claim_ids(node):
     (both the plural "claim_ids" list field and the singular "claim_id"
     string field used on facts_pack.specs-derived rows)."""
     ids = set()
-
-    def walk(n):
+    for _path, n in walk_page(node):
         if isinstance(n, dict):
             if isinstance(n.get("claim_ids"), list):
                 ids.update(n["claim_ids"])
             if n.get("claim_id"):  # non-empty string only
                 ids.add(n["claim_id"])
-            for v in n.values():
-                walk(v)
-        elif isinstance(n, list):
-            for v in n:
-                walk(v)
-
-    walk(node)
     return ids
 
 
 def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None, speaker_number_set=None):
     problems = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json):
         if isinstance(node, dict):
             claim_ids = node.get("claim_ids")
             if isinstance(claim_ids, list):
@@ -813,13 +805,6 @@ def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None,
                             "text": text,
                         }
                     )
-            for k, v in node.items():
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
-
-    walk(page_json, "$")
     return problems
 
 
@@ -844,7 +829,7 @@ def find_missing_attribution(page_json):
     the same defense-in-depth pattern as the EMF/leaked-claim-id checks."""
     hits = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json):
         if isinstance(node, dict):
             if node.get("attributed_to_customer") is True and isinstance(node.get("text"), str):
                 text = node["text"]
@@ -858,13 +843,6 @@ def find_missing_attribution(page_json):
                             "text": text,
                         }
                     )
-            for k, v in node.items():
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
-
-    walk(page_json, "$")
     return hits
 
 
@@ -893,7 +871,7 @@ def find_forbidden_terms(page_json, financing_lender=None, verified_claims=None)
     forbidden += [t for t in vocab.IMPLIED_CLAIM_FORBIDDEN_TERMS if t not in verified_text_blob]
     hits = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json, skip_keys=NON_PROSE_KEYS):
         if isinstance(node, str):
             # A citation URL inline in prose (e.g. "(the brand, 2026,
             # https://.../near-zero-emf-...)") may legitimately contain a
@@ -905,16 +883,6 @@ def find_forbidden_terms(page_json, financing_lender=None, verified_claims=None)
             for term in forbidden:
                 if term in lower:
                     hits.append({"path": path, "term": term, "issue": f"forbidden term {term!r} found", "text": node})
-        elif isinstance(node, dict):
-            for k, v in node.items():
-                if k in NON_PROSE_KEYS:
-                    continue
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
-
-    walk(page_json, "$")
     return hits
 
 
@@ -952,8 +920,14 @@ def find_first_person_violations(page_json, speaker_pov):
         return []
     hits = []
 
-    def walk(node, path, in_quote):
+    for path, node in walk_page(page_json):
+        # The old hand-written walker carried an `in_quote` flag set when
+        # descending through a quotes container key; a node is inside a quote
+        # exactly when one of its path's dict-key segments is one -- same
+        # rule, derived from the path instead of threaded through the
+        # recursion.
         if isinstance(node, str):
+            in_quote = bool(_QUOTED_CONTAINER_KEYS & set(path_keys(path)))
             if not in_quote:
                 unquoted = _QUOTED_SPAN_RE.sub(" ", node)
                 if _FIRST_PERSON_RE.search(unquoted):
@@ -964,14 +938,6 @@ def find_first_person_violations(page_json, speaker_pov):
                             "text": node,
                         }
                     )
-        elif isinstance(node, dict):
-            for k, v in node.items():
-                walk(v, f"{path}.{k}", in_quote or k in _QUOTED_CONTAINER_KEYS)
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]", in_quote)
-
-    walk(page_json, "$", False)
     return hits
 
 
@@ -1080,7 +1046,7 @@ def _is_allowed_financing_prose(text, allowed, financing_lender):
 def _find_financing_prose_violations(page_json, allowed, financing_lender):
     hits = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json, skip_keys=NON_PROSE_KEYS | {"financing_line"}):
         if isinstance(node, str):
             if _financing_states_terms(node, financing_lender) and not _is_allowed_financing_prose(
                 node, allowed, financing_lender
@@ -1093,16 +1059,6 @@ def _find_financing_prose_violations(page_json, allowed, financing_lender):
                         "text": node,
                     }
                 )
-        elif isinstance(node, dict):
-            for k, v in node.items():
-                if k in NON_PROSE_KEYS or k == "financing_line":
-                    continue
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
-
-    walk(page_json, "$")
     return hits
 
 
@@ -1110,7 +1066,7 @@ def find_financing_violations(page_json, financing_lender=None):
     allowed = vocab.allowed_financing_sentence(financing_lender)
     hits = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json):
         if isinstance(node, dict):
             financing_line = node.get("financing_line")
             if financing_line is not None:
@@ -1125,13 +1081,7 @@ def find_financing_violations(page_json, financing_lender=None):
                             "text": text,
                         }
                     )
-            for k, v in node.items():
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
 
-    walk(page_json, "$")
     hits += _find_financing_prose_violations(page_json, allowed, financing_lender)
     return hits
 
@@ -1237,7 +1187,7 @@ def find_warranty_violations(page_json, verified_claims):
 
     hits = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json, skip_keys=NON_PROSE_KEYS):
         if isinstance(node, str):
             lowered = node.lower()
             if (
@@ -1257,16 +1207,6 @@ def find_warranty_violations(page_json, verified_claims):
                         "text": node,
                     }
                 )
-        elif isinstance(node, dict):
-            for k, v in node.items():
-                if k in NON_PROSE_KEYS:
-                    continue
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
-
-    walk(page_json, "$")
     return hits
 
 
@@ -1309,9 +1249,11 @@ def find_proof_stats_violations(page_json):
 def find_second_cta_violation(page_json):
     hits = []
 
-    def walk(node, path, is_root):
+    for path, node in walk_page(page_json):
+        # the old hand-written walker threaded an is_root flag; the root is
+        # simply the node whose path is "$".
         if isinstance(node, dict):
-            if not is_root and "cta_url" in node:
+            if path != "$" and "cta_url" in node:
                 hits.append(
                     {
                         "path": f"{path}.cta_url",
@@ -1321,13 +1263,36 @@ def find_second_cta_violation(page_json):
                         ),
                     }
                 )
-            for k, v in node.items():
-                walk(v, f"{path}.{k}", False)
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]", False)
+    return hits
 
-    walk(page_json, "$", True)
+
+# ---------------------------------------------------------------------------
+# Kimi long-run phase 6: the comparison cartridge's spec table is the one
+# place a page states facts about something other than the run's own product
+# -- so every cell must carry at least one claim id (validity of the id
+# itself is validate_page_claim_ids' job, unchanged). No-op when the page has
+# no comparison_table, same opt-out shape as find_proof_stats_violations.
+# ---------------------------------------------------------------------------
+
+def find_comparison_table_violations(page_json):
+    table = page_json.get("comparison_table") if isinstance(page_json, dict) else None
+    if not table:
+        return []
+    hits = []
+    rows = table.get("rows") or []
+    for i, row in enumerate(rows):
+        cells = row.get("cells") or []
+        for j, cell in enumerate(cells):
+            path = f"$.comparison_table.rows[{i}].cells[{j}]"
+            if not isinstance(cell, dict) or not cell.get("claim_ids"):
+                hits.append(
+                    {
+                        "path": path,
+                        "issue": "comparison table cell has no claim_ids -- every cell in a "
+                                 "comparison table must cite at least one verified claim",
+                        "text": cell.get("text") if isinstance(cell, dict) else str(cell),
+                    }
+                )
     return hits
 
 
@@ -1351,6 +1316,7 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
     problems += find_missing_attribution(page_json)
     problems += find_proof_stats_violations(page_json)
+    problems += find_comparison_table_violations(page_json)
     problems += find_second_cta_violation(page_json)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
@@ -1397,7 +1363,7 @@ def find_leaked_claim_ids(page_json, valid_claim_ids):
     rewrites the offending sentence instead of citing the id inline."""
     hits = []
 
-    def walk(node, path):
+    for path, node in walk_page(page_json, skip_keys=NON_PROSE_KEYS):
         if isinstance(node, str):
             for m in _ID_SHAPED_TOKEN_RE.finditer(node):
                 token = m.group(0)
@@ -1409,16 +1375,6 @@ def find_leaked_claim_ids(page_json, valid_claim_ids):
                             "text": node,
                         }
                     )
-        elif isinstance(node, dict):
-            for k, v in node.items():
-                if k in NON_PROSE_KEYS:
-                    continue
-                walk(v, f"{path}.{k}")
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                walk(v, f"{path}[{i}]")
-
-    walk(page_json, "$")
     return hits
 
 
