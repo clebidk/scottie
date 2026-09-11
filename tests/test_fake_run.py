@@ -6,9 +6,11 @@ import json
 
 from harness import cli, pipeline
 from evals import fake_run
-from tests.support import TENANT
+from tests.support import REPO_ROOT, TENANT
 
 FIXTURE = TENANT.fixtures_dir / "founder-warranty-demo.txt"
+HIDDEN_COSTS_FIXTURE = TENANT.fixtures_dir / "hidden-costs-v2.transcript.txt"
+BASELINE_DIR = REPO_ROOT / "evals" / "baseline"
 
 
 def test_fake_run_founder_fixture_produces_three_pages(tmp_path):
@@ -44,3 +46,25 @@ def test_fake_run_restores_everything_it_patches(tmp_path):
 
 def test_fake_run_refuses_a_cartridge_with_no_canned_page():
     assert fake_run.main([str(FIXTURE), "--tenant", "peak-saunas", "--cartridges", "listicle"]) == 1
+
+
+def test_fake_run_byte_matches_the_committed_baseline():
+    """The phase-4 parity harness, registered in phase 1: a fake-client run of
+    each dry-run fixture must reproduce evals/baseline/<fixture>/ byte for
+    byte. Any behavior-preserving refactor (R1/R2, R11, R23, ...) that
+    changes a page.json byte is not behavior-preserving -- this fails."""
+    for fixture, baseline_name in (
+        (FIXTURE, "founder-warranty-demo"),
+        (HIDDEN_COSTS_FIXTURE, "hidden-costs-v2-transcript"),
+    ):
+        assert fake_run.main([str(fixture), "--tenant", "peak-saunas"]) == 0
+        run_dir = fake_run._newest_run_dir(TENANT.out_dir, f"*-{pipeline.slugify(str(fixture))}-*")
+        baseline = BASELINE_DIR / baseline_name
+        for cartridge in ("article", "product-page", "longform"):
+            expected = baseline / f"{cartridge}.page.json"
+            actual = run_dir / cartridge / "page.json"
+            assert expected.exists(), f"missing baseline {expected} -- capture it via python -m evals.fake_run"
+            assert actual.read_bytes() == expected.read_bytes(), (
+                f"{baseline_name}/{cartridge}: page.json drifted from evals/baseline "
+                f"(run dir: {run_dir})"
+            )
