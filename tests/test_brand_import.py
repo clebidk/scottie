@@ -284,6 +284,66 @@ def test_write_tenant_yaml_brand_section_preserves_the_rest_of_the_file(tmp_path
     assert "# a hand-written comment that must survive" in text2
 
 
+def test_write_tokens_json_brand_import_leaves_the_rest_of_the_file_byte_identical(tmp_path):
+    tokens_path = tmp_path / "tokens.json"
+    # A single-line array and no trailing newline between sections, like the
+    # real hand-authored tenants/peak-saunas/brand/tokens.json -- a
+    # json.loads/json.dumps round-trip would reformat both.
+    original = (
+        "{\n"
+        '  "font.body.weights_used": [400, 500, 600, 700],\n'
+        '  "color.background.page": "#ffffff",\n'
+        '\n'
+        '  "theme.name": "Live Site"\n'
+        "}\n"
+    )
+    tokens_path.write_text(original)
+    brand_import.write_tokens_json_brand_import(
+        tokens_path, {"colors": {"accent": {"hex": "#16C47F", "source": "brand-import:x"}}}, force=False
+    )
+    text = tokens_path.read_text()
+    # Everything that existed before is untouched, byte for byte.
+    assert '"font.body.weights_used": [400, 500, 600, 700],' in text
+    assert '"color.background.page": "#ffffff",' in text
+    assert '"theme.name": "Live Site"' in text
+    parsed = json.loads(text)
+    assert parsed["brand_import"]["colors"]["accent"]["hex"] == "#16C47F"
+
+
+def test_write_tokens_json_brand_import_rerun_without_force_keeps_hand_edit(tmp_path):
+    tokens_path = tmp_path / "tokens.json"
+    tokens_path.write_text(json.dumps({
+        "brand_import": {"colors": {"accent": {"hex": "#111111", "source": "hand-edit"}}}
+    }))
+    brand_import.write_tokens_json_brand_import(
+        tokens_path, {"colors": {"accent": {"hex": "#222222", "source": "brand-import:x"}}}, force=False
+    )
+    parsed = json.loads(tokens_path.read_text())
+    assert parsed["brand_import"]["colors"]["accent"]["hex"] == "#111111"
+
+
+def test_write_tokens_json_brand_import_force_overwrites(tmp_path):
+    tokens_path = tmp_path / "tokens.json"
+    tokens_path.write_text(json.dumps({
+        "brand_import": {"colors": {"accent": {"hex": "#111111", "source": "hand-edit"}}}
+    }))
+    brand_import.write_tokens_json_brand_import(
+        tokens_path, {"colors": {"accent": {"hex": "#222222", "source": "brand-import:x"}}}, force=True
+    )
+    parsed = json.loads(tokens_path.read_text())
+    assert parsed["brand_import"]["colors"]["accent"]["hex"] == "#222222"
+
+
+# ---------------------------------------------------------------------------
+# Font-name sanity (a real vision-model finding, see FIXLOG Cycle 27)
+# ---------------------------------------------------------------------------
+
+def test_looks_like_a_real_font_name():
+    assert brand_import._looks_like_a_real_font_name("Eina03")
+    assert brand_import._looks_like_a_real_font_name("DM Sans")
+    assert not brand_import._looks_like_a_real_font_name("Sans-serif (appears to be a modern geometric sans-serif)")
+
+
 # ---------------------------------------------------------------------------
 # Contrast math
 # ---------------------------------------------------------------------------

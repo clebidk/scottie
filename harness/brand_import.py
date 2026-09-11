@@ -302,6 +302,15 @@ def import_fonts(font_files, fonts_dir):
     return out
 
 
+def _looks_like_a_real_font_name(family):
+    """False for a brand-guide vision response describing a font rather than
+    naming one (a real finding from Cycle 27 server verification: a guide
+    with no explicit typeface returned family="Sans-serif (appears to be a
+    modern geometric sans-serif)"). A real font name doesn't carry
+    parenthetical commentary and isn't paragraph-length."""
+    return "(" not in family and len(family) <= 40
+
+
 def google_fonts_import_url(family, weights=None):
     weights = weights or [400, 700]
     family_param = family.replace(" ", "+")
@@ -547,6 +556,70 @@ def generate_base_css(brand_import_tokens, *, tenant_name):
 
 
 # ---------------------------------------------------------------------------
+# tokens.json's brand_import key
+#
+# A tenant's brand/tokens.json is a hand-authored reference document
+# (single-line arrays, blank lines between sections) -- a full
+# json.loads/json.dumps round-trip reformats the WHOLE file even when the
+# only semantic change is one new top-level key, which fails the task's own
+# "diff empty except added keys" check just as surely as clobbering a value
+# would. Only the `"brand_import": { ... }` value itself (a key this
+# importer owns) is located by bracket-matching in the raw text and spliced
+# in/out; every other byte in the file is untouched.
+# ---------------------------------------------------------------------------
+
+_BRAND_IMPORT_KEY_RE = re.compile(r'"brand_import"\s*:\s*')
+
+
+def _find_matching_brace(text, open_pos):
+    """Index just past the `}` that closes the `{` at `open_pos`."""
+    depth = 0
+    i = open_pos
+    while i < len(text):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    raise ValueError("unbalanced braces in tokens.json")
+
+
+def _indent_json_value(value_text, indent="  "):
+    """`json.dumps(..., indent=2)` output, re-indented so it reads correctly
+    as the value of an already-indented key (every line but the first gets
+    one more indent level)."""
+    lines = value_text.split("\n")
+    return "\n".join([lines[0]] + [indent + line for line in lines[1:]])
+
+
+def write_tokens_json_brand_import(tokens_path, brand_import_tokens, *, force):
+    """Merges `brand_import_tokens` into tokens.json's top-level
+    `"brand_import"` key (existing sub-keys win unless force), rewriting only
+    that key's value -- see module note above for why the rest of the file
+    is never touched."""
+    tokens_path = Path(tokens_path)
+    text = tokens_path.read_text() if tokens_path.exists() else "{\n}\n"
+    match = _BRAND_IMPORT_KEY_RE.search(text)
+    existing = {}
+    if match:
+        value_start = text.index("{", match.end())
+        value_end = _find_matching_brace(text, value_start)
+        existing = json.loads(text[value_start:value_end])
+        merged = merge_dict(existing, brand_import_tokens, force=force)
+        new_value = _indent_json_value(json.dumps(merged, indent=2))
+        new_text = text[: match.start()] + '"brand_import": ' + new_value + text[value_end:]
+    else:
+        new_value = _indent_json_value(json.dumps(brand_import_tokens, indent=2))
+        last_brace = text.rstrip().rfind("}")
+        before = text[:last_brace].rstrip()
+        sep = "" if before.endswith("{") else ","
+        new_text = before + f'{sep}\n  "brand_import": {new_value}\n' + text[last_brace:]
+    tokens_path.write_text(new_text)
+
+
+# ---------------------------------------------------------------------------
 # tenant.yaml's brand: section
 #
 # tenant.yaml is a hand-authored, heavily-commented file (see
@@ -776,9 +849,22 @@ def import_brand_kit(
                         "source": f"brand-import:{guide['name']}",
                     }
                     if family.lower() not in existing_font_families:
-                        # No matching font file was found in the source --
-                        # treat it as a Google Font and record the @import.
-                        entry["google_fonts_url"] = google_fonts_import_url(family)
+                        if _looks_like_a_real_font_name(family):
+                            # No matching font file was found in the source
+                            # -- treat it as a Google Font and record the
+                            # @import.
+                            entry["google_fonts_url"] = google_fonts_import_url(family)
+                        else:
+                            # The model described a font rather than naming
+                            # one ("Sans-serif (appears to be a geometric
+                            # sans)") -- a guide with no explicit font name
+                            # does this; building a Google Fonts URL out of
+                            # it would just be a broken link.
+                            result.human_decisions.append(
+                                f"The brand guide didn't name a specific font for the "
+                                f"{role.replace('_', ' ')} role, just described one ({family!r}) "
+                                "-- pick a real font by hand."
+                            )
                     tokens["fonts"].setdefault(role, entry)
                 if guide_json.get("logo_rules"):
                     result.human_decisions.append(
@@ -845,12 +931,9 @@ def import_brand_kit(
     if dry_run:
         return result
 
-    # -- write tokens.json (merge) ------------------------------------
-    tokens_path = brand_dir / "tokens.json"
-    existing_tokens = json.loads(tokens_path.read_text()) if tokens_path.exists() else {}
-    merged_tokens = merge_dict(existing_tokens, {"brand_import": tokens}, force=force)
+    # -- write tokens.json's brand_import key (merge, rest of file untouched) --
     brand_dir.mkdir(parents=True, exist_ok=True)
-    tokens_path.write_text(json.dumps(merged_tokens, indent=2) + "\n")
+    write_tokens_json_brand_import(brand_dir / "tokens.json", tokens, force=force)
 
     # -- write base.css (only if missing, or --force) ------------------
     base_css_path = brand_dir / "base.css"
