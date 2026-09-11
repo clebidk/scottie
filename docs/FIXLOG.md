@@ -1159,4 +1159,65 @@ left in the repo, no real network or model call anywhere in the suite (the demo 
 brand-guide file, so the one vision call this module makes is never exercised in tests).
 
 `.venv-local/bin/pytest -q` on the Mac clone: **776 total, 776 passed, 0 failed** (734 + 42
-new). `.venv-local/bin/ruff check .`: clean.
+new). `.venv-local/bin/ruff check .`: clean. (Four follow-up commits during server verification,
+below, brought the Mac-clone suite to 784 -- see their own commit messages for what each fixed.)
+
+### Verify (server)
+
+`~/advertorial-c27` (git worktree of `cycle27/brand-import`, `git worktree add ../advertorial-c27
+cycle27/brand-import`), own `.venv` (`/usr/bin/python3` -- `/usr/local/bin/python3` on this box is
+a wrapper the deploy user cannot execute), `models`/`vendor` symlinked from `~/advertorial`,
+`tenants/peak-saunas/.env` copied in. `.venv/bin/pip install -e . pytest pillow ruff flask`, then
+`.venv/bin/ruff check .`: clean; `.venv/bin/python -m pytest -q`: **784 total, 784 passed, 0
+failed**, matching the Mac clone exactly.
+
+The first live fetch of the real folder (`1bR_iS3rOE_lNfOhz5BJUkJOw0wnvI-Xf`) immediately
+disproved the data-id assumption the first commit above was built on -- a real Drive folder row
+carries the file id inside an `ssk='<n>:<code>:<id>-<n>-<n>'` attribute, not `data-id`, with the
+same id repeated across a name row and several metadata rows. `list_public_folder` and
+`_clean_entry_name` were rewritten to that verified shape (fix commit 2). Three more real-data
+findings, each its own fix commit, verification numbers folded into each commit message:
+`looks_like_folder` mistook `.ai`/`.eps` design-source files in the real "Logo Files" subfolder
+for a subfolder (no extension this classifier's buckets recognize) and sent a real file id into
+a folder-listing fetch, which 404s (fix 3); `choose_guide` (two one-page color-variant PDFs were
+listed before the actual, comprehensive "... BRAND GUIDE.pdf" and `guide_entries[0]` read the
+wrong one -- fix 4); `choose_logo` (a big JPEG social-media photo beat a small transparent PNG
+favicon purely on byte size -- fix 5); `write_tokens_json_brand_import` (the original
+`json.loads`/`json.dumps` round-trip reformatted Peak's entire hand-authored tokens.json --
+single-line arrays exploded, blank lines dropped -- even though only one new top-level key was
+added, which fails this cycle's own "diff empty except added keys" bar just as surely as
+clobbering a value would; rewritten to splice just that key by bracket-matching in the raw text,
+mirroring `tenant.yaml`'s already-targeted splice -- fix 6, which also added
+`_looks_like_a_real_font_name` after a guide with no named typeface came back
+`"Sans-serif (appears to be a modern geometric sans-serif)"` and nearly became a broken Google
+Fonts `@import`).
+
+**Dry run**, `harness brand import --tenant peak-saunas --drive-folder
+1bR_iS3rOE_lNfOhz5BJUkJOw0wnvI-Xf --dry-run`, with every fix applied: found 21 files under the
+"Logo Files" subfolder (favicon/mountain-mark variants as .ai/.eps/.pdf/.jpg/.png -- none of the
+.ai/.eps got past "other", this classifier has no vector-source bucket) plus the brand guide PDF
+at the folder root; chose `favicon-Peak-Saunas-PNG.png` as the logo; sent 1 real vision call
+(well under the 3-call cap) against "Peak Saunas BRAND GUIDE.pdf" and got back 5 colors, 2 font
+entries (both a description, not a name -- correctly filed as human decisions instead of a
+broken `@import`), and 9 logo-usage rules matching
+`tenants/peak-saunas/brand/brand-guide-summary.md`'s earlier hand-read of the same PDF almost
+verbatim (90px/32mm minimum width; don't rotate/distort/shadow/place-on-busy-backgrounds/use-
+off-brand-colors). `base.css` would not be touched (already exists, no `--force`). The logo's own
+dominant accent color, `#e9f6f3`, was refused as the accent token (1.11:1 contrast against white,
+below the 3:1 floor) -- filed as a human decision, not silently dropped.
+
+**Real run** (same command, no `--dry-run`, no `--force`): `git diff` on
+`tenants/peak-saunas/brand/tokens.json` is exactly one hunk -- the pre-existing last line gains a
+trailing comma and a new top-level `"brand_import"` key follows it; every one of Peak's ~90
+existing dotted-key values is byte-identical, single-line arrays and blank lines included.
+`tenants/peak-saunas/brand/base.css` diff is empty. `tenants/peak-saunas/tenant.yaml` diff is one
+new `brand:` / `logo_path: brand/logo.png` block appended after `notifications:`, nothing else
+touched (accent/primary hex were NOT written, since the contrast gate refused them, matching what
+the dry run said it would do). `tenants/peak-saunas/brand/logo.png` lands as a real 48x48 RGBA
+PNG (confirmed by opening it with Pillow, not just checking the file exists);
+`brand/BRAND-IMPORT.md` is written with the same findings as the dry run. Real-run artifacts
+(the tokens.json/tenant.yaml changes, logo.png, BRAND-IMPORT.md) were left uncommitted and
+discarded with the worktree -- this cycle ships the tool, not a decision on Peak's actual new
+brand tokens for a human to make.
+
+`git worktree remove --force ../advertorial-c27` after.
