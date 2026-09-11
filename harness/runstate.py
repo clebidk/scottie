@@ -48,10 +48,15 @@ def packet_path(run_dir):
 # state.json
 # ---------------------------------------------------------------------------
 
-def init_state(run_dir, *, pages, by="system", note="run started"):
+def init_state(run_dir, *, pages, by="system", note="run started", dry_run=False):
     """Writes a fresh state.json: run-level state "generated", every page
     "generated". Called once, from pipeline.prepare_run. Refuses to
-    overwrite an existing state.json (a run directory is created once)."""
+    overwrite an existing state.json (a run directory is created once).
+
+    Cycle 26b (bug 2): `dry_run` is True when pipeline.prepare_run sees the
+    fake Anthropic client tests inject (tests/conftest.py's FakeClient) --
+    never true for a real `harness run`. The review site's run list reads
+    this back to hide test-suite runs by default."""
     run_dir = Path(run_dir)
     path = state_path(run_dir)
     if path.exists():
@@ -61,6 +66,7 @@ def init_state(run_dir, *, pages, by="system", note="run started"):
         "state": "generated",
         "pages": {p: "generated" for p in pages},
         "history": [{"state": "generated", "by": by, "at": _now(), "note": note}],
+        "dry_run": bool(dry_run),
     }
     path.write_text(json.dumps(data, indent=2) + "\n")
     return data

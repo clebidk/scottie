@@ -64,11 +64,36 @@ def _safe_path(base_dir, rel_path):
     return candidate
 
 
+def _is_run_dir(path):
+    """A run dir is one containing state.json or ad_brief.json -- everything
+    else under a tenant's out/ (e.g. FRIDAY-2026-09-11, _archive-test-runs)
+    is not a run this harness produced and must never show up in the run
+    list or be reachable by run id."""
+    return path.is_dir() and (runstate.state_path(path).exists() or (path / "ad_brief.json").exists())
+
+
 def _run_dir_or_404(tenant, run_id):
     candidate = _safe_dir(tenant.out_dir, run_id)
-    if candidate is None or not runstate.state_path(candidate).exists():
+    if candidate is None or not _is_run_dir(candidate):
         abort(404)
     return candidate
+
+
+def _looks_like_test_run(tenant, run_dir, state):
+    """Cycle 26b (bug 2): True for a run the test suite produced (state.json's
+    `dry_run: true`, set going forward by pipeline.prepare_run -- or, for a
+    run made before that fix, no `input_tokens=` line anywhere in its run
+    log, since every real call records one), or for a run with no rendered
+    page dir at all (a STOP, or a run that never got past the claims gate).
+    Both are hidden from the run list by default."""
+    if state.get("dry_run"):
+        return True
+    log_path = tenant.runs_dir / f"{run_dir.name}.log"
+    if not log_path.exists() or "input_tokens=" not in log_path.read_text():
+        return True
+    if not any((run_dir / page).is_dir() for page in state.get("pages", {})):
+        return True
+    return False
 
 
 def _safe_dir(base_dir, name):
@@ -220,7 +245,7 @@ def _page_shell(title, body):
     )
 
 
-def _render_run_list(tenant, runs):
+def _render_run_list(tenant, runs, *, show_test=False, hidden_count=0):
     rows = []
     for r in runs:
         cost = f"${r['cost']:.4f}" if r["cost"] is not None else "-"
@@ -237,9 +262,16 @@ def _render_run_list(tenant, runs):
             f"<td class=\"history\">{'; '.join(html.escape(a) for a in r['actions']) or '-'}</td>"
             "</tr>"
         )
+    if show_test:
+        toggle = f"<p><a href=\"{url_for('run_list')}\">Hide test runs</a></p>"
+    elif hidden_count:
+        toggle = f"<p><a href=\"{url_for('run_list', show_test=1)}\">Show test runs ({hidden_count} hidden)</a></p>"
+    else:
+        toggle = ""
     body = (
         f"<h1>{html.escape(tenant.display_name)} -- runs</h1>"
-        "<table><thead><tr><th>Run</th><th>State</th><th>Ad</th><th>Product</th>"
+        + toggle
+        + "<table><thead><tr><th>Run</th><th>State</th><th>Ad</th><th>Product</th>"
         "<th>Cartridges</th><th>Cost</th><th>Gate</th><th>Not repeated</th><th>Reviewer actions</th>"
         "</tr></thead><tbody>" + ("".join(rows) or "<tr><td colspan=9>No runs yet.</td></tr>") + "</tbody></table>"
     )
@@ -420,13 +452,29 @@ def build_app(tenant):
 
     @app.route("/")
     def run_list():
+        show_test = request.args.get("show_test") == "1"
         runs = []
+        hidden_count = 0
         if tenant.out_dir.is_dir():
             for run_dir in tenant.out_dir.iterdir():
-                if run_dir.is_dir() and runstate.state_path(run_dir).exists():
-                    runs.append(_run_summary(tenant, run_dir))
+                if not _is_run_dir(run_dir):
+                    continue
+                # A run dir always gets state.json first (pipeline.prepare_run) --
+                # the ad_brief.json-only case in _is_run_dir is a defensive
+                # fallback that in practice never happens; there is nothing
+                # to render without state.json, so skip it outright.
+                if not runstate.state_path(run_dir).exists():
+                    continue
+                state = runstate.load_state(run_dir)
+                if _looks_like_test_run(tenant, run_dir, state):
+                    hidden_count += 1
+                    if not show_test:
+                        continue
+                runs.append(_run_summary(tenant, run_dir))
         runs.sort(key=lambda r: r["mtime"], reverse=True)
-        return _render_run_list(tenant, runs)
+        return _render_run_list(
+            tenant, runs, show_test=show_test, hidden_count=0 if show_test else hidden_count,
+        )
 
     @app.route("/run/<run_id>")
     def run_detail(run_id):
@@ -435,11 +483,30 @@ def build_app(tenant):
 
     @app.route("/run/<run_id>/review/<page>")
     def page_review(run_id, page):
+        # Cycle 26b (bug 1): `<page>-review.html` only exists once `harness
+        # review` has run for this page. A run made with `harness run` alone
+        # (now also auto-built at the end of a successful run -- see
+        # pipeline.execute -- but older runs predate that) has a rendered
+        # `<page>/index.html` with no review file yet: build it on demand,
+        # with the SAME function `harness review` uses (review.build_review_for_page),
+        # so the two never drift apart. Neither file existing means the page
+        # was never rendered (a STOP, or a page not yet written) -- serve a
+        # 200 placeholder so the run detail page's iframe shows something
+        # readable instead of Flask's default 404.
         run_dir = _run_dir_or_404(tenant, run_id)
         safe_page = textutil.safe_filename(page)
         path = _safe_path(run_dir, f"{safe_page}-review.html")
         if path is None:
-            abort(404)
+            index_path = _safe_path(run_dir, f"{safe_page}/index.html")
+            if index_path is not None:
+                from .review import build_review_for_page
+
+                path = build_review_for_page(run_dir, safe_page)
+        if path is None:
+            return Response(
+                _page_shell("Not rendered yet", "<p>Page not rendered yet.</p>"),
+                mimetype="text/html",
+            )
         return send_file(path, mimetype="text/html")
 
     @app.route("/run/<run_id>/source-image")

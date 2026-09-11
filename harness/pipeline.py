@@ -161,7 +161,13 @@ def prepare_run(state):
     # values, since there is no page to review yet.
     from . import runstate
 
-    runstate.init_state(state.run_dir, pages=selected)
+    # Cycle 26b (bug 2): a run built against tests/conftest.py's FakeClient
+    # (every test in this suite injects one instead of a real
+    # anthropic.Anthropic()) is marked dry_run so the review site's run list
+    # can hide it by default -- checked by class name rather than an isinstance
+    # import, so this module never has to import the test double.
+    dry_run = type(state.client).__name__ == "FakeClient"
+    runstate.init_state(state.run_dir, pages=selected, dry_run=dry_run)
     runstate.init_packet(state.run_dir)
 
 
@@ -522,6 +528,17 @@ def execute(state, stage_names=DEFAULT_STAGES):
         return 3
 
     _log_run_result(state.log, "PASS", state.gate_log)
+    # Cycle 26b (bug 1): build every page's <page>-review.html right away so
+    # the review site's iframe never shows "Not Found" for a run that only
+    # went through `harness run` -- same function `harness review` uses
+    # (review.build_reviews), guarded so a build failure warns instead of
+    # failing an otherwise-successful run.
+    try:
+        from .review import build_reviews
+
+        build_reviews(state.run_dir)
+    except Exception as e:
+        state.log.event("run", f"warning: failed to build review html: {e}")
     state.log.close()
     print(f"Run complete: {state.run_dir}")
     for p in state.outputs:

@@ -5,10 +5,11 @@ the run list/detail pages, the feedback POST route, and path-safety.
 """
 import base64
 import json
+import shutil
 
 import pytest
 
-from harness import cli, runstate, serve
+from harness import cli, revise, runstate, serve
 from harness.review import build_reviews
 from tests.conftest import FakeClient, json_response
 from tests.test_cli_run import AD_BRIEF_RESPONSE, _base_args, _patch_network
@@ -123,12 +124,31 @@ def test_cf_access_falls_back_to_basic_auth_when_header_missing(monkeypatch):
 # Pages render.
 # ---------------------------------------------------------------------------
 
-def test_run_list_renders_the_run(app_client, run_dir):
+def test_run_list_hides_test_runs_by_default_and_shows_with_flag(app_client, run_dir):
+    # Cycle 26b (bug 2): every run the test suite builds goes through
+    # FakeClient, so pipeline.prepare_run marks it dry_run -- hidden from the
+    # default run list.
+    state = runstate.load_state(run_dir)
+    assert state["dry_run"] is True
+
     resp = app_client.get("/", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert run_dir.name not in body
+    assert "Show test runs" in body
+
+    resp = app_client.get("/?show_test=1", headers=_basic_auth_header(REVIEWER, PASSWORD))
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert run_dir.name in body
     assert "needs_review" in body
+    assert "Hide test runs" in body
+    # Bug 3: ad name and product show up in the run list.
+    assert "hidden-costs-v2.transcript.txt" in body
+    ad_brief = json.loads((run_dir / "ad_brief.json").read_text())
+    facts_pack = json.loads((run_dir / "facts_pack.json").read_text())
+    assert ad_brief["source_file"] in body
+    assert facts_pack["product"]["name"] in body
 
 
 def test_run_detail_renders_iframe_and_form(app_client, run_dir):
@@ -151,6 +171,53 @@ def test_page_review_serves_the_review_html(app_client, run_dir):
     resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
     assert resp.status_code == 200
     assert b"Advertisement" in resp.data
+
+
+def test_page_review_builds_on_demand_when_review_file_missing(app_client, run_dir):
+    """Cycle 26b (bug 1): `harness run` now builds every page's review html
+    at the end of a successful run, but a run made before that fix (or one
+    whose review file was lost) has a rendered index.html with no review
+    file yet -- the route builds it on demand instead of 404ing."""
+    review_path = run_dir / "article-review.html"
+    assert review_path.exists()
+    review_path.unlink()
+
+    resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    assert b"Advertisement" in resp.data
+    assert review_path.exists()
+
+
+def test_page_review_placeholder_when_page_never_rendered(app_client, run_dir):
+    resp = app_client.get(
+        f"/run/{run_dir.name}/review/does-not-exist", headers=_basic_auth_header(REVIEWER, PASSWORD)
+    )
+    assert resp.status_code == 200
+    assert b"Page not rendered yet" in resp.data
+
+
+def test_page_review_still_resolves_after_a_revise(app_client, run_dir):
+    """Bug 3: `harness revise` renames the CURRENT index.html/review.html to
+    their .vN. names before writing the new current version (revise.py's
+    _version_existing_files) -- the review route always looks up the
+    unversioned `<page>-review.html`, so it must keep serving the latest
+    revision, not 404 or fall back to the original."""
+    runstate.request_changes(
+        run_dir, TENANT, page="article", by=REVIEWER,
+        notes="", cuts=["Buyers move on when the price is hidden."],
+    )
+    result = revise.revise_page(
+        run_dir, "article", by=REVIEWER, tenant=TENANT,
+        make_client_fn=lambda: (_ for _ in ()).throw(AssertionError("cut-only must not call the model")),
+    )
+    assert result["version"] == 1
+    assert (run_dir / "article-review.v1.html").exists()
+
+    resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    current = (run_dir / "article-review.html").read_text()
+    assert "Buyers move on when the price is hidden." not in current
+    assert resp.get_data(as_text=True) == current
 
 
 # ---------------------------------------------------------------------------
@@ -239,3 +306,24 @@ def test_run_id_path_traversal_is_rejected(app_client):
 def test_safe_path_rejects_traversal_directly(run_dir):
     assert serve._safe_path(run_dir, "../../../etc/passwd") is None
     assert serve._safe_path(run_dir, "article/page.json") is not None
+
+
+# ---------------------------------------------------------------------------
+# Non-run directories under out/ (e.g. FRIDAY-2026-09-11, _archive-test-runs)
+# ---------------------------------------------------------------------------
+
+def test_non_run_dirs_are_skipped(app_client, run_dir):
+    junk = TENANT.out_dir / "_archive-test-runs"
+    junk.mkdir(exist_ok=True)
+    (junk / "old-review.html").write_text("<html>junk</html>")
+    try:
+        resp = app_client.get("/?show_test=1", headers=_basic_auth_header(REVIEWER, PASSWORD))
+        assert resp.status_code == 200
+        assert "_archive-test-runs" not in resp.get_data(as_text=True)
+
+        resp = app_client.get(
+            "/run/_archive-test-runs", headers=_basic_auth_header(REVIEWER, PASSWORD)
+        )
+        assert resp.status_code == 404
+    finally:
+        shutil.rmtree(junk)

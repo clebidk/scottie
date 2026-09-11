@@ -1064,3 +1064,61 @@ total, not this revise's; the revise's own cost is the separate $0.0812 line).
 prior cycle's own FIXLOG entry also did) appends to those files; neither is tracked or
 gitignored today. Pre-existing test-isolation gap, not touched this cycle -- named here rather
 than silently worked around.
+
+## Cycle 26b
+
+Hotfix on the review site (harness/serve.py), reported from a screenshot: a run made with
+`harness run` alone (no separate `harness review`) showed "Not Found" inside the run detail
+page's iframe.
+
+### Bug 1 -- iframe 404 when `<page>-review.html` doesn't exist yet
+
+`harness/review.py`'s `build_reviews` was split into a new `build_review_for_page(run_dir,
+page_name)` (one cartridge) that `build_reviews` now just loops over -- same behavior, no
+duplicated inlining logic. `harness/serve.py`'s `page_review` route: when the review file is
+missing but `<run>/<page>/index.html` exists, it now calls `build_review_for_page` on demand,
+writes the result to the expected path, and serves it; when neither file exists it serves a
+200 "Page not rendered yet" page (was Flask's default 404) so the iframe always shows
+something readable. `harness/pipeline.py`'s `execute()` now also calls `review.build_reviews`
+itself right after a successful run (before `state.log.close()`), wrapped in a bare
+`try/except` that logs a `run:` warning line to the run's own log instead of failing the run --
+so new runs get every page's review html without a separate `harness review` call, and old
+runs fall back to the on-demand path above.
+
+### Bug 2 -- run list showed test-suite artifacts
+
+`tests/conftest.py`'s `FakeClient` runs every test in this suite against the tenant's real
+`out/` dir (`tests/support.py`'s `TENANT`), so 161+ test runs had accumulated there
+indistinguishable from real ones. `harness/runstate.py`'s `init_state` gained a `dry_run` flag,
+written into state.json going forward; `harness/pipeline.py`'s `prepare_run` sets it by
+checking `type(state.client).__name__ == "FakeClient"` (no import of the test double). The run
+list (`harness/serve.py`'s `run_list` route and new `_looks_like_test_run` helper) hides a run
+by default when `state.json`'s `dry_run` is true, its run log has no `input_tokens=` line
+(covers pre-fix fake runs and any run log doesn't exist for), or it has no page's rendered
+directory at all -- with a "Show test runs (N hidden)" / "Hide test runs" toggle
+(`?show_test=1`) linking back and forth. A new `_is_run_dir` helper (state.json or
+ad_brief.json present) replaces the old bare `state.json` check everywhere a run id is
+resolved, so non-run directories under `out/` (`FRIDAY-2026-09-11`, `_archive-test-runs`) were
+already excluded by the state.json check and stay excluded now via the same helper.
+
+### Bug 3 -- checked, nothing broken
+
+Run list already showed ad name/product (`_run_summary`), sorted newest-first
+(`runs.sort(key=..., reverse=True)`), and the run detail page already renders the source ad
+inline (`_render_source_ad`). `harness/revise.py`'s versioning (`index.vN.html`,
+`<page>-review.vN.html`) already leaves the *current*, unversioned `index.html` /
+`<page>-review.html` in place after every revise -- `page_review`'s lookup is unaffected.
+Locked in with a new test (`test_page_review_still_resolves_after_a_revise`) that revises a
+page and confirms the review route serves the new content, not a 404 or a stale version.
+
+### Tests
+
+New: on-demand review build (`test_page_review_builds_on_demand_when_review_file_missing`),
+missing-page placeholder (`test_page_review_placeholder_when_page_never_rendered`), test runs
+hidden by default / shown with the flag, now also checking ad name + product appear
+(`test_run_list_hides_test_runs_by_default_and_shows_with_flag`, replaces the old
+`test_run_list_renders_the_run`), non-run dirs skipped from the list and 404 by id
+(`test_non_run_dirs_are_skipped`), and the Bug 3 revise/lookup check above.
+
+`.venv-local/bin/pytest -q` on the Mac clone: **738 total, 738 passed, 0 failed** (734 + 4 net
+new). `.venv-local/bin/ruff check .`: clean.

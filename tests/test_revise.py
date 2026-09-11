@@ -29,10 +29,10 @@ def _make_run(monkeypatch):
     exit_code = cli.cmd_run(_base_args())
     assert exit_code == 0
     run_dir = newest_run_dir(TENANT.out_dir, "*-hidden-costs-v2-transcript-*")
-    # `harness run` alone doesn't write <page>-review.html -- that's the
-    # separate `harness review` step (harness/review.py) real usage always
-    # runs before a reviewer ever sees a run. Do that here too, so a revise
-    # has a real "current" review.html to version.
+    # Cycle 26b: `harness run` now builds every page's <page>-review.html
+    # itself at the end of a successful run, but this call is kept (it's
+    # idempotent) so this fixture doesn't depend on that to give a revise a
+    # real "current" review.html to version.
     build_reviews(run_dir)
     return run_dir
 
