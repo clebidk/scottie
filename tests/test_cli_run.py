@@ -158,7 +158,11 @@ def test_run_reaches_price_based_product_inference_in_the_real_pipeline_order(mo
     responses = [
         json_response(PRICE_INFERENCE_AD_BRIEF),
         json_response({}),  # fix cycle 12 item 4: semantic-match call, no mappings
-        json_response(ARTICLE_PAGE),
+        # images=[]: this run grounds on the Mini, whose real asset manifest
+        # does not contain the Fuji id the shared ARTICLE_PAGE carries, and
+        # the phase-2 image-allowlist gate check would (correctly) fail it.
+        # This test is about price-based product inference, not assets.
+        json_response(dict(ARTICLE_PAGE, images=[])),
     ]
     client = FakeClient(responses)
     monkeypatch.setattr(cli, "make_client", lambda: client)

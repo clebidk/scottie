@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from . import notify
+from . import pagechecks
 from . import pipeline
 from . import runstate
 from . import shopify as shopify_body_mod
@@ -178,6 +179,12 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         problems += e.items
     problems += find_word_range_violation(page, word_range)
     problems += find_cta_violation(page, cartridge_name, allowed_cta_texts)
+    # Kimi long-run phase 2: the writer owns a page's asset ids and CTA urls,
+    # so these two pagechecks live here where the repair loop can fix them.
+    # The rendered-HTML checks stay post-render backstops in render_page --
+    # see harness/pagechecks.py's module docstring for why.
+    problems += pagechecks.find_image_allowlist_violations(page, facts_pack)
+    problems += pagechecks.find_internal_link_violations(page)
     return problems
 
 

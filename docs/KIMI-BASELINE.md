@@ -216,21 +216,22 @@ fails) per check:
 2. *Internal links* — every URL field in page.json is internal (tenant
    `site_host`, or relative); at least one internal link present. Page-gate
    level. Post-render backstop counts rendered `<a href>` internal links.
-3. *JSON-LD* — `build_json_ld`'s output for the page is JSON-serializable,
-   carries `@context`/`@type`, and the type matches the cartridge's
+3. *JSON-LD* — the rendered page's `application/ld+json` block parses as
+   JSON, carries `@context`/`@type`, and the type matches the cartridge's
    (article→Article, product-page→Product, listicle→ItemList,
-   longform→FAQPage). Page-gate level (the builder is a pure function of
-   page.json + facts_pack — no render needed).
+   longform→FAQPage). Post-render backstop, so what is checked is exactly
+   what ships.
 4. *HTML validity* — rendered `index.html` parses with zero errors under an
    HTML5 parser (html5lib, `strict=True`: unclosed tags, bad nesting).
    Post-render backstop in `render_page`, same pattern as the existing
    `html_visible_text` backstop. **Registered deviation from the plan's
    "repair loop handles failures":** writer prose is autoescaped (R37) and
    JSON-LD goes through `| tojson`, so page.json content cannot produce
-   invalid HTML — a validity failure is a template/renderer/tenant-file bug
-   no writer repair can fix; burning two repair calls before the same STOP
-   would only spend budget. The three page.json-level checks above *are* in
-   the repair loop, which is where repairable failures live.
+   invalid HTML or invalid JSON-LD, and the writer never controls `@type` —
+   a structural failure is a template/renderer/tenant-file bug no writer
+   repair can fix; burning two repair calls before the same STOP would only
+   spend budget. The two page.json-level checks above *are* in the repair
+   loop, which is where repairable failures live.
 
 Done when: all four checks fail a planted-bad page and pass the known-good
 canned pages; the image/link/JSON-LD failures are resolved by the repair loop

@@ -15,6 +15,7 @@ import jinja2
 from PIL import Image
 
 from . import ingest
+from . import pagechecks
 from . import tenant as tenant_mod
 from .textutil import safe_filename
 from .claims import (
@@ -566,6 +567,16 @@ def render_page(
     hits += find_missing_attribution(page)
     if hits:
         raise ClaimsGateFailure(f"html_visible_text:{cartridge_name}", hits)
+
+    # Kimi long-run phase 2: structural backstops on the rendered document.
+    # Same fail-before-write pattern as the visible-text backstop above; a
+    # failure here is a template/renderer/tenant-file bug, never something a
+    # writer repair could fix (see harness/pagechecks.py's module docstring).
+    structural_hits = pagechecks.find_html_validity_violations(html)
+    structural_hits += pagechecks.find_rendered_json_ld_violations(html, cartridge_name)
+    structural_hits += pagechecks.find_rendered_internal_link_violations(html, tenant=tenant)
+    if structural_hits:
+        raise ClaimsGateFailure(f"html_structure:{cartridge_name}", structural_hits)
 
     (out_dir / "index.html").write_text(html)
     (out_dir / "page.json").write_text(json.dumps(page, indent=2))

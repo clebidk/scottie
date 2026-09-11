@@ -10,6 +10,13 @@ from harness.render import ASSET_MAX_LONG_EDGE, ASSET_PNG_MAX_BYTES, download_as
 from io import BytesIO
 
 
+# The first asset id in the real Fuji facts_pack manifest (claims/
+# products.json's image_urls[0] for the Fuji slug) -- see the comment on
+# FACTS_PACK["assets"] below.
+FUJI_MANIFEST_ASSET_ID = (
+    "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1"
+)
+
 FACTS_PACK = {
     "product": {
         "name": "Fuji",
@@ -42,7 +49,14 @@ FACTS_PACK = {
         {"id": "gbrain-allowlist-360-full-spectrum", "text": "360 degree full spectrum infrared heater placement.", "category": "spec", "source": "https://peaksaunas.com/products/fuji"},
         {"id": "gbrain-allowlist-us-owned", "text": "US-owned company.", "category": "trust", "source": "https://peaksaunas.com/pages/austin-laudenslager"},
     ],
-    "assets": [{"id": "asset-1", "url": "https://cdn.shopify.com/fuji-1.png", "kind": "image", "alt": "Fuji sauna"}],
+    # Kimi long-run phase 2: the asset id is the real Fuji manifest id
+    # (claims/products.json image_urls[0] -> asset-<slug>-1), not a
+    # fixture-only one -- the new image-allowlist gate check
+    # (harness/pagechecks.py) compares page.json asset ids against the run's
+    # actual facts_pack manifest, so these pages only keep working
+    # unmodified against the real claims store (tests/test_cli_run.py) if
+    # the id resolves there too.
+    "assets": [{"id": FUJI_MANIFEST_ASSET_ID, "url": "https://cdn.shopify.com/fuji-1.png", "kind": "image", "alt": "Fuji sauna"}],
 }
 
 AD_BRIEF = {
@@ -96,7 +110,7 @@ ARTICLE_PAGE = {
     },
     "close": {"paragraphs": [{"text": "Peak Saunas is one brand that does this."}]},
     "cta": {"text": "See the models", "url": "https://peaksaunas.com/collections/all"},
-    "images": [{"asset_id": "asset-1"}],
+    "images": [{"asset_id": FUJI_MANIFEST_ASSET_ID}],
 }
 
 PRODUCT_PAGE_PAGE = {
@@ -107,7 +121,7 @@ PRODUCT_PAGE_PAGE = {
         "promise": "A two-person sauna with the price shown up front.",
         "price_line": {"text": "$8,250.", "claim_ids": ["price-fuji"]},
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
-        "hero_image": {"asset_id": "asset-1"},
+        "hero_image": {"asset_id": FUJI_MANIFEST_ASSET_ID},
     },
     "proof_bullets": [
         # Fix cycle 7 item 1: warranty wording is now gated to the fixed
@@ -133,7 +147,7 @@ LONGFORM_PAGE = {
     "hero": {
         "headline": "The hidden cost of a hidden price",
         "subhead": "Why checkout matters as much as the product.",
-        "hero_image": {"asset_id": "asset-1"},
+        "hero_image": {"asset_id": FUJI_MANIFEST_ASSET_ID},
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
     },
     "problem": {"heading": "Why shoppers give up", "paragraphs": [{"text": "A lot of sites make you call in for a number."}] + _filler_paragraphs(20)},
@@ -154,7 +168,7 @@ LONGFORM_PAGE = {
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
         "warranty_line": {"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
     },
-    "images": [{"asset_id": "asset-1"}],
+    "images": [{"asset_id": FUJI_MANIFEST_ASSET_ID}],
 }
 
 
@@ -266,8 +280,8 @@ def test_render_page_downloads_used_assets_and_rewrites_urls(tmp_path):
     html = index_path.read_text()
 
     assert downloaded == {"https://cdn.shopify.com/fuji-1.png": 1}
-    assert 'src="assets/asset-1.png"' in html
-    assert (out_dir / "assets" / "asset-1.png").read_bytes() == b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+    assert f'src="assets/{FUJI_MANIFEST_ASSET_ID}.png"' in html
+    assert (out_dir / "assets" / f"{FUJI_MANIFEST_ASSET_ID}.png").read_bytes() == b"\xff\xd8\xff\xe0fake-jpeg-bytes"
 
 
 def test_render_page_skips_asset_that_downloads_as_html(tmp_path):

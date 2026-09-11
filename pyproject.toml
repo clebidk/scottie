@@ -9,6 +9,10 @@ dependencies = [
     "jinja2",
     "pillow",
     "pyyaml",
+    # harness/pagechecks.py's rendered-HTML validity backstop: a real HTML5
+    # parser (strict mode reports unclosed tags / bad nesting), where the
+    # stdlib html.parser never errors.
+    "html5lib",
     # Cycle 26: harness/serve.py, the reviewer web app -- a small, mature
     # WSGI framework rather than hand-rolling routing/auth/multipart-form
     # parsing over the stdlib http.server.
