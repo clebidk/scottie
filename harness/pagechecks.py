@@ -43,6 +43,7 @@ JSON_LD_TYPES = {
     "product-page": "Product",
     "listicle": "ItemList",
     "longform": "FAQPage",
+    "comparison": "FAQPage",
 }
 
 _LD_SCRIPT_RE = re.compile(r'<script\s+type="application/ld\+json">(.*?)</script>', re.DOTALL)

@@ -260,6 +260,18 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
             if q and a:
                 mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
         return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
+    if cartridge_name == "comparison":
+        # Kimi long-run phase 6: same FAQPage shape as longform, but the
+        # comparison schema's faq items are {question, answer} (the
+        # faq-accordion block's binding names).
+        faq_items = page.get("faq", {}).get("questions", []) if isinstance(page.get("faq"), dict) else []
+        mains = []
+        for item in faq_items:
+            q = item.get("question") if isinstance(item, dict) else None
+            a = item.get("answer") if isinstance(item, dict) else None
+            if q and a:
+                mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
+        return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
     return {}
 
 

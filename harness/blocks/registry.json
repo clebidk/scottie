@@ -311,7 +311,7 @@
         "screenshot": "comparison-table/screenshot.svg",
         "source_pattern": "design-notes-batch50.md section 05 wireframe",
         "sections": ["comparison", "body"],
-        "bindings": {"columns": "list of column label strings", "rows": "list of {label, cells} -- every cell backed by a claim id at the page.json level"}
+        "bindings": {"columns": "list of column label strings", "rows": "list of {label, cells} -- a cell is a plain string or a {text, claim_ids} object; the comparison cartridge requires claim ids on every cell"}
       }
     },
     {
@@ -503,7 +503,7 @@
         "screenshot": "verdict-box/screenshot.svg",
         "source_pattern": "design-notes-batch50.md section 05 wireframe",
         "sections": ["verdict", "close"],
-        "bindings": {"eyebrow": "optional string", "heading": "string", "text": "string", "cta": "{text, url} -- the page's one CTA, verbatim"}
+        "bindings": {"eyebrow": "optional string", "heading": "string", "paragraphs": "list of {text}", "cta": "{text, url} -- the page's one CTA, verbatim"}
       }
     }
   ]

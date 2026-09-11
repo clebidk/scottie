@@ -34,6 +34,16 @@ CANNED_PAGES = {
     "longform": LONGFORM_PAGE,
 }
 
+
+def _canned_page(cartridge):
+    if cartridge == "comparison":
+        # Imported lazily so the driver's startup stays light when the
+        # comparison cartridge isn't involved.
+        from tests.test_comparison import COMPARISON_PAGE
+
+        return COMPARISON_PAGE
+    return CANNED_PAGES[cartridge]
+
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 
 
@@ -154,13 +164,16 @@ def main(argv=None):
     ns = parser.parse_args(argv)
 
     selected = [c.strip() for c in ns.cartridges.split(",") if c.strip()]
-    unknown = [c for c in selected if c not in CANNED_PAGES]
+    unknown = [c for c in selected if c not in CANNED_PAGES and c != "comparison"]
     if unknown:
-        print(f"no canned page for cartridge(s): {unknown}; have: {sorted(CANNED_PAGES)}", file=sys.stderr)
+        print(f"no canned page for cartridge(s): {unknown}; have: {sorted(CANNED_PAGES)} + comparison", file=sys.stderr)
         return 1
 
     brief = _brief_for(ns.input)
-    responses = [json_response(brief), json_response({})] + [json_response(CANNED_PAGES[c]) for c in selected]
+    responses = [json_response(brief)]
+    if brief.get("claims_made"):
+        responses.append(json_response({}))  # the semantic-match call only happens when claims exist
+    responses += [json_response(_canned_page(c)) for c in selected]
     client = FakeClient(responses)
 
     args = argparse.Namespace(

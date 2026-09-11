@@ -170,7 +170,8 @@ files never hardcode a company name.
 harness/       the engine: pipeline, tenant resolution, ingest, grounding,
                claims gate, writer, renderer, budget, vocab
 cartridges/    tenant-neutral page types (article, listicle, longform,
-               product-page): cartridge.md, rubric.md, schema.json, template.html
+               product-page, comparison [draft, opt-in]): cartridge.md,
+               rubric.md, schema.json, template.html
 agents/        Markdown specs for each worker (ingest, grounder, writer,
                gate-repair, reviewer, design-audit, drive-index, research)
 workflows/     named pipelines as YAML; only steps keyed `stage:` execute

@@ -1,6 +1,6 @@
 <section class="bk-verdict-box">
   {% if eyebrow %}<p class="bk-verdict-box__eyebrow">{{ eyebrow }}</p>{% endif %}
   <h2 class="bk-verdict-box__heading">{{ heading }}</h2>
-  <p class="bk-verdict-box__text">{{ text }}</p>
+  {% for p in paragraphs %}<p class="bk-verdict-box__text">{{ p.text }}</p>{% endfor %}
   <p class="bk-verdict-box__cta"><a class="bk-verdict-box__button" href="{{ cta.url }}">{{ cta.text }}</a></p>
 </section>

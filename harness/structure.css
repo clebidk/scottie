@@ -165,6 +165,18 @@ table.adv-specs th, table.adv-specs td {
 /* ---------------------------------------------------------------------
    Mobile (<=480px) -- fix cycle 23 / FIXLOG Cycle 19 mobile pass
    --------------------------------------------------------------------- */
+/* Comparison cartridge (phase 6) -- the page wrapper and its non-block
+   sections. Section components (proof row, table, FAQ, verdict) come from
+   the included blocks' own block.css. */
+.adv-comparison { margin: 0; }
+.adv-comparison-header { margin: 0 0 24px; }
+.adv-eyebrow { color: var(--adv-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; margin: 0 0 8px; }
+.adv-risk-reversal { color: var(--adv-muted); font-size: 0.9rem; margin: 8px 0 0; }
+.adv-comparison-table { margin: 0 0 24px; }
+.adv-deep-dive { margin: 0 0 20px; }
+.adv-deep-dive h2 { margin: 0 0 8px; }
+.adv-alternative-strengths { margin: 0 0 24px; }
+
 @media (max-width: 480px) {
   .adv-wrap { padding: 16px 14px 96px; }
 

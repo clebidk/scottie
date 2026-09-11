@@ -1266,6 +1266,36 @@ def find_second_cta_violation(page_json):
     return hits
 
 
+# ---------------------------------------------------------------------------
+# Kimi long-run phase 6: the comparison cartridge's spec table is the one
+# place a page states facts about something other than the run's own product
+# -- so every cell must carry at least one claim id (validity of the id
+# itself is validate_page_claim_ids' job, unchanged). No-op when the page has
+# no comparison_table, same opt-out shape as find_proof_stats_violations.
+# ---------------------------------------------------------------------------
+
+def find_comparison_table_violations(page_json):
+    table = page_json.get("comparison_table") if isinstance(page_json, dict) else None
+    if not table:
+        return []
+    hits = []
+    rows = table.get("rows") or []
+    for i, row in enumerate(rows):
+        cells = row.get("cells") or []
+        for j, cell in enumerate(cells):
+            path = f"$.comparison_table.rows[{i}].cells[{j}]"
+            if not isinstance(cell, dict) or not cell.get("claim_ids"):
+                hits.append(
+                    {
+                        "path": path,
+                        "issue": "comparison table cell has no claim_ids -- every cell in a "
+                                 "comparison table must cite at least one verified claim",
+                        "text": cell.get("text") if isinstance(cell, dict) else str(cell),
+                    }
+                )
+    return hits
+
+
 def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None, ad_brief=None):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
     digit_exempt_terms = facts_pack.get("digit_exempt_terms")
@@ -1286,6 +1316,7 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
     problems += find_missing_attribution(page_json)
     problems += find_proof_stats_violations(page_json)
+    problems += find_comparison_table_violations(page_json)
     problems += find_second_cta_violation(page_json)
     if problems:
         raise ClaimsGateFailure(f"page_json:{cartridge_name}", problems)

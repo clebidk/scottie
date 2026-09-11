@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ page.headline }}{% endblock %}
+{% block byline %}<div class="adv-byline">{{ byline_html | safe }}</div>{% endblock %}
+{% block content %}
+{# Kimi long-run phase 6: the first block-native cartridge -- every section
+   renders through a registered layout block (block_choice resolves the
+   writer's page.json "blocks" pick, or the slot default), and each chosen
+   block's own block.css is inlined below (ignore missing: a
+   structure-styled block ships no css file). #}
+{% set _proof_block = block_choice("proof", "proof-stat-row") %}
+{% set _table_block = block_choice("table", "comparison-table") %}
+{% set _faq_block = block_choice("faq", "faq-accordion") %}
+{% set _verdict_block = block_choice("verdict", "verdict-box") %}
+<style>
+{% for _b in [_proof_block, _table_block, _faq_block, _verdict_block] %}{% include _b ~ "/block.css" ignore missing %}{% endfor %}
+</style>
+<div class="adv-comparison">
+  <header class="adv-comparison-header">
+    <p class="adv-badge">Advertisement</p>
+    <p class="adv-eyebrow">{{ page.eyebrow }}</p>
+    <h1>{{ page.headline }}</h1>
+    <p class="adv-dek">{{ page.subhead }}</p>
+    {% if page.proof_stats %}
+    {% with stats=page.proof_stats %}{% include _proof_block ~ "/block.html" %}{% endwith %}
+    {% endif %}
+    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
+    {% if page.risk_reversal %}<p class="adv-risk-reversal">{{ page.risk_reversal.text }}</p>{% endif %}
+  </header>
+
+  <section class="adv-comparison-table">
+    {% with columns=page.comparison_table.columns, rows=page.comparison_table.rows %}{% include _table_block ~ "/block.html" %}{% endwith %}
+  </section>
+
+  {% for section in page.deep_dives %}
+  <section class="adv-deep-dive">
+    <h2>{{ section.heading }}</h2>
+    {% for p in section.paragraphs %}<p>{{ p.text }}</p>{% endfor %}
+  </section>
+  {% endfor %}
+
+  <section class="adv-alternative-strengths">
+    <h2>{{ page.alternative_strengths.heading }}</h2>
+    <ul>
+      {% for item in page.alternative_strengths.strengths %}<li>{{ item.text }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  <section class="adv-faq">
+    {% with items=page.faq.questions %}{% include _faq_block ~ "/block.html" %}{% endwith %}
+  </section>
+
+  {% with eyebrow=none, heading=page.verdict.heading, paragraphs=page.verdict.paragraphs, cta={"text": page.cta_text, "url": page.cta_url} %}{% include _verdict_block ~ "/block.html" %}{% endwith %}
+</div>
+{% endblock %}

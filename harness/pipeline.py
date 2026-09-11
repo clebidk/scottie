@@ -242,6 +242,10 @@ def ground(state):
         live_price_claim=live_price_claim,
         reviews_claim=state.reviews_claim,
         pdp_claims=state.pdp_claims,
+        # Kimi long-run phase 6: only a run with the comparison cartridge
+        # selected gets comparison targets (and their backing claims) in its
+        # facts_pack -- every other run's facts_pack is unchanged.
+        include_comparison="comparison" in state.selected,
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
 

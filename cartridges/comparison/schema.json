@@ -1,0 +1,180 @@
+{
+  "type": "object",
+  "allowed_cta_texts": ["See the models", "Shop the {model_name}", "See pricing"],
+  "required": ["eyebrow", "headline", "subhead", "comparison_table", "deep_dives", "alternative_strengths", "faq", "verdict", "cta_text", "cta_url"],
+  "block_slots": {
+    "proof": {
+      "description": "Layout block for the header proof-stat row. Set top-level \"blocks\": {\"proof\": \"<block-id>\"} to one of the listed ids; omit for the default.",
+      "blocks": ["proof-stat-row", "proof-stat-row-cards"],
+      "default": "proof-stat-row"
+    },
+    "table": {
+      "description": "Layout block for the comparison table.",
+      "blocks": ["comparison-table"],
+      "default": "comparison-table"
+    },
+    "faq": {
+      "description": "Layout block for the FAQ section.",
+      "blocks": ["faq-accordion"],
+      "default": "faq-accordion"
+    },
+    "verdict": {
+      "description": "Layout block for the closing verdict box.",
+      "blocks": ["verdict-box"],
+      "default": "verdict-box"
+    }
+  },
+  "properties": {
+    "eyebrow": {
+      "type": "string",
+      "description": "Literal '<A> vs. <B>' naming the run's product and the compared subject, e.g. 'the Fuji vs. the Mini' for {{ tenant.name }}'s own lineup. Never a competitor name the tenant forbids."
+    },
+    "headline": {
+      "type": "string",
+      "description": "8 words or fewer; a literal repeat or plain reframe of the eyebrow. No hype, no unsourced superlative."
+    },
+    "subhead": {
+      "type": "string",
+      "description": "One value-prop sentence naming what the comparison decides."
+    },
+    "proof_stats": {
+      "type": "array",
+      "description": "Optional 2-3 stat proof row under the subhead -- verified claims only, each with claim_ids. Omit entirely rather than pad.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {"type": "string"},
+          "label": {"type": "string"},
+          "claim_ids": {"type": "array"}
+        }
+      }
+    },
+    "comparison_table": {
+      "type": "object",
+      "description": "The sourced spec table. Every cell is {text, claim_ids} with at least one claim id from facts_pack.verified_claims -- the gate rejects any cell without one. Rows come from the compared subject's own rows in facts_pack.comparison_targets.",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "description": "Column labels: the spec dimension first, then the run's product, then the compared subject.",
+          "items": {"type": "string"}
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {"type": "string", "description": "The spec dimension, e.g. 'Capacity'."},
+              "cells": {
+                "type": "array",
+                "description": "One {text, claim_ids} per column after the first. claim_ids is required on every cell.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {"type": "string"},
+                    "claim_ids": {"type": "array"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "deep_dives": {
+      "type": "array",
+      "description": "2-4 sections, one per dimension the run's product wins on.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "heading": {"type": "string"},
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {"type": "string"},
+                "claim_ids": {"type": "array"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "alternative_strengths": {
+      "type": "object",
+      "description": "Honest strengths of the alternative -- 2-4 entries, each a real sourced fact (claim_ids required). Compare on facts, never disparage. (The list field is named 'strengths', not 'items' -- 'items' collides with a dict's own .items method under Jinja's attribute-then-subscript lookup.)",
+      "properties": {
+        "heading": {"type": "string"},
+        "strengths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "faq": {
+      "type": "object",
+      "properties": {
+        "questions": {
+          "type": "array",
+          "description": "3-5 questions a comparer actually asks.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": {"type": "string"},
+              "answer": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "description": "The bottom line: who should pick which, then the same CTA once more.",
+      "properties": {
+        "heading": {"type": "string"},
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "risk_reversal": {
+      "type": "object",
+      "description": "Optional 1-2 line microcopy under the header CTA -- verified claims only (e.g. the fixed warranty sentence); never a guarantee the tenant does not offer.",
+      "properties": {
+        "text": {"type": "string"},
+        "claim_ids": {"type": "array"}
+      }
+    },
+    "images": {
+      "type": "array",
+      "description": "2-4 images from the asset library, referenced by asset_id only.",
+      "items": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
+    },
+    "cta_text": {
+      "type": "string",
+      "description": "The ONE CTA button text for this page, from allowed_cta_texts -- rendered in the header and the verdict box, verbatim both times."
+    },
+    "cta_url": {
+      "type": "string",
+      "description": "The CTA's destination URL, reused everywhere cta_text is."
+    },
+    "blocks": {
+      "type": "object",
+      "description": "Optional layout-block picks per slot (see block_slots); omit to render the defaults."
+    }
+  }
+}
