@@ -37,3 +37,4 @@ def test_extract_json_ignores_a_duplicated_trailing_json_blob():
 def test_extract_json_still_raises_on_genuinely_malformed_json():
     with pytest.raises(json.JSONDecodeError):
         extract_json('{"a": }')
+

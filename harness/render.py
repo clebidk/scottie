@@ -19,7 +19,7 @@ from . import blocks
 from . import ingest
 from . import pagechecks
 from . import tenant as tenant_mod
-from .textutil import safe_filename
+from .textutil import safe_filename, walk_page
 from .claims import (
     ClaimsGateFailure,
     collect_claim_ids,
@@ -299,18 +299,9 @@ def asset_alt(asset, product_short_name, tenant=None):
 def collect_asset_ids(node):
     """Every "asset_id" referenced anywhere in page.json."""
     ids = set()
-
-    def walk(n):
-        if isinstance(n, dict):
-            if n.get("asset_id"):
-                ids.add(n["asset_id"])
-            for v in n.values():
-                walk(v)
-        elif isinstance(n, list):
-            for v in n:
-                walk(v)
-
-    walk(node)
+    for _path, n in walk_page(node):
+        if isinstance(n, dict) and n.get("asset_id"):
+            ids.add(n["asset_id"])
     return ids
 
 

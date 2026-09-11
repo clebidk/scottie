@@ -27,7 +27,7 @@ from .claims import (
     strip_leaked_claim_ids,
     warranty_claim_id,
 )
-from .textutil import NON_PROSE_KEYS
+from .textutil import NON_PROSE_KEYS, walk_page
 from .write import parse_word_range, resolve_allowed_cta_texts, word_range_target, write_page
 
 
@@ -45,16 +45,9 @@ MAX_REPAIR_ATTEMPTS = 2
 
 
 def _collect_prose_strings(node, out):
-    if isinstance(node, dict):
-        for k, v in node.items():
-            if k in NON_PROSE_KEYS:
-                continue
-            _collect_prose_strings(v, out)
-    elif isinstance(node, list):
-        for v in node:
-            _collect_prose_strings(v, out)
-    elif isinstance(node, str):
-        out.append(node)
+    for _path, n in walk_page(node, skip_keys=NON_PROSE_KEYS):
+        if isinstance(n, str):
+            out.append(n)
 
 
 def count_words(page_json):

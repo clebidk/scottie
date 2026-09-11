@@ -25,6 +25,7 @@ import html5lib
 
 from . import tenant as tenant_mod
 from . import vocab
+from .textutil import walk_page
 
 # page.json keys that carry a link target. Every cartridge's CTA is one of
 # these (article nests it at cta.url; the others use a flat cta_url); image
@@ -51,14 +52,11 @@ _ANCHOR_HREF_RE = re.compile(r'<a\s[^>]*?href="([^"]*)"', re.IGNORECASE)
 def _walk_keyed_strings(node, keys, path="$"):
     """Yield (path, key, value) for every dict entry whose key is in `keys`
     and whose value is a non-empty string, anywhere in page.json."""
-    if isinstance(node, dict):
-        for k, v in node.items():
-            if k in keys and isinstance(v, str) and v:
-                yield f"{path}.{k}", k, v
-            yield from _walk_keyed_strings(v, keys, f"{path}.{k}")
-    elif isinstance(node, list):
-        for i, v in enumerate(node):
-            yield from _walk_keyed_strings(v, keys, f"{path}[{i}]")
+    for node_path, n in walk_page(node, path):
+        if isinstance(n, dict):
+            for k, v in n.items():
+                if k in keys and isinstance(v, str) and v:
+                    yield f"{node_path}.{k}", k, v
 
 
 def _is_internal_url(url, site_host):
