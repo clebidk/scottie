@@ -22,6 +22,7 @@ from . import workflows
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from . import doctor as doctor_mod
+from . import evals as evals_mod
 from . import exits
 from . import config as harness_config
 from .errors import HarnessError
@@ -472,40 +473,39 @@ def cmd_claims_list(args):
 # harness score -- see evals/rubric.md for what each axis means.
 # ---------------------------------------------------------------------------
 
-def record_score(tenant, *, run_dir, angle, brand, claims, publish, by=None, note="", page=None):
-    """Appends one line to tenants/<t>/evals/scores.jsonl. Shared by cmd_score
-    (below) and harness/serve.py's reviewer web app's feedback form, so both
-    write the exact same schema -- `page` is new in Cycle 26 (the review site
-    scores one page of a multi-page run at a time) and is only added to the
-    entry when given, so every score `harness score` itself ever wrote, and
-    every one it writes from here on, keeps the same shape."""
-    scores_path = tenant.evals_path
-    scores_path.parent.mkdir(parents=True, exist_ok=True)
-    entry = {
-        "tenant": tenant.name,
-        "run_dir": str(run_dir),
-        "angle": angle,
-        "brand": brand,
-        "claims": claims,
-        "publish": publish,
-        "by": by or (tenant.author("contributor") or {}).get("name") or "operator",
-        "note": note or "",
-        "scored_at": datetime.datetime.now().isoformat(timespec="seconds"),
-    }
-    if page is not None:
-        entry["page"] = page
-    with open(scores_path, "a") as f:
-        f.write(json.dumps(entry) + "\n")
-    return entry
-
-
 def cmd_score(args):
     tenant = tenant_mod.load_tenant(args.tenant)
-    record_score(
+    evals_mod.record_score(
         tenant, run_dir=args.run_dir, angle=args.angle, brand=args.brand,
         claims=args.claims, publish=args.publish, by=args.by, note=args.note,
     )
     print(f"Recorded score for {args.run_dir} -> {tenant.evals_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# harness dataset export / harness eval report (Kimi long-run phase 5)
+# ---------------------------------------------------------------------------
+
+def cmd_dataset_export(args):
+    """`harness dataset export --tenant <t> [--out PATH]`: one JSONL record per
+    (run, cartridge) -- ad_brief, facts_pack summary, cartridge/block content
+    versions, page.json, gate history, deterministic check results, and the
+    human scores joined from evals/scores.jsonl. The record a future
+    fine-tune would be built from (correction 7: not before ~200
+    human-scored pages)."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    count, out = evals_mod.export_dataset(tenant, out_path=args.out)
+    print(f"Wrote {count} record(s) -> {out}")
+    return 0
+
+
+def cmd_eval_report(args):
+    """`harness eval report --tenant <t>`: scores.jsonl aggregated by
+    cartridge, block, angle, and reviewer, with the rubric's publish bar
+    (mean would-publish >= 4) per bucket."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    print(evals_mod.format_report(evals_mod.build_report(tenant)))
     return 0
 
 
@@ -662,6 +662,19 @@ def build_parser():
     p_score.add_argument("--note")
     _add_tenant_flag(p_score)
     p_score.set_defaults(func=cmd_score)
+
+    p_dataset = sub.add_parser("dataset", help="dataset export for eval/fine-tune records")
+    dataset_sub = p_dataset.add_subparsers(dest="dataset_command", required=True)
+    p_dataset_export = dataset_sub.add_parser("export", help="write one JSONL record per (run, cartridge)")
+    p_dataset_export.add_argument("--out", help="default: tenants/<t>/evals/dataset.jsonl")
+    _add_tenant_flag(p_dataset_export)
+    p_dataset_export.set_defaults(func=cmd_dataset_export)
+
+    p_eval = sub.add_parser("eval", help="eval reports over evals/scores.jsonl")
+    eval_sub = p_eval.add_subparsers(dest="eval_command", required=True)
+    p_eval_report = eval_sub.add_parser("report", help="aggregate scores by cartridge, block, angle, reviewer")
+    _add_tenant_flag(p_eval_report)
+    p_eval_report.set_defaults(func=cmd_eval_report)
 
     p_tenant = sub.add_parser("tenant", help="create and inspect tenants")
     tenant_sub = p_tenant.add_subparsers(dest="tenant_command", required=True)
