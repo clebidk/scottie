@@ -1,0 +1,8 @@
+<ol class="bk-step-list">
+  {% for item in items %}
+  <li class="bk-step-list__step">
+    <strong class="bk-step-list__heading">{{ item.heading }}</strong>
+    <span class="bk-step-list__text">{{ item.text }}</span>
+  </li>
+  {% endfor %}
+</ol>

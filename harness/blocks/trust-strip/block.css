@@ -1,0 +1,6 @@
+.bk-trust-strip { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0; margin: 0 0 24px; }
+.bk-trust-strip__item { border: 1px solid var(--adv-border); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.bk-trust-strip__text { color: var(--adv-muted); font-size: 0.9rem; }
+@media (max-width: 480px) {
+  .bk-trust-strip { grid-template-columns: 1fr 1fr; }
+}

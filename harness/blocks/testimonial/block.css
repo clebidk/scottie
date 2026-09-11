@@ -1,0 +1,4 @@
+.bk-testimonial { margin: 0 0 24px; padding: 18px 20px; border-left: 3px solid var(--adv-accent); background: var(--adv-bg); }
+.bk-testimonial__quote { margin: 0; }
+.bk-testimonial__quote p { margin: 0; font-size: 1.05rem; }
+.bk-testimonial__attribution { color: var(--adv-muted); font-size: 0.9rem; margin-top: 10px; }

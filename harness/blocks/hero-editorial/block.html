@@ -1,0 +1,9 @@
+<section class="bk-hero-editorial">
+  {% if eyebrow %}<p class="bk-hero-editorial__eyebrow">{{ eyebrow }}</p>{% endif %}
+  <h1 class="bk-hero-editorial__title">{{ headline }}</h1>
+  {% if subhead %}<p class="bk-hero-editorial__subhead">{{ subhead }}</p>{% endif %}
+  {% if image %}
+  <img class="bk-hero-editorial__image" src="{{ image.url }}" alt="{{ image.alt }}" {% if image.width %}width="{{ image.width }}" height="{{ image.height }}"{% endif %}>
+  {% endif %}
+  <p class="bk-hero-editorial__cta"><a class="bk-hero-editorial__button" href="{{ cta.url }}">{{ cta.text }}</a></p>
+</section>

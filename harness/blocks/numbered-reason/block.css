@@ -1,0 +1,9 @@
+.bk-numbered-reason { display: flex; gap: 16px; margin: 0 0 28px; }
+.bk-numbered-reason__number { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; background: var(--adv-accent); color: var(--adv-bg); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.bk-numbered-reason__heading { margin: 0 0 8px; }
+.bk-numbered-reason__text { margin: 0 0 12px; }
+.bk-numbered-reason__image { display: block; max-width: 100%; width: auto; height: auto; border-radius: 8px; }
+@media (max-width: 480px) {
+  .bk-numbered-reason { gap: 10px; }
+  .bk-numbered-reason__number { width: 32px; height: 32px; }
+}

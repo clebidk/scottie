@@ -1,0 +1,13 @@
+.bk-hero-fullbleed { position: relative; margin: 0 0 28px; }
+.bk-hero-fullbleed__image { display: block; width: 100%; height: auto; }
+.bk-hero-fullbleed__overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; }
+.bk-hero-fullbleed__title { margin: 0 0 8px; line-height: 1.2; }
+.bk-hero-fullbleed__title span { background: var(--adv-fg); color: var(--adv-bg); padding: 2px 10px; }
+.bk-hero-fullbleed__subhead { color: var(--adv-bg); margin: 0 0 12px; }
+.bk-hero-fullbleed__button { display: inline-block; background: var(--adv-accent); color: var(--adv-bg); padding: 12px 22px; border-radius: 6px; text-decoration: none; }
+@media (max-width: 480px) {
+  .bk-hero-fullbleed__overlay { position: static; padding: 12px 0 0; }
+  .bk-hero-fullbleed__title span { background: none; color: var(--adv-fg); padding: 0; }
+  .bk-hero-fullbleed__subhead { color: var(--adv-muted); }
+  .bk-hero-fullbleed__button { display: block; text-align: center; }
+}

@@ -1,0 +1,8 @@
+<div class="bk-faq-accordion">
+  {% for item in items %}
+  <details class="bk-faq-accordion__item">
+    <summary class="bk-faq-accordion__question">{{ item.question }}</summary>
+    <div class="bk-faq-accordion__answer">{{ item.answer }}</div>
+  </details>
+  {% endfor %}
+</div>

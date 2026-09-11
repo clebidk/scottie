@@ -3,8 +3,19 @@
 Never returns a partial page as success -- callers must let BudgetExceeded
 propagate out of the run so the CLI exits loudly (exit code 3) instead of
 writing incomplete output.
+
+Daily spend cap (Kimi long-run phase 3; landscape borrowing #9): on top of
+the per-run caps, a tenant may set a per-day dollar ceiling --
+`"budget": {"daily_usd": N}` in claims/config.json (wins) or tenant.yaml's
+`budget:` block. Unset means uncapped, exactly as before. Every run appends
+its estimated cost to runs/spend-ledger.jsonl; prepare_run refuses to start
+a new run once today's recorded spend has reached the cap. The cap gates the
+START of the next run -- the per-run Budget above is still what bounds a run
+already in flight.
 """
+import json
 import time
+from pathlib import Path
 
 from . import exits
 
@@ -73,3 +84,61 @@ class Budget:
             "calls_used": self.calls_used,
             "calls_limit": self.call_limit,
         }
+
+
+def daily_cap_usd(tenant):
+    """The tenant's daily spend ceiling in dollars, or None (uncapped).
+    claims/config.json's "budget" object wins over tenant.yaml's, the same
+    precedence every overlapping config key already follows."""
+    budget_cfg = tenant.claims_config.get("budget") or tenant.get("budget") or {}
+    cap = budget_cfg.get("daily_usd")
+    return float(cap) if cap is not None else None
+
+
+def spend_ledger_path(tenant):
+    return Path(tenant.runs_dir) / "spend-ledger.jsonl"
+
+
+def record_spend(tenant, *, run_id, cost, today_iso, log=None):
+    """Append one run's estimated cost to the tenant's daily ledger. A ledger
+    write failure is logged and swallowed -- the run already finished; crashing
+    it over bookkeeping would be worse than a missing line."""
+    try:
+        path = spend_ledger_path(tenant)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a") as f:
+            f.write(json.dumps({"date": today_iso, "run_id": run_id, "cost_estimate": round(float(cost), 4)}) + "\n")
+    except (OSError, TypeError, ValueError) as e:
+        if log:
+            log.event("run", f"spend ledger write failed (cap bookkeeping only): {e}")
+
+
+def daily_spend(tenant, today_iso):
+    """Today's recorded estimated spend from the ledger."""
+    path = spend_ledger_path(tenant)
+    total = 0.0
+    if path.exists():
+        for line in path.read_text().splitlines():
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("date") == today_iso:
+                total += float(entry.get("cost_estimate") or 0)
+    return total
+
+
+def check_daily_cap(tenant, *, today_iso, log=None):
+    """Raise BudgetExceeded when today's recorded spend has reached the
+    tenant's daily cap. Called once per run, before any stage does work."""
+    cap = daily_cap_usd(tenant)
+    if cap is None:
+        return
+    spent = daily_spend(tenant, today_iso)
+    if spent >= cap:
+        if log:
+            log.event("run", f"daily spend cap reached: ${spent:.4f} of ${cap:.2f} already spent today")
+        raise BudgetExceeded(
+            f"daily spend cap reached: ${spent:.4f} already spent today against a ${cap:.2f} daily cap",
+            "daily_usd",
+        )

@@ -1,0 +1,10 @@
+<section class="bk-hero-fullbleed">
+  {% if image %}
+  <img class="bk-hero-fullbleed__image" src="{{ image.url }}" alt="{{ image.alt }}" {% if image.width %}width="{{ image.width }}" height="{{ image.height }}"{% endif %}>
+  {% endif %}
+  <div class="bk-hero-fullbleed__overlay">
+    <h1 class="bk-hero-fullbleed__title"><span>{{ headline }}</span></h1>
+    {% if subhead %}<p class="bk-hero-fullbleed__subhead">{{ subhead }}</p>{% endif %}
+    <p class="bk-hero-fullbleed__cta"><a class="bk-hero-fullbleed__button" href="{{ cta.url }}">{{ cta.text }}</a></p>
+  </div>
+</section>

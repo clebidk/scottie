@@ -1,0 +1,8 @@
+.bk-verdict-box { border: 2px solid var(--adv-accent); border-radius: 10px; padding: 24px 22px; margin: 0 0 24px; }
+.bk-verdict-box__eyebrow { color: var(--adv-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; margin: 0 0 6px; }
+.bk-verdict-box__heading { margin: 0 0 10px; }
+.bk-verdict-box__text { margin: 0 0 16px; }
+.bk-verdict-box__button { display: inline-block; background: var(--adv-accent); color: var(--adv-bg); padding: 12px 24px; border-radius: 6px; text-decoration: none; }
+@media (max-width: 480px) {
+  .bk-verdict-box__button { display: block; text-align: center; }
+}

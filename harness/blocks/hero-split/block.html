@@ -1,0 +1,18 @@
+<section class="bk-hero-split">
+  <div class="bk-hero-split__media">
+    {% if image %}
+    <img src="{{ image.url }}" alt="{{ image.alt }}" {% if image.width %}width="{{ image.width }}" height="{{ image.height }}"{% endif %}>
+    {% endif %}
+  </div>
+  <div class="bk-hero-split__body">
+    {% if eyebrow %}<p class="bk-hero-split__eyebrow">{{ eyebrow }}</p>{% endif %}
+    <h1 class="bk-hero-split__title">{{ headline }}</h1>
+    {% if subhead %}<p class="bk-hero-split__subhead">{{ subhead }}</p>{% endif %}
+    <p class="bk-hero-split__cta"><a class="bk-hero-split__button" href="{{ cta.url }}">{{ cta.text }}</a></p>
+    {% if stats %}
+    <ul class="bk-hero-split__stats">
+      {% for stat in stats %}<li><strong>{{ stat.value }}</strong><span>{{ stat.label }}</span></li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</section>

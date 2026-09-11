@@ -1,0 +1,8 @@
+.bk-comparison-table { margin: 0 0 24px; overflow-x: auto; }
+.bk-comparison-table table { width: 100%; border-collapse: collapse; }
+.bk-comparison-table th, .bk-comparison-table td { padding: 10px 12px; border-bottom: 1px solid var(--adv-border); text-align: left; }
+.bk-comparison-table thead th { color: var(--adv-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.bk-comparison-table tbody th { font-weight: normal; color: var(--adv-muted); white-space: nowrap; }
+@media (max-width: 480px) {
+  .bk-comparison-table table { display: block; }
+}

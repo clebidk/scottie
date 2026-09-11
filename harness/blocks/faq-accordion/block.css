@@ -1,0 +1,4 @@
+.bk-faq-accordion { margin: 0 0 24px; }
+.bk-faq-accordion__item { border-bottom: 1px solid var(--adv-border); padding: 10px 0; }
+.bk-faq-accordion__question { cursor: pointer; font-weight: bold; }
+.bk-faq-accordion__answer { color: var(--adv-fg); padding: 8px 0 4px; }

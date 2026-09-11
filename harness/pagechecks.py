@@ -164,3 +164,34 @@ def find_rendered_internal_link_violations(html, *, tenant=None):
     if any(_is_internal_url(href, site_host) for href in hrefs):
         return []
     return [{"path": "$.links", "issue": "rendered page has no internal link; every page needs at least one (the CTA)"}]
+
+
+def find_block_violations(page, cartridge_name, block_slots=None):
+    """page.json's optional top-level "blocks" map records the writer's
+    layout-block variant choice per section slot ({slot: block-id}) so scores
+    attach to blocks (docs/KIMI-LONG-RUN.md phase 3). Every slot must be one
+    the cartridge's schema declares in "block_slots", and every chosen id a
+    registered block that slot allows. Absent "blocks" is fine -- the
+    cartridge's defaults render."""
+    blocks_map = page.get("blocks")
+    if blocks_map is None:
+        return []
+    if not isinstance(blocks_map, dict):
+        return [{"path": "$.blocks", "issue": '"blocks" must be an object mapping a section slot to a registered block id'}]
+    from . import blocks as blocks_mod
+
+    registered = set(blocks_mod.block_names())
+    problems = []
+    for slot, block_id in blocks_map.items():
+        path = f"$.blocks.{slot}"
+        slot_spec = (block_slots or {}).get(slot)
+        if slot_spec is None:
+            problems.append({"path": path, "issue": f"{cartridge_name} has no block slot {slot!r}; declared slots: {sorted(block_slots or {})}"})
+            continue
+        if block_id not in registered:
+            problems.append({"path": path, "issue": f"unknown block id {block_id!r}; registered: {sorted(registered)}"})
+            continue
+        allowed = slot_spec.get("blocks") or []
+        if block_id not in allowed:
+            problems.append({"path": path, "issue": f"block {block_id!r} is not allowed for slot {slot!r}; choose one of {allowed}"})
+    return problems

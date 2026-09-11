@@ -33,7 +33,7 @@ build-backend = "setuptools.build_meta"
 include = ["harness*"]
 
 [tool.setuptools.package-data]
-harness = ["structure.css", "templates/*.html"]
+harness = ["structure.css", "templates/*.html", "blocks/registry.json", "blocks/*/block.html", "blocks/*/block.css", "blocks/*/screenshot.svg"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

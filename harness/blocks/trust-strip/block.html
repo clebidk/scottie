@@ -1,0 +1,8 @@
+<ul class="bk-trust-strip">
+  {% for item in items %}
+  <li class="bk-trust-strip__item">
+    <strong class="bk-trust-strip__label">{{ item.label }}</strong>
+    <span class="bk-trust-strip__text">{{ item.text }}</span>
+  </li>
+  {% endfor %}
+</ul>

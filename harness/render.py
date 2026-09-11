@@ -4,6 +4,7 @@ Injects byline, dates, the "Advertisement" label, the disclosure paragraph,
 a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
+import functools
 import io
 import json
 import re
@@ -14,6 +15,7 @@ from urllib.parse import urlparse
 import jinja2
 from PIL import Image
 
+from . import blocks
 from . import ingest
 from . import pagechecks
 from . import tenant as tenant_mod
@@ -462,7 +464,9 @@ def render_page(
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir)]),
+        # blocks.BLOCKS_DIR last: a cartridge's own template.html and the
+        # shared templates win; block partials resolve as "<name>/block.html".
+        loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)]),
         autoescape=jinja2.select_autoescape(["html"]),
     )
 
@@ -532,6 +536,12 @@ def render_page(
         cartridge=cartridge_name,
         tenant=tenant,
         tenant_name=tenant.display_name,
+        # Kimi long-run phase 3: a cartridge template composes a block with
+        # {% include block_choice("slot", "default-name") ~ "/block.html" %};
+        # the writer's recorded page.json "blocks" pick wins when it names a
+        # registered block (blocks.choice validates, so the include path can
+        # never escape the blocks directory).
+        block_choice=functools.partial(blocks.choice, page),
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
     )
 

@@ -15,6 +15,7 @@ import random
 import sys
 from pathlib import Path
 
+from . import budget as budget_mod
 from .budget import Budget, BudgetExceeded
 from .config import REPO_ROOT
 from .claims import ClaimsGateFailure, gate_ad_brief_claims
@@ -163,6 +164,11 @@ def prepare_run(state):
 
     runstate.init_state(state.run_dir, pages=selected)
     runstate.init_packet(state.run_dir)
+
+    # Kimi long-run phase 3: the tenant's daily spend cap gates starting a
+    # new run at all (the per-run Budget bounds a run already in flight).
+    # Uncapped when the tenant sets no budget.daily_usd -- the default.
+    budget_mod.check_daily_cap(tenant, today_iso=state.today_iso, log=state.log)
 
 
 def refresh_prices(state):
@@ -490,6 +496,8 @@ def execute(state, stage_names=DEFAULT_STAGES):
             if name == "write_review":
                 state.cost = state.log.cost_estimate()
                 state.log.budget_summary(state.budget.summary())
+                budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
+                                        today_iso=state.today_iso, log=state.log)
             STAGES[name](state)
     except UnknownCartridge as e:
         print(str(e), file=sys.stderr)
@@ -502,7 +510,8 @@ def execute(state, stage_names=DEFAULT_STAGES):
         )
         state.log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
         state.log.event("run", str(e))
-        state.log.cost_estimate()
+        budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
+                                today_iso=state.today_iso, log=state.log)
         state.log.budget_summary(state.budget.summary())
         _log_run_result(state.log, "STOP", state.gate_log)
         state.log.close()
@@ -515,6 +524,8 @@ def execute(state, stage_names=DEFAULT_STAGES):
         return 2
     except BudgetExceeded as e:
         state.log.event("run", f"budget exceeded: {e}")
+        budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
+                                today_iso=state.today_iso, log=state.log)
         state.log.budget_summary(state.budget.summary())
         _log_run_result(state.log, "STOP", state.gate_log)
         state.log.close()

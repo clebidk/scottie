@@ -165,7 +165,7 @@ def find_word_range_violation(page_json, word_range):
     }]
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
@@ -185,6 +185,9 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # see harness/pagechecks.py's module docstring for why.
     problems += pagechecks.find_image_allowlist_violations(page, facts_pack)
     problems += pagechecks.find_internal_link_violations(page)
+    # Kimi long-run phase 3: the writer's block-variant picks (page.json's
+    # "blocks" map) are writer-owned too -- same repair-loop home.
+    problems += pagechecks.find_block_violations(page, cartridge_name, block_slots)
     return problems
 
 
@@ -635,6 +638,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             financing_lender=financing_lender, speaker_pov=speaker_pov,
             word_range=word_range, allowed_cta_texts=allowed_cta_texts,
             ad_brief=ad_brief,
+            block_slots=schema.get("block_slots"),
         )
 
     revision_note = None
