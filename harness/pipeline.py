@@ -182,10 +182,15 @@ def prepare_run(state):
     runstate.init_state(state.run_dir, pages=selected, dry_run=dry_run)
     runstate.init_packet(state.run_dir)
 
-    # Kimi long-run phase 3: the tenant's daily spend cap gates starting a
-    # new run at all (the per-run Budget bounds a run already in flight).
-    # Uncapped when the tenant sets no budget.daily_usd -- the default.
-    budget_mod.check_daily_cap(tenant, today_iso=state.today_iso, log=state.log)
+    # Kimi long-run phase 3, K2 fix (Cycle 28): the tenant's daily spend cap
+    # gates starting a new run at all (the per-run Budget bounds a run
+    # already in flight). reserve_spend both checks and, if the run is
+    # allowed to start, reserves its estimated cost against the cap in the
+    # same locked step -- see harness/budget.py's module docstring for why
+    # (K2: the old check-then-record-later design let two runs starting at
+    # once both bypass the cap). Uncapped when the tenant sets no
+    # budget.daily_usd -- the default.
+    budget_mod.reserve_spend(tenant, run_id=state.run_id, today_iso=state.today_iso, log=state.log)
 
 
 def refresh_prices(state):

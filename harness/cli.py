@@ -405,6 +405,39 @@ def cmd_digest_needs_review(args):
 
 
 # ---------------------------------------------------------------------------
+# harness spend -- K2 (docs/REVIEW-KIMI-LONG-RUN.md, Cycle 28)
+# ---------------------------------------------------------------------------
+
+def cmd_spend(args):
+    """`harness spend --tenant <t>`: today's finalized spend, open
+    reservations, and the daily cap, read straight from the ledger
+    reserve_spend/record_spend write.
+
+    `harness spend reconcile --tenant <t>`: drops reservations older than 2
+    hours whose run already reached a final state but whose run never wrote
+    its final ledger line (a crash, or record_spend's own write failing) --
+    see harness/budget.py's reconcile_stale_reservations."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    if getattr(args, "spend_command", None) == "reconcile":
+        dropped = budget_mod.reconcile_stale_reservations(tenant)
+        if not dropped:
+            print(f"No stale reservations to reconcile for {tenant.name}.")
+            return 0
+        print(f"Dropped {len(dropped)} stale reservation(s) for {tenant.name}:")
+        for entry in dropped:
+            print(f"  - {entry.get('run_id')}: ${float(entry.get('reserved_usd') or 0):.4f} reserved on {entry.get('date')}")
+        return 0
+
+    today_iso = datetime.date.today().isoformat()
+    cap = budget_mod.daily_cap_usd(tenant)
+    spent = budget_mod.daily_spend(tenant, today_iso)
+    reserved = budget_mod.daily_reserved(tenant, today_iso)
+    cap_str = f"${cap:.2f}" if cap is not None else "uncapped"
+    print(f"{tenant.name} ({today_iso}): ${spent:.4f} spent, ${reserved:.4f} reserved, cap {cap_str}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # harness doctor
 # ---------------------------------------------------------------------------
 
@@ -636,6 +669,16 @@ def build_parser():
     p_digest_nr.add_argument("--days", type=int, default=3)
     _add_tenant_flag(p_digest_nr)
     p_digest_nr.set_defaults(func=cmd_digest_needs_review)
+
+    p_spend = sub.add_parser("spend", help="today's spend, reservations, and daily cap (K2)")
+    _add_tenant_flag(p_spend)
+    p_spend.set_defaults(func=cmd_spend, spend_command=None)
+    spend_sub = p_spend.add_subparsers(dest="spend_command")
+    p_spend_reconcile = spend_sub.add_parser(
+        "reconcile", help="drop reservations older than 2h whose run already finished"
+    )
+    _add_tenant_flag(p_spend_reconcile)
+    p_spend_reconcile.set_defaults(func=cmd_spend, spend_command="reconcile")
 
     p_claims = sub.add_parser("claims", help="manage a tenant's claims/verified.json")
     claims_sub = p_claims.add_subparsers(dest="claims_command", required=True)
