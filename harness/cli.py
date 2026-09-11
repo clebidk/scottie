@@ -473,7 +473,12 @@ def _fix_financing_violation(page, path, financing_lender):
     allowed financing sentence for this run (vocab.allowed_financing_sentence,
     formatted with financing_lender when set). Returns True if the page was
     changed. Unlike warranty, the fixed sentence carries no digit/lender-name
-    trigger of its own, so no claim_id needs attaching."""
+    trigger of its own, so no claim_id needs attaching. Fix cycle 25: `path`
+    may now point at an ordinary prose field (claims.find_financing_violations'
+    new cartridge-independent prose scan), not just the dedicated
+    `financing_line` field -- same whole-field replacement either way, same
+    as _fix_warranty_violation above for warranty copy outside its own
+    dedicated fields."""
     try:
         segs = _path_segments(path)
         node = page
@@ -517,7 +522,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                     log.event(f"write.{cartridge_name}", "deterministic fix applied: warranty sentence")
             continue
 
-        if "financing_line must be exactly" in issue:
+        if "financing_line must be exactly" in issue or "financing wording must be exactly" in issue:
             if _fix_financing_violation(page, raw_path, financing_lender):
                 fixed += 1
                 if log is not None and cartridge_name is not None:

@@ -814,3 +814,65 @@ and content checks.
 7. **Tests.** Server: `~/advertorial/.venv/bin/pip install -e . -q` (clean, no output) then
    `.venv/bin/python -m pytest -q` -- **695 total, 695 passed, 0 failed**, matching Cycle 23's
    count exactly (no test changes this cycle, sweep-only).
+
+## Cycle 25
+
+**Assignment.** Cycle 24's final sweep found 2 of 7 `article` pages left `financing_line`
+unset and paraphrased financing into body prose instead ("Financing sentence check" in
+`docs/SWEEP-2026-09-11-final.md`); asked to make the financing gate cartridge-independent so
+`article` no longer escapes it, mirroring the warranty fix.
+
+1. **Read first, before writing anything.** The assignment's literal spec ("the financing check
+   walks every text field of page.json for any cartridge: any text containing 'financ' ...")
+   is the exact shape `find_financing_violations` used, and reverted, in Cycle 6: 8 real-run
+   STOPs on ordinary buyer-education prose (an FAQ question, "financing terms and sticker
+   price are two separate questions", a coincidental digit from the product's own short_name)
+   before Cycle 6 re-scoped the check to the one dedicated `financing_line` field. Cycle 21
+   re-affirmed that scoping explicitly when it revisited this exact function. Implementing the
+   assignment's literal wording would have reintroduced that regression across every
+   cartridge, not just `article`, and very likely re-broken this cycle's own verification runs
+   the same way. Implemented the *goal* (article's paraphrases get caught and fixed) using the
+   same anti-false-positive shape `find_warranty_violations` already established (fix cycle 7/16):
+   a text field is only scanned once it actually ASSERTS financing terms, not merely mentions
+   the topic.
+2. **`harness/claims.py`: `find_financing_violations` gains a cartridge-independent prose
+   scan.** New `_find_financing_prose_violations` walks every string field (skipping
+   `NON_PROSE_KEYS` and the already-handled `financing_line` key itself, same as
+   `find_warranty_violations`) and flags one only if `_financing_states_terms` is true --
+   the text mentions "financ" AND (names a lender, configured or forbidden, via the existing
+   `vocab.LENDER_NAME_RE` plus a `financing_lender` substring check; OR states a monthly
+   figure/APR, `_FINANCING_FIGURE_OR_APR_RE`; OR echoes the allowed sentence's own "available
+   ... at checkout" structure) -- and `_is_allowed_financing_prose` is false: the field isn't
+   the allowed sentence and doesn't contain it verbatim as its own whole sentence (split on
+   `[.!?]\s+`, mirroring Cycle 6/7's "combined field" exemption) with nothing else in the field
+   stating a monthly figure, APR, or a lender other than the configured one. Both of Cycle 24's
+   real violating sentences name the configured lender ("Bread Pay"), so both trip the trigger
+   without needing a bare "financ" scan; `test_find_financing_violations_ignores_ordinary_prose_
+   that_discusses_financing` (Cycle 6's own regression test) still passes unchanged -- confirmed,
+   not assumed.
+3. **`harness/cli.py`: `_fix_financing_violation` reused as-is** for the new prose-field
+   violations -- same whole-field replacement it already does for the dedicated `financing_line`
+   field (mirrors `_fix_warranty_violation`). `apply_deterministic_fixes`'s issue-text match
+   widened from `"financing_line must be exactly"` to also match the new prose message,
+   `"financing wording must be exactly"`.
+4. **`cartridges/article/cartridge.md`.** Close step (item 8) now spells out that
+   `financing_line`, when used, must be exactly the allowed sentence as its own sentence, and
+   a new sentence: never paraphrase financing anywhere in the piece -- use the exact sentence
+   verbatim or don't mention it. Schema (`financing_line` optional) and template were already
+   correct and untouched.
+5. **`cartridges/product-page/cartridge.md`.** Added one line to the Footer step noting the
+   page intentionally has no byline (unlike article/longform/listicle) and that the disclosure
+   paragraph still renders -- not a defect, per Cycle 24's own "New findings" note; no code
+   change, template already correct.
+6. **Tests** (7 new, `tests/test_claims.py`, `tests/test_repair_loop.py`): both of Cycle 24's
+   real paraphrases, verbatim, now flagged (`find_financing_violations`) and resolved
+   deterministically (`apply_deterministic_fixes`, `write_and_gate_page` end to end, zero
+   repair calls); the dedicated-field "combined with unrelated content" exemption still holds
+   for prose fields; an article page with no financing mention at all still passes cleanly,
+   `deterministic_fixes == [0]`. `product-page`/`longform`/`listicle` tests unchanged --
+   confirmed by the full suite, not assumed. `.venv-local/bin/python -m pytest -q` on the Mac
+   clone: **702 total, 702 passed, 0 failed** (695 + 7 new). `.venv-local/bin/ruff check .`:
+   clean.
+
+### Verify (server, real Claude calls, foreground, one at a time)
+

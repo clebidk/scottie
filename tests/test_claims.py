@@ -776,6 +776,68 @@ def test_find_financing_violations_handles_a_bare_string_financing_line():
     assert hits[0]["path"] == "$.hero.financing_line"
 
 
+# ---------------------------------------------------------------------------
+# Fix cycle 25: the dedicated-field walk above only ever fires for a
+# cartridge whose schema has a financing_line field. article's schema
+# leaves it optional, and (docs/FIXLOG.md Cycle 24 / SWEEP-2026-09-11-final.md
+# "Financing sentence check") its writer twice left it unset and instead
+# paraphrased the offer into ordinary body prose -- these are the two real
+# examples from that sweep, verbatim. The broadened check must catch both
+# without reopening Cycle 6's reverted "any text containing financ" scan --
+# test_find_financing_violations_ignores_ordinary_prose_that_discusses_financing
+# above still passes unchanged.
+# ---------------------------------------------------------------------------
+
+def test_find_financing_violations_flags_a_paraphrase_missing_is_in_article_prose():
+    page = {
+        "close": {
+            "paragraphs": [{
+                "text": "The Peak Fuji is priced at $5,450, with financing available through Bread "
+                        "Pay at checkout, so the decision becomes easier."
+            }]
+        }
+    }
+    hits = find_financing_violations(page, financing_lender="Bread Pay")
+    assert len(hits) == 1
+    assert hits[0]["path"] == "$.close.paragraphs[0].text"
+    assert "Financing is available through Bread Pay at checkout." in hits[0]["issue"]
+
+
+def test_find_financing_violations_flags_a_paraphrase_joined_with_and_in_article_prose():
+    page = {
+        "close": {
+            "paragraphs": [{
+                "text": "The Peak Fuji is priced at $5,450, and financing is available through "
+                        "Bread Pay at checkout. See the models next."
+            }]
+        }
+    }
+    hits = find_financing_violations(page, financing_lender="Bread Pay")
+    assert len(hits) == 1
+    assert hits[0]["path"] == "$.close.paragraphs[0].text"
+
+
+def test_find_financing_violations_allows_the_exact_sentence_combined_with_unrelated_prose():
+    # Mirrors Cycle 6 item 5/run 5's "combined field" exemption for the
+    # dedicated financing_line field -- a prose field doesn't have to be
+    # nothing but the allowed sentence, as long as the sentence appears as
+    # its own whole sentence and nothing else in the field states a wrong
+    # figure/lender/APR.
+    page = {"close": {"paragraphs": [{
+        "text": "It's priced at $8,250, the listed price on the product page. "
+                "Financing is available through Bread Pay at checkout."
+    }]}}
+    assert find_financing_violations(page, financing_lender="Bread Pay") == []
+
+
+def test_find_financing_violations_ignores_an_article_page_with_no_financing_mention():
+    page = {
+        "open": [{"text": "Shopping used to mean waiting for a callback."}],
+        "close": {"paragraphs": [{"text": "Peak Saunas is one brand that does this."}]},
+    }
+    assert find_financing_violations(page, financing_lender="Bread Pay") == []
+
+
 def test_gate_page_json_stops_on_financing_violation():
     page = {"hero": {"financing_line": {"text": "Financing available now, as low as $99/mo, no credit check needed!"}}}
     with pytest.raises(ClaimsGateFailure) as exc_info:

@@ -559,6 +559,99 @@ def test_write_and_gate_page_resolves_financing_violation_via_deterministic_fix_
 
 
 # ---------------------------------------------------------------------------
+# Fix cycle 25: financing wording is now gated cartridge-independently
+# (claims.find_financing_violations' new prose scan), closing the gap Cycle
+# 24's final sweep found -- article's writer left financing_line unset and
+# paraphrased the offer into close.paragraphs prose instead. The
+# deterministic fix mirrors the dedicated-field case above: same
+# apply_deterministic_fixes/_fix_financing_violation path, just at a prose
+# field's path instead of financing_line's.
+# ---------------------------------------------------------------------------
+
+def test_apply_deterministic_fixes_resolves_a_paraphrased_financing_sentence_in_article_prose():
+    page = {
+        "close": {
+            "paragraphs": [{
+                "text": "The Peak Fuji is priced at $5,450, with financing available through Bread "
+                        "Pay at checkout, so the decision becomes easier."
+            }]
+        }
+    }
+    failures = find_financing_violations(page, financing_lender="Bread Pay")
+    assert len(failures) == 1
+    fixed = apply_deterministic_fixes(page, failures, set(), financing_lender="Bread Pay")
+    assert fixed == 1
+    assert page["close"]["paragraphs"][0]["text"] == "Financing is available through Bread Pay at checkout."
+    assert find_financing_violations(page, financing_lender="Bread Pay") == []
+
+
+def test_write_and_gate_page_resolves_a_paraphrased_article_financing_sentence_without_a_repair_call(tmp_path):
+    # Mirrors test_write_and_gate_page_resolves_financing_violation_via_
+    # deterministic_fix_without_a_repair_call above, but for the Cycle 24
+    # gap: the writer leaves financing_line unset and paraphrases financing
+    # into close.paragraphs prose instead.
+    bad_page = dict(
+        ARTICLE_PAGE,
+        close={"paragraphs": [{
+            "text": "The Peak Fuji is priced at $5,450, and financing is available through "
+                    "Bread Pay at checkout. See the models next."
+        }]},
+    )
+    client = FakeClient([json_response(bad_page)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, deterministic_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender="Bread Pay",
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+
+    assert len(client.messages.calls) == 1  # no repair call needed
+    assert attempts == [[]]
+    assert deterministic_fixes == [1]
+    assert page["close"]["paragraphs"][0]["text"] == "Financing is available through Bread Pay at checkout."
+
+
+def test_write_and_gate_page_passes_an_article_page_with_no_financing_mention(tmp_path):
+    # article without any financing text at all -- financing_line stays
+    # unset (schema allows it) and no field mentions "financ" -- must pass
+    # cleanly, cartridge-independent scan or not.
+    client = FakeClient([json_response(ARTICLE_PAGE)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, deterministic_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender="Bread Pay",
+            speaker_pov=AD_BRIEF["speaker_pov"],
+        )
+    finally:
+        log.close()
+
+    assert len(client.messages.calls) == 1  # no repair call needed
+    assert attempts == [[]]
+    assert deterministic_fixes == [0]
+    assert page["close"]["paragraphs"][0]["text"] == "Peak Saunas is one brand that does this."
+
+
+# ---------------------------------------------------------------------------
 # Fix cycle 11 problem C: the price-comparison-v2.mov run hit the token cap
 # mid-repair and exhausted budget. The repair loop now logs the remaining
 # budget at every attempt, and skips a repair (STOPping with a clear reason

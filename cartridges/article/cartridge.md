@@ -11,7 +11,7 @@ Audience temperature: cold. Reader does not know {{ tenant.name }} and did not p
 5. Why the usual alternatives fall short: one H2 + 2–3 paragraphs (3–4 sentences each) on why the reader's obvious alternatives -- doing nothing, a generic/other brand, a DIY workaround -- don't actually solve the problem the open laid out. Objection-driven, still education, still no product name.
 6. How it works: one H2 + 2–3 paragraphs (3–4 sentences each) walking through the mechanism or process that actually solves the problem (still generic, not yet the product) -- this is what sets up the turn to "what to look for" next.
 7. Turn: one H2 that moves from the topic to "what to look for", listing 3–4 criteria that {{ tenant.name }} meets. Still no hard sell. At least 1 criterion must carry a product-benefit claim_id (see Rules).
-8. Close: 1 paragraph naming {{ tenant.name }}, 1 soft CTA link ("See the models" / "Read the specs"). Financing line only if the ad used a price angle.
+8. Close: 1 paragraph naming {{ tenant.name }}, 1 soft CTA link ("See the models" / "Read the specs"). Financing line only if the ad used a price angle -- set `page.financing_line` to exactly the allowed financing sentence given in the prompt's Financing rule, as its own sentence. Never paraphrase financing anywhere in the piece (open, body, or close) -- if you mention financing at all, use that exact sentence verbatim; do not describe it in your own words.
 9. Footer: disclosure paragraph, sources list.
 
 ## Rules

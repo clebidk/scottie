@@ -1003,6 +1003,109 @@ def find_first_person_violations(page_json, speaker_pov):
 # reverted during Cycle 6 (see its run log above) after repeatedly
 # false-positiving on ordinary buyer-education prose; nothing about the
 # with-lender case changes that risk.
+#
+# Fix cycle 25: the dedicated-field check above only ever fires for a
+# cartridge whose schema has a `financing_line` field at all (product-page,
+# longform). `article`'s schema leaves `financing_line` optional and its
+# writer, twice in the cycle-24 final sweep (docs/SWEEP-2026-09-11-final.md
+# "Financing sentence check"), left it unset and instead paraphrased the
+# offer into ordinary body prose -- e.g. "...priced at $5,450, with
+# financing available through Bread Pay at checkout, so the decision
+# becomes..." -- which the dedicated-field walk never looks at, so it passed
+# silently. `_find_financing_prose_violations` below closes that gap the
+# same way `find_warranty_violations` already covers warranty copy outside
+# its own dedicated fields: it does NOT scan every string for the bare
+# substring "financ" (that shape is Cycle 6's reverted false-positive
+# generator -- ordinary buyer-education prose that merely discusses
+# financing as a topic, an FAQ question, a coincidental digit elsewhere in
+# the same sentence, none of which states an actual offer). It only fires
+# on a sentence that actually ASSERTS financing terms -- names a lender
+# (configured or forbidden), states a monthly figure or APR, or echoes the
+# allowed sentence's own "available ... at checkout" offer structure --
+# mirroring find_warranty_violations' _WARRANTY_COVERAGE_ASSERTION_RE gate
+# (a bare "warrant"/"financ" mention alone never triggers either check).
+_FINANCING_FIGURE_OR_APR_RE = re.compile(
+    r"(?:\d+(?:\.\d+)?\s*%\s*apr|\bapr\b|\$?\s?\d[\d,]*\s*/\s*mo\b|\bper[\s-]month\b|\bmonthly\s+payment\b)",
+    re.IGNORECASE,
+)
+
+
+def _financing_lender_mentioned(text, financing_lender, forbidden_only=False):
+    """True if `text` names a forbidden lender, or (unless forbidden_only)
+    the configured lender."""
+    if vocab.LENDER_NAME_RE.search(text):
+        return True
+    return bool(not forbidden_only and financing_lender and financing_lender.lower() in text.lower())
+
+
+def _financing_states_terms(text, financing_lender):
+    """True if `text` actually asserts financing terms -- names a lender or
+    states a figure/APR, or echoes the allowed sentence's own "available ...
+    at checkout" offer structure -- as opposed to merely discussing
+    financing as a topic (Cycle 6's false-positive history)."""
+    lowered = text.lower()
+    if "financ" not in lowered:
+        return False
+    if _financing_lender_mentioned(text, financing_lender):
+        return True
+    if _FINANCING_FIGURE_OR_APR_RE.search(text):
+        return True
+    return "available" in lowered and "checkout" in lowered
+
+
+def _financing_sentences(text):
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
+
+
+def _is_allowed_financing_prose(text, allowed, financing_lender):
+    """A prose field is allowed if it IS the allowed sentence, or CONTAINS
+    it verbatim as its own whole sentence (Cycle 6/7's "combined field"
+    exemption -- the field doesn't have to be nothing but the sentence) with
+    nothing else in the field stating a monthly figure, APR, or a lender
+    other than the configured one."""
+    stripped = text.strip()
+    if stripped.lower() == allowed.lower():
+        return True
+    sentences = _financing_sentences(text)
+    if not any(s.lower() == allowed.lower() for s in sentences):
+        return False
+    remainder = " ".join(s for s in sentences if s.lower() != allowed.lower())
+    if _FINANCING_FIGURE_OR_APR_RE.search(remainder):
+        return False
+    if _financing_lender_mentioned(remainder, financing_lender, forbidden_only=True):
+        return False
+    return True
+
+
+def _find_financing_prose_violations(page_json, allowed, financing_lender):
+    hits = []
+
+    def walk(node, path):
+        if isinstance(node, str):
+            if _financing_states_terms(node, financing_lender) and not _is_allowed_financing_prose(
+                node, allowed, financing_lender
+            ):
+                configured = f"configured lender is {financing_lender!r}" if financing_lender else "no lender is configured"
+                hits.append(
+                    {
+                        "path": path,
+                        "issue": f"financing wording must be exactly {allowed!r} ({configured})",
+                        "text": node,
+                    }
+                )
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                if k in NON_PROSE_KEYS or k == "financing_line":
+                    continue
+                walk(v, f"{path}.{k}")
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+
+    walk(page_json, "$")
+    return hits
+
+
 def find_financing_violations(page_json, financing_lender=None):
     allowed = vocab.allowed_financing_sentence(financing_lender)
     hits = []
@@ -1029,6 +1132,7 @@ def find_financing_violations(page_json, financing_lender=None):
                 walk(v, f"{path}[{i}]")
 
     walk(page_json, "$")
+    hits += _find_financing_prose_violations(page_json, allowed, financing_lender)
     return hits
 
 

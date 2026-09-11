@@ -11,7 +11,7 @@ Audience temperature: warm.
 5. Specs table: 6–10 rows from facts_pack.specs.
 6. Trust strip: warranty, shipping/delivery, returns, review count and rating (from verified_claims only).
 7. Repeat CTA -- reuses the same `cta_text`/`cta_url` as the hero; the renderer places it, do not repeat it here.
-8. Footer: disclosure paragraph.
+8. Footer: disclosure paragraph. No byline -- this is intentional (a product page has no author, unlike article/longform/listicle); the disclosure paragraph still renders.
 
 ## Rules
 - One CTA phrase per page: `cta_text` is a single phrase, chosen once, that may repeat verbatim in the hero and the repeat CTA -- never two different phrases anywhere on the page, and never a second, differently-worded CTA link or button.
