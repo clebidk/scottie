@@ -259,6 +259,24 @@ class Tenant:
             config.update(_load_json(path))
         return config
 
+    def config_disagreements(self):
+        """Review 2026-09-11 R23: keys set in BOTH tenant.yaml and
+        claims/config.json with different values. The precedence itself is
+        deliberate and unchanged (claims/config.json always wins) -- this
+        exists so an operator who edited the file that loses can SEE the
+        disagreement (run log, `harness doctor`) instead of wondering why
+        their edit did nothing. Returns [(key, tenant.yaml value,
+        claims/config.json value)], sorted by key."""
+        path = self.claims_dir / "config.json"
+        if not path.exists():
+            return []
+        json_config = _load_json(path)
+        disagreements = []
+        for key in _CONFIG_KEYS_FROM_TENANT_YAML:
+            if key in self.config and key in json_config and self.config[key] != json_config[key]:
+                disagreements.append((key, self.config[key], json_config[key]))
+        return sorted(disagreements)
+
     # Fix cycle 17 (model tiering): tenant.yaml's `models:` section may
     # override any of write/repair_first/repair_next/ingest/matcher; a stage
     # this tenant doesn't set falls back to config.DEFAULT_MODELS, same

@@ -89,6 +89,14 @@ def check_config(tenant):
         Check("tenant configured", PASS, "") if not missing
         else Check("tenant configured", FAIL, "missing " + ", ".join(missing))
     )
+    # R23: a key set in both tenant.yaml and claims/config.json with different
+    # values is legal (config.json wins) but must be visible.
+    for key, yaml_value, json_value in tenant.config_disagreements():
+        checks.append(Check(
+            f"config {key}",
+            WARN,
+            f"tenant.yaml says {yaml_value!r}; claims/config.json says {json_value!r} and wins",
+        ))
     return checks
 
 

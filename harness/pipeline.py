@@ -155,6 +155,14 @@ def prepare_run(state):
     state.selected = selected
     state.log.cartridges(selected)
     state.claims_config = tenant.claims_config
+    # R23: tenant.yaml and claims/config.json disagreeing on an overlapping
+    # key is legal (config.json wins) but invisible without this line.
+    for key, yaml_value, json_value in tenant.config_disagreements():
+        state.log.event(
+            "run",
+            f"config disagreement: {key!r} is {yaml_value!r} in tenant.yaml but {json_value!r} "
+            "in claims/config.json -- claims/config.json wins",
+        )
     state.facts_source = LocalFactsSource(tenant.claims_dir)
 
     # Cycle 20: every run gets a state.json ("generated", one entry per
