@@ -152,6 +152,45 @@ def _newest_run_dir(base_dir, pattern):
     return max(dirs, key=lambda p: p.stat().st_mtime)
 
 
+def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None):
+    """One fake-client run, programmatically. Returns (exit_code, run_dir or
+    None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
+    (the 200-generation dry run)."""
+    selected = [c.strip() for c in cartridges.split(",") if c.strip()]
+    unknown = [c for c in selected if c not in CANNED_PAGES and c != "comparison"]
+    if unknown:
+        print(f"no canned page for cartridge(s): {unknown}; have: {sorted(CANNED_PAGES)} + comparison", file=sys.stderr)
+        return 1, None, []
+
+    brief = _brief_for(input_arg)
+    responses = [json_response(brief)]
+    if brief.get("claims_made"):
+        responses.append(json_response({}))  # the semantic-match call only happens when claims exist
+    responses += [json_response(_canned_page(c)) for c in selected]
+    client = FakeClient(responses)
+
+    args = argparse.Namespace(
+        input=input_arg,
+        cartridges=cartridges,
+        seed=seed,
+        product=product,
+        ffmpeg_bin="/usr/bin/ffmpeg",
+        whisper_bin="/nonexistent/whisper-cli",
+        whisper_model="/nonexistent/model.bin",
+        tenant=tenant,
+        batch=False,
+    )
+    with fake_environment(client):
+        exit_code = cli.cmd_run(args)
+    if exit_code != 0:
+        return exit_code, None, []
+
+    tenant_obj = tenant_mod.load_tenant(tenant, require=True)
+    run_dir = _newest_run_dir(tenant_obj.out_dir, f"*-{pipeline.slugify(input_arg)}-*")
+    pages = sorted(run_dir.glob("*/page.json"))
+    return 0, run_dir, pages
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("input")
@@ -163,38 +202,12 @@ def main(argv=None):
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)
 
-    selected = [c.strip() for c in ns.cartridges.split(",") if c.strip()]
-    unknown = [c for c in selected if c not in CANNED_PAGES and c != "comparison"]
-    if unknown:
-        print(f"no canned page for cartridge(s): {unknown}; have: {sorted(CANNED_PAGES)} + comparison", file=sys.stderr)
-        return 1
-
-    brief = _brief_for(ns.input)
-    responses = [json_response(brief)]
-    if brief.get("claims_made"):
-        responses.append(json_response({}))  # the semantic-match call only happens when claims exist
-    responses += [json_response(_canned_page(c)) for c in selected]
-    client = FakeClient(responses)
-
-    args = argparse.Namespace(
-        input=ns.input,
-        cartridges=ns.cartridges,
-        seed=ns.seed,
-        product=ns.product,
-        ffmpeg_bin="/usr/bin/ffmpeg",
-        whisper_bin="/nonexistent/whisper-cli",
-        whisper_model="/nonexistent/model.bin",
-        tenant=ns.tenant,
-        batch=False,
+    exit_code, run_dir, pages = run_once(
+        ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product
     )
-    with fake_environment(client):
-        exit_code = cli.cmd_run(args)
     if exit_code != 0:
         return exit_code
 
-    tenant = tenant_mod.load_tenant(ns.tenant, require=True)
-    run_dir = _newest_run_dir(tenant.out_dir, f"*-{pipeline.slugify(ns.input)}-*")
-    pages = sorted(run_dir.glob("*/page.json"))
     print(f"fake run: {len(pages)} page(s) under {run_dir}")
     for p in pages:
         print(f" - {p}")
@@ -204,12 +217,13 @@ def main(argv=None):
         dest.mkdir(parents=True, exist_ok=True)
         for p in pages:
             shutil.copy2(p, dest / f"{p.parent.name}.page.json")
+        tenant = tenant_mod.load_tenant(ns.tenant, require=True)
         manifest = {
             "run_id": run_dir.name,
             "tenant": tenant.name,
             "fixture": Path(ns.input).name,
             "seed": ns.seed,
-            "cartridges": selected,
+            "cartridges": [c.strip() for c in ns.cartridges.split(",") if c.strip()],
             "captured_at": datetime.date.today().isoformat(),
             "note": "page.json files are the byte-stable regression reference; manifest dates and run ids are not.",
         }

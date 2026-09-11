@@ -68,3 +68,18 @@ def test_fake_run_byte_matches_the_committed_baseline():
                 f"{baseline_name}/{cartridge}: page.json drifted from evals/baseline "
                 f"(run dir: {run_dir})"
             )
+
+
+def test_soak_runner_two_runs_writes_a_report(tmp_path):
+    """evals/soak.py is the 200-generation dry-run driver; a two-run soak must
+    produce the aggregate report with per-run records."""
+    from evals import soak
+
+    out = tmp_path / "soak.json"
+    assert soak.main(["--runs", "2", "--batch-size", "1", "--tenant", "peak-saunas", "--out", str(out)]) == 0
+    report = json.loads(out.read_text())
+    assert report["aggregate"]["runs"] == 2
+    assert report["aggregate"]["pages"] == 6
+    assert report["aggregate"]["by_exit_code"] == {"0": 2}
+    assert len(report["runs"]) == 2
+    assert report["runs"][0]["gate_history"]["article"]["result"] == "PASS"
