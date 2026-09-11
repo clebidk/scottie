@@ -324,6 +324,21 @@ BRAND_GUIDE_SYSTEM = (
 MAX_GUIDE_PAGES = 6
 
 
+def choose_guide(guide_entries):
+    """The best brand-guide candidate among several "guide"-classified files.
+    classify_file()'s guide bucket is deliberately broad (any .pdf, or any
+    name containing guide/brand/style) -- a real folder can hold several
+    PDFs that aren't the comprehensive brand guide (a one-page color-variant
+    sheet is still a .pdf). Prefer a name that actually says "guide"; among
+    those (or, if none do, among all candidates), the largest file -- a real
+    brand guide runs many pages and is reliably the biggest PDF in the
+    folder, where a color/logo-variant sheet is one page. `guide_entries` is
+    a list of {"name", "path", ...} dicts (download_incoming's shape)."""
+    named_guide = [e for e in guide_entries if "guide" in e["name"].lower()]
+    candidates = named_guide or guide_entries
+    return max(candidates, key=lambda e: e["path"].stat().st_size)
+
+
 def render_guide_pages(path, out_dir, *, max_pages=MAX_GUIDE_PAGES, pdftoppm_bin="pdftoppm"):
     """Up to max_pages page-image Paths for a brand guide file. A PDF is
     rendered with pdftoppm if it's on PATH; an already-an-image guide file is
@@ -716,7 +731,7 @@ def import_brand_kit(
     # -- brand guide (vision) -------------------------------------------
     guide_entries = by_kind.get("guide", [])
     if guide_entries:
-        guide = guide_entries[0]
+        guide = choose_guide(guide_entries)
         if len(guide_entries) > 1:
             result.human_decisions.append(
                 f"Multiple brand-guide-like files found ({', '.join(e['name'] for e in guide_entries)}); "

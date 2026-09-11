@@ -126,6 +126,43 @@ def test_classify_file(name, expected):
 def test_looks_like_folder():
     assert brand_import.looks_like_folder("Logo Files")
     assert not brand_import.looks_like_folder("logo.svg")
+    # A real extension this classifier has no bucket for (.ai/.eps design
+    # source files, found in a real Drive folder during server verification)
+    # must still read as a file, not a folder -- see choose_guide's sibling
+    # fix in harness/brand_import.py for the incident this guards against.
+    assert not brand_import.looks_like_folder("Acme blue on the left CMYK.ai")
+    assert not brand_import.looks_like_folder("Acme blue on the left RGB.eps")
+
+
+def test_choose_guide_prefers_a_name_that_says_guide_over_a_bigger_non_guide_pdf(tmp_path):
+    # Regression for a real finding: a folder with two one-page color-variant
+    # PDFs (whose names don't say "guide") listed before the actual,
+    # comprehensive brand guide PDF used to make guide_entries[0] pick the
+    # wrong one.
+    small_variant = tmp_path / "Acme blue on the left.pdf"
+    small_variant.write_bytes(b"x" * 100)
+    other_variant = tmp_path / "Acme blue on the right.pdf"
+    other_variant.write_bytes(b"x" * 100)
+    real_guide = tmp_path / "Acme BRAND GUIDE.pdf"
+    real_guide.write_bytes(b"x" * 10_000)
+    entries = [
+        {"name": small_variant.name, "path": small_variant},
+        {"name": other_variant.name, "path": other_variant},
+        {"name": real_guide.name, "path": real_guide},
+    ]
+    chosen = brand_import.choose_guide(entries)
+    assert chosen["name"] == "Acme BRAND GUIDE.pdf"
+
+
+def test_choose_guide_falls_back_to_largest_when_none_say_guide(tmp_path):
+    small = tmp_path / "Acme style-a.pdf"
+    small.write_bytes(b"x" * 100)
+    big = tmp_path / "Acme style-b.pdf"
+    big.write_bytes(b"x" * 5_000)
+    chosen = brand_import.choose_guide([
+        {"name": small.name, "path": small}, {"name": big.name, "path": big},
+    ])
+    assert chosen["name"] == "Acme style-b.pdf"
 
 
 # ---------------------------------------------------------------------------
