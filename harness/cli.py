@@ -12,6 +12,7 @@ import re
 import sys
 from pathlib import Path
 
+from . import budget as budget_mod
 from . import notify
 from . import pipeline
 from . import runstate
@@ -22,7 +23,7 @@ from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from . import doctor as doctor_mod
 from . import exits
-from .config import FFMPEG_BIN, WHISPER_BIN, WHISPER_MODEL
+from . import config as harness_config
 from .errors import HarnessError
 from .ingest import run_ingest
 from .log import RunLog
@@ -104,13 +105,17 @@ def cmd_ingest(args):
             whisper_model=args.whisper_model,
         )
     except BudgetExceeded as e:
-        log.event("ingest", f"budget exceeded: {e}")
-        log.close()
+        # R20: the shared budget-STOP tail (pipeline.abort_budget_run) --
+        # same event/summary/run_result/close shape as a pipeline run, plus
+        # the phase-3 spend-ledger record.
+        pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, stage="ingest")
         print(f"budget exceeded: {e}", file=sys.stderr)
         return 3
 
     (out_dir / "ad_brief.json").write_text(json.dumps(ad_brief, indent=2))
-    log.cost_estimate()
+    cost = log.cost_estimate()
+    budget_mod.record_spend(tenant, run_id=run_id, cost=cost,
+                            today_iso=datetime.date.today().isoformat(), log=log)
     log.close()
     print(json.dumps(ad_brief, indent=2))
     print(f"\nWrote {out_dir / 'ad_brief.json'}")
@@ -529,6 +534,15 @@ class _Parser(argparse.ArgumentParser):
         self.exit(exits.USAGE, f"{self.prog}: error: {message}\n")
 
 
+def _add_tool_flags(p):
+    """The ffmpeg/whisper flags every run-shaped command shares. Defaults
+    resolve at parser-build time via harness/config.py's call-time functions
+    (R24), so HARNESS_REPO_DIR set after import still wins."""
+    p.add_argument("--ffmpeg-bin", default=harness_config.FFMPEG_BIN)
+    p.add_argument("--whisper-bin", default=harness_config.whisper_bin())
+    p.add_argument("--whisper-model", default=harness_config.whisper_model())
+
+
 def build_parser():
     parser = _Parser(
         prog="harness",
@@ -542,9 +556,7 @@ def build_parser():
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
-    p_run.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
-    p_run.add_argument("--whisper-bin", default=WHISPER_BIN)
-    p_run.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tool_flags(p_run)
     p_run.add_argument(
         "--batch", action="store_true",
         help="submit the three cartridges' initial writes via the Message Batches API (50%% off) before repairs",
@@ -554,9 +566,7 @@ def build_parser():
 
     p_ingest = sub.add_parser("ingest", help="ad -> ad_brief.json only, for debugging")
     p_ingest.add_argument("input")
-    p_ingest.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
-    p_ingest.add_argument("--whisper-bin", default=WHISPER_BIN)
-    p_ingest.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tool_flags(p_ingest)
     _add_tenant_flag(p_ingest)
     p_ingest.set_defaults(func=cmd_ingest)
 
@@ -572,9 +582,7 @@ def build_parser():
 
     p_doctor = sub.add_parser("doctor", help="check that a tenant can actually run")
     p_doctor.add_argument("--offline", action="store_true", help="skip the models-endpoint check")
-    p_doctor.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
-    p_doctor.add_argument("--whisper-bin", default=WHISPER_BIN)
-    p_doctor.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tool_flags(p_doctor)
     _add_tenant_flag(p_doctor)
     p_doctor.set_defaults(func=cmd_doctor)
 
@@ -671,9 +679,7 @@ def build_parser():
     p_workflow_run.add_argument("--cartridges")
     p_workflow_run.add_argument("--seed", type=int)
     p_workflow_run.add_argument("--product")
-    p_workflow_run.add_argument("--ffmpeg-bin", default=FFMPEG_BIN)
-    p_workflow_run.add_argument("--whisper-bin", default=WHISPER_BIN)
-    p_workflow_run.add_argument("--whisper-model", default=WHISPER_MODEL)
+    _add_tool_flags(p_workflow_run)
     p_workflow_run.add_argument("--batch", action="store_true")
     _add_tenant_flag(p_workflow_run)
     p_workflow_run.set_defaults(func=cmd_workflow_run)

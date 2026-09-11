@@ -483,6 +483,21 @@ class UnknownStage(Exception):
     pass
 
 
+def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None, gate_log=None, stage="run"):
+    """The budget-STOP tail, shared by execute() and cli.cmd_ingest (review
+    R20 -- cmd_ingest used to re-implement its own thinner version): log the
+    event, record the spend into the tenant's daily ledger (phase 3), write
+    the budget summary and the run_result line, close the log. The caller
+    prints the one-line message and returns exit 3."""
+    log.event(stage, f"budget exceeded: {e}")
+    if tenant is not None:
+        budget_mod.record_spend(tenant, run_id=run_id, cost=log.cost_estimate(),
+                                today_iso=today_iso or datetime.date.today().isoformat(), log=log)
+    log.budget_summary(budget.summary())
+    review_md.log_run_result(log, "STOP", gate_log or {})
+    log.close()
+
+
 def execute(state, stage_names=DEFAULT_STAGES):
     """Run the named stages in order. Returns the process exit code.
 
@@ -527,12 +542,8 @@ def execute(state, stage_names=DEFAULT_STAGES):
         print(f"See {state.run_dir / 'unmatched_claims.json'}", file=sys.stderr)
         return 2
     except BudgetExceeded as e:
-        state.log.event("run", f"budget exceeded: {e}")
-        budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
-                                today_iso=state.today_iso, log=state.log)
-        state.log.budget_summary(state.budget.summary())
-        review_md.log_run_result(state.log, "STOP", state.gate_log)
-        state.log.close()
+        abort_budget_run(state.log, state.budget, e, tenant=state.tenant, run_id=state.run_id,
+                         today_iso=state.today_iso, gate_log=state.gate_log)
         print(f"budget exceeded: {e}", file=sys.stderr)
         return 3
 

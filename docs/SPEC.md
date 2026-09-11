@@ -72,6 +72,10 @@ input ─► ingest ─► ad_brief ─► grounder ─► facts_pack ─► cla
 ```
 
 ## 5. Cartridge contract
+
+Glossary (R9): this spec's "page type" and the code's "cartridge" are the
+same thing -- `cartridges/<name>/` is the only spelling the code uses.
+
 ```
 cartridges/<name>/          # tenant-neutral; no company's words
   cartridge.md      # purpose, audience temperature, structure, voice, length, CTA count
