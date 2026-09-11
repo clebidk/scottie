@@ -483,7 +483,7 @@ def test_demo_tenant_end_to_end_logo_and_color_reach_rendered_html(tmp_path):
     out_dir = tmp_path / "out"
     index_path = render.render_page(
         cartridge_name="product-page",
-        page=PRODUCT_PAGE_PAGE,
+        page={**PRODUCT_PAGE_PAGE, "cta_url": "/collections/all"},
         ad_brief=AD_BRIEF,
         facts_pack=FACTS_PACK,
         cartridges_dir=tenant_mod.REPO_ROOT / "cartridges",

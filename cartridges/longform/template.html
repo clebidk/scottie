@@ -5,7 +5,7 @@
 <div class="adv-longform">
   <header>
     <span class="adv-badge">Advertisement</span>
-    {% if logo_url %}<img src="{{ logo_url }}" alt="{{ tenant_name }} logo" class="adv-brand-logo">{% endif %}
+    {% if logo_url %}<img src="{{ logo_url }}" alt="{{ tenant_name }} logo" class="adv-brand-logo"{% if logo_w %} width="{{ logo_w }}" height="{{ logo_h }}"{% endif %}>{% endif %}
   </header>
 
   <section class="adv-hero">

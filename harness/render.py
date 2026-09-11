@@ -545,12 +545,19 @@ def render_page(
     # above) -- the logo is brand data, not something download_asset's
     # facts_pack.assets loop ever sees, so it's copied in on its own.
     logo_url = None
+    logo_w = logo_h = None
     logo_path = find_tenant_logo(brand_dir)
     if logo_path is not None:
         logo_dest = out_dir / "assets" / f"brand-logo{logo_path.suffix}"
         logo_dest.parent.mkdir(parents=True, exist_ok=True)
         logo_dest.write_bytes(logo_path.read_bytes())
         logo_url = f"assets/{logo_dest.name}"
+        try:
+            from PIL import Image as _Img
+            with _Img.open(logo_dest) as _im:
+                logo_w, logo_h = _im.size
+        except Exception:  # svg or unreadable: leave unsized
+            logo_w = logo_h = None
 
     template = env.get_template("template.html")
     html = template.render(
@@ -565,6 +572,8 @@ def render_page(
         sources=sources,
         json_ld=json_ld,
         logo_url=logo_url,
+        logo_w=logo_w,
+        logo_h=logo_h,
         published=published,
         updated=updated,
         cartridge=cartridge_name,
