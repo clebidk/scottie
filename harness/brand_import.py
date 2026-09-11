@@ -46,12 +46,6 @@ PALETTE_EXTS = {".json", ".txt", ".ase"}
 PALETTE_KEYWORDS = ("color", "colour", "palette", "tokens")
 PHOTO_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
 
-# Extensions this classifier recognizes at all. An entry with none of these
-# (and no "." in the name) is either a folder Drive's listing returned
-# alongside the files, or a file type nobody wrote a rule for -- see
-# enumerate_source's recursion.
-_KNOWN_EXTS = LOGO_EXTS | GUIDE_EXTS | FONT_EXTS | PALETTE_EXTS | PHOTO_EXTS | {".ase"}
-
 
 def classify_file(name):
     """One of "logo", "guide", "font", "palette", "photo", "other" -- the
@@ -74,12 +68,19 @@ def classify_file(name):
     return "other"
 
 
+_ANY_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]{1,6}$")
+
+
 def looks_like_folder(name):
-    """True for a Drive listing entry with no recognizable file extension --
-    the cheap signal (no mimetype, not classify_file()-able) that an entry is
-    a subfolder (e.g. a "Logo Files" folder alongside the brand guide) rather
-    than a file."""
-    return Path(name.lower()).suffix not in _KNOWN_EXTS
+    """True for a Drive listing entry with no file extension at all -- the
+    cheap signal that an entry is a subfolder (e.g. a "Logo Files" folder
+    alongside the brand guide) rather than a file. Deliberately NOT limited
+    to extensions classify_file() recognizes: a real folder found on the
+    server this cycle held .ai/.eps source files neither logo/guide/font/
+    palette/photo covers, and treating an unrecognized-but-real extension as
+    "must be a folder" sent a real file id into a folder-listing fetch,
+    which 404s."""
+    return not _ANY_EXTENSION_RE.search(name)
 
 
 # ---------------------------------------------------------------------------
@@ -126,12 +127,14 @@ def enumerate_source(*, drive_folder=None, local_dir=None, fetch=None, max_folde
                     # A subfolder shares the same "list its own id as a
                     # folder" endpoint; not every Drive folder ID resolves
                     # (a real file with no extension in its display name
-                    # would 404/redirect here), so a failed recursion is
-                    # just skipped rather than treated as an error.
+                    # would 404/redirect here -- OSError covers
+                    # urllib.error.URLError/HTTPError), so a failed
+                    # recursion is just skipped rather than treated as an
+                    # error.
                     try:
                         _walk(item["id"], depth + 1)
                         continue
-                    except HarnessError:
+                    except (HarnessError, OSError):
                         pass
                 entries.append({"id": item["id"], "name": item["name"], "local_path": None})
             else:
