@@ -124,7 +124,7 @@
       <div class="pk-item-media">
         {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
         {% if item_asset %}
-        <img class="pk-zoom" src="{{ item_asset.url }}" alt="{{ item_asset.alt }}" loading="lazy">
+        <img class="pk-zoom" src="{{ item_asset.url }}" alt="{{ item_asset.alt }}" loading="lazy"{% if item_asset.width and item_asset.height %} width="{{ item_asset.width }}" height="{{ item_asset.height }}"{% endif %}>
         {% endif %}
       </div>
       <div class="pk-item-copy">

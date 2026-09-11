@@ -17,7 +17,7 @@ from tests.test_cli_run import (
     _patch_network,
 )
 from tests.conftest import FakeClient
-from tests.support import TENANT
+from tests.support import TENANT, newest_run_dir
 from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE
 
 RESPONSES = [
@@ -80,9 +80,7 @@ def _pages(run_dir):
 
 
 def _newest_run_dir():
-    dirs = sorted(TENANT.out_dir.glob("*-hidden-costs-v2-transcript"))
-    assert dirs, "expected a run dir under the tenant's out/"
-    return dirs[-1]
+    return newest_run_dir(TENANT.out_dir, "*-hidden-costs-v2-transcript-*")
 
 
 def test_workflow_run_reproduces_harness_run_on_the_dry_run_fixture(monkeypatch):

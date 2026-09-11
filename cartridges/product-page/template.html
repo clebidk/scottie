@@ -9,7 +9,7 @@
   <section class="adv-hero">
     {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
     {% if hero_asset %}
-    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image">
+    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image"{% if hero_asset.width and hero_asset.height %} width="{{ hero_asset.width }}" height="{{ hero_asset.height }}"{% endif %}>
     {% endif %}
     <h1>{{ page.hero.product_name }}</h1>
     <p class="adv-dek">{{ page.hero.promise }}</p>
@@ -39,7 +39,7 @@
     {% endfor %}
     {% set angle_asset = assets.get(page.angle_section.image.asset_id) if page.angle_section.image else None %}
     {% if angle_asset %}
-    <img src="{{ angle_asset.url }}" alt="{{ angle_asset.alt }}">
+    <img src="{{ angle_asset.url }}" alt="{{ angle_asset.alt }}"{% if angle_asset.width and angle_asset.height %} width="{{ angle_asset.width }}" height="{{ angle_asset.height }}"{% endif %}>
     {% endif %}
   </section>
 
@@ -62,7 +62,7 @@
   <div class="adv-images">
     {% for img in page.detail_images %}
       {% set asset = assets.get(img.asset_id) %}
-      {% if asset %}<img src="{{ asset.url }}" alt="{{ asset.alt }}" loading="lazy">{% endif %}
+      {% if asset %}<img src="{{ asset.url }}" alt="{{ asset.alt }}" loading="lazy"{% if asset.width and asset.height %} width="{{ asset.width }}" height="{{ asset.height }}"{% endif %}>{% endif %}
     {% endfor %}
   </div>
   {% endif %}

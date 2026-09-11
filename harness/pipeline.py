@@ -10,6 +10,7 @@ data; stage behaviour is code.
 """
 import datetime
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -38,9 +39,44 @@ def slugify(input_arg):
     return slug or "run"
 
 
+# Fix cycle 23 (R29): minute-granularity run ids let two runs of the same
+# input inside one wall-clock minute collide into the same run directory,
+# silently overwriting one another. Seconds narrow the window; the 4-char
+# random base32 suffix (lowercase a-z2-7, 32^4 ~= 1M combinations) makes an
+# actual collision astronomically unlikely even within the same second --
+# make_run_dir below still backstops it with a real filesystem check.
+_RUN_ID_SUFFIX_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
+_RUN_ID_SUFFIX_LEN = 4
+
+
+def _run_id_suffix():
+    return "".join(random.choices(_RUN_ID_SUFFIX_ALPHABET, k=_RUN_ID_SUFFIX_LEN))
+
+
 def make_run_id(slug):
-    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M")
-    return f"{ts}-{slug}"
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    return f"{ts}-{slug}-{_run_id_suffix()}"
+
+
+def make_run_dir(base_dir, slug):
+    """Create a fresh run directory under `base_dir` and return
+    (run_id, run_dir) for it. os.makedirs(..., exist_ok=False) is the actual
+    uniqueness guarantee -- a genuine collision (same second, same slug, same
+    random suffix) is retried once with a freshly generated id before
+    raising. Older run dirs (any id shape, including the pre-cycle-23
+    minute-granularity ones) are untouched and stay readable."""
+    base_dir = Path(base_dir)
+    last_error = None
+    for _attempt in range(2):
+        run_id = make_run_id(slug)
+        run_dir = base_dir / run_id
+        try:
+            os.makedirs(run_dir, exist_ok=False)
+        except FileExistsError as e:
+            last_error = e
+            continue
+        return run_id, run_dir
+    raise last_error
 
 
 def discover_cartridges():
@@ -94,9 +130,7 @@ class RunState:
 def prepare_run(state):
     args = state.args
     tenant = state.tenant
-    state.run_id = make_run_id(slugify(args.input))
-    state.run_dir = tenant.out_dir / state.run_id
-    state.run_dir.mkdir(parents=True, exist_ok=True)
+    state.run_id, state.run_dir = make_run_dir(tenant.out_dir, slugify(args.input))
     state.log = RunLog(state.run_id, tenant.runs_dir / f"{state.run_id}.log")
     state.log.event("run", f"tenant: {tenant.name}")
 

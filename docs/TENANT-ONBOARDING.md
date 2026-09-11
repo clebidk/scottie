@@ -144,9 +144,19 @@ read it live. Fill in:
 
 ## 4. Brand (5-10 min)
 
-`brand/tokens.json`, `brand/base.css`, `brand/byline.html`. Without those two
-files the renderer falls back to harness defaults and logs a warning -- fine
-for a first test run, not for anything published.
+`brand/tokens.json`, `brand/base.css`, `brand/byline.html`. Fix cycle 23:
+`brand/base.css` is an **override layer**, not a replacement -- the renderer
+always inlines `harness/structure.css` (layout, components, responsive
+rules, image sizing, the sticky CTA bar, the ad label, byline, disclosure,
+sources) first, then `brand/base.css` on top of it, so it only needs to
+carry this tenant's tokens, fonts and colors. It never has to (and should
+not) redefine any `adv-*` structural class -- those already have a rule in
+`harness/structure.css`, enforced by `tests/test_css_coverage.py`. Missing
+or empty, the renderer logs a warning and the page still gets the full
+`structure.css` layer on its own -- fine for a first test run, not for
+anything published (no tenant tokens/fonts/brand colors without it).
+`brand/byline.html` has no such fallback layering: missing, the renderer
+uses a plain built-in byline instead.
 
 ## 5. Optional, but do before a real run
 

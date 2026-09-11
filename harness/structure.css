@@ -1,0 +1,205 @@
+/* Structural stylesheet (fix cycle 23, renamed from fallback.css) -- ALWAYS
+   loaded first by harness/templates/base.html, before a tenant's own
+   brand/base.css. This is the layout/component/responsive layer every
+   cartridge template's classes are defined against: every class any
+   cartridge/*/template.html emits has a rule here (see
+   tests/test_css_coverage.py, which greps the templates and checks). A
+   tenant's base.css loads second, as an override layer for tokens, fonts
+   and colors -- not a replacement, since a tenant stylesheet is never
+   required to (and cycle 23's finding showed a real tenant's own base.css
+   does not) redefine the adv-* structural classes at all. */
+:root {
+  --adv-fg: #1a1a1a;
+  --adv-bg: #ffffff;
+  --adv-muted: #5a5a5a;
+  --adv-border: #dddddd;
+  --adv-accent: #b3541e;
+  --adv-max-width: 760px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--adv-bg);
+  color: var(--adv-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.55;
+}
+
+/* Fix cycle 23 (FIXLOG Cycle 19 mobile pass, task_9b60a503): every cartridge
+   template renders bare <img> tags with no width/height attributes on some
+   images (a fully known-dimension attribute pair is added by the renderer
+   itself when it downloaded and downscaled the asset -- see
+   harness/render.py's download_asset/_image_dimensions), so this rule is the
+   CSS-side guarantee that an image never overflows its container or renders
+   at native (often multi-megapixel) size regardless of whether width/height
+   attributes made it onto the tag. */
+img { max-width: 100%; height: auto; }
+
+.adv-wrap {
+  max-width: var(--adv-max-width);
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.adv-badge {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adv-muted);
+  border: 1px solid var(--adv-border);
+  border-radius: 3px;
+  padding: 2px 8px;
+  margin-bottom: 12px;
+}
+
+h1, h2, h3 { line-height: 1.2; }
+h1 { font-size: 2rem; margin: 0 0 8px; }
+h2 { font-size: 1.4rem; margin: 2em 0 0.5em; }
+
+.adv-dek { color: var(--adv-muted); font-size: 1.1rem; margin: 0 0 20px; }
+
+.adv-cta {
+  display: inline-block;
+  background: var(--adv-accent);
+  color: #fff;
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.adv-price { font-size: 1.6rem; font-weight: 700; }
+.adv-compare-at { color: var(--adv-muted); text-decoration: line-through; margin-left: 8px; }
+.adv-financing { color: var(--adv-muted); font-size: 0.95rem; }
+
+table.adv-specs { width: 100%; border-collapse: collapse; margin: 16px 0; }
+table.adv-specs th, table.adv-specs td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--adv-border);
+}
+
+.adv-trust-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 20px 0;
+}
+.adv-trust-item { border: 1px solid var(--adv-border); border-radius: 6px; padding: 12px; }
+
+.adv-images { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.adv-images img { max-width: 100%; border-radius: 6px; }
+
+.adv-footer {
+  margin-top: 48px;
+  border-top: 1px solid var(--adv-border);
+  padding-top: 20px;
+  font-size: 0.9rem;
+  color: var(--adv-muted);
+}
+
+.adv-byline { font-size: 0.95rem; }
+.adv-byline p { margin: 2px 0; }
+.adv-disclosure { margin-top: 12px; }
+.adv-sources ul { padding-left: 18px; }
+
+/* Sticky CTA bar (longform only). Fix cycle 23: this had NO rule at all
+   under a tenant stylesheet that never defines it -- previously it only
+   ever rendered correctly by accident, when the tenant had no base.css and
+   fallback.css's copy of these same rules was used wholesale instead. See
+   the mobile block below for the <=480px enhancement. */
+.adv-sticky-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: var(--adv-bg);
+  border-top: 1px solid var(--adv-border);
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.adv-hero-image { width: 100%; border-radius: 8px; }
+.adv-step { margin: 20px 0; }
+.adv-step img { max-width: 100%; border-radius: 6px; }
+.adv-quotes { list-style: none; padding: 0; }
+.adv-quotes li { font-style: italic; margin: 10px 0; }
+.adv-faq-item { margin: 16px 0; }
+.adv-proof-bullets ul { padding-left: 18px; }
+
+/* Root elements per cartridge -- no visual rules of their own beyond
+   establishing the block, but every cartridge's root class must resolve to
+   *some* rule (see tests/test_css_coverage.py). */
+.adv-article, .adv-longform, .adv-product-page { display: block; }
+
+/* Hero section (longform, product-page) */
+.adv-hero { margin: 0 0 24px; }
+
+/* Longform proof-stats row */
+.adv-proof-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.adv-proof-value { display: block; font-size: 1.5rem; font-weight: 700; }
+.adv-proof-label { display: block; color: var(--adv-muted); font-size: 0.85rem; }
+
+.adv-problem { margin: 32px 0; }
+.adv-how-it-works { margin: 32px 0; }
+.adv-alternatives { margin: 32px 0; }
+.adv-turn { margin: 32px 0; }
+.adv-close { margin: 32px 0; }
+.adv-specs-proof { margin: 24px 0; }
+.adv-social-proof { margin: 24px 0; }
+.adv-faq { margin: 32px 0; }
+.adv-final-cta { margin: 32px 0; text-align: center; }
+.adv-warranty { color: var(--adv-muted); font-size: 0.9rem; }
+.adv-angle { margin: 24px 0; }
+.adv-angle img { max-width: 100%; border-radius: 6px; margin-top: 12px; }
+
+/* ---------------------------------------------------------------------
+   Mobile (<=480px) -- fix cycle 23 / FIXLOG Cycle 19 mobile pass
+   --------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .adv-wrap { padding: 16px 14px 96px; }
+
+  /* Sticky bar: full-bleed, roomier tap target, CTA fills the width. */
+  .adv-sticky-cta {
+    left: 0;
+    right: 0;
+    padding: 10px 14px;
+  }
+  .adv-sticky-cta .adv-cta {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Hero: smaller display type, tighter spacing on small screens. */
+  .adv-hero { margin: 0 0 16px; }
+  .adv-hero h1 { font-size: 1.5rem; }
+  .adv-hero .adv-dek { font-size: 1rem; }
+  .adv-proof-stats { gap: 12px 20px; }
+
+  /* Tables: horizontal scroll instead of squeezing columns or wrapping
+     text -- no extra wrapper element needed, display:block on the table
+     itself becomes the scroll container. */
+  table.adv-specs {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Proof rows: stack to one column instead of wrapping awkwardly. */
+  .adv-proof-stats,
+  .adv-trust-strip {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}

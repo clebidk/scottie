@@ -10,7 +10,7 @@
   <section class="adv-hero">
     {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
     {% if hero_asset %}
-    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image">
+    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image"{% if hero_asset.width and hero_asset.height %} width="{{ hero_asset.width }}" height="{{ hero_asset.height }}"{% endif %}>
     {% endif %}
     <h1>{{ page.hero.headline }}</h1>
     <p class="adv-dek">{{ page.hero.subhead }}</p>
@@ -43,7 +43,7 @@
     {% for step in page.how_it_works.steps %}
     <div class="adv-step">
       {% set step_asset = assets.get(step.image.asset_id) if step.image else None %}
-      {% if step_asset %}<img src="{{ step_asset.url }}" alt="{{ step_asset.alt }}" loading="lazy">{% endif %}
+      {% if step_asset %}<img src="{{ step_asset.url }}" alt="{{ step_asset.alt }}" loading="lazy"{% if step_asset.width and step_asset.height %} width="{{ step_asset.width }}" height="{{ step_asset.height }}"{% endif %}>{% endif %}
       <h3>{{ step.title }}</h3>
       <p>{{ step.text }}</p>
     </div>

@@ -677,3 +677,89 @@ write the sweep doc; exactly one Slack test notification.
    this cycle's commits (server `out/`/`runs/` sweep artifacts are gitignored; the pre-existing
    untracked `tenants/peak-saunas/evals/approvals.jsonl` from an earlier cycle, unrelated, still
    present and still untouched).
+
+## Cycle 23 (R29 run-id collision; CSS layering -- FIXLOG Cycle 19 mobile-pass gap, task_9b60a503)
+
+1. **Run-id collision (review R29).** `pipeline.make_run_id` truncated to the minute
+   (`%Y%m%d-%H%M`), so two runs of the same input inside one wall-clock minute wrote into the
+   same run directory, silently overwriting one another; it also made
+   `test_workflows.py`'s "workflow reproduces harness run" comparison vacuous (both entry points
+   resolved to the same directory within a minute). Fixed: `make_run_id` now formats
+   `YYYYMMDD-HHMMSS-<slug>-<4 random lowercase base32 chars>` (seconds plus a
+   `random.choices` suffix over `abcdefghijklmnopqrstuvwxyz234567`, ~1M combinations). New
+   `pipeline.make_run_dir(base_dir, slug)` is the actual uniqueness guarantee --
+   `os.makedirs(run_dir, exist_ok=False)`, one retry with a freshly generated id on a real
+   collision, then raises. `pipeline.prepare_run` and `cli.cmd_ingest` (which duplicated the old
+   two-line construction independently, R20's flagged duplication) both now go through it;
+   `cli.make_run_dir` re-exported alongside the existing `cli.make_run_id`. No code outside
+   `pipeline.py` parses a run id's shape (`notify.py`/`log.py`/`runstate.py`/`cli.py` all treat
+   it as an opaque string, `run_dir.name` or interpolated into messages) -- confirmed by a
+   repo-wide grep before landing this, so there was nothing else to update. Older,
+   minute-granularity run dirs are untouched and stay readable (`make_run_dir` only ever creates
+   a new directory, never touches an existing one unless it collides).
+   `tests/test_workflows.py::_newest_run_dir` and four `out_dirs[-1]` call sites in
+   `tests/test_cli_run.py` assumed a run id's lexicographic order matched creation order, which a
+   random suffix breaks when two runs land in the same second (the fast fake-client test suite
+   does this constantly); replaced with a new shared `tests/support.py::newest_run_dir()` that
+   picks by directory `st_mtime` instead of by name. New `tests/test_pipeline.py` (7 tests):
+   format, uniqueness under a frozen-clock/50-draw stress case, the real
+   `os.makedirs(exist_ok=False)` retry-then-raise path (deterministic via a monkeypatched
+   `make_run_id`), and that a legacy minute-granularity run dir is left alone.
+2. **CSS layering (FIXLOG Cycle 19 mobile-pass finding, `task_9b60a503`).** The renderer loaded
+   EITHER a tenant's `brand/base.css` OR `harness/fallback.css`, never both
+   (`render.load_brand_css`) -- a tenant stylesheet that styles only its own theme classes
+   (`.btn-primary`, `.container`, ...) and never touches the harness's `adv-*` classes at all
+   left every cartridge template's structural classes (`.adv-cta`, `.adv-sticky-cta`,
+   `.adv-financing`, image sizing, ...) with no matching CSS rule once that tenant had its own
+   `base.css` in place: 21 of 23 swept pages had unsized `<img>` tags, and every `longform`
+   page's sticky CTA bar had no CSS at all. Fixed: `harness/fallback.css` renamed to
+   `harness/structure.css` (`git mv`, `pyproject.toml`'s package-data updated) -- the
+   layout/component/responsive/token-default layer every cartridge template's classes are
+   defined against, now **always** loaded first. `render.load_brand_css` split into
+   `load_structure_css()` (always the harness file) and `load_tenant_css(brand_dir, log=None)`
+   (the tenant's `base.css` if present and non-blank, else `""`); `render_page` passes both into
+   the template as `structure_css`/`tenant_css`, and `harness/templates/base.html` inlines two
+   `<style>` blocks in that order (the tenant one only when non-empty) -- an override layer, not
+   a replacement. `structure.css` gained every selector a cartridge template references that
+   `fallback.css` didn't have (`.adv-hero`, `.adv-proof-stats`/`-value`/`-label`, `.adv-problem`,
+   `.adv-specs-proof`, `.adv-social-proof`, `.adv-faq`, `.adv-final-cta`, `.adv-warranty`,
+   `.adv-angle`, root-element classes, an explicit `.adv-byline`), a generic
+   `img { max-width: 100%; height: auto; }` rule, and a `@media (max-width: 480px)` block for the
+   sticky bar (full-bleed, full-width CTA), hero (smaller type), tables (`display: block;
+   overflow-x: auto` -- a pure-CSS scroll container, no extra wrapper markup needed), and proof
+   rows (single column). `tests/test_css_coverage.py` (new, 5 tests) greps every
+   `cartridges/*/template.html` for `class="..."` usage (Jinja-expression-only tokens excluded)
+   and asserts each has a selector in `structure.css`, except a class a cartridge's own inline
+   `<style>` block already defines for itself (listicle ships a fully self-contained `.pk-*`
+   design system on purpose -- unaffected by this bug, since it never depended on
+   `fallback.css`/tenant `base.css` for anything). Image sizing: `render.resize_asset_bytes`'s
+   already-decoded Pillow image is the source of truth, but its `(bytes, ext)` return shape
+   (6 existing call sites in tests) was left alone -- instead `download_asset` re-opens the
+   final (already downscaled) bytes via a new `_image_dimensions()` helper and now returns
+   `(path, width, height)` instead of a bare path; `render_page` sets `asset["width"]`/`["height"]`
+   when known. Every cartridge template's asset-backed `<img>` tag gained a conditional
+   `width="..." height="..."` (only emitted when the renderer knows them) alongside the CSS's
+   unconditional `max-width: 100%; height: auto`. `docs/GENERATOR.md` ("Add a new cartridge
+   type") and `docs/TENANT-ONBOARDING.md` ("Brand") now describe `brand/base.css` as an override
+   layer over `harness/structure.css`, not a fallback pair; `docs/HARNESS-MAP.md`'s renderer row
+   and `tenants/_template/brand/base.css`'s own header comment updated to match. New
+   `tests/test_css_layering.py` (8 tests): `load_structure_css`/`load_tenant_css` in isolation,
+   `render_page` inlines `structure.css` even with no tenant `base.css`, the tenant stylesheet
+   loads strictly after structure.css in the rendered HTML, the exact cycle-23 shape (a tenant
+   `base.css` that never touches `adv-*` classes still gets them from `structure.css`), and
+   `width`/`height` attributes land on a rendered `<img>` when the renderer knows the dimensions.
+   Two existing `download_asset(...)` call sites (`tests/test_path_safety.py`,
+   `tests/test_render.py`) updated for the new 3-tuple return; one existing render test
+   (`test_render_page_omits_longform_proof_stats_row_when_absent`) updated from "the class name
+   never appears in the HTML" (true only because no stylesheet defined it before this fix) to
+   "the class is never used as a `class="..."` attribute" (structure.css's own rule for it is
+   now always present in the inlined `<style>` block, correctly, regardless of whether that run's
+   page actually uses it).
+3. **Tests.** Mac clone: `.venv-local/bin/pytest -q` -- **695 total, 695 passed, 0 failed** (675
+   baseline + 7 run-id + 5 CSS-coverage + 8 CSS-layering new tests). `ruff check .` clean.
+
+### Verify (server, real `harness run`/`harness review`)
+
+See report for the real-run verification against `hidden-costs-v2.mov` and
+`product-features-v2.mov --cartridges listicle`, the per-template static mobile checks, and the
+server test count.

@@ -52,6 +52,7 @@ EXIT_TENANT_NOT_CONFIGURED = exits.TENANT_NOT_CONFIGURED
 discover_cartridges = pipeline.discover_cartridges
 slugify = pipeline.slugify
 make_run_id = pipeline.make_run_id
+make_run_dir = pipeline.make_run_dir
 MAX_REPAIR_ATTEMPTS = 2
 
 
@@ -1017,9 +1018,7 @@ def cmd_ingest(args):
     tenant.load_env()
     client = make_client()
     budget = Budget()
-    run_id = pipeline.make_run_id(pipeline.slugify(args.input))
-    out_dir = tenant.out_dir / run_id
-    out_dir.mkdir(parents=True, exist_ok=True)
+    run_id, out_dir = pipeline.make_run_dir(tenant.out_dir, pipeline.slugify(args.input))
     log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
 
     try:

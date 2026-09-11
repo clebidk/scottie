@@ -56,13 +56,26 @@ def byline_names(tenant=None):
     return author_name, contributor_name, reviewer_name
 
 
-def load_brand_css(brand_dir, log=None):
+# Fix cycle 23: a tenant's brand/base.css used to REPLACE harness/fallback.css
+# outright, so a tenant stylesheet that never defines .adv-cta/.adv-sticky-cta/
+# .adv-financing/image sizing (a real tenant's own base.css can legitimately
+# style only its site's own theme classes, never touching the harness's adv-*
+# ones at all) left every cartridge template's structural classes with no CSS
+# rule at all. harness/structure.css (renamed from fallback.css) now always
+# loads first, as the layout/component/responsive layer every cartridge
+# template's classes are defined against; the tenant's own base.css, if any,
+# loads second as an override layer (tokens, fonts, colors) on top of it.
+def load_structure_css():
+    return (Path(__file__).parent / "structure.css").read_text()
+
+
+def load_tenant_css(brand_dir, log=None):
     css_path = Path(brand_dir) / "base.css"
     if css_path.exists() and css_path.read_text().strip():
         return css_path.read_text()
     if log:
-        log.event("render", "tenant brand/base.css not found or empty; using harness/fallback.css")
-    return (Path(__file__).parent / "fallback.css").read_text()
+        log.event("render", "tenant brand/base.css not found or empty; using harness/structure.css only")
+    return ""
 
 
 def load_byline_html(brand_dir, published, updated, log=None, tenant=None):
@@ -369,12 +382,25 @@ def resize_asset_bytes(data, ext, *, log=None, asset_id=None):
     return new_bytes, new_ext
 
 
+def _image_dimensions(data):
+    """(width, height) of `data` if Pillow can open it as an image, else
+    (None, None) -- mirrors resize_asset_bytes's own "not an image" handling
+    without changing that function's existing (bytes, ext) return shape."""
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+        return img.width, img.height
+    except Exception:
+        return None, None
+
+
 def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, drive_downloader=ingest.download_drive_file):
     """Download one asset (Shopify CDN image, or a Drive file via
     drive_downloader/ingest.download_drive_file) into dest_dir as
-    <asset id>.<ext>. Returns the local Path, or None (with a logged
-    warning) if the download fails or the response looks like an HTML
-    page instead of a file."""
+    <asset id>.<ext>. Returns (local Path, width, height) -- width/height are
+    None when the downloaded bytes aren't an image Pillow can open -- or None
+    (with a logged warning) if the download fails or the response looks like
+    an HTML page instead of a file."""
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -401,12 +427,13 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
             return None
 
         data, ext = resize_asset_bytes(data, ext, log=log, asset_id=asset["id"])
+        width, height = _image_dimensions(data)
 
         # The id comes from tenant data and the extension from a URL path;
         # neither is guaranteed to be a single safe path component.
         dest_path = dest_dir / safe_filename(f"{asset['id']}{ext}", fallback="asset")
         dest_path.write_bytes(data)
-        return dest_path
+        return dest_path, width, height
     except Exception as e:
         if log:
             log.event("render", f"asset {asset['id']} download failed: {e}")
@@ -438,7 +465,8 @@ def render_page(
         autoescape=jinja2.select_autoescape(["html"]),
     )
 
-    brand_css = load_brand_css(brand_dir, log)
+    structure_css = load_structure_css()
+    tenant_css = load_tenant_css(brand_dir, log)
     byline_html = load_byline_html(brand_dir, published, updated, log, tenant=tenant)
 
     out_dir = Path(out_dir)
@@ -469,13 +497,20 @@ def render_page(
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
                 continue
-            local_path = download_asset(
+            downloaded = download_asset(
                 assets_by_id[asset_id], assets_dir, log=log, fetch_url=fetch_url, drive_downloader=drive_downloader
             )
-            if local_path is None:
+            if downloaded is None:
                 del assets_by_id[asset_id]
             else:
+                local_path, width, height = downloaded
                 assets_by_id[asset_id]["url"] = f"assets/{local_path.name}"
+                # Fix cycle 23: known dimensions (Pillow already decoded the
+                # image to downscale it) so templates can set width/height
+                # attributes and avoid a layout-shift-causing unsized <img>.
+                if width and height:
+                    assets_by_id[asset_id]["width"] = width
+                    assets_by_id[asset_id]["height"] = height
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 
@@ -485,7 +520,8 @@ def render_page(
         ad_brief=ad_brief,
         facts_pack=facts_pack,
         product=facts_pack["product"],
-        brand_css=brand_css,
+        structure_css=structure_css,
+        tenant_css=tenant_css,
         byline_html=byline_html,
         assets=assets_by_id,
         sources=sources,

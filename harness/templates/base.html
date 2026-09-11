@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}{{ tenant_name }}{% endblock %}</title>
-<style>{{ brand_css | safe }}</style>
+<style>{{ structure_css | safe }}</style>
+{% if tenant_css %}<style>{{ tenant_css | safe }}</style>{% endif %}
 {% if json_ld %}
 <script type="application/ld+json">{{ json_ld | tojson }}</script>
 {% endif %}

@@ -75,7 +75,16 @@ Edit the five pieces:
   element's class matching the pattern any other full-bleed cartridge uses if this type
   will ever go to Shopify (see `IMAGE-MAP.md` and
   `harness/shopify.py`'s `full_bleed_css()`, which reads the tenant's own
-  `theme.full_bleed_css`, keyed to its `theme.root_class`).
+  `theme.full_bleed_css`, keyed to its `theme.root_class`). Any `adv-*` class the
+  template uses must have a rule in `harness/structure.css` -- the harness's own
+  structural/component/responsive stylesheet, always loaded first by
+  `harness/templates/base.html`. A tenant's `brand/base.css`, if any, loads second as
+  an *override* layer (tokens, fonts, colors) on top of it, not a replacement -- a
+  tenant is never required to (and no shipped tenant does) redefine the `adv-*`
+  classes at all. `tests/test_css_coverage.py` enforces this by grepping every
+  cartridge template's classes against `structure.css`. A cartridge that ships its own
+  fully self-contained `<style>` block (listicle is the precedent) is exempt for the
+  classes that block itself defines.
 - **`rubric.md`** -- a 10-point manual-review checklist (not executed in V1, but written
   for a human reviewer).
 Exemplars are NOT part of a cartridge: they are one tenant's approved pages, and

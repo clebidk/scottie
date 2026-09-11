@@ -83,7 +83,7 @@ def test_a_drive_download_cannot_escape_the_workdir(tmp_path, monkeypatch):
 def test_a_downloaded_asset_stays_inside_its_assets_dir(tmp_path):
     assets_dir = tmp_path / "assets"
     asset = {"id": "../../escape", "url": "https://example.test/a.jpg"}
-    path = render.download_asset(asset, assets_dir, fetch_url=lambda url: b"\xff\xd8\xff not-an-image")
+    path, width, height = render.download_asset(asset, assets_dir, fetch_url=lambda url: b"\xff\xd8\xff not-an-image")
     assert path is not None
     assert path.parent == assets_dir
     assert ".." not in path.name

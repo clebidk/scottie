@@ -833,11 +833,14 @@ def test_download_asset_resizes_a_real_downloaded_image(tmp_path):
         return large
 
     dest_dir = tmp_path / "assets"
-    path = download_asset({"id": "hero", "url": "https://example.com/hero.png"}, dest_dir, fetch_url=fake_fetch_url)
+    path, width, height = download_asset(
+        {"id": "hero", "url": "https://example.com/hero.png"}, dest_dir, fetch_url=fake_fetch_url
+    )
     assert path is not None
     img = Image.open(path)
     assert max(img.width, img.height) == ASSET_MAX_LONG_EDGE
     assert path.stat().st_size < len(large)
+    assert (width, height) == (img.width, img.height)
 
 
 @pytest.mark.slow
@@ -936,7 +939,11 @@ def test_render_page_omits_longform_proof_stats_row_when_absent(tmp_path):
         download_assets=False,
     )
     html = index_path.read_text()
-    assert "adv-proof-stats" not in html
+    # Fix cycle 23: structure.css now defines a rule for every class any
+    # cartridge template can emit (including adv-proof-stats), so the bare
+    # class name is always present in the inlined <style> block -- the real
+    # assertion is that the markup itself never uses the class.
+    assert 'class="adv-proof-stats"' not in html
 
 
 # ---------------------------------------------------------------------------

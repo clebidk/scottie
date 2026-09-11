@@ -1,1 +1,5 @@
-/* Tenant stylesheet. Leave empty to fall back to harness/fallback.css. */
+/* Tenant stylesheet -- an OVERRIDE layer (tokens, fonts, colors), not a
+   replacement: harness/structure.css always loads first and already
+   defines every adv-* structural/component/responsive class every
+   cartridge template uses. Leave this file empty to run on
+   harness/structure.css alone. */
