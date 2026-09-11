@@ -90,21 +90,22 @@ def download_drive_file(file_id, dest_dir):
 
 # ---------------------------------------------------------------------------
 # Folder listing (Cycle 27) -- still no OAuth: the public folder HTML itself,
-# not the Drive API. Google serves a logged-out visitor a page whose file
-# entries carry a `data-id="<file id>"` attribute plus a tooltip/aria-label
-# holding the display name; a folder that is NOT shared "Anyone with the
-# link" instead redirects to a sign-in page with no such attributes.
+# not the Drive API.
+#
+# Verified against a real folder (Cycle 27 server verification, see
+# docs/FIXLOG.md): each row Drive renders is a `<div ... aria-label="<name>
+# <type>? Shared|Limited access|..." ... ssk='<n>:<code>:<file id>-<n>-<n>'>`
+# -- the file id lives inside `ssk`, not in a `data-id` attribute (an earlier
+# version of this parser assumed `data-id`, which never actually appears per
+# item on a real folder page; Drive repeats the same id across several rows
+# per item -- the name row, a "Modified ..." row, a "Size ..." row, a "More
+# actions" row -- so only the FIRST aria-label seen for a given id is kept).
+# A folder that is NOT shared "Anyone with the link" instead serves a
+# sign-in page with none of this.
 # ---------------------------------------------------------------------------
 
-# One entry: `data-id="<id>"` followed, within the same element or a nearby
-# one, by a name-bearing attribute (`data-tooltip` or `aria-label`). The
-# non-greedy `.{0,400}?` window keeps this from crossing into the next
-# entry's own data-id on a long line.
-_FOLDER_ENTRY_RE = re.compile(
-    r'data-id="([a-zA-Z0-9_-]{10,})"'
-    r'(?:(?!data-id=).){0,400}?'
-    r'(?:data-tooltip|aria-label)="([^"]+)"',
-    re.DOTALL,
+_ARIA_SSK_ENTRY_RE = re.compile(
+    r'aria-label="([^"]+)"[^>]*?ssk=[\'"]\d+:[A-Za-z0-9_]+:([A-Za-z0-9_-]{15,})-\d+-\d+[\'"]'
 )
 
 # Google Drive's own name for a sign-in wall -- present when the folder is
@@ -117,15 +118,30 @@ _SIGNIN_WALL_MARKERS = (
     "request access",
 )
 
+# Trailing words Drive's accessibility label appends after the real
+# filename -- a sharing-status phrase (rightmost), then optionally a
+# mimetype-derived type word right before it. Stripped in that order so
+# "Acme BRAND GUIDE.pdf PDF Shared" -> "Acme BRAND GUIDE.pdf PDF" -> "Acme BRAND GUIDE.pdf".
+_ARIA_STATUS_SUFFIXES = ("Shared folder", "Shared", "Limited access", "Owned by me", "Private")
+_ARIA_TYPE_SUFFIXES = (
+    "Image", "PDF", "PostScript", "Document", "Spreadsheet", "Presentation",
+    "Video", "Audio", "Text", "Archive", "Folder",
+)
+
 
 def _clean_entry_name(raw):
-    """An aria-label often trails extra words Drive adds for the icon button
-    ("My Logo.png More actions", "My Logo.png, Owned by me, PNG"). Keep the
-    filename: everything before the first comma, or before a trailing " More"
-    if there's no comma."""
-    name = raw.split(",", 1)[0].strip()
-    name = re.sub(r"\s+More(\s+actions)?$", "", name).strip()
-    return name
+    name = raw
+    for status in _ARIA_STATUS_SUFFIXES:
+        suffix = " " + status
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    for type_word in _ARIA_TYPE_SUFFIXES:
+        suffix = " " + type_word
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    return name.strip()
 
 
 def default_fetch_folder_html(folder_id):
@@ -141,7 +157,9 @@ def default_fetch_folder_html(folder_id):
 def list_public_folder(folder_id, fetch=None):
     """[{"id": ..., "name": ...}, ...] for every file Drive's own public HTML
     listing for `folder_id` shows, deduplicated by id (first name seen wins --
-    Drive's page can repeat an entry for a grid vs. list view).
+    Drive's page can repeat an entry for a grid vs. list view, and does
+    repeat one item's id across several rows -- name, modified date, size,
+    "more actions" -- of which only the first carries the real name).
 
     `fetch` is an injectable `folder_id -> html str` callable so tests never
     touch the network; defaults to `default_fetch_folder_html`.
@@ -154,7 +172,7 @@ def list_public_folder(folder_id, fetch=None):
 
     entries = []
     seen_ids = set()
-    for file_id, raw_name in _FOLDER_ENTRY_RE.findall(html):
+    for raw_name, file_id in _ARIA_SSK_ENTRY_RE.findall(html):
         if file_id in seen_ids:
             continue
         seen_ids.add(file_id)

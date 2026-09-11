@@ -24,22 +24,38 @@ from tests.test_render import AD_BRIEF, FACTS_PACK, PRODUCT_PAGE_PAGE
 # Folder listing parser
 # ---------------------------------------------------------------------------
 
-def _entry_html(file_id, name):
-    return f'<div data-id="{file_id}" class="a-b-c" data-tooltip="{name}" aria-label="{name}, Owned by me"></div>\n'
+# Shape verified against a real Drive folder (Cycle 27 server verification,
+# see docs/FIXLOG.md): the file id lives inside an `ssk='<n>:<code>:<id>-<n>-<n>'`
+# attribute, not `data-id`, and the same id repeats across a name row and
+# several metadata rows ("Modified ...", "Size ...", "More actions").
+def _entry_html(file_id, name, *, type_word="", status="Shared"):
+    label = f"{name} {type_word} {status}".replace("  ", " ").strip()
+    return (
+        f'<div class="JxSEve" aria-label="{label}" '
+        f"data-handled-by-drag-and-drop=\"true\" ssk='5:auSv138:{file_id}-0-16'></div>\n"
+    )
+
+
+def _meta_row_html(file_id, label):
+    """A secondary row Drive renders for the same item (same id, a different
+    aria-label) -- exercises "only the first name per id is kept"."""
+    return f"<div class=\"i92Sbe\" aria-label=\"{label}\" ssk='6:by9fbe38:{file_id}-0-16'></div>\n"
 
 
 SAMPLE_FOLDER_HTML = (
     "<html><body>"
-    + _entry_html("1AAAAAAAAAAAAAAAAAAA", "Acme Logo.svg")
-    + _entry_html("1BBBBBBBBBBBBBBBBBBB", "Acme Brand Guide.pdf")
-    + _entry_html("1AAAAAAAAAAAAAAAAAAA", "Acme Logo.svg")  # grid+list dup, same id
+    + _entry_html("1AAAAAAAAAAAAAAAAAAA", "Acme Logo.svg", type_word="Image")
+    + _meta_row_html("1AAAAAAAAAAAAAAAAAAA", "Modified 3. Feb.")
+    + _meta_row_html("1AAAAAAAAAAAAAAAAAAA", "More actions")
+    + _entry_html("1BBBBBBBBBBBBBBBBBBB", "Acme Brand Guide.pdf", type_word="PDF")
+    + _entry_html("1AAAAAAAAAAAAAAAAAAA", "Acme Logo.svg", type_word="Image")  # grid+list dup, same id
     + "</body></html>"
 )
 
 SIGNIN_WALL_HTML = "<html><head><title>Sign in - Google Accounts</title></head><body>...</body></html>"
 
 
-def test_list_public_folder_parses_data_id_and_tooltip_name():
+def test_list_public_folder_parses_aria_label_and_ssk_id():
     entries = drive.list_public_folder("root-folder", fetch=lambda fid: SAMPLE_FOLDER_HTML)
     assert entries == [
         {"id": "1AAAAAAAAAAAAAAAAAAA", "name": "Acme Logo.svg"},
@@ -70,7 +86,9 @@ def test_list_public_folder_empty_but_not_a_signin_wall_is_just_empty():
 def test_enumerate_source_recurses_one_level_into_a_subfolder():
     root_id = "root-folder-id-0000001"
     sub_id = "sub-folder-id-00000001"
-    root_html = _entry_html("root-file-id-000000001", "Acme Wordmark.png") + _entry_html(sub_id, "Logo Files")
+    root_html = _entry_html("root-file-id-000000001", "Acme Wordmark.png", type_word="Image") + _entry_html(
+        sub_id, "Logo Files", type_word="", status="Shared folder"
+    )
     sub_html = _entry_html("sub-file-id-0000000001", "acme-mark-alt.png")
     pages = {root_id: root_html, sub_id: sub_html}
     entries = brand_import.enumerate_source(drive_folder=root_id, fetch=lambda fid: pages[fid])

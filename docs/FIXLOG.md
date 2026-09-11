@@ -1073,16 +1073,23 @@ hand-extracted in earlier cycles) can point the harness at a Drive folder or a l
 directory and get a usable `brand/` layer.
 
 **Enumeration, no OAuth.** `harness/sources/drive.py`'s `list_public_folder(folder_id,
-fetch=None)` parses a Drive folder's own public HTML listing (`data-id="<id>"` plus a
-`data-tooltip`/`aria-label` name, deduplicated by id) -- the same no-OAuth, public-link-only
-adapter pattern `download_drive_file` already used for a single file. A folder that isn't
-shared "Anyone with the link" comes back as a sign-in wall with no `data-id` entries;
+fetch=None)` parses a Drive folder's own public HTML listing -- the same no-OAuth,
+public-link-only adapter pattern `download_drive_file` already used for a single file. First
+draft assumed a `data-id="<id>"` attribute per item (going by the ingest research notes'
+`agents/drive-index.md`-style description of the technique); fetching a real folder during
+server verification (below) showed that never actually appears per item -- a real row is
+`<div ... aria-label="<name> <type>? Shared|Limited access|..." ... ssk='<n>:<code>:<file
+id>-<n>-<n>'>`, with the id inside `ssk` and the same id repeated across a name row and several
+metadata rows (modified date, size, "more actions"), of which only the first carries the real
+name. `list_public_folder` now parses that shape, `_clean_entry_name` strips the trailing
+type/status words Drive's accessibility label appends, and the offline unit tests
+(`tests/test_brand_import.py`) use synthetic HTML built to the same verified shape. A folder
+that isn't shared "Anyone with the link" comes back as a sign-in wall with no such entries;
 `list_public_folder` raises `DriveFolderNotPublic` with the exact message the task asked for:
 "Drive folder is not link-public; share it as Anyone with the link, or upload the files into
 tenants/<t>/brand/incoming/ and rerun with --local". An entry with no recognizable file
-extension is treated as a subfolder (Peak's own "Logo Files" is exactly this shape) and walked
-one level deep. `--local <dir>` runs the identical classify/extract pipeline over files
-already on disk.
+extension is treated as a subfolder and walked one level deep. `--local <dir>` runs the
+identical classify/extract pipeline over files already on disk.
 
 **Classification** (`harness/brand_import.py:classify_file`) follows the task's own priority
 order -- logo (svg/png/jpg with logo/mark/wordmark/favicon in the name) before brand guide
