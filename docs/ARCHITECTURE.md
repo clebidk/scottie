@@ -114,7 +114,7 @@ A gate STOP never writes a partial page: `write_and_gate_page` only returns a
 page once it has fully passed the gate, and `render_pages`/`write_review`
 never run on a cartridge that raised.
 
-Inside the per-page repair loop (`harness/cli.py`
+Inside the per-page repair loop (`harness/repair.py`
 `write_and_gate_page`/`apply_deterministic_fixes`), a **deterministic
 pre-repair pass** runs before any model call: it fixes a forbidden hype word,
 a leaked claim id, a safe trigger-word synonym, an incidental numeral, or a
@@ -122,7 +122,9 @@ warranty-wording mismatch with plain text substitution, then re-runs the gate.
 Only failures that survive that pass ever reach a real repair call. The
 repair loop is capped at `MAX_REPAIR_ATTEMPTS = 2` real model calls beyond the
 initial write (3 attempts total per cartridge); exhausting the cap raises
-`ClaimsGateFailure`.
+`ClaimsGateFailure`. Borrowing guardrails-ai's `OnFailAction` vocabulary
+(docs/RESEARCH-HARNESS-LANDSCAPE.md #11): the pre-repair pass is `fix`, the
+model repair is `reask`, and the STOP is `exception`.
 
 ## Budgets
 
