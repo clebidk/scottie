@@ -14,6 +14,12 @@ tenants/*/fixtures/*.jpg
 tenants/*/inbox/*
 !tenants/*/inbox/.gitkeep
 
+# Cycle 27: harness brand import's working copy of whatever it downloaded/
+# copied from a Drive folder or --local dir -- the classified/processed
+# outputs (logo.*, fonts/, tokens.json, base.css, BRAND-IMPORT.md) are what
+# gets committed, not the raw source files.
+tenants/*/brand/incoming/
+
 # Legacy top-level run dirs (pre-restructure); kept ignored so an old
 # working copy does not suddenly show them as untracked.
 out/

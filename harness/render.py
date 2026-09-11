@@ -446,6 +446,25 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
         return None
 
 
+# Cycle 27 (brand import): a tenant's brand/logo.<ext>, if `harness brand
+# import` (or a hand-placed file) has put one there. Checked in this fixed
+# extension order so a tenant with both an .svg and a .png (the import
+# writes only one, but a hand-edit could add a second) gets a deterministic
+# choice -- vector first, same preference the importer itself uses.
+LOGO_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".webp")
+
+
+def find_tenant_logo(brand_dir):
+    """tenants/<t>/brand/logo.<ext>, the first extension in LOGO_EXTENSIONS
+    that exists, or None."""
+    brand_dir = Path(brand_dir)
+    for ext in LOGO_EXTENSIONS:
+        candidate = brand_dir / f"logo{ext}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def render_page(
     *,
     cartridge_name,
@@ -522,6 +541,17 @@ def render_page(
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 
+    # Cycle 27: same self-contained-folder treatment as an ad asset (Fix 8
+    # above) -- the logo is brand data, not something download_asset's
+    # facts_pack.assets loop ever sees, so it's copied in on its own.
+    logo_url = None
+    logo_path = find_tenant_logo(brand_dir)
+    if logo_path is not None:
+        logo_dest = out_dir / "assets" / f"brand-logo{logo_path.suffix}"
+        logo_dest.parent.mkdir(parents=True, exist_ok=True)
+        logo_dest.write_bytes(logo_path.read_bytes())
+        logo_url = f"assets/{logo_dest.name}"
+
     template = env.get_template("template.html")
     html = template.render(
         page=page,
@@ -534,6 +564,7 @@ def render_page(
         assets=assets_by_id,
         sources=sources,
         json_ld=json_ld,
+        logo_url=logo_url,
         published=published,
         updated=updated,
         cartridge=cartridge_name,
