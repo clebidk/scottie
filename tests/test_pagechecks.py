@@ -3,7 +3,7 @@ page checks in harness/pagechecks.py, each with a discrimination smoke test
 -- a known-good page passes, a planted bad page fails.
 
 Image allowlist and internal links are page.json-level checks wired into
-cli.check_page_gates, so the writer repair loop can fix them (proven here
+repair.check_page_gates, so the writer repair loop can fix them (proven here
 end to end through write_and_gate_page). HTML validity and JSON-LD are
 post-render backstops in render_page: writer prose is autoescaped, so a
 structural failure is a template/renderer/tenant-file bug that must STOP
@@ -15,7 +15,7 @@ import pytest
 
 from harness import pagechecks
 from harness.claims import ClaimsGateFailure
-from harness.cli import check_page_gates, write_and_gate_page
+from harness.repair import check_page_gates, write_and_gate_page
 from harness.budget import Budget
 from harness.log import RunLog
 from harness.render import render_page

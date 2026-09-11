@@ -4,7 +4,7 @@ phase 2): image allowlist, internal links, JSON-LD validity, HTML validity.
 Two homes, by who can fix the failure:
 
 - The page.json-level checks (image allowlist, internal links) run inside
-  cli.check_page_gates, so the writer repair loop can fix them -- the writer
+  repair.check_page_gates, so the writer repair loop can fix them -- the writer
   owns a page's asset ids and CTA urls.
 - The rendered-HTML checks (HTML validity, rendered JSON-LD parse/type, the
   rendered internal-link count) are post-render backstops called from
@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 import html5lib
 
 from . import tenant as tenant_mod
+from . import vocab
 
 # page.json keys that carry a link target. Every cartridge's CTA is one of
 # these (article nests it at cta.url; the others use a flat cta_url); image
@@ -195,3 +196,24 @@ def find_block_violations(page, cartridge_name, block_slots=None):
         if block_id not in allowed:
             problems.append({"path": path, "issue": f"block {block_id!r} is not allowed for slot {slot!r}; choose one of {allowed}"})
     return problems
+
+
+def find_forbidden_term_urls(facts_pack, terms=None):
+    """Every URL this run uses whose own path contains one of the tenant's
+    banned terms. A storefront handle is outside this harness's control, so a
+    page still links to the product URL as-is -- but each such URL is logged
+    per run and listed in REVIEW.md so it stays visible."""
+    if terms is None:
+        terms = vocab.VISIBLE_TEXT_FORBIDDEN_TERMS
+    terms = [t.lower() for t in terms]
+    if not terms:
+        return []
+    urls = []
+    product_url = facts_pack.get("product", {}).get("url")
+    if product_url and any(t in product_url.lower() for t in terms):
+        urls.append(product_url)
+    for claim in facts_pack.get("verified_claims", []):
+        source = claim.get("source", "")
+        if source.startswith("http") and any(t in source.lower() for t in terms) and source not in urls:
+            urls.append(source)
+    return urls

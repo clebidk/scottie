@@ -77,10 +77,10 @@ drift apart.
 | `ingest` | `harness/ingest.py` | `ad_brief.json` |
 | `ground` | `harness/ground.py`, `harness/sources/judgeme.py` | `facts_pack.json` (the chosen product, plus its claim universe) |
 | `gate_ad_claims` | `harness/claims.py`, `harness/semantic_match.py` | matched/unmatched ad claims, or a STOP |
-| `write_pages` | `harness/write.py`, `harness/cli.py` (`write_and_gate_page`) | one `page.json` per selected cartridge |
+| `write_pages` | `harness/write.py`, `harness/repair.py` (`write_and_gate_page`) | one `page.json` per selected cartridge |
 | `render_pages` | `harness/render.py` | one `index.html` per cartridge (byline, disclosure, sources, JSON-LD injected by the renderer, never by the model) |
 | `review_notify` | `harness/runstate.py`, `harness/notify.py` | `state.json` advanced to `needs_review`; the tenant's reviewers notified (both channels optional, both fail closed) |
-| `write_review` | `harness/cli.py` (`write_review_md`) | `REVIEW.md` |
+| `write_review` | `harness/review_md.py` (`write_review_md`) | `REVIEW.md` |
 
 ## Gates
 
@@ -194,4 +194,4 @@ tests/         pytest suite covering claims, render, write, budget, tenant, ...
 | Change a run's budget caps | `harness/budget.py` |
 | Change stage order or add a stage | `harness/pipeline.py` (`STAGES`, `DEFAULT_STAGES`) and, if it should run under `harness workflow run`, the matching `workflows/*.yaml` |
 | Change which tenant runs by default | `tenants/default.txt` |
-| Change the repair loop's retry count or fixes | `harness/cli.py` (`MAX_REPAIR_ATTEMPTS`, `apply_deterministic_fixes`) |
+| Change the repair loop's retry count or fixes | `harness/repair.py` (`MAX_REPAIR_ATTEMPTS`, `apply_deterministic_fixes`) |

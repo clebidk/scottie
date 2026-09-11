@@ -16,6 +16,9 @@ import sys
 from pathlib import Path
 
 from . import budget as budget_mod
+from . import pagechecks
+from . import repair
+from . import review_md
 from .budget import Budget, BudgetExceeded
 from .config import REPO_ROOT
 from .claims import ClaimsGateFailure, gate_ad_brief_claims
@@ -276,9 +279,7 @@ def gate_ad_claims(state):
         ),
     )
 
-    from .cli import find_forbidden_term_urls
-
-    state.forbidden_urls = find_forbidden_term_urls(state.facts_pack)
+    state.forbidden_urls = pagechecks.find_forbidden_term_urls(state.facts_pack)
     for url in state.forbidden_urls:
         state.log.event("run", f"URL contains a forbidden term: {url}")
 
@@ -329,8 +330,6 @@ def _write_initial_pages_via_batch(state, write_model):
 
 
 def write_pages(state):
-    from .cli import write_and_gate_page
-
     write_model = state.tenant.model_for("write")
     repair_first_model = state.tenant.model_for("repair_first")
     repair_next_model = state.tenant.model_for("repair_next")
@@ -348,7 +347,7 @@ def write_pages(state):
         state.budget.check()
         initial_page, initial_call_tokens = initial_pages.get(cartridge_name, (None, 0))
         try:
-            page, attempts, deterministic_fixes = write_and_gate_page(
+            page, attempts, deterministic_fixes = repair.write_and_gate_page(
                 cartridge_name=cartridge_name,
                 cartridges_dir=CARTRIDGES_DIR,
                 ad_brief=state.ad_brief,
@@ -425,9 +424,7 @@ def review_notify(state):
 
 
 def write_review(state):
-    from .cli import write_review_md
-
-    write_review_md(
+    review_md.write_review_md(
         state.run_dir,
         ad_brief=state.ad_brief,
         facts_pack=state.facts_pack,
@@ -484,7 +481,6 @@ def execute(state, stage_names=DEFAULT_STAGES):
     A gate STOP is exit 2 and never leaves a partial page; a budget overrun is
     exit 3, likewise. The cost estimate and REVIEW.md are written last, so a
     STOP still records what the run spent."""
-    from .cli import _log_run_result
 
     stage_names = list(stage_names)
     unknown = [n for n in stage_names if n not in STAGES and n != "write_review"]
@@ -513,7 +509,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
         budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
                                 today_iso=state.today_iso, log=state.log)
         state.log.budget_summary(state.budget.summary())
-        _log_run_result(state.log, "STOP", state.gate_log)
+        review_md.log_run_result(state.log, "STOP", state.gate_log)
         state.log.close()
         print(
             f"Claims gate STOPPED at stage {e.stage!r}: {len(e.items)} unmatched item(s).",
@@ -527,12 +523,12 @@ def execute(state, stage_names=DEFAULT_STAGES):
         budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
                                 today_iso=state.today_iso, log=state.log)
         state.log.budget_summary(state.budget.summary())
-        _log_run_result(state.log, "STOP", state.gate_log)
+        review_md.log_run_result(state.log, "STOP", state.gate_log)
         state.log.close()
         print(f"budget exceeded: {e}", file=sys.stderr)
         return 3
 
-    _log_run_result(state.log, "PASS", state.gate_log)
+    review_md.log_run_result(state.log, "PASS", state.gate_log)
     state.log.close()
     print(f"Run complete: {state.run_dir}")
     for p in state.outputs:

@@ -9,7 +9,7 @@ import json
 
 from harness import blocks
 from harness.blocks import gate as block_gate
-from harness.cli import check_page_gates
+from harness.repair import check_page_gates
 from tests.test_render import AD_BRIEF, FACTS_PACK, LONGFORM_PAGE
 from tests.test_tenant import ENGINE_TENANT_WORDS
 from tests.support import REPO_ROOT

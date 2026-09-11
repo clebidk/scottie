@@ -2,7 +2,7 @@
 gate checks (word range, CTA allowlist) that feed it. A page that fails a
 page-level gate check gets a second (and third) chance with a "REVISION
 REQUIRED" block before the run STOPs -- these tests exercise that directly
-against harness.cli.write_and_gate_page, with a fake Anthropic client standing in
+against harness.repair.write_and_gate_page, with a fake Anthropic client standing in
 for the writer, rather than through the full `adv run` pipeline."""
 from pathlib import Path
 
@@ -10,7 +10,7 @@ import pytest
 
 from harness.budget import Budget, BudgetExceeded
 from harness.claims import ClaimsGateFailure, find_financing_violations, find_warranty_violations
-from harness.cli import (
+from harness.repair import (
     MAX_REPAIR_ATTEMPTS,
     apply_deterministic_fixes,
     apply_hype_synonyms,
