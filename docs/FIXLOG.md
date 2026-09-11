@@ -876,3 +876,31 @@ unset and paraphrased financing into body prose instead ("Financing sentence che
 
 ### Verify (server, real Claude calls, foreground, one at a time)
 
+
+
+`~/advertorial/.venv/bin/pip install -e . -q` then `.venv/bin/python -m pytest -q` on the
+server: **702 total, 702 passed, 0 failed**, matching the Mac clone exactly.
+
+- **`price-comparison-v2.mov`**: 1st attempt (`20260911-010454-price-comparison-v2-kkbz`)
+  STOPped -- unrelated claims-gate issue (an FAQ sentence with a customer-quoted dollar figure
+  missing a claim_id, the same pattern Cycle 24 hit on this fixture; nothing to do with this
+  cycle's financing change). Rerun **PASSed**: `20260911-010829-price-comparison-v2-ebcu`.
+- **`product-features-v2.mov`**: **PASSed** on the first attempt: `20260911-011051-product-features-v2-57yx`.
+- Both `article` pages' `page.json`: `financing_line` is exactly `"Financing is available
+  through Bread Pay at checkout."`; a full-tree walk for the substring "financ" in both files
+  finds exactly that one hit, at `$.financing_line`, in each -- no paraphrase anywhere else on
+  either page. Confirmed the same way against the rendered `index.html` (`grep -o
+  'Financing[^<]*'`): one match per page, byte-identical to the allowed sentence.
+- `harness review` run on both new run dirs; `article-review.html` copied into
+  `tenants/peak-saunas/out/FRIDAY-2026-09-11/`, replacing the two prior `article-review.html`
+  files for these ads (`longform`/`product-page`/`listicle` review files for these ads
+  untouched -- that gap was `article`-only). That folder's `README.md` (gitignored, server-only)
+  updated: file sizes for the two replaced files, the sweep table's run ids for rows 2/3, and a
+  Cycle 25 update note; the two rows' dollar cost is left blank -- no cost ledger was found for
+  an ad-hoc rerun, and Cycle 24's original `$1.9612` total predates these reruns so it's called
+  out as not updated rather than silently left looking current.
+  `tenants/peak-saunas/docs/PACKET-DRAFT.md` (git-tracked): the two runs' ids updated
+  everywhere they appear (table + `harness approve`/`publish --dry-run` commands), plus a
+  Cycle 25 update note.
+- `git status` on the server: clean except the pre-existing untracked
+  `tenants/peak-saunas/evals/approvals.jsonl`, unrelated.

@@ -11,15 +11,23 @@ runs PASS again after Cycle 23's run-id and CSS-layering fixes -- see
 `needs_review`, every packet stamp is still `BOT DRAFT · NOT SENT` -- **nothing has been
 approved or published this cycle either.**
 
+**Cycle 25 update:** the financing gate is now cartridge-independent (`docs/FIXLOG.md` Cycle
+25), closing the gap Cycle 24 found in 2 of the 7 `article` pages (paraphrased financing
+instead of the exact fixed sentence). `product-features-v2.mov` and `price-comparison-v2.mov`
+(article/longform/product-page rows below) were rerun; their run ids below are the new runs --
+both PASS, both `article` pages now carry the financing sentence exactly once, verbatim, no
+paraphrase elsewhere on the page. `longform`/`product-page` for both ads, and every other row,
+are unchanged from Cycle 24.
+
 ### Cycle 24 final run ids (needs_review, nothing approved or published)
 
 | Ad | Cartridges | Run id | State | Pages |
 |---|---|---|---|---|
 | hidden-costs-v2.mov | article, longform, product-page | `out/20260911-001517-hidden-costs-v2-7tnk` | needs_review | article, longform, product-page: needs_review |
 | hidden-costs-v2.mov | listicle | `out/20260911-004038-hidden-costs-v2-widd` | needs_review | listicle: needs_review |
-| product-features-v2.mov | article, longform, product-page | `out/20260911-001800-product-features-v2-3i3w` | needs_review | article, longform, product-page: needs_review |
+| product-features-v2.mov | article, longform, product-page | `out/20260911-011051-product-features-v2-57yx` | needs_review | article, longform, product-page: needs_review |
 | product-features-v2.mov | listicle | `out/20260911-004216-product-features-v2-imuh` | needs_review | listicle: needs_review |
-| price-comparison-v2.mov | article, longform, product-page | `out/20260911-002507-price-comparison-v2-cur2` | needs_review | article, longform, product-page: needs_review |
+| price-comparison-v2.mov | article, longform, product-page | `out/20260911-010829-price-comparison-v2-ebcu` | needs_review | article, longform, product-page: needs_review |
 | still-lessthan300-4x5.png | article, longform, product-page | `out/20260911-002807-still-lessthan300-4x5-wngk` | needs_review | article, longform, product-page: needs_review |
 | still-levelup-4x5.png | article, longform, product-page | `out/20260911-003029-still-levelup-4x5-fg3w` | needs_review | article, longform, product-page: needs_review |
 | still-infraredglow-4x5.png | article, longform, product-page | `out/20260911-003614-still-infraredglow-4x5-nvz3` | needs_review | article, longform, product-page: needs_review |
@@ -44,18 +52,18 @@ harness publish tenants/peak-saunas/out/20260911-001517-hidden-costs-v2-7tnk --p
 harness approve tenants/peak-saunas/out/20260911-004038-hidden-costs-v2-widd --by caleb@peaksaunas.com --pages listicle
 harness publish tenants/peak-saunas/out/20260911-004038-hidden-costs-v2-widd --page listicle --dry-run
 
-harness approve tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --by caleb@peaksaunas.com --pages article,longform,product-page
-harness publish tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --page article --dry-run
-harness publish tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --page longform --dry-run
-harness publish tenants/peak-saunas/out/20260911-001800-product-features-v2-3i3w --page product-page --dry-run
+harness approve tenants/peak-saunas/out/20260911-011051-product-features-v2-57yx --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-011051-product-features-v2-57yx --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-011051-product-features-v2-57yx --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-011051-product-features-v2-57yx --page product-page --dry-run
 
 harness approve tenants/peak-saunas/out/20260911-004216-product-features-v2-imuh --by caleb@peaksaunas.com --pages listicle
 harness publish tenants/peak-saunas/out/20260911-004216-product-features-v2-imuh --page listicle --dry-run
 
-harness approve tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --by caleb@peaksaunas.com --pages article,longform,product-page
-harness publish tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --page article --dry-run
-harness publish tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --page longform --dry-run
-harness publish tenants/peak-saunas/out/20260911-002507-price-comparison-v2-cur2 --page product-page --dry-run
+harness approve tenants/peak-saunas/out/20260911-010829-price-comparison-v2-ebcu --by caleb@peaksaunas.com --pages article,longform,product-page
+harness publish tenants/peak-saunas/out/20260911-010829-price-comparison-v2-ebcu --page article --dry-run
+harness publish tenants/peak-saunas/out/20260911-010829-price-comparison-v2-ebcu --page longform --dry-run
+harness publish tenants/peak-saunas/out/20260911-010829-price-comparison-v2-ebcu --page product-page --dry-run
 
 harness approve tenants/peak-saunas/out/20260911-002807-still-lessthan300-4x5-wngk --by caleb@peaksaunas.com --pages article,longform,product-page
 harness publish tenants/peak-saunas/out/20260911-002807-still-lessthan300-4x5-wngk --page article --dry-run
