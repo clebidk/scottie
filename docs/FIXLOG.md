@@ -1009,3 +1009,58 @@ that applies what a reviewer asked for and writes a new, versioned page.
    Mac clone: **734 total, 734 passed, 0 failed**
    (702 + 32 new). `.venv-local/bin/ruff check .`: clean.
 
+
+### Verify (server)
+
+`~/advertorial/.venv/bin/pip install -e . -q` then `.venv/bin/pip install -q flask`, then
+`.venv/bin/python -m pytest -q` on the server: **734 total, 734 passed, 0 failed**, matching
+the Mac clone exactly.
+
+`crons/install.sh --with-review peak-saunas "$(pwd)"` on the server: `systemctl --user` was
+available, so it rendered and `systemctl --user enable --now`'d
+`harness-review@peak-saunas.service` (the four existing digest/refresh timers were also
+rendered, as before, and left un-enabled). `systemctl --user is-active
+harness-review@peak-saunas.service` -> `active`.
+
+`REVIEW_PASSWORD` set: `openssl rand -base64 15` appended to `tenants/peak-saunas/.env` as
+`REVIEW_PASSWORD=...` inside one remote shell script that never echoed the value -- only
+`grep -c ^REVIEW_PASSWORD` (count 1) and curl's own status codes were ever seen. Read it on
+the server with `grep ^REVIEW_PASSWORD ~/advertorial/tenants/peak-saunas/.env`.
+
+`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:4870/`:
+- No auth: **401**, `WWW-Authenticate: Basic`.
+- `-u caleb@peaksaunas.com:<REVIEW_PASSWORD>`: **200**.
+- `-u caleb@peaksaunas.com:wrong-password`: **401**.
+
+**Real revise** (1 real Claude call, foreground on the server, well under the 600s cap):
+picked the hidden-costs-v2 article from the FRIDAY-2026-09-11 sweep, run
+`20260911-001517-hidden-costs-v2-7tnk` (`tenants/peak-saunas/out/FRIDAY-2026-09-11/README.md`'s
+own sweep table names it as that ad's final PASS run). Posted feedback through
+`/run/<id>/page/article/action` with curl + basic auth: one `cut:` line copied verbatim from
+`article/page.json`'s `open[0].text` ("She said she typed in her contact information more than
+once just to see a number on a screen, and each time a sales call followed within the hour."),
+one note ("shorten the opening paragraph by half."), `regenerate=1` ticked. `state.json`'s new
+feedback entry confirmed the cut/notes split correctly; page state went to
+`changes_requested`; the review site launched `harness revise` as a background subprocess as
+designed.
+
+Result (`tenants/peak-saunas/runs/20260911-001517-hidden-costs-v2-7tnk-revise-article.background.log`): `Revised article for .../20260911-001517-hidden-costs-v2-7tnk
+-> v1 (1 cut(s), writer called=True, gate=PASS)`. Confirmed directly, not just from the log
+line: `article/page.v1.json` (9,924 bytes, the original) and `article/index.v1.html` sit
+alongside a freshly written `article/page.json` (9,738 bytes, the cut sentence gone) and
+`index.html`; `article-review.v1.html` alongside a regenerated `article-review.html`.
+`state.json`'s page state is back to `needs_review`, history shows `changes_requested` then
+`needs_review; revised to v1; gate PASS`, and `revise_status.article` is `{"status": "done",
+"detail": "gate PASS"}`. `REVIEW.md` carries a new `## Revision: article v1` section: the cut
+sentence, the note, "Writer called: yes", "Gate result: PASS", and "Estimated cost of this
+revision: $0.0812" (one writer call, well inside the fresh 60k-token/4-call revise budget --
+`calls_used: 4` in the revision's own budget summary above that section was the ORIGINAL run's
+total, not this revise's; the revise's own cost is the separate $0.0812 line).
+
+`git status` on the server: clean except two long-standing untracked files,
+`tenants/peak-saunas/evals/{scores,approvals}.jsonl` -- the test suite's approve/score tests
+(pre-Cycle-26; `tests/test_cli_approve_publish.py` and others) write to the tenant's real
+`evals/` path rather than an isolated fixture, so running the suite on the server (as every
+prior cycle's own FIXLOG entry also did) appends to those files; neither is tracked or
+gitignored today. Pre-existing test-isolation gap, not touched this cycle -- named here rather
+than silently worked around.
