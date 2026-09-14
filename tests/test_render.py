@@ -1000,3 +1000,89 @@ def test_render_page_shows_article_alternatives_and_how_it_works_sections(tmp_pa
     assert "adv-how-it-works" in html
     # ordered between body_sections and turn_section
     assert html.index(ARTICLE_PAGE["alternatives_section"]["heading"]) < html.index(ARTICLE_PAGE["turn_section"]["heading"])
+
+
+# ---------------------------------------------------------------------------
+# Cycle 33: http_fetch_bytes scheme allowlist + size cap
+# ---------------------------------------------------------------------------
+
+def test_http_fetch_bytes_rejects_non_http_schemes(monkeypatch):
+    from harness.render import http_fetch_bytes
+
+    called = {"n": 0}
+
+    def _boom(*_a, **_k):
+        called["n"] += 1
+        raise AssertionError("urlopen must not be called for non-http schemes")
+
+    monkeypatch.setattr("harness.render.urllib.request.urlopen", _boom)
+    with pytest.raises(ValueError, match="http\\(s\\)"):
+        http_fetch_bytes("file:///etc/passwd")
+    with pytest.raises(ValueError, match="http\\(s\\)"):
+        http_fetch_bytes("ftp://example.com/x")
+    assert called["n"] == 0
+
+
+def test_http_fetch_bytes_caps_response_size(monkeypatch):
+    from harness import render as render_mod
+    from harness.render import HTTP_FETCH_MAX_BYTES, http_fetch_bytes
+
+    class _Resp:
+        def __init__(self, payload):
+            self._payload = payload
+            self._pos = 0
+
+        def read(self, n=-1):
+            if self._pos >= len(self._payload):
+                return b""
+            if n is None or n < 0:
+                n = len(self._payload) - self._pos
+            chunk = self._payload[self._pos : self._pos + n]
+            self._pos += len(chunk)
+            return chunk
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    oversized = b"x" * (HTTP_FETCH_MAX_BYTES + 1)
+
+    def _open(_req, timeout=30):
+        return _Resp(oversized)
+
+    monkeypatch.setattr(render_mod.urllib.request, "urlopen", _open)
+    with pytest.raises(ValueError, match="exceeded"):
+        http_fetch_bytes("https://cdn.example.com/huge.bin")
+
+
+def test_http_fetch_bytes_returns_small_http_response(monkeypatch):
+    from harness import render as render_mod
+    from harness.render import http_fetch_bytes
+
+    class _Resp:
+        def __init__(self, payload):
+            self._payload = payload
+            self._pos = 0
+
+        def read(self, n=-1):
+            if self._pos >= len(self._payload):
+                return b""
+            if n is None or n < 0:
+                n = len(self._payload) - self._pos
+            chunk = self._payload[self._pos : self._pos + n]
+            self._pos += len(chunk)
+            return chunk
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def _open(_req, timeout=30):
+        return _Resp(b"ok-bytes")
+
+    monkeypatch.setattr(render_mod.urllib.request, "urlopen", _open)
+    assert http_fetch_bytes("https://cdn.example.com/small.bin") == b"ok-bytes"
