@@ -1400,5 +1400,90 @@ brand tokens for a human to make.
 - Open: warm-up-window gate (brief item, not started); the Amin article rules stay [CONFIRM IN ARTICLE] until the text is available; tenant `design_reference` slugs → adapter (follow-up).
 - Process note: reference packs were committed straight to master; code changes keep going through branches and review.
 
+<<<<<<< HEAD
 ## Next-cycle queue (operator, 2026-09-14)
 - Simplicity gate (from docs/RESEARCH-HORMOZI-LANDING.md section 3): (a) at most one distinct link above the fold per page, (b) headline word band per cartridge (article 8–14 already; set product-page 4–10, longform 6–12, listicle 8–14), (c) exactly one offer element per page (CTA block + optional financing sentence; no second offer card), (d) value-equation checklist injected into the product-page proof-bullet instruction (dream outcome, proof-backed likelihood, time to first benefit, install effort — verified claims only). Soft checks to REVIEW.md first; enforce after one clean sweep. Lands after cycles 30 and 31 merge.
+=======
+## Cycle 30 — warm-up window gate + tenant design references (2026-09-14)
+
+Branch `cycle30/warmup-and-design-refs`. Concurrent with cycle31/images
+(harness/render.py, harness/structure.css, harness/ground.py,
+cartridges/*/template.html, harness/shopify.py) -- none of those files
+touched here.
+
+**Part 1 -- warm-up window (article only).** `cartridges/article/schema.json`
+gains `warmup_window_words: 600` (a sibling data key, same convention as its
+own `allowed_cta_texts`); tenant.yaml gains `cartridges.article.
+warmup_window_words` / `warmup_mode` (template default: 600 / "warn").
+`harness/claims.py` gets `find_warmup_violations(page_json, tenant, window)`
+and `warmup_first_mentions(page_json, tenant)`, in the file's own
+find_*_violations pattern (as directed) but deliberately NOT wired into
+`gate_page_json` -- unlike every check that function runs, whether this one
+is even a hard gate is per-tenant. It walks the article's own reading order
+(headline -> dek -> open -> body_sections -> alternatives_section ->
+how_it_works_section -> turn_section -> close), not `textutil.walk_page`,
+because a model's own JSON key order isn't guaranteed to match the
+cartridge's structural order and reading order is exactly what this
+measures. Flags: tenant/product brand name (tenant.yaml's name +
+tenant_short_name, plus every short_name in claims/products.json, read
+directly -- never a live Shopify fetch, so the gate stays deterministic),
+a `$` price token, and any of the cartridge's own allowed CTA texts.
+Exempt by construction: the "Advertisement" label, byline block, and
+disclosure paragraph are renderer-injected and never reach page.json.
+
+Wired into `harness/repair.py`: `check_page_gates` runs it as a hard gate
+only when `warmup_mode: enforce`; `find_soft_check_warnings` writes
+"Warm-up window: brand/price/CTA appears at word N" lines only when
+`warmup_mode: warn`. `review_md.write_review_md` reports the first
+brand/price/CTA word index for the article page unconditionally, regardless
+of mode. One sentence added to `cartridges/article/cartridge.md`'s Rules,
+the window number injected via `{{ tenant.cartridges.article.
+warmup_window_words }}` (tenant-neutral wording, same placeholder mechanism
+already used for `{{ tenant.reviews.platform_name }}`).
+
+Peak Saunas is set to `warmup_mode: enforce` -- confirmed via `python -m
+evals.fake_run tenants/peak-saunas/fixtures/hidden-costs-v2.transcript.txt
+--tenant peak-saunas` (byte-identical to `evals/baseline/`) that the
+current baseline article page already passes at a 600-word window: the
+brand first appears at word 1063, and no price/CTA text appears in the
+window at all. `tenants/_template/tenant.yaml` still defaults new tenants
+to `warmup_mode: warn` -- a tenant only earns "enforce" once its own
+baseline is checked the same way.
+
+**Part 2 -- tenant design references.** New `harness/design_skills/
+design_md.py`: `tenant.yaml`'s `design_reference: [slugs]` (template: `[]`;
+Peak Saunas: `[tesla, apple]`) each resolve to `design-md/<slug>/DESIGN.md`.
+The two vendored files are NOT uniform (apple has real YAML frontmatter
+with numeric spacing/typography tokens; tesla has none, only prose and
+markdown tables) -- every derivation falls back from a frontmatter read to
+a text-section scan, and degrades to `None`/a qualitative label rather than
+guessing a number. Derives exactly six structural facts (hero style,
+whitespace scale, max content width band, heading-to-body ratio band, image
+aspect preference, section rhythm) -- fonts, colors, and the referenced
+brand's own name are never read into a derived value. `design_reference_
+rules(tenant)` encodes each as a rules.json-shaped entry (action always
+"adapt"); only hero style carries a `check` this cycle (soft only --
+`gate.find_design_reference_warnings` flags a landing-style page whose
+hero style is photo-first but has no `hero_image.asset_id`). Content width /
+ratio / whitespace / aspect / rhythm are informational only this cycle (no
+render.py/CSS change -- that's the images branch's scope), surfaced through
+`harness design-skills list --tenant <t>`'s new "design_reference" group
+and through `write.py`'s writer-prompt guidance lines (landing-style
+cartridges only; article declines the landing skeleton entirely, same as
+the existing design-skills pack).
+
+**Tests**: 30 new (`tests/test_warmup.py` x18, `tests/test_soft_checks.py`
++2, `tests/test_design_skills.py` +10) -- 925 total (baseline 895), all
+green; `ruff check` clean; `tests/test_fake_run.py` (baseline byte parity)
+unaffected, confirming the fake client ignores the new prompt content as
+expected.
+
+**Verification**: see the cycle 30 commit/PR for the server real-run
+result (`harness run tenants/peak-saunas/fixtures/hidden-costs-v2.mov
+--tenant peak-saunas`), REVIEW.md's warm-up numbers, and the design_reference
+guidance lines that reached the writer prompt.
+>>>>>>> cycle30/warmup-and-design-refs
+
+## Cycle 30 merge note (operator)
+- Merged with Peak warmup_mode set back to warn: the real run under enforce STOPped after three repairs (brand at word 465, then 583). Enforce again after five consecutive clean real runs report first-brand-mention beyond the window in REVIEW.md.
+- Follow-up for cycle 32: repair loop should normalize warm-up failures to a stable key ("brand inside warm-up window") so the REVISION REQUIRED memory recognizes repeats, and the repair prompt should state the exact word budget remaining.

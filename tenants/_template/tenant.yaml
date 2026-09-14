@@ -59,6 +59,26 @@ default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: false
 
+# Cycle 30: per-cartridge overrides. article.warmup_window_words overrides
+# cartridges/article/schema.json's own default (600 words) -- the article
+# cartridge keeps pricing, the CTA, and the brand name out of this many
+# words at the top of the page. article.warmup_mode is "warn" (advisory
+# REVIEW.md line only -- the safe default for a new tenant) or "enforce"
+# (a hard gate/repair-loop failure) -- turn "enforce" on only once this
+# tenant's own baseline article page already passes at its chosen window.
+cartridges:
+  article:
+    warmup_window_words: 600
+    warmup_mode: warn
+
+# Cycle 30: structural design references. Each slug names a folder under
+# harness/design_skills/design-md/<slug>/DESIGN.md; the design-skills
+# adapter takes only STRUCTURAL rules from it (hero style, whitespace
+# scale, max content width, heading-to-body size ratio, image aspect,
+# section rhythm) -- never fonts, colors, or the referenced brand's name,
+# which stay this tenant's own brand layer. Safe to leave empty.
+design_reference: []
+
 # Cycle 17 (cost reduction): which model each stage calls. Any key left out
 # falls back to harness/config.py's DEFAULT_MODELS -- a new tenant can delete
 # this whole block and get the same defaults. write: the three cartridge

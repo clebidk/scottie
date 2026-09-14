@@ -33,8 +33,10 @@
     find_second_cta_violation.
 """
 import html
+import json
 import re
 
+from . import config
 from . import tenant as tenant_mod
 from . import exits
 from . import vocab
@@ -1293,6 +1295,200 @@ def find_comparison_table_violations(page_json):
                         "text": cell.get("text") if isinstance(cell, dict) else str(cell),
                     }
                 )
+    return hits
+
+
+# ---------------------------------------------------------------------------
+# Cycle 30: the warm-up window (article cartridge only). docs/BRIEF-2026-09-14
+# -advertorial-playbook.md: the highest-converting advertorials keep pricing,
+# the buy button, and the brand name out of the first N words -- the article
+# cartridge already delays the brand to the close, but nothing measured it.
+#
+# find_warmup_violations follows this module's own find_*_violations
+# pattern (page_json in, a list of {"path", "issue"} dicts out, [] on
+# pass) -- but is NOT wired into gate_page_json above, because whether it is
+# a hard gate at all is per-tenant (tenant.yaml's cartridges.article.
+# warmup_mode: "warn" | "enforce"), unlike everything gate_page_json runs
+# unconditionally. It is wired into harness/repair.py's check_page_gates
+# (hard, "enforce" only) and find_soft_check_warnings (advisory, "warn").
+#
+# Exempt by construction, never a gate concern: the "Advertisement" label,
+# byline block, and disclosure paragraph are all renderer-injected (see
+# harness/render.py) and never appear in page_json at all.
+# ---------------------------------------------------------------------------
+
+_ARTICLE_SCHEMA_PATH = config.REPO_ROOT / "cartridges" / "article" / "schema.json"
+
+
+def _article_schema():
+    try:
+        return json.loads(_ARTICLE_SCHEMA_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def default_warmup_window_words():
+    """cartridges/article/schema.json's own warmup_window_words -- the
+    fallback used when a tenant sets no cartridges.article.warmup_window_words
+    override."""
+    return _article_schema().get("warmup_window_words", 600)
+
+
+def _article_allowed_cta_texts():
+    """cartridges/article/schema.json's own allowed_cta_texts, read
+    directly. Article's CTA texts carry no {short_name}/{model_name}
+    placeholders (unlike a landing-style cartridge's), so there is nothing
+    to resolve against a specific product -- see write.resolve_allowed_cta_texts
+    for the cartridges that do need that."""
+    return _article_schema().get("allowed_cta_texts") or []
+
+
+def _tenant_product_short_names(tenant):
+    """Every product's short_name (or name, when a product has no curated
+    short_name) from this tenant's claims/products.json. Read directly from
+    disk -- never a live Shopify fetch (harness/prices.py) -- so the warm-up
+    gate stays deterministic and offline, and so it covers every one of the
+    tenant's products, not just the one this run's facts_pack picked."""
+    path = tenant.claims_dir / "products.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return []
+    products = data.get("products") if isinstance(data, dict) else None
+    if not isinstance(products, dict):
+        return []
+    names = {
+        p.get("short_name") or p.get("name")
+        for p in products.values()
+        if isinstance(p, dict) and (p.get("short_name") or p.get("name"))
+    }
+    return sorted(names)
+
+
+def _article_section_strings(node):
+    """heading, then intro, then paragraphs[].text, then criteria[].text --
+    the document order shared by body_sections items, alternatives_section,
+    how_it_works_section, and turn_section."""
+    out = []
+    if not isinstance(node, dict):
+        return out
+    heading = node.get("heading")
+    if isinstance(heading, str) and heading:
+        out.append(heading)
+    intro = node.get("intro")
+    if isinstance(intro, str) and intro:
+        out.append(intro)
+    for para in node.get("paragraphs") or []:
+        text = para.get("text") if isinstance(para, dict) else para
+        if isinstance(text, str) and text:
+            out.append(text)
+    for item in node.get("criteria") or []:
+        text = item.get("text") if isinstance(item, dict) else item
+        if isinstance(text, str) and text:
+            out.append(text)
+    return out
+
+
+def _article_warmup_strings(page_json):
+    """Every prose string in the article's own reading order: headline,
+    dek, then open / body_sections / alternatives_section /
+    how_it_works_section / turn_section / close, each walked in that
+    section's own document order (cartridges/article/schema.json's declared
+    order). Deliberately NOT textutil.walk_page -- a model's own JSON
+    response key order is not guaranteed to match the cartridge's
+    structural order, and reading order is exactly what the warm-up window
+    measures."""
+    if not isinstance(page_json, dict):
+        return []
+    strings = []
+    for key in ("headline", "dek"):
+        value = page_json.get(key)
+        if isinstance(value, str) and value:
+            strings.append(value)
+
+    for para in page_json.get("open") or []:
+        text = para.get("text") if isinstance(para, dict) else para
+        if isinstance(text, str) and text:
+            strings.append(text)
+
+    for section in page_json.get("body_sections") or []:
+        strings.extend(_article_section_strings(section))
+
+    for key in ("alternatives_section", "how_it_works_section", "turn_section", "close"):
+        strings.extend(_article_section_strings(page_json.get(key)))
+
+    return strings
+
+
+def _word_index_at(full_text, char_pos):
+    """1-indexed word position of the word starting at char_pos of
+    full_text (full_text's words joined by single spaces, same convention
+    repair.count_words uses)."""
+    return len(full_text[:char_pos].split()) + 1
+
+
+def warmup_first_mentions(page_json, tenant):
+    """{"brand_word": N, "price_word": N, "cta_word": N} -- the 1-indexed
+    word position of the first tenant/product-name mention, first price
+    token, and first allowed CTA text in the article's reading order (None
+    for any that never appears). Computed unconditionally for REVIEW.md,
+    regardless of warmup_mode -- see review_md.write_review_md."""
+    full_text = " ".join(_article_warmup_strings(page_json))
+    brand_terms = [t for t in (tenant.display_name, tenant.get("tenant_short_name")) if t]
+    brand_terms += _tenant_product_short_names(tenant)
+    cta_terms = _article_allowed_cta_texts()
+
+    def first_word(terms, *, word_boundary):
+        best = None
+        for term in terms:
+            if not term:
+                continue
+            pattern = r"\b" + re.escape(term) + r"\b" if word_boundary else re.escape(term)
+            m = re.search(pattern, full_text, re.IGNORECASE)
+            if m:
+                widx = _word_index_at(full_text, m.start())
+                if best is None or widx < best:
+                    best = widx
+        return best
+
+    price_match = DOLLAR_AMOUNT_RE.search(full_text)
+    return {
+        "brand_word": first_word(brand_terms, word_boundary=True),
+        "price_word": _word_index_at(full_text, price_match.start()) if price_match else None,
+        "cta_word": first_word(cta_terms, word_boundary=False),
+    }
+
+
+def find_warmup_violations(page_json, tenant, window):
+    """[] if page_json isn't shaped like an article (no headline and no
+    open) or if the tenant/product brand name, a price, and every allowed
+    CTA text all first appear after word `window` in the article's reading
+    order; otherwise one {"path", "issue"} dict per category that appears
+    too early -- same shape this module's other find_*_violations return."""
+    if not isinstance(page_json, dict) or not (page_json.get("headline") or page_json.get("open")):
+        return []
+    mentions = warmup_first_mentions(page_json, tenant)
+    hits = []
+    if mentions["brand_word"] is not None and mentions["brand_word"] <= window:
+        hits.append({
+            "path": "$",
+            "issue": f"brand/product name appears at word {mentions['brand_word']}, inside the "
+                     f"{window}-word warm-up window -- the brand belongs after it, not inside it",
+        })
+    if mentions["price_word"] is not None and mentions["price_word"] <= window:
+        hits.append({
+            "path": "$",
+            "issue": f"a price appears at word {mentions['price_word']}, inside the {window}-word "
+                     f"warm-up window",
+        })
+    if mentions["cta_word"] is not None and mentions["cta_word"] <= window:
+        hits.append({
+            "path": "$",
+            "issue": f"CTA text appears at word {mentions['cta_word']}, inside the {window}-word "
+                     f"warm-up window",
+        })
     return hits
 
 

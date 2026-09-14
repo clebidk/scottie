@@ -12,6 +12,7 @@ never legitimate on any tenant.
 """
 import re
 
+from .. import tenant as tenant_mod
 from ..textutil import NON_PROSE_KEYS, walk_page
 from . import LANDING_CARTRIDGES
 
@@ -177,6 +178,32 @@ def find_tagline_warnings(page, cartridge_name):
     return []
 
 
+def find_design_reference_warnings(page, cartridge_name, tenant=None):
+    """Cycle 30: tenant.yaml's design_reference, soft only -- the one
+    measurable derived rule (hero style) as a REVIEW.md advisory, never a
+    hard gate and never touching CSS/render (design_reference_rules exists
+    for the writer prompt and `harness design-skills list`; nothing here
+    changes what a page is allowed to ship). [] for a tenant with no
+    design_reference, for a cartridge outside LANDING_CARTRIDGES (article's
+    own warm-up rule already declines a mandatory hero treatment), or when
+    the derived hero style isn't measurably photo-first."""
+    if cartridge_name not in LANDING_CARTRIDGES:
+        return []
+    from .design_md import design_reference_rules
+
+    tenant = tenant or tenant_mod.active()
+    warnings = []
+    for rule in design_reference_rules(tenant):
+        if rule["id"] == "DR-hero-style" and rule.get("check") == "hero_image_present_when_photo_first":
+            hero = page.get("hero_image") if isinstance(page, dict) else None
+            if not (isinstance(hero, dict) and hero.get("asset_id")):
+                warnings.append(
+                    f"{cartridge_name}: design_reference hero style is photo-first "
+                    f"(from {', '.join(rule['sources'])}) but this page has no hero_image.asset_id"
+                )
+    return warnings
+
+
 def check_page(page, cartridge_name=None):
     """Hard + soft findings for one page.json. Used by the CLI and by the
     pipeline wiring (hard goes through pagechecks; soft through repair)."""
@@ -188,4 +215,5 @@ def check_page(page, cartridge_name=None):
     if cartridge_name:
         soft += find_generic_cta_warnings(page, cartridge_name)
         soft += find_tagline_warnings(page, cartridge_name)
+        soft += find_design_reference_warnings(page, cartridge_name)
     return {"hard": hard, "soft": soft}

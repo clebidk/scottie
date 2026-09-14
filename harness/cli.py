@@ -595,10 +595,26 @@ def cmd_eval_report(args):
 # ---------------------------------------------------------------------------
 
 def cmd_design_skills_list(args):
-    """`harness design-skills list`: the vendored pack and its take/adapt/
-    decline tally. No tenant, no model call."""
+    """`harness design-skills list [--tenant T]`: the vendored pack and its
+    take/adapt/decline tally, no model call. With --tenant, also prints a
+    "design_reference" group -- the structural rules derived from that
+    tenant's tenant.yaml design_reference DESIGN.md packs (cycle 30), or a
+    one-line note when the tenant sets none."""
     from .design_skills import adapter
     print(adapter.format_list(), end="")
+    if getattr(args, "tenant", None):
+        from .design_skills.design_md import design_reference_rules
+
+        tenant = tenant_mod.load_tenant(args.tenant)
+        rules = design_reference_rules(tenant)
+        print("")
+        print("design_reference")
+        if not rules:
+            print(f"  {tenant.display_name} sets no design_reference in tenant.yaml.")
+        else:
+            for rule in rules:
+                check = f"  check={rule['check']}" if rule.get("check") else ""
+                print(f"  {rule['id']}: {rule['title']} -- action={rule['action']} value={rule['value']!r}{check}")
     return 0
 
 
@@ -808,6 +824,7 @@ def build_parser():
     p_ds = sub.add_parser("design-skills", help="the vendored elayadesign/ai-design-skills pack")
     ds_sub = p_ds.add_subparsers(dest="design_skills_command", required=True)
     p_ds_list = ds_sub.add_parser("list", help="vendored skills and take/adapt/decline counts")
+    _add_tenant_flag(p_ds_list)
     p_ds_list.set_defaults(func=cmd_design_skills_list)
     p_ds_explain = ds_sub.add_parser("explain", help="per-rule decision table")
     p_ds_explain.add_argument("--action", choices=["take", "adapt", "decline"])

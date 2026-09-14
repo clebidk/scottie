@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 
 from .anthropic_client import thinking_kwargs
+from .design_skills import LANDING_CARTRIDGES
+from .design_skills.design_md import design_reference_guidance_lines
 from .errors import WriterFailed
 from .jsonutil import extract_json
 from . import tenant as tenant_mod
@@ -393,6 +395,24 @@ def _build_hard_constraints(word_range, allowed_cta_texts):
     return hard_constraints
 
 
+# Cycle 30: tenant.yaml's design_reference, landing-style cartridges only
+# (article's own editorial warm-up declines the landing-page hero skeleton
+# entirely -- see cartridges/article/cartridge.md). Guidance only, never a
+# font/color/brand instruction -- design_reference_rules derives structure
+# alone. Shared by both write_page's prompt build and
+# build_initial_write_request's batch-mode prompt build below, so a
+# `--batch` run and a normal run see the exact same guidance.
+def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
+    if cartridge_name not in LANDING_CARTRIDGES:
+        return
+    design_guidance = design_reference_guidance_lines(tenant)
+    if design_guidance:
+        hard_constraints.append(
+            "Design reference guidance (structural only -- never a font, color, or brand "
+            "instruction): " + "; ".join(design_guidance) + "."
+        )
+
+
 # Fix cycle 17 item 2 (prompt caching): system is now a list of content
 # blocks instead of one string -- block 1 is cached_system_prefix (the
 # stable prefix, cache_control on it), block 2 (only present when there's
@@ -482,6 +502,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name))
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
+    _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
     kwargs = {
@@ -523,6 +544,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
+    _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification
