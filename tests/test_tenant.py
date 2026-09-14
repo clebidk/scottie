@@ -161,8 +161,23 @@ CARTRIDGE_AND_BLOCKS_TENANT_WORDS = tuple(sorted(
 ))
 
 
+# Vendored third-party evidence under harness/design_skills/ (a catalog's
+# DESIGN.md analyses, an upstream SKILL.md) is kept byte-identical and is never
+# sent to the model verbatim -- the adapter's take/adapt/decline table is what
+# reaches prompts. Ordinary English in those files ("the peak of the type
+# scale") is not a tenant leak, so the files themselves are skipped; our own
+# README.md / SOURCE.json / LICENSE beside them are scanned like everything else.
+_VENDORED_EVIDENCE_NAMES = {"DESIGN.md", "SKILL.md"}
+
+
+def _is_vendored_evidence(path):
+    rel = path.relative_to(REPO_ROOT).as_posix()
+    return rel.startswith("harness/design_skills/") and path.name in _VENDORED_EVIDENCE_NAMES
+
+
 def _files(root, suffixes):
-    return [p for p in root.rglob("*") if p.is_file() and p.suffix in suffixes]
+    return [p for p in root.rglob("*")
+            if p.is_file() and p.suffix in suffixes and not _is_vendored_evidence(p)]
 
 
 @pytest.mark.parametrize("root", ["harness", "cartridges", "harness/blocks"])
