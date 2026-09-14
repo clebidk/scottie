@@ -50,10 +50,16 @@ _LD_SCRIPT_RE = re.compile(r'<script\s+type="application/ld\+json">(.*?)</script
 _ANCHOR_HREF_RE = re.compile(r'<a\s[^>]*?href="([^"]*)"', re.IGNORECASE)
 
 
-def _walk_keyed_strings(node, keys, path="$"):
+def _walk_keyed_strings(node, keys, path="$", *, skip_keys=()):
     """Yield (path, key, value) for every dict entry whose key is in `keys`
-    and whose value is a non-empty string, anywhere in page.json."""
-    for node_path, n in walk_page(node, path):
+    and whose value is a non-empty string, anywhere in page.json.
+    `skip_keys` (passed through to walk_page) excludes a field entirely --
+    e.g. find_duplicate_asset_violations skips longform's own "images",
+    which cartridges/longform/schema.json documents as "a convenience index
+    of everything used [elsewhere]", not a distinct slot of its own, so it
+    is expected to repeat ids that are also the page's real hero/step
+    images."""
+    for node_path, n in walk_page(node, path, skip_keys=skip_keys):
         if isinstance(n, dict):
             for k, v in n.items():
                 if k in keys and isinstance(v, str) and v:
@@ -85,6 +91,107 @@ def find_image_allowlist_violations(page, facts_pack):
                          "use only asset ids from facts_pack.assets",
             })
     return problems
+
+
+# Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md's "checks currently enforced"
+# section: only find_image_allowlist_violations existed before this cycle).
+# These are post-render backstops -- called from render.render_page's
+# structural_hits, next to find_html_validity_violations -- because what
+# they check (the rendered <img>'s own width/height/alt, its pixel size)
+# only exists once render_image_slot has actually built the tag from a
+# downloaded asset; page.json itself never carries any of that.
+# Requires a src="..." attribute -- a bare `<img\b[^>]*>` also matches the
+# literal text "<img>" inside an HTML comment (docs/IMAGES-AUDIT-2026-09-14.md's
+# own audit script hit this: structure.css's cycle-23 comment literally
+# contains the string "bare <img> tags" describing a *different*, older
+# issue), producing a phantom zero-attribute "violation" on every page.
+_IMG_TAG_RE = re.compile(r'<img\s+[^>]*\bsrc="[^"]+"[^>]*>', re.IGNORECASE)
+_ATTR_RE = re.compile(r'(\w[\w-]*)\s*=\s*"([^"]*)"')
+# An image this small in a content slot is a strong favicon/icon signal,
+# not a real content photo -- render.py's own downscale never produces
+# anything this small from a real product/lifestyle asset.
+FAVICON_MAX_PX = 200
+_FILENAME_LIKE_ALT_RE = re.compile(r"\.(jpe?g|png|webp|gif|svg)$", re.IGNORECASE)
+
+
+def find_image_markup_violations(html):
+    """Every <img> in the rendered page (excluding the tenant brand logo,
+    class="adv-brand-logo" -- a chrome element, not a content image slot)
+    must carry width, height, and a non-empty alt that isn't just a bare
+    filename; none may be favicon-sized (<FAVICON_MAX_PX on either
+    dimension) in a content slot."""
+    problems = []
+    for i, tag in enumerate(_IMG_TAG_RE.findall(html)):
+        attrs = dict(_ATTR_RE.findall(tag))
+        if "adv-brand-logo" in attrs.get("class", ""):
+            continue
+        path = f"$.html.img[{i}]"
+        if not attrs.get("width") or not attrs.get("height"):
+            problems.append({"path": path, "issue": "rendered <img> is missing width/height"})
+            continue
+        alt = attrs.get("alt")
+        if not alt:
+            problems.append({"path": path, "issue": "rendered <img> has an empty (or missing) alt"})
+        elif _FILENAME_LIKE_ALT_RE.search(alt):
+            problems.append({"path": path, "issue": f"rendered <img> alt looks like a bare filename: {alt!r}"})
+        try:
+            w, h = int(attrs["width"]), int(attrs["height"])
+        except ValueError:
+            continue
+        if w < FAVICON_MAX_PX and h < FAVICON_MAX_PX:
+            problems.append({
+                "path": path,
+                "issue": f"rendered <img> is {w}x{h}px, favicon-sized, in a content slot",
+            })
+    return problems
+
+
+# cartridges/longform/schema.json's own "images" field is documented as "a
+# convenience index of everything used [elsewhere on the page]" -- by
+# design it repeats hero.hero_image's and how_it_works.steps[].image's ids,
+# so it is excluded from the duplicate scan below for that one cartridge.
+# article's "images" is the opposite: the template's own real rendering
+# slot (cartridges/article/template.html's page.images loop), so it stays
+# in scope there.
+_DUPLICATE_ASSET_SKIP_KEYS = {"longform": {"images"}}
+
+
+def find_duplicate_asset_violations(page, cartridge_name=None):
+    """The same asset_id must not appear in two different image slots on
+    one page.json -- docs/IMAGES-AUDIT-2026-09-14.md problem 3 (a page
+    that reuses its own images). render.ground's enforce_slot_plan is the
+    fix for this at render time; this check is the loud backstop that
+    catches it if that backstop is ever bypassed or disabled."""
+    seen = {}
+    problems = []
+    skip_keys = _DUPLICATE_ASSET_SKIP_KEYS.get(cartridge_name, ())
+    for path, _key, asset_id in _walk_keyed_strings(page, ("asset_id",), skip_keys=skip_keys):
+        if asset_id in seen:
+            problems.append({
+                "path": path,
+                "issue": f"asset id {asset_id!r} is already used at {seen[asset_id]!r}; every image slot on a page must be a distinct asset",
+            })
+        else:
+            seen[asset_id] = path
+    return problems
+
+
+def find_hero_requirement_violations(page, cartridge_name):
+    """longform and product-page both declare an explicit page.hero.hero_image
+    slot (ground.hero_container) -- if either ends up with no usable hero
+    asset_id at all (the writer left it out, or every candidate the run's
+    facts_pack offered was ineligible), that is loud and wrong, not a quiet
+    `{% if hero_asset %}` no-op. article/listicle have no dedicated hero
+    field in their schema (see ground.hero_container's docstring) so this
+    check is a no-op for them -- nothing to require."""
+    from . import ground as ground_mod
+
+    if cartridge_name not in ("longform", "product-page"):
+        return []
+    node = ground_mod.hero_container(page, cartridge_name)
+    if node is None or not node.get("asset_id"):
+        return [{"path": "$.hero.hero_image", "issue": f"{cartridge_name} requires a hero image; none is set"}]
+    return []
 
 
 def find_internal_link_violations(page, *, tenant=None):

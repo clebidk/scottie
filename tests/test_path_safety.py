@@ -86,12 +86,19 @@ def test_a_drive_download_cannot_escape_the_workdir(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_a_downloaded_asset_stays_inside_its_assets_dir(tmp_path):
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (10, 10)).save(buf, format="JPEG")
+
     assets_dir = tmp_path / "assets"
     asset = {"id": "../../escape", "url": "https://example.test/a.jpg"}
-    path, width, height = render.download_asset(asset, assets_dir, fetch_url=lambda url: b"\xff\xd8\xff not-an-image")
-    assert path is not None
-    assert path.parent == assets_dir
-    assert ".." not in path.name
+    result = render.download_asset(asset, assets_dir, fetch_url=lambda url: buf.getvalue())
+    assert result is not None
+    assert result["path"].parent == assets_dir
+    assert ".." not in result["path"].name
 
 
 # ---------------------------------------------------------------------------

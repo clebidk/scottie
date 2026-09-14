@@ -11,9 +11,7 @@
 
   <section class="adv-hero">
     {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
-    {% if hero_asset %}
-    <img src="{{ hero_asset.url }}" alt="{{ hero_asset.alt }}" class="adv-hero-image"{% if hero_asset.width and hero_asset.height %} width="{{ hero_asset.width }}" height="{{ hero_asset.height }}"{% endif %}>
-    {% endif %}
+    {{ render_image_slot(hero_asset, hero=True, css_class="adv-hero-image") }}
     <h1>{{ page.hero.product_name }}</h1>
     <p class="adv-dek">{{ page.hero.promise }}</p>
     <p class="adv-price">{{ page.hero.price_line.text }}</p>
@@ -45,9 +43,10 @@
     <p>{{ p.text }}</p>
     {% endfor %}
     {% set angle_asset = assets.get(page.angle_section.image.asset_id) if page.angle_section.image else None %}
-    {% if angle_asset %}
-    <img src="{{ angle_asset.url }}" alt="{{ angle_asset.alt }}"{% if angle_asset.width and angle_asset.height %} width="{{ angle_asset.width }}" height="{{ angle_asset.height }}"{% endif %}>
-    {% endif %}
+    {# Cycle 31: this slot used to render with no loading attribute at all
+       (docs/IMAGES-AUDIT-2026-09-14.md problem 6) -- render_image_slot
+       always sets one. #}
+    {{ render_image_slot(angle_asset) }}
   </section>
 
   <table class="adv-specs">
@@ -69,7 +68,7 @@
   <div class="adv-images">
     {% for img in page.detail_images %}
       {% set asset = assets.get(img.asset_id) %}
-      {% if asset %}<img src="{{ asset.url }}" alt="{{ asset.alt }}" loading="lazy"{% if asset.width and asset.height %} width="{{ asset.width }}" height="{{ asset.height }}"{% endif %}>{% endif %}
+      {{ render_image_slot(asset) }}
     {% endfor %}
   </div>
   {% endif %}

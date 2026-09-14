@@ -1,8 +1,6 @@
 <section class="bk-hero-split">
   <div class="bk-hero-split__media">
-    {% if image %}
-    <img src="{{ image.url }}" alt="{{ image.alt }}" {% if image.width %}width="{{ image.width }}" height="{{ image.height }}"{% endif %}>
-    {% endif %}
+    {{ render_image_slot(image, hero=True) }}
   </div>
   <div class="bk-hero-split__body">
     {% if eyebrow %}<p class="bk-hero-split__eyebrow">{{ eyebrow }}</p>{% endif %}

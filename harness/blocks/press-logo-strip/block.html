@@ -2,7 +2,7 @@
   {% if heading %}<p class="bk-press-logo-strip__heading">{{ heading }}</p>{% endif %}
   <ul class="bk-press-logo-strip__logos">
     {% for logo in logos %}
-    <li><img src="{{ logo.url }}" alt="{{ logo.alt }}" {% if logo.width %}width="{{ logo.width }}" height="{{ logo.height }}"{% endif %}></li>
+    <li>{{ render_image_slot(logo, aspect_box=False) }}</li>
     {% endfor %}
   </ul>
 </div>

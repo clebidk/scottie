@@ -31,8 +31,13 @@ FACTS_PACK = {
     "verified_claims": [
         {"id": "warranty-terms", "text": "warranty text", "category": "trust", "source": "https://peaksaunas.com/pages/warranty"},
     ],
+    # Cycle 31: five distinct assets -- pagechecks.find_duplicate_asset_
+    # violations now requires every image slot on a page to be a distinct
+    # asset id (docs/IMAGES-AUDIT-2026-09-14.md problem 3), so LISTICLE_PAGE
+    # below can no longer reuse "asset-1" for all five reasons.
     "assets": [
-        {"id": "asset-1", "url": "https://cdn.shopify.com/fuji-1.png", "kind": "lifestyle", "alt": "Fuji sauna"},
+        {"id": f"asset-{i}", "url": f"https://cdn.shopify.com/fuji-{i}.png", "kind": "lifestyle", "alt": "Fuji sauna"}
+        for i in range(1, 6)
     ],
 }
 
@@ -46,7 +51,7 @@ LISTICLE_PAGE = {
     "headline": "5 Reasons Busy Parents Are Switching to Peak Saunas",
     "dek": "A quick look at what makes the switch worth it.",
     "reasons": [
-        {"number": i, "heading": f"Reason number {i}", "text": "A plain, specific reason a buyer can check for themselves.", "image": {"asset_id": "asset-1"}}
+        {"number": i, "heading": f"Reason number {i}", "text": "A plain, specific reason a buyer can check for themselves.", "image": {"asset_id": f"asset-{i}"}}
         for i in range(1, 6)
     ],
     "cta_text": "See the models",
@@ -64,7 +69,18 @@ LISTICLE_PAGE = {
 
 
 def _fake_fetch_url(url):
-    return b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+    # Cycle 31: download_asset now decodes every download with Pillow to
+    # generate srcset variants (harness.render.generate_image_variants) and
+    # drops anything it can't decode -- a real (if tiny and identical
+    # across urls) PNG here, not the old un-decodable
+    # "\xff\xd8\xff\xe0fake-jpeg-bytes" placeholder.
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (300, 300), color=(200, 180, 160)).save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def _render_listicle(out_dir):
@@ -156,13 +172,20 @@ def test_assets_manifest_lists_each_image_once_with_a_cdn_filename(tmp_path):
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     _, manifest = build_shopify_body(out_dir)
-    # every item shares the same asset_id -- one distinct image, listed once.
-    assert len(manifest) == 1
-    entry = manifest[0]
-    assert entry["local_path"] == "assets/asset-1.png"
+    # Cycle 31: LISTICLE_PAGE's five reasons now use five distinct asset ids
+    # (docs/IMAGES-AUDIT-2026-09-14.md problem 3 -- a page may not reuse the
+    # same asset id in two slots). Each render_image_slot <picture> carries
+    # one WebP and one JPEG variant here (a 300x300 source is narrower than
+    # every configured srcset width, so generate_image_variants emits just
+    # one size) -- 5 images x 2 formats = 10 manifest entries, one per
+    # distinct local_path, each still listed exactly once.
+    assert len(manifest) == 10
+    by_path = {e["local_path"]: e for e in manifest}
+    assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(1, 6) for ext in ("jpg", "webp")}
+    entry = by_path["assets/asset-1-300.jpg"]
     assert entry["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo"
     assert entry["cdn_filename"].startswith("pk-listicle-01-")
-    assert entry["cdn_filename"].endswith(".png")
+    assert entry["cdn_filename"].endswith(".jpg")
 
 
 def test_assets_manifest_is_valid_json_on_disk(tmp_path):
@@ -170,13 +193,58 @@ def test_assets_manifest_is_valid_json_on_disk(tmp_path):
     _render_listicle(out_dir)
     _, manifest_path = write_shopify_body(out_dir)
     on_disk = json.loads(manifest_path.read_text())
-    assert on_disk == [
-        {
-            "local_path": "assets/asset-1.png",
-            "alt": "Peak Fuji 2-Person Infrared Sauna – lifestyle photo",
-            "cdn_filename": "pk-listicle-01-peak-fuji-2-person-infrared-sauna-lifestyle-photo.png",
-        }
-    ]
+    expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(1, 6) for ext in ("jpg", "webp")}
+    assert {e["local_path"] for e in on_disk} == expected_paths
+    assert all(e["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo" for e in on_disk)
+    # every cdn_filename is distinct and carries the format's own extension
+    cdn_filenames = [e["cdn_filename"] for e in on_disk]
+    assert len(set(cdn_filenames)) == len(cdn_filenames)
+    for e in on_disk:
+        assert e["cdn_filename"].endswith("." + e["local_path"].rsplit(".", 1)[1])
+
+
+def test_build_asset_manifest_lists_every_picture_variant():
+    """Cycle 31: a render_image_slot <picture> (WebP <source srcset=...> +
+    JPEG <img srcset=...>) must list every distinct width/format variant,
+    not just the single inlined fallback src -- each with its own,
+    distinct cdn_filename (docs/IMAGES.md's publish contract: every
+    variant needs a real upload name)."""
+    from harness.shopify import build_asset_manifest
+
+    html = (
+        '<picture>'
+        '<source type="image/webp" srcset="assets/hero-480.webp 480w, assets/hero-800.webp 800w">'
+        '<img src="assets/hero-480.jpg" alt="Peak Fuji – lifestyle photo" '
+        'srcset="assets/hero-480.jpg 480w, assets/hero-800.jpg 800w">'
+        '</picture>'
+    )
+    manifest = build_asset_manifest(html, "longform")
+    paths = {e["local_path"] for e in manifest}
+    assert paths == {
+        "assets/hero-480.webp", "assets/hero-800.webp",
+        "assets/hero-480.jpg", "assets/hero-800.jpg",
+    }
+    cdn_filenames = [e["cdn_filename"] for e in manifest]
+    assert len(set(cdn_filenames)) == len(cdn_filenames), "every variant needs a distinct cdn filename"
+    by_path = {e["local_path"]: e["cdn_filename"] for e in manifest}
+    assert by_path["assets/hero-480.jpg"].endswith("-480w.jpg")
+    assert by_path["assets/hero-800.webp"].endswith("-800w.webp")
+
+
+def test_build_asset_manifest_dedupes_by_local_path(tmp_path):
+    """shopify.build_asset_manifest's own dedupe (distinct from cycle 31's
+    page.json-level "no duplicate asset id" policy, which is enforced
+    earlier, at render time) -- if two <img> tags in already-rendered HTML
+    ever do reference the same local file, the manifest still lists it once."""
+    from harness.shopify import build_asset_manifest
+
+    html = (
+        '<img src="assets/x.jpg" alt="Peak Fuji – lifestyle photo">'
+        '<img src="assets/x.jpg" alt="Peak Fuji – lifestyle photo">'
+        '<img src="assets/y.jpg" alt="Peak Fuji – installation photo">'
+    )
+    manifest = build_asset_manifest(html, "listicle")
+    assert [e["local_path"] for e in manifest] == ["assets/x.jpg", "assets/y.jpg"]
 
 
 # ---------------------------------------------------------------------------

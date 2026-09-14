@@ -1,7 +1,5 @@
 <section class="bk-hero-fullbleed">
-  {% if image %}
-  <img class="bk-hero-fullbleed__image" src="{{ image.url }}" alt="{{ image.alt }}" {% if image.width %}width="{{ image.width }}" height="{{ image.height }}"{% endif %}>
-  {% endif %}
+  {{ render_image_slot(image, hero=True, css_class="bk-hero-fullbleed__image") }}
   <div class="bk-hero-fullbleed__overlay">
     <h1 class="bk-hero-fullbleed__title"><span>{{ headline }}</span></h1>
     {% if subhead %}<p class="bk-hero-fullbleed__subhead">{{ subhead }}</p>{% endif %}
