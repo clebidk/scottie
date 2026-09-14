@@ -8,7 +8,7 @@ from pathlib import Path
 
 from harness.cli import cmd_shopify_body
 from harness.render import render_page
-from harness.shopify import build_shopify_body, full_bleed_css, write_shopify_body
+from harness.page_body import build_shopify_body, full_bleed_css, write_shopify_body
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -209,7 +209,7 @@ def test_build_asset_manifest_lists_every_picture_variant():
     not just the single inlined fallback src -- each with its own,
     distinct cdn_filename (docs/IMAGES.md's publish contract: every
     variant needs a real upload name)."""
-    from harness.shopify import build_asset_manifest
+    from harness.page_body import build_asset_manifest
 
     html = (
         '<picture>'
@@ -236,7 +236,7 @@ def test_build_asset_manifest_dedupes_by_local_path(tmp_path):
     page.json-level "no duplicate asset id" policy, which is enforced
     earlier, at render time) -- if two <img> tags in already-rendered HTML
     ever do reference the same local file, the manifest still lists it once."""
-    from harness.shopify import build_asset_manifest
+    from harness.page_body import build_asset_manifest
 
     html = (
         '<img src="assets/x.jpg" alt="Peak Fuji – lifestyle photo">'

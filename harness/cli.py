@@ -17,7 +17,7 @@ from . import brand_import
 from . import notify
 from . import pipeline
 from . import runstate
-from . import shopify as shopify_body_mod
+from . import page_body as shopify_body_mod
 from . import tenant as tenant_mod
 from . import workflows
 from .anthropic_client import make_client
@@ -33,7 +33,7 @@ from .publishers.export import ExportPublisher
 from .publishers.shopify import ShopifyCredentialsMissing, ShopifyPublisher, rewrite_asset_srcs
 from .review import build_reviews
 from .runstate import UnknownReviewer
-from .shopify import write_shopify_body
+from .page_body import write_shopify_body
 
 # Exit codes live in harness/exits.py. Kept as a name here because it was part
 # of this module's surface before that module existed.
