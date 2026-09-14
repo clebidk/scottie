@@ -1,7 +1,7 @@
 # Cycle 34 — Grok 4.6 swarm (≥100 agents)
 
 Status: GO — operator requested Cycle 34 with Grok 4.6, minimum 100 subagents.
-Precondition: master @ `715e590` (Cycle 32 merged). Cycle 33 warm-up and related PRs may still be open; Cycle 34 starts from current master tip and must not assume those merges.
+Precondition: master @ `3ece609` (Cycle 33 merged). All Cycle 34 package branches are rooted on that tip; do not re-edit Cycle 33 surfaces listed in `docs/SWARM-2026-09-14-cycle34.md`.
 
 ## 1. Objective
 
