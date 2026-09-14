@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ product.short_name or product.name }}{% endblock %}
 {% block content %}
+{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
+<style>{% include _tagline_block ~ "/block.css" ignore missing %}</style>
 <div class="adv-product-page">
   <header>
     <span class="adv-badge">Advertisement</span>
@@ -31,6 +33,10 @@
       {% endfor %}
     </ul>
   </section>
+
+  {% if page.tagline %}
+  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
+  {% endif %}
 
   <section class="adv-angle">
     <h2>{{ page.angle_section.heading }}</h2>

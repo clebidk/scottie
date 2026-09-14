@@ -33,7 +33,19 @@ build-backend = "setuptools.build_meta"
 include = ["harness*"]
 
 [tool.setuptools.package-data]
-harness = ["structure.css", "templates/*.html", "blocks/registry.json", "blocks/*/block.html", "blocks/*/block.css", "blocks/*/screenshot.svg"]
+harness = [
+    "structure.css",
+    "templates/*.html",
+    "blocks/registry.json",
+    "blocks/*/block.html",
+    "blocks/*/block.css",
+    "blocks/*/screenshot.svg",
+    "design_skills/rules.json",
+    "design_skills/SOURCE.json",
+    "design_skills/LICENSE",
+    "design_skills/README.md",
+    "design_skills/landing-page-design/SKILL.md",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -137,6 +137,10 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # Kimi long-run phase 3: the writer's block-variant picks (page.json's
     # "blocks" map) are writer-owned too -- same repair-loop home.
     problems += pagechecks.find_block_violations(page, cartridge_name, block_slots)
+    # Design-skills pack (elayadesign/ai-design-skills): the taken hard
+    # checks (filler copy, leftover AI cliches, dead '#' links). Soft
+    # counterparts stay in find_soft_check_warnings.
+    problems += pagechecks.find_design_skill_violations(page)
     return problems
 
 
@@ -773,6 +777,8 @@ def find_audience_headline_warning(page, cartridge_name, ad_brief):
 def find_soft_check_warnings(pages, ad_brief):
     """One warning string per issue, across every written page. Never
     raised, never gated -- purely REVIEW.md's own advisory section."""
+    from .design_skills import gate as design_gate
+
     warnings = []
     for cartridge_name, page in pages.items():
         headline_warning = find_headline_word_count_warning(page, cartridge_name)
@@ -782,4 +788,6 @@ def find_soft_check_warnings(pages, ad_brief):
         audience_warning = find_audience_headline_warning(page, cartridge_name, ad_brief)
         if audience_warning:
             warnings.append(audience_warning)
+        warnings += design_gate.find_generic_cta_warnings(page, cartridge_name)
+        warnings += design_gate.find_tagline_warnings(page, cartridge_name)
     return warnings

@@ -99,6 +99,23 @@
         "type": "object",
         "properties": {"asset_id": {"type": "string"}}
       }
+    },
+    "tagline": {
+      "type": "object",
+      "description": "Optional two-line benefit statement rendered after the proof bullets through the tagline-reveal block (design-skills B11). Omit the field to skip the section.",
+      "properties": {
+        "lines": {
+          "type": "array",
+          "description": "At least two lines. A benefit statement, not a generic section heading."
+        }
+      }
+    }
+  },
+  "block_slots": {
+    "tagline": {
+      "description": "Optional large-type two-line benefit statement (design-skills B11). Set page.tagline.lines to at least two strings; omit the field to skip.",
+      "blocks": ["tagline-reveal"],
+      "default": "tagline-reveal"
     }
   }
 }

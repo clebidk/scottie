@@ -170,7 +170,8 @@ files never hardcode a company name.
 
 ```
 harness/       the engine: pipeline, tenant resolution, ingest, grounding,
-               claims gate, writer, renderer, budget, vocab
+               claims gate, writer, renderer, budget, vocab,
+               design_skills/ (vendored landing-page skill + adapter + gate)
 cartridges/    tenant-neutral page types (article, listicle, longform,
                product-page, comparison [draft, opt-in]): cartridge.md,
                rubric.md, schema.json, template.html
@@ -198,3 +199,4 @@ tests/         pytest suite covering claims, render, write, budget, tenant, ...
 | Change stage order or add a stage | `harness/pipeline.py` (`STAGES`, `DEFAULT_STAGES`) and, if it should run under `harness workflow run`, the matching `workflows/*.yaml` |
 | Change which tenant runs by default | `tenants/default.txt` |
 | Change the repair loop's retry count or fixes | `harness/repair.py` (`MAX_REPAIR_ATTEMPTS`, `apply_deterministic_fixes`) |
+| Take, adapt, or decline a design-skill rule | `harness/design_skills/rules.json` (the adapter is the source of truth; the raw SKILL.md is evidence) |

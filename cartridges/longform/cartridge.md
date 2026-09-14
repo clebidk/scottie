@@ -30,3 +30,6 @@ Angle → hero. Objections → problem and FAQ. Features shown → how-it-works 
 
 ## From facts_pack
 Everything: specs, price, financing, warranty, shipping, verified claims, reviews summary, assets.
+
+## Design-skills pack (optional)
+This cartridge is the skill's type-B long-form landing page. Optional `tagline.lines` (two or more) renders after the hero through the `tagline-reveal` block -- a benefit statement, not a heading. Soft-warned when omitted. Copy still goes through the claims gate. The skill's raw visual tokens (fonts, Tailwind scale, hex palette, 680 px cap, JS word-reveals) do not apply; see `harness/design_skills/`.

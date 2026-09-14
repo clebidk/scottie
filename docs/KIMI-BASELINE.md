@@ -309,3 +309,15 @@ documented where the repair loop is described.
    this token (403 on the API) — flagged to Caleb per the plan.
 7. One commit per loop iteration; finding id or phase in the message; full
    suite green and ruff clean at every commit.
+
+## 7. After the long-run: design-skills pack (2026-09-14)
+
+`harness/design_skills/` vendors [elayadesign/ai-design-skills](https://github.com/elayadesign/ai-design-skills)
+as a **separate component** (not a cartridge, not a block). The raw skill
+never overrides the claims gate, the block gate, or locked topics --
+`rules.json` records take/adapt/decline per rule. Taken measurable rules
+are hard gates (filler copy, leftover AI cliches, dead `#` links) wired
+into `repair.check_page_gates`. Adapted layout patterns shipped as
+`tagline-reveal` and `risk-reversal` blocks. The Claude Code brief that
+also covers Amin's advertorial playbook is
+`docs/BRIEF-2026-09-14-advertorial-playbook.md`.
