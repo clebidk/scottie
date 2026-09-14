@@ -126,9 +126,13 @@ def test_write_page_valid_on_first_try(tmp_path):
     log.close()
     assert page == ARTICLE_PAGE
     assert len(client.messages.calls) == 1
-    # exemplars for article should have made it into the user message
+    # Cycle 33: Peak's live article .md exemplars name the brand inside the
+    # warm-up window, so filter_exemplars_for_warmup drops them rather than
+    # few-shotting a contradiction. A clean first attempt still succeeds.
     sent_user_msg = block_text(client.messages.calls[0]["messages"][0]["content"])
-    assert "reference_article" in sent_user_msg
+    assert "reference_article" not in sent_user_msg
+    assert "facts_pack" in sent_user_msg
+    assert "ad_brief" in sent_user_msg
 
 
 def test_write_page_omits_exemplars_on_a_repair_attempt(tmp_path):
@@ -612,7 +616,8 @@ def test_article_write_request_includes_warmup_hard_constraint():
     )
     assert "Warm-up window" in system_text
     assert "Peak Saunas" in system_text
-    assert "Ignore the global voice short_name-on-first-section-mention rule until close" in system_text
+    assert "numeric gate" in system_text
+    assert "never copy its brand-placement timing" in system_text or "voice and structure only" in system_text
 
 
 def test_non_article_write_request_skips_warmup_hard_constraint():
@@ -628,3 +633,50 @@ def test_non_article_write_request_skips_warmup_hard_constraint():
         block["text"] if isinstance(block, dict) else block for block in kwargs["system"]
     )
     assert "Warm-up window" not in system_text
+
+
+def test_warmup_window_falls_back_to_600_when_tenant_override_missing():
+    from harness.write import _append_warmup_hard_constraints, _warmup_window_words
+
+    class _Bare:
+        display_name = "Acme"
+
+        def get(self, key, default=None):
+            return default
+
+    assert _warmup_window_words(_Bare()) == 600
+    constraints = []
+    _append_warmup_hard_constraints(constraints, "article", _Bare())
+    assert len(constraints) == 1
+    assert "first 600 reading-order words" in constraints[0]
+
+
+def test_filter_exemplars_for_warmup_drops_early_brand_reference_articles():
+    from harness.write import filter_exemplars_for_warmup
+
+    early = {"reference_article": "Peak Saunas is the answer in the first sentence. " + ("x " * 50)}
+    late = {"reference_article": ("education " * 650) + " Peak Saunas closes the piece."}
+    shape = {"headline": "x", "open": []}
+    kept = filter_exemplars_for_warmup([early, late, shape], TENANT, window=600)
+    assert early not in kept
+    assert late in kept
+    assert shape in kept
+
+
+def test_article_write_request_excludes_warmup_breaking_md_exemplars():
+    _, kwargs = build_initial_write_request(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        model="claude-sonnet-5",
+        tenant=TENANT,
+    )
+    user_text = "\n".join(
+        block["text"] if isinstance(block, dict) else block
+        for block in kwargs["messages"][0]["content"]
+    )
+    # Live Peak .md exemplars name the brand in the headline; filtering must
+    # keep them out of the few-shot payload (critic FIX on cycle33/warmup-window).
+    assert "5 Reasons Infrared Sauna Owners Are Switching to Peak" not in user_text
+    assert "reference_article" not in user_text or "Peak Saunas" not in user_text.split("ad_brief")[0]
