@@ -93,19 +93,46 @@ def _read_capped(resp, limit=_MAX_RESPONSE_BYTES):
 
 
 _SRC_ASSET_RE = re.compile(r'src="(assets/[^"]+)"')
+_SRCSET_ATTR_RE = re.compile(r'srcset="([^"]*)"')
+
+
+def _rewrite_srcset_value(value, url_by_local_path):
+    """Rewrite each assets/... entry in a srcset attribute; keep width
+    descriptors (e.g. `480w`). Unknown paths stay unchanged."""
+    rewritten = []
+    for chunk in value.split(","):
+        piece = chunk.strip()
+        if not piece:
+            continue
+        path, sep, descriptor = piece.rpartition(" ")
+        if not sep:
+            path, descriptor = piece, ""
+        path = path.strip()
+        descriptor = descriptor.strip()
+        mapped = url_by_local_path.get(path, path)
+        rewritten.append(f"{mapped} {descriptor}".rstrip() if descriptor else mapped)
+    return ", ".join(rewritten)
 
 
 def rewrite_asset_srcs(body_html, url_by_local_path):
-    """Every `src="assets/<file>"` in `body_html` becomes the uploaded CDN
-    URL from `url_by_local_path` (keyed by that same "assets/<file>" local
-    path, see harness/page_body.py's build_asset_manifest). A path not in the
-    mapping is left as-is."""
+    """Every `src="assets/<file>"` and every matching `srcset` entry in
+    `body_html` becomes the uploaded CDN URL from `url_by_local_path`
+    (keyed by that same "assets/<file>" local path, see
+    harness/page_body.py's build_asset_manifest). A path not in the mapping
+    is left as-is. Srcset width descriptors are preserved.
 
-    def replace(match):
+    Cycle 34: storefront browsers that honor srcset were still requesting
+    relative assets/ URLs after publish because only src= was rewritten."""
+
+    def replace_src(match):
         local_path = match.group(1)
         return f'src="{url_by_local_path.get(local_path, local_path)}"'
 
-    return _SRC_ASSET_RE.sub(replace, body_html)
+    def replace_srcset(match):
+        return f'srcset="{_rewrite_srcset_value(match.group(1), url_by_local_path)}"'
+
+    out = _SRC_ASSET_RE.sub(replace_src, body_html)
+    return _SRCSET_ATTR_RE.sub(replace_srcset, out)
 
 
 class ShopifyCredentialsMissing(Exception):

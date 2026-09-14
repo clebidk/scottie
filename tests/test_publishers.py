@@ -151,6 +151,26 @@ def test_rewrite_asset_srcs_replaces_known_paths_and_leaves_unknown_alone():
     assert 'src="assets/unmapped.jpg"' in out  # unmapped path left as-is
 
 
+def test_rewrite_asset_srcs_rewrites_srcset_entries_and_keeps_descriptors():
+    html = (
+        '<picture>'
+        '<source type="image/webp" srcset="assets/a-480.webp 480w, assets/a-800.webp 800w">'
+        '<img src="assets/a-800.jpg" srcset="assets/a-480.jpg 480w, assets/a-800.jpg 800w">'
+        '</picture>'
+    )
+    mapping = {
+        "assets/a-480.webp": "https://cdn.shopify.com/a-480.webp",
+        "assets/a-800.webp": "https://cdn.shopify.com/a-800.webp",
+        "assets/a-480.jpg": "https://cdn.shopify.com/a-480.jpg",
+        "assets/a-800.jpg": "https://cdn.shopify.com/a-800.jpg",
+    }
+    out = rewrite_asset_srcs(html, mapping)
+    assert 'src="https://cdn.shopify.com/a-800.jpg"' in out
+    assert 'srcset="https://cdn.shopify.com/a-480.webp 480w, https://cdn.shopify.com/a-800.webp 800w"' in out
+    assert 'srcset="https://cdn.shopify.com/a-480.jpg 480w, https://cdn.shopify.com/a-800.jpg 800w"' in out
+    assert "assets/" not in out
+
+
 # ---------------------------------------------------------------------------
 # verify_cache -- the storefront cache-epoch trap, 8 pulls
 # ---------------------------------------------------------------------------
