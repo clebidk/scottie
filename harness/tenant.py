@@ -67,6 +67,9 @@ TENANT_KEY_TYPES = {
     "listicle_pack_models": list,
     "claim_id_prefixes": list,
     "reviewers": list,
+    # Cycle 30
+    "cartridges": dict,
+    "design_reference": list,
 }
 
 

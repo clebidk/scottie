@@ -19,6 +19,7 @@ from harness.design_skills import (
     load_source,
     skill_names,
 )
+from harness.design_skills import design_md
 from harness.design_skills import gate as design_gate
 from harness.render import render_page
 from harness.repair import check_page_gates, find_soft_check_warnings
@@ -222,3 +223,123 @@ def test_cli_design_skills_check_exit_codes(tmp_path, capsys):
     bad.write_text(json.dumps({"headline": "Lorem ipsum from SmartFlow"}))
     assert cli.main(["design-skills", "check", str(bad)]) == 2
     assert "FAIL" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Cycle 30: tenant design references (tenant.yaml's design_reference list).
+# ---------------------------------------------------------------------------
+
+class _FakeDesignRefTenant:
+    """Just enough of the Tenant interface design_reference_rules reads."""
+
+    def __init__(self, slugs):
+        self._slugs = slugs
+
+    def get(self, dotted_key, default=None):
+        if dotted_key == "design_reference":
+            return self._slugs
+        return default
+
+
+# Font names, hex colors, and brand names that must never leak into a
+# derived rule's prose -- design-md/README.md's own contract ("the tenant
+# brand layer always owns fonts and colors ... no value in them is applied
+# as a tenant token"). The neutrality precedent in this repo (cycle 29's
+# design-md README test) skips the vendored evidence files themselves;
+# this checks OUR OWN generated prose, not DESIGN.md's.
+_FORBIDDEN_STRUCTURAL_LEAKS = (
+    "apple", "tesla", "sf pro", "universal sans", "gotham",
+)
+
+
+def _prose_fields(rule):
+    return [rule.get("title") or "", rule.get("harness") or "", rule.get("guidance") or ""]
+
+
+def test_derive_structural_facts_parses_both_apple_and_tesla():
+    apple = design_md.derive_structural_facts("apple")
+    tesla = design_md.derive_structural_facts("tesla")
+    assert apple["hero_style"] == "photo-first"
+    assert tesla["hero_style"] == "photo-first"
+    assert apple["max_content_width_px"] is not None
+    assert tesla["max_content_width_px"] is not None
+    assert apple["section_rhythm"] == "alternating"
+    assert tesla["section_rhythm"] == "single-column-full-viewport"
+    assert apple["heading_body_ratio"] is not None
+    assert tesla["heading_body_ratio"] is not None
+
+
+def test_design_reference_rules_from_real_tenant_are_structural_only():
+    tenant = _FakeDesignRefTenant(["tesla", "apple"])
+    rules = design_md.design_reference_rules(tenant)
+    ids = {r["id"] for r in rules}
+    assert ids == {
+        "DR-hero-style", "DR-whitespace", "DR-content-width",
+        "DR-heading-body-ratio", "DR-image-aspect", "DR-section-rhythm",
+    }
+    for rule in rules:
+        assert rule["action"] == "adapt"
+        for text in _prose_fields(rule):
+            lowered = text.lower()
+            for banned in _FORBIDDEN_STRUCTURAL_LEAKS:
+                assert banned not in lowered, f"{rule['id']!r} leaked {banned!r}: {text!r}"
+            assert "#" not in text, f"{rule['id']!r} may carry a hex color: {text!r}"
+
+
+def test_design_reference_guidance_lines_are_tenant_neutral():
+    tenant = _FakeDesignRefTenant(["tesla", "apple"])
+    lines = design_md.design_reference_guidance_lines(tenant)
+    assert lines
+    for line in lines:
+        lowered = line.lower()
+        for banned in _FORBIDDEN_STRUCTURAL_LEAKS:
+            assert banned not in lowered
+        assert "#" not in line
+
+
+def test_design_reference_rules_empty_when_tenant_sets_none():
+    tenant = _FakeDesignRefTenant([])
+    assert design_md.design_reference_rules(tenant) == []
+    assert design_md.design_reference_guidance_lines(tenant) == []
+
+
+def test_unknown_design_reference_slug_fails_with_a_clear_message():
+    tenant = _FakeDesignRefTenant(["not-a-real-slug"])
+    try:
+        design_md.design_reference_rules(tenant)
+        assert False, "expected UnknownDesignReference"
+    except design_md.UnknownDesignReference as e:
+        assert "not-a-real-slug" in str(e)
+
+
+def test_find_design_reference_warnings_flags_missing_hero_image():
+    tenant = _FakeDesignRefTenant(["tesla", "apple"])  # both photo-first
+    page = {"headline": "x"}  # no hero_image at all
+    warnings = design_gate.find_design_reference_warnings(page, "longform", tenant=tenant)
+    assert warnings
+    assert "hero_image" in warnings[0]
+
+
+def test_find_design_reference_warnings_passes_with_a_hero_image():
+    tenant = _FakeDesignRefTenant(["tesla", "apple"])
+    page = {"hero_image": {"asset_id": "asset-1"}}
+    assert design_gate.find_design_reference_warnings(page, "longform", tenant=tenant) == []
+
+
+def test_find_design_reference_warnings_noop_for_article_and_for_no_references():
+    tenant = _FakeDesignRefTenant(["tesla", "apple"])
+    assert design_gate.find_design_reference_warnings({}, "article", tenant=tenant) == []
+    assert design_gate.find_design_reference_warnings({}, "longform", tenant=_FakeDesignRefTenant([])) == []
+
+
+def test_cli_design_skills_list_with_tenant_shows_design_reference_group(capsys):
+    assert cli.main(["design-skills", "list", "--tenant", "peak-saunas"]) == 0
+    out = capsys.readouterr().out
+    assert "design_reference" in out
+    assert "DR-hero-style" in out
+
+
+def test_cli_design_skills_list_without_tenant_has_no_design_reference_group(capsys):
+    assert cli.main(["design-skills", "list"]) == 0
+    out = capsys.readouterr().out
+    assert "design_reference" not in out

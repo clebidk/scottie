@@ -23,6 +23,8 @@ from . import tenant as tenant_mod
 from . import vocab
 from .claims import (
     ClaimsGateFailure,
+    default_warmup_window_words,
+    find_warmup_violations,
     gate_page_json,
     strip_leaked_claim_ids,
     warranty_claim_id,
@@ -114,7 +116,19 @@ def find_word_range_violation(page_json, word_range):
     }]
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None):
+def resolve_warmup_window(tenant, schema_default=None):
+    """tenant.yaml's cartridges.article.warmup_window_words override, else
+    the caller's own schema_default (write_and_gate_page already has
+    schema in scope), else cartridges/article/schema.json's own default."""
+    override = tenant.get("cartridges.article.warmup_window_words")
+    if override:
+        return override
+    if schema_default:
+        return schema_default
+    return default_warmup_window_words()
+
+
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
@@ -141,6 +155,14 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # checks (filler copy, leftover AI cliches, dead '#' links). Soft
     # counterparts stay in find_soft_check_warnings.
     problems += pagechecks.find_design_skill_violations(page)
+    # Cycle 30: warm-up window -- article only, and only a hard gate when
+    # this tenant's cartridges.article.warmup_mode is "enforce" (default
+    # "warn": advisory REVIEW.md line only, see find_soft_check_warnings).
+    if cartridge_name == "article":
+        tenant = tenant or tenant_mod.active()
+        if tenant.get("cartridges.article.warmup_mode", "warn") == "enforce":
+            window = resolve_warmup_window(tenant, schema_default=warmup_window_words)
+            problems += find_warmup_violations(page, tenant, window)
     return problems
 
 
@@ -592,6 +614,8 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             word_range=word_range, allowed_cta_texts=allowed_cta_texts,
             ad_brief=ad_brief,
             block_slots=schema.get("block_slots"),
+            tenant=tenant,
+            warmup_window_words=schema.get("warmup_window_words"),
         )
 
     revision_note = None
@@ -774,6 +798,30 @@ def find_audience_headline_warning(page, cartridge_name, ad_brief):
     return f'{cartridge_name}: ad_brief.audience {audience!r} is not named in the headline: {headline!r}'
 
 
+def find_warmup_warning_lines(page, cartridge_name, tenant=None):
+    """Cycle 30: ["Warm-up window: brand appears at word N", ...] -- only
+    for the article cartridge, and only when this tenant's
+    cartridges.article.warmup_mode is "warn" (the "enforce" case is a hard
+    gate in check_page_gates above, never a soft warning too)."""
+    if cartridge_name != "article":
+        return []
+    tenant = tenant or tenant_mod.active()
+    if tenant.get("cartridges.article.warmup_mode", "warn") != "warn":
+        return []
+    window = resolve_warmup_window(tenant)
+    from .claims import warmup_first_mentions
+
+    mentions = warmup_first_mentions(page, tenant)
+    lines = []
+    if mentions["brand_word"] is not None and mentions["brand_word"] <= window:
+        lines.append(f"Warm-up window: brand appears at word {mentions['brand_word']}")
+    if mentions["price_word"] is not None and mentions["price_word"] <= window:
+        lines.append(f"Warm-up window: price appears at word {mentions['price_word']}")
+    if mentions["cta_word"] is not None and mentions["cta_word"] <= window:
+        lines.append(f"Warm-up window: CTA appears at word {mentions['cta_word']}")
+    return lines
+
+
 def find_soft_check_warnings(pages, ad_brief):
     """One warning string per issue, across every written page. Never
     raised, never gated -- purely REVIEW.md's own advisory section."""
@@ -790,4 +838,6 @@ def find_soft_check_warnings(pages, ad_brief):
             warnings.append(audience_warning)
         warnings += design_gate.find_generic_cta_warnings(page, cartridge_name)
         warnings += design_gate.find_tagline_warnings(page, cartridge_name)
+        warnings += design_gate.find_design_reference_warnings(page, cartridge_name)
+        warnings += find_warmup_warning_lines(page, cartridge_name)
     return warnings

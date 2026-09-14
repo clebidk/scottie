@@ -108,6 +108,22 @@ default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: true
 
+# Cycle 30: warm-up window (article cartridge only) -- pricing, the CTA,
+# and the brand name stay out of the first warmup_window_words words.
+# warmup_mode starts "warn" (REVIEW.md advisory only); flip to "enforce"
+# once a real run confirms the current baseline article already passes at
+# this window (see docs/FIXLOG.md Cycle 30).
+cartridges:
+  article:
+    warmup_window_words: 600
+    warmup_mode: warn
+
+# Cycle 30: structural design references -- Peak Saunas takes the hero
+# style / whitespace / content-width / type-ratio / image-aspect / section
+# -rhythm structure from these two references, never their fonts, colors,
+# or brand names (see harness/design_skills/design-md/README.md).
+design_reference: [tesla, apple]
+
 # Cycle 17 (cost reduction): which model each stage calls -- see
 # harness/config.py's DEFAULT_MODELS for what a key left out falls back to.
 # Peak Saunas runs the engine defaults explicitly here so a future default

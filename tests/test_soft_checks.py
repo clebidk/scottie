@@ -185,3 +185,52 @@ def test_write_review_md_soft_check_section_says_none_when_clean(tmp_path):
     text = (tmp_path / "REVIEW.md").read_text()
     section = text.split("## Soft-check warnings (non-blocking)")[1].split("## Review checklist")[0]
     assert "none" in section
+
+
+# ---------------------------------------------------------------------------
+# Cycle 30: the warm-up window report is unconditional (word index of first
+# brand mention/price/CTA), independent of cartridges.article.warmup_mode.
+# ---------------------------------------------------------------------------
+
+def test_write_review_md_reports_warmup_window_word_indices_for_article(tmp_path):
+    ad_brief = {"angle": "a", "audience": "", "speaker_pov": "brand"}
+    facts_pack = {"verified_claims": [], "assets": []}
+    pages = {
+        "article": {
+            "headline": "Why the checkout page decides more than the price",
+            "dek": "A look at trust.",
+            "open": [{"text": "Peak Saunas is mentioned right away, priced at $8,250, see the models today."}],
+        },
+    }
+
+    class _FakeBudget:
+        def summary(self):
+            return {}
+
+    write_review_md(
+        tmp_path, ad_brief=ad_brief, facts_pack=facts_pack, product_name="Fuji",
+        selected=["article"], pages=pages, budget=_FakeBudget(), cost=0.0, gate_matched=[],
+    )
+    text = (tmp_path / "REVIEW.md").read_text()
+    section = text.split("## Warm-up window (article)")[1].split("## Soft-check warnings")[0]
+    assert "first brand mention: word" in section
+    assert "first price: word" in section
+    assert "first CTA: word" in section
+
+
+def test_write_review_md_warmup_window_section_is_not_applicable_without_an_article_page(tmp_path):
+    ad_brief = {"angle": "a", "audience": "", "speaker_pov": "brand"}
+    facts_pack = {"verified_claims": [], "assets": []}
+    pages = {"longform": {"headline": "x"}}
+
+    class _FakeBudget:
+        def summary(self):
+            return {}
+
+    write_review_md(
+        tmp_path, ad_brief=ad_brief, facts_pack=facts_pack, product_name="Fuji",
+        selected=["longform"], pages=pages, budget=_FakeBudget(), cost=0.0, gate_matched=[],
+    )
+    text = (tmp_path / "REVIEW.md").read_text()
+    section = text.split("## Warm-up window (article)")[1].split("## Soft-check warnings")[0]
+    assert "not applicable" in section

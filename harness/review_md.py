@@ -3,7 +3,8 @@
 Review 2026-09-11 R2: lifted out of harness/cli.py. Pure report generation
 from run artifacts -- no argparse, no model calls.
 """
-from .claims import collect_claim_ids
+from . import tenant as tenant_mod
+from .claims import collect_claim_ids, warmup_first_mentions
 from .repair import count_words, find_soft_check_warnings
 
 
@@ -94,6 +95,20 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
 
     # Fix cycle 16: soft checks (headline formula, proof-inside-section,
     # audience-in-headline) -- advisory only, never a gate failure.
+    # Cycle 30: reported unconditionally for every article page, regardless
+    # of cartridges.article.warmup_mode (warn/enforce only change whether a
+    # too-early mention is *flagged* -- this is a plain factual index).
+    article_page = pages.get("article")
+    lines.append("")
+    lines.append("## Warm-up window (article)")
+    if article_page:
+        mentions = warmup_first_mentions(article_page, tenant_mod.active())
+        for label, key in (("brand mention", "brand_word"), ("price", "price_word"), ("CTA", "cta_word")):
+            value = mentions[key]
+            lines.append(f"- first {label}: word {value}" if value is not None else f"- first {label}: none")
+    else:
+        lines.append("- not applicable (no article page in this run)")
+
     lines.append("")
     lines.append("## Soft-check warnings (non-blocking)")
     soft_warnings = find_soft_check_warnings(pages, ad_brief)

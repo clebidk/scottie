@@ -16,6 +16,7 @@ Audience temperature: cold. Reader does not know {{ tenant.name }} and did not p
 
 ## Rules
 - 1,000–1,600 words. Education ≥ 70% of body words.
+- Warm-up window: keep pricing, the CTA, and {{ tenant.name }}'s name out of the first {{ tenant.cartridges.article.warmup_window_words }} words (headline through the close) -- the reader earns the offer, the offer doesn't lead.
 - Exactly 1 CTA. No sticky bar. No countdowns, no discount language.
 - Headline formula: a number+outcome (e.g. "5 Ways...", "3 Questions...") or a curiosity hook, 8 to 14 words, never the company name or a price. Name the specific audience directly when ad_brief.audience is non-empty (e.g. "7 Questions Busy Parents Should Ask Before Buying a Sauna") -- otherwise address the reader generally, never invent an audience the ad didn't name.
 - No fabricated or credentialed author personas: every byline is {{ authors.author.name }} (renderer-injected, never written by you) -- never invent a different named "expert," doctor, researcher, or other credentialed persona to narrate or be quoted in the piece. A real customer's own attributed words are fine; a made-up authority is not.
