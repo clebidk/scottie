@@ -52,6 +52,11 @@ _SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>(?:(?!</script>).)*?</script>", r
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 _SRC_RE = re.compile(r'src="([^"]+)"')
 _ALT_RE = re.compile(r'alt="([^"]*)"')
+# Cycle 31: render.render_image_slot wraps a WebP-capable image in
+# <picture><source type="image/webp" srcset="...">, <img srcset="...">.
+_PICTURE_RE = re.compile(r"<picture>(.*?)</picture>", re.IGNORECASE | re.DOTALL)
+_IMG_OR_SOURCE_TAG_RE = re.compile(r"<(?:img|source)\b[^>]*>", re.IGNORECASE)
+_SRCSET_RE = re.compile(r'srcset="([^"]*)"')
 
 
 def _slugify(text, fallback="asset"):
@@ -108,29 +113,89 @@ def relativize_internal_links(html, tenant=None):
     return html.replace('href=""', f'href="{default_cta_url(tenant)}"')
 
 
-def build_asset_manifest(html, cartridge_name):
-    """Every relative assets/... image the shopify-body html references,
-    with an intended storefront CDN filename derived from its
-    renderer-generated alt text (already a meaningful, human-readable
-    description -- see render.asset_alt) so a later publish step has a
-    real name to upload under instead of the bare local asset id."""
-    manifest = []
-    seen = set()
-    idx = 0
-    for tag in _IMG_TAG_RE.findall(html):
+def _srcset_entries(value):
+    """'assets/a-480.jpg 480w, assets/a-800.jpg 800w' ->
+    [("assets/a-480.jpg", "480w"), ("assets/a-800.jpg", "800w")]."""
+    entries = []
+    for chunk in value.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        path, _, descriptor = chunk.rpartition(" ")
+        entries.append((path.strip(), descriptor.strip()) if path else (descriptor, ""))
+    return entries
+
+
+def _group_variant_paths(group_html):
+    """[(local_path, width_descriptor_or_""), ...] for every assets/... path
+    referenced by a src= or srcset= attribute anywhere in `group_html` --
+    one <picture>...</picture> block's inner content, or a single
+    standalone <img> tag -- in document order, de-duplicated within the
+    group (an <img>'s own src is normally one of its srcset entries too,
+    the fallback width; listed once)."""
+    found, seen = [], set()
+    for tag in (_IMG_OR_SOURCE_TAG_RE.findall(group_html) or [group_html]):
         src_m = _SRC_RE.search(tag)
-        if not src_m or not src_m.group(1).startswith("assets/"):
+        if src_m and src_m.group(1).startswith("assets/") and src_m.group(1) not in seen:
+            seen.add(src_m.group(1))
+            found.append((src_m.group(1), ""))
+        srcset_m = _SRCSET_RE.search(tag)
+        if srcset_m:
+            for path, descriptor in _srcset_entries(srcset_m.group(1)):
+                if path.startswith("assets/") and path not in seen:
+                    seen.add(path)
+                    found.append((path, descriptor))
+    return found
+
+
+def build_asset_manifest(html, cartridge_name):
+    """Every relative assets/... file the shopify-body html references --
+    the plain src, every srcset width variant (JPEG and, inside a
+    render_image_slot <picture>, WebP), each listed once -- with an
+    intended storefront CDN filename derived from its renderer-generated
+    alt text (already a meaningful, human-readable description -- see
+    render.asset_alt) plus its width descriptor (kept distinct: a 480w and
+    a 1600w variant of the same image must not collide on one filename) so
+    a later publish step has a real name to upload every variant under
+    instead of the bare local filename. See docs/IMAGES.md for how
+    harness/publishers/shopify.py is expected to consume this: it should
+    upload each local_path under its cdn_filename, then rewrite that exact
+    string wherever it appears in a src or srcset attribute (a `src` gets
+    swapped outright; a `srcset` entry keeps its own width descriptor,
+    e.g. "<cdn-url> 480w")."""
+    manifest = []
+    seen_paths = set()
+    idx = 0
+
+    groups = [m.group(1) for m in _PICTURE_RE.finditer(html)]
+    groups += _IMG_TAG_RE.findall(_PICTURE_RE.sub("", html))
+
+    for group in groups:
+        variants = [(p, d) for p, d in _group_variant_paths(group) if p not in seen_paths]
+        if not variants:
             continue
-        local_path = src_m.group(1)
-        if local_path in seen:
-            continue
-        seen.add(local_path)
         idx += 1
-        alt_m = _ALT_RE.search(tag)
+        alt_m = _ALT_RE.search(group)
         alt = alt_m.group(1) if alt_m else ""
-        ext = Path(local_path).suffix or ".jpg"
-        cdn_filename = f"pk-{cartridge_name}-{idx:02d}-{_slugify(alt, fallback=Path(local_path).stem)}{ext}"
-        manifest.append({"local_path": local_path, "alt": alt, "cdn_filename": cdn_filename})
+        base_slug = _slugify(alt, fallback=Path(variants[0][0]).stem)
+        for local_path, descriptor in variants:
+            seen_paths.add(local_path)
+            ext = Path(local_path).suffix or ".jpg"
+            if not descriptor:
+                # The bare src= of an <img> that also carries a matching
+                # srcset entry (the common case -- render_image_slot's
+                # fallback img is always one of its own srcset widths) is
+                # seen via src first, with no "NNNw" descriptor of its own;
+                # fall back to the width already embedded in the filename
+                # itself (generate_image_variants names every file
+                # "<id>-<width>.<ext>") so every variant's cdn_filename
+                # carries a width suffix consistently, not just the ones
+                # first encountered inside a srcset attribute.
+                width_m = re.search(r"-(\d+)\.\w+$", local_path)
+                descriptor = f"{width_m.group(1)}w" if width_m else ""
+            suffix = f"-{descriptor}" if descriptor else ""
+            cdn_filename = f"pk-{cartridge_name}-{idx:02d}-{base_slug}{suffix}{ext}"
+            manifest.append({"local_path": local_path, "alt": alt, "cdn_filename": cdn_filename})
     return manifest
 
 

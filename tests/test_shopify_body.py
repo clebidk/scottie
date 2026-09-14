@@ -174,17 +174,18 @@ def test_assets_manifest_lists_each_image_once_with_a_cdn_filename(tmp_path):
     _, manifest = build_shopify_body(out_dir)
     # Cycle 31: LISTICLE_PAGE's five reasons now use five distinct asset ids
     # (docs/IMAGES-AUDIT-2026-09-14.md problem 3 -- a page may not reuse the
-    # same asset id in two slots), so five distinct local_paths are listed;
-    # download_asset's variants are always re-encoded as JPEG (see
-    # generate_image_variants), so every cdn_filename ends .jpg regardless
-    # of the source format.
-    assert len(manifest) == 5
-    entry = manifest[0]
-    assert entry["local_path"] == "assets/asset-1-300.jpg"
+    # same asset id in two slots). Each render_image_slot <picture> carries
+    # one WebP and one JPEG variant here (a 300x300 source is narrower than
+    # every configured srcset width, so generate_image_variants emits just
+    # one size) -- 5 images x 2 formats = 10 manifest entries, one per
+    # distinct local_path, each still listed exactly once.
+    assert len(manifest) == 10
+    by_path = {e["local_path"]: e for e in manifest}
+    assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(1, 6) for ext in ("jpg", "webp")}
+    entry = by_path["assets/asset-1-300.jpg"]
     assert entry["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo"
     assert entry["cdn_filename"].startswith("pk-listicle-01-")
     assert entry["cdn_filename"].endswith(".jpg")
-    assert {e["local_path"] for e in manifest} == {f"assets/asset-{i}-300.jpg" for i in range(1, 6)}
 
 
 def test_assets_manifest_is_valid_json_on_disk(tmp_path):
@@ -192,14 +193,42 @@ def test_assets_manifest_is_valid_json_on_disk(tmp_path):
     _render_listicle(out_dir)
     _, manifest_path = write_shopify_body(out_dir)
     on_disk = json.loads(manifest_path.read_text())
-    assert on_disk == [
-        {
-            "local_path": f"assets/asset-{i}-300.jpg",
-            "alt": "Peak Fuji 2-Person Infrared Sauna – lifestyle photo",
-            "cdn_filename": f"pk-listicle-{i:02d}-peak-fuji-2-person-infrared-sauna-lifestyle-photo.jpg",
-        }
-        for i in range(1, 6)
-    ]
+    expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(1, 6) for ext in ("jpg", "webp")}
+    assert {e["local_path"] for e in on_disk} == expected_paths
+    assert all(e["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo" for e in on_disk)
+    # every cdn_filename is distinct and carries the format's own extension
+    cdn_filenames = [e["cdn_filename"] for e in on_disk]
+    assert len(set(cdn_filenames)) == len(cdn_filenames)
+    for e in on_disk:
+        assert e["cdn_filename"].endswith("." + e["local_path"].rsplit(".", 1)[1])
+
+
+def test_build_asset_manifest_lists_every_picture_variant():
+    """Cycle 31: a render_image_slot <picture> (WebP <source srcset=...> +
+    JPEG <img srcset=...>) must list every distinct width/format variant,
+    not just the single inlined fallback src -- each with its own,
+    distinct cdn_filename (docs/IMAGES.md's publish contract: every
+    variant needs a real upload name)."""
+    from harness.shopify import build_asset_manifest
+
+    html = (
+        '<picture>'
+        '<source type="image/webp" srcset="assets/hero-480.webp 480w, assets/hero-800.webp 800w">'
+        '<img src="assets/hero-480.jpg" alt="Peak Fuji – lifestyle photo" '
+        'srcset="assets/hero-480.jpg 480w, assets/hero-800.jpg 800w">'
+        '</picture>'
+    )
+    manifest = build_asset_manifest(html, "longform")
+    paths = {e["local_path"] for e in manifest}
+    assert paths == {
+        "assets/hero-480.webp", "assets/hero-800.webp",
+        "assets/hero-480.jpg", "assets/hero-800.jpg",
+    }
+    cdn_filenames = [e["cdn_filename"] for e in manifest]
+    assert len(set(cdn_filenames)) == len(cdn_filenames), "every variant needs a distinct cdn filename"
+    by_path = {e["local_path"]: e["cdn_filename"] for e in manifest}
+    assert by_path["assets/hero-480.jpg"].endswith("-480w.jpg")
+    assert by_path["assets/hero-800.webp"].endswith("-800w.webp")
 
 
 def test_build_asset_manifest_dedupes_by_local_path(tmp_path):
