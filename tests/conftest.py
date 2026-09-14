@@ -4,6 +4,7 @@ No network calls anywhere in tests -- every Anthropic client is this fake,
 injected explicitly, and since Cycle 22 that is enforced rather than assumed
 (see _no_network below).
 """
+import hashlib
 import json
 import socket
 
@@ -129,3 +130,42 @@ def _no_network(request, monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", _blocked)
     monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
     monkeypatch.setattr(socket, "create_connection", _blocked)
+
+
+# ---------------------------------------------------------------------------
+# Cycle 35a: the real tenant's evals files are never touched by the suite
+# ---------------------------------------------------------------------------
+
+def _evals_file_hashes():
+    """sha256 of tenants/peak-saunas/evals/scores.jsonl and approvals.jsonl,
+    or None for a file that does not exist -- both are legitimately empty as
+    of Cycle 35a (Caleb has not scored anything yet)."""
+    root = tenant_mod.tenant_dir("peak-saunas") / "evals"
+    hashes = {}
+    for name in ("scores.jsonl", "approvals.jsonl"):
+        path = root / name
+        hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    return hashes
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _real_tenant_evals_unchanged():
+    """Cycle 35 found ~89 lines each of test-generated junk in
+    tenants/peak-saunas/evals/scores.jsonl and approvals.jsonl -- a test
+    that calls record_score/approve/reject/request_changes against the real
+    peak-saunas Tenant instead of a tmp_path/FakeTenant one (exactly the bug
+    fixed in tests/test_serve.py this cycle) corrupts Caleb's real review
+    history silently, since nothing about that failed. Hashed once before
+    the first test in the session and once after the last -- this is a
+    session-scoped fixture, so its teardown (after the `yield`) runs only
+    once every other test has finished, regardless of file or test order.
+    tests/test_suite_guards.py's test_real_tenant_evals_files_are_unchanged
+    exercises the baseline this captures; the enforcement is this assert."""
+    before = _evals_file_hashes()
+    yield before
+    after = _evals_file_hashes()
+    assert after == before, (
+        "the test suite modified tenants/peak-saunas/evals/scores.jsonl and/or "
+        f"approvals.jsonl -- before={before} after={after}. Some test wrote to the "
+        "real tenant's evals files instead of a tmp_path/FakeTenant one."
+    )

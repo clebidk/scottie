@@ -32,7 +32,35 @@ def review_env(monkeypatch):
 
 
 @pytest.fixture
-def run_dir(monkeypatch):
+def isolated_tenant_paths(tmp_path, monkeypatch):
+    """Cycle 35a: this file drives `harness serve`'s real approve/reject/
+    changes actions (test_approve_action_writes_scores_and_state and
+    friends below) straight through harness/serve.py and harness/runstate.py
+    against `TENANT` -- the real peak-saunas Tenant from tests/support.py --
+    because the app needs real claims/brand data to render and gate
+    correctly. Without this, every one of those actions appended a real line
+    to tenants/peak-saunas/evals/scores.jsonl and approvals.jsonl, and
+    `run_dir` below wrote a real run dir + log into tenants/peak-saunas/out
+    and runs/, every single time the suite ran (the gap Cycle 35 found ~89
+    lines and ~800 stray run dirs from). `out_dir`/`runs_dir`/`evals_path`
+    are plain `self.root / "..."` properties on Tenant (harness/tenant.py),
+    so patching them at the class level redirects every write this test
+    makes -- through cli.cmd_run, runstate.approve/reject/request_changes,
+    and evals.record_score alike -- into tmp_path, while claims_dir/
+    brand_dir/fixtures_dir/config keep reading the real tenant data these
+    tests need for realistic content."""
+    out_dir = tmp_path / "out"
+    runs_dir = tmp_path / "runs"
+    out_dir.mkdir()
+    runs_dir.mkdir()
+    monkeypatch.setattr(type(TENANT), "out_dir", property(lambda self: out_dir))
+    monkeypatch.setattr(type(TENANT), "runs_dir", property(lambda self: runs_dir))
+    monkeypatch.setattr(type(TENANT), "evals_path", property(lambda self: tmp_path / "evals" / "scores.jsonl"))
+    return tmp_path
+
+
+@pytest.fixture
+def run_dir(monkeypatch, isolated_tenant_paths):
     responses = [
         json_response(AD_BRIEF_RESPONSE),
         json_response({}),
@@ -50,7 +78,7 @@ def run_dir(monkeypatch):
 
 
 @pytest.fixture
-def app_client(review_env):
+def app_client(review_env, isolated_tenant_paths):
     app = serve.build_app(TENANT)
     app.testing = True
     return app.test_client()
