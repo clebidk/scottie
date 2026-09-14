@@ -95,3 +95,21 @@ def test_active_or_none_does_not_load_a_tenant_as_a_side_effect():
     vocab.set_active(None)
     assert tenant_mod.active_or_none() is None
     assert vocab.active_or_none() is None
+
+
+# ---------------------------------------------------------------------------
+# Cycle 35a: the real tenant's evals files are never touched by the suite
+# ---------------------------------------------------------------------------
+
+def test_real_tenant_evals_files_are_unchanged(_real_tenant_evals_unchanged):
+    """The real enforcement is conftest.py's session-scoped autouse fixture
+    `_real_tenant_evals_unchanged`: it hashes tenants/peak-saunas/evals/
+    scores.jsonl and approvals.jsonl before the first test in the session
+    and asserts the same hashes after the last one, in its own teardown --
+    that runs however the suite is ordered, unlike a plain test. This test
+    just proves the baseline it captured (the fixture's pre-yield value)
+    matches the file on disk right now, so a mid-suite regression shows up
+    here too instead of only at the very end."""
+    from tests.conftest import _evals_file_hashes
+
+    assert _evals_file_hashes() == _real_tenant_evals_unchanged
