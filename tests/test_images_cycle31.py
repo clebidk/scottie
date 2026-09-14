@@ -323,7 +323,7 @@ def test_find_hero_requirement_violations_noop_for_article_and_listicle():
 # ---------------------------------------------------------------------------
 
 
-def test_inline_assets_as_data_uris_inlines_only_the_plain_src_not_srcset(tmp_path):
+def test_inline_assets_as_data_uris_inlines_src_and_drops_srcset_and_sources(tmp_path):
     (tmp_path / "a-1200.jpg").write_bytes(_image_bytes(4, 4, (1, 2, 3), fmt="JPEG"))
     html = (
         '<picture><source type="image/webp" srcset="assets/a-480.webp 480w">'
@@ -335,7 +335,10 @@ def test_inline_assets_as_data_uris_inlines_only_the_plain_src_not_srcset(tmp_pa
     # the srcset attributes (webp source and the img's own) are untouched --
     # a standalone browser can't resolve them anyway and falls through to
     # the inlined src, which is exactly the "inline only the 1200 variant" ask
-    assert 'srcset="assets/a-480.webp 480w"' in out
+    # Cycle 35b: browsers pick <source>/srcset candidates and never fall back to the
+    # inlined src, so the review copy must carry no srcset and no <source> at all.
+    assert 'srcset=' not in out
+    assert '<source' not in out
     assert 'srcset="assets/a-480.jpg 480w, assets/a-1200.jpg 1200w"' in out
 
 
