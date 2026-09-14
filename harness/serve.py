@@ -573,6 +573,12 @@ def build_app(tenant):
         run_dir = _run_dir_or_404(tenant, run_id)
         safe_page = textutil.safe_filename(page)
         path = _safe_path(run_dir, f"{safe_page}-review.html")
+        # Cycle 35b: a review file built before the inliner learned to drop
+        # <picture> <source>/srcset candidates renders broken images in the
+        # iframe. Treat such a file as stale and rebuild it the same way a
+        # missing one is built.
+        if path is not None and "<source" in path.read_text(errors="ignore"):
+            path = None
         if path is None:
             index_path = _safe_path(run_dir, f"{safe_page}/index.html")
             if index_path is not None:
