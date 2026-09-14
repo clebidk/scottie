@@ -1,0 +1,10 @@
+{
+  "kind": "design-reference-pack",
+  "source_post": "https://x.com/Manixh02/status/2099337573160423843",
+  "catalog": "https://getdesign.md (VoltAgent/awesome-design-md)",
+  "pulled_with": "npx getdesign add <slug>",
+  "pulled_date": "2026-09-14",
+  "license": "MIT (VoltAgent/awesome-design-md, Copyright (c) 2026 VoltAgent)",
+  "slugs": ["airbnb","apple","clay","framer","nike","notion","shopify","stripe","tesla","webflow"],
+  "note": "Independent third-party analyses of public sites, not official brand documents. Brand names and fonts named inside belong to their owners. Reference for visual language and structure only: never copied as tenant tokens, never used for copy or claims. The tenant brand layer always owns type and color."
+}
