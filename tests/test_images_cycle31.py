@@ -339,7 +339,6 @@ def test_inline_assets_as_data_uris_inlines_src_and_drops_srcset_and_sources(tmp
     # inlined src, so the review copy must carry no srcset and no <source> at all.
     assert 'srcset=' not in out
     assert '<source' not in out
-    assert 'srcset="assets/a-480.jpg 480w, assets/a-1200.jpg 1200w"' in out
 
 
 def test_review_html_size_cap_constant_is_twelve_megabytes():
