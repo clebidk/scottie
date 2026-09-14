@@ -1484,3 +1484,108 @@ guidance lines that reached the writer prompt.
 ## Cycle 30 merge note (operator)
 - Merged with Peak warmup_mode set back to warn: the real run under enforce STOPped after three repairs (brand at word 465, then 583). Enforce again after five consecutive clean real runs report first-brand-mention beyond the window in REVIEW.md.
 - Follow-up for cycle 32: repair loop should normalize warm-up failures to a stable key ("brand inside warm-up window") so the REVISION REQUIRED memory recognizes repeats, and the repair prompt should state the exact word budget remaining.
+
+## Cycle 32: simplicity gate + warm-up repair-loop key fix (2026-09-14)
+
+Branch `cycle32/simplicity`, from `master` (head includes cycle 30).
+Concurrent with `cycle31/images` (harness/render.py, harness/structure.css,
+harness/ground.py, cartridges/*/template.html, harness/shopify.py, and the
+image checks in harness/pagechecks.py) -- none of those files touched here.
+
+**Part A -- simplicity gate (docs/RESEARCH-HORMOZI-LANDING.md section 3, new
+module `harness/simplicity.py`).** Four page.json-level checks:
+
+1. **Links above the fold.** Distinct `url`/`cta_url` targets in the page's
+   above-the-fold region, defined per cartridge (product-page/longform:
+   `hero` + the top-level `cta_url` reused there; article: `headline` +
+   `dek` + `open[0]`; listicle: `headline` + `dek` + `proof_row`). At most
+   1. The disclosure paragraph and byline "Full bio" link are exempt by
+   construction, not by special-case code -- both are renderer-injected
+   (harness/render.py) and never appear in page.json at all, the same fact
+   claims.py's own cycle-30 warm-up module docstring already notes about
+   the same two blocks.
+2. **Headline word band per cartridge.** New `headline_word_band` key in
+   each cartridge's own schema.json: article/listicle `[8, 14]` (already
+   the stated prose rule in each cartridge.md), longform `[6, 12]`,
+   product-page `[4, 10]`. product-page has no literal `headline` field --
+   `hero.promise` (the ad-angle one-liner) is measured instead, documented
+   inline in its schema.json.
+3. **One offer element per page.** A second, differently-worded CTA text or
+   financing sentence anywhere on the page fails; the *same* text/sentence
+   repeating verbatim in more than one render slot (hero + sticky bar +
+   final block, same convention the CTA-text allowlist already uses) is
+   fine. A second `cta_url`/offer card was already an unconditional hard
+   gate (`claims.find_second_cta_violation`, run inside `gate_page_json`
+   regardless of mode) -- reused for the Simplicity report, not
+   re-implemented.
+4. **Value-equation checklist (product-page proof_bullets, soft only, every
+   mode).** `cartridges/product-page/cartridge.md` gets the tenant-neutral
+   writer instruction (bullet order: outcome the buyer wants, proof it's
+   likely, time to first benefit/install effort, verified claim ids only,
+   never price/warranty/shipping/returns). `find_value_equation_warnings`
+   checks the 3 bullets carry 3 distinct claim_ids and none is transactional
+   (claims/verified.json's own `category` field for price; the claim id's
+   own naming for warranty/shipping/returns, since the claims file has no
+   dedicated category for either).
+
+New per-tenant `simplicity_mode: warn|enforce` in tenant.yaml (template and
+Peak Saunas both `warn`) -- under `enforce`, items 1-3 become hard gates
+through the writer repair loop (`harness/repair.py`'s `check_page_gates`,
+wired with one import and one conditional call in the same place the
+warm-up gate runs); item 4 always stays soft. New "## Simplicity" section
+in REVIEW.md (`harness/review_md.py`) reports every check's PASS/WARN result
+per page unconditionally, regardless of mode -- same pattern the existing
+"Warm-up window" section uses.
+
+**Part B -- warm-up repair-loop memory (harness/claims.py +
+harness/repair.py).** Per the cycle 30 merge note above:
+`find_warmup_violations` now gives each hit a stable `"key"`
+(`"warmup:brand"`/`"warmup:price"`/`"warmup:cta"`), separate from the
+varying detail in `"issue"`, which now states the exact word budget
+remaining ("brand at word 583; window 600; move the first brand mention
+past word 600 -- you have 17 words to cut before it or 17+ words to add of
+brand-free copy before it") instead of just the window and position.
+`write_and_gate_page`'s failures-seen memory is now a dict keyed on a
+failure's own `"key"` when it has one (else `(path, issue)` as before)
+instead of a dedup set + append-only list, so a repeat under the same key
+replaces the stored detail instead of being dropped or duplicated -- the
+REVISION REQUIRED block always states the latest detail for a still-open
+violation.
+
+**Tests.** `tests/test_simplicity.py` (39 tests): each simplicity check
+positive/negative on synthetic page.json per cartridge, `headline_word_band`
+read from the real schema.json files, the real ARTICLE_PAGE/
+PRODUCT_PAGE_PAGE/LONGFORM_PAGE fixtures (tests/test_render.py) passing the
+gate cleanly, warn vs enforce wired into `check_page_gates`, and the
+REVIEW.md Simplicity section. `tests/test_warmup.py` gains one test: two
+consecutive warm-up failures at different word indexes produce exactly one
+memory entry, carrying the latest detail and budget, not the first; its
+`_gate_problems` helper switches from a substring match on the old
+"warm-up window" wording to the new stable key. No change to the fake-run
+baseline (`tests/test_fake_run.py`'s byte-identical page.json comparison --
+the fake client ignores prompts, so nothing about what the writer is told
+changes what it returns). Full suite: 965 passed (925 baseline + 40 new),
+`ruff check` clean.
+
+### Verify (real `adv run`/`harness run`, server, real Claude calls, worktree
+`/home/deploy/advertorial-c32` of `cycle32/simplicity`)
+
+- **Run 1** (`harness run tenants/peak-saunas/fixtures/hidden-costs-v2.mov
+  --tenant peak-saunas`, `simplicity_mode: warn`, out dir
+  `20260914-163455-hidden-costs-v2-dgj6`): **PASS**. Simplicity section:
+  longform and article all PASS; product-page's headline band WARNs
+  (`hero.promise` is 11 words against a 4-10 band -- advisory only, no
+  repair triggered under warn). Warm-up window (article): first brand
+  mention word 481 (inside the 600-word window -- advisory only under
+  Peak's current `warmup_mode: warn`), first price word 751, no CTA
+  mention.
+- **Enforce trial** (simplicity_mode flipped to `enforce` in the worktree
+  only, not committed; `harness run tenants/peak-saunas/fixtures/
+  still-levelup-4x5.png --tenant peak-saunas`, out dir
+  `20260914-163905-still-levelup-4x5-knxh`): **PASS**. Simplicity section:
+  every check on every page PASS (product-page's headline band passed this
+  time on the model's own output). Article took 2 repairs (3 attempts) --
+  both repairs were pre-existing gates (an unsourced "medical"/digit
+  trigger-word claim_id miss, then a word-count overage), confirmed against
+  the run log; the simplicity gate itself caused zero repairs on this run.
+  Worktree removed after verification (`git worktree remove --force`).
