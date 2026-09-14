@@ -692,12 +692,236 @@ def test_palette_pdf_from_a_colors_folder_extracts_hex_via_vision(tmp_path, monk
     log.close()
 
     assert result.raw_palette_json["colors"][0]["hex"] == "#16C47F"
+    # Colors are keyed by normalized (lowercase) hex now -- see the "palette"
+    # list, which holds every distinct color found, not just the derived
+    # primary/accent/background/text picks in "colors".
+    palette_hexes = {c["hex"] for c in result.brand_import_tokens["palette"]}
+    assert "#16c47f" in palette_hexes
+    assert "#17172b" in palette_hexes
     colors = result.brand_import_tokens["colors"]
-    hexes = {c["hex"] for c in colors.values()}
-    assert "#16C47F" in hexes
-    assert "#17172B" in hexes
     accent = next(c for c in colors.values() if c.get("role") == "accent")
     assert accent["source"] == "brand-import:Peak_Sauna_Colors.pdf"
+
+
+# ---------------------------------------------------------------------------
+# Merch/layout folder classification (Cycle 35d)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("folder_path", [
+    ("8 - Logo layout for Merch",),
+    ("Merch",),
+    ("Packaging Layout",),
+])
+def test_pdf_under_a_merch_or_layout_folder_classifies_as_merch_layout(folder_path):
+    assert brand_import.classify_file("Some-Variant.pdf", folder_path) == "merch_layout"
+
+
+def test_merch_layout_folder_does_not_catch_non_pdf_files():
+    # Only PDFs are reclassified -- a preview image in the same folder keeps
+    # its normal "photo" classification.
+    assert brand_import.classify_file("preview.png", ("8 - Logo layout for Merch",)) == "photo"
+
+
+def test_a_guide_ish_folder_pdf_still_classifies_as_guide():
+    assert brand_import.classify_file("Peak_Infos.pdf", ("6 - Info Sheet",)) == "guide"
+
+
+def test_a_pdf_with_no_folder_context_still_defaults_to_guide():
+    # A flat --local import (or a top-level Drive file) has no folder to
+    # gate on -- the old inclusive default is kept for that case, since
+    # there's no folder signal to scope against.
+    assert brand_import.classify_file("random.pdf") == "guide"
+
+
+def test_a_pdf_under_an_unrelated_folder_no_longer_defaults_to_guide():
+    # Cycle 35d tightening: with real folder context, an unnamed .pdf under
+    # a folder that isn't guide/brand/info/deck/presentation-ish (and isn't
+    # merch/layout either) is no longer assumed to be the brand guide.
+    assert brand_import.classify_file("Untitled.pdf", ("9 - Misc",)) == "other"
+
+
+# ---------------------------------------------------------------------------
+# Color palette: keyed by hex, not role (Cycle 35d)
+# ---------------------------------------------------------------------------
+
+def test_add_palette_color_keeps_every_distinct_hex_even_with_a_repeated_role():
+    # Regression for the real gap this cycle fixes: the old merge keyed on
+    # role, so a second color sharing a role silently clobbered the first.
+    palette, seen = [], set()
+    brand_import._add_palette_color(palette, seen, "#EFE3D2", name="Stone", role="neutral", source="brand-import:a.pdf")
+    brand_import._add_palette_color(palette, seen, "#F27046", name="Solar Flare", role="accent", source="brand-import:a.pdf")
+    brand_import._add_palette_color(palette, seen, "#483215", name="Cedar", role="neutral", source="brand-import:a.pdf")
+    assert [c["hex"] for c in palette] == ["#efe3d2", "#f27046", "#483215"]
+    assert [c["rank"] for c in palette] == [1, 2, 3]
+
+
+def test_add_palette_color_dedupes_an_exact_repeated_hex():
+    palette, seen = [], set()
+    brand_import._add_palette_color(palette, seen, "#16C47F", role="accent", source="brand-import:logo.png")
+    brand_import._add_palette_color(palette, seen, "#16c47f", role="palette", source="brand-import:palette.txt")
+    assert len(palette) == 1
+    # First-seen metadata wins for an exact repeat.
+    assert palette[0]["role"] == "accent"
+    assert palette[0]["source"] == "brand-import:logo.png"
+
+
+def test_guide_colors_sharing_a_role_are_all_kept(tmp_path, monkeypatch):
+    tenant = _make_demo_tenant(tmp_path, "roletest-co")
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "Brand Guide.pdf").write_bytes(b"%PDF-1.4 fake")
+
+    fake_page = tmp_path / "fake-guide-page.png"
+    Image.new("RGB", (4, 4), (0, 0, 0)).save(fake_page)
+    monkeypatch.setattr(brand_import, "render_guide_pages", lambda *a, **k: [fake_page])
+
+    vision_response = json_response({
+        "colors": [
+            {"name": "Fossil Dust", "hex": "#C0C8C3", "role": "neutral"},
+            {"name": "Stone", "hex": "#EFE3D2", "role": "neutral"},
+            {"name": "Cedar", "hex": "#483215", "role": "neutral"},
+        ],
+        "fonts": [], "logo_rules": [], "voice": [], "dont": [],
+    })
+    client = FakeClient([vision_response])
+    log = RunLog("test-role-run", tmp_path / "run.log")
+
+    result = brand_import.import_brand_kit(
+        tenant, local_dir=src, dry_run=True, client=client, budget=Budget(), log=log, model="claude-sonnet-5",
+    )
+    log.close()
+
+    hexes = {c["hex"] for c in result.brand_import_tokens["palette"]}
+    assert {"#c0c8c3", "#efe3d2", "#483215"} <= hexes
+
+
+# ---------------------------------------------------------------------------
+# Derived picks: primary/accent/background/text (Cycle 35d)
+# ---------------------------------------------------------------------------
+
+def _palette_color(hex_value, role="", name="", source="brand-import:x", rank=1):
+    return {"hex": hex_value, "name": name, "role": role, "source": source, "rank": rank}
+
+
+def test_pick_background_prefers_an_explicit_label():
+    palette = [_palette_color("#123456", role="accent"), _palette_color("#000000", role="background")]
+    assert brand_import._pick_background(palette)["hex"] == "#000000"
+
+
+def test_pick_background_falls_back_to_the_lightest_neutral():
+    palette = [_palette_color("#16c47f", role="accent"), _palette_color("#f5f5f0", role="palette")]
+    assert brand_import._pick_background(palette)["hex"] == "#f5f5f0"
+
+
+def test_pick_background_never_reuses_a_color_claimed_by_another_role():
+    # A single saturated accent color must not become the background too --
+    # that would zero out the accent's own contrast against the page.
+    palette = [_palette_color("#16c47f", role="accent")]
+    assert brand_import._pick_background(palette) is None
+
+
+def test_pick_accent_prefers_the_most_saturated_warm_color():
+    palette = [_palette_color("#3b5bdb", role="palette"), _palette_color("#f27046", role="palette")]
+    assert brand_import._pick_accent(palette)["hex"] == "#f27046"
+
+
+def test_pick_accent_prefers_an_explicit_label_over_the_warm_heuristic():
+    palette = [_palette_color("#f27046", role="palette"), _palette_color("#3b5bdb", role="accent")]
+    assert brand_import._pick_accent(palette)["hex"] == "#3b5bdb"
+
+
+def test_pick_text_prefers_highest_contrast_dark_color():
+    palette = [_palette_color("#eeeeee", role="palette"), _palette_color("#111111", role="palette")]
+    assert brand_import._pick_text(palette, "#ffffff")["hex"] == "#111111"
+
+
+# ---------------------------------------------------------------------------
+# Oversize PDF: fail soft (Cycle 35d)
+# ---------------------------------------------------------------------------
+
+def test_oversize_guide_pdf_is_skipped_with_a_report_line(tmp_path, monkeypatch):
+    tenant = _make_demo_tenant(tmp_path, "oversize-co")
+    src = tmp_path / "src"
+    src.mkdir()
+    big_guide = src / "Company Brand Guide.pdf"
+    big_guide.write_bytes(b"x" * (26 * 1024 * 1024))  # over the 25 MB cap
+
+    render_calls = []
+    monkeypatch.setattr(brand_import, "render_guide_pages", lambda *a, **k: render_calls.append(a) or [])
+
+    result = brand_import.import_brand_kit(tenant, local_dir=src, dry_run=True, force=False)
+
+    assert render_calls == []  # never attempted to rasterize the oversize file
+    assert any(
+        "skipped" in d.lower() and "mb" in d.lower() and "over cap" in d.lower()
+        for d in result.human_decisions
+    )
+
+
+def test_oversize_palette_pdf_is_skipped_with_a_report_line(tmp_path, monkeypatch):
+    tenant = _make_demo_tenant(tmp_path, "oversize-palette-co")
+    root_id = "root-id-oversize-0000001"
+    colors_folder_id = "colors-folder-id-oversize1"
+    pdf_id = "colors-pdf-id-oversize001"
+
+    root_html = _entry_html(colors_folder_id, "5 - Colors", type_word="", status="Shared folder")
+    colors_html = _entry_html(pdf_id, "Huge_Colors.pdf", type_word="PDF")
+    pages_html = {root_id: root_html, colors_folder_id: colors_html}
+
+    def fake_download(file_id_arg, dest_dir):
+        dest_dir = Path(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        p = dest_dir / "Huge_Colors.pdf"
+        p.write_bytes(b"x" * (26 * 1024 * 1024))
+        return p
+
+    monkeypatch.setattr(drive, "download_drive_file", fake_download)
+    render_calls = []
+    monkeypatch.setattr(brand_import, "render_guide_pages", lambda *a, **k: render_calls.append(a) or [])
+
+    result = brand_import.import_brand_kit(
+        tenant, drive_folder=root_id, fetch=lambda fid: pages_html[fid], dry_run=True,
+    )
+
+    assert render_calls == []
+    assert any(
+        "skipped" in d.lower() and "mb" in d.lower() and "over cap" in d.lower()
+        for d in result.human_decisions
+    )
+
+
+# ---------------------------------------------------------------------------
+# Guide cap: at most MAX_GUIDE_DOCS PDFs vision-read per import (Cycle 35d)
+# ---------------------------------------------------------------------------
+
+def test_guide_cap_reads_at_most_two_and_lists_the_rest(tmp_path, monkeypatch):
+    tenant = _make_demo_tenant(tmp_path, "guidecap-co")
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "Brand Guide A.pdf").write_bytes(b"x" * 3000)
+    (src / "Brand Guide B.pdf").write_bytes(b"x" * 2000)
+    (src / "Brand Guide C.pdf").write_bytes(b"x" * 1000)
+
+    fake_page = tmp_path / "fake-page.png"
+    Image.new("RGB", (4, 4), (0, 0, 0)).save(fake_page)
+    monkeypatch.setattr(brand_import, "render_guide_pages", lambda *a, **k: [fake_page])
+
+    vision_response = json_response({"colors": [], "fonts": [], "logo_rules": [], "voice": [], "dont": []})
+    client = FakeClient([vision_response, vision_response, vision_response])
+    log = RunLog("test-guidecap-run", tmp_path / "run.log")
+
+    result = brand_import.import_brand_kit(
+        tenant, local_dir=src, dry_run=True, client=client, budget=Budget(), log=log, model="claude-sonnet-5",
+    )
+    log.close()
+
+    assert len(client.messages.calls) == brand_import.MAX_GUIDE_DOCS
+    assert len(result.raw_model_json) == brand_import.MAX_GUIDE_DOCS
+    assert {e["file"] for e in result.raw_model_json} == {"Brand Guide A.pdf", "Brand Guide B.pdf"}
+    assert any(
+        "cap of 2" in d.lower() and "brand guide c.pdf" in d.lower()
+        for d in result.human_decisions
+    )
 
 
 # ---------------------------------------------------------------------------
