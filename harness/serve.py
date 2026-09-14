@@ -403,11 +403,26 @@ def _unauthorized_response():
 def _authenticate(tenant):
     """Returns (email, None) on success, (None, Response) to short-circuit
     the request. Never puts REVIEW_PASSWORD (or any other env value) into a
-    response body, a log line, or an exception message."""
+    response body, a log line, or an exception message.
+
+    Cycle 34: when REVIEW_TRUST_CF_ACCESS is on, the email header alone is
+    not enough -- Cloudflare also sends Cf-Access-Jwt-Assertion on every
+    authenticated request. Requiring that header to be present stops a
+    trivial spoof of the email header against a process that is somehow
+    reachable without Access in front. This is not a full JWT signature
+    check (no JWKS fetch; the harness stays offline-friendly); operators
+    who need cryptographic verify should terminate TLS at Access and keep
+    this process off the public internet.
+    """
     trust_cf = (os.environ.get("REVIEW_TRUST_CF_ACCESS") or "").strip().lower() == "true"
     if trust_cf:
         cf_email = request.headers.get("Cf-Access-Authenticated-User-Email")
+        cf_jwt = (request.headers.get("Cf-Access-Jwt-Assertion") or "").strip()
         if cf_email:
+            if not cf_jwt:
+                return None, Response(
+                    "Cloudflare Access JWT assertion missing.\n", status=401
+                )
             if runstate.find_reviewer(tenant, cf_email) is None:
                 return None, Response("Not a listed reviewer for this tenant.\n", status=403)
             return cf_email, None
@@ -423,6 +438,38 @@ def _authenticate(tenant):
     if not hmac.compare_digest(auth.password, password):
         return None, _unauthorized_response()
     return auth.username, None
+
+
+def _same_origin(value, root):
+    """True when `value` (an Origin or Referer) shares scheme+host+port with
+    this app's url_root. Empty/missing values are not same-origin."""
+    if not value or not root:
+        return False
+    value = value.strip()
+    root = root.rstrip("/") + "/"
+    # Origin has no path; Referer may. Compare on the absolute-prefix form.
+    if value.rstrip("/") == root.rstrip("/"):
+        return True
+    return value.startswith(root)
+
+
+def _check_post_origin():
+    """Cycle 34 CSRF defense for cookie/Basic-auth browser POSTs: when the
+    browser sends Origin or Referer, it must match this app. Requests with
+    neither header (curl, scripts) are allowed -- operators use those; a
+    cross-site form POST always includes Origin in modern browsers."""
+    if request.method != "POST":
+        return None
+    root = request.url_root
+    origin = request.headers.get("Origin")
+    referer = request.headers.get("Referer")
+    if origin:
+        if not _same_origin(origin, root):
+            return Response("Cross-origin POST refused.\n", status=403)
+        return None
+    if referer and not _same_origin(referer, root):
+        return Response("Cross-origin POST refused.\n", status=403)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +496,17 @@ def build_app(tenant):
         if error is not None:
             return error
         g.reviewer_email = email
+        origin_error = _check_post_origin()
+        if origin_error is not None:
+            return origin_error
+
+    @app.after_request
+    def _security_headers(resp):
+        # Cycle 34: deny framing so a cross-origin page cannot clickjack the
+        # approve / reject / regenerate buttons (pairs with the Origin check).
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
+        return resp
 
     @app.route("/")
     def run_list():
