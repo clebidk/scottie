@@ -30,7 +30,7 @@
     },
     "body_sections": {
       "type": "array",
-      "description": "3-5 H2 sections, each answering one question the reader would ask next. Education only; the product may be named once, as an example, no link. At least 2 paragraphs across body_sections must carry claim_ids citing facts_pack.verified_claims, with inline citation text like '(source name, year)'.",
+      "description": "3-5 H2 sections, each answering one question the reader would ask next. Education only; never name the company or product (no tenant name, no short_name) -- warm-up window. At least 2 paragraphs across body_sections must carry claim_ids citing facts_pack.verified_claims, with inline citation text like '(source name, year)'.",
       "items": {
         "type": "object",
         "properties": {
@@ -90,7 +90,7 @@
     },
     "turn_section": {
       "type": "object",
-      "description": "One H2 that moves from the topic to 'what to look for', 3-4 criteria that {{ tenant.name }} meets. Still no hard sell. Fix cycle 3 item 3: at least 1 criterion must carry a product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
+      "description": "One H2 that moves from the topic to 'what to look for', 3-4 buyer criteria a careful shopper should insist on. Still no hard sell and still no company or product name in heading/intro/criteria text (warm-up window -- name the offer only in close). Fix cycle 3 item 3: at least 1 criterion must carry a product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
       "properties": {
         "heading": {"type": "string"},
         "intro": {"type": "string"},
@@ -108,7 +108,7 @@
     },
     "close": {
       "type": "object",
-      "description": "1 paragraph naming {{ tenant.name }}.",
+      "description": "1 paragraph naming {{ tenant.name }} -- the first and only place in the piece that may name the company or the product (use facts_pack.product.short_name here with its claim_id).",
       "properties": {
         "paragraphs": {
           "type": "array",

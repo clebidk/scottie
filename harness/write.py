@@ -413,6 +413,30 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
         )
 
 
+# Cycle 33: article warm-up window. Real runs were naming the brand inside
+# the first 327–583 words because cartridge + schema invited an early body/
+# turn mention while the warm-up rule forbade it, and the global voice
+# short_name-on-first-section-mention line pulled the same direction. The
+# cartridge/schema now forbid brand until close; this hard constraint makes
+# the override explicit in the per-run block the model weighs heavily.
+def _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant):
+    if cartridge_name != "article":
+        return
+    window = tenant.get("cartridges.article.warmup_window_words")
+    if not isinstance(window, int) or window <= 0:
+        window = 600
+    company = tenant.display_name
+    hard_constraints.append(
+        f"Warm-up window ({window} words): do not write {company!r}, the tenant short name, "
+        "facts_pack.product.short_name, the product name, any price/$ figure, or the CTA text "
+        "anywhere in open, body_sections, alternatives_section, how_it_works_section, or "
+        "turn_section (heading, intro, and criteria text included). Those sections stay "
+        "brand-free and product-name-free. Name the company and product only in close "
+        "(short_name + claim_id there). Ignore the global voice short_name-on-first-section-"
+        "mention rule until close for this cartridge."
+    )
+
+
 # Fix cycle 17 item 2 (prompt caching): system is now a list of content
 # blocks instead of one string -- block 1 is cached_system_prefix (the
 # stable prefix, cache_control on it), block 2 (only present when there's
@@ -503,6 +527,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name))
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
+    _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
     kwargs = {
@@ -545,6 +570,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
+    _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification

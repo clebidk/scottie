@@ -579,3 +579,52 @@ def test_build_initial_write_request_omits_thinking_for_a_haiku_model():
         tenant=TENANT,
     )
     assert "thinking" not in kwargs
+
+
+# ---------------------------------------------------------------------------
+# Cycle 33: article warm-up prompt alignment (brand only in close)
+# ---------------------------------------------------------------------------
+
+def test_article_cartridge_and_schema_forbid_brand_until_close():
+    cartridge_md, schema = load_cartridge_prompt(REPO_ROOT / "cartridges" / "article", TENANT)
+    assert "may be mentioned by name once" not in cartridge_md
+    assert "criteria that Peak Saunas meets" not in cartridge_md
+    assert "brand-free" in cartridge_md or "product-name-free" in cartridge_md
+    body = schema["properties"]["body_sections"]["description"].lower()
+    turn = schema["properties"]["turn_section"]["description"].lower()
+    close = schema["properties"]["close"]["description"].lower()
+    assert "never name" in body or "warm-up" in body
+    assert "no company or product name" in turn or "warm-up" in turn
+    assert "first and only" in close or "only place" in close
+
+
+def test_article_write_request_includes_warmup_hard_constraint():
+    _, kwargs = build_initial_write_request(
+        cartridge_name="article",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        model="claude-sonnet-5",
+        tenant=TENANT,
+    )
+    system_text = "\n".join(
+        block["text"] if isinstance(block, dict) else block for block in kwargs["system"]
+    )
+    assert "Warm-up window" in system_text
+    assert "Peak Saunas" in system_text
+    assert "Ignore the global voice short_name-on-first-section-mention rule until close" in system_text
+
+
+def test_non_article_write_request_skips_warmup_hard_constraint():
+    _, kwargs = build_initial_write_request(
+        cartridge_name="product-page",
+        cartridges_dir=REPO_ROOT / "cartridges",
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        model="claude-sonnet-5",
+        tenant=TENANT,
+    )
+    system_text = "\n".join(
+        block["text"] if isinstance(block, dict) else block for block in kwargs["system"]
+    )
+    assert "Warm-up window" not in system_text
