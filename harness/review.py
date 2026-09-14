@@ -1,18 +1,16 @@
 """`harness review`: one self-contained review.html per cartridge, images
 inlined as data URIs, for sending to a reviewer who has no access to the run
-directory. Simple regex on src="assets/..." -- no HTML parser needed.
+directory, and for the review site's iframe (which serves this single file
+and nothing beside it).
 
-Cycle 31: render_image_slot's <picture> markup (harness/render.py) puts a
-WebP <source srcset="..."> ahead of the plain <img src="assets/...">
-fallback -- this module's regex only ever targets `src="assets/..."`
-(never `srcset`), so it inlines just that one JPEG variant (the
-IMAGE_SRCSET_FALLBACK_WIDTH/1200px one, per render.render_image_slot) and
-leaves the <source>'s srcset (and the <img>'s own srcset attribute)
-pointing at relative assets/... paths. Those don't resolve once the file
-is emailed/opened standalone (no server), so a reviewer's browser silently
-falls through to the inlined <img> -- exactly the "inline only the
-largest or the 1200 variant" behavior asked for, with no code change
-needed here beyond this note. See docs/IMAGES.md.
+Cycle 31 introduced <picture> markup with a WebP <source srcset="assets/...">
+ahead of the <img src="assets/..."> fallback, plus an `srcset` on the <img>.
+Cycle 35 fix: browsers do NOT fall back to the inlined <img src> when the
+<picture> <source> or the <img srcset> candidate they select fails to load;
+they show a broken image. Standalone and iframe reviews therefore showed no
+images. The inliner now strips every <source> element and every srcset/sizes
+attribute before inlining `src`, so the one inlined JPEG is the only
+candidate. Production pages (index.html, shopify-body.html) are untouched.
 """
 import base64
 import mimetypes
@@ -21,6 +19,9 @@ import sys
 from pathlib import Path
 
 _ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
+_PICTURE_SOURCE_RE = re.compile(r"<source\b[^>]*>\s*", re.IGNORECASE)
+_SRCSET_ATTR_RE = re.compile(r'\s+srcset="[^"]*"', re.IGNORECASE)
+_SIZES_ATTR_RE = re.compile(r'\s+sizes="[^"]*"', re.IGNORECASE)
 
 # Cycle 31: docs/IMAGE-MAP.md documents a prior incident where an unresized
 # Drive original inlined at full size produced a 46 MB review file. Nothing
@@ -44,6 +45,9 @@ def inline_assets_as_data_uris(html_text, assets_dir):
         b64 = base64.b64encode(asset_path.read_bytes()).decode("ascii")
         return f'src="data:{mime};base64,{b64}"'
 
+    html_text = _PICTURE_SOURCE_RE.sub("", html_text)
+    html_text = _SRCSET_ATTR_RE.sub("", html_text)
+    html_text = _SIZES_ATTR_RE.sub("", html_text)
     return _ASSET_SRC_RE.sub(replace, html_text)
 
 
