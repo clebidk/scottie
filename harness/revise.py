@@ -27,7 +27,7 @@ from . import notify
 from . import runstate
 from . import tenant as tenant_mod
 from .anthropic_client import make_client
-from .budget import Budget, BudgetExceeded
+from .budget import Budget, BudgetExceeded, record_spend, reserve_spend
 from .claims import ClaimsGateFailure
 from .log import RunLog
 from .pipeline import CARTRIDGES_DIR, TEMPLATES_DIR
@@ -256,106 +256,124 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
     version = next_version(cartridge_dir)
     run_id = run_dir.name
     log = RunLog(run_id, tenant.runs_dir / f"{run_id}-revise-{page_name}-v{version}.log")
-    log.event(f"revise.{page_name}", f"feedback from {feedback.get('by')}, {len(cuts)} cut(s), notes={'yes' if notes.strip() else 'no'}")
+    # Cycle 34: close on success, ReviseError, and any mid-revise exception so
+    # in-process callers (tests / serve) do not leak the append handle.
+    try:
+        log.event(f"revise.{page_name}", f"feedback from {feedback.get('by')}, {len(cuts)} cut(s), notes={'yes' if notes.strip() else 'no'}")
 
-    model_called = False
-    gate_problems = []
-    cost = 0.0
+        model_called = False
+        gate_problems = []
+        cost = 0.0
 
-    if notes.strip():
-        model_called = True
-        from .repair import cartridge_write_constraints, write_and_gate_page
+        if notes.strip():
+            model_called = True
+            from .repair import cartridge_write_constraints, write_and_gate_page
 
-        client = make_client_fn()
-        budget = Budget(wall_s=600, tokens=REVISE_TOKEN_BUDGET, calls=REVISE_CALL_BUDGET)
-        _schema, word_range, allowed_cta_texts = cartridge_write_constraints(
-            page_name, CARTRIDGES_DIR, facts_pack, ad_brief, tenant
-        )
-        revision_note = (
-            "## REVIEWER NOTES — apply these changes and keep everything else\n\n"
-            "The page below already went through one round of review. Apply ONLY the "
-            "requested changes; every other sentence, section, and fact must stay as it "
-            "is unless the requested change requires touching it.\n\n"
-            f"Current page (JSON):\n{json.dumps(page)}\n\n"
-            f"Requested changes:\n{notes.strip()}\n"
-        )
-        write_model = tenant.model_for("write")
-        tokens_before = budget.tokens_used
-        initial_page = write_page(
-            cartridge_name=page_name, cartridges_dir=CARTRIDGES_DIR, ad_brief=ad_brief,
-            facts_pack=facts_pack, client=client, model=write_model, budget=budget, log=log,
-            word_range=word_range, allowed_cta_texts=allowed_cta_texts, revision_note=revision_note,
-            tenant=tenant,
-        )
-        initial_call_tokens = budget.tokens_used - tokens_before
-        try:
-            page, attempts, _det_fixes = write_and_gate_page(
-                cartridge_name=page_name, cartridges_dir=CARTRIDGES_DIR, ad_brief=ad_brief,
-                facts_pack=facts_pack, client=client, model=write_model, budget=budget, log=log,
-                financing_lender=tenant.claims_config.get("financing_lender"),
-                speaker_pov=ad_brief.get("speaker_pov"), tenant=tenant,
-                repair_first_model=tenant.model_for("repair_first"),
-                repair_next_model=tenant.model_for("repair_next"),
-                initial_page=initial_page, initial_call_tokens=initial_call_tokens,
+            # Cycle 34: notes-driven revise spends tokens. Reserve against the
+            # tenant daily ledger before the first model call and record actual
+            # cost on the way out (success, gate failure, or mid-revise abort) --
+            # same contract pipeline uses for harness run.
+            spend_run_id = f"{run_dir.name}__revise__{page_name}__v{version}"
+            today_iso = datetime.date.today().isoformat()
+            reserve_spend(tenant, run_id=spend_run_id, today_iso=today_iso, log=log)
+            try:
+                client = make_client_fn()
+                budget = Budget(wall_s=600, tokens=REVISE_TOKEN_BUDGET, calls=REVISE_CALL_BUDGET)
+                _schema, word_range, allowed_cta_texts = cartridge_write_constraints(
+                    page_name, CARTRIDGES_DIR, facts_pack, ad_brief, tenant
+                )
+                revision_note = (
+                    "## REVIEWER NOTES — apply these changes and keep everything else\n\n"
+                    "The page below already went through one round of review. Apply ONLY the "
+                    "requested changes; every other sentence, section, and fact must stay as it "
+                    "is unless the requested change requires touching it.\n\n"
+                    f"Current page (JSON):\n{json.dumps(page)}\n\n"
+                    f"Requested changes:\n{notes.strip()}\n"
+                )
+                write_model = tenant.model_for("write")
+                tokens_before = budget.tokens_used
+                initial_page = write_page(
+                    cartridge_name=page_name, cartridges_dir=CARTRIDGES_DIR, ad_brief=ad_brief,
+                    facts_pack=facts_pack, client=client, model=write_model, budget=budget, log=log,
+                    word_range=word_range, allowed_cta_texts=allowed_cta_texts, revision_note=revision_note,
+                    tenant=tenant,
+                )
+                initial_call_tokens = budget.tokens_used - tokens_before
+                try:
+                    page, attempts, _det_fixes = write_and_gate_page(
+                        cartridge_name=page_name, cartridges_dir=CARTRIDGES_DIR, ad_brief=ad_brief,
+                        facts_pack=facts_pack, client=client, model=write_model, budget=budget, log=log,
+                        financing_lender=tenant.claims_config.get("financing_lender"),
+                        speaker_pov=ad_brief.get("speaker_pov"), tenant=tenant,
+                        repair_first_model=tenant.model_for("repair_first"),
+                        repair_next_model=tenant.model_for("repair_next"),
+                        initial_page=initial_page, initial_call_tokens=initial_call_tokens,
+                    )
+                except (ClaimsGateFailure, BudgetExceeded) as e:
+                    # Same rule a fresh run follows: never write a page that failed
+                    # every repair attempt as though it were a success. Nothing on
+                    # disk changes -- the page stays at its current version, still
+                    # "changes_requested", so the reviewer's feedback is still there
+                    # to revise from again.
+                    runstate.set_revise_status(run_dir, page=page_name, status="failed", detail=str(e))
+                    raise ReviseError(f"revise for page {page_name!r} of run {run_dir} did not pass the gate: {e}") from e
+                gate_problems = attempts[-1] if attempts else []
+                cost = log.cost_estimate()
+            finally:
+                record_spend(
+                    tenant, run_id=spend_run_id, cost=log.cost_estimate(),
+                    today_iso=today_iso, log=log,
+                )
+        elif applied_cuts:
+            # Cuts only: no model call allowed, so no repair loop either -- the
+            # gate still runs so a broken cut (e.g. one that hollows out a
+            # required section) is visible in REVIEW.md/state.json rather than
+            # silently shipped, but nothing here can fix a failure automatically.
+            from .repair import cartridge_write_constraints, check_page_gates
+
+            _schema, word_range, allowed_cta_texts = cartridge_write_constraints(
+                page_name, CARTRIDGES_DIR, facts_pack, ad_brief, tenant
             )
-        except (ClaimsGateFailure, BudgetExceeded) as e:
-            # Same rule a fresh run follows: never write a page that failed
-            # every repair attempt as though it were a success. Nothing on
-            # disk changes -- the page stays at its current version, still
-            # "changes_requested", so the reviewer's feedback is still there
-            # to revise from again.
-            runstate.set_revise_status(run_dir, page=page_name, status="failed", detail=str(e))
-            raise ReviseError(f"revise for page {page_name!r} of run {run_dir} did not pass the gate: {e}") from e
-        gate_problems = attempts[-1] if attempts else []
-        cost = log.cost_estimate()
-    elif applied_cuts:
-        # Cuts only: no model call allowed, so no repair loop either -- the
-        # gate still runs so a broken cut (e.g. one that hollows out a
-        # required section) is visible in REVIEW.md/state.json rather than
-        # silently shipped, but nothing here can fix a failure automatically.
-        from .repair import cartridge_write_constraints, check_page_gates
+            gate_problems = check_page_gates(
+                page, facts_pack, page_name,
+                financing_lender=tenant.claims_config.get("financing_lender"),
+                speaker_pov=ad_brief.get("speaker_pov"), word_range=word_range,
+                allowed_cta_texts=allowed_cta_texts, ad_brief=ad_brief,
+            )
+            log.gate_result("PASS" if not gate_problems else "FAIL", f"page_json:{page_name} (cuts only)")
+        else:
+            raise ReviseError(f"feedback for page {page_name!r} has no cut: lines and no notes -- nothing to revise")
 
-        _schema, word_range, allowed_cta_texts = cartridge_write_constraints(
-            page_name, CARTRIDGES_DIR, facts_pack, ad_brief, tenant
+        _version_existing_files(run_dir, page_name, version)
+        (cartridge_dir / "page.json").write_text(json.dumps(page, indent=2) + "\n")
+
+        today_iso = datetime.date.today().isoformat()
+        render_page(
+            cartridge_name=page_name, page=page, ad_brief=ad_brief, facts_pack=facts_pack,
+            cartridges_dir=CARTRIDGES_DIR, brand_dir=tenant.brand_dir, templates_dir=TEMPLATES_DIR,
+            out_dir=cartridge_dir, published=today_iso, updated=today_iso, log=log, tenant=tenant,
         )
-        gate_problems = check_page_gates(
-            page, facts_pack, page_name,
-            financing_lender=tenant.claims_config.get("financing_lender"),
-            speaker_pov=ad_brief.get("speaker_pov"), word_range=word_range,
-            allowed_cta_texts=allowed_cta_texts, ad_brief=ad_brief,
+        build_reviews(run_dir)
+
+        _append_revision_note(
+            run_dir, page=page_name, version=version, by=feedback.get("by") or by or "operator",
+            applied_cuts=applied_cuts, notes=notes, model_called=model_called,
+            gate_problems=gate_problems, cost=cost,
         )
-        log.gate_result("PASS" if not gate_problems else "FAIL", f"page_json:{page_name} (cuts only)")
-    else:
-        raise ReviseError(f"feedback for page {page_name!r} has no cut: lines and no notes -- nothing to revise")
 
-    _version_existing_files(run_dir, page_name, version)
-    (cartridge_dir / "page.json").write_text(json.dumps(page, indent=2) + "\n")
+        runstate.mark_revised(run_dir, page=page_name, version=version, by=by or feedback.get("by") or "system",
+                               note="gate PASS" if not gate_problems else f"gate FAIL ({len(gate_problems)} issue(s))")
+        runstate.set_revise_status(run_dir, page=page_name, status="done",
+                                    detail="gate PASS" if not gate_problems else "gate FAIL")
 
-    today_iso = datetime.date.today().isoformat()
-    render_page(
-        cartridge_name=page_name, page=page, ad_brief=ad_brief, facts_pack=facts_pack,
-        cartridges_dir=CARTRIDGES_DIR, brand_dir=tenant.brand_dir, templates_dir=TEMPLATES_DIR,
-        out_dir=cartridge_dir, published=today_iso, updated=today_iso, log=log, tenant=tenant,
-    )
-    build_reviews(run_dir)
+        result = "PASS" if not gate_problems else "FAIL"
+        notify.notify_revise_complete(
+            tenant, run_id=run_id, page=page_name, version=version, result=result, run_dir=str(run_dir), log=log,
+        )
 
-    _append_revision_note(
-        run_dir, page=page_name, version=version, by=feedback.get("by") or by or "operator",
-        applied_cuts=applied_cuts, notes=notes, model_called=model_called,
-        gate_problems=gate_problems, cost=cost,
-    )
-
-    runstate.mark_revised(run_dir, page=page_name, version=version, by=by or feedback.get("by") or "system",
-                           note="gate PASS" if not gate_problems else f"gate FAIL ({len(gate_problems)} issue(s))")
-    runstate.set_revise_status(run_dir, page=page_name, status="done",
-                                detail="gate PASS" if not gate_problems else "gate FAIL")
-
-    result = "PASS" if not gate_problems else "FAIL"
-    notify.notify_revise_complete(
-        tenant, run_id=run_id, page=page_name, version=version, result=result, run_dir=str(run_dir), log=log,
-    )
-
-    return {
-        "page": page_name, "version": version, "model_called": model_called,
-        "applied_cuts": applied_cuts, "gate_problems": gate_problems, "cost": cost,
-    }
+        return {
+            "page": page_name, "version": version, "model_called": model_called,
+            "applied_cuts": applied_cuts, "gate_problems": gate_problems, "cost": cost,
+        }
+    finally:
+        log.close()
