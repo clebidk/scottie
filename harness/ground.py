@@ -10,7 +10,7 @@ from typing import Protocol
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
 from .prices import format_price
-from .textutil import DOLLAR_AMOUNT_RE, product_name_slug
+from .textutil import DOLLAR_AMOUNT_RE, product_name_slug, walk_page
 from .tenant import DEFAULT_CLAIMS_CONFIG as DEFAULT_CONFIG
 
 # Fix 8: for the chosen product's Drive assets, prefer lifestyle/interior,
@@ -30,6 +30,263 @@ def listicle_pack_models(tenant=None):
 # select_listicle_pack_assets's own allow_ai_renders gate.
 LISTICLE_PACK_TIERS = (("photo_product", "photo_install", "still_video"), ("ai_render",))
 LISTICLE_PACK_ASSET_MAX = 6
+
+# Cycle 31: an explicit per-cartridge slot plan (docs/IMAGES-AUDIT-2026-09-14.md
+# problem 1) -- built alongside the flat `assets` list facts_for() already
+# returns, never replacing it (the writer keeps picking asset_ids from
+# `assets` same as before; the plan is a recommendation plus a render-time
+# enforcement backstop, see render.enforce_slot_plan below and
+# render.render_page's call into it).
+#
+# Kind values span two asset shapes: brand/assets.json's Drive kinds
+# (lifestyle/interior/render/installation/image) and
+# brand/assets-listicle-pack.json's own kinds (photo_product/photo_install/
+# still_video/ai_render). A "real photo, not a plain product-on-white shot"
+# hero candidate is any of these; select_drive_assets/select_listicle_pack_
+# assets already keep video/logo/ugc/excluded rows out of the pool entirely,
+# so this set only needs to name what counts as hero-worthy, not what to
+# reject again.
+HERO_CANDIDATE_KINDS = {"lifestyle", "interior", "installation", "photo_install", "still_video"}
+# Defensive -- none of this tenant's pools currently produce a logo/favicon
+# row this deep into the pipeline (DRIVE_ASSET_NEVER_KINDS already excludes
+# logo/video/ugc), but the hero picker checks explicitly rather than relying
+# on that upstream filter alone.
+HERO_NEVER_KINDS = {"logo", "video", "ugc", "favicon"}
+# Round-robin kind groups for section images ("alternating detail/interior/
+# lifestyle" per the cycle 31 brief), spanning both asset-pool kind spaces.
+SECTION_KIND_GROUPS = (
+    {"image", "render", "photo_product"},
+    {"interior", "installation", "photo_install"},
+    {"lifestyle", "still_video"},
+)
+DEFAULT_SECTION_SLOT_COUNT = 6
+
+
+def pick_hero(assets, *, allow_ai_renders, exclude_ids=frozenset()):
+    """The best hero candidate from `assets` (facts_for()'s combined list):
+    a lifestyle/interior/installation real photo first, else the product's
+    first Shopify product image, else any other remaining non-ai_render
+    asset, else (only when `allow_ai_renders` and nothing else is left at
+    all) an ai_render. Never a logo/video/ugc/favicon-kind asset. `exclude_ids`
+    (ids already used elsewhere in this run/page) is honored when a
+    compliant alternative exists; if excluding them would leave nothing,
+    the exclusion is dropped rather than shipping no hero at all. Returns
+    the asset dict, or None if `assets` is empty."""
+    pool = [a for a in assets if a.get("kind") not in HERO_NEVER_KINDS]
+    if not pool:
+        return None
+    candidates = [a for a in pool if a["id"] not in exclude_ids] or pool
+    for a in candidates:
+        if a.get("kind") in HERO_CANDIDATE_KINDS and not a.get("ai_generated"):
+            return a
+    shopify = [a for a in candidates if a.get("kind") == "image" and not a.get("ai_generated")]
+    if shopify:
+        return shopify[0]
+    non_ai = [a for a in candidates if not a.get("ai_generated")]
+    if non_ai:
+        return non_ai[0]
+    if allow_ai_renders:
+        return candidates[0]
+    return None
+
+
+def pick_section_images(assets, count, *, exclude_ids=frozenset(), allow_ai_renders):
+    """Up to `count` non-hero section images, cycling through
+    SECTION_KIND_GROUPS in order so consecutive picks alternate kind rather
+    than clustering (e.g. four product-detail shots in a row). Never repeats
+    an id, never picks one in `exclude_ids`, never an ai_render unless
+    `allow_ai_renders`. Returns fewer than `count` if the eligible pool runs
+    out first."""
+    pool = [
+        a for a in assets
+        if a["id"] not in exclude_ids
+        and a.get("kind") not in HERO_NEVER_KINDS
+        and (allow_ai_renders or not a.get("ai_generated"))
+    ]
+    selected = []
+    remaining = list(pool)
+    group_idx = 0
+    while remaining and len(selected) < count:
+        group = SECTION_KIND_GROUPS[group_idx % len(SECTION_KIND_GROUPS)]
+        pick = next((a for a in remaining if a.get("kind") in group), None)
+        if pick is None:
+            pick = remaining[0]  # this tier's exhausted -- take whatever's left rather than stall
+        selected.append(pick)
+        remaining.remove(pick)
+        group_idx += 1
+    return selected
+
+
+def build_slot_plan(assets, *, allow_ai_renders, section_count=DEFAULT_SECTION_SLOT_COUNT, exclude_ids=frozenset()):
+    """{"hero": asset|None, "sections": [asset, ...], "used_ids": [...]} --
+    the hero is picked first (see pick_hero) so section picks never steal
+    it, then up to `section_count` section images fill from what's left.
+    `exclude_ids` (ids a prior cartridge in this run already used) is
+    honored the same way pick_hero honors it: a hard preference, not a hard
+    requirement, when the pool is too small to satisfy it."""
+    hero = pick_hero(assets, allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids)
+    used = set(exclude_ids)
+    if hero:
+        used.add(hero["id"])
+    sections = pick_section_images(assets, section_count, exclude_ids=used, allow_ai_renders=allow_ai_renders)
+    used.update(a["id"] for a in sections)
+    return {
+        "hero": hero,
+        "sections": sections,
+        "used_ids": sorted(({hero["id"]} if hero else set()) | {a["id"] for a in sections}),
+    }
+
+
+def _lean_slot_plan(plan):
+    """build_slot_plan's dict, trimmed to the one id that matters most to
+    the writer (the hero recommendation -- docs/IMAGES-AUDIT-2026-09-14.md
+    problem 1). test_facts_pack_stays_small caps facts_pack at ~4k tokens
+    with very little headroom already, so this deliberately omits
+    section_ids (a nice-to-have the writer can still satisfy freely by
+    alternating kinds itself from "assets") and skips duplicating any asset
+    record -- the full one is already in facts_pack.assets."""
+    return {"hero_id": plan["hero"]["id"] if plan["hero"] else None}
+
+
+# --- Run-level cross-cartridge dedupe state (docs/IMAGES-AUDIT-2026-09-14.md
+# problem 2/3: the same hero, or a whole page's worth of images, repeating
+# across an ad's three cartridges). facts_for() builds one shared facts_pack
+# for the whole run, so per-cartridge dedupe has to be tracked as the
+# cartridges render one at a time -- see render.render_page's call into
+# record_used_asset_ids after each cartridge, and its call into
+# all_used_asset_ids (via enforce_slot_plan) before the next.
+
+_SELECTION_STATE_FILENAME = ".image-selection.json"
+
+
+def load_used_asset_ids(run_dir):
+    """{cartridge_name: [asset_id, ...]} already recorded for this run, or
+    {} if no cartridge has rendered yet (or the run predates cycle 31)."""
+    path = Path(run_dir) / _SELECTION_STATE_FILENAME
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def record_used_asset_ids(run_dir, cartridge_name, asset_ids):
+    """Records the asset ids `cartridge_name` actually ended up using in
+    <run_dir>/.image-selection.json, for the next cartridge in this run to
+    read back via all_used_asset_ids. Overwrites only this cartridge's own
+    entry -- a re-render of one cartridge doesn't lose another's record."""
+    path = Path(run_dir) / _SELECTION_STATE_FILENAME
+    data = load_used_asset_ids(run_dir)
+    data[cartridge_name] = sorted(set(asset_ids))
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return path
+
+
+def all_used_asset_ids(run_dir, *, exclude_cartridge=None):
+    """The union of every asset id recorded by any other cartridge in this
+    run so far (excluding `exclude_cartridge`'s own prior record, so a
+    re-render of one cartridge isn't blocked by its own earlier attempt)."""
+    data = load_used_asset_ids(run_dir)
+    used = set()
+    for cartridge_name, ids in data.items():
+        if cartridge_name == exclude_cartridge:
+            continue
+        used.update(ids)
+    return used
+
+
+# Cartridges with an explicit page.json hero field (page.hero.hero_image).
+# article/listicle have no such field in their schema (owned by cycle30 for
+# article; out of scope to add for either here) -- for them, the first
+# image in the cartridge's own existing image list is treated as the de
+# facto hero for selection-policy purposes only (never a new page.json
+# field, purely which existing asset_id gets checked/possibly swapped).
+_HERO_FIELD_PATH = {
+    "longform": ("hero", "hero_image"),
+    "product-page": ("hero", "hero_image"),
+}
+
+
+def _hero_container(page, cartridge_name):
+    """The page.json dict node whose "asset_id" key is this cartridge's
+    hero slot, or None if the page has no eligible hero slot at all (e.g.
+    an article page with an empty page.images list)."""
+    path = _HERO_FIELD_PATH.get(cartridge_name)
+    if path:
+        node = page
+        for key in path:
+            if not isinstance(node, dict):
+                return None
+            node = node.get(key)
+        return node if isinstance(node, dict) else None
+    if cartridge_name == "article":
+        images = page.get("images") or []
+        return images[0] if images and isinstance(images[0], dict) else None
+    if cartridge_name == "listicle":
+        reasons = page.get("reasons") or []
+        if reasons and isinstance(reasons[0], dict):
+            image = reasons[0].get("image")
+            return image if isinstance(image, dict) else None
+    return None
+
+
+def enforce_slot_plan(page, all_assets, cartridge_name, *, allow_ai_renders, exclude_ids=frozenset()):
+    """Render-time backstop over the writer's own asset_id picks in `page`
+    -- never touches copy, only "asset_id" fields. Fixes exactly the
+    selection-policy gaps docs/IMAGES-AUDIT-2026-09-14.md found: (1) this
+    cartridge's hero slot (_hero_container) holding a never-eligible kind,
+    a disallowed ai_render, or an id already used by an earlier cartridge
+    this run (`exclude_ids`); (2) the same asset_id repeated on one page;
+    (3) a disallowed ai_render used in a non-hero slot. Mutates `page` in
+    place and returns the set of asset ids the page ends up using (for the
+    caller to pass to record_used_asset_ids)."""
+    by_id = {a["id"]: a for a in all_assets}
+    used = set()
+
+    def is_bad(asset_id, *, extra_exclude=frozenset()):
+        asset = by_id.get(asset_id)
+        return (
+            asset is None
+            or asset.get("kind") in HERO_NEVER_KINDS
+            or (asset.get("ai_generated") and not allow_ai_renders)
+            or asset_id in exclude_ids
+            or asset_id in extra_exclude
+        )
+
+    hero_container = _hero_container(page, cartridge_name)
+    hero_id = None
+    if hero_container is not None:
+        current = hero_container.get("asset_id")
+        if is_bad(current):
+            replacement = pick_hero(all_assets, allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids)
+            if replacement is not None:
+                hero_container["asset_id"] = replacement["id"]
+                current = replacement["id"]
+        hero_id = current
+        if hero_id:
+            used.add(hero_id)
+
+    for _path, node in walk_page(page):
+        if not isinstance(node, dict) or "asset_id" not in node or node is hero_container:
+            continue
+        asset_id = node.get("asset_id")
+        if asset_id in used or is_bad(asset_id, extra_exclude={hero_id} if hero_id else frozenset()):
+            pool = [
+                a for a in all_assets
+                if a["id"] not in used
+                and a["id"] not in exclude_ids
+                and a.get("kind") not in HERO_NEVER_KINDS
+                and (allow_ai_renders or not a.get("ai_generated"))
+            ]
+            if pool:
+                asset_id = pool[0]["id"]
+                node["asset_id"] = asset_id
+            elif asset_id is None or by_id.get(asset_id) is None:
+                continue  # nothing eligible left; leave as-is for pagechecks to flag
+        if asset_id:
+            used.add(asset_id)
+    return used
 
 def benefit_allowlist_ids(tenant=None):
     """Cleared, product-wide (not per-model) claims every product's facts_pack
@@ -481,6 +738,15 @@ class LocalFactsSource:
             # consented name in claims/config.json.
             "speaker_name": config.get("speaker_name"),
             "digit_exempt_terms": digit_exempt_terms,
+            # Cycle 31: additive -- the writer still picks freely from
+            # "assets" above; this is a recommendation (by id, not a
+            # duplicated copy of each asset -- test_facts_pack_stays_small
+            # caps facts_pack's size) plus what render.enforce_slot_plan
+            # checks a cartridge's actual picks against (render.py reads
+            # allow_ai_renders itself, from tenant.claims_config, rather
+            # than this pack carrying a second copy of it). Never removes
+            # or reorders "assets" itself.
+            "image_slots": _lean_slot_plan(build_slot_plan(assets, allow_ai_renders=bool(config.get("allow_ai_renders")))),
         }
         if include_comparison:
             # Kimi long-run phase 6: only a run whose selected cartridges
