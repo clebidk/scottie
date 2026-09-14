@@ -1620,3 +1620,7 @@ changes what it returns). Full suite: 965 passed (925 baseline + 40 new),
   trigger-word claim_id miss, then a word-count overage), confirmed against
   the run log; the simplicity gate itself caused zero repairs on this run.
   Worktree removed after verification (`git worktree remove --force`).
+
+## Cycle 33 (merged 2026-09-14)
+- Six Cursor swarm packages merged after docs/REVIEW-CYCLE33.md: fetch-url-safety, run-log-context-manager, warmup-window (root cause: cartridge and voice block invited a body brand mention; real run now first brand at word 1267 vs 600 window), shopify-body-rename (harness/page_body.py; `harness shopify-body` alias kept), ci-pipeline, packaging-metadata. Review FIX items applied in one follow-up commit. Synthesis: docs/SWARM-2026-09-14.md (~30 agents, not 300).
+- Backlog from the swarm: untrusted-transcript framing in prompts (prompt-injection posture), cmd_review move + `harness --version`, docs accuracy sweep, RunLog call sites to `with`.
