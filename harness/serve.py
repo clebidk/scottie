@@ -409,10 +409,17 @@ def _authenticate(tenant):
     not enough -- Cloudflare also sends Cf-Access-Jwt-Assertion on every
     authenticated request. Requiring that header to be present stops a
     trivial spoof of the email header against a process that is somehow
-    reachable without Access in front. This is not a full JWT signature
-    check (no JWKS fetch; the harness stays offline-friendly); operators
-    who need cryptographic verify should terminate TLS at Access and keep
-    this process off the public internet.
+    reachable without Access in front.
+
+    This is a presence check ONLY -- is Cf-Access-Jwt-Assertion non-empty --
+    not a "JWT gate" in any cryptographic sense. It does not base64-decode
+    the token, does not check issuer/audience/expiry, does not verify a
+    signature, and makes no JWKS fetch or other network call. A guessed or
+    replayed non-empty string in that header satisfies this check. Full CF
+    Access JWT signature verification (JWKS) is backlog item #1 in
+    docs/SWARM-2026-09-14-cycle34.md; until that lands, operators who need
+    cryptographic verification should terminate TLS at Access and keep this
+    process off the public internet.
     """
     trust_cf = (os.environ.get("REVIEW_TRUST_CF_ACCESS") or "").strip().lower() == "true"
     if trust_cf:
@@ -504,8 +511,20 @@ def build_app(tenant):
     def _security_headers(resp):
         # Cycle 34: deny framing so a cross-origin page cannot clickjack the
         # approve / reject / regenerate buttons (pairs with the Origin check).
-        resp.headers.setdefault("X-Frame-Options", "DENY")
-        resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
+        #
+        # Cycle 34 fix: run_detail's own <iframe src="{review_url}"> embeds
+        # page_review (see the route below) to show the reviewer a live
+        # preview -- that embed is same-origin (this app framing its own
+        # route), but DENY/frame-ancestors 'none' block same-origin framing
+        # too, so the preview never rendered. Relax only this one route to
+        # SAMEORIGIN / frame-ancestors 'self': still refuses any third-party
+        # framing, just not the app's own.
+        if request.endpoint == "page_review":
+            resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+            resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
+        else:
+            resp.headers.setdefault("X-Frame-Options", "DENY")
+            resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
         return resp
 
     @app.route("/")

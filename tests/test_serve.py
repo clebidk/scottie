@@ -395,3 +395,26 @@ def test_responses_deny_framing(app_client):
     assert resp.status_code == 200
     assert resp.headers.get("X-Frame-Options") == "DENY"
     assert "frame-ancestors 'none'" in (resp.headers.get("Content-Security-Policy") or "")
+
+
+def test_run_detail_also_denies_framing(app_client, run_dir):
+    """Cycle 34 regression: the page_review carve-out below must be scoped
+    to that one route -- the run page that embeds it (and everything else)
+    keeps DENY/frame-ancestors 'none'."""
+    resp = app_client.get(f"/run/{run_dir.name}", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Frame-Options") == "DENY"
+    assert "frame-ancestors 'none'" in (resp.headers.get("Content-Security-Policy") or "")
+
+
+def test_page_review_allows_same_origin_framing(app_client, run_dir):
+    """Cycle 34 fix: run_detail's own <iframe src="{review_url}"> embeds
+    page_review to show the reviewer a live preview. DENY/frame-ancestors
+    'none' on every response (the cycle 34 clickjacking fix) blocked that
+    same-origin embed too -- confirmed live by the review, not inferred.
+    page_review alone relaxes to SAMEORIGIN / frame-ancestors 'self', which
+    still refuses any third-party framing."""
+    resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Frame-Options") == "SAMEORIGIN"
+    assert "frame-ancestors 'self'" in (resp.headers.get("Content-Security-Policy") or "")
