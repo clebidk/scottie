@@ -325,7 +325,19 @@ def _looks_like_html(data):
     return head.startswith(b"<!doctype html") or b"<html" in data[:2000].lower()
 
 
+# Cycle 33: cap remote asset downloads so a misbehaving CDN can't fill
+# memory. Comfortably above ASSET_MAX_LONG_EDGE re-encodes; well below a
+# multi-hundred-MB runaway response.
+HTTP_FETCH_MAX_BYTES = 25 * 1024 * 1024
+
+
 def http_fetch_bytes(url):
+    """Fetch `url` as raw bytes. Cycle 33: only http(s) schemes are allowed
+    (blocks file:// and other local schemes), and the response is capped at
+    HTTP_FETCH_MAX_BYTES."""
+    scheme = urlparse(url).scheme.lower()
+    if scheme not in ("http", "https"):
+        raise ValueError(f"http_fetch_bytes only allows http(s) URLs, got scheme={scheme!r}")
     req = urllib.request.Request(
         url,
         headers={
@@ -334,7 +346,19 @@ def http_fetch_bytes(url):
         },
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
-        return resp.read()
+        chunks = []
+        total = 0
+        while True:
+            chunk = resp.read(64 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > HTTP_FETCH_MAX_BYTES:
+                raise ValueError(
+                    f"http_fetch_bytes: response exceeded {HTTP_FETCH_MAX_BYTES} bytes"
+                )
+            chunks.append(chunk)
+        return b"".join(chunks)
 
 
 # Fix cycle 15 item 1: a Drive original inlined at full size (one sample
