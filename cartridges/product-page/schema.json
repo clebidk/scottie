@@ -1,6 +1,7 @@
 {
   "type": "object",
   "allowed_cta_texts": ["Shop the {short_name}", "Buy the {short_name}", "Shop the {model_name}"],
+  "headline_word_band": [4, 10],
   "required": ["cta_text", "cta_url", "hero", "proof_bullets", "angle_section", "specs_table", "trust_strip"],
   "properties": {
     "cta_text": {
@@ -16,7 +17,7 @@
       "description": "product name, one-line promise from the ad angle, price, financing line, hero image.",
       "properties": {
         "product_name": {"type": "string"},
-        "promise": {"type": "string", "description": "One-line promise from the ad angle. Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead."},
+        "promise": {"type": "string", "description": "One-line promise from the ad angle. Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead. This cartridge has no separate `headline` field -- the simplicity gate (harness/simplicity.py) measures this field's word count against this schema's own headline_word_band, the same way the other cartridges' `headline` field is measured."},
         "price_line": {
           "type": "object",
           "description": "e.g. text: '$8,250'. Only add a compare-at/'was $X' figure if facts_pack.product.compare_at_price is non-null. Must carry the product's price claim_id.",

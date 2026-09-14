@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 from . import pagechecks
+from . import simplicity
 from . import tenant as tenant_mod
 from . import vocab
 from .claims import (
@@ -163,6 +164,13 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         if tenant.get("cartridges.article.warmup_mode", "warn") == "enforce":
             window = resolve_warmup_window(tenant, schema_default=warmup_window_words)
             problems += find_warmup_violations(page, tenant, window)
+    # Cycle 32: simplicity gate (above-fold links, headline word band, one
+    # offer element) -- hard gate only when this tenant's simplicity_mode is
+    # "enforce" (default "warn": advisory REVIEW.md line only, see
+    # simplicity.simplicity_review_lines).
+    tenant = tenant or tenant_mod.active()
+    if tenant.get("simplicity_mode", "warn") == "enforce":
+        problems += simplicity.find_simplicity_violations(page, cartridge_name)
     return problems
 
 

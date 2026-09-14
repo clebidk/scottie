@@ -6,7 +6,7 @@ Audience temperature: warm.
 ## Structure (in order)
 1. Header: "Advertisement" label small, the tenant logo, no nav.
 2. Hero: product short_name, one-line promise taken from the ad angle, price, financing line (the exact allowed financing sentence given in the prompt's Financing rule -- see Rules). Hero image from asset library. CTA is `cta_text`/`cta_url` (top-level, see Rules) -- exactly one of schema.json's `allowed_cta_texts`, with {short_name} filled in with the product's actual short_name.
-3. Three proof bullets: each one verified claim with a short label and a one-line explanation. Choose the three that match the ad's angle, and make at least 3 of them product-benefit claims (see Rules).
+3. Three proof bullets: each one verified claim with a short label and a one-line explanation. Choose the three that match the ad's angle, and make at least 3 of them product-benefit claims (see Rules). Value-equation checklist (order matters): bullet 1 states the outcome the buyer wants; bullet 2 is proof that outcome is likely (a verified claim -- a spec, a review stat, a certification); bullet 3 is time to first benefit or install effort (how soon/how easily the buyer gets there). Use a different verified claim_id for each bullet -- never the price, warranty, or shipping/returns claim_id.
 4. Angle section: 1 H2 + 2–4 short paragraphs or an image-and-text pair that expands what the ad said.
 5. Specs table: 6–10 rows from facts_pack.specs.
 6. Trust strip: warranty, shipping/delivery, returns, review count and rating (from verified_claims only).

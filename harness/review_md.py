@@ -6,6 +6,7 @@ from run artifacts -- no argparse, no model calls.
 from . import tenant as tenant_mod
 from .claims import collect_claim_ids, warmup_first_mentions
 from .repair import count_words, find_soft_check_warnings
+from .simplicity import simplicity_review_lines
 
 
 def log_run_result(log, result, gate_log):
@@ -108,6 +109,14 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
             lines.append(f"- first {label}: word {value}" if value is not None else f"- first {label}: none")
     else:
         lines.append("- not applicable (no article page in this run)")
+
+    # Cycle 32: the simplicity gate (docs/RESEARCH-HORMOZI-LANDING.md section
+    # 3) -- reported unconditionally per page/check, like the Warm-up window
+    # section above; simplicity_mode only changes whether check_page_gates
+    # enforces items 1-3 as a hard gate (harness/simplicity.py).
+    lines.append("")
+    lines.append("## Simplicity")
+    lines.extend(simplicity_review_lines(pages, tenant_mod.active(), facts_pack))
 
     lines.append("")
     lines.append("## Soft-check warnings (non-blocking)")
