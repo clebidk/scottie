@@ -180,3 +180,6 @@ clean; its configuration and the reason for each excluded rule are in
 - `docs/IMAGE-MAP.md`, `docs/REFINE-NOTES.md`, `docs/FIXLOG.md` -- assets,
   refinement notes, and the per-cycle fix record.
 - `docs/RESTRUCTURE-2026-09-10.md` -- what this restructure moved, and why.
+
+- [Design-skills pack](harness/design_skills/README.md) — vendored landing-page design skill (MIT), take/adapt/decline rules, deterministic design gate; DESIGN.md reference pack under design-md/.
+- [PR #2 review](docs/REVIEW-PR2-DESIGN-SKILLS.md) — merge review of the design-skills branch.

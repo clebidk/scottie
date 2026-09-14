@@ -240,3 +240,7 @@ full state machine, approval, and packet-stamp flow). It refuses to run unless t
 only `--live` creates or updates a live page, and `SHOPIFY_STORE`/`SHOPIFY_TOKEN` are not
 yet set for `peak-saunas`, so every live publish still fails closed today, with a one-line
 message and no network call, until those are configured.
+
+## Design skills
+
+`harness design-skills list` shows the take/adapt/decline rules from the vendored skill; `explain <rule-id>` prints one; `check <run-dir>` runs the deterministic design checks (they also run inside the page gate on every write). Reference site analyses live in harness/design_skills/design-md/ and are evidence only.

@@ -1391,3 +1391,11 @@ discarded with the worktree -- this cycle ships the tool, not a decision on Peak
 brand tokens for a human to make.
 
 `git worktree remove --force ../advertorial-c27` after.
+
+## Cycle 29 — merge PR #2 (design-skills pack) and the DESIGN.md reference pack (2026-09-14)
+
+- Merged github/cursor/design-skills-playbook-fdad (942ada8) after review docs/REVIEW-PR2-DESIGN-SKILLS.md: verdict MERGE; 895 tests; baseline byte-identical; real run PASS $0.29; no new runtime dependency; MIT skill vendored with attribution; raw SKILL.md never reaches a prompt.
+- New: harness/design_skills/ (README, SOURCE.json, LICENSE, rules.json take/adapt/decline, adapter.py, gate.py wired into the page gate via pagechecks.find_design_skill_violations), blocks risk-reversal and tagline-reveal, CLI `harness design-skills list|explain|check`.
+- Also on master (committed directly, docs-only, 2ee5271/3948622): harness/design_skills/design-md/ — ten DESIGN.md site analyses from getdesign.md (MIT, VoltAgent) as evidence; neutrality test skips vendored evidence files.
+- Open: warm-up-window gate (brief item, not started); the Amin article rules stay [CONFIRM IN ARTICLE] until the text is available; tenant `design_reference` slugs → adapter (follow-up).
+- Process note: reference packs were committed straight to master; code changes keep going through branches and review.
