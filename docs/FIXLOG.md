@@ -1400,10 +1400,8 @@ brand tokens for a human to make.
 - Open: warm-up-window gate (brief item, not started); the Amin article rules stay [CONFIRM IN ARTICLE] until the text is available; tenant `design_reference` slugs → adapter (follow-up).
 - Process note: reference packs were committed straight to master; code changes keep going through branches and review.
 
-<<<<<<< HEAD
 ## Next-cycle queue (operator, 2026-09-14)
 - Simplicity gate (from docs/RESEARCH-HORMOZI-LANDING.md section 3): (a) at most one distinct link above the fold per page, (b) headline word band per cartridge (article 8–14 already; set product-page 4–10, longform 6–12, listicle 8–14), (c) exactly one offer element per page (CTA block + optional financing sentence; no second offer card), (d) value-equation checklist injected into the product-page proof-bullet instruction (dream outcome, proof-backed likelihood, time to first benefit, install effort — verified claims only). Soft checks to REVIEW.md first; enforce after one clean sweep. Lands after cycles 30 and 31 merge.
-=======
 ## Cycle 30 — warm-up window gate + tenant design references (2026-09-14)
 
 Branch `cycle30/warmup-and-design-refs`. Concurrent with cycle31/images
@@ -1482,7 +1480,6 @@ expected.
 result (`harness run tenants/peak-saunas/fixtures/hidden-costs-v2.mov
 --tenant peak-saunas`), REVIEW.md's warm-up numbers, and the design_reference
 guidance lines that reached the writer prompt.
->>>>>>> cycle30/warmup-and-design-refs
 
 ## Cycle 30 merge note (operator)
 - Merged with Peak warmup_mode set back to warn: the real run under enforce STOPped after three repairs (brand at word 465, then 583). Enforce again after five consecutive clean real runs report first-brand-mention beyond the window in REVIEW.md.
