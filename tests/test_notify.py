@@ -154,3 +154,15 @@ def test_send_slack_posts_when_webhook_configured(monkeypatch):
     result = notify.send_slack("https://hooks.slack.example/T000/B000/xyz", "hello")
     assert result is True
     assert len(calls) == 1
+
+
+def test_send_slack_skips_non_https_webhook(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise AssertionError("urlopen must not run for a non-https webhook")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    log = FakeLog()
+    assert notify.send_slack("http://hooks.example/webhook", "hello", log=log) is False
+    assert any("must be https" in e[1] for e in log.events)
+    assert notify.send_slack("file:///tmp/x", "hello", log=log) is False
+
