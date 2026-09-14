@@ -6,14 +6,19 @@ first N words. find_warmup_violations/warmup_first_mentions walk the
 article's own reading order (headline -> dek -> open -> body_sections ->
 alternatives_section -> how_it_works_section -> turn_section -> close).
 """
+import copy
+
+from harness.budget import Budget
 from harness.claims import (
     default_warmup_window_words,
     find_warmup_violations,
     warmup_first_mentions,
 )
-from harness.repair import check_page_gates, find_warmup_warning_lines, resolve_warmup_window
-from tests.support import TENANT as REAL_TENANT
-from tests.test_render import AD_BRIEF, FACTS_PACK
+from harness.log import RunLog
+from harness.repair import check_page_gates, find_warmup_warning_lines, resolve_warmup_window, write_and_gate_page
+from tests.conftest import FakeClient, block_text, json_response
+from tests.support import REPO_ROOT, TENANT as REAL_TENANT
+from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
 
 
 class _FakeTenant:
@@ -188,7 +193,12 @@ def _gate_problems(page, tenant):
         word_range=None, allowed_cta_texts=None, ad_brief=AD_BRIEF,
         tenant=tenant,
     )
-    return [p for p in problems if "warm-up window" in p["issue"]]
+    # Cycle 32: find_warmup_violations' issue text no longer contains the
+    # literal substring "warm-up window" (it now states the exact word
+    # budget remaining instead) -- the stable "key" it carries
+    # ("warmup:brand"/"warmup:price"/"warmup:cta") is the reliable way to
+    # pick these out of check_page_gates' combined problem list now.
+    return [p for p in problems if p.get("key", "").startswith("warmup:")]
 
 
 def test_enforce_mode_is_a_hard_gate_failure():
@@ -222,3 +232,90 @@ def test_enforce_mode_produces_no_warn_line_double_report():
 def test_non_article_cartridge_never_gets_a_warmup_warning():
     tenant = _FakeTenant(config={"cartridges": {"article": {"warmup_mode": "warn"}}})
     assert find_warmup_warning_lines({"headline": "x"}, "longform", tenant) == []
+
+
+# ---------------------------------------------------------------------------
+# Cycle 32 (cycle 30 merge note follow-up): find_warmup_violations' stable
+# "key" per category ("warmup:brand"/"warmup:price"/"warmup:cta"), and the
+# repair-loop memory (harness/repair.py's write_and_gate_page) that dedups
+# on it. The real enforce-mode run this fixes STOPped after three repairs
+# because two consecutive attempts failed at different word indexes (brand
+# at word 465, then 583) -- the old (path, issue) dedup key never recognized
+# those as the same violation, since "issue" carried the word index. These
+# tests drive write_and_gate_page directly, with a real Anthropic client
+# fake standing in for the writer, the same way tests/test_repair_loop.py
+# does.
+# ---------------------------------------------------------------------------
+
+def _tenant_with_warmup_mode(base_tenant, mode, window=600):
+    """A copy of `base_tenant` (same class, same claims_dir/authors/render()
+    -- only .config differs) with cartridges.article.warmup_mode/
+    warmup_window_words overridden, so the rest of the real Peak Saunas
+    tenant config (needed by write_page's prompt building) stays intact."""
+    proxy = copy.copy(base_tenant)
+    proxy.config = copy.deepcopy(base_tenant.config)
+    proxy.config.setdefault("cartridges", {}).setdefault("article", {})
+    proxy.config["cartridges"]["article"]["warmup_mode"] = mode
+    proxy.config["cartridges"]["article"]["warmup_window_words"] = window
+    return proxy
+
+
+def _article_with_early_brand(n_filler_words):
+    """ARTICLE_PAGE (tests/test_render.py -- already schema-valid, in word
+    range, allowed CTA) with its brand-free `open` paragraph replaced by one
+    that mentions the tenant's brand after `n_filler_words` digit-free filler
+    words -- moves ONLY the brand's first-mention word index, so this fails
+    the warm-up gate and nothing else."""
+    open_text = " ".join(["padding"] * n_filler_words) + " Peak Saunas can help with that."
+    return dict(ARTICLE_PAGE, open=[{"text": open_text}])
+
+
+def test_warmup_repair_memory_dedups_on_key_keeping_latest_detail(tmp_path):
+    tenant = _tenant_with_warmup_mode(REAL_TENANT, "enforce")
+    attempt1_bad = _article_with_early_brand(50)
+    attempt2_bad = _article_with_early_brand(90)
+    attempt3_good = ARTICLE_PAGE  # real brand mention is at word 1063 -- outside the window
+
+    word1 = warmup_first_mentions(attempt1_bad, tenant)["brand_word"]
+    word2 = warmup_first_mentions(attempt2_bad, tenant)["brand_word"]
+    assert word1 != word2
+    assert word1 <= 600 and word2 <= 600
+
+    client = FakeClient([json_response(attempt1_bad), json_response(attempt2_bad), json_response(attempt3_good)])
+    budget = Budget()
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        page, attempts, _det_fixes = write_and_gate_page(
+            cartridge_name="article",
+            cartridges_dir=REPO_ROOT / "cartridges",
+            ad_brief=AD_BRIEF,
+            facts_pack=FACTS_PACK,
+            client=client,
+            model="claude-sonnet-5",
+            budget=budget,
+            log=log,
+            financing_lender=None,
+            speaker_pov=AD_BRIEF["speaker_pov"],
+            tenant=tenant,
+        )
+    finally:
+        log.close()
+
+    assert page == ARTICLE_PAGE
+    assert len(client.messages.calls) == 3  # 1 initial + 2 repairs, both warmup failures
+
+    # attempt 2's REVISION REQUIRED block (built from attempt 1's failure
+    # alone) states attempt 1's word index/budget.
+    second_user_msg = block_text(client.messages.calls[1]["messages"][0]["content"])
+    assert f"brand at word {word1};" in second_user_msg
+    assert f"you have {600 - word1} words to cut" in second_user_msg
+
+    # attempt 3's REVISION REQUIRED block (built after attempt 2 also
+    # failed) carries exactly ONE warm-up-brand entry -- deduped on the
+    # stable "warmup:brand" key, not two -- and it states attempt 2's
+    # (the latest) word index/budget, not attempt 1's stale one.
+    third_user_msg = block_text(client.messages.calls[2]["messages"][0]["content"])
+    assert third_user_msg.count("move the first brand mention past word") == 1
+    assert f"brand at word {word2};" in third_user_msg
+    assert f"you have {600 - word2} words to cut" in third_user_msg
+    assert f"brand at word {word1};" not in third_user_msg

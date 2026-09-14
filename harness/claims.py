@@ -1461,33 +1461,52 @@ def warmup_first_mentions(page_json, tenant):
     }
 
 
+# Cycle 32 (cycle 30 merge note follow-up): docs/FIXLOG.md's cycle 30 merge
+# note -- a real enforce-mode run STOPped after three repairs because two
+# consecutive attempts failed at different word indexes (brand at word 465,
+# then 583) and the repair-loop memory deduped on (path, issue) -- a plain
+# string that changes every time
+# the word index does -- so it never recognized "this is the same violation
+# again" and never told the writer how much room it actually had. Each hit
+# now carries a stable "key" ("warmup:brand"/"warmup:price"/"warmup:cta"),
+# separate from the varying word-index detail in "issue", so
+# repair.write_and_gate_page's failures-seen memory (keyed on item["key"]
+# when present) recognizes a repeat instead of piling up near-duplicates --
+# and "issue" now states the exact word budget remaining, not just the
+# window and the current position.
+_WARMUP_CATEGORIES = (
+    # (mentions dict key, key suffix, display label -- label matches the
+    # substring each tests/test_warmup.py assertion already checks for)
+    ("brand_word", "brand", "brand"),
+    ("price_word", "price", "price"),
+    ("cta_word", "cta", "CTA"),
+)
+
+
 def find_warmup_violations(page_json, tenant, window):
     """[] if page_json isn't shaped like an article (no headline and no
     open) or if the tenant/product brand name, a price, and every allowed
     CTA text all first appear after word `window` in the article's reading
-    order; otherwise one {"path", "issue"} dict per category that appears
-    too early -- same shape this module's other find_*_violations return."""
+    order; otherwise one {"path", "key", "issue"} dict per category that
+    appears too early -- same {"path", "issue"} shape this module's other
+    find_*_violations return, plus the stable "key" described above."""
     if not isinstance(page_json, dict) or not (page_json.get("headline") or page_json.get("open")):
         return []
     mentions = warmup_first_mentions(page_json, tenant)
     hits = []
-    if mentions["brand_word"] is not None and mentions["brand_word"] <= window:
+    for mention_key, key_suffix, label in _WARMUP_CATEGORIES:
+        word = mentions[mention_key]
+        if word is None or word > window:
+            continue
+        budget = window - word
         hits.append({
             "path": "$",
-            "issue": f"brand/product name appears at word {mentions['brand_word']}, inside the "
-                     f"{window}-word warm-up window -- the brand belongs after it, not inside it",
-        })
-    if mentions["price_word"] is not None and mentions["price_word"] <= window:
-        hits.append({
-            "path": "$",
-            "issue": f"a price appears at word {mentions['price_word']}, inside the {window}-word "
-                     f"warm-up window",
-        })
-    if mentions["cta_word"] is not None and mentions["cta_word"] <= window:
-        hits.append({
-            "path": "$",
-            "issue": f"CTA text appears at word {mentions['cta_word']}, inside the {window}-word "
-                     f"warm-up window",
+            "key": f"warmup:{key_suffix}",
+            "issue": (
+                f"{label} at word {word}; window {window}; move the first {label} mention past word "
+                f"{window} -- you have {budget} words to cut before it or {budget}+ words to add of "
+                f"{label}-free copy before it"
+            ),
         })
     return hits
 
