@@ -518,7 +518,11 @@ def execute(state, stage_names=DEFAULT_STAGES):
 
     A gate STOP is exit 2 and never leaves a partial page; a budget overrun is
     exit 3, likewise. The cost estimate and REVIEW.md are written last, so a
-    STOP still records what the run spent."""
+    STOP still records what the run spent.
+
+    Cycle 34: every exit path (typed STOP, PASS, or an unexpected stage
+    exception) closes state.log. Named except blocks may also call close();
+    RunLog.close is idempotent so a shared finally is safe."""
 
     stage_names = list(stage_names)
     unknown = [n for n in stage_names if n not in STAGES and n != "write_review"]
@@ -526,56 +530,56 @@ def execute(state, stage_names=DEFAULT_STAGES):
         raise UnknownStage(f"unknown stage(s): {unknown}; known: {sorted(STAGES)}")
 
     try:
-        for name in stage_names:
-            if name == "write_review":
-                state.cost = state.log.cost_estimate()
-                state.log.budget_summary(state.budget.summary())
-                budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
-                                        today_iso=state.today_iso, log=state.log)
-            STAGES[name](state)
-    except UnknownCartridge as e:
-        print(str(e), file=sys.stderr)
+        try:
+            for name in stage_names:
+                if name == "write_review":
+                    state.cost = state.log.cost_estimate()
+                    state.log.budget_summary(state.budget.summary())
+                    budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
+                                            today_iso=state.today_iso, log=state.log)
+                STAGES[name](state)
+        except UnknownCartridge as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        except ClaimsGateFailure as e:
+            (state.run_dir / "unmatched_claims.json").write_text(
+                json.dumps({"stage": e.stage, "items": e.items}, indent=2)
+            )
+            state.log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
+            state.log.event("run", str(e))
+            budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
+                                    today_iso=state.today_iso, log=state.log)
+            state.log.budget_summary(state.budget.summary())
+            review_md.log_run_result(state.log, "STOP", state.gate_log)
+            print(
+                f"Claims gate STOPPED at stage {e.stage!r}: {len(e.items)} unmatched item(s).",
+                file=sys.stderr,
+            )
+            print(json.dumps(e.items, indent=2), file=sys.stderr)
+            print(f"See {state.run_dir / 'unmatched_claims.json'}", file=sys.stderr)
+            return 2
+        except BudgetExceeded as e:
+            abort_budget_run(state.log, state.budget, e, tenant=state.tenant, run_id=state.run_id,
+                             today_iso=state.today_iso, gate_log=state.gate_log)
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+
+        review_md.log_run_result(state.log, "PASS", state.gate_log)
+        # Cycle 26b (bug 1): build every page's <page>-review.html right away so
+        # the review site's iframe never shows "Not Found" for a run that only
+        # went through `harness run` -- same function `harness review` uses
+        # (review.build_reviews), guarded so a build failure warns instead of
+        # failing an otherwise-successful run.
+        try:
+            from .review import build_reviews
+
+            build_reviews(state.run_dir)
+        except Exception as e:
+            state.log.event("run", f"warning: failed to build review html: {e}")
+        print(f"Run complete: {state.run_dir}")
+        for p in state.outputs:
+            print(f" - {p}")
+        return 0
+    finally:
         if state.log:
             state.log.close()
-        return 1
-    except ClaimsGateFailure as e:
-        (state.run_dir / "unmatched_claims.json").write_text(
-            json.dumps({"stage": e.stage, "items": e.items}, indent=2)
-        )
-        state.log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
-        state.log.event("run", str(e))
-        budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
-                                today_iso=state.today_iso, log=state.log)
-        state.log.budget_summary(state.budget.summary())
-        review_md.log_run_result(state.log, "STOP", state.gate_log)
-        state.log.close()
-        print(
-            f"Claims gate STOPPED at stage {e.stage!r}: {len(e.items)} unmatched item(s).",
-            file=sys.stderr,
-        )
-        print(json.dumps(e.items, indent=2), file=sys.stderr)
-        print(f"See {state.run_dir / 'unmatched_claims.json'}", file=sys.stderr)
-        return 2
-    except BudgetExceeded as e:
-        abort_budget_run(state.log, state.budget, e, tenant=state.tenant, run_id=state.run_id,
-                         today_iso=state.today_iso, gate_log=state.gate_log)
-        print(f"budget exceeded: {e}", file=sys.stderr)
-        return 3
-
-    review_md.log_run_result(state.log, "PASS", state.gate_log)
-    # Cycle 26b (bug 1): build every page's <page>-review.html right away so
-    # the review site's iframe never shows "Not Found" for a run that only
-    # went through `harness run` -- same function `harness review` uses
-    # (review.build_reviews), guarded so a build failure warns instead of
-    # failing an otherwise-successful run.
-    try:
-        from .review import build_reviews
-
-        build_reviews(state.run_dir)
-    except Exception as e:
-        state.log.event("run", f"warning: failed to build review html: {e}")
-    state.log.close()
-    print(f"Run complete: {state.run_dir}")
-    for p in state.outputs:
-        print(f" - {p}")
-    return 0

@@ -94,34 +94,38 @@ def cmd_ingest(args):
     run_id, out_dir = pipeline.make_run_dir(tenant.out_dir, pipeline.slugify(args.input))
     log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
 
+    # Cycle 34: close on every path (BudgetExceeded, ingest errors, success).
+    # abort_budget_run also closes; RunLog.close is idempotent.
     try:
-        ad_brief = run_ingest(
-            input_arg=args.input,
-            workdir=out_dir,
-            client=client,
-            model=tenant.model_for("ingest"),
-            budget=budget,
-            log=log,
-            ffmpeg_bin=args.ffmpeg_bin,
-            whisper_bin=args.whisper_bin,
-            whisper_model=args.whisper_model,
-        )
-    except BudgetExceeded as e:
-        # R20: the shared budget-STOP tail (pipeline.abort_budget_run) --
-        # same event/summary/run_result/close shape as a pipeline run, plus
-        # the phase-3 spend-ledger record.
-        pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, stage="ingest")
-        print(f"budget exceeded: {e}", file=sys.stderr)
-        return 3
+        try:
+            ad_brief = run_ingest(
+                input_arg=args.input,
+                workdir=out_dir,
+                client=client,
+                model=tenant.model_for("ingest"),
+                budget=budget,
+                log=log,
+                ffmpeg_bin=args.ffmpeg_bin,
+                whisper_bin=args.whisper_bin,
+                whisper_model=args.whisper_model,
+            )
+        except BudgetExceeded as e:
+            # R20: the shared budget-STOP tail (pipeline.abort_budget_run) --
+            # same event/summary/run_result/close shape as a pipeline run, plus
+            # the phase-3 spend-ledger record.
+            pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, stage="ingest")
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
 
-    (out_dir / "ad_brief.json").write_text(json.dumps(ad_brief, indent=2))
-    cost = log.cost_estimate()
-    budget_mod.record_spend(tenant, run_id=run_id, cost=cost,
-                            today_iso=datetime.date.today().isoformat(), log=log)
-    log.close()
-    print(json.dumps(ad_brief, indent=2))
-    print(f"\nWrote {out_dir / 'ad_brief.json'}")
-    return 0
+        (out_dir / "ad_brief.json").write_text(json.dumps(ad_brief, indent=2))
+        cost = log.cost_estimate()
+        budget_mod.record_spend(tenant, run_id=run_id, cost=cost,
+                                today_iso=datetime.date.today().isoformat(), log=log)
+        print(json.dumps(ad_brief, indent=2))
+        print(f"\nWrote {out_dir / 'ad_brief.json'}")
+        return 0
+    finally:
+        log.close()
 
 
 # ---------------------------------------------------------------------------
@@ -161,37 +165,41 @@ def cmd_brand_import(args):
     run_id = f"brand-import-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
     budget = Budget()
+    # Cycle 34: shared budget-STOP tail + finally close (same shape as ingest).
     try:
-        # A client is only actually called if a brand guide file needs its
-        # vision-model pass (import_brand_kit notes the gap in
-        # BRAND-IMPORT.md rather than failing when there isn't one) -- built
-        # unconditionally here, same as every other model-using command,
-        # so a real .env's key is validated up front rather than mid-run.
-        client = make_client()
-        result = brand_import.import_brand_kit(
-            tenant,
-            drive_folder=args.drive_folder,
-            local_dir=args.local,
-            dry_run=args.dry_run,
-            force=args.force,
-            client=client,
-            model=tenant.model_for("ingest"),
-            budget=budget,
-            log=log,
-        )
-    except BudgetExceeded as e:
-        log.event("brand_import", f"budget exceeded: {e}")
+        try:
+            # A client is only actually called if a brand guide file needs its
+            # vision-model pass (import_brand_kit notes the gap in
+            # BRAND-IMPORT.md rather than failing when there isn't one) -- built
+            # unconditionally here, same as every other model-using command,
+            # so a real .env's key is validated up front rather than mid-run.
+            client = make_client()
+            result = brand_import.import_brand_kit(
+                tenant,
+                drive_folder=args.drive_folder,
+                local_dir=args.local,
+                dry_run=args.dry_run,
+                force=args.force,
+                client=client,
+                model=tenant.model_for("ingest"),
+                budget=budget,
+                log=log,
+            )
+        except BudgetExceeded as e:
+            pipeline.abort_budget_run(
+                log, budget, e, tenant=tenant, run_id=run_id, stage="brand_import",
+            )
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+        log.cost_estimate()
+        print(result.as_markdown(tenant_name=tenant.display_name))
+        if args.dry_run:
+            print("\n(--dry-run: nothing under tenants/ was written)")
+        else:
+            print(f"\nWrote {tenant.brand_dir / 'BRAND-IMPORT.md'}")
+        return 0
+    finally:
         log.close()
-        print(f"budget exceeded: {e}", file=sys.stderr)
-        return 3
-    log.cost_estimate()
-    log.close()
-    print(result.as_markdown(tenant_name=tenant.display_name))
-    if args.dry_run:
-        print("\n(--dry-run: nothing under tenants/ was written)")
-    else:
-        print(f"\nWrote {tenant.brand_dir / 'BRAND-IMPORT.md'}")
-    return 0
 
 
 # ---------------------------------------------------------------------------
