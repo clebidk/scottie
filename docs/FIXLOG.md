@@ -1670,3 +1670,6 @@ changes what it returns). Full suite: 965 passed (925 baseline + 40 new),
   returns `SAMEORIGIN` / CSP `frame-ancestors 'self'`.
 - Branch pushed to `origin` (the prod mirror) only -- not merged to master,
   not pushed to `github`.
+
+## Cycle 35b — review images (2026-09-14)
+- Bug: review html kept <picture><source srcset=assets/...> and <img srcset>; browsers pick those candidates and show a broken image when they 404 (no fallback to the inlined src). Fix in harness/review.py: strip <source>, srcset, sizes before inlining. Production pages unchanged. Rebuilt review html for today's runs.
