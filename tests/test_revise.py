@@ -275,8 +275,6 @@ def test_revise_cuts_only_does_not_touch_spend_ledger(monkeypatch, tmp_path):
     config = dict(TENANT.claims_config, budget={"daily_usd": 5, "per_run_usd": 0.5})
     monkeypatch.setattr(type(TENANT), "claims_config", property(lambda self: config))
 
-    # Use a sentence that exists on the fixture article page.
-    page = __import__("json").loads((run_dir / "article" / "page.json").read_text())
     # Prefer a known cut from older tests when present; otherwise skip soft.
     cut = "Buyers move on when the price is hidden."
     runstate.request_changes(
