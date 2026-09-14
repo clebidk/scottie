@@ -31,15 +31,24 @@ def send_slack(webhook_url, text, *, log=None):
         if log:
             log.event("notify", "notification skipped: no channel configured (slack)")
         return False
-    # Cycle 34: Slack incoming webhooks are always https. Refuse anything else
-    # so a misconfigured tenant.yaml cannot make us POST review text (and the
-    # webhook path secret) to an http:// or file:// URL.
-    scheme = urllib.parse.urlparse(webhook_url).scheme.lower()
+    # Cycle 34: Slack incoming webhooks are always https on hooks.slack.com.
+    # Refuse anything else so a misconfigured tenant.yaml cannot make us POST
+    # review text (and the webhook path secret) to an http:// or file:// URL,
+    # or to a https:// URL on some other, possibly hostile, host.
+    parsed = urllib.parse.urlparse(webhook_url)
+    scheme = parsed.scheme.lower()
     if scheme != "https":
         if log:
             log.event(
                 "notify",
                 f"notification skipped: slack webhook must be https (got {scheme or 'no-scheme'!r})",
+            )
+        return False
+    if parsed.hostname != "hooks.slack.com":
+        if log:
+            log.event(
+                "notify",
+                f"notification skipped: slack webhook must be hooks.slack.com (got {parsed.hostname!r})",
             )
         return False
     body = json.dumps({"text": text}).encode("utf-8")
