@@ -287,3 +287,39 @@ def test_revise_cuts_only_does_not_touch_spend_ledger(monkeypatch, tmp_path):
     )
     assert not ledger.exists()
 
+
+def test_cmd_revise_exits_3_on_cap_refusal_no_traceback(monkeypatch, tmp_path, capsys):
+    """Cycle 34 fix: `harness revise` must handle BudgetExceeded the same way
+    `harness run` does -- clean message, exit 3, no traceback -- instead of
+    letting it fall through cmd_revise's ReviseError-only except clause."""
+    import argparse
+
+    from harness import budget as budget_mod
+    from harness.budget import record_spend
+
+    run_dir = _make_run(monkeypatch)
+    ledger = tmp_path / "spend-ledger.jsonl"
+    monkeypatch.setattr(budget_mod, "spend_ledger_path", lambda tenant: ledger)
+
+    config = dict(TENANT.claims_config, budget={"daily_usd": 0.5, "per_run_usd": 0.5})
+    monkeypatch.setattr(type(TENANT), "claims_config", property(lambda self: config))
+
+    record_spend(TENANT, run_id="prior-run", cost=0.5, today_iso=__import__("datetime").date.today().isoformat())
+
+    runstate.request_changes(
+        run_dir, TENANT, page="article", by="caleb@peaksaunas.com",
+        notes="Would spend more tokens.", cuts=[],
+    )
+
+    # cmd_revise doesn't take a make_client_fn override -- reserve_spend still
+    # raises before revise_page's default make_client is ever called, so no
+    # real Anthropic client construction happens on this path either way.
+    args = argparse.Namespace(run_dir=str(run_dir), page="article", by="caleb@peaksaunas.com", tenant=TENANT.name)
+    exit_code = cli.cmd_revise(args)
+
+    assert exit_code == 3
+    err = capsys.readouterr().err
+    assert "budget exceeded" in err
+    assert "daily spend cap reached" in err
+    assert "Traceback" not in err
+
