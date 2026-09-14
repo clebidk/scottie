@@ -25,6 +25,11 @@ list of concrete mismatches and fixes.
 - Flags missing required render-stage elements (byline, dates,
   "Advertisement" label, disclosure, Sources list, JSON-LD) if any are
   absent, but does not add them.
+- Consult `harness/design_skills/` (the vendored landing-page skill plus
+  its adapter) for visual/structure notes. Apply only rules the adapter
+  marked take or adapt. Do not flag Geist/Inter, hyphenated copy, a
+  missing 680 px cap, or a missing JS word-reveal -- those are declined.
+  Nested radius (B3) is a manual review note, not a gate.
 
 ## Done when
 fix_list.md exists and every mismatch found against the brand tokens or

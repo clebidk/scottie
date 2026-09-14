@@ -1,0 +1,23 @@
+.bk-tagline-reveal {
+  margin: 32px 0;
+  max-width: 100%;
+  animation: bk-tagline-reveal-in 0.8s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.bk-tagline-reveal__line {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 600;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+.bk-tagline-reveal__line:last-child { margin-bottom: 0; }
+@keyframes bk-tagline-reveal-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 480px) {
+  .bk-tagline-reveal__line { font-size: 1.35rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bk-tagline-reveal { animation: none; }
+}

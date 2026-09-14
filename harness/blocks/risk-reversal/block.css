@@ -1,0 +1,22 @@
+.bk-risk-reversal {
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid var(--adv-border);
+  border-radius: 8px;
+  max-width: 100%;
+}
+.bk-risk-reversal__eyebrow {
+  margin: 0 0 4px;
+  color: var(--adv-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bk-risk-reversal__text {
+  margin: 0;
+  color: var(--adv-muted);
+  font-size: 0.9rem;
+}
+@media (max-width: 480px) {
+  .bk-risk-reversal { padding: 10px; }
+}

@@ -28,6 +28,10 @@ command takes `--tenant`, defaulting through `HARNESS_TENANT` to `tenants/defaul
   `harness run` calls, in the order `workflows/ad-to-pages.yaml` gives. `harness workflow list`
   shows what exists. `sweep`/`score`/`packet` are specifications: their steps are keyed `action:`
   and the runner does not execute them.
+- `harness design-skills list|explain|check` -- the vendored
+  elayadesign/ai-design-skills pack (`harness/design_skills/`). `list` /
+  `explain` print the take/adapt/decline table (no tenant, no model).
+  `check <page.json>` runs the pack's hard/soft gates; exit 2 on a hard fail.
 - `make review RUN=<run-id> TENANT=<t>` -- wraps `harness review` over `ssh $(PROD)` and rsyncs the generated
   `*-review.html` files back to a local path (`Makefile`'s `review` target).
 - `make deploy` / `make install` / `make test` / `make run` / `make pull-out` -- rsync the source tree

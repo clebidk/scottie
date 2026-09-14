@@ -2,6 +2,8 @@
 {% block title %}{{ page.hero.headline }}{% endblock %}
 {% block byline %}<div class="adv-byline">{{ byline_html | safe }}</div>{% endblock %}
 {% block content %}
+{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
+<style>{% include _tagline_block ~ "/block.css" ignore missing %}</style>
 <div class="adv-longform">
   <header>
     <span class="adv-badge">Advertisement</span>
@@ -27,6 +29,10 @@
     {% endif %}
     <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
   </section>
+
+  {% if page.tagline %}
+  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
+  {% endif %}
 
   <section class="adv-problem">
     <h2>{{ page.problem.heading }}</h2>

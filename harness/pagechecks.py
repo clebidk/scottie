@@ -197,6 +197,21 @@ def find_block_violations(page, cartridge_name, block_slots=None):
     return problems
 
 
+def find_design_skill_violations(page):
+    """Hard checks taken from the design-skills pack (B8 filler/cliches,
+    B9 dead '#' links). Lives here so the writer repair loop can fix them
+    the same way it fixes an allowlist or internal-link miss. Soft
+    counterparts stay in design_skills.gate and surface through
+    repair.find_soft_check_warnings."""
+    from .design_skills import gate as design_gate
+
+    problems = []
+    problems += design_gate.find_filler_copy_violations(page)
+    problems += design_gate.find_ai_cliche_violations(page)
+    problems += design_gate.find_dead_link_violations(page)
+    return problems
+
+
 def find_forbidden_term_urls(facts_pack, terms=None):
     """Every URL this run uses whose own path contains one of the tenant's
     banned terms. A storefront handle is outside this harness's control, so a

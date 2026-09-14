@@ -11,8 +11,10 @@
 {% set _table_block = block_choice("table", "comparison-table") %}
 {% set _faq_block = block_choice("faq", "faq-accordion") %}
 {% set _verdict_block = block_choice("verdict", "verdict-box") %}
+{% set _risk_block = block_choice("risk", "risk-reversal") %}
+{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
 <style>
-{% for _b in [_proof_block, _table_block, _faq_block, _verdict_block] %}{% include _b ~ "/block.css" ignore missing %}{% endfor %}
+{% for _b in [_proof_block, _table_block, _faq_block, _verdict_block, _risk_block, _tagline_block] %}{% include _b ~ "/block.css" ignore missing %}{% endfor %}
 </style>
 <div class="adv-comparison">
   <header class="adv-comparison-header">
@@ -24,8 +26,14 @@
     {% with stats=page.proof_stats %}{% include _proof_block ~ "/block.html" %}{% endwith %}
     {% endif %}
     <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
-    {% if page.risk_reversal %}<p class="adv-risk-reversal">{{ page.risk_reversal.text }}</p>{% endif %}
+    {% if page.risk_reversal %}
+    {% with text=page.risk_reversal.text, eyebrow=page.risk_reversal.eyebrow %}{% include _risk_block ~ "/block.html" %}{% endwith %}
+    {% endif %}
   </header>
+
+  {% if page.tagline %}
+  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
+  {% endif %}
 
   <section class="adv-comparison-table">
     {% with columns=page.comparison_table.columns, rows=page.comparison_table.rows %}{% include _table_block ~ "/block.html" %}{% endwith %}

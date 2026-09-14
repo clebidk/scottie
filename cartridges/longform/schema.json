@@ -254,6 +254,16 @@
         }
       }
     },
+    "tagline": {
+      "type": "object",
+      "description": "Optional two-line benefit statement rendered after the hero through the tagline-reveal block (design-skills B11). Omit the field to skip the section. Each line is writer copy and still goes through the claims gate.",
+      "properties": {
+        "lines": {
+          "type": "array",
+          "description": "At least two lines. A benefit statement, not a generic section heading."
+        }
+      }
+    },
     "images": {
       "type": "array",
       "description": "4-6 images total from the asset library, referenced by asset id (this list is a convenience index of everything used).",
@@ -275,6 +285,11 @@
         "proof-stat-row-cards"
       ],
       "default": "proof-stat-row"
+    },
+    "tagline": {
+      "description": "Optional large-type two-line benefit statement after the hero (design-skills B11). Set page.tagline.lines to at least two strings; omit the field to skip the section. Layout: tagline-reveal.",
+      "blocks": ["tagline-reveal"],
+      "default": "tagline-reveal"
     }
   }
 }

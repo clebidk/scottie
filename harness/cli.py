@@ -1,5 +1,5 @@
 """`harness` console entry point: run / ingest / claims / review / score /
-shopify-body / tenant / workflow.
+shopify-body / tenant / workflow / design-skills.
 
 The CLI resolves which tenant a command is for (--tenant > HARNESS_TENANT >
 tenants/default.txt), activates it, and hands the pipeline a Tenant object. No
@@ -591,6 +591,44 @@ def cmd_eval_report(args):
 
 
 # ---------------------------------------------------------------------------
+# harness design-skills (vendored elayadesign/ai-design-skills pack)
+# ---------------------------------------------------------------------------
+
+def cmd_design_skills_list(args):
+    """`harness design-skills list`: the vendored pack and its take/adapt/
+    decline tally. No tenant, no model call."""
+    from .design_skills import adapter
+    print(adapter.format_list(), end="")
+    return 0
+
+
+def cmd_design_skills_explain(args):
+    """`harness design-skills explain [--action take|adapt|decline]`: the
+    per-rule decision table. No tenant, no model call."""
+    from .design_skills import adapter
+    print(adapter.format_explain(action=args.action), end="")
+    return 0
+
+
+def cmd_design_skills_check(args):
+    """`harness design-skills check <page.json> --cartridge NAME`: run the
+    pack's hard and soft checks against one page.json. Exit 2 on a hard
+    failure (same code as a claims-gate STOP); soft warnings print and
+    still exit 0."""
+    from .design_skills import gate as design_gate
+
+    page = json.loads(Path(args.page).read_text())
+    result = design_gate.check_page(page, cartridge_name=args.cartridge)
+    for item in result["hard"]:
+        print(f"FAIL  {item.get('path', '')}: {item['issue']}")
+    for warning in result["soft"]:
+        print(f"warn  {warning}")
+    if not result["hard"] and not result["soft"]:
+        print("ok")
+    return 2 if result["hard"] else 0
+
+
+# ---------------------------------------------------------------------------
 # argparse wiring
 # ---------------------------------------------------------------------------
 
@@ -766,6 +804,18 @@ def build_parser():
     p_eval_report = eval_sub.add_parser("report", help="aggregate scores by cartridge, block, angle, reviewer")
     _add_tenant_flag(p_eval_report)
     p_eval_report.set_defaults(func=cmd_eval_report)
+
+    p_ds = sub.add_parser("design-skills", help="the vendored elayadesign/ai-design-skills pack")
+    ds_sub = p_ds.add_subparsers(dest="design_skills_command", required=True)
+    p_ds_list = ds_sub.add_parser("list", help="vendored skills and take/adapt/decline counts")
+    p_ds_list.set_defaults(func=cmd_design_skills_list)
+    p_ds_explain = ds_sub.add_parser("explain", help="per-rule decision table")
+    p_ds_explain.add_argument("--action", choices=["take", "adapt", "decline"])
+    p_ds_explain.set_defaults(func=cmd_design_skills_explain)
+    p_ds_check = ds_sub.add_parser("check", help="run the pack's gates against one page.json")
+    p_ds_check.add_argument("page", help="path to a page.json")
+    p_ds_check.add_argument("--cartridge", help="cartridge name (enables the landing-page soft checks)")
+    p_ds_check.set_defaults(func=cmd_design_skills_check)
 
     p_tenant = sub.add_parser("tenant", help="create and inspect tenants")
     tenant_sub = p_tenant.add_subparsers(dest="tenant_command", required=True)

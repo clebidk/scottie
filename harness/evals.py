@@ -141,15 +141,31 @@ def _facts_pack_summary(facts_pack):
     }
 
 
+def _slot_has_payload(page, slot):
+    """Whether this page.json actually carries the content a slot renders.
+
+    Optional design-skills slots (tagline, risk) must not show up as
+    'used blocks' on a page that omitted the field -- otherwise every
+    longform page would be scored against tagline-reveal even when the
+    section never rendered. Slots that predate the pack (proof, table,
+    faq, verdict) keep the old always-default behavior so existing eval
+    records do not reshape."""
+    if slot == "tagline":
+        return bool(page.get("tagline"))
+    if slot == "risk":
+        return bool(page.get("risk_reversal"))
+    return True
+
+
 def _effective_blocks(page, schema):
     """The slot -> block-id map a page actually rendered with: the writer's
     recorded page.json "blocks" picks, filled out with each declared slot's
-    default."""
+    default -- but only for slots that have a payload on this page."""
+    picks = page.get("blocks") or {}
     effective = {}
     for slot, spec in (schema.get("block_slots") or {}).items():
-        effective[slot] = spec.get("default")
-    for slot, block_id in (page.get("blocks") or {}).items():
-        effective[slot] = block_id
+        if slot in picks or _slot_has_payload(page, slot):
+            effective[slot] = picks.get(slot) or spec.get("default")
     return {slot: bid for slot, bid in effective.items() if bid}
 
 

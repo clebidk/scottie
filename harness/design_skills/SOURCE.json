@@ -1,0 +1,9 @@
+{
+  "repo": "https://github.com/elayadesign/ai-design-skills",
+  "skill": "landing-page-design",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 Elaya",
+  "vendored_commit": "1c1e97cb9878e236552c772092dda7adcdddbcb2",
+  "vendored_date": "2026-09-14",
+  "note": "SKILL.md is the upstream file, byte-identical. The adapter (rules.json + adapter.py) is this harness's reading of it: every rule is take, adapt, or decline. The raw visual tokens never override the block gate, the claims gate, or a tenant's locked topics."
+}

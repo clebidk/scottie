@@ -19,7 +19,9 @@ if the agent's loop is as disciplined as the pipeline's.
 > rewrite it; add checks in its established pattern. The repair loop is
 > `harness/repair.py`; the pipeline is `harness/pipeline.py`; deterministic
 > non-claim checks are `harness/pagechecks.py`; layout blocks are
-> `harness/blocks/`; eval records are `harness/evals.py`.
+> `harness/blocks/`; the design-skills pack is `harness/design_skills/`
+> (adapter in `rules.json` wins over the raw SKILL.md); eval records are
+> `harness/evals.py`.
 >
 > Artifact discipline: one commit per loop iteration; the full suite and
 > ruff stay green at every commit; behavior-preserving work proves itself by
