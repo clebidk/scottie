@@ -73,3 +73,33 @@ def test_cost_estimate_line_names_total_tokens(tmp_path):
     text = log_path.read_text()
     assert "total_input_tokens=100" in text
     assert "total_output_tokens=50" in text
+
+
+# ---------------------------------------------------------------------------
+# Cycle 33: RunLog as a context manager + idempotent close
+# ---------------------------------------------------------------------------
+
+def test_run_log_context_manager_writes_and_closes(tmp_path):
+    log_path = tmp_path / "run.log"
+    with RunLog("test-run", log_path) as log:
+        log.event("stage", "hello")
+        assert not log._fh.closed
+    assert log._fh.closed
+    assert "stage: hello" in log_path.read_text()
+
+
+def test_run_log_close_is_idempotent(tmp_path):
+    log = RunLog("test-run", tmp_path / "run.log")
+    log.close()
+    log.close()  # must not raise
+    assert log._fh.closed
+
+
+def test_run_log_context_manager_closes_on_exception(tmp_path):
+    log_path = tmp_path / "run.log"
+    with pytest.raises(RuntimeError, match="boom"):
+        with RunLog("test-run", log_path) as log:
+            log.event("stage", "before-raise")
+            raise RuntimeError("boom")
+    assert log._fh.closed
+    assert "before-raise" in log_path.read_text()

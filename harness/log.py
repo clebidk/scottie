@@ -100,4 +100,13 @@ class RunLog:
         return cost
 
     def close(self):
-        self._fh.close()
+        # Cycle 33: idempotent close -- safe to call twice and from __exit__.
+        if self._fh is not None and not self._fh.closed:
+            self._fh.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
