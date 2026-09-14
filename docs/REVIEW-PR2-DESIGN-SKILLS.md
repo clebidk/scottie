@@ -76,6 +76,22 @@ git merge --no-ff github/cursor/design-skills-playbook-fdad -m "Merge PR #2: des
 git push origin master   # or whichever remote is the source of truth
 ```
 
+## Note: master moved during this review
+
+Two unrelated commits landed directly on local `master` while this review was
+running (`2ee5271`, `3948622` -- both `Caleb Niednagel`, co-authored Claude
+Fable 5.1, timestamped 14:57 and 15:02 UTC today): a second vendored pack,
+`harness/design_skills/design-md/` (10-site `DESIGN.md` teardowns, MIT via
+getdesign.md), added as a sibling folder to this PR's
+`harness/design_skills/landing-page-design/`. This review's tests, ruff, and
+baseline-parity checks were run in an isolated worktree against the
+merge-base (`67b4fef`) and master's prior tip (`e3e0661`), so those results
+are unaffected. The new commits use the same `design_skills/<skill-id>/`
+convention this PR establishes and touch no files this PR touches, so no
+merge conflict is expected -- but they reached `master` outside any
+branch/PR, which is worth Caleb's attention on its own. Re-run
+`pytest -q` and `ruff check .` once more after merging, as routine practice.
+
 ## Cleanup confirmation
 
 `git worktree remove --force /home/deploy/advertorial-pr2` and `git branch -D pr2-test` run at the end of this review (see below). This review document was written and committed on `review/pr2-design-skills`, branched from `master`, in `/home/deploy/advertorial` — not merged.
