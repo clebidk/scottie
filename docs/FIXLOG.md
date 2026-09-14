@@ -1399,3 +1399,35 @@ brand tokens for a human to make.
 - Also on master (committed directly, docs-only, 2ee5271/3948622): harness/design_skills/design-md/ — ten DESIGN.md site analyses from getdesign.md (MIT, VoltAgent) as evidence; neutrality test skips vendored evidence files.
 - Open: warm-up-window gate (brief item, not started); the Amin article rules stay [CONFIRM IN ARTICLE] until the text is available; tenant `design_reference` slugs → adapter (follow-up).
 - Process note: reference packs were committed straight to master; code changes keep going through branches and review.
+
+## Cycle 31 — image selection, markup, and delivery audit + fixes (2026-09-14)
+
+Branch `cycle31/images`, not merged. `docs/IMAGES-AUDIT-2026-09-14.md` audits the Friday
+23-page set first, before any code change; `docs/IMAGES.md` is the resulting reference.
+
+- **Selection** (`harness/ground.py`): `pick_hero`/`pick_section_images`/`build_slot_plan`
+  (a real photo preferred over the plain Shopify product-on-white shot for hero, never a
+  logo/ai_render); `enforce_slot_plan` is the render-time backstop that fixes a bad hero pick,
+  a duplicate asset id within one page, or a disallowed `ai_render`, without ever touching
+  copy. `record_used_asset_ids`/`all_used_asset_ids` (`<run_dir>/.image-selection.json`) give
+  the three cartridges of one run cross-cartridge dedupe.
+- **Markup**: `render.render_image_slot()` is the one function every cartridge template and
+  every image-bearing block now calls -- width/height, loading (lazy except hero: eager +
+  fetchpriority high), decoding="async", a fixed aspect box (`adv-img--4x3`/`--1x1`, picked by
+  `detect_near_white_border`), optional `<figcaption>`, and (when Pillow supports WebP) a
+  `<picture>` wrapping a WebP `<source>` + JPEG `<img>` fallback.
+- **Delivery**: `generate_image_variants` writes 480/800/1200/1600px JPEG+WebP srcset
+  variants per asset (never upscaled); `harness/review.py` gained a 12 MB size-cap warning;
+  `harness/shopify.py`'s `build_asset_manifest` now lists every srcset/picture variant with
+  its own CDN filename, not just the single inlined fallback.
+- **Checks** (`harness/pagechecks.py`): `find_image_markup_violations`,
+  `find_duplicate_asset_violations`, `find_hero_requirement_violations` -- all new; only one
+  image check (`find_image_allowlist_violations`) existed before this cycle.
+- Eval baseline deliberately re-captured (`evals/baseline/{founder-warranty-demo,
+  hidden-costs-v2-transcript}/{longform,product-page}.page.json`): the committed fake-writer
+  fixtures had a real duplicate baked in (same hero photo across longform/product-page, and
+  twice within one longform page) that `enforce_slot_plan` now correctly fixes.
+- 938 tests passed (895 baseline + 43 new/updated for this cycle), `ruff check` clean.
+- Verified on the server: `harness run` on both `product-features-v2-v2.mov` (Mini, listicle
+  Drive pack) and `hidden-costs-v2-v2.mov` (Fuji) fixtures in a worktree of this branch, plus
+  `harness review` on both -- see the cycle 31 verification note for per-page evidence.
