@@ -39,7 +39,7 @@ _SRC_ASSET_RE = re.compile(r'src="(assets/[^"]+)"')
 def rewrite_asset_srcs(body_html, url_by_local_path):
     """Every `src="assets/<file>"` in `body_html` becomes the uploaded CDN
     URL from `url_by_local_path` (keyed by that same "assets/<file>" local
-    path, see harness/shopify.py's build_asset_manifest). A path not in the
+    path, see harness/page_body.py's build_asset_manifest). A path not in the
     mapping is left as-is."""
 
     def replace(match):

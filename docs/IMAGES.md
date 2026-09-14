@@ -133,7 +133,7 @@ desktop by default (no override).
   standalone -- a browser silently falls through to the inlined `<img>`. `REVIEW_HTML_MAX_BYTES`
   (12 MB) is checked after each file is written; going over it logs a warning to stderr, never
   raises.
-- **`shopify-body.assets.json`** (`harness/shopify.py`'s `build_asset_manifest`): lists every
+- **`shopify-body.assets.json`** (`harness/page_body.py`'s `build_asset_manifest`): lists every
   distinct file a rendered page's `<img>`/`<picture>` markup references -- the plain fallback
   `src` and every `srcset` width variant, JPEG and WebP alike -- each with its own
   `cdn_filename` (width-suffixed so a 480w and a 1600w variant of the same photo never

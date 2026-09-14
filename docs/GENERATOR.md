@@ -74,7 +74,7 @@ Edit the five pieces:
 - **`template.html`** -- Jinja template rendering that shape to HTML. Keep the root
   element's class matching the pattern any other full-bleed cartridge uses if this type
   will ever go to Shopify (see `IMAGE-MAP.md` and
-  `harness/shopify.py`'s `full_bleed_css()`, which reads the tenant's own
+  `harness/page_body.py`'s `full_bleed_css()`, which reads the tenant's own
   `theme.full_bleed_css`, keyed to its `theme.root_class`). Any `adv-*` class the
   template uses must have a rule in `harness/structure.css` -- the harness's own
   structural/component/responsive stylesheet, always loaded first by
@@ -221,7 +221,7 @@ was derived from -- the same traps apply to anything `harness shopify-body` prod
 
 - The Aurora page template wraps `body_html` in `.container--small` with
   `.page__content{margin:3.2rem 0 0}`. Full-bleed comes from `:has()` rules at the top of
-  `shopify-body.html` (`harness/shopify.py`'s `full_bleed_css()`, reading the tenant's own
+  `shopify-body.html` (`harness/page_body.py`'s `full_bleed_css()`, reading the tenant's own
   `theme.full_bleed_css`) that neutralise the
   container padding, the section spacing, the `.page__content` margin, and the duplicate
   `.page__title`. Removing them re-narrows the page.

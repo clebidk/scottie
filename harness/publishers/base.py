@@ -1,7 +1,7 @@
 """Publisher adapter interface.
 
 A publisher takes one cartridge's rendered output -- a `page` dict of
-{"title", "body_html", ...} built from `harness/shopify.py`'s
+{"title", "body_html", ...} built from `harness/page_body.py`'s
 `build_shopify_body`, plus an asset manifest with bytes attached -- and
 either gets it in front of a real storefront or exports it for manual
 upload. Nothing in `harness/cli.py`'s `cmd_publish` picks which adapter runs;
@@ -19,7 +19,7 @@ class Publisher:
 
     def upload_assets(self, manifest):
         """`manifest`: a list of {"local_path", "alt", "cdn_filename",
-        "bytes"} (see harness/shopify.py's build_asset_manifest, with bytes
+        "bytes"} (see harness/page_body.py's build_asset_manifest, with bytes
         read in by the caller). Returns {local_path: uploaded_url_or_path}."""
         raise NotImplementedError
 

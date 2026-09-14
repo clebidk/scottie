@@ -439,7 +439,7 @@ def filter_exemplars_for_warmup(exemplars, tenant, *, window=None):
     """Drop article reference_article exemplars that name the brand too early.
 
     JSON page.json exemplars are left alone (structured shape reference).
-    Cycle 33 critic: Peak's live .md exemplars name the brand in the
+    Cycle 33 critic: a tenant's live .md exemplars name the brand in the
     headline/body and were canceling the warm-up instruction."""
     window = window if window is not None else _warmup_window_words(tenant)
     brand_terms = _warmup_brand_terms(tenant)

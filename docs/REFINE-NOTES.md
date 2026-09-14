@@ -61,7 +61,7 @@ known string.
 **Cycle 14 -- the listicle cartridge and Shopify body builder.** The one addition, not a
 refinement: a fourth cartridge (`cartridges/listicle/`) matching the "N reasons" format
 already shipped live at `/pages/5-reasons-to-love-peak-saunas`, and a new
-`harness/shopify.py` that turns any cartridge's rendered HTML into a paste-ready Shopify body
+`harness/page_body.py` that turns any cartridge's rendered HTML into a paste-ready Shopify body
 snippet. Built to prove out, not fork, the existing contract: `harness/claims.py` and
 `harness/write.py` were not touched at all -- every claim gate already walks `page.json`
 generically by cartridge name, so listicle passed through unmodified, verified by tests
