@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 from . import pagechecks
+from . import simplicity
 from . import tenant as tenant_mod
 from . import vocab
 from .claims import (
@@ -163,6 +164,13 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         if tenant.get("cartridges.article.warmup_mode", "warn") == "enforce":
             window = resolve_warmup_window(tenant, schema_default=warmup_window_words)
             problems += find_warmup_violations(page, tenant, window)
+    # Cycle 32: simplicity gate (above-fold links, headline word band, one
+    # offer element) -- hard gate only when this tenant's simplicity_mode is
+    # "enforce" (default "warn": advisory REVIEW.md line only, see
+    # simplicity.simplicity_review_lines).
+    tenant = tenant or tenant_mod.active()
+    if tenant.get("simplicity_mode", "warn") == "enforce":
+        problems += simplicity.find_simplicity_violations(page, cartridge_name)
     return problems
 
 
@@ -622,12 +630,17 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     attempts = []
     deterministic_fix_counts = []
     # Fix cycle 6 item 3: every failure seen so far in this cartridge,
-    # deduplicated by (path, issue) -- carried into every REVISION REQUIRED
-    # block so a repair that fixes one violation but reintroduces an earlier
-    # one still shows up as still-open, instead of the writer only seeing
-    # its most recent mistake.
-    failures_seen = []
-    failures_seen_keys = set()
+    # deduplicated -- carried into every REVISION REQUIRED block so a repair
+    # that fixes one violation but reintroduces an earlier one still shows
+    # up as still-open, instead of the writer only seeing its most recent
+    # mistake. Cycle 32: dedup key is the failure's own stable "key" when it
+    # has one (e.g. "warmup:brand" -- the same violation category recognized
+    # across attempts even though its word-index/budget detail changes),
+    # else (path, issue) as before. A repeat under the same key REPLACES the
+    # stored item (ordered dict: position stays, value updates), so the
+    # REVISION REQUIRED block always states the latest detail for a
+    # still-open violation instead of a stale one from an earlier attempt.
+    failures_seen_by_key = {}
     # Fix cycle 11 problem C: tokens actually spent by each write_page call
     # made for THIS cartridge so far (initial write + repairs) -- used below
     # to estimate whether the budget remaining can afford another one.
@@ -718,17 +731,15 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
 
         log.event(f"write.{cartridge_name}", f"gate FAIL on attempt {attempt}: {problems}")
         for item in problems:
-            key = (item.get("path"), item.get("issue"))
-            if key not in failures_seen_keys:
-                failures_seen_keys.add(key)
-                failures_seen.append(item)
+            dedup_key = item.get("key") or (item.get("path"), item.get("issue"))
+            failures_seen_by_key[dedup_key] = item
 
         if attempt >= MAX_REPAIR_ATTEMPTS + 1:
             err = ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
             err.attempts = attempts
             err.deterministic_fixes = deterministic_fix_counts
             raise err
-        revision_note = build_revision_note(attempt, failures_seen)
+        revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()))
 
 
 # ---------------------------------------------------------------------------

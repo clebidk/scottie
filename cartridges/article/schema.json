@@ -2,6 +2,7 @@
   "type": "object",
   "allowed_cta_texts": ["See the models", "Read the specs"],
   "warmup_window_words": 600,
+  "headline_word_band": [8, 14],
   "required": ["headline", "dek", "open", "body_sections", "alternatives_section", "how_it_works_section", "turn_section", "close", "cta", "images"],
   "properties": {
     "headline": {

@@ -71,6 +71,15 @@ cartridges:
     warmup_window_words: 600
     warmup_mode: warn
 
+# Cycle 32: the simplicity gate (docs/RESEARCH-HORMOZI-LANDING.md section 3
+# -- above-the-fold links, headline word band, one offer element per page;
+# harness/simplicity.py). "warn" (the safe default for a new tenant):
+# advisory REVIEW.md "Simplicity" section only. "enforce": those checks
+# become hard gates through the writer repair loop, same as warmup_mode
+# above -- turn it on only once this tenant's own baseline pages already
+# pass warn mode cleanly.
+simplicity_mode: warn
+
 # Cycle 30: structural design references. Each slug names a folder under
 # harness/design_skills/design-md/<slug>/DESIGN.md; the design-skills
 # adapter takes only STRUCTURAL rules from it (hero style, whitespace

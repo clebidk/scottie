@@ -5,6 +5,7 @@
     "Shop the {short_name}",
     "Shop the {model_name}"
   ],
+  "headline_word_band": [6, 12],
   "required": [
     "cta_text",
     "cta_url",

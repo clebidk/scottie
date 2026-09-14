@@ -1,6 +1,7 @@
 {
   "type": "object",
   "allowed_cta_texts": ["See the models", "Shop the {model_name}", "Book a consult"],
+  "headline_word_band": [8, 14],
   "required": ["headline", "dek", "reasons", "cta_text", "cta_url", "closing"],
   "properties": {
     "headline": {

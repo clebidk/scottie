@@ -121,6 +121,11 @@ cartridges:
     warmup_window_words: 600
     warmup_mode: warn
 
+# Cycle 32: the simplicity gate (harness/simplicity.py) -- "warn" until a
+# real enforce-mode run's Simplicity section has been reviewed clean, same
+# rollout discipline as warmup_mode above.
+simplicity_mode: warn
+
 # Cycle 30: structural design references -- Peak Saunas takes the hero
 # style / whitespace / content-width / type-ratio / image-aspect / section
 # -rhythm structure from these two references, never their fonts, colors,
