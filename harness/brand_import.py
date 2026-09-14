@@ -13,6 +13,7 @@ Nothing here calls Shopify or Slack, and no OAuth flow exists in this cycle --
 see harness/sources/drive.py's module docstring.
 """
 import base64
+import colorsys
 import json
 import mimetypes
 import re
@@ -50,6 +51,22 @@ GUIDE_EXTS = {".pdf"}
 # misclassifies still shows up in BRAND-IMPORT.md's manifest for a human to
 # re-file) and not worth a keyword-boundary special case for one word.
 GUIDE_KEYWORDS = ("guide", "brand", "style")
+# Cycle 35d: a bare .pdf with no folder context used to default to "guide"
+# unconditionally -- 32 files under a "Logo layout for Merch"-style folder
+# misclassified this way in a real tenant's brand-import run (see a
+# tenant's own docs/ for the specifics; not reproduced here since the
+# engine stays tenant-neutral). A .pdf found INSIDE a
+# walked Drive folder now only reaches the guide bucket when its own
+# filename says so, or its folder looks like an actual guide/info folder;
+# a .pdf with no folder context at all (top-level Drive file, or a --local
+# flat import) keeps the old inclusive default -- there's no folder signal
+# to gate on, and a flat import dropping in "brand-guide.pdf" is a normal,
+# fully-supported case.
+GUIDE_FOLDER_KEYWORDS = ("guide", "brand", "info", "deck", "presentation")
+# A .pdf under a folder whose name contains "merch" or "layout" is a
+# merch/packaging layout sheet, not a brand guide -- checked before the
+# guide rule above so it never falls into that bucket by default.
+MERCH_LAYOUT_FOLDER_KEYWORDS = ("merch", "layout")
 FONT_EXTS = {".ttf", ".otf", ".woff", ".woff2"}
 PALETTE_EXTS = {".json", ".txt", ".ase"}
 PALETTE_KEYWORDS = ("color", "colour", "palette", "tokens")
@@ -85,9 +102,13 @@ def classify_file(name, folder_path=()):
         and any(k in top_folder for k in LOGO_FOLDER_KEYWORDS)
     ):
         return "logo"
+    if ext == ".pdf" and any(k in top_folder for k in MERCH_LAYOUT_FOLDER_KEYWORDS):
+        return "merch_layout"
     if ext in LOGO_EXTS and any(k in lower for k in LOGO_KEYWORDS):
         return "logo"
-    if ext in GUIDE_EXTS or any(k in lower for k in GUIDE_KEYWORDS):
+    if any(k in lower for k in GUIDE_KEYWORDS):
+        return "guide"
+    if ext in GUIDE_EXTS and (not folder_path or any(k in top_folder for k in GUIDE_FOLDER_KEYWORDS)):
         return "guide"
     if ext in FONT_EXTS:
         return "font"
@@ -465,19 +486,44 @@ BRAND_GUIDE_SYSTEM = (
 MAX_GUIDE_PAGES = 6
 
 
+# Cycle 35d: a PDF this large (a real 263.8 MB info-sheet PDF, misfiled as a
+# brand guide, found in a real tenant's Drive folder) rasterizes to a page
+# image whose base64 encoding blows past Anthropic's 10 MB image limit --
+# that run's vision call 400'd before ever reaching the model. Checked
+# before rendering, not after, so an
+# oversize PDF fails soft (a report line) instead of failing the vision read.
+PDF_SIZE_CAP_BYTES = 25 * 1024 * 1024
+
+# At most this many guide-classified PDFs are vision-read per import -- a
+# real folder can hold several guide-like PDFs; reading all of them would
+# multiply model calls unboundedly. The rest are listed, not read.
+MAX_GUIDE_DOCS = 2
+
+
+def _format_mb(num_bytes):
+    return f"{num_bytes / (1024 * 1024):.1f}"
+
+
+def rank_guide_candidates(guide_entries):
+    """`guide_entries` ordered most-likely-the-real-guide first: a filename
+    that says "guide" beats one that doesn't, then largest-by-bytes within
+    that group -- a real brand guide runs many pages and is reliably the
+    biggest PDF in its group, where a color/logo-variant sheet is one page.
+    `guide_entries` is a list of {"name", "path", ...} dicts (download_incoming's
+    shape). This is `choose_guide`'s own preference, generalized to a ranking
+    so a caller can take the top MAX_GUIDE_DOCS instead of just one."""
+    return sorted(
+        guide_entries,
+        key=lambda e: ("guide" in e["name"].lower(), e["path"].stat().st_size),
+        reverse=True,
+    )
+
+
 def choose_guide(guide_entries):
-    """The best brand-guide candidate among several "guide"-classified files.
-    classify_file()'s guide bucket is deliberately broad (any .pdf, or any
-    name containing guide/brand/style) -- a real folder can hold several
-    PDFs that aren't the comprehensive brand guide (a one-page color-variant
-    sheet is still a .pdf). Prefer a name that actually says "guide"; among
-    those (or, if none do, among all candidates), the largest file -- a real
-    brand guide runs many pages and is reliably the biggest PDF in the
-    folder, where a color/logo-variant sheet is one page. `guide_entries` is
-    a list of {"name", "path", ...} dicts (download_incoming's shape)."""
-    named_guide = [e for e in guide_entries if "guide" in e["name"].lower()]
-    candidates = named_guide or guide_entries
-    return max(candidates, key=lambda e: e["path"].stat().st_size)
+    """The single best brand-guide candidate among several "guide"-classified
+    files -- see `rank_guide_candidates` for the preference order this picks
+    the top of."""
+    return rank_guide_candidates(guide_entries)[0]
 
 
 def render_guide_pages(path, out_dir, *, max_pages=MAX_GUIDE_PAGES, pdftoppm_bin="pdftoppm"):
@@ -594,6 +640,120 @@ def contrast_ratio(hex_a, hex_b):
 
 TEXT_CONTRAST_MIN = 4.5
 ACCENT_CONTRAST_MIN = 3.0
+
+
+# ---------------------------------------------------------------------------
+# Color palette (Cycle 35d)
+#
+# The merge used to key each color on the model's own free-text `role`
+# string, so a second color sharing a role (e.g. two guide entries both
+# labeled "accent") clobbered the first -- three real, differently-named
+# colors were silently dropped this way in a real tenant's brand-import run
+# (see a tenant's own docs/ for the specifics; not reproduced here since the
+# engine stays tenant-neutral). Every color found, from any source, now
+# funnels into one `palette` list, deduplicated
+# by normalized hex ONLY -- `role` is carried as advisory data on each entry,
+# never a dict key, so it may repeat freely across entries.
+#
+# The four "derived picks" (primary/accent/background/text) each choose one
+# palette entry: an explicit label from the source document wins first (a
+# color the guide itself calls "background" IS the background); failing
+# that, a documented rule -- see DERIVATION_RULE_TEXT below, echoed into
+# BRAND-IMPORT.md so an operator can see, and override, the reasoning.
+# ---------------------------------------------------------------------------
+
+def _normalize_hex(hex_value):
+    return hex_value.strip().lower()
+
+
+def _add_palette_color(palette, seen_hexes, hex_value, *, name="", role="", source):
+    """Appends one color to `palette` if its normalized hex hasn't been seen
+    yet in this run -- every DISTINCT hex is kept exactly once (first-seen
+    metadata wins for an exact repeat); `role` is advisory only, so two
+    entries sharing a role are both kept."""
+    hexv = _normalize_hex(hex_value)
+    if hexv in seen_hexes:
+        return
+    seen_hexes.add(hexv)
+    palette.append({"hex": hexv, "name": name, "role": role, "source": source, "rank": len(palette) + 1})
+
+
+def _hex_to_hsv(hex_value):
+    r, g, b = _hex_to_rgb(hex_value)
+    return colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+
+
+def _is_warm_hue(hue):
+    """True for a hue in the red/orange/yellow/pink-magenta range (roughly
+    -60deg..60deg on the color wheel) -- the "warm" half of the accent pick
+    rule below."""
+    return hue <= 1 / 6 or hue >= 5 / 6
+
+
+# HSV saturation at or below this reads as "neutral" for the background pick
+# rule -- a near-white/near-gray/near-black color, not a brand hue.
+_NEUTRAL_SATURATION_MAX = 0.12
+
+# A palette entry explicitly labeled one of these is never used as a
+# fallback "neutral" background candidate -- it's already spoken for by
+# another pick, and reusing it as the background too would zero out that
+# pick's own contrast against the page.
+_BACKGROUND_EXCLUDED_ROLES = {"accent", "primary_accent", "brand", "text", "primary"}
+
+
+def _labeled(palette, roles):
+    return next((c for c in palette if c["role"] in roles), None)
+
+
+def _pick_background(palette):
+    labeled = _labeled(palette, ("background",))
+    if labeled:
+        return labeled
+    candidates = [c for c in palette if c["role"] not in _BACKGROUND_EXCLUDED_ROLES]
+    if not candidates:
+        return None
+    neutral = min(candidates, key=lambda c: _hex_to_hsv(c["hex"])[1])
+    if _hex_to_hsv(neutral["hex"])[1] <= _NEUTRAL_SATURATION_MAX:
+        return neutral
+    return None
+
+
+def _pick_text(palette, background_hex):
+    labeled = _labeled(palette, ("text", "primary"))
+    if labeled:
+        return labeled
+    if not palette or background_hex is None:
+        return None
+    bg_luminance = _relative_luminance(background_hex)
+    darker = [c for c in palette if _relative_luminance(c["hex"]) < bg_luminance]
+    candidates = darker or palette
+    return max(candidates, key=lambda c: contrast_ratio(c["hex"], background_hex))
+
+
+def _pick_accent(palette):
+    labeled = _labeled(palette, ("accent", "primary_accent", "brand"))
+    if labeled:
+        return labeled
+    if not palette:
+        return None
+    warm = [c for c in palette if _is_warm_hue(_hex_to_hsv(c["hex"])[0])]
+    candidates = warm or palette
+    return max(candidates, key=lambda c: _hex_to_hsv(c["hex"])[1])
+
+
+DERIVATION_RULE_TEXT = (
+    "When a color isn't explicitly labeled by its source document: "
+    "background = the lightest neutral color found (HSV saturation <= "
+    f"{_NEUTRAL_SATURATION_MAX}), else white; "
+    "text = the palette color with the highest WCAG contrast against the "
+    "chosen background, preferring one darker than the background; "
+    "accent = the most saturated warm-hued color (red/orange/yellow/pink), "
+    "or the most saturated color overall if none is warm; "
+    "primary = the same pick as accent. "
+    "An explicit label from the brand guide or a palette document always "
+    "wins over these rules. To override a pick, hand-edit tokens.json's "
+    "brand_import.colors -- a re-import without --force will not touch it."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -798,7 +958,10 @@ class BrandImportResult:
         self.tenant_brand_section = {}
         self.warnings = []
         self.human_decisions = []
-        self.raw_model_json = None
+        # [{"file": <guide filename>, "json": <parsed response or None>}, ...]
+        # -- up to MAX_GUIDE_DOCS entries (Cycle 35d: more than one guide PDF
+        # can now be vision-read per import).
+        self.raw_model_json = []
         self.raw_palette_json = None
         self.wrote_base_css = False
 
@@ -821,6 +984,17 @@ class BrandImportResult:
             lines.append(f"- Font `{role}`: {font['family']} (source: {font['source']})")
         lines.append(f"- base.css regenerated: {'yes' if self.wrote_base_css else 'no (already existed; use --force to overwrite)'}")
         lines.append("")
+        palette = self.brand_import_tokens.get("palette", [])
+        if palette:
+            lines.append("## Full color palette (every distinct color found)")
+            for c in palette:
+                label = f" \"{c['name']}\"" if c.get("name") else ""
+                role = c.get("role") or "(no role given)"
+                lines.append(f"- #{c['rank']}: `{c['hex']}`{label} -- {role} (source: {c['source']})")
+            lines.append("")
+            lines.append("## How the primary/accent/background/text picks were made")
+            lines.append(DERIVATION_RULE_TEXT)
+            lines.append("")
         lines.append("## What needs a human decision")
         if self.human_decisions:
             for item in self.human_decisions:
@@ -834,9 +1008,16 @@ class BrandImportResult:
                 lines.append(f"- {w}")
             lines.append("")
         lines.append("## Raw model JSON (brand guide)")
-        lines.append("```json")
-        lines.append(json.dumps(self.raw_model_json, indent=2) if self.raw_model_json is not None else "null")
-        lines.append("```")
+        if self.raw_model_json:
+            for entry in self.raw_model_json:
+                lines.append(f"### {entry['file']}")
+                lines.append("```json")
+                lines.append(json.dumps(entry["json"], indent=2))
+                lines.append("```")
+        else:
+            lines.append("```json")
+            lines.append("null")
+            lines.append("```")
         if self.raw_palette_json is not None:
             lines.append("")
             lines.append("## Raw model JSON (colors palette document)")
@@ -884,6 +1065,11 @@ def import_brand_kit(
 
     tokens = {"colors": {}, "fonts": {}}
     tenant_brand = {}
+    # Every distinct color found, from any source, in order of appearance --
+    # see the "Color palette (Cycle 35d)" module section above for why this
+    # replaces the old per-source `tokens["colors"][role] = ...` writes.
+    palette = []
+    seen_hexes = set()
 
     # -- logo -----------------------------------------------------------
     logo_entries = by_kind.get("logo", [])
@@ -919,10 +1105,8 @@ def import_brand_kit(
             dest_logo.write_bytes(chosen_logo.read_bytes())
         result.logo_path = f"brand/logo{chosen_logo.suffix.lower()}"
         tenant_brand["logo_path"] = result.logo_path
-        for i, hexv in enumerate(dominant_colors(chosen_logo)):
-            tokens["colors"][f"logo_accent_{i + 1}"] = {
-                "hex": hexv, "role": "accent", "source": f"brand-import:{chosen_logo.name}",
-            }
+        for hexv in dominant_colors(chosen_logo):
+            _add_palette_color(palette, seen_hexes, hexv, role="accent", source=f"brand-import:{chosen_logo.name}")
         if chosen_logo.suffix.lower() == ".svg":
             result.human_decisions.append(
                 f"Logo {chosen_logo.name} is an SVG; dominant-color extraction was skipped "
@@ -952,10 +1136,8 @@ def import_brand_kit(
                 "from .json/.txt -- open it by hand and add its colors to tokens.json."
             )
             continue
-        for i, hexv in enumerate(parse_palette_file(e["path"])):
-            tokens["colors"].setdefault(f"palette_{i + 1}", {
-                "hex": hexv, "role": "palette", "source": f"brand-import:{e['name']}",
-            })
+        for hexv in parse_palette_file(e["path"]):
+            _add_palette_color(palette, seen_hexes, hexv, role="palette", source=f"brand-import:{e['name']}")
 
     # -- fonts --------------------------------------------------------------
     font_entries = by_kind.get("font", [])
@@ -996,33 +1178,53 @@ def import_brand_kit(
     # -- brand guide (vision) -------------------------------------------
     guide_entries = by_kind.get("guide", [])
     if guide_entries:
-        guide = choose_guide(guide_entries)
-        if len(guide_entries) > 1:
+        oversize = [e for e in guide_entries if e["path"].stat().st_size > PDF_SIZE_CAP_BYTES]
+        for e in oversize:
             result.human_decisions.append(
-                f"Multiple brand-guide-like files found ({', '.join(e['name'] for e in guide_entries)}); "
-                f"only {guide['name']} was read."
+                f"{e['name']}: skipped: {_format_mb(e['path'].stat().st_size)} MB, over cap "
+                f"({_format_mb(PDF_SIZE_CAP_BYTES)} MB) -- open it by hand and confirm it's "
+                "meant to be this large before it's used anywhere."
             )
-        pages_dir = incoming_dir / "_guide-pages"
-        pages = render_guide_pages(guide["path"], pages_dir, pdftoppm_bin=pdftoppm_bin)
-        if not pages:
+        guide_entries = [e for e in guide_entries if e not in oversize]
+
+    if guide_entries:
+        ranked = rank_guide_candidates(guide_entries)
+        to_read, not_read = ranked[:MAX_GUIDE_DOCS], ranked[MAX_GUIDE_DOCS:]
+        if not_read:
             result.human_decisions.append(
-                f"{guide['name']} could not be rendered to page images (no pdftoppm on PATH, "
-                "or not a PDF/image this harness can open) -- colors/fonts/rules were not "
-                "extracted from it automatically."
+                f"{len(not_read)} more brand-guide-like file(s) found but not read (cap of "
+                f"{MAX_GUIDE_DOCS} guide PDFs per import): "
+                + ", ".join(e["name"] for e in not_read) + "."
             )
-        elif client is not None:
+        for guide in to_read:
+            pages_dir = incoming_dir / f"_guide-pages-{safe_filename(guide['name'], fallback='guide')}"
+            pages = render_guide_pages(guide["path"], pages_dir, pdftoppm_bin=pdftoppm_bin)
+            if not pages:
+                result.human_decisions.append(
+                    f"{guide['name']} could not be rendered to page images (no pdftoppm on PATH, "
+                    "or not a PDF/image this harness can open) -- colors/fonts/rules were not "
+                    "extracted from it automatically."
+                )
+                continue
+            if client is None:
+                result.human_decisions.append(
+                    f"{guide['name']} was rendered to {len(pages)} page image(s) but no model "
+                    "client was given -- run with a real client to extract colors/fonts from it."
+                )
+                continue
+
             guide_json = extract_brand_guide_json(pages, client=client, model=model, budget=budget, log=log)
-            result.raw_model_json = guide_json
+            result.raw_model_json.append({"file": guide["name"], "json": guide_json})
             if guide_json and not guide_json.get("_parse_error"):
-                for i, c in enumerate(guide_json.get("colors", [])):
+                for c in guide_json.get("colors", []):
                     hexv = c.get("hex", "")
                     if not re.match(r"^#[0-9a-fA-F]{6}$", hexv):
                         continue
-                    role = (c.get("role") or f"guide_{i + 1}").lower().replace(" ", "_")
-                    tokens["colors"].setdefault(role, {
-                        "hex": hexv, "role": role, "name": c.get("name", ""),
-                        "source": f"brand-import:{guide['name']}",
-                    })
+                    role = (c.get("role") or "").strip().lower().replace(" ", "_")
+                    _add_palette_color(
+                        palette, seen_hexes, hexv, name=c.get("name", ""), role=role,
+                        source=f"brand-import:{guide['name']}",
+                    )
                 existing_font_families = {f["family"].lower() for f in tokens["fonts"].values()}
                 for i, f in enumerate(guide_json.get("fonts", [])):
                     family = f.get("family") or ""
@@ -1062,11 +1264,6 @@ def import_brand_kit(
                     f"{guide['name']}: the brand-guide model call did not return valid JSON; "
                     "raw response kept below for manual review."
                 )
-        else:
-            result.human_decisions.append(
-                f"{guide['name']} was rendered to {len(pages)} page image(s) but no model "
-                "client was given -- run with a real client to extract colors/fonts from it."
-            )
 
     # -- palette document (vision) -- Cycle 35c: a Colors-folder .pdf is a
     # standalone swatch sheet, not the comprehensive brand guide -- read it
@@ -1074,6 +1271,16 @@ def import_brand_kit(
     # of the response; fonts/logo_rules/voice/dont from a color sheet would
     # just be empty or noise. -------------------------------------------
     palette_doc_entries = by_kind.get("palette_pdf", [])
+    if palette_doc_entries:
+        oversize = [e for e in palette_doc_entries if e["path"].stat().st_size > PDF_SIZE_CAP_BYTES]
+        for e in oversize:
+            result.human_decisions.append(
+                f"{e['name']}: skipped: {_format_mb(e['path'].stat().st_size)} MB, over cap "
+                f"({_format_mb(PDF_SIZE_CAP_BYTES)} MB) -- open it by hand and confirm it's "
+                "meant to be this large before it's used anywhere."
+            )
+        palette_doc_entries = [e for e in palette_doc_entries if e not in oversize]
+
     if palette_doc_entries:
         palette_doc = max(palette_doc_entries, key=lambda e: e["path"].stat().st_size)
         if len(palette_doc_entries) > 1:
@@ -1092,15 +1299,15 @@ def import_brand_kit(
             palette_json = extract_brand_guide_json(pages, client=client, model=model, budget=budget, log=log)
             result.raw_palette_json = palette_json
             if palette_json and not palette_json.get("_parse_error"):
-                for i, c in enumerate(palette_json.get("colors", [])):
+                for c in palette_json.get("colors", []):
                     hexv = c.get("hex", "")
                     if not re.match(r"^#[0-9a-fA-F]{6}$", hexv):
                         continue
-                    role = (c.get("role") or f"palette_doc_{i + 1}").lower().replace(" ", "_")
-                    tokens["colors"].setdefault(role, {
-                        "hex": hexv, "role": role, "name": c.get("name", ""),
-                        "source": f"brand-import:{palette_doc['name']}",
-                    })
+                    role = (c.get("role") or "").strip().lower().replace(" ", "_")
+                    _add_palette_color(
+                        palette, seen_hexes, hexv, name=c.get("name", ""), role=role,
+                        source=f"brand-import:{palette_doc['name']}",
+                    )
             elif palette_json:
                 result.human_decisions.append(
                     f"{palette_doc['name']}: the colors-document model call did not return "
@@ -1112,12 +1319,17 @@ def import_brand_kit(
                 "model client was given -- run with a real client to extract its colors."
             )
 
-    # -- contrast sanity ---------------------------------------------------
-    bg_hex = next((c["hex"] for c in tokens["colors"].values() if c.get("role") == "background"), "#ffffff")
-    text_hex = next((c["hex"] for c in tokens["colors"].values() if c.get("role") in ("text", "primary")), None)
-    accent_hex = next((c["hex"] for c in tokens["colors"].values() if c.get("role") in ("accent", "primary_accent", "brand")), None)
-    if not accent_hex and tokens["colors"]:
-        accent_hex = next(iter(tokens["colors"].values()))["hex"]
+    # -- palette + derived picks (primary/accent/background/text) ---------
+    tokens["palette"] = palette
+    default_background = {
+        "hex": "#ffffff", "name": "", "role": "background", "source": "brand-import:default", "rank": None,
+    }
+    bg_entry = _pick_background(palette) or default_background
+    bg_hex = bg_entry["hex"]
+    text_entry = _pick_text(palette, bg_hex)
+    text_hex = text_entry["hex"] if text_entry else None
+    accent_entry = _pick_accent(palette)
+    accent_hex = accent_entry["hex"] if accent_entry else None
 
     if text_hex:
         ratio = contrast_ratio(text_hex, bg_hex)
@@ -1142,18 +1354,14 @@ def import_brand_kit(
                 f"{ACCENT_CONTRAST_MIN}:1 -- set anyway because --force was given."
             )
 
+    tokens["colors"] = {"background": bg_entry}
     if accent_hex and not accent_refused:
-        tokens["colors"]["accent"] = tokens["colors"].get(
-            "accent", {"hex": accent_hex, "role": "accent", "source": "brand-import:derived"}
-        )
+        tokens["colors"]["accent"] = accent_entry
+        tokens["colors"]["primary"] = accent_entry
         tenant_brand["accent_hex"] = accent_hex
-    if text_hex:
-        tokens["colors"]["text"] = tokens["colors"].get(
-            "text", {"hex": text_hex, "role": "text", "source": "brand-import:derived"}
-        )
-    tokens["colors"].setdefault("background", {"hex": bg_hex, "role": "background", "source": "brand-import:default"})
-    if accent_hex and not accent_refused:
         tenant_brand["primary_hex"] = accent_hex
+    if text_hex:
+        tokens["colors"]["text"] = text_entry
 
     result.brand_import_tokens = tokens
     result.tenant_brand_section = tenant_brand
