@@ -1,0 +1,4 @@
+{
+  "name": "harness",
+  "install": "bash .cursor/install.sh"
+}
