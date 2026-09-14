@@ -422,11 +422,33 @@ def _warranty_claim_id(valid_claim_ids):
     return None
 
 
+def _is_warranty_spec_label(label):
+    """True when `label` is already the allowed warranty spec label or
+    otherwise names a warranty row. Cycle 34: a {label,value} row whose
+    *value* mentions a lifetime warranty (e.g. Coverage / Heaters) must not
+    be rewritten into the Warranty pair."""
+    if not isinstance(label, str):
+        return False
+    stripped = label.strip().lower()
+    if not stripped:
+        return False
+    if stripped == vocab.ALLOWED_WARRANTY_SPEC_LABEL.lower():
+        return True
+    return "warrant" in stripped
+
+
 def _fix_warranty_violation(page, path, valid_claim_ids):
     """Replaces a warranty-wording gate failure at `path` with the fixed
     sentence (claim_ids attached on the sibling field), or, if `path` is a
-    spec-table row's "value" field, sets the fixed label/value pair instead
-    (the row's other allowed form). Returns True if the page was changed."""
+    warranty spec-table row's "value" field, sets the fixed label/value pair
+    instead (the row's other allowed form). Returns True if the page was
+    changed.
+
+    Cycle 34: only rewrite the label+value pair when the existing label is
+    already a warranty label. Other {label,value} rows (Coverage, Heaters,
+    …) whose value trips the warranty gate get the prose sentence on the
+    flagged field only, so the original fact is not silently replaced by a
+    duplicate Warranty row."""
     try:
         segs = _path_segments(path)
         node = page
@@ -438,7 +460,7 @@ def _fix_warranty_violation(page, path, valid_claim_ids):
     if not isinstance(node, dict) or not isinstance(node.get(key), str):
         return False
 
-    if key == "value" and "label" in node:
+    if key == "value" and _is_warranty_spec_label(node.get("label")):
         node["label"] = vocab.ALLOWED_WARRANTY_SPEC_LABEL
         node["value"] = vocab.ALLOWED_WARRANTY_SPEC_VALUE
         if "claim_id" in node:

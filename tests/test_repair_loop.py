@@ -456,6 +456,29 @@ def test_apply_deterministic_fixes_resolves_a_warranty_spec_table_row():
     assert row["claim_id"] == "warranty-terms"
 
 
+def test_apply_deterministic_fixes_does_not_turn_a_coverage_row_into_a_warranty_row():
+    # Cycle 34: a specs_table row whose *value* mentions a lifetime warranty
+    # but whose label is Coverage/Heaters/etc must not be rewritten into the
+    # Warranty pair (that dropped the real fact and could duplicate Warranty).
+    page = {
+        "specs_table": [
+            {"label": "Coverage", "value": "Lifetime warranty heaters included", "claim_id": None},
+            {"label": "Warranty", "value": ALLOWED_WARRANTY_SPEC_VALUE, "claim_id": "warranty-terms"},
+        ]
+    }
+    failures = find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}])
+    assert len(failures) == 1
+    assert failures[0]["path"].endswith("specs_table[0].value")
+    fixed = apply_deterministic_fixes(page, failures, _WARRANTY_VALID_CLAIM_IDS)
+    assert fixed == 1
+    coverage = page["specs_table"][0]
+    assert coverage["label"] == "Coverage"
+    assert coverage["value"] == ALLOWED_WARRANTY_SENTENCE
+    assert page["specs_table"][1]["label"] == "Warranty"
+    assert page["specs_table"][1]["value"] == ALLOWED_WARRANTY_SPEC_VALUE
+    assert find_warranty_violations(page, [{"id": "warranty-terms", "text": "warranty text"}]) == []
+
+
 def test_apply_deterministic_fixes_leaves_an_allowed_warranty_form_unchanged():
     page = {"trust_strip": {"warranty": {"text": ALLOWED_WARRANTY_SENTENCE, "claim_ids": ["warranty-terms"]}}}
     # An allowed form never produces a failure in the first place -- the
