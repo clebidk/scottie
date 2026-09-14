@@ -582,7 +582,7 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
         return None
 
 
-def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None):
+def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True):
     """The one function that builds an <img>/<picture> tag from an asset
     dict -- registered as a Jinja global in render_page's env (see below) so
     every cartridge template and every image-bearing block calls this
@@ -593,9 +593,11 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     aspect all set); a falsy asset (missing/failed download) renders
     nothing, same as the templates' own `{% if asset %}` guards did before.
 
-    Every image gets width/height (when known), decoding="async", and a
-    fixed aspect box (structure.css's .adv-img--4x3/--1x1) with object-fit:
-    cover so the layout never jumps. The hero gets loading="eager",
+    Every image gets width/height (when known) and decoding="async". Unless
+    `aspect_box` is False (press-logo-strip's own call -- a brand mark
+    should never be cropped to a photo aspect ratio), it also gets a fixed
+    aspect box (structure.css's .adv-img--4x3/--1x1) with object-fit: cover
+    so the layout never jumps. The hero gets loading="eager",
     fetchpriority="high", and the wider IMAGE_SIZES_HERO `sizes`; every
     other slot gets loading="lazy" and IMAGE_SIZES_DEFAULT. When Pillow
     could generate WebP variants, the tag is wrapped in a <picture> with a
@@ -615,7 +617,10 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     if fallback_src is None:
         fallback_src = variants[-1]["jpg"] if variants else asset.get("url", "")
 
-    classes = " ".join(c for c in ("adv-img", f"adv-img--{aspect}", "adv-img--hero" if hero else "", css_class) if c)
+    classes = " ".join(
+        c for c in ("adv-img", f"adv-img--{aspect}" if aspect_box else "", "adv-img--hero" if hero else "", css_class)
+        if c
+    )
     attrs = [f'src="{escape(fallback_src)}"', f'alt="{escape(alt)}"']
     if jpg_srcset:
         attrs += [f'srcset="{escape(jpg_srcset)}"', f'sizes="{escape(sizes)}"']

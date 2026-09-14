@@ -123,9 +123,13 @@
     <section class="pk-split pk-item {{ 'pk-item--left' if loop.index0 % 2 == 0 else 'pk-item--right' }}">
       <div class="pk-item-media">
         {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-        {% if item_asset %}
-        <img class="pk-zoom" src="{{ item_asset.url }}" alt="{{ item_asset.alt }}" loading="lazy"{% if item_asset.width and item_asset.height %} width="{{ item_asset.width }}" height="{{ item_asset.height }}"{% endif %}>
-        {% endif %}
+        {# Cycle 31: listicle has no dedicated hero field (ground.hero_
+           container treats reasons[0].image as the de facto hero) -- the
+           first item's image gets eager/fetchpriority markup instead of
+           lazy-loading the most-visible image on the page (audit
+           problem 5). pk-zoom's scroll-reveal motion is preserved via
+           css_class. #}
+        {{ render_image_slot(item_asset, hero=(loop.index0 == 0), css_class="pk-zoom") }}
       </div>
       <div class="pk-item-copy">
         <div class="pk-item-inner pk-reveal">

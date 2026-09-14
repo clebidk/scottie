@@ -26,12 +26,12 @@
   <div class="adv-images">
     {% for img in page.images %}
       {% set asset = assets.get(img.asset_id) %}
-      {% if asset %}
-      <figure>
-        <img src="{{ asset.url }}" alt="{{ asset.alt }}" loading="lazy"{% if asset.width and asset.height %} width="{{ asset.width }}" height="{{ asset.height }}"{% endif %}>
-        {% if img.caption %}<figcaption>{{ img.caption }}</figcaption>{% endif %}
-      </figure>
-      {% endif %}
+      {# Cycle 31: article has no dedicated hero field (ground.hero_container
+         treats this first slot as the de facto hero for selection-policy
+         purposes) -- the first image gets the same eager/fetchpriority
+         markup a real hero gets elsewhere, fixing docs/IMAGES-AUDIT-2026-09-14
+         .md problem 5 (article's top image used to lazy-load). #}
+      {{ render_image_slot(asset, hero=(loop.index0 == 0), caption=img.caption) }}
     {% endfor %}
   </div>
   {% endif %}
