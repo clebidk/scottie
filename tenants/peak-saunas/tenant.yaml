@@ -110,13 +110,16 @@ allow_ai_renders: true
 
 # Cycle 30: warm-up window (article cartridge only) -- pricing, the CTA,
 # and the brand name stay out of the first warmup_window_words words.
-# warmup_mode starts "warn" (REVIEW.md advisory only); flip to "enforce"
-# once a real run confirms the current baseline article already passes at
-# this window (see docs/FIXLOG.md Cycle 30).
+# warmup_mode: "enforce" -- confirmed via `python -m evals.fake_run
+# tenants/peak-saunas/fixtures/hidden-costs-v2.transcript.txt --tenant
+# peak-saunas` that the current baseline article page already passes at
+# this window (brand first appears at word 1063, no price/CTA text in the
+# window at all -- see docs/FIXLOG.md Cycle 30). Revert to "warn" if a
+# future baseline update ever fails this gate.
 cartridges:
   article:
     warmup_window_words: 600
-    warmup_mode: warn
+    warmup_mode: enforce
 
 # Cycle 30: structural design references -- Peak Saunas takes the hero
 # style / whitespace / content-width / type-ratio / image-aspect / section

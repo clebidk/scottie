@@ -1437,12 +1437,14 @@ the window number injected via `{{ tenant.cartridges.article.
 warmup_window_words }}` (tenant-neutral wording, same placeholder mechanism
 already used for `{{ tenant.reviews.platform_name }}`).
 
-Peak Saunas stays on `warmup_mode: warn` this cycle -- the fake-run
-baseline article fixture (`tests/test_render.ARTICLE_PAGE`) already delays
-its one brand mention to the close, so nothing is known to fail today, but
-"enforce" is a decision for a real run against Peak's actual current
-article output, which this cycle's real-run verification below checks
-before it's flipped.
+Peak Saunas is set to `warmup_mode: enforce` -- confirmed via `python -m
+evals.fake_run tenants/peak-saunas/fixtures/hidden-costs-v2.transcript.txt
+--tenant peak-saunas` (byte-identical to `evals/baseline/`) that the
+current baseline article page already passes at a 600-word window: the
+brand first appears at word 1063, and no price/CTA text appears in the
+window at all. `tenants/_template/tenant.yaml` still defaults new tenants
+to `warmup_mode: warn` -- a tenant only earns "enforce" once its own
+baseline is checked the same way.
 
 **Part 2 -- tenant design references.** New `harness/design_skills/
 design_md.py`: `tenant.yaml`'s `design_reference: [slugs]` (template: `[]`;
