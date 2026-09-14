@@ -35,3 +35,4 @@ models
 __pycache__/
 *.pyc
 *.egg-info/
+tenants/*/evals/_archive/
