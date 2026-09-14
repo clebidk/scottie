@@ -196,3 +196,96 @@ def test_revise_raises_for_unknown_page(monkeypatch):
     run_dir = _make_run(monkeypatch)
     with pytest.raises(revise.ReviseError):
         revise.revise_page(run_dir, "no-such-cartridge", tenant=TENANT)
+
+
+# ---------------------------------------------------------------------------
+# Cycle 34: notes-driven revise participates in the daily spend ledger.
+# ---------------------------------------------------------------------------
+
+def test_revise_with_notes_reserves_and_records_daily_spend(monkeypatch, tmp_path):
+    """A notes revise must reserve_spend before the writer runs and
+    record_spend when it finishes -- otherwise `harness revise` bypasses the
+    daily_usd cap that harness run already honors."""
+    from harness import budget as budget_mod
+
+    run_dir = _make_run(monkeypatch)
+    ledger = tmp_path / "spend-ledger.jsonl"
+    monkeypatch.setattr(budget_mod, "spend_ledger_path", lambda tenant: ledger)
+
+    config = dict(TENANT.claims_config, budget={"daily_usd": 5, "per_run_usd": 0.5})
+    monkeypatch.setattr(type(TENANT), "claims_config", property(lambda self: config))
+
+    runstate.request_changes(
+        run_dir, TENANT, page="article", by="caleb@peaksaunas.com",
+        notes="Tighten the second section.", cuts=[],
+    )
+    revised = dict(ARTICLE_PAGE, headline="A revised headline after spend-ledger wiring")
+    writer = FakeClient([json_response(revised)])
+
+    result = revise.revise_page(
+        run_dir, "article", by="caleb@peaksaunas.com", tenant=TENANT,
+        make_client_fn=lambda: writer,
+    )
+    assert result["model_called"] is True
+    assert ledger.exists()
+    lines = [ln for ln in ledger.read_text().splitlines() if ln.strip()]
+    assert len(lines) >= 2  # reservation + final cost
+    assert any("__revise__article__v" in ln for ln in lines)
+
+
+def test_revise_with_notes_refuses_when_daily_cap_already_spent(monkeypatch, tmp_path):
+    """If today's ledger is already at the daily_usd cap, revise must raise
+    BudgetExceeded before make_client_fn is called (no silent spend)."""
+    from harness import budget as budget_mod
+    from harness.budget import BudgetExceeded, record_spend
+
+    run_dir = _make_run(monkeypatch)
+    ledger = tmp_path / "spend-ledger.jsonl"
+    monkeypatch.setattr(budget_mod, "spend_ledger_path", lambda tenant: ledger)
+
+    config = dict(TENANT.claims_config, budget={"daily_usd": 0.5, "per_run_usd": 0.5})
+    monkeypatch.setattr(type(TENANT), "claims_config", property(lambda self: config))
+
+    record_spend(TENANT, run_id="prior-run", cost=0.5, today_iso=__import__("datetime").date.today().isoformat())
+
+    runstate.request_changes(
+        run_dir, TENANT, page="article", by="caleb@peaksaunas.com",
+        notes="Would spend more tokens.", cuts=[],
+    )
+
+    def _boom():
+        raise AssertionError("make_client_fn must not run when the daily cap blocks revise")
+
+    with pytest.raises(BudgetExceeded) as exc_info:
+        revise.revise_page(
+            run_dir, "article", by="caleb@peaksaunas.com", tenant=TENANT,
+            make_client_fn=_boom,
+        )
+    assert exc_info.value.kind == "daily_usd"
+
+
+def test_revise_cuts_only_does_not_touch_spend_ledger(monkeypatch, tmp_path):
+    """Cuts are free -- no reservation, no ledger write."""
+    from harness import budget as budget_mod
+
+    run_dir = _make_run(monkeypatch)
+    ledger = tmp_path / "spend-ledger.jsonl"
+    monkeypatch.setattr(budget_mod, "spend_ledger_path", lambda tenant: ledger)
+
+    config = dict(TENANT.claims_config, budget={"daily_usd": 5, "per_run_usd": 0.5})
+    monkeypatch.setattr(type(TENANT), "claims_config", property(lambda self: config))
+
+    # Use a sentence that exists on the fixture article page.
+    page = __import__("json").loads((run_dir / "article" / "page.json").read_text())
+    # Prefer a known cut from older tests when present; otherwise skip soft.
+    cut = "Buyers move on when the price is hidden."
+    runstate.request_changes(
+        run_dir, TENANT, page="article", by="caleb@peaksaunas.com",
+        notes="", cuts=[cut],
+    )
+    revise.revise_page(
+        run_dir, "article", tenant=TENANT,
+        make_client_fn=lambda: (_ for _ in ()).throw(AssertionError("cuts-only must not call the model")),
+    )
+    assert not ledger.exists()
+
