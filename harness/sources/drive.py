@@ -108,6 +108,23 @@ _ARIA_SSK_ENTRY_RE = re.compile(
     r'aria-label="([^"]+)"[^>]*?ssk=[\'"]\d+:[A-Za-z0-9_]+:([A-Za-z0-9_-]{15,})-\d+-\d+[\'"]'
 )
 
+# Cycle 35c server finding, verified against a real link-public Drive folder
+# (a nested brand-asset toolbox) and its subfolders: a FOLDER's aria-label
+# ends in the literal word "folder" as the very last token, e.g. "1 - Acme
+# Logotype Shared folder" or "CMYK Shared folder" -- the sharing status word
+# ("Shared"/"Private"/"Limited access") comes second-to-last, not last. A
+# FILE's aria-label instead ends in the status word itself, with a type word
+# (if any) right before it, e.g. "Acme_Brochure.pdf PDF Shared" or
+# "Acid Grotesk TRIAL Regular-9687.otf Unknown Shared". This is checked on
+# the RAW label, before _clean_entry_name strips anything -- it is a
+# per-entry, name-independent signal (unlike looks_like_folder's "no
+# extension" guess, which a real .ai/.eps source file already defeats).
+_FOLDER_LABEL_RE = re.compile(r"\bfolder\s*$", re.IGNORECASE)
+
+
+def _is_folder_label(raw_label):
+    return bool(_FOLDER_LABEL_RE.search(raw_label.rstrip()))
+
 # Google Drive's own name for a sign-in wall -- present when the folder is
 # not link-public, absent on a real (even empty) public folder listing.
 _SIGNIN_WALL_MARKERS = (
@@ -126,11 +143,22 @@ _ARIA_STATUS_SUFFIXES = ("Shared folder", "Shared", "Limited access", "Owned by 
 _ARIA_TYPE_SUFFIXES = (
     "Image", "PDF", "PostScript", "Document", "Spreadsheet", "Presentation",
     "Video", "Audio", "Text", "Archive", "Folder",
+    # Cycle 35c real-folder findings (a nested brand-asset toolbox): "Binary"
+    # is Drive's type word for an extensionless/unrecognized file (needed so
+    # a cleaned ".DS_Store" name actually equals ".DS_Store" and
+    # enumerate_source's skip-list match hits); "Unknown" is what it uses
+    # for a font (.otf); "iWork Pages" (two words, still just a literal
+    # endswith suffix below) for a .pages file.
+    "Binary", "Unknown", "iWork Pages",
 )
 
 
 def _clean_entry_name(raw):
-    name = raw
+    # Strip the folder marker itself first (see _FOLDER_LABEL_RE above) --
+    # for a folder it sits after the status word, e.g. "... Shared folder",
+    # so it has to come off before the status-suffix loop below can find
+    # "Shared" at the end.
+    name = _FOLDER_LABEL_RE.sub("", raw).rstrip()
     for status in _ARIA_STATUS_SUFFIXES:
         suffix = " " + status
         if name.endswith(suffix):
@@ -155,11 +183,19 @@ def default_fetch_folder_html(folder_id):
 
 
 def list_public_folder(folder_id, fetch=None):
-    """[{"id": ..., "name": ...}, ...] for every file Drive's own public HTML
-    listing for `folder_id` shows, deduplicated by id (first name seen wins --
-    Drive's page can repeat an entry for a grid vs. list view, and does
-    repeat one item's id across several rows -- name, modified date, size,
-    "more actions" -- of which only the first carries the real name).
+    """[{"id": ..., "name": ..., "is_folder": bool}, ...] for every entry
+    Drive's own public HTML listing for `folder_id` shows, deduplicated by id
+    (first name seen wins -- Drive's page can repeat an entry for a grid vs.
+    list view, and does repeat one item's id across several rows -- name,
+    modified date, size, "more actions" -- of which only the first carries
+    the real name and the real folder/file signal).
+
+    `is_folder` comes from _is_folder_label on that first raw aria-label --
+    a per-entry, name-independent signal (see _FOLDER_LABEL_RE above), not a
+    guess from the cleaned display name. Callers that can't trust it for a
+    given entry (the label shape doesn't match what this parser has been
+    verified against) should fall back to their own probe rather than assume
+    either way -- this function itself never guesses.
 
     `fetch` is an injectable `folder_id -> html str` callable so tests never
     touch the network; defaults to `default_fetch_folder_html`.
@@ -176,7 +212,11 @@ def list_public_folder(folder_id, fetch=None):
         if file_id in seen_ids:
             continue
         seen_ids.add(file_id)
-        entries.append({"id": file_id, "name": _clean_entry_name(raw_name)})
+        entries.append({
+            "id": file_id,
+            "name": _clean_entry_name(raw_name),
+            "is_folder": _is_folder_label(raw_name),
+        })
 
     if not entries:
         lowered = html.lower()

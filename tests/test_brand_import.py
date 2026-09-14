@@ -10,13 +10,17 @@ confirms the logo and an imported color actually reach the rendered HTML.
 """
 import json
 import shutil
+from pathlib import Path
 
 import pytest
 from PIL import Image
 
 from harness import brand_import, render
 from harness import tenant as tenant_mod
+from harness.budget import Budget
+from harness.log import RunLog
 from harness.sources import drive
+from tests.conftest import FakeClient, json_response
 from tests.test_render import AD_BRIEF, FACTS_PACK, PRODUCT_PAGE_PAGE
 
 
@@ -58,8 +62,51 @@ SIGNIN_WALL_HTML = "<html><head><title>Sign in - Google Accounts</title></head><
 def test_list_public_folder_parses_aria_label_and_ssk_id():
     entries = drive.list_public_folder("root-folder", fetch=lambda fid: SAMPLE_FOLDER_HTML)
     assert entries == [
-        {"id": "1AAAAAAAAAAAAAAAAAAA", "name": "Acme Logo.svg"},
-        {"id": "1BBBBBBBBBBBBBBBBBBB", "name": "Acme Brand Guide.pdf"},
+        {"id": "1AAAAAAAAAAAAAAAAAAA", "name": "Acme Logo.svg", "is_folder": False},
+        {"id": "1BBBBBBBBBBBBBBBBBBB", "name": "Acme Brand Guide.pdf", "is_folder": False},
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Folder marker (Cycle 35c) -- verified against a real Drive folder ("Peak
+# Toolbox", id 1D8cG1cAY9sH0_fzMsUhseK_5sSWa_KCD, and its subfolders): a
+# folder's aria-label ends in the literal word "folder" ("1 - Peak Logotype
+# Shared folder"), a file's ends in the status word itself ("Peak_Infos.pdf
+# PDF Shared"). See tests/fixtures/drive-folder-listing-sample.html for a
+# trimmed real sample carrying both shapes plus a nested nesting-friendly
+# nested-folder marker.
+# ---------------------------------------------------------------------------
+
+def test_list_public_folder_marks_folders_via_the_real_aria_label_shape():
+    entries = drive.list_public_folder("root-folder", fetch=lambda fid: SAMPLE_FOLDER_HTML)
+    assert all(e["is_folder"] is False for e in entries)
+
+    html = (
+        "<html><body>"
+        + _entry_html("1FOLDERAAAAAAAAAAAAA", "1 - Peak Logotype", type_word="", status="Shared folder")
+        + _entry_html("1FILEAAAAAAAAAAAAAAA", "Peak_Infos.pdf", type_word="PDF")
+        + "</body></html>"
+    )
+    entries = drive.list_public_folder("root", fetch=lambda fid: html)
+    by_id = {e["id"]: e for e in entries}
+    assert by_id["1FOLDERAAAAAAAAAAAAA"] == {
+        "id": "1FOLDERAAAAAAAAAAAAA", "name": "1 - Peak Logotype", "is_folder": True,
+    }
+    assert by_id["1FILEAAAAAAAAAAAAAAA"] == {
+        "id": "1FILEAAAAAAAAAAAAAAA", "name": "Peak_Infos.pdf", "is_folder": False,
+    }
+
+
+def test_list_public_folder_marker_matches_the_real_fixture_sample():
+    # A trimmed but real sample from the actual "Peak Toolbox" Drive folder
+    # (root level): 8 subfolders, all marked is_folder=True, correctly named
+    # with the "Shared folder" suffix stripped.
+    html = (Path(__file__).parent / "fixtures" / "drive-folder-listing-sample.html").read_text()
+    entries = drive.list_public_folder("1D8cG1cAY9sH0_fzMsUhseK_5sSWa_KCD", fetch=lambda fid: html)
+    assert entries == [
+        {"id": "1ndGlP4Tq1MZswdGZh3EwDDTqwH5EwhHS", "name": "1 - Peak Logotype", "is_folder": True},
+        {"id": "1id350mX98hW5TS5irRjNx1HHx5w6aMZ3", "name": "6 - Peak Info Sheet", "is_folder": True},
+        {"id": "1nVMOu99W_hNuXxjqaWfSBKZF6Q2KbRfO", "name": "Peak_Infos.pdf", "is_folder": False},
     ]
 
 
@@ -96,6 +143,98 @@ def test_enumerate_source_recurses_one_level_into_a_subfolder():
     assert names == {"acme-mark-alt.png", "Acme Wordmark.png"}
 
 
+def test_enumerate_source_walks_three_levels_deep_and_skips_ds_store():
+    # 1 - Peak Logotype/ -> RGB/ -> Peak_Logo_RGB.svg, mirroring the real
+    # "Peak Toolbox" tree's depth -- .DS_Store sits at two of the three
+    # levels and must never show up as an entry.
+    root_id = "root-id-nested-00000001"
+    l1_id = "l1-logotype-folder-id01"
+    l2_id = "l2-rgb-folder-id000001"
+    file_id = "file-id-peak-logo-rgb01"
+
+    root_html = (
+        _entry_html(l1_id, "1 - Peak Logotype", type_word="", status="Shared folder")
+        + _entry_html("ds-store-root-id00001", ".DS_Store", type_word="Binary")
+    )
+    l1_html = (
+        _entry_html(l2_id, "RGB", type_word="", status="Shared folder")
+        + _entry_html("ds-store-l1-id000001x", ".DS_Store", type_word="Binary")
+    )
+    l2_html = _entry_html(file_id, "Peak_Logo_RGB.svg", type_word="Image")
+    pages = {root_id: root_html, l1_id: l1_html, l2_id: l2_html}
+
+    entries = brand_import.enumerate_source(drive_folder=root_id, fetch=lambda fid: pages[fid])
+
+    assert [e["name"] for e in entries] == ["Peak_Logo_RGB.svg"]
+    assert entries[0]["folder_path"] == ("1 - Peak Logotype", "RGB")
+    # The two folder ids must never appear as an entry -- see
+    # test_download_incoming_never_downloads_a_folder_id below for the
+    # invariant this actually protects.
+    entry_ids = {e["id"] for e in entries}
+    assert l1_id not in entry_ids
+    assert l2_id not in entry_ids
+
+
+def test_enumerate_source_depth_cap_skips_rather_than_falls_back_to_file():
+    # Regression for the reported HTTP 500: the old code, when a folder was
+    # too deep to recurse into, fell back to entries.append(...) and treated
+    # the folder id as a file -- download_incoming then handed it straight
+    # to the file downloader, which 500'd. A too-deep folder must now just
+    # be skipped, never appended.
+    root_id = "root-id-depthcap-000001"
+    deep_id = "deep-folder-id-00000001"
+    root_html = _entry_html(deep_id, "Too Deep", type_word="", status="Shared folder")
+    entries = brand_import.enumerate_source(
+        drive_folder=root_id, fetch=lambda fid: {root_id: root_html}[fid], max_folder_depth=0,
+    )
+    assert entries == []
+
+
+def test_download_incoming_never_downloads_a_folder_id(tmp_path, monkeypatch):
+    root_id = "root-id-nodl-0000000001"
+    folder_id = "folder-id-nodl-00000001"
+    file_id = "file-id-nodl-000000001"
+    root_html = (
+        _entry_html(folder_id, "1 - Peak Logotype", type_word="", status="Shared folder")
+        + _entry_html(file_id, "Peak_Logo.svg", type_word="Image")
+    )
+    pages = {root_id: root_html, folder_id: "<html><body></body></html>"}
+    entries = brand_import.enumerate_source(drive_folder=root_id, fetch=lambda fid: pages[fid])
+
+    downloaded_ids = []
+
+    def fake_download(file_id_arg, dest_dir):
+        assert file_id_arg != folder_id, "a folder id must never reach the file downloader"
+        downloaded_ids.append(file_id_arg)
+        dest_dir = Path(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        p = dest_dir / "Peak_Logo.svg"
+        p.write_bytes(b"<svg></svg>")
+        return p
+
+    monkeypatch.setattr(drive, "download_drive_file", fake_download)
+    list(brand_import.download_incoming(entries, tmp_path / "incoming"))
+    assert downloaded_ids == [file_id]
+
+
+def test_download_incoming_drops_zero_byte_downloads(tmp_path, monkeypatch):
+    root_id = "root-id-zerobyte-000001"
+    empty_id = "empty-file-id-0000000001"
+    root_html = _entry_html(empty_id, "empty.png", type_word="Image")
+    entries = brand_import.enumerate_source(drive_folder=root_id, fetch=lambda fid: {root_id: root_html}[fid])
+
+    def fake_download(file_id_arg, dest_dir):
+        dest_dir = Path(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        p = dest_dir / "empty.png"
+        p.write_bytes(b"")
+        return p
+
+    monkeypatch.setattr(drive, "download_drive_file", fake_download)
+    downloaded = list(brand_import.download_incoming(entries, tmp_path / "incoming"))
+    assert downloaded == []
+
+
 # ---------------------------------------------------------------------------
 # Classifier
 # ---------------------------------------------------------------------------
@@ -121,6 +260,32 @@ def test_enumerate_source_recurses_one_level_into_a_subfolder():
 ])
 def test_classify_file(name, expected):
     assert brand_import.classify_file(name) == expected
+
+
+@pytest.mark.parametrize("name,folder_path,expected", [
+    # .ai/.eps under a Logotype/Icon folder: a logo source, not usable
+    # directly -- see LOGO_SOURCE_ONLY_EXTS / import_brand_kit's note.
+    ("Acme blue on the left CMYK.ai", ("1 - Peak Logotype", "CMYK"), "logo"),
+    ("Acme blue on the left RGB.eps", ("2 - Peak Icon", "RGB"), "logo"),
+    # A .pdf in the same tree is a usable (rasterizable) logo candidate.
+    ("Peak_Logo_RGB.pdf", ("1 - Peak Logotype", "RGB"), "logo"),
+    ("Peak_Icon.pdf", ("3 - Peak with Icon", "With big icon"), "logo"),
+    # A Colors-folder .pdf is the palette document, not a generic guide.
+    ("Peak_Sauna_Colors.pdf", ("5 - Colors",), "palette_pdf"),
+    # The .ai sibling in that same Colors folder is not a logo source (wrong
+    # folder) and isn't a recognized palette extension either -- "other".
+    ("Peak_Sauna_Colors.ai", ("5 - Colors",), "other"),
+    # Fonts and guides classify the same regardless of folder context.
+    ("Acid Grotesk TRIAL Regular-9687.otf", ("4 - Fonts",), "font"),
+    ("Epika_Trial-Regular.otf", ("4 - Fonts",), "font"),
+    ("Peak_Infos.pdf", ("6 - Peak Info Sheet",), "guide"),
+    ("Peak Toolbox Overview.pdf", ("7 - Branding",), "guide"),
+    # No folder context (a --local import, or a top-level Drive file):
+    # behaves exactly like the folder-blind classify_file cases above.
+    ("some-icon.ai", (), "other"),
+])
+def test_classify_file_is_folder_aware(name, folder_path, expected):
+    assert brand_import.classify_file(name, folder_path) == expected
 
 
 def test_looks_like_folder():
@@ -345,6 +510,44 @@ def test_looks_like_a_real_font_name():
 
 
 # ---------------------------------------------------------------------------
+# Trial/demo font refusal (Cycle 35c: the two real .otf files found in the
+# "Peak Toolbox" Fonts folder are both TRIAL builds)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", [
+    "Acid Grotesk TRIAL Regular-9687.otf",
+    "Epika_Trial-Regular.otf",
+    "SomeFont-DEMO.ttf",
+    "another-eval-build.otf",
+])
+def test_is_unlicensed_trial_font(name):
+    assert brand_import._is_unlicensed_trial_font(name)
+
+
+def test_is_unlicensed_trial_font_false_for_a_normal_name():
+    assert not brand_import._is_unlicensed_trial_font("DM_Sans-Regular.otf")
+
+
+def test_trial_font_is_flagged_and_never_copied_even_with_force(tmp_path):
+    tenant = _make_demo_tenant(tmp_path, "trialfont-co")
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "Acid Grotesk TRIAL Regular-9687.otf").write_bytes(b"\x00" * 200)
+    (src / "Epika-Regular.otf").write_bytes(b"\x00" * 200)
+
+    result = brand_import.import_brand_kit(tenant, local_dir=src, dry_run=False, force=True)
+
+    fonts_dir = tenant.brand_dir / "fonts"
+    written = {p.name for p in fonts_dir.iterdir()} if fonts_dir.exists() else set()
+    assert "Acid Grotesk TRIAL Regular-9687.otf" not in written
+    assert "Epika-Regular.otf" in written
+    assert any(
+        "trial" in d.lower() and "not licensed" in d.lower() and "even with --force" in d.lower()
+        for d in result.human_decisions
+    )
+
+
+# ---------------------------------------------------------------------------
 # Contrast math
 # ---------------------------------------------------------------------------
 
@@ -441,6 +644,60 @@ def test_dominant_colors_of_an_svg_is_empty_no_rasterizer(tmp_path):
     p = tmp_path / "logo.svg"
     p.write_text("<svg></svg>")
     assert brand_import.dominant_colors(p) == []
+
+
+# ---------------------------------------------------------------------------
+# Colors-folder palette PDF -> vision (Cycle 35c)
+# ---------------------------------------------------------------------------
+
+def test_palette_pdf_from_a_colors_folder_extracts_hex_via_vision(tmp_path, monkeypatch):
+    tenant = _make_demo_tenant(tmp_path, "palette-co")
+    root_id = "root-id-palette-0000001"
+    colors_folder_id = "colors-folder-id-000001"
+    pdf_id = "colors-pdf-id-00000001"
+
+    root_html = _entry_html(colors_folder_id, "5 - Colors", type_word="", status="Shared folder")
+    colors_html = _entry_html(pdf_id, "Peak_Sauna_Colors.pdf", type_word="PDF")
+    pages_html = {root_id: root_html, colors_folder_id: colors_html}
+
+    def fake_download(file_id_arg, dest_dir):
+        dest_dir = Path(dest_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        p = dest_dir / "Peak_Sauna_Colors.pdf"
+        p.write_bytes(b"%PDF-1.4 fake content, never actually rendered in this test")
+        return p
+
+    monkeypatch.setattr(drive, "download_drive_file", fake_download)
+
+    # This test is about parsing the vision response, not pdftoppm -- swap
+    # in a real (tiny) image as the "rendered page" directly.
+    fake_page = tmp_path / "fake-colors-page.png"
+    Image.new("RGB", (4, 4), (22, 196, 127)).save(fake_page)
+    monkeypatch.setattr(brand_import, "render_guide_pages", lambda *a, **k: [fake_page])
+
+    vision_response = json_response({
+        "colors": [
+            {"name": "Peak Green", "hex": "#16C47F", "role": "accent"},
+            {"name": "Peak Navy", "hex": "#17172B", "role": "background"},
+        ],
+        "fonts": [], "logo_rules": [], "voice": [], "dont": [],
+    })
+    client = FakeClient([vision_response])
+    log = RunLog("test-palette-run", tmp_path / "run.log")
+
+    result = brand_import.import_brand_kit(
+        tenant, drive_folder=root_id, fetch=lambda fid: pages_html[fid],
+        dry_run=True, client=client, budget=Budget(), log=log, model="claude-sonnet-5",
+    )
+    log.close()
+
+    assert result.raw_palette_json["colors"][0]["hex"] == "#16C47F"
+    colors = result.brand_import_tokens["colors"]
+    hexes = {c["hex"] for c in colors.values()}
+    assert "#16C47F" in hexes
+    assert "#17172B" in hexes
+    accent = next(c for c in colors.values() if c.get("role") == "accent")
+    assert accent["source"] == "brand-import:Peak_Sauna_Colors.pdf"
 
 
 # ---------------------------------------------------------------------------

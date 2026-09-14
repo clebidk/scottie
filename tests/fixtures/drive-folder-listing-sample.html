@@ -1,0 +1,38 @@
+<!--
+  Cycle 35c: a trimmed sample of the REAL public-folder HTML Google Drive
+  served for the "Peak Toolbox" folder (id 1D8cG1cAY9sH0_fzMsUhseK_5sSWa_KCD),
+  fetched 2026-09-14 with a browser User-Agent. The full page is ~380KB of
+  Drive's own JS/CSS scaffolding; only the per-entry markup that
+  drive._ARIA_SSK_ENTRY_RE actually parses is kept, with the surrounding SVG
+  icon / jsaction noise trimmed to keep this file small. Byte-for-byte real
+  where it matters: the `aria-label`/`ssk` attribute shapes below, including
+  the folder-vs-file aria-label difference drive._is_folder_label depends on
+  ("... Shared folder" for a folder, "... PDF Shared" for a file) and the
+  repeated-id metadata rows (name row, "More actions" row) that
+  list_public_folder's "first name per id wins" dedup exists for.
+-->
+<html>
+<body>
+<div class="rxUYqf" jsaction="error:piPPke" jsname="XJXImb">
+  <div class="JxSEve" aria-label="1 - Peak Logotype Shared folder" data-handled-by-drag-and-drop="true" ssk='5:auSv138:1ndGlP4Tq1MZswdGZh3EwDDTqwH5EwhHS-0-16'>
+    <i role="presentation" class="cUCuw upeNge vA3Shd" ssk='6:aP5GMe'></i>
+    <div class="i92Sbe a65Cwf" ssk='6:by9fbe38:1ndGlP4Tq1MZswdGZh3EwDDTqwH5EwhHS-0-16' data-id="1ndGlP4Tq1MZswdGZh3EwDDTqwH5EwhHS"></div>
+  </div>
+</div>
+<div class="rxUYqf" jsaction="error:piPPke" jsname="XJXImb">
+  <div class="JxSEve" aria-label="6 - Peak Info Sheet Shared folder" data-handled-by-drag-and-drop="true" ssk='5:auSv138:1id350mX98hW5TS5irRjNx1HHx5w6aMZ3-0-16'>
+    <i role="presentation" class="cUCuw upeNge vA3Shd" ssk='6:aP5GMe'></i>
+    <div class="i92Sbe a65Cwf" ssk='6:by9fbe38:1id350mX98hW5TS5irRjNx1HHx5w6aMZ3-0-16' data-id="1id350mX98hW5TS5irRjNx1HHx5w6aMZ3"></div>
+  </div>
+</div>
+<div class="rxUYqf" jsaction="error:piPPke" jsname="XJXImb">
+  <div class="JxSEve" aria-label="Peak_Infos.pdf PDF Shared" data-handled-by-drag-and-drop="true" ssk='5:auSv138:1nVMOu99W_hNuXxjqaWfSBKZF6Q2KbRfO-0-16'>
+    <i role="presentation" class="cUCuw upeNge vA3Shd" ssk='6:aP5GMe'></i>
+    <div class="i92Sbe a65Cwf" ssk='6:by9fbe38:1nVMOu99W_hNuXxjqaWfSBKZF6Q2KbRfO-0-16' data-id="1nVMOu99W_hNuXxjqaWfSBKZF6Q2KbRfO"></div>
+  </div>
+  <!-- Drive repeats the same id on a secondary row (e.g. "More actions");
+       only the first aria-label per id is kept by list_public_folder. -->
+  <div class="i92Sbe" aria-label="More actions" ssk='6:by9fbe38:1nVMOu99W_hNuXxjqaWfSBKZF6Q2KbRfO-0-16'></div>
+</div>
+</body>
+</html>

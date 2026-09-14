@@ -34,6 +34,15 @@ from .textutil import safe_filename
 
 LOGO_EXTS = {".svg", ".png", ".jpg", ".jpeg"}
 LOGO_KEYWORDS = ("logo", "mark", "wordmark", "favicon")
+# .ai/.eps are real design-source files a Logotype/Icon Drive folder holds
+# (Cycle 35c server finding) -- classified "logo" so they show up in the
+# manifest next to the usable candidate, but never a choose_logo() winner
+# (see LOGO_SOURCE_ONLY_EXTS below and the "logo source" note it drives).
+LOGO_SOURCE_ONLY_EXTS = {".ai", ".eps"}
+# A file under a folder whose name contains one of these is a logo source
+# regardless of the file's own name -- a folder called "CMYK" or "RGB" full
+# of brand-colored art has no reason to say "logo" in every filename.
+LOGO_FOLDER_KEYWORDS = ("logotype", "icon")
 GUIDE_EXTS = {".pdf"}
 # A plain substring match, as the task spec asks for -- worth knowing that
 # "style" also matches inside "lifestyle" (e.g. "lifestyle-01.jpg" classifies
@@ -44,17 +53,38 @@ GUIDE_KEYWORDS = ("guide", "brand", "style")
 FONT_EXTS = {".ttf", ".otf", ".woff", ".woff2"}
 PALETTE_EXTS = {".json", ".txt", ".ase"}
 PALETTE_KEYWORDS = ("color", "colour", "palette", "tokens")
+# A .pdf under a folder whose name says "color"/"colour" (e.g. a "5 - Colors"
+# Drive folder) is the palette document, not a generic brand guide -- it
+# gets its own vision read (extract hex values), separate from choose_guide's
+# "the one comprehensive guide" pick.
+PALETTE_DOC_EXTS = {".pdf"}
+PALETTE_DOC_FOLDER_KEYWORDS = ("color", "colour")
 PHOTO_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
 
 
-def classify_file(name):
-    """One of "logo", "guide", "font", "palette", "photo", "other" -- the
-    task's stated priority order (logo checked first). Extension match is
-    case-insensitive; keyword match is a case-insensitive substring of the
-    filename (not just the stem), matching the task's own wording."""
+def classify_file(name, folder_path=()):
+    """One of "logo", "palette_pdf", "guide", "font", "palette", "photo",
+    "other" -- the task's stated priority order (logo checked first).
+    Extension match is case-insensitive; keyword match is a case-insensitive
+    substring of the filename (not just the stem), matching the task's own
+    wording.
+
+    `folder_path` is the tuple of Drive subfolder names an entry was found
+    under (root-most first; empty for a --local import or a top-level Drive
+    file) -- it lets a Colors-folder .pdf classify as "palette_pdf" instead
+    of the generic "guide" bucket, and a Logotype/Icon-folder .ai/.eps/.pdf
+    classify as "logo" even when the filename itself doesn't say so."""
     lower = name.lower()
     ext = Path(lower).suffix
+    top_folder = folder_path[0].lower() if folder_path else ""
 
+    if ext in PALETTE_DOC_EXTS and any(k in top_folder for k in PALETTE_DOC_FOLDER_KEYWORDS):
+        return "palette_pdf"
+    if (
+        (ext in LOGO_EXTS or ext in LOGO_SOURCE_ONLY_EXTS or ext == ".pdf")
+        and any(k in top_folder for k in LOGO_FOLDER_KEYWORDS)
+    ):
+        return "logo"
     if ext in LOGO_EXTS and any(k in lower for k in LOGO_KEYWORDS):
         return "logo"
     if ext in GUIDE_EXTS or any(k in lower for k in GUIDE_KEYWORDS):
@@ -98,61 +128,118 @@ def _drive_folder_id(drive_folder):
     return parsed
 
 
-def enumerate_source(*, drive_folder=None, local_dir=None, fetch=None, max_folder_depth=2):
-    """[{"id": <drive id or None>, "name": ..., "local_path": <Path or None>}]
-    -- one entry per file found, Drive subfolders (depth-bounded) already
-    walked. Exactly one of drive_folder/local_dir is given."""
+_SKIP_NAMES = {".DS_Store", "Thumbs.db"}
+
+
+def _probe_is_folder(item_id, name, *, fetch):
+    """Fallback used only when a Drive listing entry carries no reliable
+    folder marker (list_public_folder's `is_folder` came back None -- see
+    its docstring). Two cheap, no-extra-network-call-required checks, in
+    order: (1) the name itself has no recognized extension at all (the old
+    heuristic, still a fine first guess); (2) the id actually lists as a
+    folder (a non-empty listing means it is one -- a real file id 404s/
+    redirects here, which list_public_folder surfaces as DriveFolderNotPublic
+    or an empty list, both read as "not a folder" below). Deliberately does
+    NOT attempt a file download to inspect its Content-Type: every path that
+    reaches this fallback already fails both cheap checks or is genuinely a
+    file, and _walk's own invariant (below) never lets a folder id reach the
+    file downloader regardless of what this probe decides -- a wrong "not a
+    folder" guess here fails loudly in download_incoming, it does not
+    silently corrupt the import."""
+    if looks_like_folder(name):
+        return True
+    try:
+        return bool(drive.list_public_folder(item_id, fetch=fetch))
+    except HarnessError:
+        return False
+
+
+def enumerate_source(*, drive_folder=None, local_dir=None, fetch=None, max_folder_depth=6, log=None):
+    """[{"id": <drive id or None>, "name": ..., "local_path": <Path or None>,
+    "folder_path": <tuple of ancestor folder names>}] -- one entry per file
+    found, Drive subfolders (up to max_folder_depth deep) already walked.
+    Exactly one of drive_folder/local_dir is given.
+
+    A Drive folder id is never appended as an entry, at any depth, for any
+    reason -- a mis-probed "is this a folder" guess, a folder past the depth
+    cap, or a subfolder whose own listing failed all fall through to being
+    skipped (logged, not raised), never to being treated as a file. That
+    invariant is what the HTTP 500 this cycle fixes was missing: the old
+    code fell back to `entries.append(...)` for exactly those cases, handing
+    a folder id to download_drive_file."""
     if drive_folder and local_dir:
         raise BrandImportError("pass either --drive-folder or --local, not both")
     if not drive_folder and not local_dir:
         raise BrandImportError("brand import needs --drive-folder or --local")
 
+    def _log(msg):
+        if log is not None:
+            log.event("brand_import.enumerate", msg)
+
     if local_dir:
         local_dir = Path(local_dir)
         if not local_dir.is_dir():
             raise BrandImportError(f"--local directory does not exist: {local_dir}")
-        return [
-            {"id": None, "name": p.name, "local_path": p}
-            for p in sorted(local_dir.iterdir())
-            if p.is_file()
-        ]
+        entries = []
+        for p in sorted(local_dir.iterdir()):
+            if not p.is_file() or p.name in _SKIP_NAMES:
+                continue
+            if p.stat().st_size == 0:
+                _log(f"(skip, zero-byte) {p.name}")
+                continue
+            entries.append({"id": None, "name": p.name, "local_path": p, "folder_path": ()})
+        return entries
 
     entries = []
 
-    def _walk(folder_id, depth):
+    def _walk(folder_id, depth, path_parts):
+        indent = "  " * depth
         listing = drive.list_public_folder(folder_id, fetch=fetch)
         for item in listing:
-            if looks_like_folder(item["name"]):
-                if depth < max_folder_depth:
-                    # A subfolder shares the same "list its own id as a
-                    # folder" endpoint; not every Drive folder ID resolves
-                    # (a real file with no extension in its display name
-                    # would 404/redirect here -- OSError covers
-                    # urllib.error.URLError/HTTPError), so a failed
-                    # recursion is just skipped rather than treated as an
-                    # error.
-                    try:
-                        _walk(item["id"], depth + 1)
-                        continue
-                    except (HarnessError, OSError):
-                        pass
-                entries.append({"id": item["id"], "name": item["name"], "local_path": None})
-            else:
-                entries.append({"id": item["id"], "name": item["name"], "local_path": None})
+            name = item["name"]
+            if name in _SKIP_NAMES:
+                _log(f"{indent}(skip) {name}")
+                continue
 
-    _walk(_drive_folder_id(drive_folder), 0)
+            is_folder = item.get("is_folder")
+            if is_folder is None:
+                is_folder = _probe_is_folder(item["id"], name, fetch=fetch)
+
+            if is_folder:
+                if depth >= max_folder_depth:
+                    _log(f"{indent}{name}/  (skipped: max folder depth {max_folder_depth} reached)")
+                    continue
+                _log(f"{indent}{name}/")
+                try:
+                    _walk(item["id"], depth + 1, path_parts + (name,))
+                except (HarnessError, OSError):
+                    # A subfolder shares the same "list its own id as a
+                    # folder" endpoint; not every folder id resolves cleanly
+                    # (OSError covers urllib.error.URLError/HTTPError). Skip
+                    # it -- never fall through to treating the folder id as
+                    # a file (see docstring).
+                    _log(f"{indent}  (skipped: could not list {name!r})")
+                continue
+
+            _log(f"{indent}{name}")
+            entries.append({"id": item["id"], "name": name, "local_path": None, "folder_path": path_parts})
+
+    _walk(_drive_folder_id(drive_folder), 0, ())
     return entries
 
 
-def download_incoming(entries, incoming_dir):
+def download_incoming(entries, incoming_dir, *, log=None):
     """Downloads (Drive) or copies (--local) every entry into incoming_dir,
     writes manifest.json there, and returns the entries with a "path" key
-    added (the file's actual location under incoming_dir)."""
+    added (the file's actual location under incoming_dir). A download that
+    lands zero bytes (an empty file sitting in the source folder) is dropped
+    -- not written into the manifest, not yielded."""
     incoming_dir = Path(incoming_dir)
     incoming_dir.mkdir(parents=True, exist_ok=True)
     manifest = []
     for entry in entries:
-        kind = classify_file(entry["name"])
+        folder_path = entry.get("folder_path", ())
+        kind = classify_file(entry["name"], folder_path)
         if entry.get("local_path") is not None:
             dest = incoming_dir / safe_filename(entry["name"], fallback=entry["local_path"].name)
             dest.write_bytes(Path(entry["local_path"]).read_bytes())
@@ -164,9 +251,17 @@ def download_incoming(entries, incoming_dir):
             # or id-suffixed names) -- keep the download's own filename as
             # ground truth for what's actually on disk, but reclassify by
             # the folder listing's name, which is the one a human picked.
-            kind = classify_file(entry["name"])
+            kind = classify_file(entry["name"], folder_path)
+
+        if dest.stat().st_size == 0:
+            if log is not None:
+                log.event("brand_import.enumerate", f"(skip, zero-byte download) {entry['name']}")
+            dest.unlink()
+            continue
+
         entry = dict(entry, path=dest, kind=kind)
-        manifest.append({"id": entry.get("id"), "name": entry["name"], "path": str(dest), "kind": kind})
+        manifest.append({"id": entry.get("id"), "name": entry["name"], "path": str(dest), "kind": kind,
+                          "folder_path": list(folder_path)})
         yield entry
     (incoming_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -177,19 +272,50 @@ def download_incoming(entries, incoming_dir):
 
 def choose_logo(logo_files):
     """The best logo candidate: an .svg if any, else the largest-by-bytes
-    .png, else the largest-by-bytes .jpg/.jpeg -- svg-then-png-then-jpg, not
-    just "the biggest raster regardless of format": a real folder can (and,
-    per Cycle 27 server verification, does) hold a large but busy JPEG photo
-    of the logo alongside a clean transparent PNG favicon, and the PNG is
-    the better logo asset even when it's the smaller file. `logo_files` is a
-    list of Paths already classified "logo"."""
+    .png, else the largest-by-bytes .pdf (rasterizable, Cycle 35c: a
+    Logotype/Icon Drive folder's usable file after .ai/.eps design sources
+    are excluded), else the largest-by-bytes .jpg/.jpeg -- not just "the
+    biggest raster regardless of format": a real folder can (and, per Cycle
+    27 server verification, does) hold a large but busy JPEG photo of the
+    logo alongside a clean transparent PNG favicon, and the PNG is the
+    better logo asset even when it's the smaller file. `logo_files` is a
+    list of Paths already classified "logo" -- callers exclude
+    LOGO_SOURCE_ONLY_EXTS (.ai/.eps) before calling this, since those are
+    never a usable candidate no matter how large."""
     if not logo_files:
         return None
-    for exts in ((".svg",), (".png",), (".jpg", ".jpeg")):
+    for exts in ((".svg",), (".png",), (".pdf",), (".jpg", ".jpeg")):
         candidates = [p for p in logo_files if p.suffix.lower() in exts]
         if candidates:
             return max(candidates, key=lambda p: p.stat().st_size)
     return None
+
+
+def _logo_variant_for_folder(folder_name):
+    """"logotype", "icon", "combined", or None -- which of the report's
+    three logo variants a Drive folder name belongs to. Checked in this
+    order because "3 - Acme with Icon" contains "icon" too; "with icon" has
+    to win before the plain "icon" check would misfile it under "icon"."""
+    low = folder_name.lower()
+    if "with icon" in low:
+        return "combined"
+    if "logotype" in low:
+        return "logotype"
+    if "icon" in low:
+        return "icon"
+    return None
+
+
+_TRIAL_FONT_MARKERS = ("trial", "demo", "eval")
+
+
+def _is_unlicensed_trial_font(name):
+    """True for a font filename that says it's a trial/demo/eval build --
+    e.g. "Acid Grotesk TRIAL Regular-9687.otf", "Epika_Trial-Regular.otf".
+    These are never copied into brand/fonts, dry-run or not, --force or
+    not -- see import_brand_kit's font section."""
+    lower = name.lower()
+    return any(marker in lower for marker in _TRIAL_FONT_MARKERS)
 
 
 def _rgb_to_hex(rgb):
@@ -663,11 +789,17 @@ class BrandImportResult:
     def __init__(self):
         self.manifest = []
         self.logo_path = None
+        # {"logotype"|"icon"|"combined": {"name":, "id":, "path": str}} --
+        # populated only when the source has variant-bearing subfolders
+        # (a real Drive toolbox); empty for a flat --local import, which
+        # still has the single self.logo_path above.
+        self.logo_candidates_by_variant = {}
         self.brand_import_tokens = {}
         self.tenant_brand_section = {}
         self.warnings = []
         self.human_decisions = []
         self.raw_model_json = None
+        self.raw_palette_json = None
         self.wrote_base_css = False
 
     def as_markdown(self, *, tenant_name):
@@ -681,6 +813,8 @@ class BrandImportResult:
         lines.append("")
         lines.append("## What was chosen")
         lines.append(f"- Logo: {self.logo_path or '(none found)'}")
+        for variant, candidate in self.logo_candidates_by_variant.items():
+            lines.append(f"  - {variant}: `{candidate['name']}` (id: {candidate['id']})")
         for name, value in self.brand_import_tokens.get("colors", {}).items():
             lines.append(f"- Color `{name}`: {value['hex']} (source: {value['source']})")
         for role, font in self.brand_import_tokens.get("fonts", {}).items():
@@ -703,6 +837,12 @@ class BrandImportResult:
         lines.append("```json")
         lines.append(json.dumps(self.raw_model_json, indent=2) if self.raw_model_json is not None else "null")
         lines.append("```")
+        if self.raw_palette_json is not None:
+            lines.append("")
+            lines.append("## Raw model JSON (colors palette document)")
+            lines.append("```json")
+            lines.append(json.dumps(self.raw_palette_json, indent=2))
+            lines.append("```")
         return "\n".join(lines) + "\n"
 
 
@@ -730,10 +870,12 @@ def import_brand_kit(
     brand_dir = tenant.brand_dir
     incoming_dir = brand_dir / "incoming"
 
-    entries = enumerate_source(drive_folder=drive_folder, local_dir=local_dir, fetch=fetch)
-    downloaded = list(download_incoming(entries, incoming_dir))
+    entries = enumerate_source(drive_folder=drive_folder, local_dir=local_dir, fetch=fetch, log=log)
+    downloaded = list(download_incoming(entries, incoming_dir, log=log))
     result.manifest = [
-        {"name": e["name"], "kind": e["kind"], "path": str(e["path"])} for e in downloaded
+        {"name": e["name"], "kind": e["kind"], "path": str(e["path"]),
+         "folder_path": list(e.get("folder_path", ()))}
+        for e in downloaded
     ]
 
     by_kind = {}
@@ -744,8 +886,32 @@ def import_brand_kit(
     tenant_brand = {}
 
     # -- logo -----------------------------------------------------------
-    logo_candidates = [e["path"] for e in by_kind.get("logo", [])]
+    logo_entries = by_kind.get("logo", [])
+    source_only_entries = [e for e in logo_entries if e["path"].suffix.lower() in LOGO_SOURCE_ONLY_EXTS]
+    for e in source_only_entries:
+        result.human_decisions.append(
+            f"{e['name']} is a design source file ({e['path'].suffix.lower()}), not usable "
+            "directly on a web page -- a rasterizable candidate (.svg/.png/.pdf) was preferred "
+            "for the logo; open this one by hand if it's needed."
+        )
+    logo_candidates = [e["path"] for e in logo_entries if e not in source_only_entries]
     chosen_logo = choose_logo(logo_candidates)
+
+    # Per-variant candidates (logotype/icon/combined) -- only meaningful when
+    # the source has the variant-bearing subfolders a real Drive toolbox
+    # does; a flat --local import never populates this.
+    by_variant = {}
+    for e in logo_entries:
+        if e in source_only_entries or not e.get("folder_path"):
+            continue
+        variant = _logo_variant_for_folder(e["folder_path"][0])
+        if variant:
+            by_variant.setdefault(variant, []).append(e)
+    for variant, variant_entries in by_variant.items():
+        winner_path = choose_logo([e["path"] for e in variant_entries])
+        winner = next(e for e in variant_entries if e["path"] == winner_path)
+        result.logo_candidates_by_variant[variant] = {"name": winner["name"], "id": winner.get("id"), "path": str(winner_path)}
+
     if chosen_logo:
         dest_logo = brand_dir / f"logo{chosen_logo.suffix.lower()}"
         if not dry_run:
@@ -766,6 +932,18 @@ def import_brand_kit(
     else:
         result.human_decisions.append("No logo file found in the source; brand/logo.* was not written.")
 
+    # -- other design-source / not-read files (Cycle 35c: .pages instructions,
+    # a stray .ai/.eps outside a Logotype/Icon folder) -----------------------
+    for e in by_kind.get("other", []):
+        suffix = e["path"].suffix.lower()
+        if suffix == ".pages":
+            result.human_decisions.append(f"{e['name']} is a .pages file; noted, not read.")
+        elif suffix in LOGO_SOURCE_ONLY_EXTS:
+            result.human_decisions.append(
+                f"{e['name']} is a design source file ({suffix}), not read automatically -- "
+                "open it by hand if it's needed."
+            )
+
     # -- palette file -----------------------------------------------------
     for e in by_kind.get("palette", []):
         if e["path"].suffix.lower() == ".ase":
@@ -780,7 +958,15 @@ def import_brand_kit(
             })
 
     # -- fonts --------------------------------------------------------------
-    font_paths = [e["path"] for e in by_kind.get("font", [])]
+    font_entries = by_kind.get("font", [])
+    trial_font_entries = [e for e in font_entries if _is_unlicensed_trial_font(e["name"])]
+    for e in trial_font_entries:
+        result.human_decisions.append(
+            f"{e['name']}: filename indicates a TRIAL/DEMO/EVAL build, not licensed for "
+            "production -- NOT copied into brand/fonts, even with --force. Obtain a "
+            "licensed file from the foundry/agency before using this typeface live."
+        )
+    font_paths = [e["path"] for e in font_entries if e not in trial_font_entries]
     if font_paths:
         fonts_dir = brand_dir / "fonts"
         if not dry_run:
@@ -880,6 +1066,50 @@ def import_brand_kit(
             result.human_decisions.append(
                 f"{guide['name']} was rendered to {len(pages)} page image(s) but no model "
                 "client was given -- run with a real client to extract colors/fonts from it."
+            )
+
+    # -- palette document (vision) -- Cycle 35c: a Colors-folder .pdf is a
+    # standalone swatch sheet, not the comprehensive brand guide -- read it
+    # the same way (render pages, one vision call) but only pull colors out
+    # of the response; fonts/logo_rules/voice/dont from a color sheet would
+    # just be empty or noise. -------------------------------------------
+    palette_doc_entries = by_kind.get("palette_pdf", [])
+    if palette_doc_entries:
+        palette_doc = max(palette_doc_entries, key=lambda e: e["path"].stat().st_size)
+        if len(palette_doc_entries) > 1:
+            result.human_decisions.append(
+                f"Multiple colors-folder PDFs found ({', '.join(e['name'] for e in palette_doc_entries)}); "
+                f"only {palette_doc['name']} was read."
+            )
+        pages_dir = incoming_dir / "_palette-pages"
+        pages = render_guide_pages(palette_doc["path"], pages_dir, pdftoppm_bin=pdftoppm_bin)
+        if not pages:
+            result.human_decisions.append(
+                f"{palette_doc['name']} could not be rendered to page images -- colors were "
+                "not extracted from it automatically."
+            )
+        elif client is not None:
+            palette_json = extract_brand_guide_json(pages, client=client, model=model, budget=budget, log=log)
+            result.raw_palette_json = palette_json
+            if palette_json and not palette_json.get("_parse_error"):
+                for i, c in enumerate(palette_json.get("colors", [])):
+                    hexv = c.get("hex", "")
+                    if not re.match(r"^#[0-9a-fA-F]{6}$", hexv):
+                        continue
+                    role = (c.get("role") or f"palette_doc_{i + 1}").lower().replace(" ", "_")
+                    tokens["colors"].setdefault(role, {
+                        "hex": hexv, "role": role, "name": c.get("name", ""),
+                        "source": f"brand-import:{palette_doc['name']}",
+                    })
+            elif palette_json:
+                result.human_decisions.append(
+                    f"{palette_doc['name']}: the colors-document model call did not return "
+                    "valid JSON; raw response kept below for manual review."
+                )
+        else:
+            result.human_decisions.append(
+                f"{palette_doc['name']} was rendered to {len(pages)} page image(s) but no "
+                "model client was given -- run with a real client to extract its colors."
             )
 
     # -- contrast sanity ---------------------------------------------------
