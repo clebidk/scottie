@@ -234,6 +234,28 @@ def test_reconcile_drops_stale_reservations_whose_run_finished(tmp_path):
     assert round(daily_reserved(tenant, "2026-09-11"), 2) == 1.2  # still-running + fresh-run
 
 
+def test_reconcile_drops_stale_revise_reservation_whose_run_is_final(tmp_path):
+    """Cycle 34 fix: harness/revise.py's spend-ledger run_id now reuses its
+    own RunLog filename stem (run_id-revise-<page>-v<version>) instead of a
+    separate __revise__<page>__v<version> convention, so
+    _run_has_final_state's generic f"{run_id}.log" lookup can find a crashed
+    revise reservation's log -- previously the two strings never matched and
+    such a reservation could never be swept."""
+    tenant = _TenantDouble(runs_dir=tmp_path)
+    stale_ts = time.time() - 3 * 60 * 60  # past the staleness window
+    revise_run_id = "20260911-000000-some-input-abcd-revise-article-v2"
+    with spend_ledger_path(tenant).open("a") as f:
+        f.write(json.dumps({"date": "2026-09-11", "run_id": revise_run_id, "reserved_usd": 0.4, "ts": stale_ts}) + "\n")
+    (tmp_path / f"{revise_run_id}.log").write_text(
+        f"run_id: {revise_run_id}\nrun_result: PASS attempts=1 repairs=0\n"
+    )
+
+    dropped = reconcile_stale_reservations(tenant)
+
+    assert [e["run_id"] for e in dropped] == [revise_run_id]
+    assert daily_reserved(tenant, "2026-09-11") == 0.0
+
+
 def test_run_exits_3_once_the_daily_cap_is_spent(monkeypatch, tmp_path):
     """Pipeline level: a tenant at its daily cap gets exit 3 before any model
     call -- the fake client must never be invoked."""

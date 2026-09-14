@@ -255,7 +255,14 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
 
     version = next_version(cartridge_dir)
     run_id = run_dir.name
-    log = RunLog(run_id, tenant.runs_dir / f"{run_id}-revise-{page_name}-v{version}.log")
+    # Cycle 34 fix: this is the one place that names a revise run's log file.
+    # The spend ledger's run_id (below) reuses this exact string instead of
+    # inventing its own format, so budget._run_has_final_state's generic
+    # `f"{run_id}.log"` lookup finds this file for a revise reservation too --
+    # otherwise a crashed revise reservation can never be swept by
+    # `harness spend reconcile`.
+    log_run_id = f"{run_id}-revise-{page_name}-v{version}"
+    log = RunLog(run_id, tenant.runs_dir / f"{log_run_id}.log")
     # Cycle 34: close on success, ReviseError, and any mid-revise exception so
     # in-process callers (tests / serve) do not leak the append handle.
     try:
@@ -273,7 +280,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
             # tenant daily ledger before the first model call and record actual
             # cost on the way out (success, gate failure, or mid-revise abort) --
             # same contract pipeline uses for harness run.
-            spend_run_id = f"{run_dir.name}__revise__{page_name}__v{version}"
+            spend_run_id = log_run_id
             today_iso = datetime.date.today().isoformat()
             reserve_spend(tenant, run_id=spend_run_id, today_iso=today_iso, log=log)
             try:

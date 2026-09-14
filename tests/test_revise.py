@@ -230,7 +230,10 @@ def test_revise_with_notes_reserves_and_records_daily_spend(monkeypatch, tmp_pat
     assert ledger.exists()
     lines = [ln for ln in ledger.read_text().splitlines() if ln.strip()]
     assert len(lines) >= 2  # reservation + final cost
-    assert any("__revise__article__v" in ln for ln in lines)
+    # Cycle 34: the ledger run_id now matches the revise RunLog's own
+    # filename stem exactly (run_id-revise-<page>-v<version>), not a separate
+    # __revise__<page>__v<version> convention -- see the reconcile test below.
+    assert any("-revise-article-v" in ln for ln in lines)
 
 
 def test_revise_with_notes_refuses_when_daily_cap_already_spent(monkeypatch, tmp_path):
