@@ -505,6 +505,54 @@
         "sections": ["verdict", "close"],
         "bindings": {"eyebrow": "optional string", "heading": "string", "paragraphs": "list of {text}", "cta": "{text, url} -- the page's one CTA, verbatim"}
       }
+    },
+    {
+      "name": "tagline-reveal",
+      "type": "registry:block",
+      "category": "body",
+      "title": "Tagline reveal",
+      "description": "Large-type two-line benefit statement, its own moment after the hero. Seeded from elayadesign/ai-design-skills B11. Layout only; CSS fade-up (the skill's cubic-bezier); no script -- per-word JS reveals are declined. Copy comes from page.tagline.lines through the existing gate.",
+      "files": [
+        {"path": "tagline-reveal/block.html", "type": "registry:component"},
+        {"path": "tagline-reveal/block.css", "type": "registry:style"},
+        {"path": "tagline-reveal/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "MIT",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "type size steps down under 480px; max-width 100% (never a 680px cap -- that fights the block gate)",
+        "motion": "CSS-only fade-up with cubic-bezier(0.32, 0.72, 0, 1); disabled under prefers-reduced-motion. No script.",
+        "screenshot": "tagline-reveal/screenshot.svg",
+        "source_pattern": "elayadesign/ai-design-skills landing-page-design B11 (adapted)",
+        "sections": ["body", "tagline"],
+        "bindings": {"lines": "list of at least two strings -- a benefit statement, never a generic heading"}
+      }
+    },
+    {
+      "name": "risk-reversal",
+      "type": "registry:block",
+      "category": "cta",
+      "title": "Risk-reversal line",
+      "description": "Optional eyebrow plus one line of risk-reversal microcopy under a CTA. Seeded from elayadesign/ai-design-skills A4. Layout only; the text binding is a verified claim (warranty sentence, shipping policy) -- never a money-back or 30-day guarantee the tenant does not offer.",
+      "files": [
+        {"path": "risk-reversal/block.html", "type": "registry:component"},
+        {"path": "risk-reversal/block.css", "type": "registry:style"},
+        {"path": "risk-reversal/screenshot.svg", "type": "registry:asset"}
+      ],
+      "dependencies": [],
+      "meta": {
+        "license": "MIT",
+        "tenant_neutral": true,
+        "styling": "self",
+        "mobile_rules": "full-width card, padding tightens under 480px",
+        "motion": "none",
+        "screenshot": "risk-reversal/screenshot.svg",
+        "source_pattern": "elayadesign/ai-design-skills landing-page-design A4 (adapted)",
+        "sections": ["cta", "hero"],
+        "bindings": {"eyebrow": "optional string", "text": "verified-claim sentence (warranty / shipping / returns) -- never an unsourced guarantee"}
+      }
     }
   ]
 }

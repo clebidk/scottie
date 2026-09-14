@@ -22,6 +22,16 @@
       "description": "Layout block for the closing verdict box.",
       "blocks": ["verdict-box"],
       "default": "verdict-box"
+    },
+    "risk": {
+      "description": "Optional risk-reversal microcopy under the header CTA (design-skills A4). Copy is a verified claim; never a guarantee the tenant does not offer.",
+      "blocks": ["risk-reversal"],
+      "default": "risk-reversal"
+    },
+    "tagline": {
+      "description": "Optional large-type two-line benefit statement after the header (design-skills B11).",
+      "blocks": ["tagline-reveal"],
+      "default": "tagline-reveal"
     }
   },
   "properties": {
@@ -153,10 +163,18 @@
     },
     "risk_reversal": {
       "type": "object",
-      "description": "Optional 1-2 line microcopy under the header CTA -- verified claims only (e.g. the fixed warranty sentence); never a guarantee the tenant does not offer.",
+      "description": "Optional 1-2 line microcopy under the header CTA, rendered through the risk-reversal block -- verified claims only (e.g. the fixed warranty sentence); never a guarantee the tenant does not offer.",
       "properties": {
+        "eyebrow": {"type": "string"},
         "text": {"type": "string"},
         "claim_ids": {"type": "array"}
+      }
+    },
+    "tagline": {
+      "type": "object",
+      "description": "Optional two-line benefit statement after the header, rendered through the tagline-reveal block (design-skills B11).",
+      "properties": {
+        "lines": {"type": "array"}
       }
     },
     "images": {

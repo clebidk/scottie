@@ -31,3 +31,6 @@ Hook and angle → headline and open. Objections raised in the ad → body secti
 
 ## From facts_pack
 Specs, price, financing, warranty, verified studies, reviews summary.
+
+## Design-skills pack
+The landing-page skill's type-A/B skeleton does **not** apply here. This cartridge is the editorial warm-up (brand and CTA delayed to the close). A mid-page tagline-reveal would name the offer too early; do not add one. The pack's copy tells (no filler, no leftover AI cliches, no dead '#' links) still apply -- they are page-level hard gates on every cartridge.

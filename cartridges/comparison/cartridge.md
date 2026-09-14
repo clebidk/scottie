@@ -21,7 +21,8 @@ Draft status: opt-in only, same as listicle -- it runs only when `--cartridges c
 - The warranty and financing sentences stay exactly as the global voice block fixes them -- verbatim or absent, never paraphrased.
 - Images: 2-4 from the asset library, referenced by asset_id only -- the renderer derives alt text, never write your own "alt" field.
 - Voice: plain, specific, fair. No exclamation marks. No hype words.
-- Layout blocks: the proof row, table, FAQ, and verdict render through registered layout blocks; set top-level `"blocks"` per schema.json's block_slots to choose a variant, or omit it for the defaults. Blocks are layout only -- they never change what the copy may say.
+- Layout blocks: the proof row, table, FAQ, verdict, optional risk-reversal, and optional tagline render through registered layout blocks; set top-level `"blocks"` per schema.json's block_slots to choose a variant, or omit it for the defaults. Blocks are layout only -- they never change what the copy may say.
+- This cartridge is the skill's type-D comparison page. Optional `tagline.lines` (two or more) renders after the header through `tagline-reveal`. `risk_reversal` renders through the `risk-reversal` block -- verified claims only, never a guarantee the tenant does not offer. See `harness/design_skills/`.
 
 ## From the ad
 The ad's angle decides which comparison the page makes (the writer picks the compared subject from facts_pack.comparison_targets by best fit to the angle) and which dimensions the table rows cover. The ad's objections become FAQ questions where they fit.

@@ -59,6 +59,24 @@ def test_parse_gate_history_reads_the_review_md_table():
     assert history["longform"] == {"attempts": [0], "deterministic_fixes": [0], "result": "PASS"}
 
 
+def test_effective_blocks_skip_optional_slots_without_payload():
+    schema = {
+        "block_slots": {
+            "proof": {"default": "proof-stat-row"},
+            "tagline": {"default": "tagline-reveal"},
+            "risk": {"default": "risk-reversal"},
+        }
+    }
+    # pre-pack slots still default even with no payload
+    assert evals_mod._effective_blocks({"hero": {}}, schema) == {"proof": "proof-stat-row"}
+    assert evals_mod._effective_blocks(
+        {"tagline": {"lines": ["a", "b"]}}, schema
+    ) == {"proof": "proof-stat-row", "tagline": "tagline-reveal"}
+    assert evals_mod._effective_blocks(
+        {"blocks": {"tagline": "tagline-reveal"}}, schema
+    ) == {"proof": "proof-stat-row", "tagline": "tagline-reveal"}
+
+
 def test_cartridge_and_block_versions_are_content_hashes():
     v1 = evals_mod.cartridge_version("article")
     assert v1.startswith("sha256:")

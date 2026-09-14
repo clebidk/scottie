@@ -27,3 +27,6 @@ Angle → hero promise and angle section. Features shown → which proof bullets
 
 ## From facts_pack
 Product, specs, price, financing, warranty, shipping, reviews summary, assets.
+
+## Design-skills pack (optional)
+This cartridge is the skill's type-A classic landing page (one offer, one audience, one action). Optional `tagline.lines` (two or more) renders after the proof bullets through the `tagline-reveal` block. Soft-warned when omitted. The skill's raw visual tokens do not apply; see `harness/design_skills/`.

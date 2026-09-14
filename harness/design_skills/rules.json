@@ -1,0 +1,277 @@
+{
+  "skill": "landing-page-design",
+  "source": "https://github.com/elayadesign/ai-design-skills",
+  "decisions": ["take", "adapt", "decline"],
+  "rules": [
+    {
+      "id": "A1",
+      "title": "Intake before writing",
+      "kind": "strategy",
+      "measurable": false,
+      "action": "adapt",
+      "check": null,
+      "harness": "ad_brief.json already is the intake (hook, audience, objections, CTA, traffic implied by the ad). The skill's extra questions (ICP, three objections, proof assets) map onto ad_brief + facts_pack; do not add a second intake interview. Documented on the landing-style cartridges."
+    },
+    {
+      "id": "A2",
+      "title": "Page structure (hero / argument / objections)",
+      "kind": "strategy",
+      "measurable": false,
+      "action": "adapt",
+      "check": null,
+      "harness": "Each cartridge already has a required section order. Longform is the closest match (hero, problem, how-it-works, proof, FAQ, CTA). Product-page is the high-intent short form. Article keeps its editorial warm-up and does not take this skeleton."
+    },
+    {
+      "id": "A3",
+      "title": "Layout type A/B/C/D",
+      "kind": "strategy",
+      "measurable": false,
+      "action": "adapt",
+      "check": null,
+      "harness": "Already encoded as cartridges: A classic ≈ product-page, B long-form story ≈ longform + article, C minimal ≈ listicle close, D comparison = comparison cartridge. No new cartridge."
+    },
+    {
+      "id": "A4-one-cta",
+      "title": "One primary CTA; no competing CTAs above the fold",
+      "kind": "strategy",
+      "measurable": true,
+      "action": "take",
+      "check": "existing:claims.find_second_cta_violation + repair.find_cta_violation",
+      "harness": "Already a hard gate. The skill restates it; we do not add a second check."
+    },
+    {
+      "id": "A4-generic-cta",
+      "title": "CTA is a verb plus the outcome; never Learn more / Submit",
+      "kind": "copy",
+      "measurable": true,
+      "action": "take",
+      "check": "find_generic_cta_warnings",
+      "harness": "Soft warning. Cartridges already allowlist CTA phrases; this catches a writer who still emits a banned generic on a cartridge without an allowlist."
+    },
+    {
+      "id": "A4-risk-reversal",
+      "title": "At least one risk reversal (trial, cancel, money-back)",
+      "kind": "strategy",
+      "measurable": true,
+      "action": "adapt",
+      "check": null,
+      "harness": "Layout only: the risk-reversal block. Copy must be a verified claim. Money-back / 30-day guarantee / white-glove framing is a tenant-locked decline -- a tenant that does not offer those cannot print them. The comparison cartridge already has an optional risk_reversal field."
+    },
+    {
+      "id": "A5",
+      "title": "Headline formulas and benefit-first bullets",
+      "kind": "copy",
+      "measurable": false,
+      "action": "adapt",
+      "check": null,
+      "harness": "Prompt wording on landing-style cartridges. The article cartridge keeps its own 8-14 word curiosity formula. Not a gate -- headline shape is already a soft check for article."
+    },
+    {
+      "id": "A6",
+      "title": "Build section by section",
+      "kind": "process",
+      "measurable": false,
+      "action": "decline",
+      "check": null,
+      "harness": "The writer emits one page.json per cartridge. Section-by-section generation would be a pipeline change outside this component."
+    },
+    {
+      "id": "A7",
+      "title": "SEO / AEO / noindex for ad-only pages",
+      "kind": "strategy",
+      "measurable": false,
+      "action": "decline",
+      "check": null,
+      "harness": "Index vs noindex is a publish-time decision, not a writer one. JSON-LD already ships. Do not silently noindex."
+    },
+    {
+      "id": "A8",
+      "title": "Pitfalls list",
+      "kind": "strategy",
+      "measurable": false,
+      "action": "adapt",
+      "check": null,
+      "harness": "Covered piecewise: one CTA (gate), vague verbs (soft), proof next to the claim (article/listicle soft proof-in-section), mobile (block gate 390 px)."
+    },
+    {
+      "id": "B1-fonts",
+      "title": "Geist / Manrope only; no Inter / italic / ultra-bold",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "The tenant's brand tokens own type. The engine never hard-codes a font family."
+    },
+    {
+      "id": "B1-no-hyphens",
+      "title": "No hyphens in copy",
+      "kind": "copy",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "Would reject legitimate product names, claim ids' rendered sentences, and standard English compounds. Not a harness rule."
+    },
+    {
+      "id": "B1-orphans",
+      "title": "text-wrap balance / pretty",
+      "kind": "visual",
+      "measurable": true,
+      "action": "adapt",
+      "check": null,
+      "harness": "Optional CSS on new blocks. Not enforced on existing structure.css (a behavior-preserving commit would not restyle every page)."
+    },
+    {
+      "id": "B1-type-scale",
+      "title": "Snap every font-size to the Tailwind scale",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "The harness is not a Tailwind app. Sizes resolve through rem + CSS variables."
+    },
+    {
+      "id": "B2",
+      "title": "Spacing token table",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "Existing blocks already use a small px set; forcing a new token table would restyle every block and break visual parity."
+    },
+    {
+      "id": "B3",
+      "title": "Nested radius formula",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "Not statically checkable in block.css without a layout engine. Documented as a manual review note in the design-audit agent."
+    },
+    {
+      "id": "B4-single-side-border",
+      "title": "No single-sided card borders",
+      "kind": "visual",
+      "measurable": true,
+      "action": "take",
+      "check": null,
+      "harness": "Applied to the feature-grid block (it had a border-top only). Existing structure.css rules are left alone."
+    },
+    {
+      "id": "B4-no-bg-gradient",
+      "title": "No background gradients; flat surfaces",
+      "kind": "visual",
+      "measurable": true,
+      "action": "take",
+      "check": "existing:blocks.gate (no hardcoded colors) + no linear-gradient in new blocks",
+      "harness": "New blocks ship flat. The block gate already forbids color literals."
+    },
+    {
+      "id": "B4-dark-hex",
+      "title": "Dark-mode hex palette",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "Conflicts with the block gate (CSS variables only) and with tenant brand tokens."
+    },
+    {
+      "id": "B5-hero-gradient-type",
+      "title": "Hero heading is a left-to-right text gradient",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "A gradient fill needs color literals; the block gate forbids them. Tenant type color stays a CSS variable."
+    },
+    {
+      "id": "B5-hero-680",
+      "title": "Hero heading/subhead max-width 680px",
+      "kind": "visual",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "Conflicts with the block gate's 390 px fixed-width ceiling. Use max-width: 100%."
+    },
+    {
+      "id": "B6",
+      "title": "Icon libraries (Phosphor / Solar / Iconamoon)",
+      "kind": "visual",
+      "measurable": false,
+      "action": "decline",
+      "check": null,
+      "harness": "Blocks do not ship icon fonts. Proof is claims and photos."
+    },
+    {
+      "id": "B7-js-motion",
+      "title": "IntersectionObserver word-reveals; custom cubic-bezier; no window scroll",
+      "kind": "visual",
+      "measurable": true,
+      "action": "adapt",
+      "check": null,
+      "harness": "Blocks cannot contain scripts (block gate). Host-page scroll observers already exist on listicle. New blocks may use CSS-only motion with the skill's cubic-bezier."
+    },
+    {
+      "id": "B8-filler",
+      "title": "No Lorem Ipsum, John Doe, Acme Corp, SmartFlow",
+      "kind": "copy",
+      "measurable": true,
+      "action": "take",
+      "check": "find_filler_copy_violations",
+      "harness": "Hard gate. Planted-bad pages fail; known-good pages pass."
+    },
+    {
+      "id": "B8-cliches",
+      "title": "No Seamless / Next Gen / Delve / Tapestry / In the world of",
+      "kind": "copy",
+      "measurable": true,
+      "action": "take",
+      "check": "find_ai_cliche_violations",
+      "harness": "Hard gate for the skill's cliches that are not already in the tenant hype list (elevate / unleash / game-changer stay tenant vocab so the existing synonym repair still owns them)."
+    },
+    {
+      "id": "B8-round-fakes",
+      "title": "No round fake numbers (99.99%, $100.00)",
+      "kind": "copy",
+      "measurable": true,
+      "action": "decline",
+      "check": null,
+      "harness": "A number on a page already needs a claim_id. Invented-roundness is not separately measurable without false-positing real prices."
+    },
+    {
+      "id": "B9-dead-hash",
+      "title": "No dead '#' links",
+      "kind": "copy",
+      "measurable": true,
+      "action": "take",
+      "check": "find_dead_link_violations",
+      "harness": "Hard gate. A same-page '#faq' is fine; a bare '#' or javascript: url is not. The existing internal-link check treated '#' as internal -- this one is stricter on the dead form only."
+    },
+    {
+      "id": "B9-states",
+      "title": "Hover / active / focus / loading / empty / error states",
+      "kind": "visual",
+      "measurable": false,
+      "action": "decline",
+      "check": null,
+      "harness": "Advertorials are not app UI. Focus rings live on the tenant's base.css when they exist. No form chrome on these pages."
+    },
+    {
+      "id": "B10",
+      "title": "Ship list (404, legal, skip-link, favicon, alt, semantic HTML)",
+      "kind": "visual",
+      "measurable": false,
+      "action": "adapt",
+      "check": null,
+      "harness": "Alt text is renderer-derived from the asset library (already). Semantic HTML is already in the templates. 404 / cookie / skip-link are storefront concerns, not a generated advertorial."
+    },
+    {
+      "id": "B11",
+      "title": "Mandatory tagline-reveal section",
+      "kind": "layout",
+      "measurable": true,
+      "action": "adapt",
+      "check": "find_tagline_warnings",
+      "harness": "New tagline-reveal block (layout only, CSS motion, no per-word JS). Optional on landing-style cartridges; soft warning when the field is absent. Never required on article (would name the offer inside the warm-up window)."
+    }
+  ]
+}
