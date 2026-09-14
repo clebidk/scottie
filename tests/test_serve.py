@@ -91,12 +91,19 @@ def test_correct_reviewer_and_password_is_200(app_client):
     assert resp.status_code == 200
 
 
+def _cf_access_headers(email, jwt="test-jwt-assertion"):
+    return {
+        "Cf-Access-Authenticated-User-Email": email,
+        "Cf-Access-Jwt-Assertion": jwt,
+    }
+
+
 def test_cf_access_header_trusted_when_enabled(monkeypatch):
     monkeypatch.setenv("REVIEW_PASSWORD", PASSWORD)
     monkeypatch.setenv("REVIEW_TRUST_CF_ACCESS", "true")
     app = serve.build_app(TENANT)
     client = app.test_client()
-    resp = client.get("/", headers={"Cf-Access-Authenticated-User-Email": REVIEWER})
+    resp = client.get("/", headers=_cf_access_headers(REVIEWER))
     assert resp.status_code == 200
 
 
@@ -105,8 +112,20 @@ def test_cf_access_header_rejects_unknown_email(monkeypatch):
     monkeypatch.setenv("REVIEW_TRUST_CF_ACCESS", "true")
     app = serve.build_app(TENANT)
     client = app.test_client()
-    resp = client.get("/", headers={"Cf-Access-Authenticated-User-Email": "nobody@example.com"})
+    resp = client.get("/", headers=_cf_access_headers("nobody@example.com"))
     assert resp.status_code == 403
+
+
+def test_cf_access_email_alone_without_jwt_is_401(monkeypatch):
+    """Cycle 34: email header without Cf-Access-Jwt-Assertion must not
+    authenticate -- otherwise any client that can reach the process can
+    spoof a listed reviewer."""
+    monkeypatch.setenv("REVIEW_PASSWORD", PASSWORD)
+    monkeypatch.setenv("REVIEW_TRUST_CF_ACCESS", "true")
+    app = serve.build_app(TENANT)
+    client = app.test_client()
+    resp = client.get("/", headers={"Cf-Access-Authenticated-User-Email": REVIEWER})
+    assert resp.status_code == 401
 
 
 def test_cf_access_falls_back_to_basic_auth_when_header_missing(monkeypatch):
@@ -327,3 +346,75 @@ def test_non_run_dirs_are_skipped(app_client, run_dir):
         assert resp.status_code == 404
     finally:
         shutil.rmtree(junk)
+
+
+# ---------------------------------------------------------------------------
+# Cycle 34: CSRF Origin/Referer check + frame denial headers
+# ---------------------------------------------------------------------------
+
+def test_cross_origin_post_is_refused(app_client, run_dir):
+    headers = _basic_auth_header(REVIEWER, PASSWORD)
+    headers["Origin"] = "https://evil.example"
+    resp = app_client.post(
+        f"/run/{run_dir.name}/page/article/action",
+        data={"action": "approve", "angle": "5", "brand": "5", "claims": "5", "publish": "5"},
+        headers=headers,
+    )
+    assert resp.status_code == 403
+    state = runstate.load_state(run_dir)
+    assert state["pages"]["article"] != "approved"
+
+
+def test_same_origin_post_is_allowed(app_client, run_dir):
+    headers = _basic_auth_header(REVIEWER, PASSWORD)
+    headers["Origin"] = "http://localhost/"
+    resp = app_client.post(
+        f"/run/{run_dir.name}/page/article/action",
+        data={"action": "approve", "angle": "5", "brand": "5", "claims": "5", "publish": "5"},
+        headers=headers,
+        base_url="http://localhost/",
+    )
+    assert resp.status_code == 302
+    state = runstate.load_state(run_dir)
+    assert state["pages"]["article"] == "approved"
+
+
+def test_cross_site_referer_post_is_refused(app_client, run_dir):
+    headers = _basic_auth_header(REVIEWER, PASSWORD)
+    headers["Referer"] = "https://evil.example/attack"
+    resp = app_client.post(
+        f"/run/{run_dir.name}/page/article/action",
+        data={"action": "reject", "notes": "nope"},
+        headers=headers,
+    )
+    assert resp.status_code == 403
+
+
+def test_responses_deny_framing(app_client):
+    resp = app_client.get("/", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Frame-Options") == "DENY"
+    assert "frame-ancestors 'none'" in (resp.headers.get("Content-Security-Policy") or "")
+
+
+def test_run_detail_also_denies_framing(app_client, run_dir):
+    """Cycle 34 regression: the page_review carve-out below must be scoped
+    to that one route -- the run page that embeds it (and everything else)
+    keeps DENY/frame-ancestors 'none'."""
+    resp = app_client.get(f"/run/{run_dir.name}", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Frame-Options") == "DENY"
+    assert "frame-ancestors 'none'" in (resp.headers.get("Content-Security-Policy") or "")
+
+
+def test_page_review_allows_same_origin_framing(app_client, run_dir):
+    """Cycle 34 fix: run_detail's own <iframe src="{review_url}"> embeds
+    page_review to show the reviewer a live preview. DENY/frame-ancestors
+    'none' on every response (the cycle 34 clickjacking fix) blocked that
+    same-origin embed too -- confirmed live by the review, not inferred.
+    page_review alone relaxes to SAMEORIGIN / frame-ancestors 'self', which
+    still refuses any third-party framing."""
+    resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Frame-Options") == "SAMEORIGIN"
+    assert "frame-ancestors 'self'" in (resp.headers.get("Content-Security-Policy") or "")

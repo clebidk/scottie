@@ -296,6 +296,13 @@ def cmd_revise(args):
     except revise_mod.ReviseError as e:
         print(str(e), file=sys.stderr)
         return 1
+    except BudgetExceeded as e:
+        # Cycle 34: same cap-refusal contract as cmd_run/cmd_ingest/cmd_brand_import
+        # -- reserve_spend already raised before any ledger write or model-client
+        # construction (see harness/revise.py), so there is nothing left to unwind
+        # here beyond printing the same clean message and exiting 3, no traceback.
+        print(f"budget exceeded: {e}", file=sys.stderr)
+        return 3
     status = "PASS" if not result["gate_problems"] else "FAIL"
     print(
         f"Revised {args.page} for {run_dir} -> v{result['version']} "

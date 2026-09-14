@@ -151,6 +151,32 @@ def test_send_slack_posts_when_webhook_configured(monkeypatch):
         return FakeResp()
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    result = notify.send_slack("https://hooks.slack.example/T000/B000/xyz", "hello")
+    result = notify.send_slack("https://hooks.slack.com/services/T000/B000/xyz", "hello")
     assert result is True
     assert len(calls) == 1
+
+
+def test_send_slack_skips_non_https_webhook(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise AssertionError("urlopen must not run for a non-https webhook")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    log = FakeLog()
+    assert notify.send_slack("http://hooks.example/webhook", "hello", log=log) is False
+    assert any("must be https" in e[1] for e in log.events)
+    assert notify.send_slack("file:///tmp/x", "hello", log=log) is False
+
+
+def test_send_slack_skips_https_on_non_slack_host(monkeypatch):
+    """Cycle 34 finding: the check was scheme-only, so any https:// URL was
+    accepted -- a misconfigured or hostile SLACK_WEBHOOK_URL would still get
+    Peak's review text POSTed to it. Pin the host to hooks.slack.com."""
+
+    def boom(*a, **k):
+        raise AssertionError("urlopen must not run for a non-Slack https host")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    log = FakeLog()
+    assert notify.send_slack("https://hooks.slack.example/T000/B000/xyz", "hello", log=log) is False
+    assert any("must be hooks.slack.com" in e[1] for e in log.events)
+

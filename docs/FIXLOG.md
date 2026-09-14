@@ -1624,3 +1624,49 @@ changes what it returns). Full suite: 965 passed (925 baseline + 40 new),
 ## Cycle 33 (merged 2026-09-14)
 - Six Cursor swarm packages merged after docs/REVIEW-CYCLE33.md: fetch-url-safety, run-log-context-manager, warmup-window (root cause: cartridge and voice block invited a body brand mention; real run now first brand at word 1267 vs 600 window), shopify-body-rename (harness/page_body.py; `harness shopify-body` alias kept), ci-pipeline, packaging-metadata. Review FIX items applied in one follow-up commit. Synthesis: docs/SWARM-2026-09-14.md (~30 agents, not 300).
 - Backlog from the swarm: untrusted-transcript framing in prompts (prompt-injection posture), cmd_review move + `harness --version`, docs accuracy sweep, RunLog call sites to `with`.
+
+## Cycle 34 fixes (branch `cycle34/fixes`, not yet merged to master)
+- Base: `master` @ `0f0b5b3` (the three clean-MERGE cycle 34 packages --
+  repair-warranty-scope, runlog-close-protocol, publisher-store-guard --
+  and docs/REVIEW-CYCLE34.md already on master). Merged the three
+  review-marked-FIX packages on top (`github/cycle34/notify-webhook-https`,
+  `github/cycle34/revise-spend-ledger`, `github/cycle34/serve-auth-hardening`),
+  no conflicts, then applied every FIX finding from docs/REVIEW-CYCLE34.md
+  as its own commit:
+  - **notify-webhook-https**: the https check was scheme-only -- any
+    `https://` URL was accepted. Pinned the host: a Slack webhook must be
+    `https://hooks.slack.com/...`; anything else is refused before any send,
+    still behind the tenant off-switch. New test for a non-Slack https host;
+    the "valid" test now uses a real `hooks.slack.com` URL.
+  - **revise-spend-ledger**: (a) removed the unused `page` local in
+    `tests/test_revise.py` (ruff F841); (b) `cmd_revise` now catches
+    `BudgetExceeded` and prints the same "budget exceeded: daily spend cap
+    reached: ..." message with exit code 3 as `harness run`, no traceback
+    (previously only `ReviseError` was caught); (c) the revise ledger's
+    run_id now reuses the RunLog's own filename stem
+    (`<run_id>-revise-<page>-v<version>`) instead of a separate
+    `__revise__<page>__v<version>` string, so `budget._run_has_final_state`
+    can actually find a crashed revise reservation's log and
+    `harness spend reconcile` can sweep it. New tests:
+    `test_cmd_revise_exits_3_on_cap_refusal_no_traceback` and
+    `test_reconcile_drops_stale_revise_reservation_whose_run_is_final`.
+  - **serve-auth-hardening**: the cycle 34 clickjacking fix sent
+    `X-Frame-Options: DENY` / CSP `frame-ancestors 'none'` on every
+    response, including `/run/<id>/review/<page>` (`page_review`) -- the
+    same route `run_detail`'s own `<iframe>` embeds for the reviewer's live
+    preview, so DENY broke the app's own preview. `page_review` alone now
+    sends `SAMEORIGIN` / `frame-ancestors 'self'`; every other route keeps
+    DENY / `'none'`. Also corrected `_authenticate`'s docstring: the CF
+    Access check is a non-empty-header presence check, not cryptographic
+    JWT verification -- said so plainly and pointed at backlog item #1 in
+    docs/SWARM-2026-09-14-cycle34.md for real JWKS verification. New tests:
+    `test_run_detail_also_denies_framing`,
+    `test_page_review_allows_same_origin_framing`.
+- Verify: full suite 1048 passed, `ruff check .` clean, both
+  `evals.fake_run --baseline-dir` fixtures (`hidden-costs-v2-transcript`,
+  `founder-warranty-demo`) byte-identical to `evals/baseline/` (manifest.json
+  excluded). Live check on a spare port against a worktree of this branch:
+  index returns `X-Frame-Options: DENY`; an existing run's page-review route
+  returns `SAMEORIGIN` / CSP `frame-ancestors 'self'`.
+- Branch pushed to `origin` (the prod mirror) only -- not merged to master,
+  not pushed to `github`.
