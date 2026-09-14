@@ -168,6 +168,12 @@ LONGFORM_PAGE = {
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
         "warranty_line": {"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
     },
+    # cartridges/longform/schema.json requires this ("a convenience index
+    # of everything used [elsewhere on the page]") -- it deliberately
+    # repeats hero.hero_image's id, which is why cycle 31's
+    # pagechecks.find_duplicate_asset_violations / ground.enforce_slot_plan
+    # both exclude longform's own "images" key from the duplicate-asset
+    # scan (see their _DUPLICATE_ASSET_SKIP_KEYS / skip_keys).
     "images": [{"asset_id": FUJI_MANIFEST_ASSET_ID}],
 }
 
@@ -258,10 +264,11 @@ def test_render_page_downloads_used_assets_and_rewrites_urls(tmp_path):
     out/<cartridge>/assets/ and referenced by a relative path. No network --
     fetch_url is a fake."""
     downloaded = {}
+    image_bytes = _make_image_bytes(600, 600, fmt="PNG")
 
     def fake_fetch_url(url):
         downloaded[url] = downloaded.get(url, 0) + 1
-        return b"\xff\xd8\xff\xe0fake-jpeg-bytes"  # looks nothing like HTML
+        return image_bytes
 
     out_dir = tmp_path / "product-page"
     index_path = render_page(
@@ -280,8 +287,12 @@ def test_render_page_downloads_used_assets_and_rewrites_urls(tmp_path):
     html = index_path.read_text()
 
     assert downloaded == {"https://cdn.shopify.com/fuji-1.png": 1}
-    assert f'src="assets/{FUJI_MANIFEST_ASSET_ID}.png"' in html
-    assert (out_dir / "assets" / f"{FUJI_MANIFEST_ASSET_ID}.png").read_bytes() == b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+    # Cycle 31: download_asset now writes width-variant files
+    # (<id>-<width>.jpg[/.webp]) instead of a single <id>.<ext> -- the
+    # fallback src is the smallest configured width not exceeding the
+    # source's own (600px here, so 480).
+    assert f'src="assets/{FUJI_MANIFEST_ASSET_ID}-480.jpg"' in html
+    assert (out_dir / "assets" / f"{FUJI_MANIFEST_ASSET_ID}-480.jpg").exists()
 
 
 def test_render_page_skips_asset_that_downloads_as_html(tmp_path):
@@ -847,14 +858,16 @@ def test_download_asset_resizes_a_real_downloaded_image(tmp_path):
         return large
 
     dest_dir = tmp_path / "assets"
-    path, width, height = download_asset(
-        {"id": "hero", "url": "https://example.com/hero.png"}, dest_dir, fetch_url=fake_fetch_url
-    )
-    assert path is not None
-    img = Image.open(path)
-    assert max(img.width, img.height) == ASSET_MAX_LONG_EDGE
-    assert path.stat().st_size < len(large)
-    assert (width, height) == (img.width, img.height)
+    result = download_asset({"id": "hero", "url": "https://example.com/hero.png"}, dest_dir, fetch_url=fake_fetch_url)
+    assert result is not None
+    # result["width"]/["height"] describe the downscaled source (<=1600px
+    # long edge); result["path"] is the fallback srcset variant, a further
+    # (usually smaller) resize of that -- both are asserted separately.
+    assert max(result["width"], result["height"]) == ASSET_MAX_LONG_EDGE
+    assert result["variants"], "expected at least one srcset variant"
+    img = Image.open(result["path"])
+    assert img.width in {v["width"] for v in result["variants"]}
+    assert result["path"].stat().st_size < len(large)
 
 
 @pytest.mark.slow

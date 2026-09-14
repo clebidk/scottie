@@ -208,7 +208,7 @@ _HERO_FIELD_PATH = {
 }
 
 
-def _hero_container(page, cartridge_name):
+def hero_container(page, cartridge_name):
     """The page.json dict node whose "asset_id" key is this cartridge's
     hero slot, or None if the page has no eligible hero slot at all (e.g.
     an article page with an empty page.images list)."""
@@ -235,7 +235,7 @@ def enforce_slot_plan(page, all_assets, cartridge_name, *, allow_ai_renders, exc
     """Render-time backstop over the writer's own asset_id picks in `page`
     -- never touches copy, only "asset_id" fields. Fixes exactly the
     selection-policy gaps docs/IMAGES-AUDIT-2026-09-14.md found: (1) this
-    cartridge's hero slot (_hero_container) holding a never-eligible kind,
+    cartridge's hero slot (hero_container) holding a never-eligible kind,
     a disallowed ai_render, or an id already used by an earlier cartridge
     this run (`exclude_ids`); (2) the same asset_id repeated on one page;
     (3) a disallowed ai_render used in a non-hero slot. Mutates `page` in
@@ -254,21 +254,28 @@ def enforce_slot_plan(page, all_assets, cartridge_name, *, allow_ai_renders, exc
             or asset_id in extra_exclude
         )
 
-    hero_container = _hero_container(page, cartridge_name)
+    hero_node = hero_container(page, cartridge_name)
     hero_id = None
-    if hero_container is not None:
-        current = hero_container.get("asset_id")
+    if hero_node is not None:
+        current = hero_node.get("asset_id")
         if is_bad(current):
             replacement = pick_hero(all_assets, allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids)
             if replacement is not None:
-                hero_container["asset_id"] = replacement["id"]
+                hero_node["asset_id"] = replacement["id"]
                 current = replacement["id"]
         hero_id = current
         if hero_id:
             used.add(hero_id)
 
-    for _path, node in walk_page(page):
-        if not isinstance(node, dict) or "asset_id" not in node or node is hero_container:
+    # longform's own "images" (cartridges/longform/schema.json) is
+    # documented as "a convenience index of everything used [elsewhere]",
+    # not a distinct slot -- it is meant to repeat hero_image's and the
+    # how_it_works steps' own ids, so it is excluded here the same way
+    # pagechecks.find_duplicate_asset_violations excludes it from the
+    # duplicate scan.
+    skip_keys = {"images"} if cartridge_name == "longform" else ()
+    for _path, node in walk_page(page, skip_keys=skip_keys):
+        if not isinstance(node, dict) or "asset_id" not in node or node is hero_node:
             continue
         asset_id = node.get("asset_id")
         if asset_id in used or is_bad(asset_id, extra_exclude={hero_id} if hero_id else frozenset()):

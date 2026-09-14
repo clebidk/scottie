@@ -4,6 +4,7 @@ Injects byline, dates, the "Advertisement" label, the disclosure paragraph,
 a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
+import copy
 import functools
 import io
 import json
@@ -13,9 +14,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import jinja2
+from markupsafe import Markup, escape
 from PIL import Image
 
 from . import blocks
+from . import ground as ground_mod
 from . import ingest
 from . import pagechecks
 from . import tenant as tenant_mod
@@ -400,13 +403,130 @@ def _image_dimensions(data):
         return None, None
 
 
+# Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problems 8/9): the widths every
+# content image gets a variant generated at, so templates can emit a real
+# srcset instead of shipping the same 1600px-long-edge file to every
+# viewport. A width larger than the source image's own width is skipped
+# (never upscaled) -- see generate_image_variants.
+IMAGE_SRCSET_WIDTHS = (480, 800, 1200, 1600)
+# The width variant used as the plain (no-srcset-support, and
+# harness/review.py's inliner) fallback src -- deliberately not the
+# largest, per the cycle 31 brief ("inline only the largest or the 1200
+# variant to keep files small").
+IMAGE_SRCSET_FALLBACK_WIDTH = 1200
+IMAGE_SIZES_HERO = "(max-width: 768px) 100vw, 700px"
+IMAGE_SIZES_DEFAULT = "(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px"
+
+
+@functools.cache
+def _webp_supported():
+    """Whether this Pillow build can encode WebP -- checked once (a real
+    build always can; this only guards an unusual stripped-down install) so
+    generate_image_variants can silently skip the format instead of failing
+    the whole render."""
+    try:
+        buf = io.BytesIO()
+        Image.new("RGB", (2, 2)).save(buf, format="WEBP")
+        return True
+    except Exception:
+        return False
+
+
+def detect_near_white_border(img, *, threshold=245, strip_px=8):
+    """True if `img`'s outer border (a strip_px-wide strip on all four
+    edges) averages near-white (mean channel value >= threshold) -- the
+    signature of a studio product-cutout shot on a white background, as
+    opposed to a lifestyle/installation photo with a real background.
+    Approximate by design (no attempt at real background segmentation);
+    used only to pick the inline aspect box (render_image_slot: "1x1" for a
+    cutout, "4x3" otherwise), never to select which asset to use."""
+    rgb = img.convert("RGB")
+    w, h = rgb.size
+    strip = max(1, min(strip_px, w // 2, h // 2))
+    edges = [rgb.crop((0, 0, w, strip)), rgb.crop((0, h - strip, w, h)),
+             rgb.crop((0, 0, strip, h)), rgb.crop((w - strip, 0, w, h))]
+    means = []
+    for band in edges:
+        pixels = list(band.getdata())
+        if pixels:
+            means.append(sum(sum(p) / 3 for p in pixels) / len(pixels))
+    return bool(means) and (sum(means) / len(means)) >= threshold
+
+
+def generate_image_variants(data, dest_dir, asset_id, *, widths=IMAGE_SRCSET_WIDTHS, quality=ASSET_JPEG_QUALITY, log=None):
+    """From already-downscaled `data` (<=ASSET_MAX_LONG_EDGE px long edge),
+    writes one JPEG (+ WebP, when this Pillow build supports it -- see
+    _webp_supported) per width in `widths` that does not exceed the
+    source's own width (never upscaled), named
+    <asset_id>-<width>.<jpg|webp>, into dest_dir. Always re-encodes (a PNG
+    source becomes JPEG/WebP too -- docs/IMAGES-AUDIT-2026-09-14.md problem
+    4's oversized PNG heroes only exist because the old single-file path
+    let a PNG through un-converted). Returns
+    {"variants": [{"width": int, "jpg": "assets/<name>", "webp":
+    "assets/<name>"|None}, ...], "width": int, "height": int,
+    "aspect": "1x1"|"4x3"} -- variants is [] and width/height/aspect are
+    None if `data` isn't an image Pillow can open."""
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception as e:
+        if log:
+            log.event("render", f"asset {asset_id} could not be opened for variant generation ({e})")
+        return {"variants": [], "width": None, "height": None, "aspect": None}
+
+    rgb = img.convert("RGB") if img.mode in ("RGBA", "P", "LA") else img.convert("RGB")
+    aspect = "1x1" if detect_near_white_border(img) else "4x3"
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    webp_ok = _webp_supported()
+
+    def _encode(im, w):
+        # The asset id comes from tenant data, not guaranteed to be a safe
+        # single path component (see tests/test_path_safety.py) -- sanitize
+        # once and reuse the same sanitized name for both the file actually
+        # written to disk and the "jpg"/"webp" path string returned to the
+        # caller (render_image_slot puts that string directly into the
+        # rendered <img>'s src/srcset), so the two can never disagree.
+        jpg_name = safe_filename(f"{asset_id}-{w}.jpg", fallback="asset")
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=quality)
+        (dest_dir / jpg_name).write_bytes(buf.getvalue())
+        webp_name = None
+        if webp_ok:
+            webp_name = safe_filename(f"{asset_id}-{w}.webp", fallback="asset")
+            wbuf = io.BytesIO()
+            im.save(wbuf, format="WEBP", quality=quality)
+            (dest_dir / webp_name).write_bytes(wbuf.getvalue())
+        return {"width": w, "jpg": f"assets/{jpg_name}", "webp": f"assets/{webp_name}" if webp_name else None}
+
+    variants = []
+    for w in widths:
+        if w > rgb.width:
+            continue
+        scale = w / rgb.width
+        size = (w, max(1, round(rgb.height * scale)))
+        variants.append(_encode(rgb.resize(size, Image.LANCZOS), w))
+    if not variants:
+        # Source is narrower than the smallest configured width -- still
+        # emit one variant at native size so srcset/picture always has
+        # something to reference.
+        variants.append(_encode(rgb, rgb.width))
+
+    return {"variants": variants, "width": rgb.width, "height": rgb.height, "aspect": aspect}
+
+
 def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, drive_downloader=ingest.download_drive_file):
     """Download one asset (Shopify CDN image, or a Drive file via
     drive_downloader/ingest.download_drive_file) into dest_dir as
-    <asset id>.<ext>. Returns (local Path, width, height) -- width/height are
-    None when the downloaded bytes aren't an image Pillow can open -- or None
-    (with a logged warning) if the download fails or the response looks like
-    an HTML page instead of a file."""
+    <asset id>-<width>.<jpg|webp> variants (generate_image_variants).
+    Returns a dict:
+    {"path": Path (the IMAGE_SRCSET_FALLBACK_WIDTH-or-largest jpg variant),
+     "width": int|None, "height": int|None,
+     "variants": [...] (generate_image_variants' list), "aspect": str|None}
+    -- width/height/variants/aspect are None/[] when the downloaded bytes
+    aren't an image Pillow can open. Returns None (with a logged warning) if
+    the download fails or the response looks like an HTML page instead of a
+    file."""
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -433,17 +553,87 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
             return None
 
         data, ext = resize_asset_bytes(data, ext, log=log, asset_id=asset["id"])
-        width, height = _image_dimensions(data)
+        variant_info = generate_image_variants(data, dest_dir, asset["id"], log=log)
+        variants = variant_info["variants"]
+        if not variants:
+            # Cycle 31: not an image Pillow could open. Previously this
+            # still wrote the raw bytes to disk and rendered an unsized
+            # <img> -- exactly the kind of gap
+            # docs/IMAGES-AUDIT-2026-09-14.md's markup checks now catch
+            # (every img must have width/height). Treated the same as the
+            # _looks_like_html case above: dropped, with a warning logged;
+            # the template's `{% if asset %}` guard means it's simply not
+            # rendered rather than shipping unsized.
+            if log:
+                log.event("render", f"asset {asset['id']} was not a decodable image; dropping")
+            return None
 
-        # The id comes from tenant data and the extension from a URL path;
-        # neither is guaranteed to be a single safe path component.
-        dest_path = dest_dir / safe_filename(f"{asset['id']}{ext}", fallback="asset")
-        dest_path.write_bytes(data)
-        return dest_path, width, height
+        fallback = next((v for v in variants if v["width"] == IMAGE_SRCSET_FALLBACK_WIDTH), variants[-1])
+        return {
+            "path": dest_dir / Path(fallback["jpg"]).name,
+            "width": variant_info["width"],
+            "height": variant_info["height"],
+            "variants": variants,
+            "aspect": variant_info["aspect"],
+        }
     except Exception as e:
         if log:
             log.event("render", f"asset {asset['id']} download failed: {e}")
         return None
+
+
+def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None):
+    """The one function that builds an <img>/<picture> tag from an asset
+    dict -- registered as a Jinja global in render_page's env (see below) so
+    every cartridge template and every image-bearing block calls this
+    instead of hand-writing markup, which is exactly how
+    docs/IMAGES-AUDIT-2026-09-14.md problem 6 happened (one call site simply
+    forgot loading="lazy"). `asset` is one of render_page's assets_by_id
+    entries after download_asset has run (url/alt/width/height/variants/
+    aspect all set); a falsy asset (missing/failed download) renders
+    nothing, same as the templates' own `{% if asset %}` guards did before.
+
+    Every image gets width/height (when known), decoding="async", and a
+    fixed aspect box (structure.css's .adv-img--4x3/--1x1) with object-fit:
+    cover so the layout never jumps. The hero gets loading="eager",
+    fetchpriority="high", and the wider IMAGE_SIZES_HERO `sizes`; every
+    other slot gets loading="lazy" and IMAGE_SIZES_DEFAULT. When Pillow
+    could generate WebP variants, the tag is wrapped in a <picture> with a
+    WebP <source>, JPEG <img> fallback (harness/review.py's inliner only
+    ever needs to touch that <img>'s plain src -- see docs/IMAGES.md)."""
+    if not asset:
+        return Markup("")
+    variants = asset.get("variants") or []
+    width, height = asset.get("width"), asset.get("height")
+    alt = asset.get("alt", "")
+    aspect = asset.get("aspect") or "4x3"
+    sizes = sizes or (IMAGE_SIZES_HERO if hero else IMAGE_SIZES_DEFAULT)
+
+    jpg_srcset = ", ".join(f"{v['jpg']} {v['width']}w" for v in variants)
+    webp_srcset = ", ".join(f"{v['webp']} {v['width']}w" for v in variants if v.get("webp"))
+    fallback_src = next((v["jpg"] for v in variants if v["width"] == IMAGE_SRCSET_FALLBACK_WIDTH), None)
+    if fallback_src is None:
+        fallback_src = variants[-1]["jpg"] if variants else asset.get("url", "")
+
+    classes = " ".join(c for c in ("adv-img", f"adv-img--{aspect}", "adv-img--hero" if hero else "", css_class) if c)
+    attrs = [f'src="{escape(fallback_src)}"', f'alt="{escape(alt)}"']
+    if jpg_srcset:
+        attrs += [f'srcset="{escape(jpg_srcset)}"', f'sizes="{escape(sizes)}"']
+    if width and height:
+        attrs += [f'width="{width}"', f'height="{height}"']
+    attrs.append('loading="eager"' if hero else 'loading="lazy"')
+    attrs.append('decoding="async"')
+    if hero:
+        attrs.append('fetchpriority="high"')
+    if classes:
+        attrs.append(f'class="{classes}"')
+    img_tag = f"<img {' '.join(attrs)}>"
+
+    if webp_srcset:
+        img_tag = f'<picture><source type="image/webp" srcset="{escape(webp_srcset)}" sizes="{escape(sizes)}">{img_tag}</picture>'
+    if caption:
+        img_tag = f"<figure>{img_tag}<figcaption>{escape(caption)}</figcaption></figure>"
+    return Markup(img_tag)
 
 
 # Cycle 27 (brand import): a tenant's brand/logo.<ext>, if `harness brand
@@ -491,6 +681,11 @@ def render_page(
         loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)]),
         autoescape=jinja2.select_autoescape(["html"]),
     )
+    # Cycle 31: the one shared image-markup helper (see render_image_slot's
+    # docstring) -- a Jinja global rather than a per-template import so
+    # block.html partials (loaded via {% include %}, not Python) can call
+    # it too.
+    env.globals["render_image_slot"] = render_image_slot
 
     structure_css = load_structure_css()
     tenant_css = load_tenant_css(brand_dir, log)
@@ -513,6 +708,31 @@ def render_page(
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
     sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant)
 
+    # Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problems 1-3): a render-time
+    # selection-policy backstop over the writer's own asset_id picks, plus
+    # cross-cartridge dedupe across the run this cartridge is part of.
+    # Gated the same as the download block below (only a real run mutates
+    # page.json or touches the run-dir's .image-selection.json) so a dry
+    # run (download_assets=False, used by the eval baseline fixtures) is
+    # byte-for-byte unaffected -- see docs/IMAGES.md.
+    if download_assets:
+        # ground.enforce_slot_plan mutates its `page` argument's asset_id
+        # fields in place -- deep-copy first so render_page never mutates
+        # the caller's own page object (pipeline.py's state.pages holds the
+        # same dict across every stage after write_pages, and several test
+        # suites share one module-level page fixture dict by reference
+        # across many render_page calls; either would otherwise leak one
+        # render's asset substitution into the next).
+        page = copy.deepcopy(page)
+        run_dir = out_dir.parent
+        allow_ai_renders = bool(tenant.claims_config.get("allow_ai_renders"))
+        exclude_ids = ground_mod.all_used_asset_ids(run_dir, exclude_cartridge=cartridge_name)
+        final_used_ids = ground_mod.enforce_slot_plan(
+            page, facts_pack.get("assets", []), cartridge_name,
+            allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids,
+        )
+        ground_mod.record_used_asset_ids(run_dir, cartridge_name, final_used_ids)
+
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
     # so the page folder is self-contained. An asset that fails to download
@@ -530,14 +750,18 @@ def render_page(
             if downloaded is None:
                 del assets_by_id[asset_id]
             else:
-                local_path, width, height = downloaded
-                assets_by_id[asset_id]["url"] = f"assets/{local_path.name}"
+                assets_by_id[asset_id]["url"] = f"assets/{downloaded['path'].name}"
                 # Fix cycle 23: known dimensions (Pillow already decoded the
                 # image to downscale it) so templates can set width/height
                 # attributes and avoid a layout-shift-causing unsized <img>.
-                if width and height:
-                    assets_by_id[asset_id]["width"] = width
-                    assets_by_id[asset_id]["height"] = height
+                if downloaded["width"] and downloaded["height"]:
+                    assets_by_id[asset_id]["width"] = downloaded["width"]
+                    assets_by_id[asset_id]["height"] = downloaded["height"]
+                # Cycle 31: srcset variants + the aspect-box class
+                # render_image_slot needs -- see docs/IMAGES.md.
+                assets_by_id[asset_id]["variants"] = downloaded["variants"]
+                if downloaded["aspect"]:
+                    assets_by_id[asset_id]["aspect"] = downloaded["aspect"]
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 
@@ -628,6 +852,19 @@ def render_page(
     structural_hits = pagechecks.find_html_validity_violations(html)
     structural_hits += pagechecks.find_rendered_json_ld_violations(html, cartridge_name)
     structural_hits += pagechecks.find_rendered_internal_link_violations(html, tenant=tenant)
+    # Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md): no duplicate asset id on
+    # the page, and a hero present where the cartridge requires one -- both
+    # page.json-level concerns, independent of whether assets were actually
+    # downloaded, so these run on every render.
+    structural_hits += pagechecks.find_duplicate_asset_violations(page, cartridge_name)
+    structural_hits += pagechecks.find_hero_requirement_violations(page, cartridge_name)
+    # Width/height/alt/favicon-size only exist on the rendered <img> once an
+    # asset has actually been downloaded (download_asset is what measures
+    # them) -- a dry run (download_assets=False, used by fast local
+    # iteration and the eval baseline fixtures) never has them and must
+    # stay exactly as gate-permissive as before this cycle.
+    if download_assets:
+        structural_hits += pagechecks.find_image_markup_violations(html)
     if structural_hits:
         raise ClaimsGateFailure(f"html_structure:{cartridge_name}", structural_hits)
 

@@ -18,6 +18,16 @@ from harness.write import parse_word_range, resolve_allowed_cta_texts
 
 CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "listicle"
 
+
+def _make_image_bytes(width, height, fmt="PNG"):
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (width, height), color=(120, 60, 200)).save(buf, format=fmt)
+    return buf.getvalue()
+
 FACTS_PACK = {
     "product": {
         "name": "Fuji",
@@ -39,7 +49,14 @@ FACTS_PACK = {
         {"id": "shipping-policy", "text": "shipping text", "category": "trust", "source": "https://peaksaunas.com/policies/shipping-policy"},
         {"id": "gbrain-allowlist-red-light", "text": "Medical-grade red light therapy (included standard).", "category": "trust", "source": "https://peaksaunas.com/products/fuji"},
     ],
-    "assets": [{"id": "asset-1", "url": "https://cdn.shopify.com/fuji-1.png", "kind": "lifestyle", "alt": "Fuji sauna"}],
+    # Cycle 31: seven distinct assets -- pagechecks.find_duplicate_asset_
+    # violations now requires every image slot on a page to be a distinct
+    # asset id (docs/IMAGES-AUDIT-2026-09-14.md problem 3), and _make_items
+    # below can be called with up to 7 items.
+    "assets": [
+        {"id": f"asset-{i}", "url": f"https://cdn.shopify.com/fuji-{i}.png", "kind": "lifestyle", "alt": "Fuji sauna"}
+        for i in range(1, 8)
+    ],
 }
 
 AD_BRIEF = {
@@ -65,7 +82,7 @@ def _make_items(n, with_claim=True):
     # block, to clear the 600-word floor for the word-range gate test below.
     items = []
     for i in range(1, n + 1):
-        item = {"number": i, "heading": f"Reason number {i}", "text": _item_text(85), "image": {"asset_id": "asset-1"}}
+        item = {"number": i, "heading": f"Reason number {i}", "text": _item_text(85), "image": {"asset_id": f"asset-{i}"}}
         if with_claim and i == n:
             item["text"] = "Every unit comes with medical-grade red light therapy included standard. " + _item_text(75)
             item["claim_ids"] = ["gbrain-allowlist-red-light"]
@@ -229,10 +246,11 @@ def test_render_listicle_page(tmp_path):
 
 def test_render_listicle_page_downloads_used_item_images(tmp_path):
     downloaded = {}
+    image_bytes = _make_image_bytes(600, 600)
 
     def fake_fetch_url(url):
         downloaded[url] = downloaded.get(url, 0) + 1
-        return b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+        return image_bytes
 
     out_dir = tmp_path / "listicle"
     index_path = render_page(
@@ -249,5 +267,10 @@ def test_render_listicle_page_downloads_used_item_images(tmp_path):
         fetch_url=fake_fetch_url,
     )
     html = index_path.read_text()
-    assert downloaded == {"https://cdn.shopify.com/fuji-1.png": 1}
-    assert 'src="assets/asset-1.png"' in html
+    # Cycle 31: the five reasons now use five distinct asset ids
+    # (docs/IMAGES-AUDIT-2026-09-14.md problem 3 -- a page may not reuse the
+    # same asset id in two slots), so five distinct urls are fetched, each
+    # exactly once -- download_asset's own iteration over assets_by_id
+    # (keyed by asset id) already guarantees no id is ever re-fetched.
+    assert downloaded == {f"https://cdn.shopify.com/fuji-{i}.png": 1 for i in range(1, 6)}
+    assert 'src="assets/asset-1-480.jpg"' in html
