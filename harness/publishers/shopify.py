@@ -26,12 +26,71 @@ import os
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from ..errors import PublishFailed
 from .base import Publisher
 
 API_VERSION = "2024-10"
+
+# Cycle 34: Admin API hosts must be *.myshopify.com (no scheme/path/userinfo).
+# Anything else would send X-Shopify-Access-Token to an attacker-controlled host
+# (SSRF / credential exfil via a malicious SHOPIFY_STORE value).
+_MYSHOPIFY_HOST_RE = re.compile(r"^[a-z0-9][a-z0-9\-]*\.myshopify\.com$", re.IGNORECASE)
+# Hard cap on response bodies for the default urllib transport and storefront
+# probe -- Admin JSON and a storefront HTML check should never need more.
+_MAX_RESPONSE_BYTES = 5_000_000
+
+
+def normalize_shopify_store(store):
+    """Return a bare `shop.myshopify.com` host or raise ValueError.
+
+    Accepts a host alone or an https URL whose host is *.myshopify.com.
+    Rejects empty values, other domains, http://, userinfo, and ports.
+    """
+    raw = (store or "").strip()
+    if not raw:
+        raise ValueError("SHOPIFY_STORE is empty")
+    # Allow a full URL pasted from the admin bar; require https if scheme set.
+    if "://" in raw:
+        parts = urllib.parse.urlparse(raw)
+        if parts.scheme.lower() != "https":
+            raise ValueError(
+                f"SHOPIFY_STORE URL must be https://*.myshopify.com, not {parts.scheme!r}"
+            )
+        if parts.username or parts.password or parts.port:
+            raise ValueError("SHOPIFY_STORE must not include userinfo or a port")
+        host = parts.hostname or ""
+    else:
+        # strip accidental path if someone pasted shop.myshopify.com/admin
+        host = raw.split("/")[0].strip()
+        if "@" in host or ":" in host:
+            raise ValueError("SHOPIFY_STORE must be a bare *.myshopify.com host")
+    host = host.lower().rstrip(".")
+    if not _MYSHOPIFY_HOST_RE.match(host):
+        raise ValueError(
+            f"SHOPIFY_STORE must be a *.myshopify.com host (got {store!r})"
+        )
+    return host
+
+
+def _read_capped(resp, limit=_MAX_RESPONSE_BYTES):
+    """Read an HTTPResponse up to `limit` bytes; raise PublishFailed if larger."""
+    chunks = []
+    total = 0
+    while True:
+        chunk = resp.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise PublishFailed(
+                f"Shopify response exceeded {_MAX_RESPONSE_BYTES} byte cap; refusing to buffer"
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 
 _SRC_ASSET_RE = re.compile(r'src="(assets/[^"]+)"')
 
@@ -60,7 +119,16 @@ class ShopifyPublisher(Publisher):
         call for every request this adapter makes -- tests inject a fake
         transport so this class never makes a real network call outside a
         live server run."""
-        self.store = store if store is not None else os.environ.get("SHOPIFY_STORE")
+        raw_store = store if store is not None else os.environ.get("SHOPIFY_STORE")
+        # Normalize when present; leave None/empty for _require_credentials to
+        # report the usual "not configured" error (don't turn "missing" into
+        # "invalid host").
+        if raw_store and str(raw_store).strip():
+            self.store = normalize_shopify_store(raw_store)
+        else:
+            self.store = raw_store if raw_store is not None else None
+            if self.store is not None and not str(self.store).strip():
+                self.store = None
         self.token = token if token is not None else os.environ.get("SHOPIFY_TOKEN")
         self._transport = transport or self._urllib_transport
 
@@ -84,9 +152,13 @@ class ShopifyPublisher(Publisher):
         req = urllib.request.Request(url, data=body, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=20) as resp:
-                return resp.status, resp.read()
+                return resp.status, _read_capped(resp)
         except urllib.error.HTTPError as e:
-            return e.code, e.read()
+            # HTTPError is a file-like response body too; still cap it.
+            try:
+                return e.code, _read_capped(e)
+            finally:
+                e.close()
 
     def _request(self, method, path, payload=None):
         self._require_credentials()
@@ -184,5 +256,10 @@ class ShopifyPublisher(Publisher):
 
     @staticmethod
     def _default_fetch(url):
+        parts = urllib.parse.urlparse(url)
+        if parts.scheme.lower() != "https" or not parts.netloc:
+            raise PublishFailed(
+                f"storefront probe URL must be https (got {parts.scheme!r})"
+            )
         with urllib.request.urlopen(url, timeout=20) as resp:
-            return resp.read()
+            return _read_capped(resp)

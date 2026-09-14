@@ -9,6 +9,7 @@ from harness.publishers.export import ExportPublisher
 from harness.publishers.shopify import (
     ShopifyCredentialsMissing,
     ShopifyPublisher,
+    normalize_shopify_store,
     rewrite_asset_srcs,
 )
 
@@ -192,3 +193,42 @@ def test_export_publisher_dry_run_always_ok(tmp_path):
     publisher = ExportPublisher(out_dir=tmp_path / "export")
     report = publisher.dry_run({"body_html": "x", "assets": []})
     assert report["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Cycle 34: SHOPIFY_STORE host allowlist + response size cap helpers
+# ---------------------------------------------------------------------------
+
+def test_normalize_shopify_store_accepts_bare_and_https_host():
+    assert normalize_shopify_store("acme.myshopify.com") == "acme.myshopify.com"
+    assert normalize_shopify_store("https://Acme.myshopify.com/admin") == "acme.myshopify.com"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "evil.example",
+        "http://acme.myshopify.com",
+        "acme.myshopify.com:8443",
+        "user@acme.myshopify.com",
+        "169.254.169.254",
+        "",
+        "https://evil.example",
+    ],
+)
+def test_normalize_shopify_store_rejects_non_myshopify_hosts(bad):
+    with pytest.raises(ValueError):
+        normalize_shopify_store(bad)
+
+
+def test_publisher_init_rejects_non_myshopify_store():
+    with pytest.raises(ValueError):
+        ShopifyPublisher(store="evil.example", token="tok", transport=FakeTransport())
+
+
+def test_publisher_init_normalizes_store_url():
+    publisher = ShopifyPublisher(
+        store="https://Acme.myshopify.com/admin", token="tok", transport=FakeTransport()
+    )
+    assert publisher.store == "acme.myshopify.com"
+
