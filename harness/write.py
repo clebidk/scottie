@@ -413,6 +413,74 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
         )
 
 
+def _warmup_window_words(tenant):
+    window = tenant.get("cartridges.article.warmup_window_words")
+    if not isinstance(window, int) or window <= 0:
+        return 600
+    return window
+
+
+def _warmup_brand_terms(tenant):
+    terms = [tenant.display_name]
+    short = tenant.get("tenant_short_name")
+    if short and short not in terms:
+        terms.append(short)
+    return [t for t in terms if t]
+
+
+def _reference_article_breaks_warmup(text, brand_terms, window):
+    """True when a markdown exemplar names the brand inside the first
+    `window` words -- feeding that as few-shot undercuts the warm-up rule."""
+    head = " ".join(text.split()[:window]).lower()
+    return any(term.lower() in head for term in brand_terms)
+
+
+def filter_exemplars_for_warmup(exemplars, tenant, *, window=None):
+    """Drop article reference_article exemplars that name the brand too early.
+
+    JSON page.json exemplars are left alone (structured shape reference).
+    Cycle 33 critic: Peak's live .md exemplars name the brand in the
+    headline/body and were canceling the warm-up instruction."""
+    window = window if window is not None else _warmup_window_words(tenant)
+    brand_terms = _warmup_brand_terms(tenant)
+    kept = []
+    for ex in exemplars:
+        if not isinstance(ex, dict):
+            kept.append(ex)
+            continue
+        ref = ex.get("reference_article")
+        if isinstance(ref, str) and _reference_article_breaks_warmup(ref, brand_terms, window):
+            continue
+        kept.append(ex)
+    return kept
+
+
+# Cycle 33: article warm-up window. Real runs were naming the brand inside
+# the first 327–583 words because cartridge + schema invited an early body/
+# turn mention while the warm-up rule forbade it, and the global voice
+# short_name-on-first-section-mention line pulled the same direction. The
+# cartridge/schema now keep brand out until close (practical way to clear
+# the numeric first-N-words gate); this hard constraint makes the override
+# explicit in the per-run block the model weighs heavily.
+def _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant):
+    if cartridge_name != "article":
+        return
+    window = _warmup_window_words(tenant)
+    company = tenant.display_name
+    hard_constraints.append(
+        f"Warm-up window (numeric gate: first {window} reading-order words): do not write "
+        f"{company!r}, the tenant short name, facts_pack.product.short_name, the product name, "
+        "any price/$ figure, or the CTA text anywhere in open, body_sections, "
+        "alternatives_section, how_it_works_section, or turn_section (heading, intro, and "
+        "criteria text included). Those sections stay brand-free and product-name-free so the "
+        f"first brand mention lands after word {window}. Name the company and product only in "
+        "close (short_name + claim_id there). Ignore the global voice short_name-on-first-"
+        "section-mention rule until close for this cartridge. If a reference_article exemplar "
+        "is present, use it for voice and structure only -- never copy its brand-placement "
+        "timing."
+    )
+
+
 # Fix cycle 17 item 2 (prompt caching): system is now a list of content
 # blocks instead of one string -- block 1 is cached_system_prefix (the
 # stable prefix, cache_control on it), block 2 (only present when there's
@@ -501,8 +569,11 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name))
+    if cartridge_name == "article":
+        exemplars = filter_exemplars_for_warmup(exemplars, tenant)
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
+    _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
     kwargs = {
@@ -542,9 +613,12 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     # buys real budget headroom for the repair loop without changing what
     # the writer is told to fix.
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
+    if cartridge_name == "article" and exemplars:
+        exemplars = filter_exemplars_for_warmup(exemplars, tenant)
 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
+    _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification
