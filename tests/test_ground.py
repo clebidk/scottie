@@ -3,6 +3,7 @@ from harness import tenant as tenant_mod
 from harness.ground import LocalFactsSource, benefit_allowlist_ids, load_claims_config, select_drive_assets
 from tests.support import TENANT
 from harness.ground import select_listicle_pack_assets
+from harness.ground import full_asset_pool
 
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 MINI_SLUG = "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
@@ -490,3 +491,99 @@ def test_facts_for_allows_ai_generated_listicle_asset_when_config_set(monkeypatc
     facts_pack = source.facts_for(MINI_SLUG, ad_brief, config={"allow_ai_renders": True})
     listicle_asset_ids = {a["drive_id"] for a in facts_pack["assets"] if a.get("id", "").startswith("asset-listicle-")}
     assert "a1" in listicle_asset_ids
+
+
+# ---------------------------------------------------------------------------
+# Cycle 36: full_asset_pool -- the UNCAPPED pool harness/serve.py's /images
+# review site shows a human reviewer, as opposed to facts_for()'s own capped
+# `assets` the writer sees.
+# ---------------------------------------------------------------------------
+
+def test_full_asset_pool_includes_shopify_drive_and_marks_source(monkeypatch):
+    source = LocalFactsSource(TENANT.claims_dir)
+    monkeypatch.setattr(source, "_load_assets_index", lambda: FAKE_ASSETS_INDEX)
+    monkeypatch.setattr(source, "_load_listicle_pack_index", lambda: {"assets": []})
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    product = source.pick_product(FUJI_SLUG, ad_brief)
+    pool = full_asset_pool(source, product, {})
+
+    shopify = [a for a in pool if a["source"] == "shopify"]
+    drive = [a for a in pool if a["source"] == "drive"]
+    assert len(shopify) == len(product["image_urls"])
+    assert {a["drive_id"] for a in drive} == {"i1", "r1", "r2", "s1"}  # never-kinds and excluded left out
+
+
+def test_full_asset_pool_ignores_the_per_run_cap():
+    source = LocalFactsSource(TENANT.claims_dir)
+    many = {
+        "download_url_pattern": "https://drive.google.com/uc?export=download&id={id}",
+        "assets": [{"id": f"r{i}", "model": "fuji", "kind": "render"} for i in range(10)],
+    }
+    source._load_assets_index = lambda: many
+    source._load_listicle_pack_index = lambda: {"assets": []}
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    product = source.pick_product(FUJI_SLUG, ad_brief)
+    pool = full_asset_pool(source, product, {})
+    drive_ids = {a["drive_id"] for a in pool if a["source"] == "drive"}
+    assert len(drive_ids) == 10  # select_drive_assets would cap this at 6
+
+
+def test_full_asset_pool_skips_manifest_excluded_drive_asset():
+    source = LocalFactsSource(TENANT.claims_dir)
+    source._load_assets_index = lambda: FAKE_ASSETS_INDEX
+    source._load_listicle_pack_index = lambda: {"assets": []}
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    product = source.pick_product(FUJI_SLUG, ad_brief)
+    pool = full_asset_pool(source, product, {})
+    drive_ids = {a["drive_id"] for a in pool if a["source"] == "drive"}
+    assert "x1" not in drive_ids  # excluded in the manifest
+    assert "s1" in drive_ids
+
+
+def test_full_asset_pool_includes_ai_renders_regardless_of_allow_ai_renders_config():
+    source = LocalFactsSource(TENANT.claims_dir)
+    source._load_assets_index = lambda: {"assets": []}
+    source._load_listicle_pack_index = lambda: FAKE_LISTICLE_PACK_INDEX
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    product = source.pick_product(MINI_SLUG, ad_brief)
+    pool = full_asset_pool(source, product, {"allow_ai_renders": False})
+    listicle = {a["drive_id"]: a for a in pool if a["source"] == "listicle"}
+    assert "a1" in listicle  # select_listicle_pack_assets would drop this with allow_ai_renders False
+    assert listicle["a1"]["ai_generated"] is True
+    assert listicle["p1"]["ai_generated"] is False
+
+
+# ---------------------------------------------------------------------------
+# Cycle 36 fix: an asset-review.json exclusion must be applied BEFORE
+# select_drive_assets/select_listicle_pack_assets cap the pool, not after --
+# otherwise excluding one of the top DRIVE_ASSET_MAX picks just shrinks the
+# writer's pool by one instead of promoting the next eligible asset.
+# ---------------------------------------------------------------------------
+
+def test_facts_for_excluded_top_tier_drive_asset_still_backfills_to_the_cap(monkeypatch, tmp_path):
+    import json
+
+    source = LocalFactsSource(TENANT.claims_dir)
+    many = {
+        "download_url_pattern": "https://drive.google.com/uc?export=download&id={id}",
+        "assets": [{"id": f"r{i}", "model": "fuji", "kind": "render"} for i in range(8)],
+    }
+    monkeypatch.setattr(source, "_load_assets_index", lambda: many)
+    monkeypatch.setattr(source, "brand_dir", tmp_path)
+    review = {
+        "version": 1,
+        "assets": {
+            "asset-drive-r0": {
+                "alt": "", "excluded": True, "note": "", "by": "reviewer@example.com", "at": "2026-01-01T00:00:00",
+            }
+        },
+    }
+    (tmp_path / "asset-review.json").write_text(json.dumps(review))
+
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    facts_pack = source.facts_for(FUJI_SLUG, ad_brief)
+    drive_ids = {a["drive_id"] for a in facts_pack["assets"] if a["id"].startswith("asset-drive-")}
+
+    assert len(drive_ids) == 6  # DRIVE_ASSET_MAX -- still a full cap, not shrunk to 5
+    assert "r0" not in drive_ids  # excluded
+    assert "r6" in drive_ids  # backfilled from beyond the old (buggy) cap boundary

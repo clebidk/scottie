@@ -22,8 +22,12 @@ import sys
 from pathlib import Path
 
 from flask import Flask, Response, abort, g, redirect, request, send_file, url_for
+from PIL import Image
 
+from . import asset_review
+from . import ground as ground_mod
 from . import notify
+from . import render as render_mod
 from . import runstate
 from . import textutil
 from .evals import record_score
@@ -226,6 +230,15 @@ textarea{width:100%;box-sizing:border-box;min-height:90px;font-family:inherit}
 .actions button{margin-right:8px;padding:6px 14px;cursor:pointer}
 .history{font-size:.85rem;color:#444}
 .source-ad{background:#fafafa;border:1px solid #ddd;padding:12px;border-radius:6px;white-space:pre-wrap}
+.image-grid{display:flex;flex-wrap:wrap;gap:12px}
+.image-card{border:1px solid #ddd;border-radius:6px;padding:8px;width:220px;font-size:.85rem}
+.image-card img{width:100%;height:150px;object-fit:contain;background:#f4f4f4;display:block}
+.image-card.excluded{opacity:.45}
+.image-card .asset-id{font-family:monospace;font-size:.75rem;color:#666;word-break:break-all}
+.image-card .excluded-tag{color:#b00020;font-weight:bold}
+.image-card textarea{min-height:50px}
+.image-card select,.image-card input[type=text]{width:100%;box-sizing:border-box;margin:2px 0}
+.pool-counts{color:#666}
 """
 
 TOGGLE_JS = """
@@ -270,6 +283,7 @@ def _render_run_list(tenant, runs, *, show_test=False, hidden_count=0):
         toggle = ""
     body = (
         f"<h1>{html.escape(tenant.display_name)} -- runs</h1>"
+        f"<p><a href=\"{url_for('image_library')}\">Image library</a></p>"
         + toggle
         + "<table><thead><tr><th>Run</th><th>State</th><th>Ad</th><th>Product</th>"
         "<th>Cartridges</th><th>Cost</th><th>Gate</th><th>Not repeated</th><th>Reviewer actions</th>"
@@ -388,6 +402,221 @@ def _launch_revise_background(tenant, run_dir, page, by):
              "--page", page, "--by", by, "--tenant", tenant.name],
             stdout=log_fh, stderr=subprocess.STDOUT, cwd=str(REPO_ROOT),
         )
+
+
+# ---------------------------------------------------------------------------
+# Image library (cycle 36): a reviewer looks at every image a product could
+# ever place on a page (ground.full_asset_pool -- uncapped, unlike
+# facts_for()'s own `assets`), writes alt text or excludes one, and that
+# flows into tenants/<t>/brand/asset-review.json (harness/asset_review.py),
+# which ground.facts_for() applies to the pool the writer actually sees.
+# ---------------------------------------------------------------------------
+
+IMAGES_PER_PAGE = 48
+# Display order for this page only -- distinct from ground.DRIVE_ASSET_TIERS,
+# which orders Drive kinds for hero/section *selection*, not for how a
+# reviewer browses them page by page.
+_DRIVE_KIND_DISPLAY_ORDER = {"lifestyle": 0, "interior": 0, "installation": 1, "render": 2}
+_SOURCE_DISPLAY_ORDER = {"shopify": 0, "drive": 1, "listicle": 2}
+
+_THUMB_PLACEHOLDER_SVG = (
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"480\" height=\"360\">"
+    "<rect width=\"100%\" height=\"100%\" fill=\"#eee\"/>"
+    "<text x=\"50%\" y=\"50%\" text-anchor=\"middle\" fill=\"#999\" font-family=\"sans-serif\" "
+    "font-size=\"16\">could not load</text></svg>"
+)
+
+
+def _asset_source(tenant):
+    return ground_mod.LocalFactsSource(tenant.claims_dir)
+
+
+def _product_or_404(source, product_slug):
+    product = next((p for p in source.active_products() if p["slug"] == product_slug), None)
+    if product is None:
+        abort(404)
+    return product
+
+
+def _image_sort_key(asset):
+    """Shopify first, then Drive ordered lifestyle/interior, installation,
+    render, other, then listicle-pack -- the reviewer brief's own order,
+    stable within each group so assets keep the manifest's order."""
+    if asset["source"] == "drive":
+        kind_rank = _DRIVE_KIND_DISPLAY_ORDER.get(asset.get("kind"), 3)
+    else:
+        kind_rank = 0
+    return (_SOURCE_DISPLAY_ORDER.get(asset["source"], 9), kind_rank)
+
+
+def _render_image_library(tenant):
+    source = _asset_source(tenant)
+    config = tenant.claims_config
+    overrides = asset_review.load_asset_review(tenant.brand_dir).get("assets") or {}
+    rows = []
+    for product in source.active_products():
+        pool = ground_mod.full_asset_pool(source, product, config)
+        reviewed = sum(1 for a in pool if a["id"] in overrides)
+        excluded = sum(1 for a in pool if overrides.get(a["id"], {}).get("excluded"))
+        product_url = url_for("image_library_product", product_slug=product["slug"])
+        rows.append(
+            f"<tr><td><a href=\"{product_url}\">{html.escape(product['name'])}</a></td>"
+            f"<td>{len(pool)}</td><td>{reviewed}</td><td>{excluded}</td></tr>"
+        )
+    body = (
+        f"<h1>{html.escape(tenant.display_name)} -- image library</h1>"
+        "<table><thead><tr><th>Product</th><th>Total</th><th>Reviewed</th><th>Excluded</th></tr></thead>"
+        "<tbody>" + ("".join(rows) or "<tr><td colspan=4>No active products.</td></tr>") + "</tbody></table>"
+    )
+    return _page_shell(f"{tenant.display_name} image library", body)
+
+
+def _image_card(asset, override):
+    excluded = bool(override and override.get("excluded"))
+    asset_id = html.escape(asset["id"])
+    alt_value = html.escape((override or {}).get("alt") or "")
+    note_value = html.escape((override or {}).get("note") or "")
+    default_alt = html.escape(asset.get("alt") or "")
+    title = html.escape(asset.get("title") or "")
+    tag = "<div class=\"excluded-tag\">EXCLUDED</div>" if excluded else ""
+    ai_badge = " <b title=\"AI-generated render\">[AI]</b>" if asset.get("ai_generated") else ""
+    return (
+        f"<div class=\"image-card{' excluded' if excluded else ''}\">"
+        f"{tag}"
+        f"<img loading=\"lazy\" src=\"{url_for('image_thumb', asset_id=asset['id'])}\" alt=\"\">"
+        f"<div class=\"asset-id\">{asset_id}</div>"
+        f"<div>{html.escape(asset['source'])} / {html.escape(asset.get('kind') or '')} / "
+        f"{html.escape(asset.get('model') or '')}{ai_badge}</div>"
+        + (f"<div>{title}</div>" if title else "")
+        + f"<textarea name=\"alt:{asset_id}\" placeholder=\"{default_alt}\">{alt_value}</textarea>"
+        f"<select name=\"status:{asset_id}\">"
+        f"<option value=\"keep\"{'' if excluded else ' selected'}>keep</option>"
+        f"<option value=\"exclude\"{' selected' if excluded else ''}>exclude</option>"
+        "</select>"
+        f"<input type=\"text\" name=\"note:{asset_id}\" value=\"{note_value}\" placeholder=\"cropped, wrong product, ...\">"
+        "</div>"
+    )
+
+
+def _render_image_library_product(tenant, product_slug, *, page, source_filter, saved=None):
+    source = _asset_source(tenant)
+    product = _product_or_404(source, product_slug)
+    pool = ground_mod.full_asset_pool(source, product, tenant.claims_config)
+    if source_filter in ("shopify", "drive", "listicle"):
+        pool = [a for a in pool if a["source"] == source_filter]
+    pool.sort(key=_image_sort_key)
+
+    overrides = asset_review.load_asset_review(tenant.brand_dir).get("assets") or {}
+
+    total = len(pool)
+    page_count = max(1, -(-total // IMAGES_PER_PAGE))
+    page = max(1, min(page, page_count))
+    start = (page - 1) * IMAGES_PER_PAGE
+    page_assets = pool[start:start + IMAGES_PER_PAGE]
+
+    ids_field = html.escape(",".join(a["id"] for a in page_assets))
+    cards = "".join(_image_card(a, overrides.get(a["id"])) for a in page_assets)
+
+    filters = " ".join(
+        f"<a href=\"{url_for('image_library_product', product_slug=product_slug, source=s)}\">{s}</a>"
+        for s in ("all", "shopify", "drive", "listicle")
+    )
+    pager = " ".join(
+        f"<a href=\"{url_for('image_library_product', product_slug=product_slug, page=p, source=source_filter)}\">{p}</a>"
+        for p in range(1, page_count + 1)
+    )
+    saved_note = f"<p>Saved {saved} image(s).</p>" if saved else ""
+    action_url = url_for("image_library_save", product_slug=product_slug, page=page, source=source_filter)
+    submit = "<button type=\"submit\">Save this page</button>"
+    body = (
+        f"<h1>{html.escape(product['name'])} -- images</h1>"
+        f"<p class=\"pool-counts\">{total} image(s) in this view (page {page} of {page_count})</p>"
+        f"<p>{filters}</p><p>{pager}</p>"
+        + saved_note
+        + f"<form method=\"post\" action=\"{action_url}\">"
+        f"<input type=\"hidden\" name=\"ids\" value=\"{ids_field}\">"
+        + submit
+        + f"<div class=\"image-grid\">{cards}</div>"
+        + submit
+        + "</form>"
+    )
+    return _page_shell(f"{product['name']} images", body)
+
+
+def _save_image_library(tenant, product_slug):
+    """Only ids named in the posted `ids` field are touched -- everything
+    else already in asset-review.json (other pages, other products) is left
+    alone. An id with nothing to say (empty alt, status=keep, empty note)
+    and no pre-existing override writes nothing."""
+    source = _asset_source(tenant)
+    product = _product_or_404(source, product_slug)
+    pool = {a["id"]: a for a in ground_mod.full_asset_pool(source, product, tenant.claims_config)}
+
+    ids = [i for i in (request.form.get("ids") or "").split(",") if i]
+    overrides = dict(asset_review.load_asset_review(tenant.brand_dir).get("assets") or {})
+    now = asset_review.now_iso()
+    saved = 0
+    for asset_id in ids:
+        asset = pool.get(asset_id)
+        if asset is None:
+            continue  # no longer in this product's pool -- nothing sane to write
+        alt = (request.form.get(f"alt:{asset_id}") or "").strip()
+        note = (request.form.get(f"note:{asset_id}") or "").strip()
+        excluded = request.form.get(f"status:{asset_id}") == "exclude"
+        if not (alt or excluded or note or asset_id in overrides):
+            continue
+        entry = {"alt": alt, "excluded": excluded, "note": note, "by": g.reviewer_email, "at": now}
+        if asset.get("source") == "shopify":
+            entry["url"] = asset.get("url")
+        overrides[asset_id] = entry
+        saved += 1
+    asset_review.save_asset_review(tenant.brand_dir, {"version": 1, "assets": overrides})
+    return saved
+
+
+def _thumb_placeholder():
+    return Response(_THUMB_PLACEHOLDER_SVG, mimetype="image/svg+xml")
+
+
+def _asset_pool_index(tenant):
+    """{asset id: asset} across every active product's full_asset_pool.
+    Recomputed per request -- this is low-traffic internal tooling, and the
+    tenant's asset manifests are the source of truth, not worth caching
+    across requests and risking staleness for."""
+    source = _asset_source(tenant)
+    config = tenant.claims_config
+    index = {}
+    for product in source.active_products():
+        for asset in ground_mod.full_asset_pool(source, product, config):
+            index.setdefault(asset["id"], asset)
+    return index
+
+
+def _image_thumb_response(tenant, asset_id):
+    asset = _asset_pool_index(tenant).get(asset_id)
+    if asset is None:
+        abort(404)
+    try:
+        cache_dir = tenant.runs_dir / "asset-cache"
+        thumb_path = cache_dir / f"{textutil.safe_filename(asset_id)}.thumb.jpg"
+        if not thumb_path.exists():
+            # render.download_asset's default fetch_url/drive_downloader
+            # (http_fetch_bytes/ingest.download_drive_file) each carry their
+            # own timeout (30s/60s) -- a dead Drive link fails that request,
+            # it never hangs this route.
+            downloaded = render_mod.download_asset(asset, cache_dir)
+            if downloaded is None:
+                return _thumb_placeholder()
+            with Image.open(downloaded["path"]) as im:
+                im = im.convert("RGB")
+                im.thumbnail((480, 480), Image.LANCZOS)
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                im.save(thumb_path, format="JPEG", quality=82)
+        resp = send_file(thumb_path, mimetype="image/jpeg")
+        resp.headers["Cache-Control"] = "max-age=86400"
+        return resp
+    except Exception:
+        return _thumb_placeholder()
 
 
 # ---------------------------------------------------------------------------
@@ -651,5 +880,31 @@ def build_app(tenant):
             pages=list(runstate.load_state(run_dir)["pages"]), run_dir=str(run_dir),
         )
         return redirect(url_for("run_detail", run_id=run_id))
+
+    @app.route("/images")
+    def image_library():
+        return _render_image_library(tenant)
+
+    @app.route("/images/<product_slug>")
+    def image_library_product(product_slug):
+        page = request.args.get("page", "1")
+        page = int(page) if page.isdigit() else 1
+        source_filter = request.args.get("source", "all")
+        saved = request.args.get("saved")
+        saved = int(saved) if saved and saved.isdigit() else None
+        return _render_image_library_product(tenant, product_slug, page=page, source_filter=source_filter, saved=saved)
+
+    @app.route("/images/<product_slug>/save", methods=["POST"])
+    def image_library_save(product_slug):
+        saved = _save_image_library(tenant, product_slug)
+        page = request.args.get("page", "1")
+        source_filter = request.args.get("source", "all")
+        return redirect(
+            url_for("image_library_product", product_slug=product_slug, page=page, source=source_filter, saved=saved)
+        )
+
+    @app.route("/images/thumb/<asset_id>")
+    def image_thumb(asset_id):
+        return _image_thumb_response(tenant, asset_id)
 
     return app

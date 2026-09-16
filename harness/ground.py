@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Protocol
 
+from . import asset_review
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
 from .prices import format_price
@@ -364,14 +365,21 @@ def _pick_by_quoted_price(active_products, ad_brief):
     return None
 
 
-def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
+def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX, *, exclude_ids=frozenset()):
     """Up to `limit` Drive assets for model_slug, in tier order
     (lifestyle/interior, then render, then installation), never
-    video/logo/ugc, skipping any asset marked excluded."""
+    video/logo/ugc, skipping any asset marked excluded. `exclude_ids` (full
+    asset ids, e.g. asset_review.excluded_ids()'s result) is filtered out of
+    the candidate pool BEFORE tiering/capping -- cycle 36 fix -- so a
+    reviewer-excluded top-tier asset makes room for the next eligible one
+    instead of just shrinking the capped result by one."""
     candidates = [
         a
         for a in assets_index.get("assets", [])
-        if a.get("model") == model_slug and a.get("kind") not in DRIVE_ASSET_NEVER_KINDS and not a.get("excluded")
+        if a.get("model") == model_slug
+        and a.get("kind") not in DRIVE_ASSET_NEVER_KINDS
+        and not a.get("excluded")
+        and f"asset-drive-{a['id']}" not in exclude_ids
     ]
     download_pattern = assets_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
     selected, seen = [], set()
@@ -396,17 +404,23 @@ def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
     return selected
 
 
-def select_listicle_pack_assets(pack_index, model_slug, allow_ai_renders, limit=LISTICLE_PACK_ASSET_MAX):
+def select_listicle_pack_assets(
+    pack_index, model_slug, allow_ai_renders, limit=LISTICLE_PACK_ASSET_MAX, *, exclude_ids=frozenset()
+):
     """Up to `limit` assets from brand/assets-listicle-pack.json for
     model_slug (whichever models the pack covers), real photos (photo_product,
     photo_install) and brand stills (still_video) first, an ai_render only if
     `allow_ai_renders` is true (claims/config.json's allow_ai_renders, default
     False) -- never selected otherwise, per docs/DRIVE-AUDIT-LISTICLE.md's
-    policy-decision-needed flag. An excluded asset is skipped either way."""
+    policy-decision-needed flag. An excluded asset is skipped either way.
+    `exclude_ids` (see select_drive_assets) is filtered out of the candidate
+    pool before tiering/capping -- cycle 36 fix."""
     candidates = [
         a
         for a in pack_index.get("assets", [])
-        if (a.get("model") == model_slug or a.get("kind") == "still_video") and not a.get("excluded")
+        if (a.get("model") == model_slug or a.get("kind") == "still_video")
+        and not a.get("excluded")
+        and f"asset-listicle-{a['id']}" not in exclude_ids
     ]
     download_pattern = pack_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
     selected, seen = [], set()
@@ -432,6 +446,78 @@ def select_listicle_pack_assets(pack_index, model_slug, allow_ai_renders, limit=
                 }
             )
     return selected
+
+
+def full_asset_pool(store, product, config):
+    """Cycle 36: the UNCAPPED pool of every asset a human reviewer could
+    ever act on for product -- every Shopify image, every Drive asset for
+    the model that facts_for() would ever be willing to select (not in
+    DRIVE_ASSET_NEVER_KINDS, and not excluded in the manifest), and every
+    listicle-pack asset for the model, including ai_renders (each flagged
+    ai_generated so the review page can badge it -- unlike
+    select_listicle_pack_assets, this never gates them on allow_ai_renders).
+    Unlike facts_for()'s own assets list, this ignores DRIVE_ASSET_MAX/
+    LISTICLE_PACK_ASSET_MAX and does NOT apply asset-review.json -- the
+    review page needs to show an already-excluded asset too, greyed out, so
+    it can be un-excluded. config is accepted for symmetry with facts_for;
+    the full pool does not currently read any claims-config value.
+    Each entry: id, url, drive_id (drive/listicle only), kind, source
+    ("shopify"|"drive"|"listicle"), model, title, alt (current default),
+    ai_generated."""
+    name_slug = product_name_slug(product["name"])
+    pool = [
+        {
+            "id": f"asset-{product['slug']}-{i + 1}",
+            "url": url,
+            "kind": "image",
+            "source": "shopify",
+            "model": name_slug,
+            "title": None,
+            "alt": f"{product['name']} sauna",
+            "ai_generated": False,
+        }
+        for i, url in enumerate(product.get("image_urls", []))
+    ]
+
+    assets_index = store._load_assets_index()
+    drive_pattern = assets_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
+    for a in assets_index.get("assets", []):
+        if a.get("model") != name_slug or a.get("kind") in DRIVE_ASSET_NEVER_KINDS or a.get("excluded"):
+            continue
+        pool.append(
+            {
+                "id": f"asset-drive-{a['id']}",
+                "drive_id": a["id"],
+                "url": drive_pattern.format(id=a["id"]),
+                "kind": a.get("kind"),
+                "source": "drive",
+                "model": name_slug,
+                "title": a.get("title"),
+                "alt": a.get("title") or f"{name_slug} sauna",
+                "ai_generated": False,
+            }
+        )
+
+    if name_slug in listicle_pack_models():
+        pack_index = store._load_listicle_pack_index()
+        pack_pattern = pack_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
+        for a in pack_index.get("assets", []):
+            if (a.get("model") != name_slug and a.get("kind") != "still_video") or a.get("excluded"):
+                continue
+            pool.append(
+                {
+                    "id": f"asset-listicle-{a['id']}",
+                    "drive_id": a["id"],
+                    "url": pack_pattern.format(id=a["id"]),
+                    "kind": a.get("kind"),
+                    "source": "listicle",
+                    "model": name_slug,
+                    "title": a.get("title"),
+                    "alt": a.get("title") or f"{name_slug} sauna",
+                    "ai_generated": bool(a.get("ai_generated")),
+                }
+            )
+    return pool
 
 
 class LocalFactsSource:
@@ -481,6 +567,15 @@ class LocalFactsSource:
         if extra_claims:
             claims = list(claims) + list(extra_claims)
         return claims
+
+    def active_products(self):
+        """Cycle 36: every active (`active: true`) product, sorted by name --
+        harness/serve.py's /images index iterates this to list a product per
+        row; nothing else in the harness needed a plain "list the active
+        products" call until now (pick_product_with_warning below builds the
+        same filter inline for its own ad-matching logic)."""
+        self._load()
+        return sorted((p for p in self._products.values() if p.get("active", True)), key=lambda p: p["name"])
 
     def pick_product(self, product_slug, ad_brief):
         product, _warning = self.pick_product_with_warning(product_slug, ad_brief)
@@ -614,7 +709,7 @@ class LocalFactsSource:
                 unique.append(c)
         return targets, unique
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False):
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, log=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -625,13 +720,27 @@ class LocalFactsSource:
             for i, url in enumerate(product.get("image_urls", []))
         ]
         name_slug = product_name_slug(product["name"])
-        drive_assets = select_drive_assets(self._load_assets_index(), name_slug)
+        # Cycle 36: human reviewer overrides (harness/serve.py's /images
+        # site, tenants/<t>/brand/asset-review.json), loaded once. Cycle 36
+        # fix: an excluded id is passed into select_drive_assets/
+        # select_listicle_pack_assets as exclude_ids so it's skipped BEFORE
+        # tiering/capping -- excluding one of DRIVE_ASSET_MAX's top picks
+        # then makes room for the next eligible asset, rather than just
+        # shrinking the capped result by one. apply_asset_review below still
+        # runs on the final list: it's what actually swaps in reviewer alt
+        # text, and it's the only thing that ever excludes a Shopify image
+        # (never capped/tiered, so there's no backfill to lose there).
+        review = asset_review.load_asset_review(self.brand_dir, log=log)
+        exclude_ids = asset_review.excluded_ids(review, shopify_assets)
+        drive_assets = select_drive_assets(self._load_assets_index(), name_slug, exclude_ids=exclude_ids)
         listicle_pack_assets = []
         if name_slug in listicle_pack_models():
             listicle_pack_assets = select_listicle_pack_assets(
-                self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders"))
+                self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders")),
+                exclude_ids=exclude_ids,
             )
         assets = shopify_assets + drive_assets + listicle_pack_assets  # Shopify images stay first, as hero (fix 8)
+        assets = asset_review.apply_asset_review(assets, review, log=log)
 
         price_id = f"price-{name_slug}"
         spec_ids = {s["claim_id"] for s in specs if s.get("claim_id")}
