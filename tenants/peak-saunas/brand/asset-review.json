@@ -1,0 +1,978 @@
+{
+  "version": 1,
+  "assets": {
+    "asset-drive-10K3nqLx5h8T_2LM3v31gnOUT5U2_DJMs": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-10mmNsXv2NI7tsLlJi_zEpWj8o--dTYj1": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-11Fu-iKIeeiDQSP7z0e4AqP7t_ekiG9bu": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-11gu1kFjP1_nEKq4m2IWv7oXweqpVE-3v": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1201eVPIDKlqkEWqabQxxoxWZFkZaASZx": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-125Tgfgmd7F3QjQFHTm3ElsZBgXGHU2Vg": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-12HlreRFjL3sSwVZ3y6sEmNN5r_mcVOK_": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-12q9OzUU6Fq0PsOVWNhcl6rDE7SQaNfqO": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-14i9YXWWVbY2OzlBAZsU_ERDVEIKVm-iR": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-16AVCyOk5bqPXZ_18yPFEYH09KRwbjaLT": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-16T1zXGf2j4IolLD83_sdWyTzkBg8TQo5": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-16nDtWkp8YRCJDurVq661o_89cTBPVahP": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-183sJDdSMmjnNbvUNFPfKIaDombS5aF1n": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-184CouNuTIMnl5OzoQsIT2suWX2X4P3Sv": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-18F-kZUSqSQOrl_HXBCMGbLH1T2nSEDIu": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-18sKt0hmSVaWuUoT0x3QZkAmPFUJG-VV8": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1B7xesZQ2vRJ-bgnsw3BaL6l-F2CLVrbA": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1C7GJ0wO-fdwmuvbWXiEsXWCrqMmO19wg": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1CSsYkGBmwUtjDU9ncnIwvdcdkbwIajza": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1CdrDRdqRZQNf8orvvxq_1QoiT7Po_P9T": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1DqXrtmLk8hP8-bOjCquz86KvMyXl8izx": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1DxD9bv6QClP7SRR8-YGfs5moFKmfI-um": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1EELPrlTfSZ3e0VOA48uQnCtdDVQXUZam": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1EpvQ4afqd6hCAkI4rgJzlTOprgwwfGLH": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1F2VZCcdrkvWuAkLzqeiovEL0_-xcW1pG": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1FqZqGIQ3vySusD2WQHRy5SdsYByNkNRQ": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1G99PmqOKY4plgsvUKVJvMzF9uOOui4zL": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1HRP37ejUPIwvTdhmxrZe6jIgbyItYJSt": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1HjD_qwSnf-jG_ICZnlMQYIuqXx5THpLa": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1I4koB0jyDMm8kPH0rP5B0ba9abptRXgK": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1IEkqKvI3beKEhbWMapo5TTaUnM1MHwdN": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1JZrkK34wXTy6uZ8L5DBBOFGNBbW6X3HT": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1JfXFZ2e5jJIhjrqZKYofsSyN-2vZYmU8": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1JhLwyiDzfjx32NRDkoPYK2XEE8c-bWC3": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Jio-Sh2tX3VB_EfIBs-GgV70rJLhy78o": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1KFpRpChY7DKUZ5JXMEhW8DINf8LSHx8-": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Kjb9Wivus0QBZUfX_fcAq1cm27pIS7y_": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1LLqXUNJpPCt5xep3aYbqTfkncZgYTVcp": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Lk1yUmPMMGmdHll_AIQr2h2L6hvArHKF": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1LlJFTJhDOWkaFnaBJMXg09buhmEc3rKe": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Mld23wj9xNXOXdSAZ1lwhP2LtML9rzPJ": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1NATkREk1bShu7jlpeKIqDcq46p44d6hN": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Ni9UzWPEFiXBdln7Dgy6Vl8-rlx4KHNt": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1OKbN-QsCZkZm00IZj25xcYUCSISiVblh": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1QzzzqI6TlgjON5VleLOFW2wmUmxM4c5y": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1RWQxFJwX7x38IKoLSlvVm-LFRE-avWq4": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1RxYfg6yj52urqkMkQW76W6_Et6N-sve4": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1SZkZBzQKMqwG4_R0PDWu3vjQavZeQmnz": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1SdgxphWzw3PrDcsrm5ziFAjXCh_9la2N": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1T3noD52TO7DUI8LVxwWnALApP2pWefTI": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Tmj8PvOQx4d8koEjA9AKALAIR2AOIw1S": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1UAH9BKg6T3YQpGFLxkP2qzni3kKcdWTv": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1UeJ4QRrku5E5AVjdBWK2YxsGK3P7kXsq": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Uojl5ikzujCv1AkZZqz6VlhyzTj2_0uy": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1V1Sxt_1qj_-UROJ0pMUkyBvScPp-klXe": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1V3MUoAcXycHbzFDRPhlAgjUmLGpjJcRb": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1VTWk2is8OIYfbbBVXbHxlwGvKFjrVsMO": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1XDlwzVO1668-ZYUTfn163gERC6mujGta": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1XGkw143lRAnd_R1G8X3yAGSRGCgVcgcG": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1XYyaIK0yyQ5XoSQnaW6W6W45YI3WkfSL": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Xg2I-2Q0xyXcaUVv0R2RNPF_MKZoA2QS": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Xx59PCYGryHvgZKy-V_xVbVn7y5OJEWF": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1Y1X4TkjGxWQs78dA90sdmvzg_PjnzGbw": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1YPTCPpCKVNYBh8K0mCWbyJNrd5npUbBg": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1YiWhxaMOqyHXUYX5YGxirNrfS8xJUNCB": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1YsF2ejsqqHLCIeJKGTKfe6zxhEfgTU4H": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1YtPSlNOi5VQfM704A0zDhAw7O8uTY3Rb": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1YzgI-YSB1gkv09yOFyix_Pnl17Tle9z5": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1ZsoH91z650AxTbTfd5ki__OkCv_cN79K": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1_YJ1OXcLYdGZiC2cOhHG8O4re_OSM_Mj": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1_qb9M4JVRj3wc8AMKvVYDVYea-pdffoQ": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1_y_aVQO6ADVebmpDF5CZpkIy4iwvPCz0": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1aEdmiPfAgf5GWBGscgSHbvB_L4ak8rOz": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1antOtLwRTjaiJlDCzVydT1zUi-gEOZe6": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1bLTtMzPTxepFZhFTOjwzv-hxfW8lXjQc": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1cGpHmvE3ZCd4arIG92a3mEGjLEmakH6B": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1cK4KhaiW3q8_GDwrxbQEtR1NnRRbE8F5": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1dbK1_8EwPEbhRuS5wc0SQDrT17Tld8Hj": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1eOdlvtcqWMreijL495eiIjX5zvl0YQa4": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1fFLxLuJSC8Vk-2Tbv2wZZvuzNnHVM3sQ": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1fb1Wv2KAEKfNxsLPkBzErVjps6K7ywwb": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1fiW0TaG9rXk_chNkdl1Lnp3gZebjeERd": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1iFxVsZTWMVSocl14IYdXxnal2EmEhsEY": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1lRtinRnh282Wk6dcYHT8FgUOZoli2YuJ": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1lfWiPPl3tCGxOrtVwGsXAAghxM1tMgra": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1mZFk3fkHhncJKdi_A3SqdGuTbBEhyIVr": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1misyuyYs3NV8_wCb0Vxg7a1y8UkF6Oxu": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1mpY8Een1M_wQ2dlx2QkkuX4e7VgjByCL": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1mrIB6MRUYdIZf7WBQhMmhOz6Ec6IRp2d": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1mus6Qkbb5j7h_U3fcQGmXlm3OxGyzdhv": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1nB49ODOrOxJKiBP2WQzZDdmpm8ZqIllv": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1nN6q2Xi0HzI8njsNSrQarfXxgb9zNbx0": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1nOPvyxSfi56Y8ybdx53j0yzYdKuozcKP": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1npsBi7xQ6v0hd6a__FMzpHZ8BpTgCd2j": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1oMwlS0Pkq7WaqJq_zZ7shCF_1o0Z0CK3": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1o_VxXrm5TNGpQWdtU4deZArbXDhpLpuT": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1on8_tmbXrg97CKkco2jMgUM9Tzt6-6iR": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1qSeiJeACUijcmQWQTIBJEivpEUBHe9mV": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1qUAns5VapgfjYryywBgLHIPwMyw_OUnF": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1qnZ2vtfEgZ3FzoSOKIf2MQxrGSEK_g6f": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1r75ZJwNK5Bjkoh5O5a-jn-K6giemMLSK": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1rengGRtlJs93-0T4Vd-8PgWRwQH4Q6Ue": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1rlt6GsBqsllijCz7-ONhsdOVxaFt3Fc1": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1s2pyvYgINRBd6t4M2hyQgGkRxRLGFoF2": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1s3rntCz7Ij1QfZQxGF49NUqCLhc-TvDc": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1sNcq_IRqyDrmTVcaAHI_fpg4EUMphHQQ": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1sV4XKPtg9R3MqF3SD2IYgw5fDgqYcDy3": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1sk6nDKTXyVLMH4VyMJworQWyR96JUNXn": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1tuYkSWpnFJsVUh8sF1vFuN3l7rVWRIQf": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1tuhUaOLz7V1NExYhcsGlJTYeUiFnqzUY": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1uROZUpjbyUfyoSCfTqWuVYhkM7t7JSy2": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1uj4hKi3p7EePwU_DoU_ReiNjjXObOqe1": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1v-k1ymU_g3ku2X2iSWoQMf8W5KcADL3U": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1vTdF5L02GgM3MuzVo6bxxgyQqiX_LGUB": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1vaM_kVSSQJw_0qM0HSHG__zQTZuYZUgM": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1vz7VqMg66OF1KXClrxc7-JVFOZJjy0Zn": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1w_lgZnBj9UdMossP0vEa5CKqIZaqsF0f": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1xkoERr8cr9bagt1Toc8Ujjiqjw8Cyj45": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1xkyhqvBX2xR96of5_Ude20csFOkIlD4l": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1y6vYbjTSonjfd6sSUAg78mFTHQafX4Gq": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1yO8EePGtQ3xigVwbHVbBoCCJBhXssv2b": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1ydopMw4lrsv7ZUQfFm6hk4GNIseUln2f": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1zJGVMGWbiiznVrKiKqbZMtwjn4dTttYM": {
+      "alt": "",
+      "excluded": true,
+      "note": "deleted from Drive image-pool folder review",
+      "by": "caleb@peaksaunas.com",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1A046TjUEimbp836EgJ0QE0gRZV6MLGID": {
+      "alt": "Close-up of black power cord connected to outlet mounted on wooden sauna exterior.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: exterior, close-up, cropped",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1A0Fgk7jDC8T5xQID6HYWWKxWqhhPswMQ": {
+      "alt": "Peak Saunas control panel mounted on wood wall showing temperature and time settings.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, close-up, control-panel, studio-background",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1FgrHQx-LhurRnUyp2G51W26PCPFFk-aZ": {
+      "alt": "Interior view of Shasta sauna showing black red-light panel mounted on wooden wall.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, side-view, red-light-panel, close-up, room-setting",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1GMWgHITIxuE-z_lRn2VIouqok55lwN_j": {
+      "alt": "Close-up of wooden door handle on Shasta sauna cabin exterior with blurred interior visible.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: exterior, close-up, door-closed, cropped",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1GTrTGqFpJ3ca7cvNMbtA4Y12kjIJvch0": {
+      "alt": "Close-up of black control panel with digital display showing 10000 inside wooden sauna cabin.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, close-up, control-panel, door-open",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1JcqZVfeRlT2X4gd8UpG97_uIs0Y8MgdS": {
+      "alt": "Interior view of Shasta sauna showing digital control panel and wooden bench with heater elements.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, angle-view, control-panel, bench, heater",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1OCKhnL5CvWXXc-j3CAfqTOSihPoKYQCb": {
+      "alt": "Interior view of Shasta sauna showing wooden bench, heater panel, and light fixture.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, angle-view, bench, heater, close-up",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1QsgP6YFsCIEjjnV-zRDtJnSsmHezMvoU": {
+      "alt": "Interior view of Shasta sauna with red light therapy panel visible through open door.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, front-view, door-open, red-light-panel, close-up",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1SwJ8_QVu4N_PYoPrB-po4x9ccVEOqc1Z": {
+      "alt": "Close-up of Shasta sauna interior showing wooden slats, black keys, and red light panel visible through grill.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, close-up, red-light-panel, cropped",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1aUI_AbXQoSTd5wT4l0Tv2ub01PURdf0b": {
+      "alt": "Interior view of Shasta sauna with door open showing red light therapy panel.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, front-view, door-open, red-light-panel, studio-background, close-up",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1cumnHpRoHXeOwK3DKIeOFwfXeld0PEdn": {
+      "alt": "Interior view of sauna cabin showing black red-light panel mounted on wooden wall with instruction placard.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, side-view, red-light-panel, close-up, wooden-walls",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1dQkl1oVmRicjotbdnu91ASAwNpyCfX62": {
+      "alt": "Interior view of Shasta sauna showing black panel with red and white light elements.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, front-view, red-light-panel, close-up",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1eQv4e-YpHx0HgDmyMlOYaPChRwBW8W0S": {
+      "alt": "Interior view of Shasta sauna showing wooden bench, red light panel, and heating elements.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, angle-view, red-light-panel, bench, heater, close-up",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1egoMhXZkiUUGRpgS9Z6zCu_SI_mw2Vx1": {
+      "alt": "Interior view of Shasta sauna with open door showing red light panel and wooden bench.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, front-view, door-open, red-light-panel, bench, close-up",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1r-2gV8Trybj9jeW2hBKCWuSidGKisHNo": {
+      "alt": "Close-up side view of Shasta sauna interior showing red light panel mounted on wooden wall.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, side-view, close-up, red-light-panel",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    },
+    "asset-drive-1xF9IXjjGJZSJ8qOTtc2CGH_HoKdLmcSY": {
+      "alt": "Interior view of Shasta sauna with door open showing red light panel and wooden bench.",
+      "excluded": false,
+      "note": "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, front-view, door-open, red-light-panel, bench, studio-background",
+      "by": "vision-draft",
+      "at": "2026-09-16T16:24:43"
+    }
+  }
+}
