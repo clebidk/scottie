@@ -551,3 +551,39 @@ def test_full_asset_pool_includes_ai_renders_regardless_of_allow_ai_renders_conf
     assert "a1" in listicle  # select_listicle_pack_assets would drop this with allow_ai_renders False
     assert listicle["a1"]["ai_generated"] is True
     assert listicle["p1"]["ai_generated"] is False
+
+
+# ---------------------------------------------------------------------------
+# Cycle 36 fix: an asset-review.json exclusion must be applied BEFORE
+# select_drive_assets/select_listicle_pack_assets cap the pool, not after --
+# otherwise excluding one of the top DRIVE_ASSET_MAX picks just shrinks the
+# writer's pool by one instead of promoting the next eligible asset.
+# ---------------------------------------------------------------------------
+
+def test_facts_for_excluded_top_tier_drive_asset_still_backfills_to_the_cap(monkeypatch, tmp_path):
+    import json
+
+    source = LocalFactsSource(TENANT.claims_dir)
+    many = {
+        "download_url_pattern": "https://drive.google.com/uc?export=download&id={id}",
+        "assets": [{"id": f"r{i}", "model": "fuji", "kind": "render"} for i in range(8)],
+    }
+    monkeypatch.setattr(source, "_load_assets_index", lambda: many)
+    monkeypatch.setattr(source, "brand_dir", tmp_path)
+    review = {
+        "version": 1,
+        "assets": {
+            "asset-drive-r0": {
+                "alt": "", "excluded": True, "note": "", "by": "reviewer@example.com", "at": "2026-01-01T00:00:00",
+            }
+        },
+    }
+    (tmp_path / "asset-review.json").write_text(json.dumps(review))
+
+    ad_brief = {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""}
+    facts_pack = source.facts_for(FUJI_SLUG, ad_brief)
+    drive_ids = {a["drive_id"] for a in facts_pack["assets"] if a["id"].startswith("asset-drive-")}
+
+    assert len(drive_ids) == 6  # DRIVE_ASSET_MAX -- still a full cap, not shrunk to 5
+    assert "r0" not in drive_ids  # excluded
+    assert "r6" in drive_ids  # backfilled from beyond the old (buggy) cap boundary

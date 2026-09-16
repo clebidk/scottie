@@ -35,6 +35,34 @@ def load_asset_review(brand_dir, *, log=None):
     return data
 
 
+def excluded_ids(review, assets=()):
+    """Cycle 36 fix: the set of ids `review` marks excluded=True, honoring
+    the same url-mismatch rule apply_asset_review applies -- an override
+    carrying a stored url that no longer matches the matching asset's
+    current url (looked up in `assets`) is not treated as excluded. Meant
+    to be computed BEFORE select_drive_assets/select_listicle_pack_assets
+    run, and passed to them as `exclude_ids`, so an excluded top-tier asset
+    is skipped before tiering/capping -- not dropped afterward, which would
+    just shrink the capped pool instead of letting the next eligible asset
+    fill the spot. `assets` only needs to cover ids whose override might
+    carry a url (Shopify assets, in practice; a drive/listicle override
+    never has one -- see save_asset_review's caller in harness/serve.py) --
+    an excluded id with no url in its override, or no matching asset passed
+    in at all, is still excluded."""
+    overrides = (review or {}).get("assets") or {}
+    by_id = {a["id"]: a for a in assets}
+    result = set()
+    for asset_id, override in overrides.items():
+        if not override.get("excluded"):
+            continue
+        if "url" in override:
+            current = by_id.get(asset_id)
+            if current is not None and override["url"] != current.get("url"):
+                continue  # stale override (url changed) -- not applicable
+        result.add(asset_id)
+    return result
+
+
 def apply_asset_review(assets, review, *, log=None):
     """`assets` (facts_for()'s shopify+drive+listicle pool) with each asset's
     override applied: excluded assets are dropped, and a non-empty override

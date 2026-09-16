@@ -365,14 +365,21 @@ def _pick_by_quoted_price(active_products, ad_brief):
     return None
 
 
-def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
+def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX, *, exclude_ids=frozenset()):
     """Up to `limit` Drive assets for model_slug, in tier order
     (lifestyle/interior, then render, then installation), never
-    video/logo/ugc, skipping any asset marked excluded."""
+    video/logo/ugc, skipping any asset marked excluded. `exclude_ids` (full
+    asset ids, e.g. asset_review.excluded_ids()'s result) is filtered out of
+    the candidate pool BEFORE tiering/capping -- cycle 36 fix -- so a
+    reviewer-excluded top-tier asset makes room for the next eligible one
+    instead of just shrinking the capped result by one."""
     candidates = [
         a
         for a in assets_index.get("assets", [])
-        if a.get("model") == model_slug and a.get("kind") not in DRIVE_ASSET_NEVER_KINDS and not a.get("excluded")
+        if a.get("model") == model_slug
+        and a.get("kind") not in DRIVE_ASSET_NEVER_KINDS
+        and not a.get("excluded")
+        and f"asset-drive-{a['id']}" not in exclude_ids
     ]
     download_pattern = assets_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
     selected, seen = [], set()
@@ -397,17 +404,23 @@ def select_drive_assets(assets_index, model_slug, limit=DRIVE_ASSET_MAX):
     return selected
 
 
-def select_listicle_pack_assets(pack_index, model_slug, allow_ai_renders, limit=LISTICLE_PACK_ASSET_MAX):
+def select_listicle_pack_assets(
+    pack_index, model_slug, allow_ai_renders, limit=LISTICLE_PACK_ASSET_MAX, *, exclude_ids=frozenset()
+):
     """Up to `limit` assets from brand/assets-listicle-pack.json for
     model_slug (whichever models the pack covers), real photos (photo_product,
     photo_install) and brand stills (still_video) first, an ai_render only if
     `allow_ai_renders` is true (claims/config.json's allow_ai_renders, default
     False) -- never selected otherwise, per docs/DRIVE-AUDIT-LISTICLE.md's
-    policy-decision-needed flag. An excluded asset is skipped either way."""
+    policy-decision-needed flag. An excluded asset is skipped either way.
+    `exclude_ids` (see select_drive_assets) is filtered out of the candidate
+    pool before tiering/capping -- cycle 36 fix."""
     candidates = [
         a
         for a in pack_index.get("assets", [])
-        if (a.get("model") == model_slug or a.get("kind") == "still_video") and not a.get("excluded")
+        if (a.get("model") == model_slug or a.get("kind") == "still_video")
+        and not a.get("excluded")
+        and f"asset-listicle-{a['id']}" not in exclude_ids
     ]
     download_pattern = pack_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
     selected, seen = [], set()
@@ -707,20 +720,27 @@ class LocalFactsSource:
             for i, url in enumerate(product.get("image_urls", []))
         ]
         name_slug = product_name_slug(product["name"])
-        drive_assets = select_drive_assets(self._load_assets_index(), name_slug)
+        # Cycle 36: human reviewer overrides (harness/serve.py's /images
+        # site, tenants/<t>/brand/asset-review.json), loaded once. Cycle 36
+        # fix: an excluded id is passed into select_drive_assets/
+        # select_listicle_pack_assets as exclude_ids so it's skipped BEFORE
+        # tiering/capping -- excluding one of DRIVE_ASSET_MAX's top picks
+        # then makes room for the next eligible asset, rather than just
+        # shrinking the capped result by one. apply_asset_review below still
+        # runs on the final list: it's what actually swaps in reviewer alt
+        # text, and it's the only thing that ever excludes a Shopify image
+        # (never capped/tiered, so there's no backfill to lose there).
+        review = asset_review.load_asset_review(self.brand_dir, log=log)
+        exclude_ids = asset_review.excluded_ids(review, shopify_assets)
+        drive_assets = select_drive_assets(self._load_assets_index(), name_slug, exclude_ids=exclude_ids)
         listicle_pack_assets = []
         if name_slug in listicle_pack_models():
             listicle_pack_assets = select_listicle_pack_assets(
-                self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders"))
+                self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders")),
+                exclude_ids=exclude_ids,
             )
         assets = shopify_assets + drive_assets + listicle_pack_assets  # Shopify images stay first, as hero (fix 8)
-        # Cycle 36: human reviewer overrides (harness/serve.py's /images site,
-        # tenants/<t>/brand/asset-review.json) -- excluded assets are dropped
-        # and reviewer alt text replaces the default before pick_hero/
-        # build_slot_plan below (or the writer) ever see the pool.
-        assets = asset_review.apply_asset_review(
-            assets, asset_review.load_asset_review(self.brand_dir, log=log), log=log
-        )
+        assets = asset_review.apply_asset_review(assets, review, log=log)
 
         price_id = f"price-{name_slug}"
         spec_ids = {s["claim_id"] for s in specs if s.get("claim_id")}
