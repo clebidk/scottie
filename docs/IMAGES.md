@@ -171,6 +171,29 @@ checks):
   `DRIVE_ASSET_TIERS`/`LISTICLE_PACK_TIERS` -- not yet tenant-configurable; every tier
   constant lives in one place in `ground.py` if a future tenant needs a different order.
 
+## 6. Human review: asset-review.json (cycle 36)
+
+`harness serve`'s `/images` site (harness/serve.py, harness/asset_review.py) lets a
+reviewer look at every image a product could ever place on a page -- `ground.
+full_asset_pool` (uncapped, unlike `facts_for()`'s own capped `assets`) -- write real
+alt text per image, and exclude one entirely. Decisions land in
+`tenants/<t>/brand/asset-review.json` (`{"version": 1, "assets": {"<asset id>": {"alt",
+"excluded", "note", "by", "at", "url" (Shopify only)}}}`), written by the reviewer only
+through the site; nothing else in the harness creates or edits this file.
+
+`ground.LocalFactsSource.facts_for()` applies it (`asset_review.apply_asset_review`)
+right after building `shopify_assets + drive_assets + listicle_pack_assets`, before
+`pick_hero`/`build_slot_plan` or the writer ever see the pool: an excluded asset is
+dropped, a non-empty override alt replaces the default. A Shopify override also pins
+the url it was written against -- if the product's image list is later re-ordered or
+changed, the stored url no longer matches and the override is ignored (logged, never
+crashes a run) rather than mislabeling a different photo.
+
+A malformed or hand-edited `asset-review.json` is treated as empty, with a warning
+logged -- it never fails a run. Thumbnails are downloaded once (`render.download_asset`)
+into `tenants/<t>/runs/asset-cache/`, resized to 480px with Pillow, and cached next to
+the original; a dead link renders an inline "could not load" placeholder, never a 500.
+
 ## Dry runs stay exactly as before
 
 `render_page(..., download_assets=False)` -- used by `harness/write.py`'s fast local

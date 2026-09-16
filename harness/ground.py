@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Protocol
 
+from . import asset_review
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
 from .prices import format_price
@@ -434,6 +435,78 @@ def select_listicle_pack_assets(pack_index, model_slug, allow_ai_renders, limit=
     return selected
 
 
+def full_asset_pool(store, product, config):
+    """Cycle 36: the UNCAPPED pool of every asset a human reviewer could
+    ever act on for product -- every Shopify image, every Drive asset for
+    the model that facts_for() would ever be willing to select (not in
+    DRIVE_ASSET_NEVER_KINDS, and not excluded in the manifest), and every
+    listicle-pack asset for the model, including ai_renders (each flagged
+    ai_generated so the review page can badge it -- unlike
+    select_listicle_pack_assets, this never gates them on allow_ai_renders).
+    Unlike facts_for()'s own assets list, this ignores DRIVE_ASSET_MAX/
+    LISTICLE_PACK_ASSET_MAX and does NOT apply asset-review.json -- the
+    review page needs to show an already-excluded asset too, greyed out, so
+    it can be un-excluded. config is accepted for symmetry with facts_for;
+    the full pool does not currently read any claims-config value.
+    Each entry: id, url, drive_id (drive/listicle only), kind, source
+    ("shopify"|"drive"|"listicle"), model, title, alt (current default),
+    ai_generated."""
+    name_slug = product_name_slug(product["name"])
+    pool = [
+        {
+            "id": f"asset-{product['slug']}-{i + 1}",
+            "url": url,
+            "kind": "image",
+            "source": "shopify",
+            "model": name_slug,
+            "title": None,
+            "alt": f"{product['name']} sauna",
+            "ai_generated": False,
+        }
+        for i, url in enumerate(product.get("image_urls", []))
+    ]
+
+    assets_index = store._load_assets_index()
+    drive_pattern = assets_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
+    for a in assets_index.get("assets", []):
+        if a.get("model") != name_slug or a.get("kind") in DRIVE_ASSET_NEVER_KINDS or a.get("excluded"):
+            continue
+        pool.append(
+            {
+                "id": f"asset-drive-{a['id']}",
+                "drive_id": a["id"],
+                "url": drive_pattern.format(id=a["id"]),
+                "kind": a.get("kind"),
+                "source": "drive",
+                "model": name_slug,
+                "title": a.get("title"),
+                "alt": a.get("title") or f"{name_slug} sauna",
+                "ai_generated": False,
+            }
+        )
+
+    if name_slug in listicle_pack_models():
+        pack_index = store._load_listicle_pack_index()
+        pack_pattern = pack_index.get("download_url_pattern", "https://drive.google.com/uc?export=download&id={id}")
+        for a in pack_index.get("assets", []):
+            if (a.get("model") != name_slug and a.get("kind") != "still_video") or a.get("excluded"):
+                continue
+            pool.append(
+                {
+                    "id": f"asset-listicle-{a['id']}",
+                    "drive_id": a["id"],
+                    "url": pack_pattern.format(id=a["id"]),
+                    "kind": a.get("kind"),
+                    "source": "listicle",
+                    "model": name_slug,
+                    "title": a.get("title"),
+                    "alt": a.get("title") or f"{name_slug} sauna",
+                    "ai_generated": bool(a.get("ai_generated")),
+                }
+            )
+    return pool
+
+
 class LocalFactsSource:
     """Reads claims/products.json and claims/verified.json from disk."""
 
@@ -481,6 +554,15 @@ class LocalFactsSource:
         if extra_claims:
             claims = list(claims) + list(extra_claims)
         return claims
+
+    def active_products(self):
+        """Cycle 36: every active (`active: true`) product, sorted by name --
+        harness/serve.py's /images index iterates this to list a product per
+        row; nothing else in the harness needed a plain "list the active
+        products" call until now (pick_product_with_warning below builds the
+        same filter inline for its own ad-matching logic)."""
+        self._load()
+        return sorted((p for p in self._products.values() if p.get("active", True)), key=lambda p: p["name"])
 
     def pick_product(self, product_slug, ad_brief):
         product, _warning = self.pick_product_with_warning(product_slug, ad_brief)
@@ -614,7 +696,7 @@ class LocalFactsSource:
                 unique.append(c)
         return targets, unique
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False):
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, log=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -632,6 +714,13 @@ class LocalFactsSource:
                 self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders"))
             )
         assets = shopify_assets + drive_assets + listicle_pack_assets  # Shopify images stay first, as hero (fix 8)
+        # Cycle 36: human reviewer overrides (harness/serve.py's /images site,
+        # tenants/<t>/brand/asset-review.json) -- excluded assets are dropped
+        # and reviewer alt text replaces the default before pick_hero/
+        # build_slot_plan below (or the writer) ever see the pool.
+        assets = asset_review.apply_asset_review(
+            assets, asset_review.load_asset_review(self.brand_dir, log=log), log=log
+        )
 
         price_id = f"price-{name_slug}"
         spec_ids = {s["claim_id"] for s in specs if s.get("claim_id")}

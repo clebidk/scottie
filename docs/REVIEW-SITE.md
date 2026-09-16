@@ -121,3 +121,11 @@ Read it back later (on the server, when you actually need to log in) with:
 ```
 grep ^REVIEW_PASSWORD ~/advertorial/tenants/peak-saunas/.env
 ```
+
+## Image library (cycle 36)
+
+`/images` lists active products with reviewed/excluded counts; `/images/<product slug>`
+shows every image the writer could ever place (uncapped, `ground.full_asset_pool`) so a
+reviewer can write real alt text or exclude one. Same auth and same-origin POST checks
+as everything else in this app; see `docs/IMAGES.md`'s "Human review: asset-review.json"
+section for what it writes and how grounding applies it.

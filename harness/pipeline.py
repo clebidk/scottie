@@ -257,6 +257,7 @@ def ground(state):
         # selected gets comparison targets (and their backing claims) in its
         # facts_pack -- every other run's facts_pack is unchanged.
         include_comparison="comparison" in state.selected,
+        log=state.log,
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
 
