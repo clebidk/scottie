@@ -154,6 +154,38 @@ def test_mark_published_moves_one_page_and_run_state_once_all_published(tmp_path
     assert data["state"] == "published"
 
 
+def test_mark_published_without_a_page_id_stores_no_structured_record(tmp_path):
+    """The export publisher's `publish()` returns id=None -- mark_published
+    must not record a `published_pages` entry for it, since `harness
+    publish --update` treats "no stored page id" as "never really
+    published with an id" (Cycle 40)."""
+    run_dir = _make_run_dir(tmp_path, pages=("article",))
+    runstate.mark_needs_review(run_dir)
+    runstate.mark_published(run_dir, page="article", by="operator", note="url=None live=False")
+    assert runstate.published_page_record(run_dir, "article") is None
+
+
+def test_mark_published_with_a_page_id_stores_a_structured_record(tmp_path):
+    run_dir = _make_run_dir(tmp_path, pages=("article",))
+    runstate.mark_needs_review(run_dir)
+    runstate.mark_published(
+        run_dir, page="article", by="operator", note="url=https://x/pages/h live=False",
+        page_id=999, handle="acme-article", url="https://x/pages/h",
+    )
+    record = runstate.published_page_record(run_dir, "article")
+    assert record["page_id"] == 999
+    assert record["handle"] == "acme-article"
+    assert record["url"] == "https://x/pages/h"
+    # the free-text note is still recorded, unchanged, alongside the
+    # structured fields.
+    assert runstate.load_state(run_dir)["history"][-1]["note"] == "url=https://x/pages/h live=False"
+
+
+def test_published_page_record_is_none_for_a_page_never_published(tmp_path):
+    run_dir = _make_run_dir(tmp_path, pages=("article",))
+    assert runstate.published_page_record(run_dir, "article") is None
+
+
 # ---------------------------------------------------------------------------
 # packet.json
 # ---------------------------------------------------------------------------

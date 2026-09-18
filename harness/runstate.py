@@ -239,7 +239,14 @@ def get_revise_status(run_dir, page):
     return (data.get("revise_status") or {}).get(page)
 
 
-def mark_published(run_dir, *, page, by="operator", note=""):
+def mark_published(run_dir, *, page, by="operator", note="", page_id=None, handle=None, url=None):
+    """Cycle 40: `page_id`/`handle`/`url`, when given (a real Shopify
+    publish, not the export adapter, which has neither), are also stored as
+    structured fields under `data["published_pages"][page]` -- not only in
+    `note`'s free text -- so `harness publish --update` can look up the
+    page id for a page this run already published without parsing history
+    notes. `note` is unchanged and still carries the human-readable summary
+    (see cli.cmd_publish)."""
     data = load_state(run_dir)
     if page not in data["pages"]:
         raise KeyError(f"unknown page {page!r} for this run; run has: {list(data['pages'])}")
@@ -247,8 +254,21 @@ def mark_published(run_dir, *, page, by="operator", note=""):
     if all(v == "published" for v in data["pages"].values()):
         data["state"] = "published"
     data["history"].append({"state": "published", "by": by, "at": _now(), "note": note})
+    if page_id is not None:
+        data.setdefault("published_pages", {})[page] = {
+            "page_id": page_id, "handle": handle, "url": url, "at": _now(),
+        }
     save_state(run_dir, data)
     return data
+
+
+def published_page_record(run_dir, page):
+    """The structured `{"page_id", "handle", "url", "at"}` record
+    `mark_published` stored for `page` on its most recent real publish, or
+    None if this run has never published `page` with a page id (an export
+    publish, or a run from before cycle 40)."""
+    data = load_state(run_dir)
+    return (data.get("published_pages") or {}).get(page)
 
 
 # ---------------------------------------------------------------------------

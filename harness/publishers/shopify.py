@@ -474,7 +474,7 @@ class ShopifyPublisher(Publisher):
         """`page`: {"title", "body_html", ["handle"], ["storefront_host"]}.
         Creates a new page via POST /pages.json; `published: not
         unpublished` -- a draft page unless the caller explicitly asked for
-        `--live`. Returns {"id", "url", "admin_url"}."""
+        `--live`. Returns {"id", "url", "admin_url", "handle"}."""
         payload = {
             "page": {
                 "title": page["title"],
@@ -495,6 +495,38 @@ class ShopifyPublisher(Publisher):
             "id": page_id,
             "url": f"https://{storefront_host}/pages/{handle}",
             "admin_url": f"https://{self.store}/admin/pages/{page_id}",
+            "handle": handle,
+        }
+
+    def update_page(self, page_id, page, *, unpublished=True):
+        """Same shape as `publish`, but updates the existing page `page_id`
+        via `PUT /pages/<page_id>.json` instead of creating a new one --
+        `harness publish --update` uses this so re-running a publish
+        against an already-published handle doesn't create
+        `<handle>-1`. `page.get("handle")` is intentionally never sent:
+        `harness publish --update` ignores `--handle` (handle changes are
+        out of scope for cycle 40), and PUT doesn't need it to identify the
+        page anyway. Returns the same shape `publish` does: {"id", "url",
+        "admin_url", "handle"}."""
+        payload = {
+            "page": {
+                "id": page_id,
+                "title": page["title"],
+                "body_html": page["body_html"],
+                "published": not unpublished,
+            }
+        }
+        status, data = self._request("PUT", f"pages/{page_id}.json", payload)
+        if status not in (200, 201) or "page" not in data:
+            raise PublishFailed(f"page update failed: status={status} body={data}")
+        updated = data["page"]
+        handle = updated.get("handle", "")
+        storefront_host = page.get("storefront_host") or self.store
+        return {
+            "id": updated["id"],
+            "url": f"https://{storefront_host}/pages/{handle}",
+            "admin_url": f"https://{self.store}/admin/pages/{updated['id']}",
+            "handle": handle,
         }
 
     def create_redirect(self, path, target):

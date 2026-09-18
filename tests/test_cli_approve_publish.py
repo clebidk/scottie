@@ -128,10 +128,10 @@ def test_packet_refuses_a_directory_that_is_not_a_run(tmp_path, capsys):
 # publish -- refusals
 # ---------------------------------------------------------------------------
 
-def _publish_args(run_dir, *, page="article", live=False, dry_run=False, handle=None, redirect_from=None):
+def _publish_args(run_dir, *, page="article", live=False, dry_run=False, handle=None, redirect_from=None, update=False):
     return argparse.Namespace(
         run_dir=str(run_dir), page=page, live=live, dry_run=dry_run,
-        handle=handle, redirect_from=redirect_from, tenant=None,
+        handle=handle, redirect_from=redirect_from, update=update, tenant=None,
     )
 
 
@@ -408,3 +408,104 @@ def test_publish_loads_tenant_env_for_shopify_credentials(tmp_path, monkeypatch,
     finally:
         os.environ.clear()
         os.environ.update(saved_env)
+
+
+# ---------------------------------------------------------------------------
+# publish -- --update (Cycle 40): updates the page this run already
+# published instead of creating a new one.
+# ---------------------------------------------------------------------------
+
+def test_publish_update_refuses_without_a_stored_page_id(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+    transport = _shopify_ready_transport()
+    _patch_shopify_publisher(monkeypatch, transport)
+
+    exit_code = cli.cmd_publish(_publish_args(run_dir, update=True))
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "no stored page id" in err
+    # nothing was ever sent -- a refused --update makes no Shopify call.
+    assert transport.calls == []
+
+
+def test_publish_update_calls_update_page_not_create(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+
+    # First publish, unaltered -- this is what seeds the stored page id
+    # --update looks up.
+    transport = _shopify_ready_transport()
+    _patch_shopify_publisher(monkeypatch, transport)
+    assert cli.cmd_publish(_publish_args(run_dir, handle="listicle-test-1")) == 0
+    record = runstate.published_page_record(run_dir, "article")
+    assert record["page_id"] == 1
+    assert record["handle"] == "listicle-test-1"
+
+    # Re-approve (publishing moved the page's state to "published") and
+    # re-publish with --update -- must PUT to the stored page id, never
+    # POST a new page.
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    update_transport = _shopify_ready_transport()
+    update_transport.set_response(
+        "PUT", "pages/1.json", 200, {"page": {"id": 1, "handle": "listicle-test-1"}},
+    )
+    _patch_shopify_publisher(monkeypatch, update_transport)
+
+    exit_code = cli.cmd_publish(_publish_args(run_dir, update=True))
+    assert exit_code == 0
+    assert not any(c["url"].endswith("pages.json") and c["method"] == "POST" for c in update_transport.calls)
+    put_call = next(c for c in update_transport.calls if c["url"].endswith("pages/1.json"))
+    assert put_call["method"] == "PUT"
+    out = capsys.readouterr().out
+    assert "Updated article" in out
+
+
+def test_publish_update_ignores_handle_with_a_warning(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+    transport = _shopify_ready_transport()
+    _patch_shopify_publisher(monkeypatch, transport)
+    assert cli.cmd_publish(_publish_args(run_dir, handle="listicle-test-1")) == 0
+
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    update_transport = _shopify_ready_transport()
+    update_transport.set_response(
+        "PUT", "pages/1.json", 200, {"page": {"id": 1, "handle": "listicle-test-1"}},
+    )
+    _patch_shopify_publisher(monkeypatch, update_transport)
+
+    exit_code = cli.cmd_publish(_publish_args(run_dir, update=True, handle="new-handle"))
+    assert exit_code == 0
+    err = capsys.readouterr().err
+    assert "ignored with --update" in err
+    put_call = next(c for c in update_transport.calls if c["url"].endswith("pages/1.json"))
+    sent = json.loads(put_call["body"])
+    assert "handle" not in sent["page"]
+
+
+def test_publish_records_structured_page_id_and_handle_after_a_normal_publish(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+    transport = _shopify_ready_transport()
+    _patch_shopify_publisher(monkeypatch, transport)
+
+    assert cli.cmd_publish(_publish_args(run_dir, handle="listicle-test-1")) == 0
+    record = runstate.published_page_record(run_dir, "article")
+    assert record == {
+        "page_id": 1, "handle": "listicle-test-1",
+        "url": "https://acme.example/pages/listicle-test-1",
+        "at": record["at"],
+    }
