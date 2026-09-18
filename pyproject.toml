@@ -63,6 +63,7 @@ addopts = "--strict-markers -m 'not live'"
 markers = [
     "slow: more than a second of real work (image re-encoding). Still offline, still run by default.",
     "live: needs the network or a real model call. Deselected by default; run with `-m live`.",
+    "real_tenant_paths: opts out of conftest.py's autouse isolated_tenant_paths fixture (Cycle 37) -- for a test that asserts what Tenant.out_dir/runs_dir/evals_path return unpatched.",
 ]
 
 [tool.ruff]
