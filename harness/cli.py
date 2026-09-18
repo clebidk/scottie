@@ -10,6 +10,7 @@ import datetime
 import json
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 
 from . import budget as budget_mod
@@ -356,21 +357,48 @@ def _read_asset_manifest_bytes(cartridge_dir, assets_manifest):
     return out
 
 
+_HANDLE_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$")
+
+
 def cmd_publish(args):
-    """`harness publish <run-dir> --page <cartridge> [--live] [--dry-run]`:
-    refuses unless state.json's `pages[<cartridge>]` is "approved" AND
-    packet.json's stamp is "ship". Default publish is unpublished (a draft
-    page) unless `--live`; `--live` also verifies the storefront cache with
-    8 pulls, 2s apart (the cache-epoch trap in
-    the tenant's own storefront notes). `--dry-run`
-    only validates credentials and the page body (a GET on the shop
-    endpoint for the Shopify adapter) -- no approval or stamp required, and
-    nothing is created."""
+    """`harness publish <run-dir> --page <cartridge> [--live] [--dry-run]
+    [--handle <slug>] [--redirect-from </path>]`: refuses unless
+    state.json's `pages[<cartridge>]` is "approved" AND packet.json's stamp
+    is "ship". Default publish is unpublished (a draft page) unless
+    `--live`; `--live` also verifies the storefront cache with 8 pulls, 2s
+    apart (the cache-epoch trap in the tenant's own storefront notes).
+    `--dry-run` only validates credentials and the page body (a GET on the
+    shop endpoint for the Shopify adapter) -- no approval or stamp
+    required, and nothing is created. `--handle` sets the Shopify page
+    handle explicitly. `--redirect-from` (requires `--live`) creates a
+    Shopify URL redirect from a root path to the published page."""
     tenant = _resolve_tenant_for_run(args)
     run_dir = Path(args.run_dir)
     cartridge_dir = run_dir / args.page
     if not (cartridge_dir / "index.html").exists():
         print(f"no index.html under {cartridge_dir}", file=sys.stderr)
+        return 1
+
+    # Cycle 38: cmd_publish is the one _resolve_tenant_for_run caller that
+    # touches credentials (SHOPIFY_STORE/SHOPIFY_TOKEN via ShopifyPublisher).
+    # approve/reject/revise don't need the tenant's .env, so they're left
+    # alone -- see cmd_run/cmd_serve for the same load_env() convention.
+    tenant.load_env()
+
+    handle = getattr(args, "handle", None)
+    if handle and not _HANDLE_RE.match(handle):
+        print(
+            f"--handle {handle!r} is invalid: must match {_HANDLE_RE.pattern}",
+            file=sys.stderr,
+        )
+        return 1
+
+    redirect_from = getattr(args, "redirect_from", None)
+    if redirect_from and not args.live:
+        print("--redirect-from requires --live", file=sys.stderr)
+        return 1
+    if redirect_from and not redirect_from.startswith("/"):
+        print(f"--redirect-from {redirect_from!r} must start with '/'", file=sys.stderr)
         return 1
 
     shopify_body_html, assets_manifest = shopify_body_mod.build_shopify_body(cartridge_dir)
@@ -425,6 +453,8 @@ def cmd_publish(args):
         "body_html": body_html,
         "storefront_host": tenant.get("site_host"),
     }
+    if handle:
+        page_payload["handle"] = handle
 
     try:
         result = publisher.publish(page_payload, unpublished=not args.live)
@@ -434,9 +464,23 @@ def cmd_publish(args):
 
     print(f"Published {args.page} for {run_dir}: {json.dumps(result)}")
 
+    redirect_target = None
+    if args.live and redirect_from and isinstance(publisher, ShopifyPublisher):
+        redirect_target = urllib.parse.urlparse(result.get("url", "")).path or "/"
+        try:
+            redirect_result = publisher.create_redirect(redirect_from, redirect_target)
+        except ShopifyCredentialsMissing as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        print(f"Redirect {redirect_from} -> {redirect_target}: {json.dumps(redirect_result)}")
+
+    note = f"url={result.get('url')} live={bool(args.live)}"
+    if redirect_target is not None:
+        note += f" redirect_from={redirect_from} redirect_target={redirect_target}"
+
     runstate.mark_published(
         run_dir, page=args.page, by="operator",
-        note=f"url={result.get('url')} live={bool(args.live)}",
+        note=note,
     )
     notify.notify_published(
         tenant, run_id=run_dir.name, page=args.page,
@@ -777,6 +821,11 @@ def build_parser():
     p_publish.add_argument("--page", required=True, help="cartridge name, e.g. article")
     p_publish.add_argument("--live", action="store_true", help="publish live (default: unpublished draft)")
     p_publish.add_argument("--dry-run", action="store_true", help="validate credentials and body only; creates nothing")
+    p_publish.add_argument("--handle", help="explicit Shopify page handle, e.g. listicle-test-1")
+    p_publish.add_argument(
+        "--redirect-from",
+        help="root path to redirect to the published page, e.g. /listicle-test-1 (requires --live)",
+    )
     _add_tenant_flag(p_publish)
     p_publish.set_defaults(func=cmd_publish)
 

@@ -262,6 +262,48 @@ class ShopifyPublisher(Publisher):
             "admin_url": f"https://{self.store}/admin/pages/{page_id}",
         }
 
+    def create_redirect(self, path, target):
+        """Creates a URL redirect from `path` (e.g. "/listicle-test-1") to
+        `target` (e.g. "/pages/listicle-test-1") via POST /redirects.json.
+        Idempotent across re-publishes: if Shopify refuses with a 422
+        because `path` is already redirected, the existing redirect is
+        looked up (GET /redirects.json?path=<path>) and retargeted with a
+        PUT instead of failing. Both `path` and `target` must start with
+        "/". Returns the redirect dict Shopify reports."""
+        if not path.startswith("/"):
+            raise ValueError(f"redirect path must start with '/' (got {path!r})")
+        if not target.startswith("/"):
+            raise ValueError(f"redirect target must start with '/' (got {target!r})")
+        status, data = self._request(
+            "POST", "redirects.json", {"redirect": {"path": path, "target": target}}
+        )
+        if status in (200, 201) and "redirect" in data:
+            return data["redirect"]
+        if status == 422 and "already been taken" in json.dumps(data).lower():
+            existing = self._find_redirect_by_path(path)
+            if existing is None:
+                raise PublishFailed(
+                    f"redirect create failed for {path!r} (422 'already taken') "
+                    f"but no existing redirect was found: status={status} body={data}"
+                )
+            put_status, put_data = self._request(
+                "PUT",
+                f"redirects/{existing['id']}.json",
+                {"redirect": {"id": existing["id"], "path": path, "target": target}},
+            )
+            if put_status not in (200, 201) or "redirect" not in put_data:
+                raise PublishFailed(
+                    f"redirect update failed for {path!r}: status={put_status} body={put_data}"
+                )
+            return put_data["redirect"]
+        raise PublishFailed(f"redirect create failed for {path!r}: status={status} body={data}")
+
+    def _find_redirect_by_path(self, path):
+        query = urllib.parse.urlencode({"path": path})
+        status, data = self._request("GET", f"redirects.json?{query}")
+        redirects = data.get("redirects") if status == 200 else None
+        return redirects[0] if redirects else None
+
     def verify_cache(self, storefront_url, *, marker, pulls=8, delay_s=2, sleep=time.sleep, fetch=None):
         """Fetches `storefront_url` `pulls` times, `delay_s` apart, counting
         how many responses contain `marker` (a short, distinctive substring
