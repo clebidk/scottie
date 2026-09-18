@@ -12,6 +12,7 @@ import pytest
 
 from harness import tenant as tenant_mod
 from harness import vocab
+from tests.support import TENANT
 
 
 class FakeUsage:
@@ -133,6 +134,60 @@ def _no_network(request, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Cycle 37: every test that touches Tenant.out_dir/runs_dir/evals_path (via
+# `harness run`, a workflow, record_score, ...) is redirected into tmp_path.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def isolated_tenant_paths(request, tmp_path, monkeypatch):
+    """Cycle 35a first wrote this fixture (as tests/test_serve.py's own,
+    opt-in copy) for the handful of tests that drive `harness serve` against
+    the real peak-saunas `TENANT`. Cycle 37 found it was never enough: any
+    other test that calls cli.cmd_run/pipeline.prepare_run/evals.record_score
+    against TENANT -- test_cli_run.py, test_comparison.py, test_evals.py,
+    test_fake_run.py, test_revise.py, test_workflows.py, test_budget.py,
+    test_tenant_validation.py -- had no isolation at all, because the fixture
+    was opt-in and none of them opted in. Running the full suite once wrote
+    156 real run dirs (state.json, rendered index.html, the lot) into
+    tenants/peak-saunas/out/ and 156 logs into runs/ -- see
+    tenants/peak-saunas/out/_archive-test-runs-2026-09-16/.
+
+    Autouse fixes that: every test gets out_dir/runs_dir/evals_path redirected
+    into its own tmp_path before it runs, with no per-test opt-in to forget.
+    `out_dir`/`runs_dir`/`evals_path` are plain `self.root / "..."` properties
+    on Tenant (harness/tenant.py), so patching them at the class level
+    redirects every write any test makes -- through cli.cmd_run,
+    runstate.approve/reject/request_changes, and evals.record_score alike --
+    while claims_dir/brand_dir/fixtures_dir/config keep reading the real
+    tenant data tests need for realistic content. A fresh Tenant instance
+    (evals/fake_run.py calls tenant_mod.load_tenant() itself) is covered too,
+    since the patch is on the class, not this particular TENANT object.
+
+    One test (test_tenant.py's test_tenant_paths_all_live_under_the_tenant_root)
+    asserts what these properties return when NOT patched, and opts out with
+    `@pytest.mark.real_tenant_paths`."""
+    if request.node.get_closest_marker("real_tenant_paths"):
+        return None
+
+    # A dedicated subdirectory, not tmp_path itself: plenty of unrelated
+    # tests build their own tmp_path / "out" or tmp_path / "runs" (FakeTenant
+    # in test_runstate.py, the unwritable-ledger case in test_budget.py,
+    # test_path_safety.py's traversal check, test_serve_images.py's own
+    # runs_dir isolation) and call .mkdir() on it with no exist_ok -- this
+    # fixture running first and creating the same top-level name first would
+    # collide with every one of them.
+    base = tmp_path / "tenant-isolation"
+    out_dir = base / "out"
+    runs_dir = base / "runs"
+    out_dir.mkdir(parents=True)
+    runs_dir.mkdir(parents=True)
+    monkeypatch.setattr(type(TENANT), "out_dir", property(lambda self: out_dir))
+    monkeypatch.setattr(type(TENANT), "runs_dir", property(lambda self: runs_dir))
+    monkeypatch.setattr(type(TENANT), "evals_path", property(lambda self: base / "evals" / "scores.jsonl"))
+    return base
+
+
+# ---------------------------------------------------------------------------
 # Cycle 35a: the real tenant's evals files are never touched by the suite
 # ---------------------------------------------------------------------------
 
@@ -168,4 +223,56 @@ def _real_tenant_evals_unchanged():
         "the test suite modified tenants/peak-saunas/evals/scores.jsonl and/or "
         f"approvals.jsonl -- before={before} after={after}. Some test wrote to the "
         "real tenant's evals files instead of a tmp_path/FakeTenant one."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cycle 37: the suite-wide backstop -- isolated_tenant_paths above stops the
+# writes it knows about; this catches anything it doesn't.
+# ---------------------------------------------------------------------------
+
+def _tracked_run_artifact_paths():
+    """Every path that currently exists under <tenant>/out, <tenant>/runs, or
+    <tenant>/evals for every tenant directory, excluding anything under a
+    path component that starts with "_archive" (tenants/peak-saunas/out/
+    _archive-test-runs-2026-09-16/ and tenants/*/evals/_archive/ are
+    reference/history, not something a clean session should add to or
+    remove from). Pure reads -- no directory is created here, so a suite run
+    that touches nothing real leaves this fixture's own footprint at zero."""
+    paths = set()
+    for tenant_root in sorted(p for p in tenant_mod.TENANTS_DIR.iterdir() if p.is_dir()):
+        for sub in ("out", "runs", "evals"):
+            base = tenant_root / sub
+            if not base.exists():
+                continue
+            for path in base.rglob("*"):
+                rel_parts = path.relative_to(tenant_mod.TENANTS_DIR).parts
+                if any(part.startswith("_archive") for part in rel_parts):
+                    continue
+                paths.add(path)
+    return paths
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_new_tenant_run_artifacts():
+    """Cycle 37: isolated_tenant_paths (above) redirects every write that
+    goes through Tenant.out_dir/runs_dir/evals_path, which is how the 156
+    leaked run dirs from Cycle 37's incident were made -- but a future test
+    that reaches a tenant's out/runs/evals tree some other way (a hardcoded
+    "tenants/peak-saunas/out/..." string, a Tenant built before this session's
+    fixtures ran, a new write path evals.py grows) would slip past it
+    silently, the same way the old opt-in fixture did. This is the backstop:
+    snapshot the *set* of paths under every tenant's out/, runs/, and evals/
+    at session start, diff against the same snapshot at session end, and fail
+    loudly with the exact new paths if the set grew by even one file --
+    whether this session ran the full suite or a single test file, since the
+    snapshot is taken fresh each time rather than assuming a fixed baseline."""
+    before = _tracked_run_artifact_paths()
+    yield
+    after = _tracked_run_artifact_paths()
+    new_paths = sorted(str(p) for p in (after - before))
+    assert not new_paths, (
+        "the test suite left new files under a tenant's out/, runs/, or evals/ "
+        "directory -- isolated_tenant_paths should have redirected this write "
+        "into tmp_path:\n  " + "\n  ".join(new_paths)
     )

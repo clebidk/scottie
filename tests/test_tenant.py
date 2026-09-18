@@ -49,6 +49,7 @@ def test_unknown_tenant_is_a_clear_error_not_a_traceback():
 # Paths
 # ---------------------------------------------------------------------------
 
+@pytest.mark.real_tenant_paths
 def test_tenant_paths_all_live_under_the_tenant_root():
     for path in (
         TENANT.claims_dir, TENANT.brand_dir, TENANT.fixtures_dir, TENANT.env_path,
