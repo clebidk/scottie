@@ -8,7 +8,12 @@ from pathlib import Path
 
 from harness.cli import cmd_shopify_body
 from harness.render import render_page
-from harness.page_body import build_shopify_body, full_bleed_css, write_shopify_body
+from harness.page_body import (
+    build_shopify_body,
+    full_bleed_css,
+    strip_document_chrome,
+    write_shopify_body,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -121,6 +126,42 @@ def test_shopify_body_has_no_document_or_chrome_tags(tmp_path):
     for tag in ("<!doctype", "<html", "</html>", "<head", "</head>", "<body", "</body>",
                 "<header", "</header>", "<footer", "</footer>", "<nav", "</nav>"):
         assert tag not in lowered, f"{tag!r} should not appear in shopify-body.html"
+
+
+# ---------------------------------------------------------------------------
+# strip_document_chrome -- Cycle 40: a classed header/footer/nav (a
+# cartridge's own styled band) becomes a <div>, not stripped; a bare one
+# (real document chrome) is still unwrapped, same as before.
+# ---------------------------------------------------------------------------
+
+def test_strip_document_chrome_unwraps_a_bare_header():
+    html = "<body><header><h1>Ad</h1></header><p>body</p></body>"
+    assert strip_document_chrome(html) == "<h1>Ad</h1><p>body</p>"
+
+
+def test_strip_document_chrome_converts_a_classed_header_to_a_div():
+    html = '<body><header class="lst-header" data-x="1"><h1>Ad</h1></header></body>'
+    assert strip_document_chrome(html) == (
+        '<div class="lst-header" data-x="1"><h1>Ad</h1></div>'
+    )
+
+
+def test_strip_document_chrome_converts_a_classed_footer_to_a_div():
+    html = '<body><footer class="adv-footer"><p>disclosure</p></footer></body>'
+    assert strip_document_chrome(html) == '<div class="adv-footer"><p>disclosure</p></div>'
+
+
+def test_strip_document_chrome_handles_nested_classed_inside_bare():
+    html = (
+        "<body><header><header class=\"lst-header\">"
+        "<h1>Ad</h1></header></header></body>"
+    )
+    assert strip_document_chrome(html) == '<div class="lst-header"><h1>Ad</h1></div>'
+
+
+def test_strip_document_chrome_still_unwraps_bare_nav_and_footer(tmp_path):
+    html = "<body><nav>links</nav><footer>plain</footer></body>"
+    assert strip_document_chrome(html) == "linksplain"
 
 
 def test_shopify_body_preserves_ad_label_byline_disclosure_and_sources(tmp_path):

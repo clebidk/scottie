@@ -152,6 +152,71 @@ def test_publish_raises_on_non_2xx_response():
         publisher.publish({"title": "", "body_html": "b"})
 
 
+def test_publish_includes_handle_in_its_return_value():
+    """Cycle 40: publish() already read `created.get("handle")` to build
+    `url`, but never put it in its own return value -- update_page and
+    cli.cmd_publish's mark_published call both need it."""
+    transport = FakeTransport()
+    transport.set_response("POST", "pages.json", 201, {"page": {"id": 5, "handle": "acme-h"}})
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    result = publisher.publish({"title": "t", "body_html": "b"})
+    assert result["handle"] == "acme-h"
+
+
+# ---------------------------------------------------------------------------
+# update_page -- Cycle 40: `harness publish --update`
+# ---------------------------------------------------------------------------
+
+def test_update_page_puts_to_the_existing_page_id():
+    transport = FakeTransport()
+    transport.set_response(
+        "PUT", "pages/42.json", 200, {"page": {"id": 42, "handle": "acme-article"}},
+    )
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    result = publisher.update_page(42, {"title": "New title", "body_html": "<p>new</p>"})
+
+    call = transport.calls[0]
+    assert call["method"] == "PUT"
+    assert call["url"].endswith("pages/42.json")
+    sent = json.loads(call["body"])
+    assert sent == {
+        "page": {"id": 42, "title": "New title", "body_html": "<p>new</p>", "published": False}
+    }
+    assert result["id"] == 42
+    assert result["handle"] == "acme-article"
+    assert result["url"] == "https://acme.myshopify.com/pages/acme-article"
+    assert result["admin_url"] == "https://acme.myshopify.com/admin/pages/42"
+
+
+def test_update_page_live_sets_published_true():
+    transport = FakeTransport()
+    transport.set_response("PUT", "pages/7.json", 200, {"page": {"id": 7, "handle": "h"}})
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    publisher.update_page(7, {"title": "t", "body_html": "b"}, unpublished=False)
+    sent = json.loads(transport.calls[0]["body"])
+    assert sent["page"]["published"] is True
+
+
+def test_update_page_never_sends_a_handle_field():
+    """A `page` dict with a `handle` key (cli.cmd_publish only sets one when
+    the caller passed --handle, but --update ignores --handle already) must
+    not leak into the PUT payload -- Shopify would try to move the page."""
+    transport = FakeTransport()
+    transport.set_response("PUT", "pages/7.json", 200, {"page": {"id": 7, "handle": "h"}})
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    publisher.update_page(7, {"title": "t", "body_html": "b", "handle": "should-be-ignored"})
+    sent = json.loads(transport.calls[0]["body"])
+    assert "handle" not in sent["page"]
+
+
+def test_update_page_raises_on_non_2xx_response():
+    transport = FakeTransport()
+    transport.set_response("PUT", "pages/7.json", 422, {"errors": {"title": ["can't be blank"]}})
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    with pytest.raises(RuntimeError):
+        publisher.update_page(7, {"title": "", "body_html": "b"})
+
+
 # ---------------------------------------------------------------------------
 # create_redirect
 # ---------------------------------------------------------------------------

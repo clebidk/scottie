@@ -114,6 +114,21 @@ Which adapter runs is `tenant.yaml`'s `publisher: shopify|export` key
   Page create: `POST /admin/api/2024-10/pages.json` with `body_html`;
   `published: false` unless `--live`.
 
+  **Re-publishing the same page (`--update`, Cycle 40):** by default,
+  re-running `harness publish` for a page it already published creates a
+  *second* Shopify page (e.g. `listicle-test-1-1`) instead of touching the
+  first. `harness publish <run-dir> --page <cartridge> --update` updates the
+  page this run already published in place instead -- `PUT
+  /admin/api/2024-10/pages/<id>.json` -- using the page id `harness publish`
+  recorded in `state.json` the first time it published this page. It
+  refuses with a clear message if this run has no stored
+  page id for `--page` yet (nothing was ever published, or it went through
+  the `export` adapter, which has no page id). Assets are still re-uploaded
+  and the body still rewritten, same as any other publish. `--handle`
+  together with `--update` is ignored, with a warning -- an update targets
+  the page's already-live handle; changing it is out of scope.
+  `--redirect-from` is unaffected and still works with `--update`.
+
 ### The storefront cache trap
 
 `tenants/peak-saunas/reference/peak-listicle-lp/README.md`: "The storefront

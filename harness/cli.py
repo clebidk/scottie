@@ -362,7 +362,7 @@ _HANDLE_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$")
 
 def cmd_publish(args):
     """`harness publish <run-dir> --page <cartridge> [--live] [--dry-run]
-    [--handle <slug>] [--redirect-from </path>]`: refuses unless
+    [--handle <slug>] [--redirect-from </path>] [--update]`: refuses unless
     state.json's `pages[<cartridge>]` is "approved" AND packet.json's stamp
     is "ship". Default publish is unpublished (a draft page) unless
     `--live`; `--live` also verifies the storefront cache with 8 pulls, 2s
@@ -371,7 +371,16 @@ def cmd_publish(args):
     shop endpoint for the Shopify adapter) -- no approval or stamp
     required, and nothing is created. `--handle` sets the Shopify page
     handle explicitly. `--redirect-from` (requires `--live`) creates a
-    Shopify URL redirect from a root path to the published page."""
+    Shopify URL redirect from a root path to the published page.
+
+    `--update` (Cycle 40) updates the page this run already published --
+    looked up via `runstate.published_page_record(run_dir, args.page)` --
+    instead of creating a new one (which would otherwise create
+    `<handle>-1` on a second publish of the same page). Refuses if this run
+    has no stored page id for `--page` yet. `--handle` together with
+    `--update` is ignored, with a warning: an update targets the page's
+    existing handle, and changing a live page's handle is out of scope
+    here."""
     tenant = _resolve_tenant_for_run(args)
     run_dir = Path(args.run_dir)
     cartridge_dir = run_dir / args.page
@@ -392,6 +401,15 @@ def cmd_publish(args):
             file=sys.stderr,
         )
         return 1
+
+    update = getattr(args, "update", False)
+    if update and handle:
+        print(
+            f"--handle {handle!r} is ignored with --update (handle changes are out of "
+            f"scope) -- updating the existing page at its current handle instead.",
+            file=sys.stderr,
+        )
+        handle = None
 
     redirect_from = getattr(args, "redirect_from", None)
     if redirect_from and not args.live:
@@ -433,7 +451,23 @@ def cmd_publish(args):
         )
         return 1
 
+    page_id = None
+    if update:
+        published_record = runstate.published_page_record(run_dir, args.page)
+        if not published_record or not published_record.get("page_id"):
+            print(
+                f"refusing --update: no stored page id for {args.page!r} in this run -- "
+                f"publish it once without --update first "
+                f"(`harness publish {run_dir} --page {args.page}`).",
+                file=sys.stderr,
+            )
+            return 1
+        page_id = published_record["page_id"]
+
     publisher = _make_publisher(tenant, export_dir=export_dir)
+    if update and not isinstance(publisher, ShopifyPublisher):
+        print("--update is only supported for the shopify publisher", file=sys.stderr)
+        return 1
     manifest_with_bytes = _read_asset_manifest_bytes(cartridge_dir, assets_manifest)
 
     try:
@@ -457,12 +491,16 @@ def cmd_publish(args):
         page_payload["handle"] = handle
 
     try:
-        result = publisher.publish(page_payload, unpublished=not args.live)
+        if update:
+            result = publisher.update_page(page_id, page_payload, unpublished=not args.live)
+        else:
+            result = publisher.publish(page_payload, unpublished=not args.live)
     except ShopifyCredentialsMissing as e:
         print(str(e), file=sys.stderr)
         return 1
 
-    print(f"Published {args.page} for {run_dir}: {json.dumps(result)}")
+    verb = "Updated" if update else "Published"
+    print(f"{verb} {args.page} for {run_dir}: {json.dumps(result)}")
 
     redirect_target = None
     if args.live and redirect_from and isinstance(publisher, ShopifyPublisher):
@@ -481,6 +519,7 @@ def cmd_publish(args):
     runstate.mark_published(
         run_dir, page=args.page, by="operator",
         note=note,
+        page_id=result.get("id"), handle=result.get("handle"), url=result.get("url"),
     )
     notify.notify_published(
         tenant, run_id=run_dir.name, page=args.page,
@@ -825,6 +864,11 @@ def build_parser():
     p_publish.add_argument(
         "--redirect-from",
         help="root path to redirect to the published page, e.g. /listicle-test-1 (requires --live)",
+    )
+    p_publish.add_argument(
+        "--update",
+        action="store_true",
+        help="update the page this run already published instead of creating a new one",
     )
     _add_tenant_flag(p_publish)
     p_publish.set_defaults(func=cmd_publish)

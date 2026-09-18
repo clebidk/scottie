@@ -46,7 +46,13 @@ def default_cta_url(tenant=None):
 
 
 _BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.IGNORECASE | re.DOTALL)
-_HEADER_FOOTER_NAV_TAG_RE = re.compile(r"</?(?:header|footer|nav)\b[^>]*>", re.IGNORECASE)
+# Cycle 40: captures the tag kind (opening `<header ...>`/closing `</header>`,
+# same for footer/nav) plus the opening tag's own attribute text, so the
+# replacement below can tell a classed cartridge element (e.g. listicle's
+# <header class="lst-header">, base.html's <footer class="adv-footer">) from
+# bare document chrome.
+_CHROME_TAG_RE = re.compile(r"<(/?)(?:header|footer|nav)\b([^>]*)>", re.IGNORECASE)
+_CLASS_ATTR_RE = re.compile(r"\bclass\s*=", re.IGNORECASE)
 _STYLE_BLOCK_RE = re.compile(r"<style\b[^>]*>(.*?)</style>", re.IGNORECASE | re.DOTALL)
 _SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>(?:(?!</script>).)*?</script>", re.IGNORECASE | re.DOTALL)
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
@@ -65,17 +71,40 @@ def _slugify(text, fallback="asset"):
 
 
 def strip_document_chrome(html):
-    """Rendered index.html -> the <body> content only, with <header>,
-    <footer>, and <nav> TAGS removed (unwrapped -- their content, e.g. the
+    """Rendered index.html -> the <body> content only, with every bare
+    <header>/<footer>/<nav> TAG removed (unwrapped -- their content, e.g. the
     "Advertisement" label, byline, disclosure paragraph, and Sources list,
     stays in place; only the structural tags themselves go, since the
     storefront theme supplies its own page chrome and a bare <header>/<footer>
     inside body_html would just be inert, confusing markup). <html>/<head>
     never reach this function's output at all -- only what was inside
-    <body> is extracted in the first place."""
+    <body> is extracted in the first place.
+
+    A header/footer/nav tag that carries a `class` attribute is not document
+    chrome -- it's a cartridge's own styled element (e.g.
+    cartridges/listicle/template.html's <header class="lst-header">,
+    harness/templates/base.html's <footer class="adv-footer">) whose class
+    is what gives it its width/background/padding band. That tag becomes a
+    <div ...> with its attributes carried over verbatim instead of being
+    stripped, so the band survives into shopify-body.html. A small stack,
+    keyed on whether each opener had a class, tracks openers in order so a
+    closing tag becomes the matching </div> or is dropped to match its
+    (classless) opener."""
     m = _BODY_RE.search(html)
     body = m.group(1) if m else html
-    return _HEADER_FOOTER_NAV_TAG_RE.sub("", body)
+
+    stack = []
+
+    def _convert(match):
+        closing, attrs = match.group(1), match.group(2)
+        if closing:
+            classed = stack.pop() if stack else False
+            return "</div>" if classed else ""
+        classed = bool(_CLASS_ATTR_RE.search(attrs))
+        stack.append(classed)
+        return f"<div{attrs}>" if classed else ""
+
+    return _CHROME_TAG_RE.sub(_convert, body)
 
 
 def extract_page_css(body_html):
