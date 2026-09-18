@@ -91,20 +91,25 @@ Which adapter runs is `tenant.yaml`'s `publisher: shopify|export` key
   `README.md` with manual-upload steps -- under `<run-dir>/<cartridge>/export/`.
   No credentials needed; this is also what `harness publish` falls back to
   behaving like the moment a tenant hasn't set `publisher: shopify` yet.
-- **`shopify`**: calls the Shopify Admin REST API (`2024-10`). Needs
-  `SHOPIFY_STORE` (the storefront's `*.myshopify.com` admin domain) and
-  `SHOPIFY_TOKEN` (an Admin API access token) in the tenant's `.env`.
-  Required scopes: **`write_content`, `write_files`, `read_content`**.
-  Neither variable is set for `peak-saunas` yet -- every `publish` call
-  fails closed with a one-line "no SHOPIFY_STORE / SHOPIFY_TOKEN configured"
-  message and makes no network call at all.
+- **`shopify`**: calls the Shopify Admin API (REST for pages/redirects,
+  GraphQL for file uploads -- `2024-10`). Needs `SHOPIFY_STORE` (the
+  storefront's `*.myshopify.com` admin domain) and `SHOPIFY_TOKEN` (an
+  Admin API access token) in the tenant's `.env`. Required scopes:
+  **`write_content`, `write_files`, `read_content`**. Neither variable is
+  set for `peak-saunas` yet -- every `publish` call fails closed with a
+  one-line "no SHOPIFY_STORE / SHOPIFY_TOKEN configured" message and makes
+  no network call at all.
 
-  Images: each asset in `shopify-body.assets.json`'s manifest is uploaded
-  via `POST /admin/api/2024-10/files.json` (a base64 `file.attachment` --
-  the REST endpoint, not GraphQL `fileCreate`/staged uploads, since a page's
-  handful of inline images don't need the staged-upload round trip). Every
-  `src="assets/..."` in the body is then rewritten to the uploaded CDN URL
-  before the page is created.
+  Images: Shopify has no REST endpoint for a file's bytes, so each asset in
+  `shopify-body.assets.json`'s manifest is uploaded through the GraphQL
+  staged-upload flow -- `stagedUploadsCreate` (a one-time signed upload
+  URL), a `multipart/form-data` POST of the raw bytes straight to that URL
+  (no Admin API host, no token), `fileCreate` (adopts the upload as a real
+  Shopify file), then polling `node(id: ...)` until Shopify finishes
+  processing it (`fileStatus: READY` with a non-empty `image.url`, up to 30
+  seconds). Every `src="assets/..."` in the body is then rewritten to the
+  uploaded CDN URL -- Shopify's own returned URL, never one this adapter
+  constructs -- before the page is created.
 
   Page create: `POST /admin/api/2024-10/pages.json` with `body_html`;
   `published: false` unless `--live`.

@@ -1,4 +1,4 @@
-"""Shopify Admin REST API (2024-10) publisher.
+"""Shopify Admin REST + GraphQL API (2024-10) publisher.
 
 Credentials: SHOPIFY_STORE (the storefront's *.myshopify.com admin domain)
 and SHOPIFY_TOKEN (an Admin API access token), read from the tenant's `.env`
@@ -13,21 +13,38 @@ Uses `urllib.request`, matching every other HTTP call in this codebase
 (harness/prices.py, harness/sources/judgeme.py, harness/render.py) rather
 than adding the `requests` dependency.
 
-File upload: this adapter uploads a page's inline images with the REST
-`files` endpoint (`POST /admin/api/2024-10/files.json`, base64
-`file.attachment`) rather than GraphQL `fileCreate`/staged uploads -- for a
-handful of page images (not a bulk/large-file job), one REST call per file is
-simpler to reason about and simpler to fake in tests than the staged-upload
-round trip GraphQL requires.
+File upload: Shopify has no REST endpoint for uploading a file's bytes (the
+old `POST /admin/api/2024-10/files.json` with a base64 `file.attachment`
+does not exist and 406s) -- files only go in through the GraphQL Admin API's
+staged-upload flow. `upload_assets` runs, per asset:
+
+1. `stagedUploadsCreate` (GraphQL): asks Shopify for a one-time upload
+   target (a signed GCS URL plus the form fields that must go with it).
+2. A `multipart/form-data` POST of the raw bytes straight to that target --
+   not an Admin API call, no `X-Shopify-Access-Token` header, built by hand
+   since this is the one place the payload isn't JSON.
+3. `fileCreate` (GraphQL): tells Shopify to adopt the just-uploaded object
+   at its `resourceUrl` as a real file.
+4. Polling `node(id: ...)` until Shopify finishes processing the file
+   (`fileStatus == "READY"` and an `image.url`) -- processing is
+   asynchronous, so the id `fileCreate` returns isn't usable yet.
+
+Steps 1, 3, and 4 go over the same GraphQL endpoint as every other Admin API
+call here (`_graphql`, built on the existing `_transport`/`_request`
+machinery); step 2 is a plain POST to a non-Shopify host, so it goes through
+a second injectable transport (`upload_transport`, defaulting to the same
+urllib call `transport` does) instead of reusing `_transport`.
 """
-import base64
 import json
+import mimetypes
 import os
 import re
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
+from pathlib import Path
 
 from ..errors import PublishFailed
 from .base import Publisher
@@ -41,6 +58,12 @@ _MYSHOPIFY_HOST_RE = re.compile(r"^[a-z0-9][a-z0-9\-]*\.myshopify\.com$", re.IGN
 # Hard cap on response bodies for the default urllib transport and storefront
 # probe -- Admin JSON and a storefront HTML check should never need more.
 _MAX_RESPONSE_BYTES = 5_000_000
+
+# Cycle 39: staged-upload file processing is asynchronous on Shopify's side;
+# these bound how long upload_assets waits for fileCreate's `node` to report
+# fileStatus == READY before giving up.
+_POLL_INTERVAL_S = 1
+_POLL_MAX_ATTEMPTS = 30
 
 
 def normalize_shopify_store(store):
@@ -139,13 +162,73 @@ class ShopifyCredentialsMissing(Exception):
     """SHOPIFY_STORE or SHOPIFY_TOKEN is not set for this tenant."""
 
 
+_STAGED_UPLOADS_CREATE_QUERY = """
+mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+  stagedUploadsCreate(input: $input) {
+    stagedTargets {
+      url
+      resourceUrl
+      parameters {
+        name
+        value
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+_FILE_CREATE_QUERY = """
+mutation fileCreate($files: [FileCreateInput!]!) {
+  fileCreate(files: $files) {
+    files {
+      id
+      fileStatus
+      alt
+      ... on MediaImage {
+        image {
+          url
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+_FILE_STATUS_QUERY = """
+query fileStatus($id: ID!) {
+  node(id: $id) {
+    ... on MediaImage {
+      fileStatus
+      image {
+        url
+      }
+    }
+  }
+}
+"""
+
+
 class ShopifyPublisher(Publisher):
-    def __init__(self, *, store=None, token=None, transport=None):
+    def __init__(self, *, store=None, token=None, transport=None, upload_transport=None, sleep=None):
         """`store`/`token` default to reading SHOPIFY_STORE/SHOPIFY_TOKEN
         from the environment. `transport`, if given, replaces the real HTTP
-        call for every request this adapter makes -- tests inject a fake
-        transport so this class never makes a real network call outside a
-        live server run."""
+        call for every Admin API request this adapter makes (REST and
+        GraphQL alike) -- tests inject a fake transport so this class never
+        makes a real network call outside a live server run. `upload_transport`
+        is the same shape but for the one non-Admin-API call this adapter
+        makes: the raw multipart POST of a staged upload's bytes to its GCS
+        target (see module docstring); it defaults to the same urllib call
+        `transport` does. `sleep`, if given, replaces `time.sleep` for the
+        staged-upload processing poll -- tests inject a no-op so a fake
+        "never becomes ready" run doesn't actually wait 30 seconds."""
         raw_store = store if store is not None else os.environ.get("SHOPIFY_STORE")
         # Normalize when present; leave None/empty for _require_credentials to
         # report the usual "not configured" error (don't turn "missing" into
@@ -158,6 +241,8 @@ class ShopifyPublisher(Publisher):
                 self.store = None
         self.token = token if token is not None else os.environ.get("SHOPIFY_TOKEN")
         self._transport = transport or self._urllib_transport
+        self._upload_transport = upload_transport or self._urllib_transport
+        self._sleep = sleep or time.sleep
 
     def _require_credentials(self):
         missing = []
@@ -195,6 +280,31 @@ class ShopifyPublisher(Publisher):
         data = json.loads(raw) if raw else {}
         return status, data
 
+    def _graphql(self, query, variables):
+        """POST one GraphQL operation to `graphql.json`, over the same
+        `_transport` (and the same token header) as every REST call. Raises
+        PublishFailed on a non-200 status or a top-level `errors` entry
+        (a malformed query/variables) -- NOT on a `userErrors` entry inside
+        `data`, which is operation-specific and left for the caller to
+        check, since a userErrors entry is a normal, expected-shape failure
+        (e.g. a bad filename) rather than a broken request."""
+        self._require_credentials()
+        headers = {"X-Shopify-Access-Token": self.token, "Content-Type": "application/json"}
+        body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+        status, raw = self._transport("POST", self._url("graphql.json"), headers=headers, body=body)
+        data = json.loads(raw) if raw else {}
+        if status != 200:
+            raise PublishFailed(f"Shopify GraphQL request failed: status={status} body={data}")
+        if data.get("errors"):
+            raise PublishFailed(f"Shopify GraphQL request failed: errors={data['errors']}")
+        return data.get("data") or {}
+
+    def _raw_post(self, url, headers, body):
+        """POST `body` to `url` exactly as given -- no Admin API host, no
+        token, no path prefix. Used only for the staged-upload target,
+        which is a signed GCS URL, not `self.store`."""
+        return self._upload_transport("POST", url, headers=headers, body=body)
+
     # -- Publisher interface --------------------------------------------
 
     def dry_run(self, page):
@@ -218,21 +328,146 @@ class ShopifyPublisher(Publisher):
             "asset_count": len(page.get("assets", []) or []) if isinstance(page, dict) else None,
         }
 
+    @staticmethod
+    def _mime_type_for(item):
+        """`item` never carries its own mime type (harness/page_body.py's
+        build_asset_manifest only writes local_path/alt/cdn_filename) -- guess
+        from the cdn_filename's extension. `mimetypes` already knows most
+        image extensions, but .webp is missing from some stdlib mimetypes
+        databases, so it's handled explicitly before falling back to
+        `mimetypes.guess_type`, itself defaulting to image/jpeg."""
+        filename = item.get("cdn_filename") or item.get("local_path") or ""
+        if Path(filename).suffix.lower() == ".webp":
+            return "image/webp"
+        guessed, _ = mimetypes.guess_type(filename)
+        return guessed or "image/jpeg"
+
+    def _create_staged_target(self, item, mime_type):
+        variables = {
+            "input": [
+                {
+                    "resource": "IMAGE",
+                    "filename": item["cdn_filename"],
+                    "mimeType": mime_type,
+                    "httpMethod": "POST",
+                    "fileSize": str(len(item["bytes"])),
+                }
+            ]
+        }
+        data = self._graphql(_STAGED_UPLOADS_CREATE_QUERY, variables)
+        result = data.get("stagedUploadsCreate") or {}
+        user_errors = result.get("userErrors") or []
+        if user_errors:
+            raise PublishFailed(
+                f"stagedUploadsCreate failed for {item['cdn_filename']}: {user_errors}"
+            )
+        targets = result.get("stagedTargets") or []
+        if not targets:
+            raise PublishFailed(
+                f"stagedUploadsCreate returned no stagedTargets for {item['cdn_filename']}"
+            )
+        return targets[0]
+
+    @staticmethod
+    def _build_multipart_body(parameters, filename, mime_type, file_bytes):
+        """Hand-built multipart/form-data body: every staged-upload
+        `parameters` entry as its own field, in the order Shopify returned
+        them, then `file` LAST -- Google Cloud Storage (the actual upload
+        target) rejects the request if `file` isn't the final field."""
+        boundary = uuid.uuid4().hex
+        lines = []
+        for param in parameters:
+            lines.append(
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="{param["name"]}"\r\n\r\n'
+                f'{param["value"]}\r\n'.encode("utf-8")
+            )
+        lines.append(
+            (
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+                f'Content-Type: {mime_type}\r\n\r\n'
+            ).encode("utf-8")
+        )
+        lines.append(file_bytes)
+        lines.append(f'\r\n--{boundary}--\r\n'.encode("utf-8"))
+        return boundary, b"".join(lines)
+
+    def _upload_to_staged_target(self, target, item, mime_type):
+        boundary, body = self._build_multipart_body(
+            target.get("parameters") or [], item["cdn_filename"], mime_type, item["bytes"]
+        )
+        headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        status, _raw = self._raw_post(target["url"], headers, body)
+        if not (200 <= status < 300):
+            raise PublishFailed(
+                f"staged upload failed for {item['cdn_filename']}: status={status}"
+            )
+
+    def _create_file(self, target, item):
+        variables = {
+            "files": [
+                {
+                    "originalSource": target["resourceUrl"],
+                    "contentType": "IMAGE",
+                    "alt": item.get("alt", ""),
+                    "filename": item["cdn_filename"],
+                }
+            ]
+        }
+        data = self._graphql(_FILE_CREATE_QUERY, variables)
+        result = data.get("fileCreate") or {}
+        user_errors = result.get("userErrors") or []
+        if user_errors:
+            raise PublishFailed(f"fileCreate failed for {item['cdn_filename']}: {user_errors}")
+        files = result.get("files") or []
+        if not files:
+            raise PublishFailed(f"fileCreate returned no files for {item['cdn_filename']}")
+        return files[0]
+
+    def _poll_until_ready(self, file_id, cdn_filename):
+        for attempt in range(_POLL_MAX_ATTEMPTS):
+            data = self._graphql(_FILE_STATUS_QUERY, {"id": file_id})
+            node = data.get("node") or {}
+            status = node.get("fileStatus")
+            image = node.get("image") or {}
+            url = image.get("url") or ""
+            if status == "READY" and url:
+                return url
+            if status == "FAILED":
+                raise PublishFailed(
+                    f"Shopify file processing failed for {cdn_filename} (id={file_id})"
+                )
+            if attempt < _POLL_MAX_ATTEMPTS - 1:
+                self._sleep(_POLL_INTERVAL_S)
+        raise PublishFailed(
+            f"Shopify file {cdn_filename} (id={file_id}) never reached fileStatus=READY "
+            f"after {_POLL_MAX_ATTEMPTS} polls"
+        )
+
     def upload_assets(self, manifest):
+        """Uploads every manifest item through the GraphQL staged-upload
+        flow (see module docstring) and returns {local_path: cdn_url} --
+        always Shopify's own returned URL, never one this adapter builds,
+        since Shopify may rename a duplicate filename."""
+        self._require_credentials()
         mapping = {}
         for item in manifest:
-            attachment = base64.b64encode(item["bytes"]).decode("ascii")
-            status, data = self._request("POST", "files.json", {
-                "file": {
-                    "attachment": attachment,
-                    "filename": item["cdn_filename"],
-                    "alt": item.get("alt", ""),
-                }
-            })
-            if status not in (200, 201) or "file" not in data:
-                raise PublishFailed(f"file upload failed for {item['cdn_filename']}: status={status} body={data}")
-            file_data = data["file"]
-            mapping[item["local_path"]] = file_data.get("url") or file_data.get("public_url") or ""
+            mime_type = self._mime_type_for(item)
+            target = self._create_staged_target(item, mime_type)
+            self._upload_to_staged_target(target, item, mime_type)
+            file_data = self._create_file(target, item)
+            status = file_data.get("fileStatus")
+            image = file_data.get("image") or {}
+            url = image.get("url") or ""
+            if status == "FAILED":
+                raise PublishFailed(
+                    f"Shopify file processing failed for {item['cdn_filename']} "
+                    f"(id={file_data.get('id')})"
+                )
+            if not (status == "READY" and url):
+                url = self._poll_until_ready(file_data["id"], item["cdn_filename"])
+            mapping[item["local_path"]] = url
         return mapping
 
     def publish(self, page, *, unpublished=True):
@@ -309,7 +544,7 @@ class ShopifyPublisher(Publisher):
         how many responses contain `marker` (a short, distinctive substring
         of the new body) -- the storefront cache-epoch trap documented in
         a tenant's own storefront notes ("verify with >= 8 pulls, not
-        one"). Only ever called under `--live`."""
+        one."). Only ever called under `--live`."""
         fetch = fetch or self._default_fetch
         hits = 0
         for i in range(pulls):

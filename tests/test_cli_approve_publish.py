@@ -228,14 +228,44 @@ def test_publish_refuses_a_redo_stamped_packet(tmp_path, monkeypatch, capsys):
 # ---------------------------------------------------------------------------
 
 def _shopify_ready_transport():
+    """A fake transport pre-loaded for the whole GraphQL staged-upload flow
+    (Cycle 39: see tests/test_publishers.py) plus the REST pages.json call --
+    fileCreate reports READY immediately so no poll loop, and no injected
+    sleep, is needed here; the poll loop itself is covered in
+    tests/test_publishers.py. `upload_transport` is the same instance as
+    `transport` (see _patch_shopify_publisher) since FakeTransport matches
+    by URL suffix regardless of which injectable it's passed as."""
     transport = FakeTransport()
-    transport.set_response("POST", "files.json", 201, {"file": {"url": "https://cdn.shopify.com/x/hero.jpg"}})
+    transport.set_response("POST", "graphql.json", 200, {
+        "data": {"stagedUploadsCreate": {
+            "stagedTargets": [{
+                "url": "https://storage.googleapis.com/shopify-staged-uploads/hero",
+                "resourceUrl": "https://storage.googleapis.com/shopify-staged-uploads/hero?done",
+                "parameters": [{"name": "key", "value": "tmp/hero.jpg"}],
+            }],
+            "userErrors": [],
+        }}
+    })
+    transport.set_response("POST", "graphql.json", 200, {
+        "data": {"fileCreate": {
+            "files": [{
+                "id": "gid://shopify/MediaImage/1",
+                "fileStatus": "READY",
+                "alt": "hero",
+                "image": {"url": "https://cdn.shopify.com/x/hero.jpg"},
+            }],
+            "userErrors": [],
+        }}
+    })
+    transport.set_response("POST", "shopify-staged-uploads/hero", 201, {})
     transport.set_response("POST", "pages.json", 201, {"page": {"id": 1, "handle": "listicle-test-1"}})
     return transport
 
 
 def _patch_shopify_publisher(monkeypatch, transport):
-    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    publisher = ShopifyPublisher(
+        store="acme.myshopify.com", token="tok", transport=transport, upload_transport=transport,
+    )
     monkeypatch.setattr(cli, "_make_publisher", lambda tenant, *, export_dir: publisher)
     # verify_cache's own 8-pulls behavior is covered in tests/test_publishers.py;
     # here it would otherwise hit the real network.

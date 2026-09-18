@@ -2,6 +2,7 @@
 adapter is exercised entirely through a fake transport -- no real HTTP call
 is made anywhere in this file, matching the rest of this test suite."""
 import json
+import re
 
 import pytest
 
@@ -15,23 +16,43 @@ from harness.publishers.shopify import (
 
 
 class FakeTransport:
-    """Records every call and returns canned (status, json_bytes) pairs in
-    order, keyed loosely by (method, path suffix) -- good enough for these
-    tests' single-call-per-assertion style."""
+    """Records every call and returns canned (status, json_bytes) responses,
+    keyed loosely by (method, path suffix) -- one queue per key. A caller
+    that hits the same URL more than once (GraphQL calls are all POST
+    .../graphql.json) gets its responses back in registration order; a key
+    with only one registered response keeps returning that same response
+    for every further call (the single-call-per-assertion style everywhere
+    else in this file, and the "never becomes ready" polling tests below)."""
 
     def __init__(self):
         self.calls = []
-        self.responses = {}  # (method, path_suffix) -> (status, dict)
+        self.responses = {}  # (method, path_suffix) -> [(status, json_bytes), ...]
 
     def set_response(self, method, path_suffix, status, body):
-        self.responses[(method, path_suffix)] = (status, json.dumps(body).encode("utf-8"))
+        self.responses.setdefault((method, path_suffix), []).append(
+            (status, json.dumps(body).encode("utf-8"))
+        )
 
     def __call__(self, method, url, *, headers, body=None):
         self.calls.append({"method": method, "url": url, "headers": headers, "body": body})
-        for (m, suffix), resp in self.responses.items():
+        for (m, suffix), queue in self.responses.items():
             if m == method and url.endswith(suffix):
-                return resp
+                return queue.pop(0) if len(queue) > 1 else queue[0]
         raise AssertionError(f"no fake response registered for {method} {url}")
+
+
+def _multipart_field_names(body, boundary):
+    """[field names in order] for a multipart/form-data body built by
+    ShopifyPublisher._build_multipart_body -- used to assert `file` is last."""
+    names = []
+    for part in body.split(f"--{boundary}".encode()):
+        header_end = part.find(b"\r\n\r\n")
+        if header_end <= 0:
+            continue
+        m = re.search(r'name="([^"]+)"', part[:header_end].decode(errors="ignore"))
+        if m:
+            names.append(m.group(1))
+    return names
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +85,7 @@ def test_upload_assets_raises_credentials_missing_before_any_call():
     publisher = ShopifyPublisher(store=None, token=None, transport=transport)
     with pytest.raises(ShopifyCredentialsMissing):
         publisher.upload_assets([{"local_path": "assets/a.jpg", "cdn_filename": "a.jpg", "alt": "", "bytes": b"x"}])
+    assert transport.calls == []
 
 
 # ---------------------------------------------------------------------------
@@ -201,18 +223,195 @@ def test_create_redirect_raises_on_other_non_2xx():
 
 
 # ---------------------------------------------------------------------------
-# upload_assets + src rewriting
+# upload_assets -- GraphQL staged-upload flow (Cycle 39)
+#
+# Shopify has no REST endpoint for file bytes; every upload_assets call now
+# goes stagedUploadsCreate (GraphQL) -> multipart POST straight to the
+# staged target (no Admin API host, no token) -> fileCreate (GraphQL) ->
+# poll node(id) until fileStatus == READY. All three GraphQL calls hit the
+# same POST .../graphql.json URL, so `transport`'s per-key response queue
+# (see FakeTransport) is what lets a test give each call its own body.
 # ---------------------------------------------------------------------------
 
-def test_upload_assets_returns_url_by_local_path():
-    transport = FakeTransport()
-    transport.set_response("POST", "files.json", 201, {"file": {"url": "https://cdn.shopify.com/x/a.jpg"}})
-    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
-    mapping = publisher.upload_assets([
-        {"local_path": "assets/a.jpg", "cdn_filename": "pk-article-01-a.jpg", "alt": "hero", "bytes": b"\xff\xd8"}
-    ])
-    assert mapping == {"assets/a.jpg": "https://cdn.shopify.com/x/a.jpg"}
+def _staged_uploads_create_response(upload_path="upload-1", parameters=None):
+    parameters = parameters or [
+        {"name": "key", "value": "tmp/1/pk-article-01-a.jpg"},
+        {"name": "policy", "value": "policy-abc"},
+        {"name": "x-goog-signature", "value": "sig-abc"},
+    ]
+    return {
+        "data": {
+            "stagedUploadsCreate": {
+                "stagedTargets": [{
+                    "url": f"https://storage.googleapis.com/shopify-staged-uploads/{upload_path}",
+                    "resourceUrl": f"https://storage.googleapis.com/shopify-staged-uploads/{upload_path}?done",
+                    "parameters": parameters,
+                }],
+                "userErrors": [],
+            }
+        }
+    }
 
+
+def _file_create_response(file_id="gid://shopify/MediaImage/1", status="UPLOADED"):
+    return {
+        "data": {
+            "fileCreate": {
+                "files": [{"id": file_id, "fileStatus": status, "alt": "hero", "image": None}],
+                "userErrors": [],
+            }
+        }
+    }
+
+
+def _node_status_response(status, url=None):
+    image = {"url": url} if url else None
+    return {"data": {"node": {"fileStatus": status, "image": image}}}
+
+
+_ONE_ASSET_ITEM = {
+    "local_path": "assets/a.jpg",
+    "cdn_filename": "pk-article-01-a.jpg",
+    "alt": "hero",
+    "bytes": b"\xff\xd8\xff\xe0fake-jpeg",
+}
+
+
+def test_upload_assets_staged_upload_happy_path():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    transport.set_response("POST", "graphql.json", 200, _file_create_response(status="UPLOADED"))
+    transport.set_response("POST", "graphql.json", 200, _node_status_response("PROCESSING"))
+    transport.set_response(
+        "POST", "graphql.json", 200,
+        _node_status_response("READY", url="https://cdn.shopify.com/files/a.jpg"),
+    )
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 201, {})
+
+    sleeps = []
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok",
+        transport=transport, upload_transport=upload_transport,
+        sleep=lambda s: sleeps.append(s),
+    )
+    mapping = publisher.upload_assets([_ONE_ASSET_ITEM])
+
+    assert mapping == {"assets/a.jpg": "https://cdn.shopify.com/files/a.jpg"}
+    assert sleeps == [1]  # one sleep, between the PROCESSING and READY polls
+
+    graphql_calls = transport.calls
+    assert len(graphql_calls) == 4
+    assert all(c["headers"]["X-Shopify-Access-Token"] == "tok" for c in graphql_calls)
+
+    staged_sent = json.loads(graphql_calls[0]["body"])
+    staged_input = staged_sent["variables"]["input"][0]
+    assert staged_input["filename"] == "pk-article-01-a.jpg"
+    assert staged_input["mimeType"] == "image/jpeg"
+    assert staged_input["fileSize"] == str(len(_ONE_ASSET_ITEM["bytes"]))
+
+    file_create_sent = json.loads(graphql_calls[1]["body"])
+    assert file_create_sent["variables"]["files"][0]["originalSource"] == (
+        "https://storage.googleapis.com/shopify-staged-uploads/upload-1?done"
+    )
+
+    # The staged upload itself: no Shopify token, `file` field last.
+    upload_call = upload_transport.calls[0]
+    assert "X-Shopify-Access-Token" not in upload_call["headers"]
+    boundary = upload_call["headers"]["Content-Type"].split("boundary=")[1]
+    assert _multipart_field_names(upload_call["body"], boundary) == [
+        "key", "policy", "x-goog-signature", "file",
+    ]
+
+
+def test_upload_assets_raises_on_staged_uploads_create_user_errors():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, {
+        "data": {"stagedUploadsCreate": {
+            "stagedTargets": [],
+            "userErrors": [{"field": ["input", "0", "filename"], "message": "can't be blank"}],
+        }}
+    })
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok", transport=transport, upload_transport=FakeTransport(),
+    )
+    with pytest.raises(RuntimeError):
+        publisher.upload_assets([_ONE_ASSET_ITEM])
+
+
+def test_upload_assets_raises_on_file_create_user_errors():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    transport.set_response("POST", "graphql.json", 200, {
+        "data": {"fileCreate": {
+            "files": [],
+            "userErrors": [{"field": ["files", "0", "originalSource"], "message": "invalid resource"}],
+        }}
+    })
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 201, {})
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok", transport=transport, upload_transport=upload_transport,
+    )
+    with pytest.raises(RuntimeError):
+        publisher.upload_assets([_ONE_ASSET_ITEM])
+
+
+def test_upload_assets_raises_when_poll_reports_failed():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    transport.set_response("POST", "graphql.json", 200, _file_create_response(status="UPLOADED"))
+    transport.set_response("POST", "graphql.json", 200, _node_status_response("FAILED"))
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 201, {})
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok", transport=transport, upload_transport=upload_transport,
+        sleep=lambda s: None,
+    )
+    with pytest.raises(RuntimeError):
+        publisher.upload_assets([_ONE_ASSET_ITEM])
+
+
+def test_upload_assets_raises_when_never_ready_within_max_polls():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    transport.set_response("POST", "graphql.json", 200, _file_create_response(status="UPLOADED"))
+    transport.set_response("POST", "graphql.json", 200, _node_status_response("PROCESSING"))
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 201, {})
+
+    sleeps = []
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok", transport=transport, upload_transport=upload_transport,
+        sleep=lambda s: sleeps.append(s),
+    )
+    with pytest.raises(RuntimeError):
+        publisher.upload_assets([_ONE_ASSET_ITEM])
+    assert len(sleeps) == 29  # 30 polls total, sleeping between each but not after the last
+
+
+def test_upload_assets_raises_on_non_2xx_staged_upload():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 403, {"error": "Forbidden"})
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok", transport=transport, upload_transport=upload_transport,
+    )
+    with pytest.raises(RuntimeError):
+        publisher.upload_assets([_ONE_ASSET_ITEM])
+
+
+def test_mime_type_for_derives_from_extension():
+    assert ShopifyPublisher._mime_type_for({"cdn_filename": "a.webp"}) == "image/webp"
+    assert ShopifyPublisher._mime_type_for({"cdn_filename": "a.jpg"}) == "image/jpeg"
+    assert ShopifyPublisher._mime_type_for({"cdn_filename": "a.png"}) == "image/png"
+    assert ShopifyPublisher._mime_type_for({"cdn_filename": "a.unknownext"}) == "image/jpeg"
+
+
+# ---------------------------------------------------------------------------
+# src/srcset rewriting
+# ---------------------------------------------------------------------------
 
 def test_rewrite_asset_srcs_replaces_known_paths_and_leaves_unknown_alone():
     html = '<img src="assets/a.jpg"><img src="assets/unmapped.jpg">'
@@ -321,4 +520,3 @@ def test_publisher_init_normalizes_store_url():
         store="https://Acme.myshopify.com/admin", token="tok", transport=FakeTransport()
     )
     assert publisher.store == "acme.myshopify.com"
-
