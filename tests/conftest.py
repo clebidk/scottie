@@ -8,6 +8,7 @@ import hashlib
 import json
 import socket
 
+import os
 import pytest
 
 from harness import tenant as tenant_mod
@@ -276,3 +277,21 @@ def _no_new_tenant_run_artifacts():
         "directory -- isolated_tenant_paths should have redirected this write "
         "into tmp_path:\n  " + "\n  ".join(new_paths)
     )
+
+
+# ---------------------------------------------------------------------------
+# Cycle 38: any test that calls a real command (cmd_run, cmd_publish, ...)
+# runs Tenant.load_env, which load_dotenv()s the real tenants/<t>/.env into
+# os.environ with no cleanup -- and load_dotenv bypasses monkeypatch, so a
+# later test that expects e.g. SHOPIFY_TOKEN to be unset would see the real
+# credential. Snapshot and restore the whole environment around every test.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _restore_os_environ():
+    saved = dict(os.environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)

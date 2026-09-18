@@ -131,6 +131,76 @@ def test_publish_raises_on_non_2xx_response():
 
 
 # ---------------------------------------------------------------------------
+# create_redirect
+# ---------------------------------------------------------------------------
+
+def test_create_redirect_posts_path_and_target():
+    transport = FakeTransport()
+    transport.set_response(
+        "POST", "redirects.json", 201,
+        {"redirect": {"id": 55, "path": "/listicle-test-1", "target": "/pages/listicle-test-1"}},
+    )
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    result = publisher.create_redirect("/listicle-test-1", "/pages/listicle-test-1")
+    assert result == {"id": 55, "path": "/listicle-test-1", "target": "/pages/listicle-test-1"}
+    sent = json.loads(transport.calls[0]["body"])
+    assert sent == {"redirect": {"path": "/listicle-test-1", "target": "/pages/listicle-test-1"}}
+
+
+def test_create_redirect_rejects_paths_without_leading_slash():
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=FakeTransport())
+    with pytest.raises(ValueError):
+        publisher.create_redirect("listicle-test-1", "/pages/listicle-test-1")
+    with pytest.raises(ValueError):
+        publisher.create_redirect("/listicle-test-1", "pages/listicle-test-1")
+
+
+def test_create_redirect_updates_existing_redirect_on_422_already_taken():
+    transport = FakeTransport()
+    transport.set_response(
+        "POST", "redirects.json", 422,
+        {"errors": {"path": ["has already been taken"]}},
+    )
+    transport.set_response(
+        "GET", "redirects.json?path=%2Flisticle-test-1", 200,
+        {"redirects": [{"id": 77, "path": "/listicle-test-1", "target": "/pages/old-handle"}]},
+    )
+    transport.set_response(
+        "PUT", "redirects/77.json", 200,
+        {"redirect": {"id": 77, "path": "/listicle-test-1", "target": "/pages/listicle-test-1"}},
+    )
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    result = publisher.create_redirect("/listicle-test-1", "/pages/listicle-test-1")
+    assert result["target"] == "/pages/listicle-test-1"
+    methods = [c["method"] for c in transport.calls]
+    assert methods == ["POST", "GET", "PUT"]
+    put_sent = json.loads(transport.calls[-1]["body"])
+    assert put_sent == {
+        "redirect": {"id": 77, "path": "/listicle-test-1", "target": "/pages/listicle-test-1"}
+    }
+
+
+def test_create_redirect_raises_on_422_when_no_existing_redirect_found():
+    transport = FakeTransport()
+    transport.set_response(
+        "POST", "redirects.json", 422,
+        {"errors": {"path": ["has already been taken"]}},
+    )
+    transport.set_response("GET", "redirects.json?path=%2Flisticle-test-1", 200, {"redirects": []})
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    with pytest.raises(RuntimeError):
+        publisher.create_redirect("/listicle-test-1", "/pages/listicle-test-1")
+
+
+def test_create_redirect_raises_on_other_non_2xx():
+    transport = FakeTransport()
+    transport.set_response("POST", "redirects.json", 500, {"errors": "server error"})
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    with pytest.raises(RuntimeError):
+        publisher.create_redirect("/listicle-test-1", "/pages/listicle-test-1")
+
+
+# ---------------------------------------------------------------------------
 # upload_assets + src rewriting
 # ---------------------------------------------------------------------------
 

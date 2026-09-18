@@ -8,9 +8,12 @@ SHOPIFY_STORE/SHOPIFY_TOKEN set, proving the no-credentials refusal is
 real, not mocked away."""
 import argparse
 import json
+import os
 
 
 from harness import cli, runstate
+from harness.publishers.shopify import ShopifyPublisher
+from tests.test_publishers import FakeTransport
 
 
 class FakeTenant:
@@ -34,6 +37,12 @@ class FakeTenant:
         if key == "notifications":
             return {"slack": False, "email": []}
         return default
+
+    def load_env(self):
+        """No-op by default -- cmd_publish calls this unconditionally
+        (Cycle 38); tests that care about real .env loading replace this
+        with a real `load_dotenv` call on the instance."""
+        return False
 
 
 def _make_run(tmp_path, *, pages=("article",)):
@@ -119,8 +128,11 @@ def test_packet_refuses_a_directory_that_is_not_a_run(tmp_path, capsys):
 # publish -- refusals
 # ---------------------------------------------------------------------------
 
-def _publish_args(run_dir, *, page="article", live=False, dry_run=False):
-    return argparse.Namespace(run_dir=str(run_dir), page=page, live=live, dry_run=dry_run, tenant=None)
+def _publish_args(run_dir, *, page="article", live=False, dry_run=False, handle=None, redirect_from=None):
+    return argparse.Namespace(
+        run_dir=str(run_dir), page=page, live=live, dry_run=dry_run,
+        handle=handle, redirect_from=redirect_from, tenant=None,
+    )
 
 
 def test_publish_refuses_without_approval(tmp_path, monkeypatch, capsys):
@@ -207,3 +219,162 @@ def test_publish_refuses_a_redo_stamped_packet(tmp_path, monkeypatch, capsys):
     exit_code = cli.cmd_publish(_publish_args(run_dir))
     assert exit_code == 1
     assert "'redo'" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# publish -- --handle and --redirect-from (Cycle 38), exercised through the
+# real ShopifyPublisher with a fake transport (no network, matches
+# tests/test_publishers.py's pattern).
+# ---------------------------------------------------------------------------
+
+def _shopify_ready_transport():
+    transport = FakeTransport()
+    transport.set_response("POST", "files.json", 201, {"file": {"url": "https://cdn.shopify.com/x/hero.jpg"}})
+    transport.set_response("POST", "pages.json", 201, {"page": {"id": 1, "handle": "listicle-test-1"}})
+    return transport
+
+
+def _patch_shopify_publisher(monkeypatch, transport):
+    publisher = ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport)
+    monkeypatch.setattr(cli, "_make_publisher", lambda tenant, *, export_dir: publisher)
+    # verify_cache's own 8-pulls behavior is covered in tests/test_publishers.py;
+    # here it would otherwise hit the real network.
+    monkeypatch.setattr(ShopifyPublisher, "verify_cache", lambda self, *a, **k: (8, 8))
+    return publisher
+
+
+def test_publish_refuses_invalid_handle(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    exit_code = cli.cmd_publish(_publish_args(run_dir, handle="Bad Handle!"))
+    assert exit_code == 1
+    assert "invalid" in capsys.readouterr().err.lower()
+
+
+def test_publish_forwards_handle_into_page_payload(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+    transport = _shopify_ready_transport()
+    _patch_shopify_publisher(monkeypatch, transport)
+
+    exit_code = cli.cmd_publish(_publish_args(run_dir, handle="listicle-test-1"))
+    assert exit_code == 0
+    pages_call = next(c for c in transport.calls if c["url"].endswith("pages.json"))
+    sent = json.loads(pages_call["body"])
+    assert sent["page"]["handle"] == "listicle-test-1"
+
+
+def test_publish_redirect_from_requires_live(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    exit_code = cli.cmd_publish(_publish_args(run_dir, redirect_from="/listicle-test-1", live=False))
+    assert exit_code == 1
+    assert "--live" in capsys.readouterr().err
+
+
+def test_publish_creates_redirect_after_live_publish(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+    transport = _shopify_ready_transport()
+    transport.set_response(
+        "POST", "redirects.json", 201,
+        {"redirect": {"id": 9, "path": "/listicle-test-1", "target": "/pages/listicle-test-1"}},
+    )
+    _patch_shopify_publisher(monkeypatch, transport)
+
+    exit_code = cli.cmd_publish(
+        _publish_args(run_dir, live=True, handle="listicle-test-1", redirect_from="/listicle-test-1")
+    )
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Redirect /listicle-test-1 -> /pages/listicle-test-1" in out
+
+    redirect_call = next(
+        c for c in transport.calls if c["method"] == "POST" and c["url"].endswith("redirects.json")
+    )
+    sent = json.loads(redirect_call["body"])
+    assert sent == {"redirect": {"path": "/listicle-test-1", "target": "/pages/listicle-test-1"}}
+
+    history_note = runstate.load_state(run_dir)["history"][-1]["note"]
+    assert "redirect_from=/listicle-test-1" in history_note
+    assert "redirect_target=/pages/listicle-test-1" in history_note
+
+
+def test_publish_redirect_idempotent_on_422_already_taken(tmp_path, monkeypatch, capsys):
+    run_dir = _make_run(tmp_path)
+    tenant = FakeTenant(tmp_path, publisher="shopify")
+    _patch_tenant(monkeypatch, tenant)
+    runstate.approve(run_dir, tenant, by="michael@acme.com")
+    runstate.set_packet_stamp(run_dir, stamp="ship", by="michael@acme.com")
+    transport = _shopify_ready_transport()
+    transport.set_response("POST", "redirects.json", 422, {"errors": {"path": ["has already been taken"]}})
+    transport.set_response(
+        "GET", "redirects.json?path=%2Flisticle-test-1", 200,
+        {"redirects": [{"id": 4, "path": "/listicle-test-1", "target": "/pages/old-handle"}]},
+    )
+    transport.set_response(
+        "PUT", "redirects/4.json", 200,
+        {"redirect": {"id": 4, "path": "/listicle-test-1", "target": "/pages/listicle-test-1"}},
+    )
+    _patch_shopify_publisher(monkeypatch, transport)
+
+    exit_code = cli.cmd_publish(
+        _publish_args(run_dir, live=True, handle="listicle-test-1", redirect_from="/listicle-test-1")
+    )
+    assert exit_code == 0
+    methods = [c["method"] for c in transport.calls if "redirect" in c["url"]]
+    assert methods == ["POST", "GET", "PUT"]
+
+
+# ---------------------------------------------------------------------------
+# publish -- cmd_publish must load the tenant's .env itself (Cycle 38)
+# ---------------------------------------------------------------------------
+
+def test_publish_loads_tenant_env_for_shopify_credentials(tmp_path, monkeypatch, capsys):
+    """`_resolve_tenant_for_run` never calls `tenant.load_env()` (unlike
+    cmd_run/cmd_serve), so a SHOPIFY_STORE/SHOPIFY_TOKEN that lives only in
+    tenants/<t>/.env -- not the process environment -- was invisible to
+    `harness publish` until cmd_publish called load_env() itself. This
+    proves --dry-run succeeds off a real tenants/<t>/.env-style file with
+    neither var set in os.environ beforehand."""
+    saved_env = dict(os.environ)
+    try:
+        monkeypatch.delenv("SHOPIFY_STORE", raising=False)
+        monkeypatch.delenv("SHOPIFY_TOKEN", raising=False)
+
+        env_file = tmp_path / "tenant.env"
+        env_file.write_text("SHOPIFY_STORE=example.myshopify.com\nSHOPIFY_TOKEN=tok_from_dotenv\n")
+
+        tenant = FakeTenant(tmp_path, publisher="shopify")
+
+        def _load_env():
+            from dotenv import load_dotenv
+            load_dotenv(env_file, override=False)
+            return True
+
+        tenant.load_env = _load_env
+        _patch_tenant(monkeypatch, tenant)
+
+        def fake_transport(method, url, *, headers, body=None):
+            assert headers["X-Shopify-Access-Token"] == "tok_from_dotenv"
+            return 200, b'{"shop": {"name": "Acme"}}'
+
+        monkeypatch.setattr(ShopifyPublisher, "_urllib_transport", staticmethod(fake_transport))
+
+        run_dir = _make_run(tmp_path)
+        exit_code = cli.cmd_publish(_publish_args(run_dir, dry_run=True))
+        out = json.loads(capsys.readouterr().out)
+        assert exit_code == 0
+        assert out["ok"] is True
+        assert os.environ["SHOPIFY_STORE"] == "example.myshopify.com"
+    finally:
+        os.environ.clear()
+        os.environ.update(saved_env)
