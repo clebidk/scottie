@@ -1,6 +1,5 @@
 """Cycle 46: evals/soak.py may delete only the run directory it created."""
 import json
-from pathlib import Path
 
 from evals import soak
 from tests.support import TENANT
