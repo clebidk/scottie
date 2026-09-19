@@ -421,9 +421,11 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
 # then measure. No-op for every other cartridge, and for a listicle run with
 # no style resolved (the gate still rejects a page with no valid style).
 def _append_listicle_style_guidance(hard_constraints, cartridge_name, style):
-    if cartridge_name != "listicle" or not style:
+    if cartridge_name != "listicle":
         return
-    hard_constraints.extend(listicle.writer_style_lines(style))
+    hard_constraints.extend(listicle.writer_rules_lines())
+    if style:
+        hard_constraints.extend(listicle.writer_style_lines(style))
 
 
 def _warmup_window_words(tenant):

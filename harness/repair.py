@@ -538,6 +538,20 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
         term = item.get("term")
         issue = item.get("issue", "")
 
+        # Cycle 41: a listicle headline whose leading count is spelled out,
+        # or no longer matches the item count after another fix changed it.
+        # One token, re-checked against the style's own formula -- see
+        # listicle.fix_headline_number for why this is deterministic rather
+        # than a repair call.
+        if cartridge_name == "listicle" and item.get("key") == "listicle:headline_formula":
+            corrected = listicle.fix_headline_number(page)
+            if corrected:
+                page["headline"] = corrected
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", "deterministic fix applied: headline count")
+            continue
+
         if "warranty wording must be exactly" in issue:
             if _fix_warranty_violation(page, raw_path, valid_claim_ids):
                 fixed += 1

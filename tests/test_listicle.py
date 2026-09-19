@@ -403,6 +403,50 @@ def test_every_gate_problem_carries_a_stable_repair_key():
 
 
 # ---------------------------------------------------------------------------
+# Deterministic repair of the headline count (no model call)
+# ---------------------------------------------------------------------------
+
+def test_a_spelled_out_headline_count_is_fixed_deterministically():
+    page = _listicle_page("mistakes")
+    page["headline"] = "Five Mistakes People Make Buying A Home Infrared Sauna"
+    assert listicle.fix_headline_number(page) == HEADLINES["mistakes"]
+
+
+def test_a_stale_headline_count_is_fixed_deterministically():
+    page = _listicle_page("reasons", n_items=6)
+    page["headline"] = HEADLINES["reasons"]  # still says 5
+    assert listicle.fix_headline_number(page).startswith("6 Reasons")
+
+
+def test_the_headline_fix_declines_a_headline_it_cannot_repair():
+    page = _listicle_page("reasons")
+    page["headline"] = "Why Careful Buyers Are Choosing A Home Infrared Cabin"
+    assert listicle.fix_headline_number(page) is None
+    # tested's number is a duration, not the item count -- never rewritten
+    tested = _listicle_page("tested")
+    assert listicle.fix_headline_number(tested) is None
+
+
+def test_the_repair_loop_applies_the_headline_fix_without_a_model_call():
+    from harness.repair import apply_deterministic_fixes
+
+    page = _listicle_page("questions", n_items=7)
+    page["reasons"] = _items(7)
+    page["headline"] = HEADLINES["questions"]  # says 5
+    problems = listicle.find_listicle_violations(page, style="questions")
+    assert apply_deterministic_fixes(page, problems, set(), cartridge_name="listicle") == 1
+    assert listicle.find_listicle_violations(page, style="questions") == []
+
+
+def test_the_writer_is_told_the_rules_the_gate_measures():
+    rules = " ".join(listicle.writer_rules_lines())
+    assert "asset_id" in rules
+    assert "60-150 words" in rules
+    assert "exactly one \"cta_url\"" in rules
+    assert "claim_ids" in rules
+
+
+# ---------------------------------------------------------------------------
 # Shared claims gate: reused, never forked
 # ---------------------------------------------------------------------------
 

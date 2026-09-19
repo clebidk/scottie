@@ -145,6 +145,71 @@ def resolve_style(requested=None, *, seed=0, tenant=None):
     return allowed[int(seed) % len(allowed)]
 
 
+# Spelled-out counts a headline may lead with instead of the numeral the
+# formula asks for ("Six Mistakes ..."). Observed on real runs; fixed
+# deterministically (fix_headline_number) rather than spent on a repair call.
+_COUNT_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
+_LEADING_COUNT_RE = re.compile(
+    r"^\s*(\d+|" + "|".join(_COUNT_WORDS) + r")\b", re.IGNORECASE
+)
+
+
+def fix_headline_number(page):
+    """The corrected headline when the only thing wrong with it is its
+    leading count -- spelled out ("Six Mistakes ...") where the formula wants
+    a numeral, or a numeral that no longer matches the item count -- else
+    None.
+
+    This is a safe mechanical substitution, not a rewrite: it changes one
+    token and then re-checks the result against the style's own formula,
+    accepting it only if the headline now passes. harness/repair.py's
+    deterministic pre-repair pass applies it before ever spending a model
+    call, for the reason cycle 6 introduced that pass: a repair that trims or
+    adds an item to fix a word-count failure silently invalidates the
+    headline's number, and chasing the two around costs every attempt the
+    loop has (observed on the cycle 41 verification runs -- attempt 3 STOPped
+    on nothing but this)."""
+    style = page.get("style") if isinstance(page, dict) else None
+    if style not in _N_IS_ITEM_COUNT:
+        return None
+    headline = page.get("headline") or ""
+    count = len(_items(page))
+    match = _LEADING_COUNT_RE.match(headline)
+    if not match:
+        return None
+    fixed = headline[: match.start(1)] + str(count) + headline[match.end(1) :]
+    if fixed == headline:
+        return None
+    checked = _HEADLINE_RES[style].search(fixed)
+    if not checked or int(checked.group(1)) != count:
+        return None
+    return fixed
+
+
+# Rules the writer needs whatever style this run is in. Every one of these is
+# a failure mode seen on a real run of this cartridge, stated where the
+# writer reads it rather than left for the gate to discover.
+def writer_rules_lines():
+    lo, hi = ITEM_COUNT_RANGE
+    wlo, whi = ITEM_WORD_RANGE
+    return [
+        f"Every one of the {lo}-{hi} items carries its own "
+        '"image": {"asset_id": "<id>"} using an id from facts_pack.assets, and "hero" '
+        'carries one more: {"asset_id": "<id>"}. Every id on the page must be different '
+        "from every other. Never leave an image out.",
+        f"Every item body is {wlo}-{whi} words -- count them, including the last item's.",
+        'The page has exactly one "cta_url", at the top level. Never put a "cta_url" '
+        "inside an item, the closing block, or anywhere else.",
+        "Any line stating a number, a price, a measurement, a spec, or one of the trigger "
+        "words carries its own claim_ids -- that includes audience_fit lines, closing recap "
+        "bullets and FAQ answers, not only item bodies. A line you cannot cite gets "
+        "rewritten without the number, not shipped uncited.",
+    ]
+
+
 def writer_style_lines(style):
     """The hard-constraint lines write.py adds to the writer's prompt for
     this style. Empty for an unknown style (the gate still rejects the
@@ -157,6 +222,14 @@ def writer_style_lines(style):
         f'This page\'s style is "{style}". Its headline must follow this formula exactly: '
         f'"{HEADLINE_FORMULAS[style]}" -- fill in N and the bracketed parts, keep the rest of '
         f'the wording. Set page.json\'s "style" field to "{style}".',
+        "Write N as a numeral (5, not \"five\"). "
+        + (
+            "N is the number of entries you actually put in \"reasons\" -- count them before "
+            "you answer, and if you add or drop an item while revising, change the headline's "
+            "number to match."
+            if style in _N_IS_ITEM_COUNT
+            else "N is the number of weeks the test ran, not the item count."
+        ),
         f"Every numbered item is {ITEM_PATTERNS[style]}. Item headings carry no numeral "
         "(the renderer draws the number) and no price.",
         f"Write {lo}-{hi} items, each with a {wlo}-{whi} word body and a closing proof line "
