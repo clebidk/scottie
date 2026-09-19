@@ -208,8 +208,22 @@ def test_five_styles_each_have_a_headline_formula_and_an_item_pattern():
         assert listicle.ITEM_PATTERNS[style]
 
 
-def test_style_from_the_seed_rotates_through_every_style():
-    picked = {listicle.resolve_style(seed=s) for s in range(len(listicle.STYLES))}
+def test_style_from_the_seed_rotates_through_every_allowed_style():
+    # The default tenant may pin a subset (tenant.yaml cartridges.listicle.styles),
+    # so the rotation is over the ALLOWED set, whatever its size.
+    allowed = listicle.tenant_styles()
+    picked = {listicle.resolve_style(seed=s) for s in range(len(allowed))}
+    assert picked == set(allowed)
+
+
+class _UnpinnedTenant:
+    def get(self, key, default=None):
+        return default
+
+
+def test_style_rotation_covers_all_five_when_nothing_is_pinned():
+    tenant = _UnpinnedTenant()
+    picked = {listicle.resolve_style(seed=s, tenant=tenant) for s in range(len(listicle.STYLES))}
     assert picked == set(listicle.STYLES)
 
 
