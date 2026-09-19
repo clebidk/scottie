@@ -696,6 +696,7 @@ _ATTRIBUTABLE_PATH_RE = re.compile(
     r"|close\.paragraphs\[\d+\]"                     # article
     r"|problem\.paragraphs\[\d+\]"                   # longform
     r"|reasons\[\d+\]"                               # listicle, fix cycle 16 item 6
+    r"|reasons\[\d+\]\.proof"                        # listicle item proof line, cycle 41
     r")$"
 )
 

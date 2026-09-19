@@ -31,7 +31,15 @@ Above-the-fold region per cartridge, per the research doc's own mapping:
     hero -- it is a single top-level field in page.json, not nested under
     `hero`, but it renders inside the fold).
   - article: `headline` + `dek` + `open[0]` (the first paragraph).
-  - listicle: `headline` + `dek` + `proof_row`.
+  - listicle: `headline` + `dek` + `hero`, plus the page's top-level
+    `cta_url` -- v0.2's header is a landing-page stack (hero image, primary
+    CTA, trust line), so the hero CTA IS the one link allowed above the
+    fold. The sticky bottom bar is exempt by construction, not by a special
+    case: it renders that same single `cta_url`, so it adds no second href
+    for this check to count, and it is renderer chrome that only appears
+    once the hero has scrolled past -- it is never above the fold. The
+    trust line is renderer-built from facts_pack and never appears in
+    page.json at all (harness/listicle.py), so it cannot carry a link.
 
 The disclosure paragraph and the byline's "Full bio" link are exempt from
 every check here by construction, not by special-case code: both are
@@ -142,7 +150,7 @@ def _above_fold_subtrees(page, cartridge_name):
         open_list = page.get("open") or []
         return None, [open_list[0] if open_list else None]
     if cartridge_name == "listicle":
-        return None, [page.get("proof_row")]
+        return page.get("cta_url"), [page.get("hero")]
     return None, None
 
 

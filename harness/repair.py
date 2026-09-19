@@ -18,6 +18,7 @@ import json
 import re
 from pathlib import Path
 
+from . import listicle
 from . import pagechecks
 from . import simplicity
 from . import tenant as tenant_mod
@@ -129,7 +130,7 @@ def resolve_warmup_window(tenant, schema_default=None):
     return default_warmup_window_words()
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
@@ -164,6 +165,13 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         if tenant.get("cartridges.article.warmup_mode", "warn") == "enforce":
             window = resolve_warmup_window(tenant, schema_default=warmup_window_words)
             problems += find_warmup_violations(page, tenant, window)
+    # Cycle 41: the listicle cartridge's own structural checks (style and
+    # headline formula, item count/numbering/length/proof, hero, audience-fit
+    # block, FAQ, recap, urgency vocabulary, renderer-owned sections). Writer-
+    # owned and writer-fixable, so they gate here rather than post-render; each
+    # carries a stable "key" the repair loop dedupes on.
+    if cartridge_name == "listicle":
+        problems += listicle.find_listicle_violations(page, style=listicle_style)
     # Cycle 32: simplicity gate (above-fold links, headline word band, one
     # offer element) -- hard gate only when this tenant's simplicity_mode is
     # "enforce" (default "warn": advisory REVIEW.md line only, see
@@ -530,6 +538,20 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
         term = item.get("term")
         issue = item.get("issue", "")
 
+        # Cycle 41: a listicle headline whose leading count is spelled out,
+        # or no longer matches the item count after another fix changed it.
+        # One token, re-checked against the style's own formula -- see
+        # listicle.fix_headline_number for why this is deterministic rather
+        # than a repair call.
+        if cartridge_name == "listicle" and item.get("key") == "listicle:headline_formula":
+            corrected = listicle.fix_headline_number(page)
+            if corrected:
+                page["headline"] = corrected
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", "deterministic fix applied: headline count")
+            continue
+
         if "warranty wording must be exactly" in issue:
             if _fix_warranty_violation(page, raw_path, valid_claim_ids):
                 fixed += 1
@@ -605,7 +627,7 @@ def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_b
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                          financing_lender, speaker_pov, ad_not_repeated=None, tenant=None,
                          repair_first_model=None, repair_next_model=None,
-                         initial_page=None, initial_call_tokens=0):
+                         initial_page=None, initial_call_tokens=0, listicle_style=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -646,6 +668,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             block_slots=schema.get("block_slots"),
             tenant=tenant,
             warmup_window_words=schema.get("warmup_window_words"),
+            listicle_style=listicle_style,
         )
 
     revision_note = None
@@ -729,6 +752,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 revision_note=revision_note,
                 ad_not_repeated=ad_not_repeated,
                 tenant=tenant,
+                listicle_style=listicle_style,
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)

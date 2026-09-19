@@ -177,20 +177,21 @@ def find_duplicate_asset_violations(page, cartridge_name=None):
 
 
 def find_hero_requirement_violations(page, cartridge_name):
-    """longform and product-page both declare an explicit page.hero.hero_image
-    slot (ground.hero_container) -- if either ends up with no usable hero
-    asset_id at all (the writer left it out, or every candidate the run's
-    facts_pack offered was ineligible), that is loud and wrong, not a quiet
-    `{% if hero_asset %}` no-op. article/listicle have no dedicated hero
-    field in their schema (see ground.hero_container's docstring) so this
-    check is a no-op for them -- nothing to require."""
+    """longform, product-page and (cycle 41) listicle each declare an
+    explicit hero image slot (ground.hero_container) -- if one ends up with
+    no usable hero asset_id at all (the writer left it out, or every
+    candidate the run's facts_pack offered was ineligible), that is loud and
+    wrong, not a quiet `{% if hero_asset %}` no-op. article has no dedicated
+    hero field in its schema (see ground.hero_container's docstring) so this
+    check is a no-op for it -- nothing to require."""
     from . import ground as ground_mod
 
-    if cartridge_name not in ("longform", "product-page"):
+    if cartridge_name not in ("longform", "product-page", "listicle"):
         return []
     node = ground_mod.hero_container(page, cartridge_name)
     if node is None or not node.get("asset_id"):
-        return [{"path": "$.hero.hero_image", "issue": f"{cartridge_name} requires a hero image; none is set"}]
+        path = "$.hero" if cartridge_name == "listicle" else "$.hero.hero_image"
+        return [{"path": path, "issue": f"{cartridge_name} requires a hero image; none is set"}]
     return []
 
 

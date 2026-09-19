@@ -42,6 +42,79 @@ intended Shopify Files CDN filename) next to that run's `index.html`. This only 
 writes local files; it makes no Shopify API call. See "The publish gate" below before
 this goes anywhere near a live page.
 
+## The listicle cartridge (v0.2, cycle 41)
+
+Rebuilt against `tenants/peak-saunas/docs/REFERENCE-LANDERS-2026-09-18.md`: the DTC
+listicle shape, with Sun Home's evidence-labelled honesty and HubSpot/ClickUp's
+above-fold stack (headline -> hero -> one CTA -> trust line).
+
+**Five styles.** Every run writes in exactly one, and the style fixes the headline
+formula and what a numbered item is:
+
+| style | headline formula |
+| --- | --- |
+| `reasons` | N Reasons \<audience\> Are Choosing \<category\> |
+| `mistakes` | N Mistakes People Make Buying \<category\> |
+| `questions` | N Questions to Ask Before You Buy \<category\> |
+| `myths` | N \<category\> Myths, and What the Evidence Says |
+| `tested` | We Tested \<category\> for N Weeks. Here Is What Held Up |
+
+```
+.venv/bin/harness run <input> --cartridges listicle --style myths
+```
+
+Without `--style`, the style is picked deterministically from the run seed
+(`harness/listicle.py`'s `resolve_style`), so a batch of runs with different seeds
+rotates through all five. `tenant.yaml` may pin a subset with
+`cartridges.listicle.styles: [myths, tested]`; an explicit `--style` still wins over
+the pin, because that is an operator's deliberate choice.
+
+**Page structure.** Header (Advertisement label, H1, one-line dek, hero image, the
+primary CTA, a trust line, byline) -> 5-7 numbered items, each with an H2, a 60-150 word
+body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
+pull-quote band after item 3 -> "who this is for / who it is not for" -> the model
+picker -> a 5-7 question FAQ -> the closing block (3-bullet recap, CTA, warranty
+sentence, financing sentence, HSA/FSA line) -> disclosure and Sources -> a sticky bottom
+CTA bar. 900-1,400 words.
+
+**What the writer does not write.** The trust line, the pull-quote band, the model
+picker, the closing HSA/FSA line and the sticky bar's rating line are built by the
+renderer from `facts_pack` alone (`harness/listicle.py`'s `render_context`). Each one is
+omitted entirely when this run verified nothing for it -- there is no page.json field to
+invent one in, and `listicle:renderer_owned:*` rejects a page that adds one. The model
+picker's rows come from `facts_pack.model_options`, which `harness/ground.py` builds
+from the tenant's own active products (the run's product first, then the closest in
+price, capped at three) with each row's price and fit backed by its own verified claim.
+
+**One CTA, five places.** One `cta_text` and one `cta_url` render in the header, after
+items 2 and 4, in the closing block and in the sticky bar. That is one offer repeated,
+not five offers: `claims.find_second_cta_violation` still rejects a second `cta_url`
+anywhere in page.json, and the CTA allowlist is unchanged. For the simplicity gate the
+hero CTA is the one link allowed above the fold; the sticky bar is exempt by
+construction, since it renders that same single url and only appears after the hero has
+scrolled past (see `harness/simplicity.py`'s module docstring).
+
+**Gates** (`harness/listicle.py`, wired into `repair.check_page_gates`, so the writer
+repair loop can fix them). Each failure carries a stable key: `listicle:style`,
+`listicle:headline_formula`, `listicle:item_count`, `listicle:item_numbering:<i>`,
+`listicle:item_words:<i>`, `listicle:item_image:<i>`, `listicle:item_proof:<i>`,
+`listicle:hero`, `listicle:audience_fit[:<field>]`, `listicle:faq_count`,
+`listicle:faq_claims:<i>`, `listicle:recap`, `listicle:urgency:<phrase>`,
+`listicle:renderer_owned:<key>`.
+
+**Design.** The cartridge ships its own scoped `<style>` block (the one cartridge exempt
+from `tests/test_css_coverage.py`'s structure.css rule): a ~700px reading measure,
+17-18px body at 1.6, 36-44px H1, 24-28px H2, a 48-64px section rhythm, alternating soft
+bands, a full-width mobile CTA at 52px min-height, and a 64px sticky bar with
+safe-area padding. No colour or font is hardcoded: every token resolves through the
+tenant's own `--ps-*` brand tokens first and `harness/structure.css`'s `--adv-*`
+defaults second, so `harness brand import` still drives the page. The sticky bar lives
+inside the cartridge wrapper, never in `base.html`, so `harness shopify-body` carries it
+into the storefront body.
+
+**Offline.** `python -m evals.fake_run <fixture> --tenant peak-saunas --cartridges
+listicle --style <s>` renders any style with no API key.
+
 **Reading `REVIEW.md`.** Every run writes `tenants/peak-saunas/out/<run-id>/REVIEW.md`: the product picked
 (with a `**WARNING:**` line if it was defaulted rather than named in the ad), the gate
 history (attempts/repairs/failures per cartridge), word count, cost estimate, and the

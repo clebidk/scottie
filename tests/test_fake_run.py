@@ -4,7 +4,10 @@ command. These tests pin that it keeps working and that its fakes cannot leak
 into the rest of the suite."""
 import json
 
-from harness import cli, pipeline
+import pytest
+
+from harness import cli, listicle, pipeline
+from harness.repair import count_words
 from evals import fake_run
 from tests.support import REPO_ROOT, TENANT
 
@@ -45,7 +48,42 @@ def test_fake_run_restores_everything_it_patches(tmp_path):
 
 
 def test_fake_run_refuses_a_cartridge_with_no_canned_page():
-    assert fake_run.main([str(FIXTURE), "--tenant", "peak-saunas", "--cartridges", "listicle"]) == 1
+    assert fake_run.main([str(FIXTURE), "--tenant", "peak-saunas", "--cartridges", "not-a-cartridge"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Cycle 41: listicle v0.2 renders offline in every style, with no API key --
+# the canned page is built per style (fake_run._listicle_page) and has to pass
+# the same gates a real write does, including the style/headline-formula gate.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("style", listicle.STYLES)
+def test_fake_run_renders_listicle_v2_in_every_style(tmp_path, style):
+    exit_code, run_dir, pages = fake_run.run_once(
+        str(FIXTURE), tenant="peak-saunas", cartridges="listicle", style=style,
+    )
+    assert exit_code == 0
+    assert [p.parent.name for p in pages] == ["listicle"]
+    page = json.loads(pages[0].read_text())
+    assert page["style"] == style
+    assert 900 <= count_words(page) <= 1400
+    html = (run_dir / "listicle" / "index.html").read_text()
+    # the one CTA in its five places, the sticky bar, and the fit block
+    assert html.count(">See the models<") == 5
+    assert 'class="lst-sticky"' in html
+    assert "Who this is for, and who it is not for" in html
+    # the model picker comes from facts_pack.model_options, not the writer
+    assert 'class="lst-models"' in html
+    assert "model_options" not in page
+
+
+def test_fake_run_listicle_style_defaults_deterministically_from_the_seed():
+    expected = listicle.resolve_style(seed=42, tenant=TENANT)
+    exit_code, _run_dir, pages = fake_run.run_once(
+        str(FIXTURE), tenant="peak-saunas", cartridges="listicle", seed=42,
+    )
+    assert exit_code == 0
+    assert json.loads(pages[0].read_text())["style"] == expected
 
 
 def test_fake_run_byte_matches_the_committed_baseline():

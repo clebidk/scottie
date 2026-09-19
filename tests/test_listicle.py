@@ -1,22 +1,31 @@
-"""listicle cartridge: registration, rendering, and reuse of the shared
-claims gate (no forked copy of any check -- see cartridges/listicle/cartridge.md's
-"reuse the shared code; do not fork it" rule)."""
+"""listicle cartridge v0.2: the five-style system, the structural gates, and
+the rendered page's sections (including the ones the renderer -- never the
+writer -- builds from facts_pack).
+
+Registration and reuse of the shared claims gate (no forked copy of any
+check -- see cartridges/listicle/cartridge.md's "reuse the shared code; do
+not fork it" rule) are asserted here too.
+"""
 import json
 
 import pytest
 
 from tests.support import REPO_ROOT, TENANT
+from harness import listicle
 from harness.cli import discover_cartridges
 from harness.repair import (
     check_page_gates,
+    count_words,
     find_cta_violation,
     get_cta_text,
 )
 from harness.claims import ClaimsGateFailure, gate_page_json
+from harness.page_body import build_shopify_body
 from harness.render import render_page
-from harness.write import parse_word_range, resolve_allowed_cta_texts
+from harness.write import parse_word_range, resolve_allowed_cta_texts, validate_schema
 
 CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "listicle"
+SCHEMA = json.loads((CARTRIDGE_DIR / "schema.json").read_text())
 
 
 def _make_image_bytes(width, height, fmt="PNG"):
@@ -27,6 +36,7 @@ def _make_image_bytes(width, height, fmt="PNG"):
     buf = io.BytesIO()
     Image.new("RGB", (width, height), color=(120, 60, 200)).save(buf, format=fmt)
     return buf.getvalue()
+
 
 FACTS_PACK = {
     "product": {
@@ -46,16 +56,14 @@ FACTS_PACK = {
     "reviews_summary": None,
     "verified_claims": [
         {"id": "warranty-terms", "text": "warranty text", "category": "trust", "source": "https://peaksaunas.com/pages/warranty"},
-        {"id": "shipping-policy", "text": "shipping text", "category": "trust", "source": "https://peaksaunas.com/policies/shipping-policy"},
+        {"id": "shipping-policy", "text": "Free shipping on all orders.", "category": "trust", "source": "https://peaksaunas.com/policies/shipping-policy"},
         {"id": "gbrain-allowlist-red-light", "text": "Medical-grade red light therapy (included standard).", "category": "trust", "source": "https://peaksaunas.com/products/fuji"},
     ],
-    # Cycle 31: seven distinct assets -- pagechecks.find_duplicate_asset_
-    # violations now requires every image slot on a page to be a distinct
-    # asset id (docs/IMAGES-AUDIT-2026-09-14.md problem 3), and _make_items
-    # below can be called with up to 7 items.
+    # One hero plus up to seven item images, all distinct
+    # (pagechecks.find_duplicate_asset_violations).
     "assets": [
         {"id": f"asset-{i}", "url": f"https://cdn.shopify.com/fuji-{i}.png", "kind": "lifestyle", "alt": "Fuji sauna"}
-        for i in range(1, 8)
+        for i in range(1, 10)
     ],
 }
 
@@ -65,44 +73,84 @@ AD_BRIEF = {
     "speaker_pov": "third_person", "source_file": "ad.txt", "input_type": "text", "transcript_or_text": "text",
 }
 
+ALLOWED_CTA_TEXTS = ["See the models", "Shop the Fuji", "Book a consult"]
+
 _FILLER = (
     "It gives a shopper a specific, concrete reason to trust the switch instead of a vague "
-    "promise, the kind of plain detail that actually holds up once the box arrives at the door."
+    "promise, the kind of plain detail that actually holds up once the box arrives at the door "
+    "and the cabin is standing in a real room, measured against a real wall, in a real home."
 )
 
 
-def _item_text(n_words=48):
-    words = (_FILLER + " ") * ((n_words // len(_FILLER.split())) + 1)
-    return " ".join(words.split()[:n_words])
+def _words(n):
+    words = (_FILLER + " ") * ((n // len(_FILLER.split())) + 1)
+    return " ".join(words.split()[:n])
 
 
-def _make_items(n, with_claim=True):
-    # ~85 words per item -- comfortably inside cartridge.md's 40-90 word
-    # guideline and enough, across 5-7 items plus the proof row and closing
-    # block, to clear the 600-word floor for the word-range gate test below.
+HEADLINES = {
+    "reasons": "5 Reasons Busy Parents Are Choosing Home Infrared Saunas",
+    "mistakes": "5 Mistakes People Make Buying A Home Infrared Sauna",
+    "questions": "5 Questions to Ask Before You Buy A Home Sauna",
+    "myths": "5 Home Infrared Sauna Myths, and What the Evidence Says",
+    "tested": "We Tested Home Infrared Saunas for 8 Weeks. Here Is What Held Up",
+}
+
+
+def _items(n=5, with_proof=True):
     items = []
     for i in range(1, n + 1):
-        item = {"number": i, "heading": f"Reason number {i}", "text": _item_text(85), "image": {"asset_id": f"asset-{i}"}}
-        if with_claim and i == n:
-            item["text"] = "Every unit comes with medical-grade red light therapy included standard. " + _item_text(75)
-            item["claim_ids"] = ["gbrain-allowlist-red-light"]
+        item = {
+            "number": i,
+            "heading": f"A plain heading number {i}",
+            "text": _words(120),
+            "image": {"asset_id": f"asset-{i + 1}"},
+        }
+        if with_proof:
+            item["proof"] = {
+                "text": "Every unit ships with medical-grade red light therapy included as standard.",
+                "claim_ids": ["gbrain-allowlist-red-light"],
+            }
         items.append(item)
     return items
 
 
-def _listicle_page(n_items=7):
+def _listicle_page(style="reasons", n_items=5):
     return {
-        "headline": "7 Reasons Busy Parents Are Switching to Peak Saunas",
+        "style": style,
+        "headline": HEADLINES[style],
         "dek": "A quick look at what makes the switch worth it.",
-        "proof_row": [
-            {"label": "Free shipping", "text": "on every order", "claim_ids": ["shipping-policy"]},
-        ],
-        "reasons": _make_items(n_items),
+        "hero": {"asset_id": "asset-1"},
+        "reasons": _items(n_items),
+        "audience_fit": {
+            "for_you": [
+                {"text": "You have a spare corner of a room that stays dry and level."},
+                {"text": "You want a session you can take without leaving the house."},
+                {"text": "You would rather read the specification than book a sales call."},
+            ],
+            "not_for_you": [
+                {"text": "You rent and cannot leave a cabin behind when you move."},
+                {"text": "Your only free wall is in an unheated garage that freezes."},
+                {"text": "You want something that folds away between sessions."},
+            ],
+        },
+        "faq": {
+            "questions": [
+                {
+                    "question": f"A question a buyer actually asks, number {i}?",
+                    "answer": _words(35),
+                }
+                for i in range(1, 6)
+            ]
+        },
         "cta_text": "See the models",
         "cta_url": "https://peaksaunas.com/collections/all",
         "closing": {
             "headline": "Ready to feel the difference?",
-            "paragraphs": [{"text": "Peak Saunas is one brand that makes switching easy for a busy household."}],
+            "recap": [
+                {"text": "The cabin goes where you have room, not where a spa has room."},
+                {"text": "Everything a seller would tell you on a call is published instead."},
+                {"text": "Free shipping is included on every order.", "claim_ids": ["shipping-policy"]},
+            ],
             "warranty_line": {
                 "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
                 "claim_ids": ["warranty-terms"],
@@ -112,9 +160,17 @@ def _listicle_page(n_items=7):
     }
 
 
+def _gate(page, **kwargs):
+    kwargs.setdefault("financing_lender", None)
+    kwargs.setdefault("speaker_pov", "third_person")
+    kwargs.setdefault("word_range", (900, 1400))
+    kwargs.setdefault("allowed_cta_texts", ALLOWED_CTA_TEXTS)
+    kwargs.setdefault("ad_brief", AD_BRIEF)
+    return check_page_gates(page, FACTS_PACK, "listicle", **kwargs)
+
+
 # ---------------------------------------------------------------------------
-# Registration: discoverable, but opt-in only (not in the default random-3
-# pool).
+# Registration and cartridge constants
 # ---------------------------------------------------------------------------
 
 def test_listicle_is_discovered():
@@ -127,55 +183,288 @@ def test_listicle_is_not_in_the_default_cartridge_pool():
     assert set(pool) == {"article", "product-page", "longform"}
 
 
-def test_word_range_parses_600_to_1100():
+def test_word_range_parses_900_to_1400():
     cartridge_md = (CARTRIDGE_DIR / "cartridge.md").read_text()
-    assert parse_word_range(cartridge_md) == (600, 1100)
+    assert parse_word_range(cartridge_md) == (900, 1400)
+
+
+def test_cartridge_md_declares_v0_2_0():
+    assert "(v0.2.0)" in (CARTRIDGE_DIR / "cartridge.md").read_text()
 
 
 def test_allowed_cta_texts_resolve_model_name_placeholder():
-    schema = json.loads((CARTRIDGE_DIR / "schema.json").read_text())
-    resolved = resolve_allowed_cta_texts(schema, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
-    assert resolved == ["See the models", "Shop the Fuji", "Book a consult"]
+    resolved = resolve_allowed_cta_texts(SCHEMA, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
+    assert resolved == ALLOWED_CTA_TEXTS
 
 
 # ---------------------------------------------------------------------------
-# CTA gate: listicle uses a flat top-level cta_text/cta_url, like longform
-# and product-page (cli.get_cta_text's non-"article" branch) -- not
-# article's nested page.cta.text.
+# Style system
+# ---------------------------------------------------------------------------
+
+def test_five_styles_each_have_a_headline_formula_and_an_item_pattern():
+    assert listicle.STYLES == ("reasons", "mistakes", "questions", "myths", "tested")
+    for style in listicle.STYLES:
+        assert listicle.HEADLINE_FORMULAS[style]
+        assert listicle.ITEM_PATTERNS[style]
+
+
+def test_style_from_the_seed_rotates_through_every_style():
+    picked = {listicle.resolve_style(seed=s) for s in range(len(listicle.STYLES))}
+    assert picked == set(listicle.STYLES)
+
+
+def test_style_from_the_seed_is_deterministic():
+    assert listicle.resolve_style(seed=7) == listicle.resolve_style(seed=7)
+
+
+def test_an_explicit_style_always_wins():
+    assert listicle.resolve_style("myths", seed=0) == "myths"
+
+
+def test_an_unknown_style_is_refused():
+    with pytest.raises(ValueError):
+        listicle.resolve_style("listicle")
+
+
+def test_a_tenant_may_pin_a_subset_of_styles(monkeypatch):
+    class _Pinned:
+        def get(self, key, default=None):
+            return ["myths", "tested", "not-a-style"] if key == "cartridges.listicle.styles" else default
+
+    assert listicle.tenant_styles(_Pinned()) == ("myths", "tested")
+    assert listicle.resolve_style(seed=0, tenant=_Pinned()) == "myths"
+    assert listicle.resolve_style(seed=1, tenant=_Pinned()) == "tested"
+
+
+def test_writer_style_lines_state_the_formula_the_gate_measures():
+    for style in listicle.STYLES:
+        lines = " ".join(listicle.writer_style_lines(style))
+        assert listicle.HEADLINE_FORMULAS[style] in lines
+        assert listicle.ITEM_PATTERNS[style] in lines
+
+
+@pytest.mark.parametrize("style", listicle.STYLES)
+def test_a_page_in_every_style_validates_against_the_schema_and_passes_the_gate(style):
+    page = _listicle_page(style)
+    assert validate_schema(page, SCHEMA) == []
+    assert 900 <= count_words(page) <= 1400
+    assert _gate(page, listicle_style=style) == []
+
+
+@pytest.mark.parametrize("style", listicle.STYLES)
+def test_a_headline_from_another_style_fails_the_formula_check(style):
+    other = next(s for s in listicle.STYLES if s != style)
+    page = _listicle_page(style)
+    page["headline"] = HEADLINES[other]
+    keys = {p["key"] for p in listicle.find_listicle_violations(page, style=style)}
+    assert "listicle:headline_formula" in keys
+
+
+def test_the_headline_number_must_match_the_item_count():
+    page = _listicle_page("reasons", n_items=6)
+    page["headline"] = HEADLINES["reasons"]  # says 5
+    problems = listicle.find_listicle_violations(page, style="reasons")
+    assert any(p["key"] == "listicle:headline_formula" and "6 items" in p["issue"] for p in problems)
+
+
+def test_the_tested_styles_number_is_weeks_not_the_item_count():
+    page = _listicle_page("tested", n_items=7)
+    page["reasons"] = _items(7)
+    assert listicle.find_listicle_violations(page, style="tested") == []
+
+
+def test_a_page_written_in_a_different_style_than_the_run_is_flagged():
+    page = _listicle_page("myths")
+    problems = listicle.find_listicle_violations(page, style="tested")
+    assert any(p["key"] == "listicle:style" for p in problems)
+
+
+def test_harness_run_takes_a_style_flag_and_refuses_an_unknown_one():
+    from harness import cli
+
+    parser = cli.build_parser()
+    args = parser.parse_args(["run", "ad.txt", "--cartridges", "listicle", "--style", "myths"])
+    assert args.style == "myths"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["run", "ad.txt", "--style", "not-a-style"])
+
+
+# ---------------------------------------------------------------------------
+# Structural gates
+# ---------------------------------------------------------------------------
+
+def test_item_count_outside_five_to_seven_fails():
+    for n in (4, 8):
+        page = _listicle_page()
+        page["reasons"] = _items(n)
+        page["headline"] = f"{n} Reasons Busy Parents Are Choosing Home Infrared Saunas"
+        keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+        assert "listicle:item_count" in keys
+
+
+def test_item_numbering_must_match_position():
+    page = _listicle_page()
+    page["reasons"][2]["number"] = 9
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:item_numbering:2" in keys
+
+
+def test_item_body_outside_sixty_to_one_hundred_fifty_words_fails():
+    page = _listicle_page()
+    page["reasons"][0]["text"] = _words(40)
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:item_words:0" in keys
+
+
+def test_an_item_with_no_proof_line_fails():
+    page = _listicle_page()
+    del page["reasons"][1]["proof"]
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:item_proof:1" in keys
+
+
+def test_a_proof_line_with_neither_a_claim_id_nor_attribution_fails():
+    page = _listicle_page()
+    page["reasons"][0]["proof"] = {"text": "It is simply better."}
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:item_proof:0" in keys
+
+
+def test_an_attributed_customer_proof_line_is_allowed():
+    page = _listicle_page()
+    page["reasons"][0]["proof"] = {
+        "text": "One customer told us the room was warm before the kettle had boiled.",
+        "attributed_to_customer": True,
+    }
+    assert _gate(page, listicle_style="reasons") == []
+
+
+def test_a_missing_hero_fails():
+    page = _listicle_page()
+    del page["hero"]
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:hero" in keys
+
+
+def test_a_missing_audience_fit_block_fails():
+    page = _listicle_page()
+    del page["audience_fit"]
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:audience_fit" in keys
+
+
+def test_an_faq_outside_five_to_seven_questions_fails():
+    page = _listicle_page()
+    page["faq"]["questions"] = page["faq"]["questions"][:3]
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:faq_count" in keys
+
+
+def test_an_faq_answer_stating_a_number_needs_a_claim_id():
+    page = _listicle_page()
+    page["faq"]["questions"][0]["answer"] = "It ships in 4 business days once the order clears."
+    problems = listicle.find_listicle_violations(page)
+    assert any(p["key"] == "listicle:faq_claims:0" for p in problems)
+    page["faq"]["questions"][0]["claim_ids"] = ["shipping-policy"]
+    assert not any(p["key"].startswith("listicle:faq_claims") for p in listicle.find_listicle_violations(page))
+
+
+def test_the_closing_recap_must_be_exactly_three_bullets():
+    page = _listicle_page()
+    page["closing"]["recap"] = page["closing"]["recap"][:2]
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:recap" in keys
+
+
+def test_urgency_vocabulary_anywhere_fails():
+    page = _listicle_page()
+    page["dek"] = "Limited time only, so act now before the last chance passes."
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert any(k.startswith("listicle:urgency") for k in keys)
+
+
+def test_a_writer_supplied_renderer_owned_section_fails():
+    for key in ("trust_line", "pull_quote", "model_picker", "proof_row", "hsa_line"):
+        page = _listicle_page()
+        page[key] = [{"text": "4.8 stars from thousands of reviews"}]
+        keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+        assert f"listicle:renderer_owned:{key}" in keys, key
+
+
+def test_every_gate_problem_carries_a_stable_repair_key():
+    page = _listicle_page()
+    del page["hero"]
+    del page["audience_fit"]
+    page["reasons"][0]["number"] = 9
+    problems = listicle.find_listicle_violations(page)
+    assert problems
+    assert all(p.get("key") for p in problems)
+    assert len({p["key"] for p in problems}) == len(problems)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic repair of the headline count (no model call)
+# ---------------------------------------------------------------------------
+
+def test_a_spelled_out_headline_count_is_fixed_deterministically():
+    page = _listicle_page("mistakes")
+    page["headline"] = "Five Mistakes People Make Buying A Home Infrared Sauna"
+    assert listicle.fix_headline_number(page) == HEADLINES["mistakes"]
+
+
+def test_a_stale_headline_count_is_fixed_deterministically():
+    page = _listicle_page("reasons", n_items=6)
+    page["headline"] = HEADLINES["reasons"]  # still says 5
+    assert listicle.fix_headline_number(page).startswith("6 Reasons")
+
+
+def test_the_headline_fix_declines_a_headline_it_cannot_repair():
+    page = _listicle_page("reasons")
+    page["headline"] = "Why Careful Buyers Are Choosing A Home Infrared Cabin"
+    assert listicle.fix_headline_number(page) is None
+    # tested's number is a duration, not the item count -- never rewritten
+    tested = _listicle_page("tested")
+    assert listicle.fix_headline_number(tested) is None
+
+
+def test_the_repair_loop_applies_the_headline_fix_without_a_model_call():
+    from harness.repair import apply_deterministic_fixes
+
+    page = _listicle_page("questions", n_items=7)
+    page["reasons"] = _items(7)
+    page["headline"] = HEADLINES["questions"]  # says 5
+    problems = listicle.find_listicle_violations(page, style="questions")
+    assert apply_deterministic_fixes(page, problems, set(), cartridge_name="listicle") == 1
+    assert listicle.find_listicle_violations(page, style="questions") == []
+
+
+def test_the_writer_is_told_the_rules_the_gate_measures():
+    rules = " ".join(listicle.writer_rules_lines())
+    assert "asset_id" in rules
+    assert "60-150 words" in rules
+    assert "exactly one \"cta_url\"" in rules
+    assert "claim_ids" in rules
+
+
+# ---------------------------------------------------------------------------
+# Shared claims gate: reused, never forked
 # ---------------------------------------------------------------------------
 
 def test_get_cta_text_reads_flat_field():
-    page = _listicle_page()
-    assert get_cta_text(page, "listicle") == "See the models"
+    assert get_cta_text(_listicle_page(), "listicle") == "See the models"
 
 
 def test_find_cta_violation_rejects_text_outside_the_allowed_list():
     page = _listicle_page()
     page["cta_text"] = "Buy now and save"
-    problems = find_cta_violation(page, "listicle", ["See the models", "Shop the Fuji", "Book a consult"])
+    problems = find_cta_violation(page, "listicle", ALLOWED_CTA_TEXTS)
     assert len(problems) == 1
     assert "cta_text" in problems[0]["path"]
 
 
-# ---------------------------------------------------------------------------
-# check_page_gates: the full gate (claims.gate_page_json + word range + CTA)
-# passes on a well-formed page and reuses every shared check unmodified.
-# ---------------------------------------------------------------------------
-
-def test_check_page_gates_passes_for_a_well_formed_page():
-    page = _listicle_page(n_items=7)
-    problems = check_page_gates(
-        page, FACTS_PACK, "listicle",
-        financing_lender=None, speaker_pov="third_person",
-        word_range=(600, 1100), allowed_cta_texts=["See the models", "Shop the Fuji", "Book a consult"],
-        ad_brief=AD_BRIEF,
-    )
-    assert problems == []
-
-
 def test_gate_page_json_rejects_a_hype_word_in_an_item():
     page = _listicle_page()
-    page["reasons"][0]["text"] = "This is a real game-changer for a busy household. " + _item_text(30)
+    page["reasons"][0]["text"] = "This is a real game-changer for a busy household. " + _words(100)
     with pytest.raises(ClaimsGateFailure):
         gate_page_json(page, FACTS_PACK, "listicle", financing_lender=None, speaker_pov="third_person", ad_brief=AD_BRIEF)
 
@@ -198,53 +487,161 @@ def test_gate_page_json_rejects_an_invented_financing_figure_with_no_lender_conf
 
 def test_gate_page_json_enforces_first_person_attribution():
     page = _listicle_page()
-    page["reasons"][0]["text"] = "I ran into this myself last winter and it changed my whole routine. " + _item_text(30)
+    page["reasons"][0]["text"] = "I ran into this myself last winter and it changed my whole routine. " + _words(100)
     with pytest.raises(ClaimsGateFailure):
-        gate_page_json(page, FACTS_PACK, "listicle", financing_lender=None, speaker_pov="first_person", ad_brief={**AD_BRIEF, "speaker_pov": "first_person"})
+        gate_page_json(page, FACTS_PACK, "listicle", financing_lender=None, speaker_pov="first_person",
+                       ad_brief={**AD_BRIEF, "speaker_pov": "first_person"})
+
+
+def test_a_second_cta_url_anywhere_still_fails_the_shared_gate():
+    page = _listicle_page()
+    page["closing"]["cta_url"] = "https://peaksaunas.com/pages/other"
+    with pytest.raises(ClaimsGateFailure):
+        gate_page_json(page, FACTS_PACK, "listicle", financing_lender=None, speaker_pov="third_person", ad_brief=AD_BRIEF)
 
 
 # ---------------------------------------------------------------------------
-# render_page: header/byline/disclosure/CTA-twice/motion assets, brand tokens.
+# Renderer-owned sections, built from facts_pack alone
 # ---------------------------------------------------------------------------
 
-def test_render_listicle_page(tmp_path):
-    page = _listicle_page(n_items=6)
-    index_path = render_page(
+RICH_FACTS_PACK = {
+    **FACTS_PACK,
+    "reviews_summary": {"text": "Rated 4.8 out of 5 across 1,200 reviews.", "claim_ids": ["reviews-live"]},
+    "review_quotes": [{"text": "It was warm before the kettle boiled.", "attribution": "A verified customer"}],
+    "model_options": [
+        {"name": "Model A", "url": "https://peaksaunas.com/products/a", "price_text": "$7,950",
+         "fit": "2-Person · Indoor", "claim_ids": ["price-a"]},
+        {"name": "Model B", "url": "https://peaksaunas.com/products/b", "price_text": "$9,750",
+         "fit": "3-Person · Indoor", "claim_ids": ["price-b"]},
+    ],
+    "verified_claims": FACTS_PACK["verified_claims"] + [
+        {"id": "reviews-live", "text": "Rated 4.8 out of 5 across 1,200 reviews.", "category": "trust",
+         "source": "https://judge.me/reviews/stores/peaksaunas.com"},
+        {"id": "hsa-fsa", "text": "These saunas may be eligible for HSA/FSA purchase.", "category": "trust",
+         "source": "https://peaksaunas.com/pages/hsa"},
+    ],
+}
+
+
+def _render(page, tmp_path, facts_pack=FACTS_PACK, **kwargs):
+    kwargs.setdefault("download_assets", False)
+    return render_page(
         cartridge_name="listicle",
         page=page,
         ad_brief=AD_BRIEF,
-        facts_pack=FACTS_PACK,
+        facts_pack=facts_pack,
         cartridges_dir=REPO_ROOT / "cartridges",
         brand_dir=tmp_path / "brand-does-not-exist",
         templates_dir=REPO_ROOT / "harness" / "templates",
         out_dir=tmp_path / "listicle",
-        published="2026-09-10",
-        updated="2026-09-10",
-        download_assets=False,
+        published="2026-09-18",
+        updated="2026-09-18",
+        **kwargs,
     )
-    html = index_path.read_text()
+
+
+def test_render_context_is_empty_when_nothing_is_verified():
+    context = listicle.render_context(FACTS_PACK)
+    assert context["rating_line"] is None
+    assert context["pull_quote"] is None
+    assert context["hsa_claim"] is None
+    assert context["model_options"] == []
+    # free shipping IS verified in this pack, so the trust line still renders
+    assert [i["text"] for i in context["trust_items"]] == ["Free shipping"]
+
+
+def test_render_context_reads_only_facts_pack():
+    context = listicle.render_context(RICH_FACTS_PACK)
+    assert context["rating_line"]["text"] == "Rated 4.8 out of 5 across 1,200 reviews."
+    assert context["pull_quote"]["text"] == "It was warm before the kettle boiled."
+    assert context["hsa_claim"]["id"] == "hsa-fsa"
+    assert len(context["model_options"]) == 2
+
+
+def test_render_listicle_page_has_every_section_when_the_data_is_there(tmp_path):
+    page = _listicle_page("reasons")
+    html = _render(page, tmp_path, facts_pack=RICH_FACTS_PACK).read_text()
 
     assert "Advertisement" in html
     assert "is an advertisement published by Peak Saunas" in html
     assert '"@type": "ItemList"' in html
     assert 'class="pk-lp' in html
     assert "IntersectionObserver" in html
-    assert html.count(">See the models<") == 2
-    assert html.count('class="pk-h2"') == 6
-    assert "Limited lifetime warranty; full terms by component are published on the warranty page." in html
-    # no lender configured -- the renderer always swaps closing.financing_line
-    # to the generic "Financing available" (same belt-and-suspenders pattern
-    # as every other cartridge's hero/final_cta financing slot), regardless
-    # of what the already-gated model text says.
-    assert "Financing available" in html
-    assert "Financing is available at checkout." not in html
-    assert "Bread Pay" not in html
+    # header: hero image, H1, dek, byline
+    assert 'class="lst-h1"' in html and 'class="lst-dek"' in html
+    assert 'data-lst-hero' in html
+    # five items, each with its own proof line
+    assert html.count('class="lst-h2"') == 5
+    assert html.count('class="lst-proof"') == 5
+    # renderer-owned sections
+    assert "Rated 4.8 out of 5 across 1,200 reviews." in html
+    assert "It was warm before the kettle boiled." in html
+    assert "Model A" in html and "$7,950" in html
+    assert "may be eligible for HSA/FSA purchase" in html
+    assert "Free shipping" in html
+    # the fit block, FAQ and closing recap
+    assert "Who this is for, and who it is not for" in html
+    assert html.count('class="lst-faq-item"') == 5
+    assert html.count("<li>") >= 3
+    # one CTA text in five places: header, after items 2 and 4, closing, sticky
+    assert html.count(">See the models<") == 5
 
     page_json = json.loads((tmp_path / "listicle" / "page.json").read_text())
     assert page_json == page
 
 
-def test_render_listicle_page_downloads_used_item_images(tmp_path):
+def test_render_omits_pull_quote_hsa_and_rating_when_the_facts_pack_has_none(tmp_path):
+    html = _render(_listicle_page(), tmp_path).read_text()
+    assert "HSA" not in html
+    assert 'class="lst-quote"' not in html
+    assert 'class="lst-sticky-proof"' not in html
+    assert 'class="lst-models"' not in html
+    # the CTA still renders in all five places; only the unverified lines go
+    assert html.count(">See the models<") == 5
+    # free shipping is verified here, so the trust line survives
+    assert 'class="lst-trust"' in html
+
+
+def test_render_omits_the_trust_line_entirely_when_nothing_is_verified(tmp_path):
+    facts = {**FACTS_PACK, "verified_claims": [FACTS_PACK["verified_claims"][0]]}
+    page = _listicle_page()
+    page["closing"]["recap"][2] = {"text": "The cabin goes where you have room."}
+    html = _render(page, tmp_path, facts_pack=facts).read_text()
+    assert 'class="lst-trust"' not in html
+
+
+def test_the_sticky_bar_is_inside_the_cartridge_wrapper_not_base_html(tmp_path):
+    html = _render(_listicle_page(), tmp_path).read_text()
+    assert 'class="lst-sticky"' in html
+    wrapper_start = html.index('class="pk-lp')
+    wrapper_end = html.index("</div>\n\n<script>")
+    assert wrapper_start < html.index('class="lst-sticky"') < wrapper_end
+    # base.html is untouched: the sticky bar is not in the shared template
+    assert "lst-sticky" not in (REPO_ROOT / "harness" / "templates" / "base.html").read_text()
+
+
+def test_the_sticky_bar_is_visible_without_javascript(tmp_path):
+    html = _render(_listicle_page(), tmp_path).read_text()
+    # no hidden class in the markup: the script adds it, so no-JS = visible
+    assert 'class="lst-sticky" data-lst-sticky' in html
+    assert "lst-sticky--hidden" in html  # the CSS rule and the script exist
+    assert "bar.classList.add('lst-sticky--hidden')" in html
+
+
+def test_micro_ctas_render_after_items_two_and_four(tmp_path):
+    html = _render(_listicle_page(), tmp_path).read_text()
+    assert html.count('class="lst-micro-cta"') == 2
+    first = html.index('class="lst-micro-cta"')
+    assert html.count('class="lst-h2"', 0, first) == 2
+
+
+def test_alternating_bands_render(tmp_path):
+    html = _render(_listicle_page(), tmp_path).read_text()
+    assert html.count('class="lst-item lst-item--soft"') == 2  # items 2 and 4 of 5
+    assert "lst-band--soft" in html
+
+
+def test_render_listicle_page_downloads_the_hero_and_every_item_image(tmp_path):
     downloaded = {}
     image_bytes = _make_image_bytes(600, 600)
 
@@ -252,25 +649,20 @@ def test_render_listicle_page_downloads_used_item_images(tmp_path):
         downloaded[url] = downloaded.get(url, 0) + 1
         return image_bytes
 
-    out_dir = tmp_path / "listicle"
-    index_path = render_page(
-        cartridge_name="listicle",
-        page=_listicle_page(n_items=5),
-        ad_brief=AD_BRIEF,
-        facts_pack=FACTS_PACK,
-        cartridges_dir=REPO_ROOT / "cartridges",
-        brand_dir=tmp_path / "brand-does-not-exist",
-        templates_dir=REPO_ROOT / "harness" / "templates",
-        out_dir=out_dir,
-        published="2026-09-10",
-        updated="2026-09-10",
-        fetch_url=fake_fetch_url,
-    )
-    html = index_path.read_text()
-    # Cycle 31: the five reasons now use five distinct asset ids
-    # (docs/IMAGES-AUDIT-2026-09-14.md problem 3 -- a page may not reuse the
-    # same asset id in two slots), so five distinct urls are fetched, each
-    # exactly once -- download_asset's own iteration over assets_by_id
-    # (keyed by asset id) already guarantees no id is ever re-fetched.
-    assert downloaded == {f"https://cdn.shopify.com/fuji-{i}.png": 1 for i in range(1, 6)}
+    html = _render(_listicle_page(), tmp_path, download_assets=True, fetch_url=fake_fetch_url).read_text()
+    assert downloaded == {f"https://cdn.shopify.com/fuji-{i}.png": 1 for i in range(1, 7)}
     assert 'src="assets/asset-1-480.jpg"' in html
+    assert html.count('loading="lazy"') == 5
+    assert html.count('loading="eager"') == 1
+
+
+def test_shopify_body_export_keeps_the_sticky_bar_and_the_bands(tmp_path):
+    _render(_listicle_page(), tmp_path)
+    body, _manifest = build_shopify_body(tmp_path / "listicle")
+    assert 'class="lst-sticky"' in body
+    assert "lst-band--soft" in body
+    assert "lst-item--soft" in body
+    assert ".lst-sticky{position:fixed" in body
+    # the classed <header> band survives as a div (cycle 40), no bare chrome tags
+    assert '<div class="lst-measure pk-reveal"' in body
+    assert "<header" not in body and "</header>" not in body

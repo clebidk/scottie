@@ -12,6 +12,7 @@ from .design_skills import LANDING_CARTRIDGES
 from .design_skills.design_md import design_reference_guidance_lines
 from .errors import WriterFailed
 from .jsonutil import extract_json
+from . import listicle
 from . import tenant as tenant_mod
 from . import vocab
 
@@ -413,6 +414,20 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
         )
 
 
+# Cycle 41: the listicle cartridge writes in one of five styles, resolved
+# once per run (harness/listicle.py's resolve_style). The style's headline
+# formula and item pattern go into the writer's own hard constraints so the
+# prompt states exactly what harness/listicle.find_listicle_violations will
+# then measure. No-op for every other cartridge, and for a listicle run with
+# no style resolved (the gate still rejects a page with no valid style).
+def _append_listicle_style_guidance(hard_constraints, cartridge_name, style):
+    if cartridge_name != "listicle":
+        return
+    hard_constraints.extend(listicle.writer_rules_lines())
+    if style:
+        hard_constraints.extend(listicle.writer_style_lines(style))
+
+
 def _warmup_window_words(tenant):
     window = tenant.get("cartridges.article.warmup_window_words")
     if not isinstance(window, int) or window <= 0:
@@ -561,7 +576,7 @@ def _content_len(content):
 # revision_note -- attempt 1 never has one either way.
 def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, model,
                                  word_range=None, allowed_cta_texts=None, ad_not_repeated=None,
-                                 tenant=None):
+                                 tenant=None, listicle_style=None):
     """(schema, kwargs) -- schema so the caller can validate_schema() the
     parsed response the same way write_page does; kwargs is ready to pass to
     client.messages.create(**kwargs) or wrap in a batch Request's params."""
@@ -574,6 +589,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
+    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
     kwargs = {
@@ -588,7 +604,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
-               tenant=None):
+               tenant=None, listicle_style=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -619,6 +635,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
+    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification

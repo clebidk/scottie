@@ -127,8 +127,18 @@ def test_above_fold_links_article_flags_two_links_in_the_first_paragraph():
     assert find_above_fold_link_violations(page_second_para, "article") == []
 
 
-def test_above_fold_links_listicle_flags_two_links_in_the_proof_row():
-    page = {"headline": "x", "dek": "y", "proof_row": [{"url": "https://a"}, {"url": "https://b"}]}
+def test_above_fold_links_listicle_passes_with_only_the_hero_cta():
+    # Cycle 41: listicle v0.2's fold is the header stack -- hero image, the
+    # one primary CTA, and a renderer-built trust line that never appears in
+    # page.json. One cta_url is exactly the one link allowed.
+    page = {"headline": "x", "dek": "y", "hero": {"asset_id": "a"},
+            "cta_url": "https://example.com/collections/all"}
+    assert find_above_fold_link_violations(page, "listicle") == []
+
+
+def test_above_fold_links_listicle_flags_a_second_link_in_the_header():
+    page = {"headline": "x", "dek": "y", "cta_url": "https://example.com/collections/all",
+            "hero": {"asset_id": "a", "url": "https://example.com/other"}}
     assert find_above_fold_link_violations(page, "listicle") != []
 
 

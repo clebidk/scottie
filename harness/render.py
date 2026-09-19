@@ -20,6 +20,7 @@ from PIL import Image
 from . import blocks
 from . import ground as ground_mod
 from . import ingest
+from . import listicle as listicle_mod
 from . import pagechecks
 from . import tenant as tenant_mod
 from .textutil import safe_filename, walk_page
@@ -794,6 +795,15 @@ def render_page(
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 
+    # Cycle 41 (listicle v0.2): the sections a reader sees but the writer
+    # never writes -- the header's trust line, the pull-quote band, the model
+    # picker, the closing HSA/FSA line and the sticky bar's rating line.
+    # Every one is derived from facts_pack alone (harness/listicle.py), so
+    # "omitted when this run verified nothing" is structural: there is no
+    # page.json field to invent one in. Empty for every other cartridge, whose
+    # templates never read it.
+    cartridge_data = listicle_mod.render_context(facts_pack) if cartridge_name == "listicle" else {}
+
     # Cycle 27: same self-contained-folder treatment as an ad asset (Fix 8
     # above) -- the logo is brand data, not something download_asset's
     # facts_pack.assets loop ever sees, so it's copied in on its own.
@@ -830,6 +840,8 @@ def render_page(
         published=published,
         updated=updated,
         cartridge=cartridge_name,
+        cartridge_data=cartridge_data,
+        micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
         tenant_name=tenant.display_name,
         # Kimi long-run phase 3: a cartridge template composes a block with
