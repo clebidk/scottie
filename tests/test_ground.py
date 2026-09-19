@@ -5,6 +5,7 @@ from tests.support import TENANT
 from harness.ground import select_listicle_pack_assets
 from harness.ground import full_asset_pool
 from harness.ground import (
+    _all_page_asset_ids,
     _match_asset_token_weights,
     _match_score,
     _match_tags_from_note,
@@ -729,6 +730,61 @@ def test_match_images_to_text_ties_keep_the_writers_original_choice(tmp_path):
     result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
     assert result == {"matches": []}
     assert page["reasons"][0]["image"]["asset_id"] == "a-current"
+
+
+def test_match_images_to_text_listicle_hero_is_a_matched_slot_too(tmp_path):
+    # Cycle 44 regression: the listicle hero (page.hero.asset_id, cycle
+    # 41) has to be a slot _match_slots itself considers, using the
+    # page's headline/dek as context -- before this fix it was invisible
+    # to match_images_to_text entirely, which is how a reason slot could
+    # end up duplicating the hero's own asset_id (see the next test).
+    _set_active_review(tmp_path, {
+        "a-hero": {"alt": "Sauna cabin exterior on a wooden deck.", "note": "tags: exterior, deck", "excluded": False},
+    })
+    assets = [{"id": "a-writer-hero", "kind": "lifestyle"}, {"id": "a-hero", "kind": "exterior"}]
+    page = {
+        "headline": "Bring the spa home", "dek": "A real sauna exterior on your own deck",
+        "hero": {"asset_id": "a-writer-hero"},
+        "reasons": [],
+    }
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert page["hero"]["asset_id"] == "a-hero"
+    assert result["matches"] == [{
+        "path": "hero", "old_id": "a-writer-hero", "new_id": "a-hero",
+        "score": 11, "matched_tokens": ["deck", "exterior", "sauna"],
+    }]
+
+
+def test_match_images_to_text_never_duplicates_the_listicle_hero(tmp_path):
+    # The exact cycle-44 bug: reason 1's context best-matches the same
+    # asset already sitting in the page's own hero slot. Before the fix,
+    # used_ids was only ever seeded from the slots _match_slots iterates
+    # (reasons[].image alone, for listicle) -- the hero id was invisible
+    # to it, so reason 1 could be handed the same id the hero already
+    # holds. Now used_ids is seeded from every asset_id on the page, so
+    # reason 1 must fall back to its own next-best (or unchanged) pick,
+    # and the page must end up with no duplicate asset_id anywhere.
+    _set_active_review(tmp_path, {
+        "a-panel": {"alt": "Red light panel close-up on wooden wall.", "note": "tags: panel", "excluded": False},
+    })
+    assets = [
+        {"id": "a-writer-reason1", "kind": "lifestyle"},
+        {"id": "a-panel", "kind": "installation"},
+    ]
+    page = {
+        "headline": "x", "dek": "y",
+        "hero": {"asset_id": "a-panel"},  # hero already holds the asset reason 1 would otherwise win
+        "reasons": [
+            {"heading": "Red light panel", "text": "red light panel mounted on the wall",
+             "image": {"asset_id": "a-writer-reason1"}},
+        ],
+    }
+    match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert page["hero"]["asset_id"] == "a-panel"
+    assert page["reasons"][0]["image"]["asset_id"] != "a-panel"
+    assert _all_page_asset_ids(page) == {"a-panel", page["reasons"][0]["image"]["asset_id"]}
+    ids = [page["hero"]["asset_id"], page["reasons"][0]["image"]["asset_id"]]
+    assert len(ids) == len(set(ids))  # no duplicate anywhere on the page
 
 
 def test_match_images_to_text_never_introduces_a_duplicate_on_the_page(tmp_path):

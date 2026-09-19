@@ -1,5 +1,5 @@
 {
-  "run_id": "20260914-100311-founder-warranty-demo-l6fo",
+  "run_id": "20260919-030040-founder-warranty-demo-eobr",
   "tenant": "peak-saunas",
   "fixture": "founder-warranty-demo.txt",
   "seed": 42,
@@ -8,6 +8,6 @@
     "product-page",
     "longform"
   ],
-  "captured_at": "2026-09-14",
+  "captured_at": "2026-09-19",
   "note": "page.json files are the byte-stable regression reference; manifest dates and run ids are not."
 }

@@ -436,12 +436,18 @@ def _match_slots(page, cartridge_name):
     per-image structural link to a specific paragraph -- the closest
     non-guessing reading of "the paragraph nearest the image" the schema
     allows), longform's `hero.hero_image` + `how_it_works.steps[].image`,
-    product-page's `hero.hero_image`, and listicle's `reasons[].image`.
+    product-page's `hero.hero_image`, and listicle's own header `hero`
+    slot (cycle 41's page.hero.asset_id, context = headline + dek) plus
+    `reasons[].image`.
     Mirrors ground.hero_container's own per-cartridge knowledge rather than
     a blind page.json walk, since which text belongs to which slot is a
     per-schema judgment call."""
     slots = []
     if cartridge_name == "listicle":
+        hero = page.get("hero")
+        if isinstance(hero, dict) and "asset_id" in hero:
+            context = f"{page.get('headline', '')} {page.get('dek', '')}".strip()
+            slots.append(("hero", hero, context))
         for i, reason in enumerate(page.get("reasons") or []):
             if not isinstance(reason, dict):
                 continue
@@ -480,6 +486,18 @@ def _match_slots(page, cartridge_name):
     return slots
 
 
+def _all_page_asset_ids(page):
+    """Every asset_id referenced anywhere in page.json -- mirrors
+    render.collect_asset_ids exactly (both walk_page(page) with no
+    skip_keys), duplicated here rather than imported since render.py
+    imports ground as ground_mod (importing back would be circular)."""
+    ids = set()
+    for _path, node in walk_page(page):
+        if isinstance(node, dict) and node.get("asset_id"):
+            ids.add(node["asset_id"])
+    return ids
+
+
 def match_images_to_text(page, assets, *, cartridge_name, exclude_ids=frozenset(), allow_ai_renders):
     """Render-time content backstop, run right after enforce_slot_plan (see
     render.render_page): swaps a slot's asset_id for a better-matching
@@ -511,10 +529,12 @@ def match_images_to_text(page, assets, *, cartridge_name, exclude_ids=frozenset(
         return {"matches": []}
 
     by_id = {a["id"]: a for a in assets}
-    used_ids = set(exclude_ids)
-    for _path, node, _context in slots:
-        if node.get("asset_id"):
-            used_ids.add(node["asset_id"])
+    # Every asset id anywhere on the page (not just the slots this pass
+    # edits) counts as occupied -- otherwise a swap could duplicate an id
+    # sitting in a slot _match_slots doesn't iterate (e.g. the listicle
+    # hero before it was added above, or any future slot this feature
+    # hasn't been taught about yet).
+    used_ids = set(exclude_ids) | _all_page_asset_ids(page)
 
     matches = []
     for path, node, context_text in slots:
