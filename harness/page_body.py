@@ -16,6 +16,35 @@ from pathlib import Path
 
 from . import tenant as tenant_mod
 
+_ROOT_BLOCK_RE = re.compile(r":root\s*\{([^}]*)\}", re.DOTALL)
+
+
+def token_css(tenant=None):
+    """Cycle 48: the design tokens a rendered page gets from its document
+    HEAD -- harness/structure.css's `:root{--adv-*}` defaults and the tenant's
+    brand/base.css `:root{--ps-*}` brand values -- re-scoped to `.adv-wrap`,
+    the export's root element, so they travel INSIDE the body `<style>` that
+    a storefront keeps. Without this every `var(--ps-accent, var(--adv-accent))`
+    in a cartridge resolves to nothing on the storefront: the CTA buttons on
+    ten live pages rendered with a transparent background and white text
+    (2026-09-19). Order matters: harness defaults first, brand values after,
+    so a brand token overrides a default of the same name."""
+    tenant = tenant or tenant_mod.active()
+    sources = [Path(__file__).resolve().parent / "structure.css"]
+    brand_dir = getattr(tenant, "brand_dir", None)
+    if brand_dir:
+        sources.append(Path(brand_dir) / "base.css")
+    blocks = []
+    for path in sources:
+        if not path.exists():
+            continue
+        for match in _ROOT_BLOCK_RE.finditer(path.read_text()):
+            declarations = " ".join(line.strip() for line in match.group(1).strip().splitlines() if line.strip())
+            if declarations:
+                blocks.append(".adv-wrap{" + declarations + "}")
+    return "\n".join(blocks)
+
+
 def full_bleed_css(tenant=None):
     """The tenant theme's own full-bleed rules (tenant.yaml's
     theme.full_bleed_css), pasted verbatim at the top of the output.
@@ -242,9 +271,13 @@ def build_shopify_body(cartridge_dir):
     body = relativize_internal_links(body).strip()
 
     theme_css = full_bleed_css()
+    tokens = token_css()
     style_block = "<style>\n" + theme_css
-    if page_css:
-        style_block += ("\n\n" if theme_css else "") + page_css
+    # theme rules first (tests and operators expect the export to open with
+    # them), then the re-scoped head tokens, then the cartridge's own CSS.
+    for chunk in (tokens, page_css):
+        if chunk:
+            style_block += ("\n\n" if style_block.rstrip("\n") != "<style>" else "") + chunk
     style_block += "\n</style>"
 
     parts = [style_block, body]

@@ -374,3 +374,22 @@ def test_cmd_shopify_body_errors_without_an_index_html(tmp_path, capsys):
     args = argparse.Namespace(cartridge_dir=str(empty_dir), tenant=None)
     assert cmd_shopify_body(args) == 1
     assert "no index.html" in capsys.readouterr().err
+
+
+def test_shopify_body_carries_head_tokens_rescoped_to_the_wrapper(tmp_path):
+    """Cycle 48: storefronts keep only body <style>; the head's :root tokens
+    (harness defaults + brand/base.css) must be re-emitted on .adv-wrap or
+    every var(--ps-*, var(--adv-*)) in a cartridge resolves to nothing."""
+    from harness import page_body
+
+    class _T:
+        brand_dir = tmp_path / "brand"
+        def get(self, key, default=None):
+            return default
+    _T.brand_dir.mkdir()
+    (_T.brand_dir / "base.css").write_text(":root{\n  --ps-accent:#123456; /* brand */\n  --ps-text:#111;\n}\n.other{color:red}\n")
+    css = page_body.token_css(_T())
+    assert ".adv-wrap{--ps-accent:#123456; /* brand */ --ps-text:#111;}" in css
+    assert "--adv-accent" in css  # harness/structure.css defaults travel too
+    assert css.index("--adv-accent") < css.index("--ps-accent")  # brand overrides defaults
+    assert ".other" not in css
