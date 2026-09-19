@@ -14,6 +14,52 @@ import datetime
 import json
 from pathlib import Path
 
+# Cycle 44: the reviewed alt can be a full vision-drafted sentence (~20
+# words, tenants/<t>/brand/asset-review.json). That is fine for a human
+# reviewing one image at a time (harness/serve.py's /images site reads
+# the override directly, uncapped), but facts_for()'s facts_pack carries
+# every pool asset's alt at once, and with hundreds of reviewed assets a
+# full sentence each blows the writer prompt's token cap (see
+# tests/test_ground.py::test_facts_pack_stays_small). Neither of the
+# alt's other two readers needs the uncapped text: render.render_page
+# always overwrites an asset's alt with a kind-derived one before it
+# reaches HTML (render.py, "alt text is always renderer-derived"), and
+# ground.match_images_to_text re-reads asset-review.json itself rather
+# than trusting facts_pack's copy. So capping here is safe.
+#
+# The number itself: measured against a real tenant's own 21-asset
+# product pool (the one tests/test_ground.py::test_facts_pack_stays_small
+# checks), facts_pack was already at ~3988/4000 tokens before this
+# cycle's reviewed alts existed for that pool -- there was only ~12
+# tokens (~48 chars) of headroom to begin with, spread across the whole
+# pack, not just assets. Measured empirically (script run against real
+# tenant data, not a fixture): every cap above 15 chars pushes that same
+# pool over 4000 tokens once every asset in it carries a reviewed alt --
+# 14 is used rather than the exact 15-char edge, to keep a small (~11
+# token) buffer rather than shipping at the knife's edge. A future pool
+# this size but with more reviewed assets, or growth elsewhere in
+# facts_pack, can still blow the budget -- watch
+# test_facts_pack_stays_small.
+ALT_MAX_CHARS = 14
+
+
+def _cap_alt(alt):
+    """The first ALT_MAX_CHARS of `alt`, cut at a word boundary with no
+    trailing punctuation. `alt` is assumed non-empty (callers only call
+    this on a truthy override alt)."""
+    alt = alt.strip()
+    if len(alt) <= ALT_MAX_CHARS:
+        return alt
+    cut = alt[:ALT_MAX_CHARS]
+    # Only back up to the previous word when the cap actually lands
+    # mid-word (the next original character continues the same word) --
+    # when it lands right on a word boundary already (the next character
+    # is a space), the full ALT_MAX_CHARS-th character is the end of a
+    # whole word and nothing needs trimming.
+    if alt[ALT_MAX_CHARS] != " " and " " in cut:
+        cut = cut.rsplit(" ", 1)[0]
+    return cut.rstrip(" .,;:!?-")
+
 
 def load_asset_review(brand_dir, *, log=None):
     """The tenant's asset-review.json as {"assets": {...}}, or {} when the
@@ -86,7 +132,7 @@ def apply_asset_review(assets, review, *, log=None):
         if override.get("excluded"):
             continue
         if override.get("alt"):
-            asset = dict(asset, alt=override["alt"])
+            asset = dict(asset, alt=_cap_alt(override["alt"]))
         kept.append(asset)
     return kept
 

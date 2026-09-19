@@ -4,6 +4,7 @@ applier/writer used by ground.LocalFactsSource.facts_for and harness/serve.py's
 """
 import json
 
+from harness import asset_review as asset_review_mod
 from harness.asset_review import apply_asset_review, load_asset_review, save_asset_review
 
 
@@ -94,3 +95,65 @@ def test_save_asset_review_writes_atomically_no_tmp_file_left(tmp_path):
     save_asset_review(tmp_path, review)
     assert json.loads((tmp_path / "asset-review.json").read_text()) == review
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+# ---------------------------------------------------------------------------
+# Cycle 44: apply_asset_review caps the alt it hands to facts_for()'s
+# facts_pack (harness/asset_review.py's _cap_alt/ALT_MAX_CHARS) -- a
+# reviewed alt can run to a full vision-drafted sentence, and with
+# hundreds of reviewed assets that blows the writer prompt's token cap
+# (tests/test_ground.py::test_facts_pack_stays_small).
+# ---------------------------------------------------------------------------
+
+def test_cap_alt_leaves_an_alt_under_the_cap_unchanged():
+    assert asset_review_mod._cap_alt("Fuji sauna") == "Fuji sauna"
+
+
+def test_cap_alt_truncates_to_at_most_the_cap():
+    long_alt = (
+        "Close-up of red light therapy panel mounted on a wooden wall "
+        "inside the sauna interior."
+    )
+    capped = asset_review_mod._cap_alt(long_alt)
+    assert len(capped) <= asset_review_mod.ALT_MAX_CHARS
+
+
+def test_cap_alt_never_cuts_a_word_in_half():
+    long_alt = (
+        "Close-up of red light therapy panel mounted on a wooden wall "
+        "inside the sauna interior."
+    )
+    capped = asset_review_mod._cap_alt(long_alt)
+    # capped is a verbatim prefix of the original, and the very next
+    # original character (if there is one) starts a new word rather than
+    # continuing the last one -- never a mid-word cut.
+    assert long_alt.startswith(capped)
+    next_char = long_alt[len(capped):len(capped) + 1]
+    assert next_char in ("", " ")
+
+
+def test_cap_alt_strips_trailing_punctuation_left_by_the_cut():
+    # "A red light panel," is exactly 18 chars -- with the cap set there,
+    # the cut lands right on a word boundary (the next original char is a
+    # space, so nothing gets backed up) but keeps the comma, which the
+    # final rstrip must still drop.
+    original_cap = asset_review_mod.ALT_MAX_CHARS
+    asset_review_mod.ALT_MAX_CHARS = 18
+    try:
+        capped = asset_review_mod._cap_alt("A red light panel, mounted on the wall.")
+    finally:
+        asset_review_mod.ALT_MAX_CHARS = original_cap
+    assert capped == "A red light panel"
+    assert not capped.endswith((",", ".", ";", ":", "-"))
+
+
+def test_apply_asset_review_caps_a_long_override_alt():
+    long_alt = (
+        "Close-up of red light therapy panel mounted on a wooden wall "
+        "inside the sauna interior."
+    )
+    assets = [{"id": "a1", "alt": "default"}]
+    review = {"assets": {"a1": {"alt": long_alt}}}
+    kept = apply_asset_review(assets, review)
+    assert kept[0]["alt"] == asset_review_mod._cap_alt(long_alt)
+    assert len(kept[0]["alt"]) <= asset_review_mod.ALT_MAX_CHARS
