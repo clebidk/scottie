@@ -4,6 +4,7 @@ care whether facts came from the local JSON files or (later) g Brain.
 """
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Protocol
 
@@ -309,6 +310,262 @@ def enforce_slot_plan(page, all_assets, cartridge_name, *, allow_ai_renders, exc
         if asset_id:
             used.add(asset_id)
     return used
+
+
+# ---------------------------------------------------------------------------
+# Cycle 42: paragraph-to-image matching (deterministic, no model call). Runs
+# right after enforce_slot_plan (see render.render_page): where that function
+# only fixes selection-POLICY violations (a never-eligible kind, a repeat, a
+# disallowed ai_render), this one asks a content question -- does the image
+# next to a paragraph actually show what the paragraph talks about? -- by
+# scoring token overlap between the slot's own heading+body text and each
+# candidate asset's reviewed alt/tags (tenants/<t>/brand/asset-review.json,
+# harness/asset_review.py / harness/asset_describe.py) plus its kind/title.
+#
+# A no-op for a tenant with no reviewed alt text at all: with nothing to
+# score against, guessing from kind/title alone would just as often make the
+# writer's own pick worse, not better, so behaviour for an unreviewed tenant
+# stays byte-for-byte unchanged.
+# ---------------------------------------------------------------------------
+
+_MATCH_STOPWORDS = frozenset({
+    "a", "an", "the", "and", "or", "but", "of", "in", "on", "at", "to", "for",
+    "with", "is", "are", "was", "were", "be", "been", "being", "this", "that",
+    "these", "those", "it", "its", "as", "by", "from", "your", "you", "our",
+    "we", "their", "they", "into", "over", "up", "out",
+})
+
+_MATCH_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# Score an asset needs to beat the writer's own pick by (never just tie it)
+# before match_images_to_text will swap a slot's asset_id.
+MATCH_REPLACE_THRESHOLD = 2
+
+_TAGS_NOTE_RE = re.compile(r"tags:\s*(.+)$", re.IGNORECASE)
+
+
+def _match_tokenize(text):
+    """Lower-cased word tokens from `text`, stopwords dropped, a trailing
+    plural "s" stripped from any token longer than 3 characters (so "panels"
+    and "panel" collapse to one token) -- a token-overlap heuristic, not real
+    stemming, so "ss"-ending words (glass, etc.) are left alone rather than
+    mangled."""
+    tokens = []
+    for word in _MATCH_TOKEN_RE.findall((text or "").lower()):
+        if word in _MATCH_STOPWORDS:
+            continue
+        if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+            word = word[:-1]
+        tokens.append(word)
+    return tokens
+
+
+def _match_tags_from_note(note):
+    """The tag list out of an asset-review.json override's own `note` field
+    (harness/asset_describe.py writes `"...; tags: exterior, close-up, ..."`
+    there -- see docs/IMAGES.md). [] when `note` carries no "tags:" suffix at
+    all (a human reviewer's free-text note, or no note)."""
+    if not note:
+        return []
+    m = _TAGS_NOTE_RE.search(note)
+    if not m:
+        return []
+    return [t.strip() for t in m.group(1).split(",") if t.strip()]
+
+
+def _match_asset_token_weights(asset, override):
+    """token -> weight for one candidate asset's searchable text: the
+    REVIEWED alt and its tags (weight 2 each -- the specific, human/vision-
+    written signal) plus the asset's own kind/title (weight 1 each -- a much
+    weaker, generic fallback). Deliberately never falls back to the asset's
+    default/renderer-derived alt (e.g. "<product> – lifestyle photo"): that text
+    is the same boilerplate on every asset of a kind, so scoring it would
+    just reward matching the kind twice rather than adding real signal."""
+    weights = Counter()
+    override = override or {}
+    for tok in _match_tokenize(override.get("alt") or ""):
+        weights[tok] += 2
+    for tag in _match_tags_from_note(override.get("note")):
+        for tok in _match_tokenize(tag.replace("-", " ")):
+            weights[tok] += 2
+    for tok in _match_tokenize(asset.get("kind") or ""):
+        weights[tok] += 1
+    for tok in _match_tokenize(asset.get("title") or ""):
+        weights[tok] += 1
+    return weights
+
+
+def _match_score(asset, override, context_tokens):
+    """(score, matched_tokens) for one candidate against one slot's context.
+    +1 more when the asset's own `model` field (not carried by facts_for()'s
+    capped assets today -- see docs/IMAGES.md's "Paragraph-to-image
+    matching" section -- but checked defensively so this activates on its
+    own if that ever changes) is itself named in the context text."""
+    weights = _match_asset_token_weights(asset, override)
+    matched = {tok for tok in weights if tok in context_tokens}
+    score = sum(weights[tok] for tok in matched)
+    model = (asset.get("model") or "").strip().lower()
+    if model and model in context_tokens:
+        score += 1
+        matched.add(model)
+    return score, matched
+
+
+def _match_section_context(section):
+    """heading/title + body text of a page.json section-shaped dict (a
+    listicle reason, a longform step, an article body_section) -- "" for
+    anything else, so a missing/malformed section never crashes the walk."""
+    if not isinstance(section, dict):
+        return ""
+    heading = section.get("heading") or section.get("title") or ""
+    parts = [heading]
+    if section.get("text"):
+        parts.append(section["text"])
+    for p in section.get("paragraphs") or []:
+        if isinstance(p, dict) and p.get("text"):
+            parts.append(p["text"])
+    return " ".join(parts).strip()
+
+
+def _match_slots(page, cartridge_name):
+    """(slot path, page.json node holding "asset_id", context text) for
+    every image slot this feature covers -- the same four the brief scopes
+    it to (docs/IMAGES.md): article's `images[]` (paired with the
+    body_section at the same index, since images render immediately after
+    body_sections in cartridges/article/template.html and article has no
+    per-image structural link to a specific paragraph -- the closest
+    non-guessing reading of "the paragraph nearest the image" the schema
+    allows), longform's `hero.hero_image` + `how_it_works.steps[].image`,
+    product-page's `hero.hero_image`, and listicle's `reasons[].image`.
+    Mirrors ground.hero_container's own per-cartridge knowledge rather than
+    a blind page.json walk, since which text belongs to which slot is a
+    per-schema judgment call."""
+    slots = []
+    if cartridge_name == "listicle":
+        for i, reason in enumerate(page.get("reasons") or []):
+            if not isinstance(reason, dict):
+                continue
+            image = reason.get("image")
+            if isinstance(image, dict):
+                slots.append((f"reasons[{i}].image", image, _match_section_context(reason)))
+    elif cartridge_name == "longform":
+        hero = page.get("hero") or {}
+        hero_image = hero.get("hero_image")
+        if isinstance(hero_image, dict):
+            context = f"{hero.get('headline', '')} {hero.get('subhead', '')}".strip()
+            slots.append(("hero.hero_image", hero_image, context))
+        for i, step in enumerate((page.get("how_it_works") or {}).get("steps") or []):
+            if not isinstance(step, dict):
+                continue
+            image = step.get("image")
+            if isinstance(image, dict):
+                slots.append((f"how_it_works.steps[{i}].image", image, _match_section_context(step)))
+    elif cartridge_name == "product-page":
+        hero = page.get("hero") or {}
+        hero_image = hero.get("hero_image")
+        if isinstance(hero_image, dict):
+            # product-page's hero has no "headline" field of its own
+            # (cartridges/product-page/schema.json) -- product_name +
+            # promise are the two fields that actually carry the page's
+            # own descriptive text.
+            context = f"{hero.get('product_name', '')} {hero.get('promise', '')}".strip()
+            slots.append(("hero.hero_image", hero_image, context))
+    elif cartridge_name == "article":
+        sections = page.get("body_sections") or []
+        for i, img in enumerate(page.get("images") or []):
+            if not isinstance(img, dict):
+                continue
+            section = sections[min(i, len(sections) - 1)] if sections else None
+            slots.append((f"images[{i}]", img, _match_section_context(section)))
+    return slots
+
+
+def match_images_to_text(page, assets, *, cartridge_name, exclude_ids=frozenset(), allow_ai_renders):
+    """Render-time content backstop, run right after enforce_slot_plan (see
+    render.render_page): swaps a slot's asset_id for a better-matching
+    candidate when one clearly beats the writer's own pick on token overlap
+    with the slot's own heading+body text, against each candidate's REVIEWED
+    alt/tags (never the generic default alt -- see
+    _match_asset_token_weights) plus kind/title. Mutates `page` in place
+    (asset_id fields only, same contract as enforce_slot_plan) and returns
+    `{"matches": [{"path", "old_id", "new_id", "score", "matched_tokens"},
+    ...]}` for the caller to log and persist (render.render_page writes
+    these into <run_dir>/.image-selection.json via record_image_matches).
+
+    A no-op (`{"matches": []}`) whenever the tenant has no reviewed alt text
+    anywhere -- see the module docstring above this section. Never
+    introduces a duplicate asset_id within this page or against
+    `exclude_ids` (ids another cartridge in this run already used), and
+    never selects a never-eligible kind or a disallowed ai_render -- the
+    same eligibility rules enforce_slot_plan applies. A candidate must score
+    at least MATCH_REPLACE_THRESHOLD AND strictly beat the current pick's
+    own score to replace it; a tie keeps the writer's original choice."""
+    tenant = tenant_mod.active()
+    review = asset_review.load_asset_review(tenant.brand_dir)
+    overrides = (review or {}).get("assets") or {}
+    if not any((o.get("alt") or "").strip() for o in overrides.values()):
+        return {"matches": []}
+
+    slots = _match_slots(page, cartridge_name)
+    if not slots:
+        return {"matches": []}
+
+    by_id = {a["id"]: a for a in assets}
+    used_ids = set(exclude_ids)
+    for _path, node, _context in slots:
+        if node.get("asset_id"):
+            used_ids.add(node["asset_id"])
+
+    matches = []
+    for path, node, context_text in slots:
+        context_tokens = set(_match_tokenize(context_text))
+        if not context_tokens:
+            continue
+        current_id = node.get("asset_id")
+        current_asset = by_id.get(current_id)
+        if current_asset is None:
+            continue  # enforce_slot_plan already backstops a missing/bad id
+
+        best_score, _ = _match_score(current_asset, overrides.get(current_id), context_tokens)
+        best_asset, best_tokens = None, set()
+        for asset in assets:
+            asset_id = asset["id"]
+            if asset_id == current_id or asset_id in used_ids:
+                continue
+            if asset.get("kind") in HERO_NEVER_KINDS:
+                continue
+            if asset.get("ai_generated") and not allow_ai_renders:
+                continue
+            score, matched_tokens = _match_score(asset, overrides.get(asset_id), context_tokens)
+            if score > best_score:
+                best_score, best_asset, best_tokens = score, asset, matched_tokens
+
+        if best_asset is not None and best_score >= MATCH_REPLACE_THRESHOLD:
+            node["asset_id"] = best_asset["id"]
+            used_ids.discard(current_id)
+            used_ids.add(best_asset["id"])
+            matches.append({
+                "path": path, "old_id": current_id, "new_id": best_asset["id"],
+                "score": best_score, "matched_tokens": sorted(best_tokens),
+            })
+    return {"matches": matches}
+
+
+def record_image_matches(run_dir, cartridge_name, matches):
+    """Companion to record_used_asset_ids: writes match_images_to_text's own
+    decisions into the same <run_dir>/.image-selection.json, under a
+    "matches" key keyed by cartridge_name (same overwrite-only-this-
+    cartridge's-own-entry contract as record_used_asset_ids) -- so a
+    reviewer can see why a slot's asset_id changed, not just what it ended
+    up as."""
+    path = Path(run_dir) / _SELECTION_STATE_FILENAME
+    data = load_used_asset_ids(run_dir)
+    all_matches = dict(data.get("matches") or {})
+    all_matches[cartridge_name] = matches
+    data["matches"] = all_matches
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return path
+
 
 def benefit_allowlist_ids(tenant=None):
     """Cleared, product-wide (not per-model) claims every product's facts_pack

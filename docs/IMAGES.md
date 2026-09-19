@@ -194,6 +194,105 @@ logged -- it never fails a run. Thumbnails are downloaded once (`render.download
 into `tenants/<t>/runs/asset-cache/`, resized to 480px with Pillow, and cached next to
 the original; a dead link renders an inline "could not load" placeholder, never a 500.
 
+## 7. Paragraph-to-image matching (cycle 42)
+
+`ground.match_images_to_text(page, assets, *, cartridge_name, exclude_ids, allow_ai_renders)`
+runs right after `enforce_slot_plan` and before `record_used_asset_ids` in
+`render.render_page` (same `download_assets=True` gate) -- deterministic, no model call.
+Where `enforce_slot_plan` only fixes selection-*policy* violations (a never-eligible kind,
+a repeat, a disallowed `ai_render`), this asks a content question: does the image next to a
+paragraph actually show what the paragraph talks about?
+
+**No-op by default.** It reads the active tenant's `asset-review.json`
+(`tenant_mod.active()`, the same fallback `listicle_pack_models`/`benefit_allowlist_ids`
+already use) and does nothing at all -- `page.json` unaffected -- unless at least one asset
+anywhere in the file has a non-empty reviewed `alt`. A tenant that has never used `harness
+images describe` or the `/images` review site sees no behavior change.
+
+**Slots covered**, per cartridge (mirrors `ground.hero_container`'s own per-cartridge
+knowledge):
+
+| Cartridge | Slot(s) | Context text |
+|---|---|---|
+| `article` | `images[i]` | the `body_sections[i]` at the same index (images render immediately after `body_sections` in the template, and article has no per-image structural link to a specific paragraph -- pairing by index is the closest non-guessing reading of "the paragraph nearest the image" the schema allows) |
+| `longform` | `hero.hero_image` | `hero.headline` + `hero.subhead` |
+| `longform` | `how_it_works.steps[i].image` | `steps[i].title` + `steps[i].text` |
+| `product-page` | `hero.hero_image` | `hero.product_name` + `hero.promise` (product-page's hero has no `headline` field of its own) |
+| `listicle` | `reasons[i].image` | `reasons[i].heading` + `reasons[i].text` |
+
+**Scoring.** Each eligible candidate's searchable text is its *reviewed* `alt` (never the
+generic renderer-derived default -- see `render.asset_alt` -- since that text is identical
+boilerplate across every asset of a kind and would just double-reward matching the kind)
+plus the tags parsed out of its review `note` field (weight 2 each), plus the asset's own
+`kind`/`title` (weight 1 each) -- lower-cased, stopwords dropped, a trailing plural "s"
+stripped. +1 more when the asset's own `model` field is itself named in the context text
+(defensive: `facts_for()`'s capped `assets` list doesn't carry a `model` field today --
+`select_drive_assets`/`select_listicle_pack_assets` never added one, and adding one would
+blow `test_facts_pack_stays_small`'s ~4k-token budget, which has almost no headroom left --
+so this bonus is inert until/unless that changes, but is wired correctly for when it does).
+
+A candidate must score at least `MATCH_REPLACE_THRESHOLD` (2) **and** strictly beat the
+writer's current pick's own score to replace it -- a tie keeps the writer's original
+choice. Never introduces a duplicate `asset_id` within the page or against `exclude_ids`
+(ids another cartridge in this run already used), and never selects a `HERO_NEVER_KINDS`
+kind or a disallowed `ai_render`.
+
+**Where decisions land.** `render.render_page` writes the returned `{"matches": [...]}`
+into the same `<run_dir>/.image-selection.json` `record_used_asset_ids` uses, under a
+`"matches"` key keyed by cartridge name (`ground.record_image_matches`) -- each entry is
+`{"path", "old_id", "new_id", "score", "matched_tokens"}`, so a reviewer can see why a slot
+changed. One `log.event("ground", ...)` line is written per replacement.
+
+## 8. `harness images describe` / `harness images pool` (cycle 42)
+
+`harness images describe --tenant <t> --model <slug> [--limit N] [--force] [--dry-run]`
+(`harness/asset_describe.py`) vision-drafts alt text + tags for a model's asset pool and
+writes them into `tenants/<t>/brand/asset-review.json` -- the same file a human reviewer's
+`/images` site save writes, in the same shape, so `ground.apply_asset_review` and
+`ground.match_images_to_text` (section 7 above) treat a vision-drafted entry exactly like a
+reviewer-typed one.
+
+- **Pool**: `ground.full_asset_pool` for the product whose `product_name_slug(name)`
+  matches `--model`, minus anything already `excluded` in `asset-review.json`, minus
+  anything that already has a non-empty reviewed `alt` -- unless `--force`, which also
+  re-describes an already-alt'd asset (an exclusion is never overridden by `--force`).
+- **Download**: reuses `render.download_asset` into the same `tenants/<t>/runs/asset-cache/`
+  the `/images` review site's thumbnails use, then resizes to at most 1200px on the long
+  edge and re-encodes as JPEG in memory with Pillow -- the exact bytes sent to the vision
+  call.
+- **Model**: `tenant.yaml`'s `models.vision` if set, else `claude-haiku-4-5-20251001`.
+  `harness/pricing.py` only prices bare model-family ids (no date suffix); a dated
+  `models.vision` override is matched against the known families by prefix for cost-ledger
+  bookkeeping only (`asset_describe._pricing_model_id`) -- the actual API call always uses
+  the exact configured id.
+- **Prompt**: tenant-neutral, built only from the product's own `name`/`title` (this
+  schema has no separate "category" field) and the tenant's own `vocab.yaml` `emf_terms` --
+  never a hardcoded company or product word. Always says "describe only what is visible; no
+  health claims; never mention EMF"; a tenant's own forbidden terms are appended when its
+  vocab.yaml sets any. `asset_describe.strip_forbidden_terms` is a backstop that removes any
+  forbidden word the model's response used anyway, from both the drafted `name` and `alt`.
+- **Response**: strict JSON `{"name", "alt", "tags"}` -- `tags` is filtered to
+  `asset_describe.ALLOWED_TAGS` (a fixed list); anything else is dropped, not stored. An
+  unparseable or incomplete response skips that one asset (logged) rather than aborting the
+  batch.
+- **Write**: `asset_review.save_asset_review`, atomically, after every 10 described assets
+  and once more for the remainder -- a crash mid-batch keeps most of its progress. Each
+  entry: `alt` (the drafted sentence), `excluded: false` unless already excluded, `note:
+  "alt drafted by vision (<model>); tags: <a>, <b>, ..."`, `by: "vision-draft"`, `at`
+  (`asset_review.now_iso()`).
+- **Spend**: reserved against the tenant's daily cap (`budget.reserve_spend`) *before* a
+  client is even constructed -- a tenant already at/over its cap describes nothing and
+  exits 3, the same as `harness run`/`harness ingest`. Each vision call is tracked through
+  the same per-run `Budget` object and `RunLog`; the actual cost is recorded
+  (`budget.record_spend`) once at the end.
+- **`--dry-run`** lists how many images would be described and an estimated cost
+  (`asset_describe.ESTIMATED_COST_PER_IMAGE_USD`, ≈$0.002/image) and makes no calls.
+- **Summary line**: `described N, skipped M, cost $X.XXXX`.
+
+`harness images pool --tenant <t>` prints per-model `total`/`reviewed`/`excluded`/
+`with-alt` counts across every active product's uncapped pool -- the same totals the
+`/images` review site's own index shows, plus a with-alt column.
+
 ## Dry runs stay exactly as before
 
 `render_page(..., download_assets=False)` -- used by `harness/write.py`'s fast local

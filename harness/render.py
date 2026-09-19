@@ -761,6 +761,24 @@ def render_page(
             page, facts_pack.get("assets", []), cartridge_name,
             allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids,
         )
+        # Cycle 42: deterministic paragraph-to-image matching, over whatever
+        # enforce_slot_plan left in place -- a no-op for a tenant with no
+        # reviewed (human or vision-drafted) alt text at all, see
+        # ground.match_images_to_text's own docstring.
+        match_result = ground_mod.match_images_to_text(
+            page, facts_pack.get("assets", []), cartridge_name=cartridge_name,
+            exclude_ids=exclude_ids, allow_ai_renders=allow_ai_renders,
+        )
+        if match_result.get("matches"):
+            ground_mod.record_image_matches(run_dir, cartridge_name, match_result["matches"])
+            final_used_ids = collect_asset_ids(page)
+            for m in match_result["matches"]:
+                if log:
+                    log.event(
+                        "ground",
+                        f"image match: {m['path']}: {m['old_id']} -> {m['new_id']} "
+                        f"(score={m['score']}, tokens={','.join(m['matched_tokens'])})",
+                    )
         ground_mod.record_used_asset_ids(run_dir, cartridge_name, final_used_ids)
 
     # Fix 8: download each asset the page actually references, into
