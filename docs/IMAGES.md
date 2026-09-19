@@ -69,7 +69,7 @@ for exactly how the audit's problem 6 happened: a hand-written `<img>` on `produ
 simply forgot `loading="lazy"`.
 
 ```jinja
-{{ render_image_slot(asset, hero=False, css_class="", caption=None, sizes=None, aspect_box=True) }}
+{{ render_image_slot(asset, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None) }}
 ```
 
 - **`width`/`height`**: from the asset dict (set by `download_asset` after Pillow decodes
@@ -79,10 +79,16 @@ simply forgot `loading="lazy"`.
   `decoding="async"`.
 - **`alt`**: unchanged from before this cycle -- always renderer-derived
   (`render.asset_alt()`, product short name + kind), never the writer's own field.
-- **`class`**: `adv-img` plus `adv-img--4x3` or `adv-img--1x1` (the aspect box, skipped
-  entirely when `aspect_box=False`), plus `adv-img--hero` on the hero, plus whatever
+- **`class`**: `adv-img` plus `adv-img--contain` or `adv-img--cover` (the object-fit,
+  skipped entirely when `aspect_box=False`), plus `adv-img--hero` on the hero, plus whatever
   `css_class` the caller passed (e.g. `adv-hero-image` for back-compat, `pk-zoom` for
   listicle's scroll-reveal motion).
+- **`style`** (cycle 45): `aspect-ratio:<w> / <h>`, the image's OWN measured ratio, reduced
+  by its gcd (`render.aspect_ratio_css`). Inline on purpose -- the ratio is per-image, and an
+  inline declaration outranks a storefront theme's own `img` rules once
+  `harness shopify-body` drops this markup into a Shopify page body. Omitted when
+  `aspect_box=False`, and when Pillow could not measure the image (a missing box beats a
+  wrong one).
 - **`<figcaption>`**: only when `caption` is given (a writer-supplied `img.caption` field,
   currently only `article`'s `page.images[].caption`) -- wraps the whole thing in
   `<figure>`.
@@ -93,13 +99,31 @@ simply forgot `loading="lazy"`.
   supports encoding WebP -- checked once, cached, by `render._webp_supported()`). One
   `<source type="image/webp" srcset="...">` ahead of the JPEG `<img>` fallback.
 
-### Aspect detection
+### Aspect box and cut-out detection
 
-`render.detect_near_white_border()` samples an 8px strip on each of an image's four edges;
-if the average channel value is >= 245, it's treated as a studio product-cutout-on-white shot
-(`aspect="1x1"`). Everything else defaults to `aspect="4x3"`. Approximate by design -- no
-real background segmentation -- and it only ever picks the CSS box, never which asset gets
-used.
+The box an image renders into is the image's **own** ratio, measured by Pillow on the
+downloaded original and written inline on the tag. Nothing is cropped or stretched, and
+`height: auto` keeps it that way.
+
+Cycle 45 fixed this. Before it, the box was one of two hardcoded ratios chosen by
+`render.detect_near_white_border()` -- a check on an image's *background* being read as a
+claim about its *shape*. A 1067x1600 portrait cut-out was given `aspect-ratio: 1/1` with
+`object-fit: cover` and cropped square (the reviewer's "tall product photo crushed into a
+landscape box"), and a 1024x1024 square was given 4:3.
+
+`detect_near_white_border()` itself is unchanged and still earns its keep, but it now answers
+only the question it was ever able to answer: it samples an 8px strip on each of an image's
+four edges and, if the average channel value is >= 245, reports `cutout: True` -- a studio
+product shot on white. That flag picks **object-fit**, never the ratio and never which asset
+gets used. It is deliberately not stored under `kind`: a facts_pack asset already has a
+`kind` (`logo`/`lifestyle`/`installation`/`render`/...) that `asset_alt` and
+`ground.enforce_slot_plan` read, and the two must not collide.
+
+A slot that genuinely needs every image in a row to share one box passes `frame="4x3"`
+(`render.IMAGE_FRAMES`). That is the only case where the box and the source disagree, and so
+the only case where object-fit changes the picture: a lifestyle/installation photo fills the
+frame with `cover`, a cut-out is shown whole with `contain` on a neutral band rather than
+having the product sliced. Nothing in the tree asks for a frame today.
 
 ### Srcset/WebP generation
 
@@ -115,10 +139,21 @@ HTML) rather than shipped unsized.
 
 ### CSS (`harness/structure.css`)
 
-`.adv-img--4x3`/`.adv-img--1x1` set `aspect-ratio` + `object-fit: cover` so the box an image
-renders into is fixed before it decodes. `.adv-img--hero` is full-bleed on mobile (negative
-margins matching `.adv-wrap`'s own side padding, `<=480px` media query) and contained on
-desktop by default (no override).
+`.adv-img` sets `height: auto`, which together with the inline per-image `aspect-ratio` is
+what reserves the box before the image decodes without ever distorting it.
+`.adv-img--contain`/`.adv-img--cover` set only `object-fit`. `.adv-img--hero` is full-bleed on
+mobile (negative margins matching `.adv-wrap`'s own side padding, `<=480px` media query) and
+contained on desktop by default (no override).
+
+`harness/structure.css` is loaded in the document head, and `harness shopify-body` keeps only
+the style blocks it finds in the body -- so these rules do **not** survive a Shopify export.
+A cartridge that depends on them restates them in its own `<style>`; the listicle cartridge
+does. The inline `aspect-ratio` needs no such help, which is why it is inline.
+
+**Trap:** a CSS rule that pins a `width` and a `height` (including `max-height`) on the same
+image overrides the inline ratio and squishes the picture -- the cycle 45 bug, rebuilt in
+CSS. To cap a tall image's height, pair the cap with `width: auto` and let the browser fit
+it.
 
 ## 3. Delivery
 

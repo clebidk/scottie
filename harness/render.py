@@ -8,6 +8,7 @@ import copy
 import functools
 import io
 import json
+import math
 import re
 import urllib.request
 from pathlib import Path
@@ -486,8 +487,8 @@ def detect_near_white_border(img, *, threshold=245, strip_px=8):
     signature of a studio product-cutout shot on a white background, as
     opposed to a lifestyle/installation photo with a real background.
     Approximate by design (no attempt at real background segmentation);
-    used only to pick the inline aspect box (render_image_slot: "1x1" for a
-    cutout, "4x3" otherwise), never to select which asset to use."""
+    used only as generate_image_variants' "cutout" flag, which picks
+    object-fit -- never the box ratio, and never which asset to use."""
     rgb = img.convert("RGB")
     w, h = rgb.size
     strip = max(1, min(strip_px, w // 2, h // 2))
@@ -512,18 +513,27 @@ def generate_image_variants(data, dest_dir, asset_id, *, widths=IMAGE_SRCSET_WID
     let a PNG through un-converted). Returns
     {"variants": [{"width": int, "jpg": "assets/<name>", "webp":
     "assets/<name>"|None}, ...], "width": int, "height": int,
-    "aspect": "1x1"|"4x3"} -- variants is [] and width/height/aspect are
-    None if `data` isn't an image Pillow can open."""
+    "cutout": bool} -- variants is [] and width/height/cutout are
+    None if `data` isn't an image Pillow can open.
+
+    Cycle 45: "cutout" replaces the old "aspect" ("1x1"|"4x3"). That value
+    was a near-white-border verdict -- a statement about the image's
+    BACKGROUND -- but render_image_slot used it as the box's RATIO, so a
+    1067x1600 portrait cutout was cropped into a 1:1 box and a 1024x1024
+    square into a 4:3 one. The box ratio now comes from width/height
+    (render_image_slot); "cutout" only picks object-fit. Deliberately NOT
+    called "kind": a facts_pack asset already has a "kind"
+    (logo/lifestyle/installation/render/...) and these must not collide."""
     try:
         img = Image.open(io.BytesIO(data))
         img.load()
     except Exception as e:
         if log:
             log.event("render", f"asset {asset_id} could not be opened for variant generation ({e})")
-        return {"variants": [], "width": None, "height": None, "aspect": None}
+        return {"variants": [], "width": None, "height": None, "cutout": None}
 
     rgb = img.convert("RGB") if img.mode in ("RGBA", "P", "LA") else img.convert("RGB")
-    aspect = "1x1" if detect_near_white_border(img) else "4x3"
+    cutout = detect_near_white_border(img)
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     webp_ok = _webp_supported()
@@ -560,7 +570,7 @@ def generate_image_variants(data, dest_dir, asset_id, *, widths=IMAGE_SRCSET_WID
         # something to reference.
         variants.append(_encode(rgb, rgb.width))
 
-    return {"variants": variants, "width": rgb.width, "height": rgb.height, "aspect": aspect}
+    return {"variants": variants, "width": rgb.width, "height": rgb.height, "cutout": cutout}
 
 
 def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, drive_downloader=ingest.download_drive_file):
@@ -570,8 +580,8 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
     Returns a dict:
     {"path": Path (the IMAGE_SRCSET_FALLBACK_WIDTH-or-largest jpg variant),
      "width": int|None, "height": int|None,
-     "variants": [...] (generate_image_variants' list), "aspect": str|None}
-    -- width/height/variants/aspect are None/[] when the downloaded bytes
+     "variants": [...] (generate_image_variants' list), "cutout": bool|None}
+    -- width/height/variants/cutout are None/[] when the downloaded bytes
     aren't an image Pillow can open. Returns None (with a logged warning) if
     the download fails or the response looks like an HTML page instead of a
     file."""
@@ -622,7 +632,7 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
             "width": variant_info["width"],
             "height": variant_info["height"],
             "variants": variants,
-            "aspect": variant_info["aspect"],
+            "cutout": variant_info["cutout"],
         }
     except Exception as e:
         if log:
@@ -630,7 +640,24 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
         return None
 
 
-def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True):
+def aspect_ratio_css(width, height):
+    """"<w> / <h>", reduced by the greatest common divisor, for an inline
+    `aspect-ratio` declaration -- 900x1200 becomes "3 / 4". None when
+    either dimension is missing or non-positive."""
+    if not width or not height or width <= 0 or height <= 0:
+        return None
+    divisor = math.gcd(int(width), int(height)) or 1
+    return f"{int(width) // divisor} / {int(height) // divisor}"
+
+
+# Fixed frames a slot may ask for by name when it genuinely needs every
+# image in a row to share one box (`frame=` below). Nothing in the tree
+# asks for one today; the named ratios exist so a slot that needs a
+# uniform grid can opt in explicitly rather than getting one by accident.
+IMAGE_FRAMES = {"4x3": (4, 3), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9)}
+
+
+def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None):
     """The one function that builds an <img>/<picture> tag from an asset
     dict -- registered as a Jinja global in render_page's env (see below) so
     every cartridge template and every image-bearing block calls this
@@ -643,9 +670,26 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
 
     Every image gets width/height (when known) and decoding="async". Unless
     `aspect_box` is False (press-logo-strip's own call -- a brand mark
-    should never be cropped to a photo aspect ratio), it also gets a fixed
-    aspect box (structure.css's .adv-img--4x3/--1x1) with object-fit: cover
-    so the layout never jumps. The hero gets loading="eager",
+    should never be boxed at all), it also gets an inline `aspect-ratio`
+    reserving the box before the image decodes, so the layout never jumps.
+
+    Cycle 45: that box is now the image's OWN ratio, taken from the
+    width/height Pillow measured on the downloaded original
+    (aspect_ratio_css). Before this, the box was one of two hardcoded
+    ratios picked by a near-white-border test -- a background check, not a
+    shape check -- so a 1067x1600 portrait cutout got `aspect-ratio: 1/1;
+    object-fit: cover` and was cropped to a square, and a 1024x1024 square
+    got 4/3. Nothing is stretched or cropped now: the box matches the
+    source, and `height: auto` (structure.css) keeps it that way.
+
+    `frame="4x3"` (IMAGE_FRAMES) is the explicit opt-in for a slot that
+    really does need a uniform box. Only then does the source ratio and
+    the box ratio differ, and only then does object-fit matter: a
+    lifestyle/installation photo fills the frame with `cover`, while a
+    product cutout is shown whole with `contain` on a neutral band rather
+    than having the product sliced.
+
+    The hero gets loading="eager",
     fetchpriority="high", and the wider IMAGE_SIZES_HERO `sizes`; every
     other slot gets loading="lazy" and IMAGE_SIZES_DEFAULT. When Pillow
     could generate WebP variants, the tag is wrapped in a <picture> with a
@@ -656,7 +700,11 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     variants = asset.get("variants") or []
     width, height = asset.get("width"), asset.get("height")
     alt = asset.get("alt", "")
-    aspect = asset.get("aspect") or "4x3"
+    # A studio cutout on white (generate_image_variants' border test), as
+    # opposed to the facts_pack asset's own semantic "kind" -- both matter
+    # below, and they are different questions.
+    is_cutout = bool(asset.get("cutout"))
+    lifestyle = asset.get("kind") in ("lifestyle", "installation")
     sizes = sizes or (IMAGE_SIZES_HERO if hero else IMAGE_SIZES_DEFAULT)
 
     jpg_srcset = ", ".join(f"{v['jpg']} {v['width']}w" for v in variants)
@@ -665,8 +713,28 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     if fallback_src is None:
         fallback_src = variants[-1]["jpg"] if variants else asset.get("url", "")
 
+    # The box: a named frame when one was asked for, otherwise the image's
+    # own ratio. `fit` only ever bites in the frame case (in the default
+    # case the box already IS the source's ratio, so cover and contain are
+    # the same picture) -- a cutout is contained on a neutral band, a
+    # lifestyle photo fills the frame.
+    ratio = fit = None
+    if aspect_box:
+        if frame in IMAGE_FRAMES:
+            fw, fh = IMAGE_FRAMES[frame]
+            ratio = f"{fw} / {fh}"
+            fit = "cover" if (lifestyle and not is_cutout) else "contain"
+        else:
+            ratio = aspect_ratio_css(width, height)
+            fit = "contain" if is_cutout else "cover"
+
     classes = " ".join(
-        c for c in ("adv-img", f"adv-img--{aspect}" if aspect_box else "", "adv-img--hero" if hero else "", css_class)
+        c for c in (
+            "adv-img",
+            f"adv-img--{fit}" if fit else "",
+            "adv-img--hero" if hero else "",
+            css_class,
+        )
         if c
     )
     attrs = [f'src="{escape(fallback_src)}"', f'alt="{escape(alt)}"']
@@ -680,6 +748,12 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
         attrs.append('fetchpriority="high"')
     if classes:
         attrs.append(f'class="{classes}"')
+    if ratio:
+        # Inline rather than a stylesheet rule on purpose: the ratio is
+        # per-image, and inline wins over a storefront theme's own `img`
+        # rules once `harness shopify-body` drops this markup into a
+        # Shopify page body.
+        attrs.append(f'style="aspect-ratio:{ratio}"')
     img_tag = f"<img {' '.join(attrs)}>"
 
     if webp_srcset:
@@ -835,11 +909,15 @@ def render_page(
                 if downloaded["width"] and downloaded["height"]:
                     assets_by_id[asset_id]["width"] = downloaded["width"]
                     assets_by_id[asset_id]["height"] = downloaded["height"]
-                # Cycle 31: srcset variants + the aspect-box class
-                # render_image_slot needs -- see docs/IMAGES.md.
+                # Cycle 31: srcset variants render_image_slot needs -- see
+                # docs/IMAGES.md. Cycle 45: "cutout" picks object-fit; the
+                # box ratio comes from the width/height just above. Never
+                # written to "kind" -- that is the facts_pack asset's own
+                # semantic kind (lifestyle/installation/logo/...), which
+                # asset_alt and ground.enforce_slot_plan both read.
                 assets_by_id[asset_id]["variants"] = downloaded["variants"]
-                if downloaded["aspect"]:
-                    assets_by_id[asset_id]["aspect"] = downloaded["aspect"]
+                if downloaded["cutout"] is not None:
+                    assets_by_id[asset_id]["cutout"] = downloaded["cutout"]
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 

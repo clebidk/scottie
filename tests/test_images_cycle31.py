@@ -10,6 +10,7 @@ from PIL import Image
 
 from harness import ground, pagechecks
 from harness.render import (
+    aspect_ratio_css,
     detect_near_white_border,
     generate_image_variants,
     render_image_slot,
@@ -131,7 +132,7 @@ def test_record_and_load_used_asset_ids_roundtrip(tmp_path):
 def _asset(**overrides):
     base = {
         "id": "a1", "url": "assets/a1-1200.jpg", "alt": "Peak Fuji – product photo",
-        "width": 1200, "height": 900, "aspect": "4x3",
+        "width": 1200, "height": 900, "cutout": False,
         "variants": [
             {"width": 480, "jpg": "assets/a1-480.jpg", "webp": "assets/a1-480.webp"},
             {"width": 1200, "jpg": "assets/a1-1200.jpg", "webp": "assets/a1-1200.webp"},
@@ -171,14 +172,68 @@ def test_render_image_slot_no_picture_wrapper_without_webp_variants():
     assert html.startswith("<img")
 
 
-def test_render_image_slot_aspect_class_from_asset():
-    assert "adv-img--1x1" in str(render_image_slot(_asset(aspect="1x1")))
-    assert "adv-img--4x3" in str(render_image_slot(_asset(aspect="4x3")))
+# ---------------------------------------------------------------------------
+# Cycle 45: the aspect box is the image's own ratio, not a background verdict
+# ---------------------------------------------------------------------------
 
 
-def test_render_image_slot_aspect_box_false_omits_aspect_class():
+def test_render_image_slot_box_is_the_images_own_ratio():
+    # 1200x900 is 4:3, and 4:3 is what the box must say -- but because it
+    # was measured, not guessed.
+    html = str(render_image_slot(_asset()))
+    assert 'style="aspect-ratio:4 / 3"' in html
+
+
+def test_render_image_slot_portrait_3x4_is_not_squished_into_a_landscape_box():
+    """The cycle 45 regression: a portrait product cut-out used to be
+    given `aspect-ratio: 1/1` (or 4/3) with object-fit: cover, which
+    cropped the product and left a blank band above it. The emitted
+    width/height and the box must all say 3:4."""
+    html = str(render_image_slot(_asset(width=900, height=1200, cutout=True)))
+    assert 'width="900"' in html and 'height="1200"' in html
+    assert 'style="aspect-ratio:3 / 4"' in html
+    # a cut-out is contained on a neutral band, never cover-cropped
+    assert "adv-img--contain" in html
+    assert "adv-img--cover" not in html
+    assert "adv-img--1x1" not in html and "adv-img--4x3" not in html
+
+
+def test_render_image_slot_lifestyle_photo_fills_an_explicit_frame_only():
+    asset = _asset(width=900, height=1200, cutout=False, kind="lifestyle")
+    # no frame asked for: the box is the source's own ratio
+    assert 'style="aspect-ratio:3 / 4"' in str(render_image_slot(asset))
+    # a frame asked for: the named ratio, and a real photo may fill it
+    framed = str(render_image_slot(asset, frame="4x3"))
+    assert 'style="aspect-ratio:4 / 3"' in framed
+    assert "adv-img--cover" in framed
+
+
+def test_render_image_slot_cutout_is_contained_even_in_an_explicit_frame():
+    asset = _asset(width=900, height=1200, cutout=True, kind="image")
+    framed = str(render_image_slot(asset, frame="4x3"))
+    assert 'style="aspect-ratio:4 / 3"' in framed
+    assert "adv-img--contain" in framed
+
+
+def test_render_image_slot_aspect_box_false_omits_the_box_and_the_fit():
     html = str(render_image_slot(_asset(), aspect_box=False))
-    assert "adv-img--4x3" not in html and "adv-img--1x1" not in html
+    assert "aspect-ratio" not in html
+    assert "adv-img--contain" not in html and "adv-img--cover" not in html
+
+
+def test_render_image_slot_unmeasured_asset_gets_no_box():
+    """An asset Pillow could not measure has no ratio to state -- better a
+    missing box than a wrong one."""
+    html = str(render_image_slot(_asset(width=None, height=None)))
+    assert "aspect-ratio" not in html
+
+
+def test_aspect_ratio_css_reduces_and_refuses_nonsense():
+    assert aspect_ratio_css(1067, 1600) == "1067 / 1600"
+    assert aspect_ratio_css(900, 1200) == "3 / 4"
+    assert aspect_ratio_css(1024, 1024) == "1 / 1"
+    assert aspect_ratio_css(0, 100) is None
+    assert aspect_ratio_css(None, 100) is None
 
 
 def test_render_image_slot_caption_wraps_in_figure():
@@ -234,13 +289,16 @@ def test_generate_image_variants_produces_multiple_widths_for_a_large_source(tmp
         assert (tmp_path / v["jpg"].split("/")[-1]).exists()
 
 
-def test_generate_image_variants_sets_aspect_from_near_white_detection(tmp_path):
-    white = _image_bytes(600, 600, (255, 255, 255))
+def test_generate_image_variants_sets_cutout_from_near_white_detection(tmp_path):
+    """The border test now answers only "is this a cut-out on white?" --
+    it no longer doubles as a claim about the image's shape."""
+    white = _image_bytes(600, 900, (255, 255, 255))
     result = generate_image_variants(white, tmp_path, "white")
-    assert result["aspect"] == "1x1"
+    assert result["cutout"] is True
+    assert (result["width"], result["height"]) == (600, 900)
     colorful = _image_bytes(600, 450, (40, 80, 120))
     result2 = generate_image_variants(colorful, tmp_path / "b", "color")
-    assert result2["aspect"] == "4x3"
+    assert result2["cutout"] is False
 
 
 def test_generate_image_variants_returns_empty_for_undecodable_bytes(tmp_path):

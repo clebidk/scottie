@@ -7,6 +7,7 @@ check -- see cartridges/listicle/cartridge.md's "reuse the shared code; do
 not fork it" rule) are asserted here too.
 """
 import json
+import re
 
 import pytest
 
@@ -862,3 +863,130 @@ def test_shopify_body_export_keeps_the_sticky_bar_and_the_bands(tmp_path):
     # the classed <header> band survives as a div (cycle 40), no bare chrome tags
     assert '<div class="lst-measure pk-reveal"' in body
     assert "<header" not in body and "</header>" not in body
+
+
+# ---------------------------------------------------------------------------
+# Cycle 45 (v0.3): two-column hero and items
+#
+# The source order IS the mobile order; desktop re-places the same nodes with
+# grid. These assert both halves of that, because either one alone is a
+# layout that only works at one width.
+# ---------------------------------------------------------------------------
+
+TEMPLATE_HTML = (CARTRIDGE_DIR / "template.html").read_text()
+
+
+def _css(text):
+    """The template's inline <style> with whitespace collapsed, so a rule can
+    be matched without depending on how it happens to be wrapped."""
+    block = re.search(r"<style>(.*?)</style>", text, re.DOTALL).group(1)
+    return re.sub(r"\s+", "", block)
+
+
+def test_hero_source_order_is_headline_then_image_then_cta(tmp_path):
+    """Mobile reads top to bottom, so the DOM must already be in the order a
+    phone needs: headline block, hero image, then the CTA. Desktop's
+    two-column arrangement is grid placement over these same three nodes."""
+    html = _render(_listicle_page(), tmp_path).read_text()
+    lede = html.index('class="lst-hero-lede"')
+    media = html.index('class="lst-hero-media lst-media"')
+    actions = html.index('class="lst-hero-actions"')
+    assert lede < media < actions
+    # the H1 is in the lede, the primary CTA is in the actions
+    assert lede < html.index('class="lst-h1"') < media
+    assert actions < html.index('class="lst-btn"')
+
+
+def test_hero_and_items_become_two_column_grids_on_desktop():
+    css = _css(TEMPLATE_HTML)
+    assert "@media(min-width:900px){" in css
+    assert ".lst-hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr)minmax(0,.95fr);" in css
+    # ~42% image / 58% text
+    assert ".lst-item-grid{display:grid;grid-template-columns:42%minmax(0,1fr);" in css
+
+
+def test_items_alternate_sides_with_the_same_class_that_alternates_the_band(tmp_path):
+    """One class drives both, so the flipped side and the soft band can never
+    drift out of step down the page."""
+    css = _css(TEMPLATE_HTML)
+    assert ".lst-item--soft .lst-item-media{grid-column:2}".replace(" ", "") in css
+    assert ".lst-item--soft .lst-item-copy{grid-column:1}".replace(" ", "") in css
+
+    html = _render(_listicle_page(), tmp_path).read_text()
+    sections = [s[: s.index(">")] for s in html.split("<section class=\"lst-item")[1:]]
+    # 5 items: plain, soft, plain, soft, plain
+    assert [("--soft" in s) for s in sections] == [False, True, False, True, False]
+    assert html.count('class="lst-item-grid') == 0  # grid class is combined with the measure
+    assert html.count('lst-measure--wide lst-item-grid') == 5
+
+
+def test_each_item_pairs_its_numeral_with_its_heading(tmp_path):
+    html = _render(_listicle_page(), tmp_path).read_text()
+    assert html.count('class="lst-item-head"') == 5
+    head = html[html.index('class="lst-item-head"'):]
+    # numeral first, heading second -- inline together on mobile, numeral
+    # above the heading on desktop, from the one block
+    assert head.index('class="lst-num"') < head.index('class="lst-h2"')
+    css = _css(TEMPLATE_HTML)
+    assert ".lst-item-head{display:flex;" in css  # mobile: inline with the H2
+    assert ".lst-item-head{display:block}" in css  # desktop: above it
+
+
+def test_two_column_bands_widen_but_single_column_bands_keep_the_measure(tmp_path):
+    css = _css(TEMPLATE_HTML)
+    assert "--pk-measure:700px;" in css and "--pk-measure-wide:1040px;" in css
+    assert ".lst-measure--wide{max-width:var(--pk-measure-wide)}" in css
+    # the text column inside a widened band is still capped
+    assert ".lst-hero-lede{grid-column:1;grid-row:1;align-self:end;max-width:68ch}" in css
+    assert ".lst-item-copy{grid-column:2;grid-row:1;max-width:68ch}" in css
+
+    html = _render(_listicle_page(), tmp_path).read_text()
+    # hero and items widen; the FAQ/model/closing bands do not
+    assert html.count('class="lst-measure lst-measure--wide') == 6  # 1 hero + 5 items
+    assert 'class="lst-measure pk-reveal"' in html
+
+
+def test_no_media_rule_pins_a_width_and_a_height_at_once(tmp_path):
+    """The cycle 45 squish in CSS form: `width:100%` together with a
+    `max-height` overrides the inline per-image aspect-ratio and distorts the
+    picture. The media slots use `width:auto` precisely so the max-heights
+    below can cap a tall image without stretching it."""
+    css = _css(TEMPLATE_HTML)
+    assert ".adv-listicle .lst-media .adv-img{width:auto;".replace(" ", "") in css
+    assert ".lst-hero-media .adv-img{max-height:300px}".replace(" ", "") in css
+    assert ".lst-item-media .adv-img{max-height:360px}".replace(" ", "") in css
+    assert ".lst-hero-media .adv-img{max-height:560px}".replace(" ", "") in css
+    assert ".lst-item-media .adv-img{max-height:420px}".replace(" ", "") in css
+
+
+def test_rendered_images_carry_their_own_ratio_inline(tmp_path):
+    """render_image_slot writes the measured ratio as an inline style, which
+    is what survives a storefront theme's own `img` rules."""
+    html = _render(
+        _listicle_page(), tmp_path, download_assets=True,
+        fetch_url=lambda url: _make_image_bytes(600, 900),
+    ).read_text()
+    # 6 images (hero + 5 items), every one a 2:3 portrait
+    assert html.count('style="aspect-ratio:2 / 3"') == 6
+    # the retired fixed-ratio classes are gone from every rendered tag (they
+    # still get named in the explanatory comments, hence the tag-only scan)
+    tags = re.findall(r"<img [^>]*>", html)
+    assert tags and not any("adv-img--1x1" in tag or "adv-img--4x3" in tag for tag in tags)
+
+
+def test_two_column_css_and_inline_ratios_survive_shopify_export(tmp_path):
+    """harness/structure.css is loaded in the document head and the export
+    keeps only the body's style block, so every rule this layout needs has to
+    be in the cartridge's own <style> -- and the per-image ratio has to be
+    inline on the tag."""
+    _render(
+        _listicle_page(), tmp_path, download_assets=True,
+        fetch_url=lambda url: _make_image_bytes(600, 900),
+    )
+    body, _manifest = build_shopify_body(tmp_path / "listicle")
+    css = re.sub(r"\s+", "", body[: body.index("</style>")])
+    assert ".lst-hero-grid{display:grid;" in css
+    assert ".lst-item-grid{display:grid;" in css
+    assert ".lst-measure--wide{max-width:var(--pk-measure-wide)}" in css
+    assert ".adv-listicle.adv-img{display:block;height:auto;" in css
+    assert body.count('style="aspect-ratio:2 / 3"') == 6
