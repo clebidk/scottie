@@ -79,9 +79,19 @@ class Vocabulary:
 
     @property
     def trigger_word_re(self):
+        """Cycle 43: a plain `\\b...\\b` boundary treats a hyphen as a word
+        edge the same as a space, so "outdoor-rated"/"IP65-rated" tripped the
+        "rated" trigger word -- the hyphen gave it a boundary on both sides
+        even though it's plainly one compound word. A trigger word now has to
+        stand alone: not immediately preceded or followed by a letter OR a
+        hyphen. "rated 4.8" and "top rated" (space on both sides) still
+        match; "frustrated" still doesn't (no boundary at all, unchanged from
+        before)."""
         if not self.trigger_words:
             return re.compile(r"(?!x)x")
-        return re.compile(r"\b(?:" + "|".join(self.trigger_words) + r")\b")
+        return re.compile(
+            r"(?<![A-Za-z-])(?:" + "|".join(self.trigger_words) + r")(?![A-Za-z-])"
+        )
 
     def forbidden_words_block(
         self,

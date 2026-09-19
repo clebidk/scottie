@@ -38,6 +38,29 @@ FALLBACK_BYLINE = """<p class="adv-byline-author">{author_line}</p>
 <p class="adv-byline-reviewer">{reviewer_line}</p>
 <p class="adv-byline-dates">Published {published} &middot; Updated {updated}</p>"""
 
+# Cycle 43: a tenant's byline.html (see load_byline_html) is free to carry a
+# bottom-of-page "About the author" block after the compact top-of-page
+# byline -- both rendered as one string today. Listicle is the one cartridge
+# that needs them apart (the compact line stays in the header; the About
+# section moves down next to the disclosure/sources footer, instead of both
+# sitting above the fold) -- see split_byline_html and its one call site in
+# render_page. A tenant's byline.html marks the split point with this literal
+# HTML comment; one that doesn't (the _template tenant, and FALLBACK_BYLINE
+# above, both carry no About section at all) simply has no about_html half.
+ABOUT_AUTHOR_MARKER = "<!-- about-author -->"
+
+
+def split_byline_html(byline_html):
+    """(top_html, about_html): byline_html split at the tenant's own
+    ABOUT_AUTHOR_MARKER comment. about_html is "" -- and top_html is
+    byline_html unchanged -- when the marker isn't present, so a tenant
+    whose byline.html (or the FALLBACK_BYLINE default) carries no About
+    section is unaffected."""
+    if ABOUT_AUTHOR_MARKER not in byline_html:
+        return byline_html, ""
+    top, _, about = byline_html.partition(ABOUT_AUTHOR_MARKER)
+    return top, about
+
 
 def byline_names(tenant=None):
     """(author, contributor, reviewer) as the tenant's own byline.html expects
@@ -720,6 +743,13 @@ def render_page(
     structure_css = load_structure_css()
     tenant_css = load_tenant_css(brand_dir, log)
     byline_html = load_byline_html(brand_dir, published, updated, log, tenant=tenant)
+    # Cycle 43: listicle keeps the compact byline in the header and moves the
+    # "About the author" block down next to the disclosure/sources footer
+    # (see split_byline_html's docstring) -- every other cartridge keeps
+    # today's single combined byline_html, byte-for-byte.
+    about_author_html = ""
+    if cartridge_name == "listicle":
+        byline_html, about_author_html = split_byline_html(byline_html)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -849,6 +879,7 @@ def render_page(
         structure_css=structure_css,
         tenant_css=tenant_css,
         byline_html=byline_html,
+        about_author_html=about_author_html,
         assets=assets_by_id,
         sources=sources,
         json_ld=json_ld,

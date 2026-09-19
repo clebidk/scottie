@@ -171,7 +171,17 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # owned and writer-fixable, so they gate here rather than post-render; each
     # carries a stable "key" the repair loop dedupes on.
     if cartridge_name == "listicle":
-        problems += listicle.find_listicle_violations(page, style=listicle_style)
+        tenant = tenant or tenant_mod.active()
+        # Cycle 43: find_headline_slot_violations' tenant_name/product_names
+        # come from this run's own tenant and facts_pack -- digit_exempt_terms
+        # already carries every product's short_name/title/name across the
+        # whole catalog (see harness/ground.py), so it doubles as the "any
+        # product name" list here with no new facts_pack field.
+        problems += listicle.find_listicle_violations(
+            page, style=listicle_style,
+            tenant_name=tenant.display_name,
+            product_names=facts_pack.get("digit_exempt_terms"),
+        )
     # Cycle 32: simplicity gate (above-fold links, headline word band, one
     # offer element) -- hard gate only when this tenant's simplicity_mode is
     # "enforce" (default "warn": advisory REVIEW.md line only, see
@@ -300,6 +310,26 @@ def _set_at_path(page, path, value):
     for seg in segs[:-1]:
         node = node[seg]
     node[segs[-1]] = value
+
+
+def _remove_redundant_nested_cta_url(page, raw_path):
+    """True and page mutated (the nested cta_url at raw_path deleted) when
+    it equals page's own top-level cta_url; False (page untouched) when it
+    names a different url, or the path no longer resolves -- see the
+    cycle 43 comment at this function's one call site."""
+    segs = _path_segments(raw_path)
+    if not segs or segs[-1] != "cta_url":
+        return False
+    node = page
+    for seg in segs[:-1]:
+        try:
+            node = node[seg]
+        except (KeyError, IndexError, TypeError):
+            return False
+    if not isinstance(node, dict) or node.get("cta_url") != page.get("cta_url"):
+        return False
+    del node["cta_url"]
+    return True
 
 
 # A trigger word (claims.TRIGGER_WORDS) that always needs a claim_id has a
@@ -550,6 +580,23 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None:
                     log.event(f"write.{cartridge_name}", "deterministic fix applied: headline count")
+            continue
+
+        # Cycle 43: a writer that echoes the page's own cta_url into a
+        # nested object (closing.cta_url observed on a real run) trips
+        # claims.find_second_cta_violation even though it names the same,
+        # single destination -- delete the redundant copy rather than
+        # spending a repair call on it. A nested cta_url naming a DIFFERENT
+        # url is a real second offer card and is left for the gate to
+        # report (_remove_redundant_nested_cta_url returns False).
+        if cartridge_name == "listicle" and raw_path.endswith(".cta_url") and "second CTA url" in issue:
+            if _remove_redundant_nested_cta_url(page, raw_path):
+                fixed += 1
+                if log is not None:
+                    log.event(
+                        f"write.{cartridge_name}",
+                        f"deterministic fix applied: removed redundant nested cta_url at {raw_path}",
+                    )
             continue
 
         if "warranty wording must be exactly" in issue:

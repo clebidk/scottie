@@ -74,7 +74,10 @@ _HEADLINE_RES = {
 _N_IS_ITEM_COUNT = ("reasons", "mistakes", "questions", "myths")
 
 ITEM_COUNT_RANGE = (5, 7)
-ITEM_WORD_RANGE = (60, 150)
+# Cycle 43: lowered from 60 -- observed real runs stopping items at 53-57
+# words against the old floor, a gap too small to be a real content problem.
+# Ceiling unchanged.
+ITEM_WORD_RANGE = (50, 150)
 FAQ_COUNT_RANGE = (5, 7)
 RECAP_BULLET_COUNT = 3
 AUDIENCE_LIST_RANGE = (2, 4)
@@ -113,6 +116,21 @@ RENDERER_OWNED_KEYS = (
 # English phrases, not a tenant's wording.
 _HSA_RE = re.compile(r"\b(HSA|FSA)\b")
 _FREE_SHIPPING_RE = re.compile(r"\bfree shipping\b", re.IGNORECASE)
+
+# Cycle 43: a tenant's reviews.claim_template (harness/sources/judgeme.py)
+# commonly ends the claim's own text with a "(fetched YYYY-MM-DD)"
+# parenthetical -- useful provenance for REVIEW.md and the claim record, not
+# something a reader of the trust line or the sticky bar needs. Stripped only
+# from what those two display -- the claim's own text (and its claim_id,
+# still cited) is untouched, so citation matching is unaffected.
+_FETCHED_SUFFIX_RE = re.compile(r"\s*\(fetched[^)]*\)\.?\s*$", re.IGNORECASE)
+
+
+def _drop_fetched_date(text):
+    stripped = _FETCHED_SUFFIX_RE.sub("", text).rstrip()
+    if stripped and not stripped.endswith("."):
+        stripped += "."
+    return stripped
 
 
 # ---------------------------------------------------------------------------
@@ -218,10 +236,29 @@ def writer_style_lines(style):
         return []
     lo, hi = ITEM_COUNT_RANGE
     wlo, whi = ITEM_WORD_RANGE
-    return [
+    formula = HEADLINE_FORMULAS[style]
+    lines = [
         f'This page\'s style is "{style}". Its headline must follow this formula exactly: '
-        f'"{HEADLINE_FORMULAS[style]}" -- fill in N and the bracketed parts, keep the rest of '
+        f'"{formula}" -- fill in N and the bracketed parts, keep the rest of '
         f'the wording. Set page.json\'s "style" field to "{style}".',
+    ]
+    # Cycle 43: observed on a real run -- a headline shaped like "6 Reasons
+    # Home Buyers Are Choosing Acme Saunas Infrared Saunas" put a real-estate
+    # term in <audience> and the tenant's own name in <category>. Stated once
+    # here, next to the formula itself, rather than left for the gate
+    # (find_headline_slot_violations below) to discover after the fact.
+    if "<audience>" in formula:
+        lines.append(
+            "<audience> names people by their situation or goal (\"busy parents\", "
+            "\"apartment owners\", \"people who train at home\") -- never a real-estate term "
+            "and never the ad brief's audience field copied in verbatim."
+        )
+    if "<category>" in formula:
+        lines.append(
+            '<category> is the product category (e.g. "home infrared saunas") -- never the '
+            "tenant's name and never a model name."
+        )
+    lines += [
         "Write N as a numeral (5, not \"five\"). "
         + (
             "N is the number of entries you actually put in \"reasons\" -- count them before "
@@ -235,6 +272,7 @@ def writer_style_lines(style):
         f"Write {lo}-{hi} items, each with a {wlo}-{whi} word body and a closing proof line "
         "that either cites a verified claim_id or is an attributed customer statement.",
     ]
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -260,14 +298,17 @@ def free_shipping_claim(facts_pack):
 
 
 def rating_line(facts_pack):
-    """The verified rating/review-count sentence, verbatim from
+    """The verified rating/review-count sentence, from
     facts_pack.reviews_summary, or None when this run fetched no review
-    statistics. Never re-worded: what the trust line and the sticky bar show
-    is the claim's own text."""
+    statistics. Not re-worded -- what the trust line and the sticky bar show
+    is still the claim's own sentence -- except for a trailing
+    "(fetched YYYY-MM-DD)" provenance note (_drop_fetched_date), which reads
+    as internal bookkeeping to a customer. The claim_id cited is unchanged,
+    so this never affects what the sentence is allowed to say."""
     summary = (facts_pack or {}).get("reviews_summary")
     if not summary or not summary.get("text"):
         return None
-    return {"text": summary["text"], "claim_ids": list(summary.get("claim_ids") or [])}
+    return {"text": _drop_fetched_date(summary["text"]), "claim_ids": list(summary.get("claim_ids") or [])}
 
 
 def trust_line_items(facts_pack):
@@ -377,9 +418,33 @@ def find_style_violations(page, style=None):
     return problems
 
 
+def find_headline_slot_violations(page, tenant_name=None, product_names=None):
+    """The headline's <category> slot (see HEADLINE_FORMULAS/writer_style_
+    lines) is the product category, never a brand or model name -- observed
+    on a real run: a headline shaped like "6 Reasons Home Buyers Are
+    Choosing Acme Saunas Infrared Saunas" named the tenant itself.
+    tenant_name and product_names are whatever this run's own tenant/
+    facts_pack carry (see harness/repair.py's check_page_gates) -- taking
+    them as plain strings keeps this module tenant-neutral rather than
+    importing harness/tenant.py here."""
+    headline = page.get("headline") or ""
+    if not headline:
+        return []
+    names = [n for n in [tenant_name, *(product_names or [])] if n]
+    for name in names:
+        if re.search(r"\b" + re.escape(name) + r"\b", headline, re.IGNORECASE):
+            return [_problem(
+                "$.headline", "listicle:headline_slots",
+                f"headline contains {name!r} -- the <category> slot names the product "
+                'category only (e.g. "home infrared saunas"), never the tenant\'s name or a '
+                "product/model name; rewrite that slot without it",
+            )]
+    return []
+
+
 def find_item_violations(page):
     """5-7 numbered items; each numbered by position, with an image, a
-    60-150 word body, and a proof line that is either claim-backed or an
+    50-150 word body, and a proof line that is either claim-backed or an
     attributed customer statement."""
     problems = []
     items = _items(page)
@@ -542,13 +607,18 @@ def find_renderer_owned_violations(page):
     return problems
 
 
-def find_listicle_violations(page, style=None):
+def find_listicle_violations(page, style=None, tenant_name=None, product_names=None):
     """Every listicle-specific structural check, combined. Wired into
-    harness/repair.py's check_page_gates for the listicle cartridge only."""
+    harness/repair.py's check_page_gates for the listicle cartridge only.
+    tenant_name/product_names (cycle 43) feed find_headline_slot_violations
+    only; both default to None, so a caller that doesn't have them yet
+    (every existing call site outside check_page_gates) simply skips that
+    one check rather than needing an update."""
     if not isinstance(page, dict):
         return []
     problems = []
     problems += find_style_violations(page, style)
+    problems += find_headline_slot_violations(page, tenant_name, product_names)
     problems += find_item_violations(page)
     problems += find_hero_violations(page)
     problems += find_audience_fit_violations(page)
