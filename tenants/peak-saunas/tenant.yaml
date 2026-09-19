@@ -117,6 +117,12 @@ allow_ai_renders: true
 # window at all -- see docs/FIXLOG.md Cycle 30). Revert to "warn" if a
 # future baseline update ever fails this gate.
 cartridges:
+  listicle:
+    # Cycle 41 styles: reasons|mistakes|questions|myths|tested. `tested` is
+    # excluded (2026-09-19): its headline/dek assert a first-person test that
+    # never happened -- an unverifiable claim. Re-enable only with a real,
+    # documented test behind it.
+    styles: [reasons, mistakes, questions, myths]
   article:
     warmup_window_words: 600
     warmup_mode: warn
