@@ -9,11 +9,21 @@
 {% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
 <style>
-/* Listicle cartridge v0.2 -- measurements taken from the reference lander
-   pack (tenants/<t>/docs/REFERENCE-LANDERS-*.md): a single ~700px reading
-   measure, 17-18px body at 1.6, 36-44px H1, 24-28px H2, 48-64px section
-   rhythm, alternating soft bands, a full-width mobile CTA at 52px, and a
-   64px sticky bottom bar.
+/* Listicle cartridge v0.3 -- measurements taken from the reference lander
+   pack (tenants/<t>/docs/REFERENCE-LANDERS-*.md): 17-18px body at 1.6,
+   36-44px H1, 24-28px H2, 48-64px section rhythm, alternating soft bands, a
+   full-width mobile CTA at 52px, and a 64px sticky bottom bar.
+
+   Cycle 45 (v0.3): the hero and the numbered items are two-column on
+   desktop. Every other band keeps the single ~700px reading measure; the
+   two-column bands widen to ~1040px, with the text column itself still
+   capped at a readable measure. The DOM order is the MOBILE order --
+   headline, then image, then CTA for the hero; image, then copy for an item
+   -- and desktop re-places those same nodes with grid. That order is what
+   keeps the hero CTA above the fold on a 390px phone (Jones Road / Moon Pod
+   put the CTA directly under the headline block for the same reason), and
+   it means there is one set of markup rather than a duplicated desktop
+   copy.
 
    Colours and fonts are NEVER written here. Every colour resolves through
    the tenant's own brand tokens first (--ps-*, which `harness brand import`
@@ -41,6 +51,7 @@
   --pk-border:var(--ps-border,var(--adv-border));
   --pk-radius:10px;
   --pk-measure:700px;
+  --pk-measure-wide:1040px;
   --pk-gap:48px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
@@ -49,19 +60,49 @@
 .adv-listicle *,.adv-listicle *::before,.adv-listicle *::after{box-sizing:border-box}
 .adv-listicle img{display:block;max-width:100%}
 
+/* Images. render.render_image_slot writes each image's TRUE ratio inline
+   (style="aspect-ratio:W / H"); these rules must never set a width and a
+   height together, or that ratio is overridden and the image is squished --
+   which is exactly the cycle 45 bug. `width:auto` + max-width/max-height is
+   the safe pair: the browser keeps the ratio and fits the image inside the
+   box. harness/structure.css's own .adv-img rules are loaded in the document
+   head, and `harness shopify-body` keeps only the style blocks found in the
+   body -- so they do NOT survive the export, and everything this cartridge
+   depends on is restated here instead of relied on. */
+.adv-listicle .adv-img{display:block;height:auto;max-width:100%;border-radius:var(--pk-radius)}
+.adv-listicle .adv-img--contain{object-fit:contain}
+.adv-listicle .adv-img--cover{object-fit:cover}
+.adv-listicle picture{display:block}
+
+/* A media box: a soft band the image sits on, centred, never cropped. The
+   max-heights stop a tall portrait cut-out from pushing the next thing off
+   the screen; `width:auto` is what keeps it from being squished to fit. */
+.lst-media{background:var(--pk-band);border-radius:var(--pk-radius);
+  padding:16px;display:flex;align-items:center;justify-content:center}
+.adv-listicle .lst-media .adv-img{width:auto;margin:0 auto;border-radius:6px}
+/* on a soft band, the media box inverts so it is still a distinct surface */
+.lst-item--soft .lst-media{background:var(--pk-bg)}
+
 /* one reading measure for every band's contents */
 .lst-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
+/* the two-column bands (hero, items) may run wider than the reading
+   measure; the TEXT column inside them is capped separately below, so the
+   line length never grows with the band. */
+.lst-measure--wide{max-width:var(--pk-measure-wide)}
 .lst-main,.lst-faq,.lst-models-band{display:block}
 
 /* bands: alternating soft background, consistent vertical rhythm */
 .lst-band{padding:var(--pk-gap) 0;border-bottom:1px solid var(--pk-border)}
 .lst-band--soft{background:var(--pk-band)}
 
-/* header */
+/* header / hero */
 .lst-header{padding:32px 0 var(--pk-gap);border-bottom:1px solid var(--pk-border)}
 .lst-h1{font-size:2.25rem;line-height:1.15;color:var(--pk-ink);margin:0 0 12px;letter-spacing:-.01em}
 .lst-dek{font-size:1.125rem;line-height:1.6;color:var(--pk-muted);margin:0 0 24px}
+.lst-hero-lede{margin:0}
+.lst-hero-actions{margin:0}
 .lst-hero-media{margin:0 0 24px}
+.lst-hero-media .adv-img{max-height:300px}
 .lst-trust{list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;margin:14px 0 0;padding:0;font-size:.9375rem;color:var(--pk-muted)}
 .lst-trust li{margin:0}
 .lst-byline{margin-top:20px;font-size:.875rem;color:var(--pk-muted)}
@@ -77,9 +118,15 @@
 /* numbered items */
 .lst-item{padding:var(--pk-gap) 0;border-bottom:1px solid var(--pk-border)}
 .lst-item--soft{background:var(--pk-band)}
-.lst-num{display:block;font-size:.875rem;font-weight:700;letter-spacing:.14em;color:var(--pk-accent);margin:0 0 8px}
-.lst-h2{font-size:1.625rem;line-height:1.25;color:var(--pk-ink);margin:0 0 16px}
+/* the numeral sits inline with the H2 on a phone (where a 56px numeral on
+   its own line would cost most of the fold) and moves above it on desktop */
+.lst-item-head{display:flex;align-items:baseline;gap:14px;margin:0 0 12px}
+.lst-num{font-size:2rem;font-weight:700;line-height:1;letter-spacing:-.02em;
+  color:var(--pk-muted);margin:0;flex:0 0 auto}
+.lst-h2{font-size:1.5rem;line-height:1.25;color:var(--pk-ink);margin:0}
+.lst-item-copy{margin:0}
 .lst-item-media{margin:0 0 20px}
+.lst-item-media .adv-img{max-height:360px}
 .lst-body{font-size:1.0625rem;line-height:1.6;color:var(--pk-body);margin:0}
 .lst-proof{margin:16px 0 0;padding:12px 16px;border-left:3px solid var(--pk-accent);
   background:var(--pk-bg);font-size:1rem;line-height:1.5;color:var(--pk-ink)}
@@ -139,9 +186,9 @@
 
 @media (max-width:600px){
   .adv-listicle{--pk-gap:40px}
-  .lst-h1{font-size:1.75rem}
+  .lst-h1{font-size:2rem}
   .lst-dek{font-size:1.0625rem}
-  .lst-h2{font-size:1.375rem}
+  .lst-num{font-size:1.75rem}
   .lst-btn{display:flex;width:100%}
   .lst-sticky-inner{gap:10px}
   .lst-sticky-proof{display:none}
@@ -151,10 +198,43 @@
   .adv-listicle{--pk-gap:64px}
   .lst-h1{font-size:2.75rem}
   .lst-dek{font-size:1.25rem}
-  .lst-h2{font-size:1.75rem}
+  .lst-h2{font-size:1.625rem}
   .lst-body{font-size:1.125rem}
   .lst-fit-lists{grid-template-columns:1fr 1fr;gap:32px}
   .lst-models{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ---------------------------------------------------------------------
+   Two columns (900px up). 900 rather than 768: at tablet-portrait width a
+   42/58 split leaves a text column too narrow to read comfortably, so the
+   stacked mobile layout is the better one right up to a real desktop.
+   Both grids re-place nodes that are already in mobile reading order --
+   nothing is duplicated, and nothing depends on source order.
+   --------------------------------------------------------------------- */
+@media (min-width:900px){
+  /* hero: copy left (lede above actions), image right, vertically centred */
+  .lst-hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+    column-gap:56px;align-items:center}
+  .lst-hero-lede{grid-column:1;grid-row:1;align-self:end;max-width:68ch}
+  .lst-hero-actions{grid-column:1;grid-row:2;align-self:start;max-width:68ch;margin:24px 0 0}
+  .lst-hero-media{grid-column:2;grid-row:1 / span 2;align-self:center;margin:0}
+  .lst-hero-media .adv-img{max-height:560px}
+
+  /* items: ~42% image / 58% text, sides alternating item by item */
+  .lst-item-grid{display:grid;grid-template-columns:42% minmax(0,1fr);
+    column-gap:48px;align-items:center}
+  .lst-item-media{grid-column:1;grid-row:1;margin:0}
+  .lst-item-copy{grid-column:2;grid-row:1;max-width:68ch}
+  /* One class drives both the soft band and the flipped side, so they
+     advance together down the page -- see the item loop below. */
+  .lst-item--soft .lst-item-media{grid-column:2}
+  .lst-item--soft .lst-item-copy{grid-column:1}
+  .lst-item-media .adv-img{max-height:420px}
+
+  /* the numeral moves above the H2 and grows into a real display figure */
+  .lst-item-head{display:block}
+  .lst-item .lst-num{display:block;font-size:3.5rem;margin:0 0 4px}
+  .lst-item .lst-h2{font-size:1.75rem;margin:0 0 16px}
 }
 
 /* reveal-on-scroll motion, carried over from v0.1 */
@@ -166,36 +246,52 @@
 </style>
 <div class="pk-lp adv-listicle">
 
+  {# Source order is the MOBILE order -- eyebrow, headline, subhead, then the
+     image, then the CTA. The desktop two-column arrangement (copy left,
+     image right and vertically centred) is grid placement over these same
+     three nodes; see the 900px block above. #}
   <header class="lst-header">
-    <div class="lst-measure pk-reveal" data-pk-mount>
-      <span class="adv-badge">Advertisement</span>
-      <h1 class="lst-h1">{{ page.headline }}</h1>
-      <p class="lst-dek">{{ page.dek }}</p>
+    <div class="lst-measure lst-measure--wide lst-hero-grid pk-reveal" data-pk-mount data-lst-hero>
+      <div class="lst-hero-lede">
+        <span class="adv-badge">Advertisement</span>
+        <h1 class="lst-h1">{{ page.headline }}</h1>
+        <p class="lst-dek">{{ page.dek }}</p>
+      </div>
       {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-      {% if hero_asset %}<div class="lst-hero-media" data-lst-hero>{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
-      <a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-      {# The trust line is renderer-built from facts_pack (harness/listicle.py's
-         trust_line_items) -- it disappears entirely when nothing is verified,
-         rather than being padded out by the writer. #}
-      {% if cartridge_data.trust_items %}
-      <ul class="lst-trust">
-        {% for item in cartridge_data.trust_items %}<li>{{ item.text }}</li>{% endfor %}
-      </ul>
-      {% endif %}
-      <div class="lst-byline adv-byline">{{ byline_html | safe }}</div>
+      {% if hero_asset %}<div class="lst-hero-media lst-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+      <div class="lst-hero-actions">
+        <a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+        {# The trust line is renderer-built from facts_pack (harness/listicle.py's
+           trust_line_items) -- it disappears entirely when nothing is verified,
+           rather than being padded out by the writer. #}
+        {% if cartridge_data.trust_items %}
+        <ul class="lst-trust">
+          {% for item in cartridge_data.trust_items %}<li>{{ item.text }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        <div class="lst-byline adv-byline">{{ byline_html | safe }}</div>
+      </div>
     </div>
   </header>
 
   <main class="lst-main">
     {% for item in page.reasons or [] %}
+    {# lst-item--soft is the alternation: it carries BOTH the soft band and
+       (at 900px up) the flipped image side, so the two advance together down
+       the page instead of drifting out of step. Source order is again the
+       mobile order -- image above copy. #}
     <section class="lst-item{{ ' lst-item--soft' if loop.index0 % 2 == 1 else '' }}">
-      <div class="lst-measure pk-reveal">
-        <span class="lst-num">{{ "%02d"|format(item.number) }}</span>
-        <h2 class="lst-h2">{{ item.heading }}</h2>
+      <div class="lst-measure lst-measure--wide lst-item-grid pk-reveal">
         {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-        {% if item_asset %}<div class="lst-item-media">{{ render_image_slot(item_asset) }}</div>{% endif %}
-        <p class="lst-body">{{ item.text }}</p>
-        {% if item.proof and item.proof.text %}<p class="lst-proof">{{ item.proof.text }}</p>{% endif %}
+        {% if item_asset %}<div class="lst-item-media lst-media">{{ render_image_slot(item_asset) }}</div>{% endif %}
+        <div class="lst-item-copy">
+          <div class="lst-item-head">
+            <span class="lst-num">{{ "%02d"|format(item.number) }}</span>
+            <h2 class="lst-h2">{{ item.heading }}</h2>
+          </div>
+          <p class="lst-body">{{ item.text }}</p>
+          {% if item.proof and item.proof.text %}<p class="lst-proof">{{ item.proof.text }}</p>{% endif %}
+        </div>
       </div>
     </section>
     {% if loop.index in micro_cta_after %}

@@ -34,7 +34,8 @@ from .ingest import run_ingest
 from .log import RunLog
 from .publishers.export import ExportPublisher
 from .publishers.shopify import ShopifyCredentialsMissing, ShopifyPublisher, rewrite_asset_srcs
-from .review import build_reviews
+from .render import render_page
+from .review import build_review_for_page, build_reviews
 from .runstate import UnknownReviewer
 from .page_body import write_shopify_body
 
@@ -239,6 +240,78 @@ def cmd_shopify_body(args):
     shopify_body_path, assets_manifest_path = write_shopify_body(cartridge_dir)
     print(f"Wrote {shopify_body_path}")
     print(f"Wrote {assets_manifest_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# harness rerender (cycle 45)
+# ---------------------------------------------------------------------------
+
+def cmd_rerender(args):
+    """`harness rerender <run-dir> --page <cartridge>`: re-renders one
+    page's index.html from the run's OWN page.json + facts_pack.json,
+    through the current template, image slot enforcement and matcher.
+
+    There is no model call anywhere in this path -- the writer already ran,
+    and its output (page.json) is the input here. That is the whole point:
+    a template, CSS or image-slot fix reaches pages that are already live
+    without paying for the copy a second time.
+
+    Also rewrites <cartridge>-review.html, and refreshes shopify-body.html /
+    shopify-body.assets.json when this page already has them (a page that
+    was never exported does not gain an export it never asked for).
+
+    Approval state is untouched -- see runstate.mark_rerendered. The run's
+    published/updated dates are re-used from its own history, so a page
+    that went live weeks ago is not silently re-dated to today.
+    """
+    tenant = _resolve_tenant_for_run(args)
+    tenant_mod.activate(tenant)
+    run_dir = Path(args.run_dir)
+    cartridge_name = args.page
+    cartridge_dir = run_dir / cartridge_name
+
+    page_json = cartridge_dir / "page.json"
+    facts_pack_json = run_dir / "facts_pack.json"
+    for path in (page_json, facts_pack_json):
+        if not path.exists():
+            print(f"no {path.name} found at {path}; nothing to re-render", file=sys.stderr)
+            return 1
+
+    page = json.loads(page_json.read_text())
+    facts_pack = json.loads(facts_pack_json.read_text())
+    ad_brief_json = run_dir / "ad_brief.json"
+    ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
+
+    published = updated = (
+        runstate.run_started_date(run_dir) or datetime.date.today().isoformat()
+    )
+
+    index_path = render_page(
+        cartridge_name=cartridge_name,
+        page=page,
+        ad_brief=ad_brief,
+        facts_pack=facts_pack,
+        cartridges_dir=pipeline.CARTRIDGES_DIR,
+        brand_dir=tenant.brand_dir,
+        templates_dir=pipeline.TEMPLATES_DIR,
+        out_dir=cartridge_dir,
+        published=published,
+        updated=updated,
+        tenant=tenant,
+    )
+    print(f"Wrote {index_path}")
+
+    review_path = build_review_for_page(run_dir, cartridge_name)
+    if review_path:
+        print(f"Wrote {review_path}")
+
+    if (cartridge_dir / "shopify-body.html").exists():
+        shopify_body_path, assets_manifest_path = write_shopify_body(cartridge_dir)
+        print(f"Wrote {shopify_body_path}")
+        print(f"Wrote {assets_manifest_path}")
+
+    runstate.mark_rerendered(run_dir, page=cartridge_name, note=args.note or "")
     return 0
 
 
@@ -905,6 +978,16 @@ def build_parser():
     p_shopify_body.add_argument("cartridge_dir", help="<run-dir>/<cartridge>, e.g. tenants/<t>/out/<run-id>/listicle")
     _add_tenant_flag(p_shopify_body)
     p_shopify_body.set_defaults(func=cmd_shopify_body)
+
+    p_rerender = sub.add_parser(
+        "rerender",
+        help="re-render one page's index.html from its existing page.json -- no model call, no state change",
+    )
+    p_rerender.add_argument("run_dir", help="tenants/<t>/out/<run-id>")
+    p_rerender.add_argument("--page", required=True, help="cartridge name, e.g. listicle")
+    p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
+    _add_tenant_flag(p_rerender)
+    p_rerender.set_defaults(func=cmd_rerender)
 
     p_doctor = sub.add_parser("doctor", help="check that a tenant can actually run")
     p_doctor.add_argument("--offline", action="store_true", help="skip the models-endpoint check")

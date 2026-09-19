@@ -134,19 +134,26 @@ table.adv-specs th, table.adv-specs td {
 
 .adv-hero-image { width: 100%; border-radius: 8px; }
 
-/* Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problem 9): every image slot
-   render.render_image_slot builds carries one of these two aspect classes
-   (never both), so the box an image renders into is fixed before it
-   decodes -- no more layout jump between a 1:1 hero on one ad and a 4:5 on
-   another. object-fit: cover crops rather than distorts when the source's
-   own ratio doesn't match; render_image_slot's near-white-border detection
-   picks 1x1 for a studio product cutout, 4x3 for everything else. A block
-   that opts out (aspect_box=False -- press-logo-strip's brand marks) gets
-   neither class and keeps its natural ratio via the plain `img` rule
-   above. */
+/* Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problem 9) reserved a box for
+   every image slot so the layout can't jump while the image decodes.
+   Cycle 45 fixes WHICH box: render.render_image_slot now writes the ratio
+   inline, per image, from the width/height Pillow measured on the
+   downloaded original (render.aspect_ratio_css). The old
+   .adv-img--4x3/--1x1 pair came from a near-white-border test -- a check
+   on an image's BACKGROUND being read as a claim about its SHAPE -- so a
+   1067x1600 portrait was cropped square and a 1024x1024 square was cropped
+   to 4:3. There is no ratio here any more, only the fit.
+
+   `height: auto` is what keeps an image un-stretched: with the inline
+   ratio matching the source, the box is the picture. object-fit then only
+   bites for a slot that asked for a named `frame=` (render.IMAGE_FRAMES)
+   -- a product cutout is contained whole on a neutral band, a
+   lifestyle/installation photo fills the frame. A block that opts out
+   (aspect_box=False -- press-logo-strip's brand marks) gets no box and no
+   fit class, and keeps its natural ratio via the plain `img` rule above. */
 .adv-img { display: block; width: 100%; height: auto; border-radius: 8px; background: var(--adv-border); }
-.adv-img--4x3 { aspect-ratio: 4 / 3; object-fit: cover; }
-.adv-img--1x1 { aspect-ratio: 1 / 1; object-fit: cover; }
+.adv-img--cover { object-fit: cover; }
+.adv-img--contain { object-fit: contain; background: var(--adv-bg-muted, #f4f5f6); }
 /* Desktop default: contained within .adv-wrap's own padding, same as any
    other image. Mobile full-bleed override is in the <=480px block below. */
 .adv-img--hero { border-radius: 8px; }

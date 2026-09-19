@@ -207,6 +207,48 @@ def latest_feedback(run_dir, page):
     return None
 
 
+def mark_rerendered(run_dir, *, page, by="system", note=""):
+    """Cycle 45: record that `page` was re-rendered from its own existing
+    page.json through the current template (`harness rerender`), with no
+    model call.
+
+    Deliberately touches NEITHER data["state"] NOR data["pages"][page]: a
+    re-render changes the HTML a template produces, never whether a
+    reviewer approved the copy. An approved page stays approved and a
+    published page stays published, so an operator can push a layout fix
+    to ten live pages without sending them all back through review. The
+    history entry repeats the page's current state for that reason -- the
+    log still reads in order -- and carries `rerendered_at`, which is what
+    tells a re-render apart from the state change it is not."""
+    data = load_state(run_dir)
+    if page not in data["pages"]:
+        raise KeyError(f"unknown page {page!r} for this run; run has: {list(data['pages'])}")
+    at = _now()
+    data["history"].append({
+        "state": data["pages"][page],
+        "by": by,
+        "at": at,
+        "rerendered_at": at,
+        "note": f"rerendered page={page}" + (f"; {note}" if note else ""),
+    })
+    save_state(run_dir, data)
+    return data
+
+
+def run_started_date(run_dir):
+    """The ISO date (YYYY-MM-DD) this run was first generated, from its own
+    earliest history entry -- what `harness rerender` re-uses as the
+    published/updated dates, so re-rendering never silently re-dates a page
+    that has been live for weeks. None when the history carries no usable
+    timestamp."""
+    data = load_state(run_dir)
+    for entry in data.get("history", []):
+        at = entry.get("at")
+        if isinstance(at, str) and len(at) >= 10:
+            return at[:10]
+    return None
+
+
 def mark_revised(run_dir, *, page, version, by="system", note=""):
     """Called by harness revise once a new version has been written: the
     page goes back to "needs_review" (a human needs to look at the new
