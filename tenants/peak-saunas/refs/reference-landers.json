@@ -1,0 +1,617 @@
+[
+  {
+    "url": "https://gruns.co/pages/green-powders-listicle",
+    "brand": "Gruns",
+    "format": "listicle",
+    "word_count": 4975,
+    "image_count": 120,
+    "h2_count": 4,
+    "h2s": [
+      "TASTE",
+      "CONVENIENCE",
+      "FIBER",
+      "BENEFITS"
+    ],
+    "cta_count": 33,
+    "cta_texts": [
+      "Save 55% + Free Shipping",
+      "Start Now",
+      "View Nutrition Label",
+      "Learn more",
+      "Why Grüns?",
+      "Ingredients & Allergies",
+      "Science & Certifications",
+      "Directions"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": "logo + 'Save 55% + Free Shipping' CTA button + star rating/review-count/member-count proof line (.sticky-cta component, active >=992px per CSS)"
+    },
+    "proof": [
+      "4.8 stars / 100K+ reviews / 1M+ members line",
+      "'Clinicians’ Choice' badge over hero image",
+      "'1,901 clinicians share this on FrontrowMD' claim",
+      "'Real Reviews, Even Realer Results' review section"
+    ],
+    "offer": [
+      "55% off + free shipping (top urgency bar + offer badge + CTA text)",
+      "HSA/FSA eligible via Truemed",
+      "'Limited-Time Sale' urgency framing"
+    ],
+    "faq_count": null,
+    "above_fold": [
+      "urgency promo bar",
+      "logo",
+      "hero lifestyle image w/ clinicians badge overlay",
+      "offer badge",
+      "H1",
+      "subhead",
+      "CTA button",
+      "star rating + review count + member count line"
+    ],
+    "item_pattern": {
+      "heading_style": "thematic pillar (single word/short phrase, not numbered 'Reason N')",
+      "body_words_avg": null,
+      "item_end": "none observed per-pillar; page-level CTA carries conversion"
+    },
+    "design": {
+      "body_font": "Work Sans, Helvetica Neue, Helvetica, Arial, sans-serif (fallback stack); primary uses CSS var --font-primary -> --font-worksans",
+      "body_size_px": null,
+      "heading_font": "var(--font-secondary), theme-dependent (multiple sub-brand themes override)",
+      "max_width_px": 992,
+      "cta_bg": null,
+      "cta_text_color": null,
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": [
+        "dark green urgency bar",
+        "white body",
+        "light green offer highlight"
+      ]
+    }
+  },
+  {
+    "url": "https://resilia.shop/pages/i-thought-i-was-just-tired-and-bloated-then-i-learned-what-was-really-happening-inside-my-gut",
+    "brand": "Resilia",
+    "format": "advertorial",
+    "word_count": 1863,
+    "image_count": 50,
+    "h2_count": 11,
+    "h2s": [
+      "The Hidden Imbalance No One Talks About",
+      "Symptoms That May Be a Sign of Internal Imbalance",
+      "How Do Parasites and Candida Get Inside Us?",
+      "Why Most People Don’t Know",
+      "What Happens If You Don't Address It?",
+      "The Natural, Research-Backed Approach",
+      "Your Resilia Timeline",
+      "What's In Resilia",
+      "What Customers Are Saying After Trying Resilia",
+      "Start Supporting Your Gut Health Today",
+      "Vital Flora Insight"
+    ],
+    "cta_count": null,
+    "cta_texts": [
+      "SHOP NOW (top bar)",
+      "TRY RESILIA RISK-FREE FOR 60 DAYS (sticky bar)"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": "product thumbnail + product name + 'TRY RESILIA RISK-FREE FOR 60 DAYS' CTA button, bottom of viewport"
+    },
+    "proof": [
+      "'Your Resilia Timeline' progression narrative",
+      "'What Customers Are Saying After Trying Resilia' testimonial section"
+    ],
+    "offer": [
+      "60-day risk-free guarantee (primary offer mechanic, no discount emphasis in this variant)"
+    ],
+    "faq_count": 0,
+    "above_fold": [
+      "top promo bar ('Take Care Of Yourself / SHOP NOW')",
+      "quote-style H1 with highlighted words",
+      "subhead",
+      "'Sponsored Content' disclosure label",
+      "byline (author avatar + name + date)",
+      "before/after split photo",
+      "sticky bottom CTA bar"
+    ],
+    "item_pattern": {
+      "heading_style": "N/A - narrative essay structure (problem, symptoms, cause, consequence, solution, timeline, ingredients, testimonials, CTA), not a numbered list",
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {
+      "body_font": null,
+      "body_size_px": null,
+      "heading_font": null,
+      "max_width_px": 1500,
+      "cta_bg": "#085946 (brand default; this advertorial's sticky CTA renders orange, exact hex not confirmed)",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": [
+        "dark green top promo bar",
+        "white article body"
+      ]
+    }
+  },
+  {
+    "url": "https://resilia.shop/pages/5-reasons-resilia-is-the-only-oregano-oil-that-actually-works",
+    "brand": "Resilia",
+    "format": "listicle",
+    "word_count": 1434,
+    "image_count": 48,
+    "h2_count": 5,
+    "h2s": [
+      "It's Wild Oregano From Greek Mountains (Where Nature Makes It 85% Stronger)",
+      "Softgels Stop The Burning (So You Can Actually Take It)",
+      "Black Seed Oil Stops The ‘Detox Crash’ Before It Starts",
+      "Every Batch Is Tested (Because Most Oregano Is Fake)",
+      "Stays Fresh For 2 Years (Your Last Softgel Works Like Your First)"
+    ],
+    "cta_count": null,
+    "cta_texts": [
+      "Shop Resilia Now (sticky header)"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": "logo + 'Shop Resilia Now' CTA button, top of viewport (not bottom)"
+    },
+    "proof": [
+      "'Clinically Credible. Statistically Clear.' section",
+      "Harvard / Johns Hopkins study reference in subhead",
+      "scrolling benefit-claim marquee ticker ('85% Wild Greek Carvacrol Power', 'No Burn, No Stomach Pain', etc.)"
+    ],
+    "offer": [
+      "'guarantee' mentioned 3x",
+      "'money back' mentioned 1x",
+      "no explicit % discount in extracted copy"
+    ],
+    "faq_count": 10,
+    "above_fold": [
+      "dark green hero band",
+      "logo",
+      "sticky 'Shop Resilia Now' CTA top-right",
+      "H1 (italic accent + serif)",
+      "subhead",
+      "product image (3 pouches)",
+      "scrolling claim ticker",
+      "jump-nav tabs (Source / Black Seed Oil / Tried & Tested)"
+    ],
+    "item_pattern": {
+      "heading_style": "curiosity + parenthetical benefit claim",
+      "body_words_avg": 150,
+      "item_end": "own photo per reason; no per-item micro-CTA (single sticky CTA covers page)"
+    },
+    "design": {
+      "body_font": "Inter (Google Fonts)",
+      "body_size_px": null,
+      "heading_font": "PT Serif (Google Fonts)",
+      "max_width_px": 1500,
+      "cta_bg": "#085946",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": [
+        "dark green hero band",
+        "cream/tan claim ticker band",
+        "white body"
+      ]
+    }
+  },
+  {
+    "url": "https://sunhomesaunas.com/blogs/saunas/why-customers-choose-sun-home",
+    "brand": "Sun Home Saunas",
+    "format": "guide",
+    "word_count": 4261,
+    "image_count": 1,
+    "h2_count": 10,
+    "h2s": [
+      "Disclosure and How This Guide Labels Evidence",
+      "Sun Home at a Glance (Verified August 7, 2026)",
+      "The 10 Differentiators",
+      "Feature-by-Model Matrix",
+      "Who Should Not Choose Sun Home",
+      "FAQs",
+      "Research Methodology and Verification",
+      "Sources",
+      "Claim Ledger",
+      "Related Guides"
+    ],
+    "cta_count": 0,
+    "cta_texts": [],
+    "sticky_bar": {
+      "present": true,
+      "contents": "site nav only: logo + Saunas/Cold Plunges/Explore menu + search/account/cart/'Need help?' icons (no purchase CTA bar); live chat widget bottom-right"
+    },
+    "proof": [
+      "evidence-labeling system: every claim tagged manufacturer-published / independently tested / editorial designation / documented absence",
+      "'Claim Ledger' and 'Sources' sections",
+      "'Who Should Not Choose Sun Home' anti-testimonial honesty section",
+      "byline: 'Written by' + 'Expert Contributor' credential block"
+    ],
+    "offer": [
+      "warranty mentioned 33x",
+      "HSA/FSA eligibility mentioned 7x each",
+      "financing mentioned 5x",
+      "no discount/urgency copy"
+    ],
+    "faq_count": 7,
+    "above_fold": [
+      "full site nav",
+      "gradient-background hero title",
+      "'Published [date]' byline",
+      "'Written by' + 'Expert Contributor' credential block"
+    ],
+    "item_pattern": {
+      "heading_style": "numbered H3 differentiator ('1. The feature combination...')",
+      "body_words_avg": null,
+      "item_end": "evidence label per claim, not a CTA"
+    },
+    "design": {
+      "body_font": "\"Suisse Intl\", sans-serif (--font-body)",
+      "body_size_px": null,
+      "heading_font": "\"Suisse Intl\", sans-serif (--font-heading)",
+      "max_width_px": null,
+      "cta_bg": null,
+      "cta_text_color": null,
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": [
+        "grey-gradient hero band",
+        "white article body",
+        "orange rule under section headings"
+      ]
+    }
+  },
+  {
+    "url": "https://sunhomesaunas.com/blogs/saunas/sun-home-vs-other-home-sauna-brands",
+    "brand": "Sun Home Saunas",
+    "format": "guide",
+    "word_count": 1494,
+    "image_count": 1,
+    "h2_count": 4,
+    "h2s": [
+      "How Sun Home Compares at a Glance",
+      "Dedicated Brand-by-Brand Comparisons",
+      "How Each Brand Differentiates",
+      "How to Decide Between Brands"
+    ],
+    "cta_count": 0,
+    "cta_texts": [],
+    "sticky_bar": {
+      "present": true,
+      "contents": "site nav only (shared theme with why-customers-choose-sun-home page)"
+    },
+    "proof": [
+      "comparison table format",
+      "warranty mentioned 12x"
+    ],
+    "offer": [],
+    "faq_count": 0,
+    "above_fold": [
+      "full site nav",
+      "hero title",
+      "no byline observed on this variant"
+    ],
+    "item_pattern": {
+      "heading_style": "per-brand comparison subheads (h3, 6 total)",
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {
+      "body_font": "\"Suisse Intl\", sans-serif",
+      "body_size_px": null,
+      "heading_font": "\"Suisse Intl\", sans-serif",
+      "max_width_px": null,
+      "cta_bg": null,
+      "cta_text_color": null,
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    }
+  },
+  {
+    "url": "https://www.jonesroadbeauty.com/pages/5reasons",
+    "brand": "Jones Road Beauty",
+    "format": "listicle",
+    "word_count": 395,
+    "image_count": 10,
+    "h2_count": 0,
+    "h2s": [],
+    "cta_count": 6,
+    "cta_texts": [
+      "FIND YOUR PRODUCTS",
+      "TAKE THE QUIZ"
+    ],
+    "sticky_bar": {
+      "present": false,
+      "contents": null
+    },
+    "proof": [
+      "1 unattributed press pull-quote name-dropping Allure/Vogue/WSJ/Fast Company (item 4)",
+      "no star ratings or review counts on page"
+    ],
+    "offer": [],
+    "faq_count": 0,
+    "above_fold": [
+      "H1 headline (2-line)",
+      "subhead byline ('founded by Bobbi Brown')",
+      "CTA button 'FIND YOUR PRODUCTS'",
+      "no hero image, no proof badges above fold"
+    ],
+    "item_pattern": {
+      "heading_style": "numbered + benefit claim, all caps",
+      "body_words_avg": 55,
+      "item_end": "repeated micro-CTA button ('FIND YOUR PRODUCTS'), not a proof line"
+    },
+    "design": {
+      "body_font": null,
+      "body_size_px": null,
+      "heading_font": "RingsideWideWeb, Helvetica, Arial, sans-serif (condensed caps display); Canela serif used elsewhere on theme",
+      "max_width_px": null,
+      "cta_bg": "#000000 (observed black button, screenshot)",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": 0,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    },
+    "notes": "Server-rendered HTML is empty (content lives in a Shopify app block rendered by JS); all figures from live DOM. Entire page uses <h1> for every heading level, no <h2>/<h3>. Exit-intent popup (skin-type quiz + 'Unlock Free Shipping') fires on interaction. Sibling page /pages/what-the-foundation-5-reasons-why returned HTTP 200 but rendered only an empty H1 (no body copy) - treated as broken and excluded."
+  },
+  {
+    "url": "https://www.moonpod.co/pages/5-reasons",
+    "brand": "Moon Pod",
+    "format": "listicle",
+    "word_count": 573,
+    "image_count": 20,
+    "h2_count": 0,
+    "h2s": [],
+    "cta_count": 3,
+    "cta_texts": [
+      "Shop Moon Pod",
+      "SHOP NOW"
+    ],
+    "sticky_bar": {
+      "present": null,
+      "contents": "top nav holds logo + 'SHOP NOW' button; scroll-persistence not confirmed (no position:fixed/sticky rule found for header in main.css)"
+    },
+    "proof": [
+      "3 customer testimonials (name, location, title, quote) after item list",
+      "no star ratings or press logos observed"
+    ],
+    "offer": [],
+    "faq_count": 0,
+    "above_fold": [
+      "logo",
+      "top nav with 'SHOP NOW' button",
+      "H1 headline",
+      "subhead",
+      "body intro paragraph",
+      "CTA button 'Shop Moon Pod'",
+      "diagonal split lifestyle hero images"
+    ],
+    "item_pattern": {
+      "heading_style": "bare numeral (1-5) + bold benefit statement (not a distinct heading tag style)",
+      "body_words_avg": 65,
+      "item_end": "none - no micro-CTA or proof line per item"
+    },
+    "design": {
+      "body_font": "Nunito Sans (Google Fonts)",
+      "body_size_px": null,
+      "heading_font": "Montserrat (Google Fonts)",
+      "max_width_px": null,
+      "cta_bg": "lavender/purple (observed, hex not confirmed)",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": 100,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    },
+    "notes": "Entire page uses <h1> for every heading level (headline x2, item numerals, closing CTA heading), zero <h2>/<h3> - same anti-pattern as Jones Road."
+  },
+  {
+    "url": "https://theearthlingco.com/pages/lpd1-sbts-scset",
+    "brand": "The Earthling Co.",
+    "format": "product-lander",
+    "word_count": 670,
+    "image_count": 49,
+    "h2_count": 6,
+    "h2s": [
+      "Why Choose Earthling Shampoo Bars",
+      "Intentional by Nature",
+      "Discover why tens of thousands of Earthlings have made the switch to Shampoo Bars",
+      "Our Customers Feel Good About Their Plastic-Free Hair Care Routine",
+      "Choose Your Shampoo & Conditioner Set",
+      "Unlock the best hair of your life with high-quality, intentional ingredients that nourish, protect, and enhance your natural shine."
+    ],
+    "cta_count": null,
+    "cta_texts": [
+      "buy now",
+      "TRY SHAMPOO BARS",
+      "SHOP",
+      "Add to cart"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": ".te-cookie-bar only (cookie notice, not a purchase CTA); no confirmed sticky purchase bar"
+    },
+    "proof": [
+      "star rating '4.8 stars based on 18,000+ reviews' (repeated 3x)",
+      "customer photo testimonial",
+      "'As Featured In' press logos (The Good Trade, Reader's Digest, Mane Addicts, PopSugar)",
+      "'Climate Neutral Certified' badge",
+      "reviews widget: 92,739 reviews, 4.82 avg"
+    ],
+    "offer": [
+      "free shipping on orders $45+",
+      "30-day satisfaction guarantee (refund)"
+    ],
+    "faq_count": 0,
+    "above_fold": [
+      "promo bar 'Free Shipping on orders $45+'",
+      "full nav (Shampoo/Conditioner/Sets/Quiz/Shop+)",
+      "search/account/cart icons",
+      "wordmark logo",
+      "'buy now' nav pill",
+      "star rating line",
+      "problem/agitate headline 'Most shampoos contain detergent'",
+      "customer photo testimonial"
+    ],
+    "item_pattern": {
+      "heading_style": "numbered (1/2/3), all-caps short benefit label",
+      "body_words_avg": 30,
+      "item_end": "none - no micro-CTA or proof line per item"
+    },
+    "design": {
+      "body_font": "Helvetica, sans-serif (fallback stack); Filson Pro Regular/Bold used for body/headings",
+      "body_size_px": 18,
+      "heading_font": "Latienne Pro Bold, Georgia, serif (accent headings); Filson Pro Bold (sans headings)",
+      "max_width_px": 1200,
+      "cta_bg": "#5e7262",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": 6,
+      "cta_height_px": 60,
+      "section_gap_px": null,
+      "band_colors": [
+        "light green promo bar",
+        "white body"
+      ]
+    },
+    "notes": "Original target URL /pages/5-reasons-why-shampoo-bar-3 now redirects to the homepage gamified discount popup ('Unlock FREE gifts and DISCOUNTS') - dead page, substituted with /pages/lpd1-sbts-scset, a live listicle/product-lander hybrid found via search. Figures from live DOM (page also JS-rendered)."
+  },
+  {
+    "url": "https://www.hubspot.com/products/crm",
+    "brand": "HubSpot",
+    "format": "product-lander",
+    "word_count": 2039,
+    "image_count": 37,
+    "h2_count": 5,
+    "h2s": [
+      "Trusted by over 306,000 customers in more than 135 countries.",
+      "The Free CRM With Unlimited Growth Potential",
+      "Get Set Up in Minutes, Without IT Support",
+      "Scale Without Starting From Scratch",
+      "Get your free CRM today"
+    ],
+    "cta_count": 20,
+    "cta_texts": [
+      "Get free CRM",
+      "Learn about premium CRM",
+      "Demo premium CRM",
+      "See the HubSpot setup guide"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": "sticky global top nav: logo + nav links + 'Get free CRM' CTA button"
+    },
+    "proof": [
+      "'Trusted by over 306,000 customers in more than 135 countries' stat line",
+      "logo carousel module (customer/partner logos)"
+    ],
+    "offer": [
+      "100% free, no expiration date, no credit card required (repeated trust line)"
+    ],
+    "faq_count": 6,
+    "above_fold": [
+      "sticky global nav",
+      "breadcrumb (Home / Free HubSpot CRM)",
+      "eyebrow label 'Free HubSpot CRM'",
+      "H1",
+      "subhead",
+      "primary CTA 'Get free CRM'",
+      "'No credit card required' trust line",
+      "product screenshot mockup",
+      "customer-count social proof line"
+    ],
+    "item_pattern": {
+      "heading_style": null,
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {
+      "body_font": null,
+      "body_size_px": null,
+      "heading_font": null,
+      "max_width_px": null,
+      "cta_bg": "orange/red (observed, exact hex not confirmed)",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    },
+    "notes": "Design reference only, per brief. h3_count=42 (feature grid + FAQ items) shows a heavily sub-structured, skimmable layout worth borrowing for section density."
+  },
+  {
+    "url": "https://clickup.com/",
+    "brand": "ClickUp",
+    "format": "product-lander",
+    "word_count": 1057,
+    "image_count": 295,
+    "h2_count": 11,
+    "h2s": [
+      "60% of work is lost in context – and AI is lost without it",
+      "All apps, AI Agents, and humans in ClickUp",
+      "A new era of humans, with Super Agents",
+      "AI solutions for every team",
+      "It's like adding 15 full-time employees",
+      "Loved by 5+ million teams, backed by 100+ awards",
+      "#1 most referenced company on G2 reports",
+      "Powering businesses of all sizes",
+      "Enterprise-grade everything",
+      "All your work, all your people, all powered by AI"
+    ],
+    "cta_count": 93,
+    "cta_texts": [
+      "Get started. It's FREE!",
+      "Activate →"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": "sticky top nav (confirmed via computed position:fixed/sticky): logo + Brain AI/Product/Solutions/Learn/Pricing/Enterprise menu + Login + Sign Up CTA"
+    },
+    "proof": [
+      "'Loved by 5+ million teams, backed by 100+ awards'",
+      "'#1 most referenced company on G2 reports'",
+      "enterprise customer logos",
+      "embedded live product UI demo"
+    ],
+    "offer": [
+      "'Free forever. No credit card.' trust line under primary CTA"
+    ],
+    "faq_count": null,
+    "above_fold": [
+      "promo utility bar ('NEW: Brain²...')",
+      "sticky nav",
+      "eyebrow badge",
+      "large H1 (bold headline + grey subhead in one block)",
+      "dual CTA + trust line",
+      "embedded product UI screenshot"
+    ],
+    "item_pattern": {
+      "heading_style": null,
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {
+      "body_font": null,
+      "body_size_px": null,
+      "heading_font": null,
+      "max_width_px": null,
+      "cta_bg": "#000000 (observed black pill button, screenshot)",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    },
+    "notes": "Design reference only, per brief. CSS ships as a hashed Next.js bundle so most numeric design tokens could not be reliably attributed to the primary CTA; values captured are from direct screenshot observation only. Headline text varies between fetches (A/B test): curl captured 'Software to replace all software', live browser render captured 'One Workspace built to think and work' - both are real, observed variants, not invented. 14 responsive breakpoints found (400-1440px), the most granular of any brand reviewed."
+  }
+]
