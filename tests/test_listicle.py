@@ -990,3 +990,13 @@ def test_two_column_css_and_inline_ratios_survive_shopify_export(tmp_path):
     assert ".lst-measure--wide{max-width:var(--pk-measure-wide)}" in css
     assert ".adv-listicle.adv-img{display:block;height:auto;" in css
     assert body.count('style="aspect-ratio:2 / 3"') == 6
+
+
+def test_rating_line_is_omitted_below_the_minimum_review_count():
+    fp = {"reviews_summary": {"text": "Rated 5 out of 5 across 1 reviews on Judge.me (fetched 2026-09-19).", "claim_ids": ["reviews-live"]}}
+    assert listicle.rating_line(fp) is None
+    assert listicle.trust_line_items(fp) == []
+    fp_ok = {"reviews_summary": {"text": "Rated 4.76 out of 5 across 3,958 reviews on Judge.me (fetched 2026-09-19).", "claim_ids": ["reviews-live"]}}
+    line = listicle.rating_line(fp_ok)
+    assert line == {"text": "Rated 4.76 out of 5 across 3,958 reviews on Judge.me.", "claim_ids": ["reviews-live"]}
+    assert listicle.rating_line(fp, min_reviews=1) is not None

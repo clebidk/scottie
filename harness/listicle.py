@@ -297,7 +297,13 @@ def free_shipping_claim(facts_pack):
     return None
 
 
-def rating_line(facts_pack):
+# Fewest reviews a product-level rating may cite before the trust line and
+# sticky bar show it at all (cycle 47). Tenant override: reviews.min_count.
+RATING_MIN_REVIEWS = 25
+_REVIEW_COUNT_RE = re.compile(r"across\s+([\d,]+)\s+reviews", re.IGNORECASE)
+
+
+def rating_line(facts_pack, *, min_reviews=None):
     """The verified rating/review-count sentence, from
     facts_pack.reviews_summary, or None when this run fetched no review
     statistics. Not re-worded -- what the trust line and the sticky bar show
@@ -305,8 +311,17 @@ def rating_line(facts_pack):
     "(fetched YYYY-MM-DD)" provenance note (_drop_fetched_date), which reads
     as internal bookkeeping to a customer. The claim_id cited is unchanged,
     so this never affects what the sentence is allowed to say."""
+    if min_reviews is None:
+        min_reviews = RATING_MIN_REVIEWS
     summary = (facts_pack or {}).get("reviews_summary")
     if not summary or not summary.get("text"):
+        return None
+    # A product-level count below RATING_MIN_REVIEWS ("Rated 5 out of 5
+    # across 1 reviews") is true but reads as no proof at all; the line is
+    # omitted rather than shown thin. The number is parsed from the claim's
+    # own sentence so nothing is re-worded.
+    m = _REVIEW_COUNT_RE.search(summary["text"])
+    if m and int(m.group(1).replace(",", "")) < min_reviews:
         return None
     return {"text": _drop_fetched_date(summary["text"]), "claim_ids": list(summary.get("claim_ids") or [])}
 
