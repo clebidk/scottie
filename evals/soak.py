@@ -173,6 +173,10 @@ def _aggregate(runs, batch_size):
     }
 
 
+# A run directory the harness itself creates: <YYYYMMDD-HHMMSS>-<slug>-<suffix>.
+_RUN_DIR_RE = re.compile(r"^\d{8}-\d{4,6}-")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runs", type=int, default=200)
@@ -197,6 +201,14 @@ def main(argv=None):
         cartridges = _cartridge_set(i)
         record = {"i": i, "fixture": fixture.name, "cartridges": cartridges,
                   "attempts": 0, "repairs": 0, "check_failures": 0, "pages": {}, "cost_estimate": None}
+        # Only the run directory THIS iteration creates may ever be deleted:
+        # snapshot out/ before the run and diff afterwards. The previous
+        # `max(out_dir.iterdir(), key=mtime)` picked whatever entry had been
+        # touched most recently -- including a reviewer's `_archive-*` folder
+        # that had just received hundreds of moved run dirs -- and rmtree'd
+        # it (2026-09-19 post-mortem: two archive folders lost this way while
+        # the suite still ran against the real tenant paths).
+        before = {p for p in tenant.out_dir.iterdir()} if tenant.out_dir.is_dir() else set()
         try:
             exit_code = _run_once_with_pages(
                 str(fixture), tenant=ns.tenant, cartridges=cartridges, seed=i,
@@ -210,10 +222,18 @@ def main(argv=None):
         else:
             record["exit_code"] = exit_code
             if exit_code == 0:
-                run_dir = max(tenant.out_dir.iterdir(), key=lambda p: p.stat().st_mtime)
-                record.update(_summarize_run(run_dir, tenant))
-                if not ns.keep_runs:
-                    shutil.rmtree(run_dir)
+                created = sorted(
+                    (p for p in tenant.out_dir.iterdir() if p not in before and p.is_dir() and _RUN_DIR_RE.match(p.name)),
+                    key=lambda p: p.stat().st_mtime,
+                )
+                if not created:
+                    record["exit_code"] = "error"
+                    record["error"] = "run reported success but no new run directory was found"
+                else:
+                    run_dir = created[-1]
+                    record.update(_summarize_run(run_dir, tenant))
+                    if not ns.keep_runs and run_dir.parent == tenant.out_dir and not run_dir.name.startswith("_"):
+                        shutil.rmtree(run_dir)
         runs.append(record)
         # the after-every-batch feedback artifact: rewrite the running report
         if (i + 1) % ns.batch_size == 0 or i == ns.runs - 1:

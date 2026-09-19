@@ -1749,3 +1749,26 @@ changes what it returns). Full suite: 965 passed (925 baseline + 40 new),
 - Tests: `tests/test_ground.py` (+19: token/tag-parsing unit tests, threshold/tie/duplicate/exclude-ids/never-eligible-kind/ai-render eligibility, the exact "listicle reason 3 mentions the red light panel" scenario from the brief, one slot-extraction test per cartridge, `record_image_matches`). `tests/test_asset_describe.py` (new, 26: pricing normalization, tenant-neutral prompt building, `candidates_for` exclude/force filtering, vision-response parsing incl. forbidden-tag drop, `describe_one`/`describe_assets` against a fake client incl. forbidden-word stripping and atomic-save-every-10 with a mid-batch crash, `pool_report`, and CLI-level `--dry-run`/`--limit`/`--force`/unknown-model/daily-cap-stop via a pre-spent fake ledger).
 - Verify: full suite 1201 passed (1156 baseline + 45 new), `ruff check .` clean.
 - Branch `cycle42/image-matching`, not merged, not pushed. Built in an isolated `git worktree` (`~/advertorial-cycle42`) rather than the shared `~/advertorial` checkout, after discovering mid-task that another concurrently-running agent's session had the shared checkout on `cycle41/listicle-v2` with real uncommitted work in it -- see the commit message for the full account; no data was lost (confirmed via `git diff --numstat` showing pure insertions, zero deletions, before reverting the 3 files touched on the wrong branch).
+
+## Cycle 46 (2026-09-19): post-mortem -- archived run directories deleted by the soak driver
+
+**What was lost.** Two reviewer archive folders under `tenants/peak-saunas/out/`
+(`_archive-2026-09-15-pre40`: the 216 run dirs generated 2026-09-09..14, and
+`_archive-test-runs-2026-09-16`: 156 dry-run test dirs) were emptied. The 2026-09-14
+review set survives as its hand-off copy (`out/REVIEW-SET-2026-09-14/`, 24 review
+html files) and `out/FRIDAY-2026-09-11/`; the test dirs were disposable. No tracked
+file (claims, vocab, authors, brand manifests, tenant.yaml, evals) changed -- see git.
+
+**Root cause.** `evals/soak.py` located "the run dir this iteration made" as
+`max(tenant.out_dir.iterdir(), key=mtime)` and `shutil.rmtree`'d it. That picks
+whatever entry was touched most recently -- including an `_archive-*` folder an
+operator had just moved hundreds of runs into. `tests/test_fake_run.py::
+test_soak_runner_two_runs_writes_a_report` drives soak against the real tenant, and
+until cycle 37 (2026-09-18) the suite ran against the REAL `out/`, so every suite run
+between the archive moves and cycle 37 could delete the freshest archive folder.
+
+**Fix.** soak snapshots `out/` before each run and may delete only a NEW entry whose
+name matches the run-id pattern (`tests/test_soak_safety.py`). Cycle 37's autouse
+isolation keeps the suite off the real tenant regardless. `crons/backup-tenant-data.sh`
+snapshots every tenant's non-git data daily to `~/backups/advertorial` (14-day
+retention) so an operator mistake or a future bug of this class is recoverable.
