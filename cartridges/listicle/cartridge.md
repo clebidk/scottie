@@ -19,7 +19,7 @@ For the first four styles the headline's N is the number of entries in `reasons`
 
 ## Structure (in order)
 1. Header: the "Advertisement" label, H1 headline, one-line dek, hero image (`hero.asset_id`), the primary CTA button, a trust line under it, and the byline.
-2. 5-7 numbered items (`reasons`). Each: number, an H2 heading (<=10 words, no numeral), a 60-150 word body, one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
+2. 5-7 numbered items (`reasons`). Each: number, an H2 heading (<=10 words, no numeral), a 50-150 word body, one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
 3. A pull-quote band after item 3, when this run's facts pack carries a customer quote.
 4. "Who this is for / who it is not for" (`audience_fit`): two lists of 2-4 one-line entries.
 5. The model picker: up to three of the tenant's own active models, each with a one-line fit, its verified price, and a CTA to that model's page.

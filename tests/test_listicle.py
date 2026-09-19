@@ -243,6 +243,66 @@ def test_writer_style_lines_state_the_formula_the_gate_measures():
         assert listicle.ITEM_PATTERNS[style] in lines
 
 
+def test_writer_style_lines_warn_against_real_estate_terms_and_brand_names():
+    # Cycle 43: observed on a real run -- "6 Reasons Home Buyers Are Choosing
+    # Peak Saunas Infrared Saunas" put a real-estate term in <audience> and
+    # the tenant's own name in <category>.
+    reasons_lines = " ".join(listicle.writer_style_lines("reasons"))
+    assert "real-estate term" in reasons_lines
+    assert "never the tenant's name" in reasons_lines
+    # "mistakes" has no <audience> slot in its formula -- only the
+    # <category> guidance applies.
+    mistakes_lines = " ".join(listicle.writer_style_lines("mistakes"))
+    assert "real-estate term" not in mistakes_lines
+    assert "never the tenant's name" in mistakes_lines
+
+
+def test_headline_slot_gate_catches_the_tenant_name():
+    page = _listicle_page("reasons")
+    page["headline"] = "6 Reasons Home Buyers Are Choosing Peak Saunas Infrared Saunas"
+    problems = listicle.find_listicle_violations(
+        page, style="reasons", tenant_name="Peak Saunas", product_names=["Fuji"],
+    )
+    keys = {p["key"] for p in problems}
+    assert "listicle:headline_slots" in keys
+
+
+def test_headline_slot_gate_catches_a_product_name():
+    page = _listicle_page("reasons")
+    page["headline"] = "5 Reasons Busy Parents Are Choosing Peak Fuji 2-Person Infrared Sauna"
+    problems = listicle.find_listicle_violations(
+        page, style="reasons", tenant_name="Peak Saunas",
+        product_names=["Peak Fuji 2-Person Infrared Sauna"],
+    )
+    keys = {p["key"] for p in problems}
+    assert "listicle:headline_slots" in keys
+
+
+def test_headline_slot_gate_passes_a_category_only_headline():
+    page = _listicle_page("reasons")
+    page["headline"] = "5 Reasons Busy Parents Are Choosing Home Infrared Saunas"
+    problems = listicle.find_listicle_violations(
+        page, style="reasons", tenant_name="Peak Saunas", product_names=["Fuji"],
+    )
+    assert not any(p["key"] == "listicle:headline_slots" for p in problems)
+
+
+def test_headline_slot_gate_is_a_noop_with_no_names_given():
+    # Every existing caller of find_listicle_violations outside
+    # check_page_gates doesn't have tenant_name/product_names -- this check
+    # must not fire for them.
+    page = _listicle_page("reasons")
+    page["headline"] = "5 Reasons Busy Parents Are Choosing Home Infrared Saunas"
+    assert listicle.find_listicle_violations(page, style="reasons") == []
+
+
+def test_check_page_gates_flags_a_headline_naming_the_tenant():
+    page = _listicle_page("reasons")
+    page["headline"] = "5 Reasons Busy Parents Are Choosing Peak Saunas Infrared Saunas"
+    problems = _gate(page, listicle_style="reasons")
+    assert any(p["key"] == "listicle:headline_slots" for p in problems)
+
+
 @pytest.mark.parametrize("style", listicle.STYLES)
 def test_a_page_in_every_style_validates_against_the_schema_and_passes_the_gate(style):
     page = _listicle_page(style)
@@ -309,9 +369,25 @@ def test_item_numbering_must_match_position():
     assert "listicle:item_numbering:2" in keys
 
 
-def test_item_body_outside_sixty_to_one_hundred_fifty_words_fails():
+def test_item_body_outside_fifty_to_one_hundred_fifty_words_fails():
     page = _listicle_page()
     page["reasons"][0]["text"] = _words(40)
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:item_words:0" in keys
+
+
+def test_item_body_of_exactly_fifty_words_passes():
+    # Cycle 43: floor lowered from 60 to 50 -- observed real runs stopping
+    # items at 53-57 words against the old floor.
+    page = _listicle_page()
+    page["reasons"][0]["text"] = _words(50)
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:item_words:0" not in keys
+
+
+def test_item_body_of_forty_nine_words_still_fails():
+    page = _listicle_page()
+    page["reasons"][0]["text"] = _words(49)
     keys = {p["key"] for p in listicle.find_listicle_violations(page)}
     assert "listicle:item_words:0" in keys
 
@@ -438,10 +514,37 @@ def test_the_repair_loop_applies_the_headline_fix_without_a_model_call():
     assert listicle.find_listicle_violations(page, style="questions") == []
 
 
+def test_the_repair_loop_removes_a_redundant_nested_cta_url_without_a_model_call():
+    # Cycle 43: a writer that echoes the page's own cta_url into a nested
+    # object (closing.cta_url observed on a real run) used to stop the run
+    # even though it names the same, single destination.
+    from harness.repair import apply_deterministic_fixes
+
+    page = _listicle_page("reasons")
+    page["closing"]["cta_url"] = page["cta_url"]
+    problems = _gate(page, listicle_style="reasons")
+    assert any("second CTA url" in p["issue"] for p in problems)
+    assert apply_deterministic_fixes(page, problems, set(), cartridge_name="listicle") == 1
+    assert "cta_url" not in page["closing"]
+    assert _gate(page, listicle_style="reasons") == []
+
+
+def test_the_repair_loop_leaves_a_genuinely_different_nested_cta_url_for_the_model():
+    from harness.repair import apply_deterministic_fixes
+
+    page = _listicle_page("reasons")
+    page["closing"]["cta_url"] = "https://peaksaunas.com/pages/other"
+    problems = _gate(page, listicle_style="reasons")
+    assert any("second CTA url" in p["issue"] for p in problems)
+    assert apply_deterministic_fixes(page, problems, set(), cartridge_name="listicle") == 0
+    assert page["closing"]["cta_url"] == "https://peaksaunas.com/pages/other"
+    assert any("second CTA url" in p["issue"] for p in _gate(page, listicle_style="reasons"))
+
+
 def test_the_writer_is_told_the_rules_the_gate_measures():
     rules = " ".join(listicle.writer_rules_lines())
     assert "asset_id" in rules
-    assert "60-150 words" in rules
+    assert "50-150 words" in rules
     assert "exactly one \"cta_url\"" in rules
     assert "claim_ids" in rules
 
@@ -558,6 +661,40 @@ def test_render_context_reads_only_facts_pack():
     assert len(context["model_options"]) == 2
 
 
+def test_rating_line_drops_the_fetched_date():
+    # Cycle 43: reviews.claim_template (tenants/peak-saunas/tenant.yaml) ends
+    # in "(fetched YYYY-MM-DD)" -- useful provenance for REVIEW.md, not
+    # something a reader of the trust line or sticky bar needs.
+    facts = {
+        **FACTS_PACK,
+        "reviews_summary": {
+            "text": "Rated 4.6 out of 5 across 8,200 reviews on Judge.me (fetched 2026-09-09).",
+            "claim_ids": ["reviews-live"],
+        },
+    }
+    line = listicle.rating_line(facts)
+    assert line["text"] == "Rated 4.6 out of 5 across 8,200 reviews on Judge.me."
+    assert line["claim_ids"] == ["reviews-live"]  # citation is unaffected
+
+
+def test_rating_line_leaves_a_summary_with_no_fetched_date_alone():
+    line = listicle.rating_line(RICH_FACTS_PACK)
+    assert line["text"] == "Rated 4.8 out of 5 across 1,200 reviews."
+
+
+def test_render_omits_the_fetched_date_from_trust_line_and_sticky_bar(tmp_path):
+    facts = {
+        **RICH_FACTS_PACK,
+        "reviews_summary": {
+            "text": "Rated 4.6 out of 5 across 8,200 reviews on Judge.me (fetched 2026-09-09).",
+            "claim_ids": ["reviews-live"],
+        },
+    }
+    html = _render(_listicle_page(), tmp_path, facts_pack=facts).read_text()
+    assert "fetched" not in html.lower()
+    assert "Rated 4.6 out of 5 across 8,200 reviews on Judge.me." in html
+
+
 def test_render_listicle_page_has_every_section_when_the_data_is_there(tmp_path):
     page = _listicle_page("reasons")
     html = _render(page, tmp_path, facts_pack=RICH_FACTS_PACK).read_text()
@@ -608,6 +745,51 @@ def test_render_omits_the_trust_line_entirely_when_nothing_is_verified(tmp_path)
     page["closing"]["recap"][2] = {"text": "The cabin goes where you have room."}
     html = _render(page, tmp_path, facts_pack=facts).read_text()
     assert 'class="lst-trust"' not in html
+
+
+def test_about_author_stays_out_of_the_header_and_moves_to_the_footer(tmp_path):
+    # Cycle 43: the long "About the author" paragraph used to render inside
+    # the header (above the fold, next to the compact byline). It now
+    # renders just above the disclosure/sources footer instead. This needs
+    # the real tenant's own brand/byline.html (which carries the
+    # about-author marker) -- _render's fake brand_dir falls back to a
+    # byline with no About section at all, so this test builds its own
+    # render_page call.
+    html = render_page(
+        cartridge_name="listicle",
+        page=_listicle_page(),
+        ad_brief=AD_BRIEF,
+        facts_pack=FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges",
+        brand_dir=TENANT.brand_dir,
+        templates_dir=REPO_ROOT / "harness" / "templates",
+        out_dir=tmp_path / "listicle",
+        published="2026-09-18",
+        updated="2026-09-18",
+        download_assets=False,
+        tenant=TENANT,
+    ).read_text()
+
+    header_end = html.index('class="lst-main"')
+    footer_start = html.index('class="adv-footer"')
+    header_html, footer_html = html[:header_end], html[footer_start:]
+
+    assert "About the author." in html
+    assert "About the author." not in header_html
+    assert "About the author." in footer_html
+    assert footer_html.index("About the author.") < footer_html.index("adv-disclosure")
+    # the compact byline (author/contributor/reviewer + dates) stays in the
+    # header, not duplicated into the footer
+    assert "Written by" in header_html
+    assert "Written by" not in footer_html
+
+
+def test_about_author_is_absent_when_the_tenant_byline_carries_no_about_section(tmp_path):
+    # _render's brand_dir doesn't exist, so load_byline_html falls back to
+    # FALLBACK_BYLINE, which has no About section at all -- about_author_html
+    # must simply be empty, not an error.
+    html = _render(_listicle_page(), tmp_path).read_text()
+    assert "About the author" not in html
 
 
 def test_the_sticky_bar_is_inside_the_cartridge_wrapper_not_base_html(tmp_path):

@@ -16,6 +16,13 @@
   (Keep double hyphens out of this comment: they are invalid inside an HTML
   comment and trip the rendered-page HTML-validity backstop in
   harness/pagechecks.py.)
+
+  Cycle 43 (listicle only): harness/render.py's split_byline_html looks for
+  the "about-author" marker comment below and splits there: the compact top
+  byline renders in the listicle header, the About block moves down next to
+  the disclosure/sources footer instead of sitting above the fold with it.
+  Every other cartridge still gets this whole file as one combined
+  byline_html, unchanged.
 -->
 
 <!-- Top-of-page byline -->
@@ -24,6 +31,7 @@
   <div class="byline__dates">Published: {{published}} &middot; Updated: {{updated}}</div>
 </div>
 
+<!-- about-author -->
 <!-- Bottom-of-page "About the author" block -->
 <div class="byline" style="border-top:1px solid #E9EAEC;padding-top:14px;font-size:14px">
   <p><strong>About the author.</strong> Austin Laudenslager is the Founder &amp; CEO of Peak Saunas and is responsible for every claim on this page. Corrections are date-stamped in the Updated line above. <a href="/pages/austin-laudenslager">Full bio</a>. Caleb Niednagel, Technology Lead, reviews the specifications and sources on this page.</p>

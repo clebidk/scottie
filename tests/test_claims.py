@@ -120,6 +120,32 @@ def test_trigger_word_check_is_word_boundary_not_substring():
     assert problems == []
 
 
+def test_trigger_word_check_ignores_hyphenated_compounds():
+    # Cycle 43 regression: a plain \b boundary treats a hyphen the same as a
+    # space, so "outdoor-rated"/"top-rated" tripped the "rated" trigger word
+    # even though neither is the standalone word -- fixed in
+    # vocab.Vocabulary.trigger_word_re. No digit in either sentence, so this
+    # isolates the trigger-word check from the separate "contains a number"
+    # rule.
+    page = {"open": [{"text": "The cable is outdoor-rated and the fan housing is top-rated for noise."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"})
+    assert problems == []
+
+
+def test_trigger_word_check_still_catches_a_standalone_rated():
+    page = {"open": [{"text": "Owners say it is rated for daily use by the manufacturer."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"})
+    assert len(problems) == 1
+    assert 'uses the word "rated"' in problems[0]["issue"]
+
+
+def test_trigger_word_check_still_catches_top_rated_with_a_space():
+    page = {"open": [{"text": "It is consistently top rated among home units like it."}]}
+    problems = validate_page_claim_ids(page, {"price-fuji"})
+    assert len(problems) == 1
+    assert 'uses the word "rated"' in problems[0]["issue"]
+
+
 def test_digit_in_a_customer_quote_does_not_need_a_claim_id():
     # Regression from the hidden-costs-v2 verification run: the ad's own
     # dialogue ("It's 2026, I don't want to talk to anyone...") quoted

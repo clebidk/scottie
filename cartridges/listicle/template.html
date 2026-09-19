@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ page.headline }}{% endblock %}
+{# Cycle 43: the compact byline (author/contributor/reviewer + dates) stays
+   in the header below (.lst-byline, inside .lst-header); the longer "About
+   the author" paragraph, when this tenant's byline.html carries one (see
+   harness/render.py's split_byline_html), renders here instead -- base.html's
+   own byline block, which sits in the footer just above the disclosure
+   paragraph, not above the fold with the rest of the header. #}
+{% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
 <style>
 /* Listicle cartridge v0.2 -- measurements taken from the reference lander

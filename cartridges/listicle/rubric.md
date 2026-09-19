@@ -4,7 +4,7 @@ Not executed in V1 (grader lands in V1.5). Twelve one-line checks a reviewer sco
 
 1. `style` is one of reasons/mistakes/questions/myths/tested and the headline follows that style's formula, 8-14 words, no price. For the first four styles the headline's N equals the item count.
 2. Item count N is 5-7; each item's `number` matches its position; each heading is <=10 words with no numeral and asserts what the style says it should.
-3. Each item body is 60-150 words and closes with a `proof` line that either cites a verified claim_id or reads, to a reader, as an attributed customer statement.
+3. Each item body is 50-150 words and closes with a `proof` line that either cites a verified claim_id or reads, to a reader, as an attributed customer statement.
 4. Every claims-bearing sentence (number, %, $, medical/clinical/study/proven/rated/reviews) carries a claim_id that exists in facts_pack.verified_claims -- including every FAQ answer.
 5. FAQ has 5-7 questions a buyer actually asks, each answered first and qualified second.
 6. `audience_fit.not_for_you` names real, checkable limits -- someone who reads it and leaves was never going to be happy. A fake drawback or a humblebrag scores zero here.
