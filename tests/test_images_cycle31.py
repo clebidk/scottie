@@ -313,9 +313,15 @@ def test_find_hero_requirement_violations_fires_when_hero_missing():
     assert len(problems) == 1
 
 
-def test_find_hero_requirement_violations_noop_for_article_and_listicle():
+def test_find_hero_requirement_violations_noop_for_article():
     assert pagechecks.find_hero_requirement_violations({}, "article") == []
-    assert pagechecks.find_hero_requirement_violations({}, "listicle") == []
+
+
+def test_find_hero_requirement_violations_covers_listicle_from_cycle_41():
+    # listicle v0.2 declares its own page.hero slot, so it is required the
+    # same way longform's and product-page's are.
+    assert pagechecks.find_hero_requirement_violations({}, "listicle") != []
+    assert pagechecks.find_hero_requirement_violations({"hero": {"asset_id": "a"}}, "listicle") == []
 
 
 # ---------------------------------------------------------------------------

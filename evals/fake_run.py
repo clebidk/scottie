@@ -22,11 +22,12 @@ import sys
 from pathlib import Path
 
 from harness import cli
+from harness import listicle as listicle_mod
 from harness import pipeline
 from harness import tenant as tenant_mod
 from harness.prices import build_live_price_claims
 from tests.conftest import FakeClient, json_response
-from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE
+from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE, _FILLER_SENTENCES
 
 CANNED_PAGES = {
     "article": ARTICLE_PAGE,
@@ -34,17 +35,99 @@ CANNED_PAGES = {
     "longform": LONGFORM_PAGE,
 }
 
+FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 
-def _canned_page(cartridge):
+# Cycle 41: listicle v0.2 is style-driven, so its canned page is built per
+# style rather than stored as one literal -- one offline page per style,
+# which is what lets `python -m evals.fake_run ... --cartridges listicle
+# --style <s>` render all five without an API key. Asset ids are this
+# product's own Shopify manifest ids (the same shape every other canned page
+# uses) so pagechecks.find_image_allowlist_violations sees real ids.
+_LISTICLE_ASSET_IDS = [f"asset-{FUJI_SLUG}-{i}" for i in range(1, 7)]
+
+_LISTICLE_HEADLINES = {
+    "reasons": "5 Reasons Careful Buyers Are Choosing A Home Infrared Cabin",
+    "mistakes": "5 Mistakes People Make Buying A Home Infrared Cabin",
+    "questions": "5 Questions to Ask Before You Buy A Home Cabin",
+    "myths": "5 Home Infrared Cabin Myths, and What the Evidence Says",
+    "tested": "We Tested Home Infrared Cabins for 8 Weeks. Here Is What Held Up",
+}
+
+
+def _filler_words(n, offset=0):
+    stream = " ".join(_FILLER_SENTENCES * 4).split()
+    return " ".join(stream[offset:offset + n])
+
+
+def _listicle_page(style):
+    return {
+        "style": style,
+        "headline": _LISTICLE_HEADLINES[style],
+        "dek": "A plain look at what actually holds up once the box arrives.",
+        "hero": {"asset_id": _LISTICLE_ASSET_IDS[0]},
+        "reasons": [
+            {
+                "number": i,
+                "heading": f"What a careful buyer checks first, part {i}",
+                "text": _filler_words(130, offset=i * 17),
+                "image": {"asset_id": _LISTICLE_ASSET_IDS[i]},
+                "proof": {
+                    "text": "One customer told us the room was warm before the kettle had boiled.",
+                    "attributed_to_customer": True,
+                },
+            }
+            for i in range(1, 6)
+        ],
+        "audience_fit": {
+            "for_you": [
+                {"text": "You have a dry, level corner of a room you can give up for good."},
+                {"text": "You would rather read the published specification than book a sales call."},
+                {"text": "You want a session you can take without leaving the house."},
+            ],
+            "not_for_you": [
+                {"text": "You rent and cannot leave a cabin behind when the lease ends."},
+                {"text": "Your only free wall is in an unheated garage that freezes in winter."},
+                {"text": "You want something that folds away between sessions."},
+            ],
+        },
+        "faq": {
+            "questions": [
+                {
+                    "question": f"A question a careful buyer asks before ordering, part {i}?",
+                    "answer": _filler_words(40, offset=i * 29),
+                }
+                for i in range(1, 6)
+            ]
+        },
+        "cta_text": "See the models",
+        "cta_url": "/collections/all",
+        "closing": {
+            "headline": "Ready to see which one fits",
+            "recap": [
+                {"text": "The cabin goes where you have room, not where a spa happens to have room."},
+                {"text": "Everything a seller would tell you on a call is published on the page instead."},
+                {"text": "Free shipping is included on every order.", "claim_ids": ["shipping-policy"]},
+            ],
+            "warranty_line": {
+                "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+                "claim_ids": ["warranty-terms"],
+            },
+            "financing_line": {"text": "Financing is available through Bread Pay at checkout.", "claim_ids": []},
+        },
+    }
+
+
+def _canned_page(cartridge, style=None):
     if cartridge == "comparison":
         # Imported lazily so the driver's startup stays light when the
         # comparison cartridge isn't involved.
         from tests.test_comparison import COMPARISON_PAGE
 
         return COMPARISON_PAGE
+    if cartridge == "listicle":
+        return _listicle_page(style or listicle_mod.STYLES[0])
     return CANNED_PAGES[cartridge]
 
-FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 
 
 def _brief_for(input_arg):
@@ -152,27 +235,40 @@ def _newest_run_dir(base_dir, pattern):
     return max(dirs, key=lambda p: p.stat().st_mtime)
 
 
-def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None):
+def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
+             style=None):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
     None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
     (the 200-generation dry run)."""
     selected = [c.strip() for c in cartridges.split(",") if c.strip()]
-    unknown = [c for c in selected if c not in CANNED_PAGES and c != "comparison"]
+    known = set(CANNED_PAGES) | {"comparison", "listicle"}
+    unknown = [c for c in selected if c not in known]
     if unknown:
-        print(f"no canned page for cartridge(s): {unknown}; have: {sorted(CANNED_PAGES)} + comparison", file=sys.stderr)
+        print(f"no canned page for cartridge(s): {unknown}; have: {sorted(known)}", file=sys.stderr)
         return 1, None, []
+
+    # Cycle 41: the canned listicle page has to be written in the SAME style
+    # the run itself resolves (pipeline.prepare_run), or the style gate
+    # rejects it -- so resolve it here the same way, from the same flag and
+    # the same seed.
+    resolved_style = None
+    if "listicle" in selected:
+        resolved_style = listicle_mod.resolve_style(
+            style, seed=seed, tenant=tenant_mod.load_tenant(tenant, require=True)
+        )
 
     brief = _brief_for(input_arg)
     responses = [json_response(brief)]
     if brief.get("claims_made"):
         responses.append(json_response({}))  # the semantic-match call only happens when claims exist
-    responses += [json_response(_canned_page(c)) for c in selected]
+    responses += [json_response(_canned_page(c, resolved_style)) for c in selected]
     client = FakeClient(responses)
 
     args = argparse.Namespace(
         input=input_arg,
         cartridges=cartridges,
         seed=seed,
+        style=style,
         product=product,
         ffmpeg_bin="/usr/bin/ffmpeg",
         whisper_bin="/nonexistent/whisper-cli",
@@ -197,13 +293,16 @@ def main(argv=None):
     parser.add_argument("--tenant", default=None)
     parser.add_argument("--cartridges", default="article,product-page,longform")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--style", choices=list(listicle_mod.STYLES), default=None,
+                        help="listicle style; default: deterministic from --seed")
     parser.add_argument("--product", default=None)
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)
 
     exit_code, run_dir, pages = run_once(
-        ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product
+        ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
+        style=ns.style,
     )
     if exit_code != 0:
         return exit_code

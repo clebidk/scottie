@@ -36,13 +36,13 @@ FACTS_PACK = {
     "verified_claims": [
         {"id": "warranty-terms", "text": "warranty text", "category": "trust", "source": "https://peaksaunas.com/pages/warranty"},
     ],
-    # Cycle 31: five distinct assets -- pagechecks.find_duplicate_asset_
-    # violations now requires every image slot on a page to be a distinct
-    # asset id (docs/IMAGES-AUDIT-2026-09-14.md problem 3), so LISTICLE_PAGE
-    # below can no longer reuse "asset-1" for all five reasons.
+    # Cycle 31: distinct assets -- pagechecks.find_duplicate_asset_
+    # violations requires every image slot on a page to be a distinct asset
+    # id (docs/IMAGES-AUDIT-2026-09-14.md problem 3). Cycle 41: six of them,
+    # for listicle v0.2's own hero slot plus one image per item.
     "assets": [
         {"id": f"asset-{i}", "url": f"https://cdn.shopify.com/fuji-{i}.png", "kind": "lifestyle", "alt": "Fuji sauna"}
-        for i in range(1, 6)
+        for i in range(1, 7)
     ],
 }
 
@@ -52,18 +52,48 @@ AD_BRIEF = {
     "speaker_pov": "third_person", "source_file": "ad.txt", "input_type": "text", "transcript_or_text": "text",
 }
 
+# Cycle 41: listicle v0.2 -- a style, a hero slot of its own, a proof line
+# per item, the fit block, an FAQ, and a 3-bullet closing recap. The sticky
+# bar and the alternating bands are what these tests care about carrying
+# into shopify-body.html.
 LISTICLE_PAGE = {
-    "headline": "5 Reasons Busy Parents Are Switching to Peak Saunas",
+    "style": "reasons",
+    "headline": "5 Reasons Busy Parents Are Switching to Home Saunas",
     "dek": "A quick look at what makes the switch worth it.",
+    "hero": {"asset_id": "asset-1"},
     "reasons": [
-        {"number": i, "heading": f"Reason number {i}", "text": "A plain, specific reason a buyer can check for themselves.", "image": {"asset_id": f"asset-{i}"}}
+        {
+            "number": i,
+            "heading": f"Reason number {i}",
+            "text": "A plain, specific reason a buyer can check for themselves.",
+            "image": {"asset_id": f"asset-{i + 1}"},
+            "proof": {"text": "One customer told us the room was warm within minutes.",
+                      "attributed_to_customer": True},
+        }
         for i in range(1, 6)
     ],
+    "audience_fit": {
+        "for_you": [{"text": "You have a dry, level corner to give up."},
+                    {"text": "You would rather read the specification than book a call."}],
+        "not_for_you": [{"text": "You rent and cannot leave a cabin behind."},
+                        {"text": "Your only free wall is in a garage that freezes."}],
+    },
+    "faq": {
+        "questions": [
+            {"question": f"A question a buyer asks, number {i}?",
+             "answer": "A short, plain answer with nothing to cite in it."}
+            for i in range(1, 6)
+        ]
+    },
     "cta_text": "See the models",
     "cta_url": "https://peaksaunas.com/collections/all",
     "closing": {
         "headline": "Ready to feel the difference?",
-        "paragraphs": [{"text": "Peak Saunas is one brand that makes switching easy."}],
+        "recap": [
+            {"text": "The cabin goes where you have room."},
+            {"text": "Everything a seller would say on a call is published instead."},
+            {"text": "Assembly is a weekend job, not a trade job."},
+        ],
         "warranty_line": {
             "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
             "claim_ids": ["warranty-terms"],
@@ -213,16 +243,16 @@ def test_assets_manifest_lists_each_image_once_with_a_cdn_filename(tmp_path):
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     _, manifest = build_shopify_body(out_dir)
-    # Cycle 31: LISTICLE_PAGE's five reasons now use five distinct asset ids
-    # (docs/IMAGES-AUDIT-2026-09-14.md problem 3 -- a page may not reuse the
-    # same asset id in two slots). Each render_image_slot <picture> carries
-    # one WebP and one JPEG variant here (a 300x300 source is narrower than
-    # every configured srcset width, so generate_image_variants emits just
-    # one size) -- 5 images x 2 formats = 10 manifest entries, one per
-    # distinct local_path, each still listed exactly once.
-    assert len(manifest) == 10
+    # Cycle 31: a page may not reuse the same asset id in two slots
+    # (docs/IMAGES-AUDIT-2026-09-14.md problem 3). Cycle 41: six distinct
+    # images -- the header hero plus one per item. Each render_image_slot
+    # <picture> carries one WebP and one JPEG variant here (a 300x300 source
+    # is narrower than every configured srcset width, so
+    # generate_image_variants emits just one size) -- 6 images x 2 formats =
+    # 12 manifest entries, one per distinct local_path, each listed once.
+    assert len(manifest) == 12
     by_path = {e["local_path"]: e for e in manifest}
-    assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(1, 6) for ext in ("jpg", "webp")}
+    assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(1, 7) for ext in ("jpg", "webp")}
     entry = by_path["assets/asset-1-300.jpg"]
     assert entry["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo"
     assert entry["cdn_filename"].startswith("pk-listicle-01-")
@@ -234,7 +264,7 @@ def test_assets_manifest_is_valid_json_on_disk(tmp_path):
     _render_listicle(out_dir)
     _, manifest_path = write_shopify_body(out_dir)
     on_disk = json.loads(manifest_path.read_text())
-    expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(1, 6) for ext in ("jpg", "webp")}
+    expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(1, 7) for ext in ("jpg", "webp")}
     assert {e["local_path"] for e in on_disk} == expected_paths
     assert all(e["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo" for e in on_disk)
     # every cdn_filename is distinct and carries the format's own extension
