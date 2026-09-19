@@ -62,6 +62,13 @@ SECTION_KIND_GROUPS = (
 )
 DEFAULT_SECTION_SLOT_COUNT = 6
 
+# Cycle 41 (listicle v0.2): how many models the listicle's model picker
+# offers, and which spec labels make up a model's one-line "fit". Both are
+# generic: a spec row only reaches the picker when it carries its own
+# claim_id, so every line in the picker is backed by a verified claim.
+MODEL_OPTION_MAX = 3
+MODEL_FIT_SPEC_LABELS = ("capacity", "placement")
+
 
 def pick_hero(assets, *, allow_ai_renders, exclude_ids=frozenset()):
     """The best hero candidate from `assets` (facts_for()'s combined list):
@@ -206,6 +213,11 @@ def all_used_asset_ids(run_dir, *, exclude_cartridge=None):
 _HERO_FIELD_PATH = {
     "longform": ("hero", "hero_image"),
     "product-page": ("hero", "hero_image"),
+    # Cycle 41: listicle v0.2 has a real header hero slot of its own
+    # (page.hero.asset_id). v0.1 had none, so the first item's image was
+    # treated as the de facto hero -- see the listicle branch below, kept
+    # only for a page written against the older schema.
+    "listicle": ("hero",),
 }
 
 
@@ -225,6 +237,8 @@ def hero_container(page, cartridge_name):
         images = page.get("images") or []
         return images[0] if images and isinstance(images[0], dict) else None
     if cartridge_name == "listicle":
+        # v0.1 fallback: no page.hero at all, so the first item's image is
+        # the de facto hero for selection-policy purposes.
         reasons = page.get("reasons") or []
         if reasons and isinstance(reasons[0], dict):
             image = reasons[0].get("image")
@@ -709,7 +723,65 @@ class LocalFactsSource:
                 unique.append(c)
         return targets, unique
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, log=None):
+    def _model_options(self, product, live_price_claims=None):
+        """Cycle 41: the listicle model picker's rows -- up to
+        MODEL_OPTION_MAX of the tenant's OWN active products (the run's
+        product first, then the closest in price), each with a one-line fit
+        built from its claim-backed spec rows, its published price, and its
+        own product URL.
+
+        Returns (options, backing_claims) the same way _comparison_targets
+        does: backing_claims are the price/spec claims that must join
+        facts_pack.verified_claims so the rendered page's Sources list can
+        cite every line the picker shows. A product with no price claim at
+        all is skipped rather than shown with an unsourced number.
+        `live_price_claims` (pipeline's live_price_claims_by_slug) is
+        preferred over the static claim so the picker never shows a price
+        this run already knows is stale."""
+        self._load()
+        live_price_claims = live_price_claims or {}
+        by_id = {c["id"]: c for c in self._verified}
+        active = [p for p in self._products.values() if p.get("active", True)]
+        run_price = float(product.get("price") or 0)
+        others = sorted(
+            (p for p in active if p["slug"] != product["slug"]),
+            key=lambda p: (abs(float(p.get("price") or 0) - run_price), p["slug"]),
+        )
+        options, backing = [], []
+        for p in ([product] if product.get("active", True) else []) + others:
+            if len(options) >= MODEL_OPTION_MAX:
+                break
+            name_slug = product_name_slug(p["name"])
+            price_claim = live_price_claims.get(p["slug"]) or by_id.get(f"price-{name_slug}")
+            if not price_claim:
+                continue
+            claim_ids = [price_claim["id"]]
+            backing.append(price_claim)
+            fit_parts = []
+            for spec in p.get("specs", []):
+                if (spec.get("label") or "").strip().lower() not in MODEL_FIT_SPEC_LABELS:
+                    continue
+                claim = by_id.get(spec.get("claim_id") or "")
+                if not claim:
+                    continue
+                fit_parts.append(spec["value"].rstrip("."))
+                claim_ids.append(claim["id"])
+                backing.append(claim)
+            options.append({
+                "name": p.get("short_name") or p["name"],
+                "url": p["url"],
+                "price_text": format_price(p["price"]),
+                "fit": " \u00b7 ".join(fit_parts),
+                "claim_ids": claim_ids,
+            })
+        seen, unique = set(), []
+        for c in backing:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                unique.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
+        return options, unique
+
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, live_price_claims=None, log=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -864,6 +936,17 @@ class LocalFactsSource:
             # or reorders "assets" itself.
             "image_slots": _lean_slot_plan(build_slot_plan(assets, allow_ai_renders=bool(config.get("allow_ai_renders")))),
         }
+        if include_listicle:
+            # Cycle 41: only a run whose selected cartridges include listicle
+            # gets the model picker's rows (and their backing claims joined
+            # into the citable universe) -- every other run's facts_pack is
+            # byte-identical to before.
+            options, backing_claims = self._model_options(product, live_price_claims)
+            pack["model_options"] = options
+            existing_ids = {c["id"] for c in pack["verified_claims"]}
+            pack["verified_claims"] = pack["verified_claims"] + [
+                c for c in backing_claims if c["id"] not in existing_ids
+            ]
         if include_comparison:
             # Kimi long-run phase 6: only a run whose selected cartridges
             # include comparison gets the targets list (and the backing

@@ -30,7 +30,7 @@ DEFAULT_POLL_INTERVAL_S = 10
 
 
 def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pack, model, tenant,
-                          ad_not_repeated=None):
+                          ad_not_repeated=None, listicle_style=None):
     """(requests, schemas_by_cartridge). requests is ready to pass to
     client.messages.batches.create(requests=requests); schemas_by_cartridge
     is needed to validate_schema() each result the same way write_page does.
@@ -59,6 +59,7 @@ def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pac
             model=model,
             word_range=word_range,
             allowed_cta_texts=allowed_cta_texts,
+            listicle_style=listicle_style,
             ad_not_repeated=ad_not_repeated,
             tenant=tenant,
         )

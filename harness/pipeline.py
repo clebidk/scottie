@@ -25,6 +25,7 @@ from .claims import ClaimsGateFailure, gate_ad_brief_claims
 from .ground import LocalFactsSource
 from .ingest import download_drive_file, run_ingest
 from .log import RunLog
+from . import listicle
 from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
@@ -105,6 +106,7 @@ class RunState:
         self.seed = None
         self.rng = None
         self.selected = []
+        self.listicle_style = None
         self.claims_config = {}
         self.facts_source = None
         self.merged_products = {}
@@ -154,6 +156,16 @@ def prepare_run(state):
         selected = state.rng.sample(default_pool, k=min(3, len(default_pool)))
     state.selected = selected
     state.log.cartridges(selected)
+    # Cycle 41: one style per run, resolved once here -- the --style flag
+    # when the operator gave one, else a deterministic pick from the run
+    # seed so a batch of runs rotates through every style the tenant
+    # allows (harness/listicle.py). Resolved even when listicle is not
+    # selected; nothing reads it then.
+    state.listicle_style = listicle.resolve_style(
+        getattr(args, "style", None), seed=state.seed, tenant=tenant
+    )
+    if "listicle" in selected:
+        state.log.event("run", f"listicle style: {state.listicle_style}")
     state.claims_config = tenant.claims_config
     # R23: tenant.yaml and claims/config.json disagreeing on an overlapping
     # key is legal (config.json wins) but invisible without this line.
@@ -257,6 +269,9 @@ def ground(state):
         # selected gets comparison targets (and their backing claims) in its
         # facts_pack -- every other run's facts_pack is unchanged.
         include_comparison="comparison" in state.selected,
+        # Cycle 41: the listicle model picker's rows, same opt-in shape.
+        include_listicle="listicle" in state.selected,
+        live_price_claims=state.live_price_claims_by_slug,
         log=state.log,
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
@@ -320,6 +335,7 @@ def _write_initial_pages_via_batch(state, write_model):
     requests, schemas = batch_mod.build_batch_requests(
         cartridge_names=state.selected,
         cartridges_dir=CARTRIDGES_DIR,
+        listicle_style=state.listicle_style,
         ad_brief=state.ad_brief,
         facts_pack=state.facts_pack,
         model=write_model,
@@ -388,6 +404,7 @@ def write_pages(state):
                 tenant=state.tenant,
                 initial_page=initial_page,
                 initial_call_tokens=initial_call_tokens,
+                listicle_style=state.listicle_style,
             )
         except ClaimsGateFailure as e:
             attempts = getattr(e, "attempts", [e.items])

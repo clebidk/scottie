@@ -16,6 +16,7 @@ from pathlib import Path
 from . import budget as budget_mod
 from . import brand_import
 from . import notify
+from . import listicle
 from . import pipeline
 from . import runstate
 from . import page_body as shopify_body_mod
@@ -788,6 +789,11 @@ def build_parser():
     p_run.add_argument("input")
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
+    p_run.add_argument(
+        "--style", choices=list(listicle.STYLES),
+        help="listicle style; default: deterministic from the run seed, so a batch of runs "
+             "rotates through every style the tenant allows",
+    )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)
     p_run.add_argument(
