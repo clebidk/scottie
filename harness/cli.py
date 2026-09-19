@@ -13,6 +13,7 @@ import sys
 import urllib.parse
 from pathlib import Path
 
+from . import asset_describe
 from . import budget as budget_mod
 from . import brand_import
 from . import notify
@@ -610,6 +611,92 @@ def cmd_doctor(args):
 
 
 # ---------------------------------------------------------------------------
+# harness images describe / pool (cycle 42)
+# ---------------------------------------------------------------------------
+
+def cmd_images_pool(args):
+    """`harness images pool --tenant <t>`: per-model total/reviewed/excluded/
+    with-alt counts across every active product's uncapped asset pool -- the
+    same numbers harness/serve.py's /images index shows per product."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    rows = asset_describe.pool_report(tenant)
+    if not rows:
+        print(f"No active products for {tenant.name}.")
+        return 0
+    print(f"{'model':30s} {'total':>6s} {'reviewed':>9s} {'excluded':>9s} {'with-alt':>9s}")
+    for row in rows:
+        print(f"{row['model']:30s} {row['total']:6d} {row['reviewed']:9d} {row['excluded']:9d} {row['with_alt']:9d}")
+    return 0
+
+
+def cmd_images_describe(args):
+    """`harness images describe --tenant <t> --model <slug> [--limit N]
+    [--force] [--dry-run]`: vision-drafts alt text + tags for a model's
+    uncapped, not-yet-reviewed asset pool -- see harness/asset_describe.py.
+
+    Costed and capped exactly like `harness ingest`/`harness brand import`:
+    the tenant's daily spend cap (harness/budget.py's reserve_spend) gates
+    the whole invocation before any vision call, so a tenant already at/over
+    its cap describes nothing and exits 3 -- never a partial, uncounted
+    spend."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    product = asset_describe.product_for_model(tenant, args.model)
+    if product is None:
+        available = ", ".join(asset_describe.available_model_slugs(tenant)) or "(none)"
+        print(f"unknown --model: {args.model!r}; available: {available}", file=sys.stderr)
+        return exits.USAGE
+
+    candidates = asset_describe.candidates_for(tenant, product, force=args.force)
+    if args.limit is not None:
+        candidates = candidates[:args.limit]
+
+    if args.dry_run:
+        estimate = len(candidates) * asset_describe.ESTIMATED_COST_PER_IMAGE_USD
+        print(f"Would describe {len(candidates)} image(s) for model {args.model!r} (~${estimate:.3f} estimated, no calls made).")
+        return 0
+
+    if not candidates:
+        print("described 0, skipped 0, cost $0.0000")
+        return 0
+
+    run_id = asset_describe.make_run_id(tenant.name, args.model)
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    budget = Budget(wall_s=1800, tokens=5_000_000, calls=len(candidates) + 5)
+    today_iso = datetime.date.today().isoformat()
+
+    try:
+        try:
+            # Reserved BEFORE any client/vision call is made, same as
+            # pipeline.prepare_run does for `harness run` -- a tenant
+            # already at/over its daily cap spends nothing on this
+            # invocation at all, not even a wasted client construction.
+            budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today_iso, log=log)
+        except BudgetExceeded as e:
+            pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, today_iso=today_iso, stage="images_describe")
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+
+        tenant.load_env()
+        client = make_client()
+        model = asset_describe.vision_model_for(tenant)
+        try:
+            result = asset_describe.describe_assets(
+                tenant, candidates, product=product, client=client, model=model, budget=budget, log=log,
+            )
+        except BudgetExceeded as e:
+            pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, today_iso=today_iso, stage="images_describe")
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+
+        cost = log.cost_estimate()
+        budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today_iso, log=log)
+        print(f"described {result['described']}, skipped {result['skipped']}, cost ${cost:.4f}")
+        return 0
+    finally:
+        log.close()
+
+
+# ---------------------------------------------------------------------------
 # harness claims add / list
 # ---------------------------------------------------------------------------
 
@@ -818,6 +905,21 @@ def build_parser():
     _add_tool_flags(p_doctor)
     _add_tenant_flag(p_doctor)
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_images = sub.add_parser("images", help="vision-drafted alt text/tags for a product's asset pool")
+    images_sub = p_images.add_subparsers(dest="images_command", required=True)
+    p_images_describe = images_sub.add_parser(
+        "describe", help="vision-describe a model's not-yet-reviewed asset pool into asset-review.json"
+    )
+    p_images_describe.add_argument("--model", required=True, help="model slug (a product's name, lowercased/hyphenated)")
+    p_images_describe.add_argument("--limit", type=int, help="describe at most N assets")
+    p_images_describe.add_argument("--force", action="store_true", help="also re-describe assets that already have alt text")
+    p_images_describe.add_argument("--dry-run", action="store_true", help="list what would be described and the estimated cost; makes no calls")
+    _add_tenant_flag(p_images_describe)
+    p_images_describe.set_defaults(func=cmd_images_describe)
+    p_images_pool = images_sub.add_parser("pool", help="per-model total/reviewed/excluded/with-alt counts")
+    _add_tenant_flag(p_images_pool)
+    p_images_pool.set_defaults(func=cmd_images_pool)
 
     p_approve = sub.add_parser("approve", help="approve a run's page(s) for publish")
     p_approve.add_argument("run_dir")

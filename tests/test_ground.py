@@ -4,6 +4,14 @@ from harness.ground import LocalFactsSource, benefit_allowlist_ids, load_claims_
 from tests.support import TENANT
 from harness.ground import select_listicle_pack_assets
 from harness.ground import full_asset_pool
+from harness.ground import (
+    _match_asset_token_weights,
+    _match_score,
+    _match_tags_from_note,
+    _match_tokenize,
+    match_images_to_text,
+    record_image_matches,
+)
 
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
 MINI_SLUG = "peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
@@ -587,3 +595,281 @@ def test_facts_for_excluded_top_tier_drive_asset_still_backfills_to_the_cap(monk
     assert len(drive_ids) == 6  # DRIVE_ASSET_MAX -- still a full cap, not shrunk to 5
     assert "r0" not in drive_ids  # excluded
     assert "r6" in drive_ids  # backfilled from beyond the old (buggy) cap boundary
+
+
+# ---------------------------------------------------------------------------
+# Cycle 42: paragraph-to-image matching. match_images_to_text reads the
+# active tenant's asset-review.json off tenant_mod.active() (the same
+# tenant_mod.active()-fallback pattern listicle_pack_models/
+# benefit_allowlist_ids already use in this file) -- a minimal fake tenant
+# with just a `brand_dir` is enough to drive it in isolation.
+# ---------------------------------------------------------------------------
+
+class _FakeTenant:
+    def __init__(self, brand_dir):
+        self.brand_dir = brand_dir
+
+
+def _set_active_review(tmp_path, overrides):
+    import json
+
+    (tmp_path / "asset-review.json").write_text(json.dumps({"version": 1, "assets": overrides}))
+    tenant_mod.set_active(_FakeTenant(tmp_path))
+
+
+def test_match_tokenize_lowercases_drops_stopwords_and_strips_plural_s():
+    assert _match_tokenize("The Red Light Panels are on the Wall") == ["red", "light", "panel", "wall"]
+
+
+def test_match_tokenize_does_not_mangle_double_s_words():
+    # "glass" must stay "glass", not become "glas" -- only a single trailing
+    # "s" (not "ss") is stripped.
+    assert "glass" in _match_tokenize("a glass door")
+
+
+def test_match_tags_from_note_parses_vision_note_format():
+    note = "alt drafted by vision (claude-haiku-4-5-20251001); tags: interior, close-up, control-panel"
+    assert _match_tags_from_note(note) == ["interior", "close-up", "control-panel"]
+
+
+def test_match_tags_from_note_empty_for_a_plain_human_note():
+    assert _match_tags_from_note("cropped, wrong product") == []
+    assert _match_tags_from_note(None) == []
+
+
+def test_match_asset_token_weights_alt_and_tags_outweigh_kind_and_title():
+    override = {"alt": "Red light panel mounted on wall.", "note": "tags: panel"}
+    asset = {"kind": "installation", "title": "some render"}
+    weights = _match_asset_token_weights(asset, override)
+    assert weights["panel"] == 2 + 2  # alt token + tag token, both weight 2
+    assert weights["installation"] == 1
+    assert weights["render"] == 1
+
+
+def test_match_score_adds_one_for_a_model_field_named_in_context():
+    asset = {"kind": "image", "model": "fuji"}
+    score, matched = _match_score(asset, None, {"fuji", "sauna"})
+    assert score == 1
+    assert "fuji" in matched
+
+
+def test_match_images_to_text_noop_when_tenant_has_no_reviewed_alt_text(tmp_path):
+    _set_active_review(tmp_path, {})  # no overrides at all
+    assets = [{"id": "a1", "kind": "lifestyle"}]
+    page = {"reasons": [{"heading": "x", "text": "red light panel", "image": {"asset_id": "a1"}}]}
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert result == {"matches": []}
+    assert page["reasons"][0]["image"]["asset_id"] == "a1"
+
+
+def test_match_images_to_text_noop_when_every_override_alt_is_blank(tmp_path):
+    _set_active_review(tmp_path, {"a2": {"alt": "", "excluded": False}})
+    assets = [{"id": "a1", "kind": "lifestyle"}, {"id": "a2", "kind": "installation"}]
+    page = {"reasons": [{"heading": "x", "text": "red light panel", "image": {"asset_id": "a1"}}]}
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert result == {"matches": []}
+
+
+def test_match_images_to_text_listicle_reason_three_gets_the_red_light_panel_asset(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-panel": {"alt": "Close-up of red light therapy panel mounted on wooden wall.",
+                    "note": "tags: interior, close-up, panel", "excluded": False},
+        "a-exterior": {"alt": "Exterior view of wooden sauna cabin door closed.",
+                       "note": "tags: exterior, door-closed", "excluded": False},
+    })
+    assets = [
+        {"id": "a-writer-pick", "kind": "lifestyle"},
+        {"id": "a-panel", "kind": "installation"},
+        {"id": "a-exterior", "kind": "exterior"},
+    ]
+    page = {
+        "reasons": [
+            {"number": 1, "heading": "Free shipping", "text": "no cost", "image": {"asset_id": "a-writer-pick"}},
+            {"number": 2, "heading": "Warranty", "text": "lifetime", "image": {"asset_id": "a-writer-pick"}},
+            {"number": 3, "heading": "Red light therapy", "text": "The red light panel targets sore muscles.",
+             "image": {"asset_id": "a-writer-pick"}},
+        ]
+    }
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert page["reasons"][2]["image"]["asset_id"] == "a-panel"
+    # reasons 1/2 have nothing in the review data to match against -- left alone.
+    assert page["reasons"][0]["image"]["asset_id"] == "a-writer-pick"
+    assert page["reasons"][1]["image"]["asset_id"] == "a-writer-pick"
+    assert result["matches"] == [{
+        "path": "reasons[2].image", "old_id": "a-writer-pick", "new_id": "a-panel",
+        "score": 10, "matched_tokens": ["light", "panel", "red", "therapy"],
+    }]
+
+
+def test_match_images_to_text_no_swap_when_best_score_is_below_threshold(tmp_path):
+    # The tenant has SOME reviewed alt text elsewhere (so the top-level
+    # no-op gate stays open), but a-cand itself has no review override at
+    # all -- its only signal is a bare
+    # kind match against the context ("panel", weight 1), well under
+    # MATCH_REPLACE_THRESHOLD (2), so it never replaces the current pick
+    # even though it is, in isolation, the "better" of the two.
+    _set_active_review(tmp_path, {"other-asset-somewhere": {"alt": "unrelated alt text", "excluded": False}})
+    assets = [{"id": "a-current", "kind": "render"}, {"id": "a-cand", "kind": "panel"}]
+    page = {"reasons": [{"heading": "panel", "text": "", "image": {"asset_id": "a-current"}}]}
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert result == {"matches": []}
+    assert page["reasons"][0]["image"]["asset_id"] == "a-current"
+
+
+def test_match_images_to_text_ties_keep_the_writers_original_choice(tmp_path):
+    # Both assets carry identical searchable text (same tag + same kind), so
+    # they score identically against the context -- a tie never replaces
+    # the writer's own pick (score must be STRICTLY higher to swap).
+    _set_active_review(tmp_path, {
+        "a-current": {"alt": "", "note": "tags: panel", "excluded": False},
+        "a-cand": {"alt": "", "note": "tags: panel", "excluded": False},
+    })
+    assets = [{"id": "a-current", "kind": "panel"}, {"id": "a-cand", "kind": "panel"}]
+    page = {"reasons": [{"heading": "panel", "text": "", "image": {"asset_id": "a-current"}}]}
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert result == {"matches": []}
+    assert page["reasons"][0]["image"]["asset_id"] == "a-current"
+
+
+def test_match_images_to_text_never_introduces_a_duplicate_on_the_page(tmp_path):
+    # Both reasons' context matches asset a-panel best, but it can only be
+    # placed once -- the second slot must fall back to its own current pick
+    # rather than duplicate a-panel.
+    _set_active_review(tmp_path, {
+        "a-panel": {"alt": "Red light panel close-up.", "note": "tags: panel", "excluded": False},
+    })
+    assets = [
+        {"id": "a-current-1", "kind": "lifestyle"},
+        {"id": "a-current-2", "kind": "lifestyle"},
+        {"id": "a-panel", "kind": "installation"},
+    ]
+    page = {
+        "reasons": [
+            {"heading": "Red light panel", "text": "red light panel", "image": {"asset_id": "a-current-1"}},
+            {"heading": "Red light panel too", "text": "red light panel", "image": {"asset_id": "a-current-2"}},
+        ]
+    }
+    match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    ids = [page["reasons"][0]["image"]["asset_id"], page["reasons"][1]["image"]["asset_id"]]
+    assert ids.count("a-panel") == 1
+    assert len(set(ids)) == 2  # still no duplicate on the page
+
+
+def test_match_images_to_text_respects_exclude_ids_from_other_cartridges(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-panel": {"alt": "Red light panel close-up.", "note": "tags: panel", "excluded": False},
+    })
+    assets = [{"id": "a-current", "kind": "lifestyle"}, {"id": "a-panel", "kind": "installation"}]
+    page = {"reasons": [{"heading": "red light panel", "text": "red light panel", "image": {"asset_id": "a-current"}}]}
+    result = match_images_to_text(
+        page, assets, cartridge_name="listicle", exclude_ids=frozenset({"a-panel"}), allow_ai_renders=False,
+    )
+    assert result == {"matches": []}
+    assert page["reasons"][0]["image"]["asset_id"] == "a-current"
+
+
+def test_match_images_to_text_never_selects_a_never_eligible_kind(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-logo": {"alt": "Red light panel logo.", "note": "tags: panel", "excluded": False},
+    })
+    assets = [{"id": "a-current", "kind": "lifestyle"}, {"id": "a-logo", "kind": "logo"}]
+    page = {"reasons": [{"heading": "red light panel", "text": "red light panel", "image": {"asset_id": "a-current"}}]}
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert result == {"matches": []}
+    assert page["reasons"][0]["image"]["asset_id"] == "a-current"
+
+
+def test_match_images_to_text_ai_render_only_eligible_when_allowed(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-render": {"alt": "Red light panel render.", "note": "tags: panel", "excluded": False},
+    })
+    assets = [
+        {"id": "a-current", "kind": "lifestyle"},
+        {"id": "a-render", "kind": "render", "ai_generated": True},
+    ]
+    page = {"reasons": [{"heading": "red light panel", "text": "red light panel", "image": {"asset_id": "a-current"}}]}
+
+    result = match_images_to_text(page, assets, cartridge_name="listicle", allow_ai_renders=False)
+    assert result == {"matches": []}
+
+    page2 = {"reasons": [{"heading": "red light panel", "text": "red light panel", "image": {"asset_id": "a-current"}}]}
+    result2 = match_images_to_text(page2, assets, cartridge_name="listicle", allow_ai_renders=True)
+    assert page2["reasons"][0]["image"]["asset_id"] == "a-render"
+    assert result2["matches"]
+
+
+def test_match_images_to_text_longform_hero_and_steps(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-hero": {"alt": "Sauna exterior on a deck at sunset.", "note": "tags: exterior", "excluded": False},
+        "a-step": {"alt": "Close-up of control panel with heater setting.", "note": "tags: control-panel, heater", "excluded": False},
+    })
+    assets = [
+        {"id": "a-writer-hero", "kind": "lifestyle"},
+        {"id": "a-writer-step", "kind": "lifestyle"},
+        {"id": "a-hero", "kind": "exterior"},
+        {"id": "a-step", "kind": "interior"},
+    ]
+    page = {
+        "hero": {"headline": "Bring the spa home", "subhead": "A real sauna exterior on your own deck",
+                 "hero_image": {"asset_id": "a-writer-hero"}},
+        "how_it_works": {"heading": "How it works", "steps": [
+            {"title": "Set the heater", "text": "Adjust the control panel to your preferred heat.",
+             "image": {"asset_id": "a-writer-step"}},
+        ]},
+    }
+    result = match_images_to_text(page, assets, cartridge_name="longform", allow_ai_renders=False)
+    assert page["hero"]["hero_image"]["asset_id"] == "a-hero"
+    assert page["how_it_works"]["steps"][0]["image"]["asset_id"] == "a-step"
+    paths = {m["path"] for m in result["matches"]}
+    assert paths == {"hero.hero_image", "how_it_works.steps[0].image"}
+
+
+def test_match_images_to_text_product_page_hero_uses_product_name_and_promise(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-hero": {"alt": "Fuji sauna exterior wood cabin.", "note": "tags: exterior", "excluded": False},
+    })
+    assets = [{"id": "a-writer-hero", "kind": "lifestyle"}, {"id": "a-hero", "kind": "exterior"}]
+    page = {"hero": {"product_name": "Fuji", "promise": "A real wood exterior sauna cabin for your yard.",
+                      "hero_image": {"asset_id": "a-writer-hero"}}}
+    result = match_images_to_text(page, assets, cartridge_name="product-page", allow_ai_renders=False)
+    assert page["hero"]["hero_image"]["asset_id"] == "a-hero"
+    assert result["matches"][0]["path"] == "hero.hero_image"
+
+
+def test_match_images_to_text_article_images_paired_with_body_sections_by_index(tmp_path):
+    _set_active_review(tmp_path, {
+        "a-match": {"alt": "Sauna interior red light panel close-up.", "note": "tags: interior, panel", "excluded": False},
+    })
+    assets = [{"id": "a-writer-pick", "kind": "lifestyle"}, {"id": "a-match", "kind": "interior"}]
+    page = {
+        "body_sections": [
+            {"heading": "Why infrared works", "paragraphs": [{"text": "General background on how infrared heat works for the whole family."}]},
+            {"heading": "Red light panels explained", "paragraphs": [{"text": "A red light panel sits inside the cabin."}]},
+        ],
+        "images": [
+            {"asset_id": "a-writer-pick"},
+            {"asset_id": "a-writer-pick"},
+        ],
+    }
+    result = match_images_to_text(page, assets, cartridge_name="article", allow_ai_renders=False)
+    assert page["images"][0]["asset_id"] == "a-writer-pick"  # section 0 has no panel content -- no match
+    assert page["images"][1]["asset_id"] == "a-match"  # section 1 (paired by index) does
+    assert result["matches"][0]["path"] == "images[1]"
+
+
+def test_record_image_matches_writes_under_matches_key_keyed_by_cartridge(tmp_path):
+    from harness.ground import record_used_asset_ids
+    import json
+
+    record_used_asset_ids(tmp_path, "article", ["a1"])
+    matches = [{"path": "images[0]", "old_id": "a1", "new_id": "a2", "score": 4, "matched_tokens": ["panel"]}]
+    record_image_matches(tmp_path, "article", matches)
+    data = json.loads((tmp_path / ".image-selection.json").read_text())
+    assert data["article"] == ["a1"]  # record_used_asset_ids's own entry untouched
+    assert data["matches"]["article"] == matches
+
+    # a second cartridge's own matches don't clobber the first's.
+    record_image_matches(tmp_path, "listicle", [])
+    data = json.loads((tmp_path / ".image-selection.json").read_text())
+    assert data["matches"]["article"] == matches
+    assert data["matches"]["listicle"] == []
