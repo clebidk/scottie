@@ -2,67 +2,99 @@
   "type": "object",
   "allowed_cta_texts": ["See the models", "Shop the {model_name}", "Book a consult"],
   "headline_word_band": [8, 14],
-  "required": ["headline", "dek", "reasons", "cta_text", "cta_url", "closing"],
+  "required": ["style", "headline", "dek", "hero", "reasons", "audience_fit", "faq", "cta_text", "cta_url", "closing"],
   "properties": {
+    "style": {
+      "type": "string",
+      "description": "One of: reasons | mistakes | questions | myths | tested. The run tells you which one to write in its hard constraints; echo that exact value here. The style fixes the headline formula and what each numbered item is."
+    },
     "headline": {
       "type": "string",
-      "description": "'N Reasons ...' formula, 8-14 words. Name the audience when the ad names one (e.g. 'N Reasons Busy Parents Are Switching to {{ tenant.name }}'). N must match the number of entries in reasons."
+      "description": "8-14 words, following THIS page's style formula exactly (the hard constraints quote it): reasons -> 'N Reasons <audience> Are Choosing <category>'; mistakes -> 'N Mistakes People Make Buying <category>'; questions -> 'N Questions to Ask Before You Buy <category>'; myths -> 'N <category> Myths, and What the Evidence Says'; tested -> 'We Tested <category> for N Weeks. Here Is What Held Up'. For the first four, N is the number of entries in reasons. Never contains a price. Name the audience when the ad names one; otherwise name the product category, never the company by name."
     },
     "dek": {
       "type": "string",
-      "description": "One-sentence subhead under the headline."
+      "description": "One-line subhead under the headline, one sentence."
     },
-    "proof_row": {
-      "type": "array",
-      "description": "Optional 3-stat proof row directly under the dek. Only verified claims: live {{ tenant.reviews.platform_name }} rating and count, warranty term, free shipping. Omit entirely rather than pad it out -- never invent a fourth stat, and never include a review stat when facts_pack.reviews_summary is null.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "label": {"type": "string", "description": "Short stat label, e.g. '4.8 stars' or 'Free shipping'."},
-          "text": {"type": "string", "description": "One short supporting phrase, e.g. 'from 1,200+ reviews'."},
-          "claim_ids": {"type": "array"}
-        }
-      }
+    "hero": {
+      "type": "object",
+      "description": "The header's hero image slot -- one asset_id from facts_pack.assets, a lifestyle or installation photo in preference to a product-on-white shot.",
+      "properties": {"asset_id": {"type": "string"}}
     },
     "reasons": {
       "type": "array",
-      "description": "5-7 numbered reasons, in order (named 'reasons', not 'items' -- 'items' collides with Python dict's own .items method under Jinja's attribute-then-subscript lookup). Each entry: number, an H2 title (<=10 words), a 40-90 word body, one image slot, and claim_ids for any fact stated in it. Proof lives inside each entry -- never a separate stacked proof section.",
+      "description": "5-7 numbered items, in order (the field is named 'reasons', not 'items' -- 'items' collides with Python dict's own .items method under Jinja's attribute-then-subscript lookup; it holds this style's items whatever the style calls them). Each entry: number, an H2 heading, a 60-150 word body, one image, and a closing proof line.",
       "items": {
         "type": "object",
         "properties": {
           "number": {"type": "integer", "description": "1-indexed position, matching the reading order (1, 2, 3, ...)."},
-          "heading": {"type": "string", "description": "H2 title for this reason, <=10 words, no numeral (the renderer draws the number)."},
-          "text": {"type": "string", "description": "40-90 word body for this reason."},
+          "heading": {"type": "string", "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test."},
+          "text": {"type": "string", "description": "60-150 word body for this item."},
           "claim_ids": {"type": "array"},
-          "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
+          "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
+          "proof": {
+            "type": "object",
+            "description": "The item's closing proof line -- one short sentence that either cites a verified claim_id or is an attributed customer statement (attributed_to_customer: true, phrased as the customer's own words). An item with neither fails the gate.",
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"},
+              "attributed_to_customer": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "audience_fit": {
+      "type": "object",
+      "description": "The honest fit block: who this is for, and who it is not for. Two short lists of 2-4 one-line entries each. The 'not for you' list is the point -- name real, checkable limits (space, power, household size, budget), never a fake drawback or a humblebrag. Both lists are claims-safe: a line stating a number or a spec carries claim_ids.",
+      "properties": {
+        "for_you": {
+          "type": "array",
+          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+        },
+        "not_for_you": {
+          "type": "array",
+          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+        }
+      }
+    },
+    "faq": {
+      "type": "object",
+      "description": "5-7 questions a buyer actually asks before this purchase. Every answer that states a fact (a number, a price, a spec, or one of the trigger words) carries claim_ids.",
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": {"type": "string"},
+              "answer": {"type": "string", "description": "2-4 sentences. Answer the question first, then the detail."},
+              "claim_ids": {"type": "array"}
+            }
+          }
         }
       }
     },
     "cta_text": {
       "type": "string",
-      "description": "The ONE CTA button text for this page, from allowed_cta_texts. The renderer reuses it verbatim after item 3 and again at the close -- choose it once here, never vary it."
+      "description": "The ONE CTA button text for this page, from allowed_cta_texts. The renderer reuses it verbatim in the header, after items 2 and 4, in the closing block, and in the sticky bottom bar -- choose it once here, never vary it."
     },
     "cta_url": {
       "type": "string",
-      "description": "The CTA's destination URL, reused everywhere cta_text is."
+      "description": "The CTA's destination URL, reused everywhere cta_text is. The one and only cta_url on the page."
     },
     "closing": {
       "type": "object",
-      "description": "Closing block: 1 paragraph naming {{ tenant.name }}, the fixed warranty sentence, and the allowed financing sentence given in the prompt's Financing rule.",
+      "description": "Closing block: a 3-bullet recap, the CTA, the fixed warranty sentence, and the allowed financing sentence given in the prompt's Financing rule.",
       "properties": {
         "headline": {
           "type": "string",
-          "description": "Optional short closing-band headline above the paragraph, e.g. 'Ready to feel the difference?'. Never contains a price."
+          "description": "Optional short closing-band headline above the recap, e.g. 'Ready to feel the difference?'. Never contains a price."
         },
-        "paragraphs": {
+        "recap": {
           "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"}
-            }
-          }
+          "description": "Exactly 3 bullets, each one line, recapping the page's three strongest points. A bullet stating a fact carries claim_ids.",
+          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
         },
         "warranty_line": {
           "type": "object",
