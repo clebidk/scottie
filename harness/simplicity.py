@@ -45,6 +45,10 @@ Above-the-fold region per cartridge, per the research doc's own mapping:
     once the hero has scrolled past -- it is never above the fold. The
     trust line is renderer-built from facts_pack and never appears in
     page.json at all (harness/listicle.py), so it cannot carry a link.
+  - comparison (cycle 56): the same header stack as listicle -- `headline`
+    + `dek` + `hero` plus the top-level `cta_url`, so the header CTA is the
+    one link above the fold. The model table's per-model links sit below
+    the fold and are renderer-built (harness/comparison.py).
 
 The disclosure paragraph and the byline's "Full bio" link are exempt from
 every check here by construction, not by special-case code: both are
@@ -91,6 +95,7 @@ _TRANSACTIONAL_ID_MARKERS = ("warranty", "shipping", "returns")
 _HEADLINE_FIELDS = {
     "article": lambda page: page.get("headline"),
     "listicle": lambda page: page.get("headline"),
+    "comparison": lambda page: page.get("headline"),
     "longform": lambda page: (page.get("hero") or {}).get("headline"),
     "product-page": lambda page: (page.get("hero") or {}).get("promise"),
 }
@@ -98,6 +103,7 @@ _HEADLINE_FIELDS = {
 _HEADLINE_PATHS = {
     "article": "$.headline",
     "listicle": "$.headline",
+    "comparison": "$.headline",
     "longform": "$.hero.headline",
     "product-page": "$.hero.promise",
 }
@@ -147,14 +153,15 @@ def find_headline_band_violation(page, cartridge_name, band):
 def _above_fold_subtrees(page, cartridge_name):
     """(direct_cta_url_or_None, [subtree, ...]) -- the nodes this cartridge's
     above-the-fold region covers. None (not []) means "no above-the-fold
-    definition for this cartridge" (e.g. `comparison`), distinct from an
-    empty region."""
+    definition for this cartridge", distinct from an empty region. Cycle
+    56: comparison's header is the same stack as listicle's (headline, dek,
+    hero, one CTA to the page's single cta_url)."""
     if cartridge_name in ("product-page", "longform"):
         return page.get("cta_url"), [page.get("hero")]
     if cartridge_name == "article":
         open_list = page.get("open") or []
         return None, [open_list[0] if open_list else None]
-    if cartridge_name == "listicle":
+    if cartridge_name in ("listicle", "comparison"):
         return page.get("cta_url"), [page.get("hero")]
     return None, None
 

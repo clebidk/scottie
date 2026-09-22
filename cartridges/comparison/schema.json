@@ -1,198 +1,87 @@
 {
   "type": "object",
   "allowed_cta_texts": ["See the models", "Shop the {model_name}", "See pricing"],
-  "required": ["eyebrow", "headline", "subhead", "comparison_table", "deep_dives", "alternative_strengths", "faq", "verdict", "cta_text", "cta_url"],
-  "block_slots": {
-    "proof": {
-      "description": "Layout block for the header proof-stat row. Set top-level \"blocks\": {\"proof\": \"<block-id>\"} to one of the listed ids; omit for the default.",
-      "blocks": ["proof-stat-row", "proof-stat-row-cards"],
-      "default": "proof-stat-row"
-    },
-    "table": {
-      "description": "Layout block for the comparison table.",
-      "blocks": ["comparison-table"],
-      "default": "comparison-table"
-    },
-    "faq": {
-      "description": "Layout block for the FAQ section.",
-      "blocks": ["faq-accordion"],
-      "default": "faq-accordion"
-    },
-    "verdict": {
-      "description": "Layout block for the closing verdict box.",
-      "blocks": ["verdict-box"],
-      "default": "verdict-box"
-    },
-    "risk": {
-      "description": "Optional risk-reversal microcopy under the header CTA (design-skills A4). Copy is a verified claim; never a guarantee the tenant does not offer.",
-      "blocks": ["risk-reversal"],
-      "default": "risk-reversal"
-    },
-    "tagline": {
-      "description": "Optional large-type two-line benefit statement after the header (design-skills B11).",
-      "blocks": ["tagline-reveal"],
-      "default": "tagline-reveal"
-    }
-  },
+  "alternatives": ["studio membership", "traditional sauna", "far-infrared-only cabin", "portable blanket"],
+  "required": ["axis", "headline", "dek", "hero", "lifestyle", "extra_rows", "best_for", "numbers_mean", "alternatives", "who_for", "faq", "closing", "cta_text", "cta_url"],
   "properties": {
-    "eyebrow": {
+    "axis": {
       "type": "string",
-      "description": "Literal '<A> vs. <B>' naming the run's product and the compared subject, e.g. 'Model A vs. Model B' for {{ tenant.name }}'s own lineup. Never a competitor name the tenant forbids."
+      "description": "models | alternatives. 'models' when the ad is about choosing between, pricing or sizing the tenant's own cabins; 'alternatives' when the ad weighs owning one against another way to get the same thing. It picks the headline formula."
     },
     "headline": {
       "type": "string",
-      "description": "8 words or fewer; a literal repeat or plain reframe of the eyebrow. No hype, no unsourced superlative."
+      "description": "axis models: '<Model A> vs <Model B> vs <Model C>: Which <category> Fits <audience>', the three names exactly as facts_pack.comparison.models gives them, in column order. axis alternatives: '<category> vs <alternative>: What <audience> Should Compare', <alternative> one of this page's alternatives. <category> is the product category, never the tenant's name or a model name; <audience> names people by situation or goal (2 to 5 words), never a bare 'people' or 'buyers'. Never a price."
     },
-    "subhead": {
-      "type": "string",
-      "description": "One value-prop sentence naming what the comparison decides."
-    },
-    "proof_stats": {
-      "type": "array",
-      "description": "Optional 2-3 stat proof row under the subhead -- verified claims only, each with claim_ids. Omit entirely rather than pad.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "value": {"type": "string"},
-          "label": {"type": "string"},
-          "claim_ids": {"type": "array"}
-        }
-      }
-    },
-    "comparison_table": {
+    "dek": {
       "type": "object",
-      "description": "The sourced spec table. Every cell is {text, claim_ids} with at least one claim id from facts_pack.verified_claims -- the gate rejects any cell without one. Rows come from the compared subject's own rows in facts_pack.comparison_targets.",
+      "description": "One-sentence subhead under the headline. Any number or spec in it cites claim_ids.",
+      "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+    },
+    "hero": {
+      "type": "object",
+      "description": "The header's hero image: the featured model, one asset_id from facts_pack.assets -- never a model's column image (facts_pack.comparison.models[].image.id).",
+      "properties": {"asset_id": {"type": "string"}}
+    },
+    "lifestyle": {
+      "type": "object",
+      "description": "One lifestyle or installation photo from facts_pack.assets, shown between the alternatives and the who-it-is-for section. Different from the hero and from every column image.",
+      "properties": {"asset_id": {"type": "string"}}
+    },
+    "extra_rows": {
+      "type": "array",
+      "description": "1-2 extra table rows worth a look for this ad's angle, each {\"id\": \"<key>\"} with key one of facts_pack.comparison.extra_row_options[].key. You pick the row; the renderer fills every cell from verified claims.",
+      "items": {"type": "object", "properties": {"id": {"type": "string"}}}
+    },
+    "best_for": {
+      "type": "array",
+      "description": "Exactly one entry per model, in column order: {\"id\": \"<model id>\", \"text\": \"one short line naming who this model suits\", \"claim_ids\": [...]}. Shown under the table. Any number or spec cites that model's own cell claim_ids.",
+      "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+    },
+    "numbers_mean": {
+      "type": "object",
+      "description": "What the numbers mean: exactly 3 short paragraphs (40 to 90 words each) reading the table for a buyer -- space, power, price. Each cites the claim_ids of the cells it reads from.",
       "properties": {
-        "columns": {
-          "type": "array",
-          "description": "Column labels: the spec dimension first, then the run's product, then the compared subject.",
-          "items": {"type": "string"}
-        },
-        "rows": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": {"type": "string", "description": "The spec dimension, e.g. 'Capacity'."},
-              "cells": {
-                "type": "array",
-                "description": "One {text, claim_ids} per column after the first. claim_ids is required on every cell.",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "text": {"type": "string"},
-                    "claim_ids": {"type": "array"}
-                  }
-                }
-              }
-            }
-          }
-        }
+        "paragraphs": {"type": "array", "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}}
       }
     },
-    "deep_dives": {
+    "alternatives": {
       "type": "array",
-      "description": "2-4 sections, one per dimension the run's product wins on.",
+      "description": "2-3 alternatives the ad names or implies, each id from this schema's own top-level 'alternatives' list. The summary, the similarities and 'theirs' contain NO digits, dollar amounts, percentages or trigger words: nothing verified describes an alternative. 'ours' is the tenant's side and cites claim_ids for any number or spec.",
       "items": {
         "type": "object",
         "properties": {
-          "heading": {"type": "string"},
-          "paragraphs": {
+          "id": {"type": "string"},
+          "summary": {"type": "string", "description": "One plain sentence on what this alternative is and who picks it."},
+          "similarities": {"type": "array", "description": "2-3 short plain lines on what it shares with owning one.", "items": {"type": "string"}},
+          "differences": {
             "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "text": {"type": "string"},
-                "claim_ids": {"type": "array"}
-              }
-            }
+            "description": "2-3 differences, each {\"theirs\": \"plain line about the alternative\", \"ours\": {\"text\": \"the tenant's side\", \"claim_ids\": [...]}}.",
+            "items": {"type": "object", "properties": {"theirs": {"type": "string"}, "ours": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}}}
           }
         }
       }
     },
-    "alternative_strengths": {
-      "type": "object",
-      "description": "Honest strengths of the alternative -- 2-4 entries, each a real sourced fact (claim_ids required). Compare on facts, never disparage. (The list field is named 'strengths', not 'items' -- 'items' collides with a dict's own .items method under Jinja's attribute-then-subscript lookup.)",
-      "properties": {
-        "heading": {"type": "string"},
-        "strengths": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"}
-            }
-          }
-        }
-      }
+    "who_for": {
+      "type": "array",
+      "description": "Who each model is for: exactly one entry per model, in column order, {\"id\": \"<model id>\", \"text\": \"2-3 sentences\", \"claim_ids\": [...]}. Name real, checkable fits and limits (room, power, household size, budget), never a fake drawback.",
+      "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "claim_ids": {"type": "array"}}}
     },
     "faq": {
       "type": "object",
+      "description": "5-7 questions a comparer actually asks, each {\"question\", \"answer\" (2-4 sentences), \"claim_ids\"}. An answer with a number, price, spec or trigger word carries claim_ids.",
       "properties": {
-        "questions": {
-          "type": "array",
-          "description": "3-5 questions a comparer actually asks.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "question": {"type": "string"},
-              "answer": {"type": "string"},
-              "claim_ids": {"type": "array"}
-            }
-          }
-        }
+        "questions": {"type": "array", "items": {"type": "object", "properties": {"question": {"type": "string"}, "answer": {"type": "string"}, "claim_ids": {"type": "array"}}}}
       }
     },
-    "verdict": {
+    "closing": {
       "type": "object",
-      "description": "The bottom line: who should pick which, then the same CTA once more.",
+      "description": "The closing block: an optional short headline and exactly 3 recap bullets. The renderer adds the CTA, the fixed warranty and financing sentences, and the HSA/FSA line when verified -- never write them.",
       "properties": {
-        "heading": {"type": "string"},
-        "paragraphs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"}
-            }
-          }
-        }
+        "headline": {"type": "string"},
+        "recap": {"type": "array", "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}}
       }
     },
-    "risk_reversal": {
-      "type": "object",
-      "description": "Optional 1-2 line microcopy under the header CTA, rendered through the risk-reversal block -- verified claims only (e.g. the fixed warranty sentence); never a guarantee the tenant does not offer.",
-      "properties": {
-        "eyebrow": {"type": "string"},
-        "text": {"type": "string"},
-        "claim_ids": {"type": "array"}
-      }
-    },
-    "tagline": {
-      "type": "object",
-      "description": "Optional two-line benefit statement after the header, rendered through the tagline-reveal block (design-skills B11).",
-      "properties": {
-        "lines": {"type": "array"}
-      }
-    },
-    "images": {
-      "type": "array",
-      "description": "2-4 images from the asset library, referenced by asset_id only.",
-      "items": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
-    },
-    "cta_text": {
-      "type": "string",
-      "description": "The ONE CTA button text for this page, from allowed_cta_texts -- rendered in the header and the verdict box, verbatim both times."
-    },
-    "cta_url": {
-      "type": "string",
-      "description": "The CTA's destination URL, reused everywhere cta_text is."
-    },
-    "blocks": {
-      "type": "object",
-      "description": "Optional layout-block picks per slot (see block_slots); omit to render the defaults."
-    }
+    "cta_text": {"type": "string", "description": "One of allowed_cta_texts, verbatim. The renderer draws it in the header, the closing block and the phone sticky bar."},
+    "cta_url": {"type": "string", "description": "The page's one CTA destination: facts_pack.product.url or the tenant's collection path. Never a second cta_url anywhere."}
   }
 }

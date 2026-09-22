@@ -18,6 +18,7 @@ import json
 import re
 from pathlib import Path
 
+from . import comparison
 from . import listicle
 from . import pagechecks
 from . import simplicity
@@ -321,6 +322,13 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
         )
+    # Cycle 56: the comparison cartridge's own structural checks (axis and
+    # headline formula, alternatives allowlist and their digit-free rule,
+    # one best-for/who-for line per model, FAQ, recap, extra rows, images,
+    # renderer-owned sections) -- same writer-owned, stable-keyed shape as
+    # the listicle block above.
+    if cartridge_name == "comparison":
+        problems += comparison.find_comparison_violations(page, facts_pack, tenant_name=tenant.display_name)
     # Cycle 32: simplicity gate (above-fold links, headline word band, one
     # offer element) -- hard gate only when this tenant's simplicity_mode is
     # "enforce" (default "warn": advisory REVIEW.md line only, see

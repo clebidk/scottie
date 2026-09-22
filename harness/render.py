@@ -21,6 +21,7 @@ from PIL import Image
 from . import blocks
 from . import ground as ground_mod
 from . import ingest
+from . import comparison as comparison_mod
 from . import listicle as listicle_mod
 from . import pagechecks
 from . import tenant as tenant_mod
@@ -212,7 +213,8 @@ def source_label(url, *, product_name=None, explicit_label=None, tenant=None):
     return f"{prefix} – {fallback}" if fallback else prefix
 
 
-def build_sources_list(used_claim_ids, verified_by_id, product_name=None, product_url=None, tenant=None):
+def build_sources_list(used_claim_ids, verified_by_id, product_name=None, product_url=None, tenant=None,
+                       fallback_url_by_claim=None, product_name_by_url=None):
     """One entry per distinct public source URL referenced by
     `used_claim_ids` (fix cycle 3 item 1) -- claim texts are never shown on
     the page, only in REVIEW.md; the page gets a label (link text) and the
@@ -220,17 +222,29 @@ def build_sources_list(used_claim_ids, verified_by_id, product_name=None, produc
     URL first (resolve_public_url) -- a claim with no public URL of its own
     (some of the gbrain-seeded allowlist claims are internal-only) falls
     back to the product page rather than a broken/internal href, and is
-    skipped entirely if there's no product page to fall back to either."""
+    skipped entirely if there's no product page to fall back to either.
+
+    Cycle 56: a page that cites several products' facts (the comparison
+    table) passes `fallback_url_by_claim` -- each claim's own product page,
+    so an internal-only source falls back to the model it is about, not the
+    run's product -- and `product_name_by_url`, so each product page is
+    labelled with its own name. Both default to the single-product
+    behavior above."""
+    fallback_url_by_claim = fallback_url_by_claim or {}
+    product_name_by_url = product_name_by_url or {}
     seen = {}
     for cid in sorted(used_claim_ids):
         claim = verified_by_id.get(cid)
         if not claim:
             continue
-        url = resolve_public_url(claim.get("source", ""), fallback_url=product_url)
+        url = resolve_public_url(claim.get("source", ""), fallback_url=fallback_url_by_claim.get(cid, product_url))
         if not url:
             continue
         if url not in seen:
-            seen[url] = source_label(url, product_name=product_name, explicit_label=claim.get("label"), tenant=tenant)
+            seen[url] = source_label(
+                url, product_name=product_name_by_url.get(url, product_name),
+                explicit_label=claim.get("label"), tenant=tenant,
+            )
     return [{"url": url, "label": label} for url, label in seen.items()]
 
 
@@ -864,8 +878,27 @@ def render_page(
         # model-invented alt can describe something that isn't in the image.
         asset["alt"] = asset_alt(asset, product_short_name, tenant=tenant)
     used_claim_ids = collect_claim_ids(page)
+    # Cycle 56: the comparison cartridge's renderer-owned sections (the model
+    # table and its column images, trust/rating lines, fixed warranty and
+    # financing sentences) come from facts_pack alone. Their claim ids join
+    # the Sources list and their column images join the download set like
+    # any writer-picked asset; alt text uses each column's own model name.
+    comparison_context = None
+    comparison_asset_ids = set()
+    if cartridge_name == "comparison":
+        comparison_context = comparison_mod.render_context(
+            facts_pack, page, financing_lender=(product.get("financing") or {}).get("lender"),
+        )
+        used_claim_ids |= comparison_context["claim_ids"]
+        for asset in comparison_mod.column_assets(facts_pack):
+            assets_by_id.setdefault(asset["id"], dict(asset, alt=asset_alt(asset, asset["model_title"], tenant=tenant)))
+            comparison_asset_ids.add(asset["id"])
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
-    sources = build_sources_list(used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant)
+    sources = build_sources_list(
+        used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
+        fallback_url_by_claim=(comparison_context or {}).get("source_url_by_claim"),
+        product_name_by_url=(comparison_context or {}).get("model_title_by_url"),
+    )
 
     # Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problems 1-3): a render-time
     # selection-policy backstop over the writer's own asset_id picks, plus
@@ -916,7 +949,7 @@ def render_page(
     # (or comes back as HTML) is dropped -- the template's own `{% if asset
     # %}` guards mean it's simply not rendered, with a warning logged.
     if download_assets:
-        used_asset_ids = collect_asset_ids(page)
+        used_asset_ids = collect_asset_ids(page) | comparison_asset_ids
         assets_dir = out_dir / "assets"
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
@@ -954,6 +987,8 @@ def render_page(
     # page.json field to invent one in. Empty for every other cartridge, whose
     # templates never read it.
     cartridge_data = listicle_mod.render_context(facts_pack) if cartridge_name == "listicle" else {}
+    if comparison_context is not None:
+        cartridge_data = comparison_context
 
     # Cycle 51: the listicle cartridge's LOOK -- which template under
     # cartridges/listicle/looks/<look>/ renders this page. Resolved here, in
@@ -1075,6 +1110,8 @@ def render_page(
     # downloaded, so these run on every render.
     structural_hits += pagechecks.find_duplicate_asset_violations(page, cartridge_name)
     structural_hits += pagechecks.find_hero_requirement_violations(page, cartridge_name)
+    if comparison_context is not None:
+        structural_hits += comparison_mod.find_table_violations(comparison_context, facts_pack)
     # Width/height/alt/favicon-size only exist on the rendered <img> once an
     # asset has actually been downloaded (download_asset is what measures
     # them) -- a dry run (download_assets=False, used by fast local
