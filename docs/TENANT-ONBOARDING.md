@@ -276,6 +276,17 @@ chosen, what still needs you, and the raw model JSON from the brand guide.
   rules, for a tenant-specific structural or voice delta only. Never use one
   to relax a guardrail -- the gate still enforces `vocab.yaml` and
   `claims/verified.json` regardless of what an override says.
+- **Quiz rubric** (cycle 57, only for `--cartridges quiz`) --
+  `tenants/<slug>/quiz/rubric.yaml`, copied from
+  `tenants/_template/quiz/rubric.yaml`: 5-7 questions, each with 2-4 option
+  labels and integer `scores` per model slug (the product name lowercased,
+  spaces as hyphens -- the claim-id namespace), `interstitials` (`after` a
+  question id, plus a `topic` for the writer), and a `tiebreak` order. Derive
+  every score from a verified claim and name the claim ids in a comment above
+  the option. A quiz run STOPs before any writer call unless every option
+  scores an active model with a verified price, every active model can win,
+  and no combination of answers scores nothing (`docs/GENERATOR.md`, "The
+  quiz cartridge").
 - `fixtures/` -- a `.txt`/still/video ad to dry-run against, so day one
   doesn't need a real ad.
 - `.env` -- copy `.env.example`, add the API key. Never commit it;
@@ -353,3 +364,6 @@ update, not `tenant.yaml`.
 - [ ] `reviewers` filled in in `tenant.yaml`; `publisher` set deliberately
       (default `export`); `notifications` set (default both off) -- see
       `docs/PUBLISHING.md`
+- [ ] Only if the tenant will run the quiz: `quiz/rubric.yaml` written from
+      verified claims; a dry `harness run --cartridges quiz` passes the
+      rubric gate (`quiz rubric PASS` in the run log)

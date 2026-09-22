@@ -117,7 +117,15 @@ def _listicle_page(style):
     }
 
 
-def _canned_page(cartridge, style=None):
+def _canned_page(cartridge, style=None, tenant=None):
+    if cartridge == "quiz":
+        # Cycle 57: built from the run tenant's own quiz rubric (question ids
+        # and option labels must echo it), lazily like comparison's.
+        from harness import quiz as quiz_mod
+        from tests.test_quiz import quiz_page
+
+        root = tenant_mod.load_tenant(tenant, require=True).root
+        return quiz_page(quiz_mod.load_rubric(quiz_mod.rubric_path(root))[0])
     if cartridge == "comparison":
         # Imported lazily so the driver's startup stays light when the
         # comparison cartridge isn't involved. Cycle 56: the v1.0.0 canned
@@ -243,7 +251,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
     (the 200-generation dry run)."""
     selected = [c.strip() for c in cartridges.split(",") if c.strip()]
-    known = set(CANNED_PAGES) | {"comparison", "listicle"}
+    known = set(CANNED_PAGES) | {"comparison", "listicle", "quiz"}
     unknown = [c for c in selected if c not in known]
     if unknown:
         print(f"no canned page for cartridge(s): {unknown}; have: {sorted(known)}", file=sys.stderr)
@@ -263,7 +271,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     responses = [json_response(brief)]
     if brief.get("claims_made"):
         responses.append(json_response({}))  # the semantic-match call only happens when claims exist
-    responses += [json_response(_canned_page(c, resolved_style)) for c in selected]
+    responses += [json_response(_canned_page(c, resolved_style, tenant)) for c in selected]
     client = FakeClient(responses)
 
     args = argparse.Namespace(

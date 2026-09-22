@@ -14,6 +14,7 @@ from .errors import WriterFailed
 from .jsonutil import extract_json
 from . import comparison
 from . import listicle
+from . import quiz
 from . import pdp
 from . import tenant as tenant_mod
 from . import vocab
@@ -459,6 +460,16 @@ def _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack):
     hard_constraints.extend(comparison.writer_lines(facts_pack))
 
 
+# Cycle 57: the quiz cartridge's hard constraints quote the run's own rubric
+# (question ids, option labels, interstitial slots) so the prompt states
+# exactly what harness/quiz.find_quiz_violations measures. No-op for every
+# other cartridge.
+def _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack):
+    if cartridge_name != "quiz":
+        return
+    hard_constraints.extend(quiz.writer_lines(facts_pack))
+
+
 # Cycle 54: the product-page cartridge's own writer lines -- the same
 # constants harness/pdp.py's gate measures. No-op for every other cartridge.
 def _append_product_page_guidance(hard_constraints, cartridge_name):
@@ -636,6 +647,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
+    _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
@@ -684,6 +696,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
+    _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED

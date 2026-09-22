@@ -2080,3 +2080,78 @@ a page that needs no competitor claims at all.
    `alternatives`); re-run PASS on `alternatives` (2 repairs: an FAQ
    `attributed_to_customer`, then a "$200 monthly" dek, both caught).
    hidden-costs-v2 -> PASS on `models`, attempt 1. Suite: 1496 passed; ruff clean.
+## Cycle 57 (quiz cartridge, 2026-09-22)
+
+Branch `cycle57/quiz`, worktree `~/adv-c57`, not merged, not pushed.
+
+1. **`cartridges/quiz/` v1.0.0.** A self-assessment lander from the research
+   doc's "Quiz / self-assessment funnel" spec (tenants/peak-saunas/docs/
+   RESEARCH-FORMATS-2026-09-22.md): H1 "Which <category> Is Right for
+   <audience>? Take the 60-Second Quiz", one question at a time over a
+   Cedar/Solar Flare progress bar with Back, "good to know" interstitials,
+   and a result card that names ONE active model with its verified price,
+   capacity, Shopify image, a "why this matches you" list (the reader's own
+   chosen labels that scored that model) and "Shop the <model>". No mid-quiz
+   popup, no email gate, no discount. Static HTML plus one inline script (no
+   `src`, no network). Without a script, every question reads as a list and
+   the featured (ad-inferred) model's card shows with a note. Word range
+   400-700. Visual language from the listicle lander look (wide two-column
+   hero on a panel band, bordered panels, `<details>` FAQ, dark close band);
+   brand tokens only, square via the radius tokens, uppercase headlines
+   restated for the export.
+2. **Rubric as data.** `tenants/<t>/quiz/rubric.yaml` (template in
+   `tenants/_template/quiz/`): questions with option labels and integer
+   scores per model slug, interstitial slots, tiebreak.
+   `tenants/peak-saunas/quiz/build_rubric.py` generates Peak's from
+   `claims/verified.json` + `claims/products.json`, with the claim ids above
+   every option: household (capacity), placement (outdoor placement claims;
+   indoor = no outdoor claim, with the two indoor claims named), floor space
+   (larger side of the verified exterior dimensions), outlet (electrical
+   claims), budget (price claims), priority (red light panels, red cedar
+   cabin, max temperature). Placement scores 15, more than every other
+   question together (14), so it works as a filter. Tiebreak: verified
+   price, lowest first. Weights are a first cut for Caleb.
+3. **`harness/quiz.py`.** Rubric load/validate, `pick_model` (the Python
+   twin of the page script), `rubric_reachability` (enumerates every answer
+   combination), writer lines, `quiz:*` page gates, deterministic fixes for
+   rubric echoes (`quiz:options:*`, `quiz:question_id:*`,
+   `quiz:interstitial_after:*`, `quiz:cta_url`), the renderer context and a
+   post-render script/card check. `pipeline.ground` STOPs (exit 2,
+   `quiz_rubric`) on an invalid rubric before any writer call.
+4. **Plumbing (additive).** `ground.facts_for(include_quiz=)` (rubric + one
+   card per active model with a price claim, backing claims citable; hero
+   slot), `pipeline`, `write`, `repair`, `render` (card images downloaded,
+   card claims in Sources, FAQPage JSON-LD, compact byline), `pagechecks`
+   (JSON-LD type, hero requirement), `simplicity` (fold = hero only, the
+   start link is a renderer anchor; headline band 10-18), `evals/fake_run.py`
+   (canned page built from the tenant's rubric), `tests/test_css_coverage.py`.
+   `tests/test_pagechecks.py`'s "unregistered cartridge" case used the name
+   "quiz"; it now uses "no-such-cartridge".
+
+### Verify
+- Offline: every one of the 1152 answer combinations of Peak's rubric
+  recommends an active model; all 10 active models are reachable (mini 123,
+  shasta 68, rainier 57, everest 64, fuji 122, denali 96, matterhorn 46,
+  patagonia 279, kilimanjaro 147, el-capitan 150); "inside" never returns an
+  outdoor model and "outside" never an indoor one. The page script was
+  driven in a real browser for all 1152 combinations: 0 mismatches against
+  `pick_model`. Mobile (375px): no horizontal scroll.
+- Suite: 1497 passed. Ruff: clean. Tenant-word test green.
+- Real run (`harness run --tenant peak-saunas --cartridges quiz
+  tenants/peak-saunas/fixtures/product-features-v2.mov`), run id
+  `20260922-211953-product-features-v2-jvk4`: **PASS**, attempt 1, 0 repairs,
+  506 words, 6 questions, featured model mini, estimated cost $0.0911. Review
+  html and page copied to `/tmp/c57-preview/`. Not approved, not published.
+
+### Open
+- App control is not scored: no verified claim names app or Wi-Fi control
+  for any model (only the Shopify handles say it).
+- `price-kilimanjaro` in `claims/verified.json` says $13,450; the live
+  storefront price is $15,450. Live runs cite the live claim; the budget
+  band is the same either way. The static claim needs an update.
+- The claims gate checks that a cited claim exists, not that it supports
+  the sentence: run 1's power interstitial mentions "a 240-volt line" and
+  cites only the featured model's electrical claim.
+- The HSA/FSA line shows only when an HSA claim is in the run's facts_pack;
+  `hsa-fsa-truemed` is not in Peak's universal or benefit ids, so it did not
+  show (same rule as the listicle).

@@ -44,6 +44,7 @@ JSON_LD_TYPES = {
     "listicle": "ItemList",
     "longform": "FAQPage",
     "comparison": "FAQPage",
+    "quiz": "FAQPage",
 }
 
 _LD_SCRIPT_RE = re.compile(r'<script\s+type="application/ld\+json">(.*?)</script>', re.DOTALL)
@@ -187,11 +188,11 @@ def find_hero_requirement_violations(page, cartridge_name):
     check is a no-op for it -- nothing to require."""
     from . import ground as ground_mod
 
-    if cartridge_name not in ("longform", "product-page", "listicle", "comparison"):
+    if cartridge_name not in ("longform", "product-page", "listicle", "comparison", "quiz"):
         return []
     node = ground_mod.hero_container(page, cartridge_name)
     if node is None or not node.get("asset_id"):
-        path = "$.hero" if cartridge_name in ("listicle", "comparison") else "$.hero.hero_image"
+        path = "$.hero" if cartridge_name in ("listicle", "comparison", "quiz") else "$.hero.hero_image"
         return [{"path": path, "issue": f"{cartridge_name} requires a hero image; none is set"}]
     return []
 

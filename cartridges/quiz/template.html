@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+{# Quiz cartridge (cycle 57): a self-assessment lander that recommends one of
+   the tenant's own active models.
+
+   Visual language from the listicle's lander look -- a wide two-column hero
+   on a panel band, bordered panels, a <details> FAQ -- rebuilt as a single
+   quiz column: one question at a time over a thin progress bar, option
+   buttons in a grid, short "good to know" panels between questions, and a
+   result card that names one model and its verified price.
+
+   Progressive enhancement. The markup is complete without a script: every
+   question and interstitial is a plain list, and the result section shows
+   the card for the model the ad featured with a note that says so. The one
+   inline script below (no src, no network) adds the class qz--js, shows one
+   step at a time, scores the chosen options from their data-qz-scores
+   attributes and reveals the winning card. The scoring rule is
+   harness/quiz.py's pick_model -- change one, change both.
+
+   Every value in cartridge_data is renderer-owned (harness/quiz.py's
+   render_context): the writer never writes a card, a price, a score or a
+   "why" line. Colours are brand tokens only, never literals. #}
+{% block title %}{{ page.headline }}{% endblock %}
+{% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
+{% block content %}
+<style>
+/* Scoped under .adv-quiz, classes prefixed .qz-. Every --qz-* token resolves
+   through the tenant's brand tokens (--ps-*) first and structure.css's
+   defaults (--adv-*) second. Restated here in full because the storefront
+   export keeps only the body. */
+.adv-quiz{
+  --qz-accent:var(--ps-accent,var(--adv-accent));
+  --qz-on-accent:var(--ps-on-accent,var(--adv-fg));
+  --qz-ink:var(--ps-text-strong,var(--adv-fg));
+  --qz-body:var(--ps-text,var(--adv-fg));
+  --qz-muted:var(--ps-muted,var(--adv-muted));
+  --qz-bg:var(--ps-bg,var(--adv-bg));
+  --qz-panel:var(--ps-bg-muted,var(--adv-bg));
+  --qz-border:var(--ps-border,var(--adv-border));
+  --qz-rule:var(--ps-band,var(--adv-border));
+  --qz-dark:var(--ps-ink-dark,var(--adv-fg));
+  --qz-on-dark:var(--ps-on-dark,var(--adv-bg));
+  --qz-focus:var(--ps-focus,var(--qz-accent));
+  --qz-sans:var(--ps-sans,inherit);
+  --qz-eyebrow-size:var(--ps-eyebrow-size,.75rem);
+  --qz-eyebrow-spacing:var(--ps-eyebrow-spacing,.12em);
+  --qz-eyebrow-color:var(--ps-eyebrow-color,var(--qz-muted));
+  --qz-radius:var(--ps-radius-card,10px);
+  --qz-radius-btn:var(--ps-radius-btn,8px);
+  --qz-measure:1060px;
+  --qz-column:760px;
+  --qz-gap:48px;
+  display:block;width:100%;background:var(--qz-bg);color:var(--qz-body);text-align:left;
+  font-family:var(--qz-sans);-webkit-font-smoothing:antialiased;
+}
+.adv-wrap:has(.adv-quiz){max-width:1100px;padding-left:0;padding-right:0}
+.adv-wrap:has(.adv-quiz) .adv-footer{max-width:var(--qz-measure);margin:0 auto;padding-left:20px;padding-right:20px}
+.adv-quiz *,.adv-quiz *::before,.adv-quiz *::after{box-sizing:border-box}
+.adv-quiz [hidden]{display:none !important}
+.adv-quiz img{display:block;max-width:100%}
+.adv-quiz .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:var(--qz-radius)}
+.adv-quiz .adv-img--contain{object-fit:contain}
+.adv-quiz .adv-img--cover{object-fit:cover}
+.adv-quiz picture{display:block}
+.adv-quiz .qz-measure{max-width:var(--qz-measure);margin:0 auto;padding:0 20px;width:100%}
+.adv-quiz .qz-column{max-width:var(--qz-column);margin:0 auto;padding:0 20px;width:100%}
+
+/* hero: eyebrow, H1, dek, the start link and the byline; picture right on desktop */
+.adv-quiz .qz-hero{padding:24px 0 var(--qz-gap);background:var(--qz-panel)}
+.adv-quiz .qz-hero-grid{display:grid;gap:26px;align-items:center}
+.adv-quiz .qz-eyebrow{margin:0 0 10px;font-size:var(--qz-eyebrow-size);font-weight:700;
+  letter-spacing:var(--qz-eyebrow-spacing);text-transform:uppercase;color:var(--qz-eyebrow-color)}
+.adv-quiz .qz-h1{font-size:2.25rem;line-height:1.1;margin:0 0 14px;color:var(--qz-ink);letter-spacing:-.01em}
+.adv-quiz .qz-dek{font-size:1.0625rem;line-height:1.6;margin:0 0 22px;color:var(--qz-body);max-width:58ch}
+.adv-quiz .qz-byline{margin:18px 0 0;font-size:.875rem;color:var(--qz-muted)}
+.adv-quiz .qz-hero-media{margin:0}
+.adv-quiz .qz-hero-media .adv-img{max-height:420px}
+
+.adv-quiz .qz-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;
+  padding:14px 28px;border:0;border-radius:var(--qz-radius-btn);background:var(--qz-accent);
+  color:var(--qz-on-accent);font:inherit;font-size:1.0625rem;font-weight:700;line-height:1.25;
+  text-decoration:none;cursor:pointer}
+.adv-quiz .qz-btn:hover{filter:brightness(.95)}
+.adv-quiz .qz-btn:focus-visible,.adv-quiz .qz-option:focus-visible,.adv-quiz .qz-back:focus-visible,
+.adv-quiz .qz-next:focus-visible,.adv-quiz .qz-restart:focus-visible{outline:2px solid var(--qz-focus);outline-offset:2px}
+
+/* the quiz column */
+.adv-quiz .qz-quiz{padding:var(--qz-gap) 0 0;scroll-margin-top:16px}
+.adv-quiz .qz-bar-row{display:none;align-items:center;gap:14px;margin:0 0 24px}
+.adv-quiz .qz-progress{flex:1 1 auto;height:4px;background:var(--qz-rule);overflow:hidden}
+.adv-quiz .qz-bar{display:block;height:100%;width:0;background:var(--qz-accent);transition:width .25s ease}
+.adv-quiz .qz-back{flex:0 0 auto;padding:6px 0;border:0;background:none;color:var(--qz-ink);
+  font:inherit;font-size:.9375rem;font-weight:600;text-decoration:underline;text-underline-offset:4px;cursor:pointer}
+.adv-quiz .qz-step{margin:0 0 32px}
+.adv-quiz .qz-q{font-size:1.5rem;line-height:1.2;margin:0 0 18px;color:var(--qz-ink)}
+.adv-quiz .qz-q:focus{outline:none}
+.adv-quiz .qz-options{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.adv-quiz .qz-options li{margin:0}
+.adv-quiz .qz-option{display:flex;align-items:center;width:100%;min-height:60px;padding:14px 18px;
+  border:1px solid var(--qz-border);border-radius:var(--qz-radius-btn);background:var(--qz-bg);
+  color:var(--qz-ink);font:inherit;font-size:1.0625rem;font-weight:600;line-height:1.3;text-align:left;cursor:pointer}
+.adv-quiz .qz-option:hover{background:var(--qz-panel)}
+.adv-quiz .qz-option[aria-pressed="true"]{background:var(--qz-panel);box-shadow:inset 4px 0 0 var(--qz-accent)}
+.adv-quiz .qz-note-panel{padding:22px 24px;border-left:4px solid var(--qz-rule);background:var(--qz-panel)}
+.adv-quiz .qz-note{font-size:1.125rem;line-height:1.55;margin:0;color:var(--qz-ink)}
+.adv-quiz .qz-note:focus{outline:none}
+.adv-quiz .qz-next{display:none;margin:18px 0 0;padding:12px 22px;border:1px solid var(--qz-ink);
+  border-radius:var(--qz-radius-btn);background:transparent;color:var(--qz-ink);font:inherit;font-weight:700;cursor:pointer}
+.adv-quiz.qz--js .qz-bar-row{display:flex}
+.adv-quiz.qz--js .qz-next{display:inline-flex}
+
+/* the result */
+.adv-quiz .qz-result{padding:var(--qz-gap) 0 0;scroll-margin-top:16px}
+.adv-quiz .qz-h2{font-size:1.75rem;line-height:1.15;margin:0 0 12px;color:var(--qz-ink)}
+.adv-quiz .qz-h2:focus{outline:none}
+.adv-quiz .qz-nojs{margin:0 0 20px;font-size:.9375rem;line-height:1.5;color:var(--qz-muted)}
+.adv-quiz .qz-card{display:grid;gap:22px;margin:0 0 20px;padding:22px;border:1px solid var(--qz-border);
+  border-radius:var(--qz-radius);background:var(--qz-bg)}
+.adv-quiz .qz-card-media{margin:0;background:var(--qz-panel);border-radius:var(--qz-radius);overflow:hidden}
+.adv-quiz .qz-card-media .adv-img{width:100%}
+.adv-quiz .qz-card-name{font-size:1.375rem;line-height:1.2;margin:0 0 6px;color:var(--qz-ink)}
+.adv-quiz .qz-card-cap{margin:0 0 6px;font-size:.9375rem;color:var(--qz-muted)}
+.adv-quiz .qz-card-price{margin:0 0 18px;font-size:1.5rem;font-weight:700;color:var(--qz-ink)}
+.adv-quiz .qz-why-h{margin:0 0 10px;font-size:.8125rem;font-weight:700;letter-spacing:var(--qz-eyebrow-spacing);
+  text-transform:uppercase;color:var(--qz-eyebrow-color)}
+.adv-quiz .qz-why{list-style:none;margin:0 0 20px;padding:0}
+.adv-quiz .qz-why li{position:relative;margin:0 0 8px;padding-left:22px;font-size:1rem;line-height:1.45}
+.adv-quiz .qz-why li::before{content:"";position:absolute;left:0;top:.5em;width:10px;height:10px;background:var(--qz-accent)}
+.adv-quiz .qz-restart{display:none;padding:8px 0;border:0;background:none;color:var(--qz-ink);font:inherit;
+  font-size:.9375rem;font-weight:600;text-decoration:underline;text-underline-offset:4px;cursor:pointer}
+.adv-quiz.qz--js .qz-restart{display:inline-block}
+.adv-quiz .qz-assure{margin:28px 0 0;padding:20px 0 0;border-top:1px solid var(--qz-rule)}
+.adv-quiz .qz-trust{list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 12px;padding:0;
+  font-size:.9375rem;font-weight:600;color:var(--qz-ink)}
+.adv-quiz .qz-trust li{margin:0}
+.adv-quiz .qz-fine{margin:0 0 8px;font-size:.875rem;line-height:1.5;color:var(--qz-muted)}
+
+/* FAQ, then a dark closing band */
+.adv-quiz .qz-faq{padding:var(--qz-gap) 0 0}
+.adv-quiz .qz-faq-item{border:1px solid var(--qz-border);border-radius:var(--qz-radius);margin:0 0 10px;
+  padding:0 16px;background:var(--qz-bg)}
+.adv-quiz .qz-faq-q{padding:16px 0;font-size:1.0625rem;font-weight:600;color:var(--qz-ink);cursor:pointer;list-style:none}
+.adv-quiz .qz-faq-q::-webkit-details-marker{display:none}
+.adv-quiz .qz-faq-q::after{content:"+";float:right;font-weight:700}
+.adv-quiz .qz-faq-item[open] .qz-faq-q::after{content:"\2212"}
+.adv-quiz .qz-faq-a{margin:0 0 16px;font-size:1rem;line-height:1.6;color:var(--qz-body)}
+.adv-quiz .qz-close{margin:var(--qz-gap) 0 0;padding:36px 0;background:var(--qz-dark);color:var(--qz-on-dark)}
+.adv-quiz .qz-close-text{margin:0 0 16px;font-size:1.25rem;line-height:1.35;color:var(--qz-on-dark)}
+.adv-quiz .qz-close .qz-btn{background:var(--qz-accent);color:var(--qz-on-accent)}
+
+/* headline case (harness/render.py's wrap_class), restated for the export */
+.adv-case-upper .qz-h1,.adv-case-upper .qz-q,.adv-case-upper .qz-h2,.adv-case-upper .qz-card-name{text-transform:uppercase}
+
+@media (max-width:600px){
+  .adv-quiz{--qz-gap:36px}
+  .adv-quiz .qz-h1{font-size:1.875rem}
+  .adv-quiz .qz-q{font-size:1.3125rem}
+  .adv-quiz .qz-hero .qz-btn{width:100%}
+}
+@media (min-width:600px){
+  .adv-quiz .qz-options{grid-template-columns:1fr 1fr}
+}
+@media (min-width:768px){
+  .adv-quiz{--qz-gap:64px}
+  .adv-quiz .qz-h1{font-size:2.75rem}
+  .adv-quiz .qz-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;padding:28px}
+}
+@media (min-width:900px){
+  .adv-quiz .qz-hero-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px}
+  .adv-quiz .qz-hero-media .adv-img{max-height:480px}
+}
+</style>
+<div class="adv-quiz" data-qz data-qz-tiebreak="{{ cartridge_data.tiebreak }}">
+
+  <header class="qz-hero">
+    <div class="qz-measure qz-hero-grid">
+      <div>
+        {# Cycle 55 convention: the tenant disclosure_label in the eyebrow
+           style; nothing when unset. #}
+        {% if disclosure_label %}<p class="qz-eyebrow">{{ disclosure_label }}</p>{% endif %}
+        <h1 class="qz-h1">{{ page.headline }}</h1>
+        <p class="qz-dek">{{ page.dek }}</p>
+        <a class="qz-btn" href="#qz-quiz">{{ cartridge_data.start_text }}</a>
+        <div class="qz-byline adv-byline">{{ byline_html | safe }}</div>
+      </div>
+      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+      {% if hero_asset %}<div class="qz-hero-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+    </div>
+  </header>
+
+  <section class="qz-quiz" id="qz-quiz">
+    <div class="qz-column">
+      <div class="qz-bar-row">
+        <button type="button" class="qz-back" data-qz-back hidden>Back</button>
+        <div class="qz-progress" aria-hidden="true"><span class="qz-bar" data-qz-bar></span></div>
+      </div>
+      {% for step in cartridge_data.steps %}
+      {% if step.kind == "question" %}
+      <div class="qz-step" data-qz-step data-qz-question="{{ step.id }}">
+        <h2 class="qz-q" tabindex="-1">{{ step.prompt }}</h2>
+        <ul class="qz-options">
+          {% for option in step.options %}
+          <li><button type="button" class="qz-option" aria-pressed="false" data-qz-scores="{{ option.scores }}">{{ option.label }}</button></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <div class="qz-step" data-qz-step>
+        <div class="qz-note-panel">
+          <p class="qz-eyebrow">Good to know</p>
+          <p class="qz-note" tabindex="-1">{{ step.line }}</p>
+          <button type="button" class="qz-next" data-qz-next>Continue</button>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="qz-result" id="qz-result" data-qz-result>
+    <div class="qz-column">
+      <p class="qz-eyebrow">Your match</p>
+      <h2 class="qz-h2" tabindex="-1" data-qz-result-heading>The model that fits your answers</h2>
+      <p class="qz-nojs" data-qz-nojs>Scripts are off in this browser, so the quiz cannot score your answers. This is the model the ad featured; every model has its own page.</p>
+      {% for card in cartridge_data.cards %}
+      <article class="qz-card" data-qz-model="{{ card.slug }}"{% if card.featured %} data-qz-featured{% else %} hidden{% endif %}>
+        {% set card_asset = assets.get(card.image.id) if card.image else None %}
+        {% if card_asset %}<div class="qz-card-media">{{ render_image_slot(card_asset, frame="4x3") }}</div>{% endif %}
+        <div>
+          <h3 class="qz-card-name">{{ card.name }}</h3>
+          {% if card.capacity_text %}<p class="qz-card-cap">Capacity: {{ card.capacity_text }}</p>{% endif %}
+          <p class="qz-card-price" data-claim-id="{{ card.price_claim_id }}">{{ card.price_text }}</p>
+          <div data-qz-why-block hidden>
+            <p class="qz-why-h">Why this matches you</p>
+            <ul class="qz-why" data-qz-why></ul>
+          </div>
+          <a class="qz-btn" href="{{ card.url }}">{{ card.cta_text }}</a>
+        </div>
+      </article>
+      {% endfor %}
+      <button type="button" class="qz-restart" data-qz-restart>Retake the quiz</button>
+      <div class="qz-assure">
+        {% if cartridge_data.trust_items %}
+        <ul class="qz-trust">
+          {% for item in cartridge_data.trust_items %}<li>{{ item.text }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        <p class="qz-fine">{{ cartridge_data.financing_sentence }}</p>
+        {% if cartridge_data.hsa_claim %}<p class="qz-fine">{{ cartridge_data.hsa_claim.text }}</p>{% endif %}
+        {% if cartridge_data.warranty_sentence %}<p class="qz-fine">{{ cartridge_data.warranty_sentence }}</p>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% if page.faq and page.faq.questions %}
+  <section class="qz-faq">
+    <div class="qz-column">
+      <h2 class="qz-h2">Questions buyers ask</h2>
+      {% for entry in page.faq.questions %}
+      <details class="qz-faq-item"{{ " open" if loop.first else "" }}>
+        <summary class="qz-faq-q">{{ entry.question }}</summary>
+        <p class="qz-faq-a">{{ entry.answer }}</p>
+      </details>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="qz-close">
+    <div class="qz-column">
+      <p class="qz-close-text">Not sure yet? The quiz takes a minute, and you can change any answer.</p>
+      <a class="qz-btn" href="#qz-quiz">{{ cartridge_data.start_text }}</a>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var root = document.querySelector('[data-qz]');
+  if (!root) return;
+  var steps = [].slice.call(root.querySelectorAll('[data-qz-step]'));
+  var questions = steps.filter(function(s){ return s.hasAttribute('data-qz-question'); });
+  var cards = [].slice.call(root.querySelectorAll('[data-qz-model]'));
+  var result = root.querySelector('[data-qz-result]');
+  var bar = root.querySelector('[data-qz-bar]');
+  var back = root.querySelector('[data-qz-back]');
+  var tiebreak = (root.getAttribute('data-qz-tiebreak') || '').split(' ');
+  var answers = {};
+  var current = 0;
+  if (!steps.length || !questions.length || !result) return;
+  root.classList.add('qz--js');
+  var nojs = root.querySelector('[data-qz-nojs]');
+  if (nojs) nojs.hidden = true;
+
+  function qid(step){ return step.getAttribute('data-qz-question'); }
+  function parse(attr){
+    var out = {};
+    (attr || '').split(' ').forEach(function(pair){
+      var kv = pair.split(':');
+      if (kv.length === 2 && kv[0]) out[kv[0]] = parseInt(kv[1], 10) || 0;
+    });
+    return out;
+  }
+  function rank(slug){ var i = tiebreak.indexOf(slug); return i === -1 ? tiebreak.length : i; }
+  /* harness/quiz.py pick_model: highest total wins; a tie goes to the model
+     earliest in the tiebreak list, then the alphabetically first slug. */
+  function pick(){
+    var totals = {}, best = null, slug;
+    questions.forEach(function(q){
+      var chosen = answers[qid(q)];
+      if (!chosen) return;
+      var sc = parse(chosen.getAttribute('data-qz-scores'));
+      for (slug in sc) totals[slug] = (totals[slug] || 0) + sc[slug];
+    });
+    for (slug in totals) {
+      if (totals[slug] <= 0) continue;
+      if (best === null || totals[slug] > totals[best] ||
+          (totals[slug] === totals[best] && (rank(slug) < rank(best) ||
+            (rank(slug) === rank(best) && slug < best)))) best = slug;
+    }
+    return best;
+  }
+  function progress(){
+    var done = questions.filter(function(q){ return answers[qid(q)]; }).length;
+    if (bar) bar.style.width = Math.round(100 * done / questions.length) + '%';
+  }
+  function focus(el){ if (el) { try { el.focus({preventScroll: true}); } catch (e) { el.focus(); } } }
+  function show(i){
+    current = i;
+    steps.forEach(function(s, j){ s.hidden = j !== i; });
+    result.hidden = true;
+    if (back) back.hidden = i === 0;
+    progress();
+    focus(steps[i].querySelector('[tabindex]'));
+  }
+  function finish(){
+    var winner = pick();
+    if (winner === null) {
+      var featured = root.querySelector('[data-qz-featured]');
+      winner = featured ? featured.getAttribute('data-qz-model') : null;
+    }
+    cards.forEach(function(card){
+      var won = card.getAttribute('data-qz-model') === winner;
+      card.hidden = !won;
+      var list = card.querySelector('[data-qz-why]');
+      var block = card.querySelector('[data-qz-why-block]');
+      if (!won || !list) return;
+      list.textContent = '';
+      questions.forEach(function(q){
+        var chosen = answers[qid(q)];
+        if (!chosen || !(parse(chosen.getAttribute('data-qz-scores'))[winner] > 0)) return;
+        var li = document.createElement('li');
+        li.textContent = chosen.textContent.replace(/\s+/g, ' ').trim();
+        list.appendChild(li);
+      });
+      if (block) block.hidden = !list.children.length;
+    });
+    current = steps.length;
+    steps.forEach(function(s){ s.hidden = true; });
+    if (back) back.hidden = false;
+    if (bar) bar.style.width = '100%';
+    result.hidden = false;
+    result.scrollIntoView({block: 'start'});
+    focus(root.querySelector('[data-qz-result-heading]'));
+  }
+  function advance(){ if (current + 1 < steps.length) show(current + 1); else finish(); }
+
+  root.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('button') : null;
+    if (!t || !root.contains(t)) return;
+    if (t.hasAttribute('data-qz-scores')) {
+      var step = t.closest('[data-qz-question]');
+      [].forEach.call(step.querySelectorAll('[data-qz-scores]'), function(b){ b.setAttribute('aria-pressed', 'false'); });
+      t.setAttribute('aria-pressed', 'true');
+      answers[qid(step)] = t;
+      advance();
+    } else if (t.hasAttribute('data-qz-next')) {
+      advance();
+    } else if (t.hasAttribute('data-qz-back')) {
+      if (current > 0) show(current - 1);
+    } else if (t.hasAttribute('data-qz-restart')) {
+      answers = {};
+      [].forEach.call(root.querySelectorAll('[data-qz-scores]'), function(b){ b.setAttribute('aria-pressed', 'false'); });
+      show(0);
+      root.querySelector('#qz-quiz').scrollIntoView({block: 'start'});
+    }
+  });
+  show(0);
+})();
+</script>
+{% endblock %}

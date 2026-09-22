@@ -25,6 +25,7 @@ from . import comparison as comparison_mod
 from . import listicle as listicle_mod
 from . import looks as looks_mod
 from . import pagechecks
+from . import quiz as quiz_mod
 from . import pdp as pdp_mod
 from . import tenant as tenant_mod
 from .textutil import safe_filename, walk_page
@@ -305,7 +306,7 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
             if q and a:
                 mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
         return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
-    if cartridge_name == "comparison":
+    if cartridge_name in ("comparison", "quiz"):
         # Kimi long-run phase 6: same FAQPage shape as longform, but the
         # comparison schema's faq items are {question, answer} (the
         # faq-accordion block's binding names).
@@ -878,7 +879,7 @@ def render_page(
     # (see split_byline_html's docstring) -- every other cartridge keeps
     # today's single combined byline_html, byte-for-byte.
     about_author_html = ""
-    if cartridge_name == "listicle":
+    if cartridge_name in ("listicle", "quiz"):
         byline_html, about_author_html = split_byline_html(byline_html)
 
     out_dir = Path(out_dir)
@@ -911,6 +912,37 @@ def render_page(
             assets_by_id.setdefault(asset["id"], dict(asset, alt=asset_alt(asset, asset["model_title"], tenant=tenant)))
             comparison_asset_ids.add(asset["id"])
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
+    # Cycle 57: the quiz's renderer-owned sections (result cards, trust,
+    # financing, HSA and warranty lines -- harness/quiz.py's render_context)
+    # cite claims page.json never carries, so they join the Sources list
+    # here; each card's own product image joins the asset map (with the same
+    # renderer-derived alt text as every other asset) and is downloaded below.
+    quiz_data = None
+    quiz_asset_ids = set()
+    if cartridge_name == "quiz":
+        from .write import resolve_allowed_cta_texts
+
+        quiz_schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
+
+        def _quiz_cta_text(model_name, short_name):
+            texts = resolve_allowed_cta_texts(
+                quiz_schema, short_name, model_name=model_name, tenant=tenant,
+                ad_angle=(ad_brief or {}).get("angle"),
+            )
+            return texts[0] if texts else ""
+
+        warranty_id = tenant.get("warranty_claim_id")
+        quiz_data = quiz_mod.render_context(
+            facts_pack, page, cta_text_for=_quiz_cta_text,
+            warranty_claim_id=warranty_id if warranty_id in verified_by_id else None,
+        )
+        used_claim_ids |= quiz_data["claim_ids"]
+        for card in quiz_data["cards"]:
+            if card.get("image"):
+                card_asset = dict(card["image"])
+                card_asset["alt"] = asset_alt(card_asset, card["name"], tenant=tenant)
+                assets_by_id.setdefault(card_asset["id"], card_asset)
+                quiz_asset_ids.add(card_asset["id"])
     sources = build_sources_list(
         used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
         fallback_url_by_claim=(comparison_context or {}).get("source_url_by_claim"),
@@ -1001,7 +1033,10 @@ def render_page(
     # (or comes back as HTML) is dropped -- the template's own `{% if asset
     # %}` guards mean it's simply not rendered, with a warning logged.
     if download_assets:
-        used_asset_ids = collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids) | {i for i in benefit_ids if i}
+        used_asset_ids = (
+            collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
+            | {i for i in benefit_ids if i} | quiz_asset_ids
+        )
         assets_dir = out_dir / "assets"
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
@@ -1041,6 +1076,8 @@ def render_page(
     cartridge_data = listicle_mod.render_context(facts_pack) if cartridge_name == "listicle" else {}
     if comparison_context is not None:
         cartridge_data = comparison_context
+    if quiz_data is not None:
+        cartridge_data = quiz_data
 
     # Cycle 54: the product-page `pdp` look's renderer-owned sections, the
     # same "from facts_pack alone" rule (harness/pdp.py). The claims they
@@ -1156,6 +1193,10 @@ def render_page(
     structural_hits += pagechecks.find_hero_requirement_violations(page, cartridge_name)
     if comparison_context is not None:
         structural_hits += comparison_mod.find_table_violations(comparison_context, facts_pack)
+    # Cycle 57: the quiz script is inline and self-contained, and the result
+    # cards are exactly the active models -- both renderer-owned.
+    if cartridge_name == "quiz":
+        structural_hits += quiz_mod.find_rendered_quiz_violations(html, cartridge_data)
     # Width/height/alt/favicon-size only exist on the rendered <img> once an
     # asset has actually been downloaded (download_asset is what measures
     # them) -- a dry run (download_assets=False, used by fast local

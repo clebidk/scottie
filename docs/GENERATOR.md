@@ -298,6 +298,60 @@ Sources (each model's facts fall back to that model's own page) and runs
 store (`claims/competitors/`, `_comparison_targets`) no longer feeds this
 page. Rubric: `cartridges/comparison/rubric.md`.
 
+## The quiz cartridge (opt-in, cycle 57)
+
+`cartridges/quiz/` is a self-assessment lander: 5-7 questions, short
+"good to know" lines between them, and a result that names ONE of the
+tenant's active models with its verified price, capacity, product image, a
+"why this matches you" list built from the reader's own answers, and a CTA
+to that model's page. Run it with `harness run --cartridges quiz <ad>`; it is
+not in the no-flag random-3 default.
+
+**The recommendation is data, not copy.** The tenant keeps a scoring rubric
+in `tenants/<t>/quiz/rubric.yaml` (template: `tenants/_template/quiz/`):
+questions (`id`, `prompt`, 2-4 `options` each with a `label` and
+`scores: {<model_slug>: <int>}`), `interstitials` (`after: <question id>`,
+`topic`), and `tiebreak`. A model slug is the product name lowercased with
+hyphens -- the namespace its claim ids use. The writer rephrases the prompts,
+writes the interstitial lines and the FAQ, and echoes the option labels
+verbatim; it never touches a score.
+
+**Who builds what.** Renderer-owned, from `facts_pack.quiz` (built by
+`ground.py` when quiz is selected): one result card per active model with a
+price claim, the trust line, the fixed financing sentence, the HSA/FSA line
+(only when verified) and the fixed warranty sentence. The card claims join
+the Sources list. The page's one inline script (no `src`, no network) shows
+one question at a time with a progress bar and Back, adds up the chosen
+options' `data-qz-scores`, and reveals the winning card; the same rule in
+Python is `harness/quiz.py`'s `pick_model`. Without a script the page reads
+as one list, and the result shows the featured (ad-inferred) model's card
+with a note.
+
+**Gates.**
+
+| when | key | what |
+| --- | --- | --- |
+| before any writer call (`pipeline.ground`, STOP exit 2) | `quiz:rubric:*` | rubric loads; 5-7 questions, 2-4 options; every option scores an active model above zero; no retired/unknown slug; every active model wins some combination; no combination of answers leaves every model at zero (all combinations are enumerated) |
+| repair loop | `quiz:headline_formula`, `quiz:headline_slots` | "Which <category> Is Right for <audience>? Take the 60-Second Quiz"; no brand/model in the category; no generic audience |
+| repair loop | `quiz:question_count`, `quiz:question_id:<i>`, `quiz:question_prompt:<i>`, `quiz:options:<qid>` | one question per rubric question, same ids, prompts end in "?", labels verbatim in order |
+| repair loop | `quiz:interstitial_count`, `quiz:interstitial_after:<i>`, `quiz:interstitial_claims:<i>` | one line per rubric slot; a digit or trigger word needs claim ids |
+| repair loop | `quiz:faq_count`, `quiz:faq_claims:<i>`, `quiz:urgency:*`, `quiz:discount`, `quiz:renderer_owned:*`, `quiz:hero`, `quiz:cta_url` | 3-5 FAQs with cited facts; no urgency/discount; no writer-built card/price/trust line; a hero; cta_url is the featured model's url |
+| post-render backstop | `quiz:script`, `quiz:script_external`, `quiz:script_network`, `quiz:result_cards`, `quiz:rendered_questions` | one inline quiz script, no `src`, no network token; cards exactly the active models; rendered question count |
+
+`quiz:options:*`, `quiz:question_id:*`, `quiz:interstitial_after:*` and
+`quiz:cta_url` have exactly one right answer (the rubric's, the product's)
+and are fixed deterministically, never with a repair call. Simplicity: the
+fold holds the renderer's "Start the quiz" anchor only (options are
+`<button>`s), and the headline band is 10-18 words.
+
+**Peak's rubric** is generated, not hand-written:
+`tenants/peak-saunas/quiz/build_rubric.py` reads `claims/verified.json` and
+`claims/products.json` and writes `rubric.yaml` with a comment above every
+option naming the claim ids its scores came from. Re-run it after a claims
+change -- it overwrites hand-tuned weights, so re-apply them after.
+`tests/test_quiz.py` checks the script's output is valid and has the
+committed file's questions and labels; weights may differ.
+
 ## Eval data (`harness dataset export`, `harness eval report`)
 
 ```
