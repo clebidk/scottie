@@ -8,9 +8,17 @@
 # Placement scores 15: more than every other question's top score
 # together (3+3+3+3+2 = 14), so placement works as a hard filter.
 # Not scored: app control (no verified claim names it for any model).
+#
+# Cycle 61 display fields, hand-added (build_rubric.py does not write them,
+# so re-add them after a regeneration; the page falls back to the label and
+# a bare answer without them). A question's `result_label` leads a row of
+# the result's "why it fits you" list; an option's `display` is its tile
+# text when the label is longer than six words. Neither changes a label, a
+# score or the order.
 version: 1
 questions:
   - id: household
+    result_label: "Who uses it"
     prompt: "Who will use your sauna at the same time?"
     options:
       # capacity 1-Person scores 3, 2-Person scores 1
@@ -30,6 +38,7 @@ questions:
       - label: "Five of us"
         scores: {el-capitan: 1, kilimanjaro: 3}
   - id: placement
+    result_label: "Where it goes"
     prompt: "Where will it go?"
     options:
       # every model with no verified 'Placement: Outdoor' claim scores 15
@@ -39,8 +48,10 @@ questions:
       # every model with a verified 'Placement: Outdoor' claim scores 15
       # claims: spec-el-capitan-placement, spec-kilimanjaro-placement, spec-patagonia-placement
       - label: "Outside, on a patio, deck, or yard"
+        display: "Outdoors, on a deck or patio"
         scores: {el-capitan: 15, kilimanjaro: 15, patagonia: 15}
   - id: space
+    result_label: "Floor space"
     prompt: "How much floor space can you give it?"
     options:
       # larger exterior side up to 36 in scores 3
@@ -60,6 +71,7 @@ questions:
       - label: "More than 5 feet wide"
         scores: {denali: 3, el-capitan: 3, everest: 1, fuji: 1, kilimanjaro: 1, matterhorn: 3, patagonia: 1}
   - id: power
+    result_label: "Power"
     prompt: "Which outlet can it plug into?"
     options:
       # a verified 120V/15A standard-outlet claim scores 3
@@ -73,8 +85,10 @@ questions:
       # a verified 240V claim scores 3
       # claims: spec-denali-electrical-requirement, spec-el-capitan-electrical, spec-kilimanjaro-electrical, spec-matterhorn-electrical-requirement, spec-patagonia-electrical
       - label: "A 240-volt circuit I can have an electrician add"
+        display: "A new 240-volt circuit"
         scores: {denali: 3, el-capitan: 3, kilimanjaro: 3, matterhorn: 3, patagonia: 3}
   - id: budget
+    result_label: "Budget"
     prompt: "What budget are you working with?"
     options:
       # verified price under $6,000 scores 3
@@ -94,6 +108,7 @@ questions:
       - label: "More than $11,000"
         scores: {denali: 1, el-capitan: 3, fuji: 1, kilimanjaro: 3, matterhorn: 1, patagonia: 1}
   - id: priority
+    result_label: "Your priority"
     prompt: "Which matters most to you?"
     options:
       # 2 verified RLT panels score 2, 1 panel scores 1

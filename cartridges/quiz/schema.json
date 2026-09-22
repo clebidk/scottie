@@ -1,16 +1,16 @@
 {
   "type": "object",
   "allowed_cta_texts": ["Shop the {model_name}"],
-  "headline_word_band": [10, 18],
+  "headline_word_band": [7, 14],
   "required": ["headline", "dek", "hero", "questions", "interstitials", "faq", "cta_text", "cta_url"],
   "properties": {
     "headline": {
       "type": "string",
-      "description": "Exactly 'Which <category> Is Right for <audience>? Take the 60-Second Quiz'. <category> is the product category, never the company or a model name; <audience> names the people the ad speaks to by their situation or goal (2-5 words), never a bare 'people' or 'buyers'."
+      "description": "Exactly 'Which <category> is right for <audience>?', in sentence case, with nothing after the question mark (the page's own note says how long the quiz takes). <category> is the product category in lower case, never the company or a model name; <audience> names the people the ad speaks to by their situation or goal (2-5 words), never a bare 'people' or 'buyers'."
     },
     "dek": {
       "type": "string",
-      "description": "One sentence under the headline on what the quiz does for the reader. No uncited number."
+      "description": "One plain sentence under the headline, at most 20 words, on what the quiz does for the reader. No uncited number, no 'whether you're' opener, no list of three."
     },
     "hero": {
       "type": "object",
@@ -40,7 +40,7 @@
         "type": "object",
         "properties": {
           "after": {"type": "string", "description": "The rubric interstitial's question id, unchanged."},
-          "line": {"type": "string", "description": "1-3 short sentences. A digit, price, measurement or trigger word needs claim_ids; otherwise no digit at all."},
+          "line": {"type": "string", "description": "1-2 short sentences, at most 25 words in all. A digit, price, measurement or trigger word needs claim_ids; otherwise no digit at all."},
           "claim_ids": {"type": "array"}
         }
       }

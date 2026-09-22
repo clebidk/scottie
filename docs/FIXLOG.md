@@ -2278,3 +2278,92 @@ brand page. Storefront export fixes (theme root font, heading font, title,
 - Hero and lifestyle in this run are both product cut-outs, so both render
   on panels. A room photo of the featured model is now asked for in the
   prompt, not enforced.
+
+## Cycle 61 (quiz polish, 2026-09-22)
+
+Branch `cycle61/quiz-polish`, worktree `~/adv-c61`, not merged, not pushed.
+Owner review of run `20260922-213606-product-features-v2-miqd`: "a good
+start, but very rough and needs a lot of polishing." Storefront export
+issues (10px theme root font, theme heading font, duplicate title, 960px
+container) are a separate cycle and are not touched here.
+
+1. **Template rebuilt as a product finder** (`cartridges/quiz/template.html`).
+   Hero: sentence-case H1 in the display font (Epika token, 52/44/34px),
+   one-line dek (19/18px), "Start the quiz" (52px tall) with the note
+   "<n> questions · about a minute", the byline as one quiet line (the
+   tenant's boxed `.byline` is flattened inside the quiz only), and the
+   hero picture on a panel that fills its column. A cutout (render.py's
+   `image_fit` says contain) sits on a quiet Stone-dark panel with
+   `mix-blend-mode: multiply`, so its white ground disappears; a lifestyle
+   photo is cover-cropped to the panel. The quiz card starts right under the
+   hero: Back link, "Question N of M" (`aria-live="polite"`), a 3px progress
+   bar (`role="progressbar"`), one question per step, option tiles as
+   `<button>`s (min 64px, 17px, full width on mobile, two columns on desktop
+   when every label is 26 characters or fewer), selected state = 2px Basalt
+   border + Stone-dark fill, auto-advance 320ms after a choice. Interstitials
+   are quiet display-font text under a hairline with a Continue button, not
+   a coloured panel. Result: "Your best match", card with the product image
+   on the same panel, title + descriptor, verified price (`data-claim-id`
+   kept), the verified rating line on the featured card only (it is the
+   featured product's rating), "Why it fits you" (the three answers that
+   gave the winner the most points, as label/answer rows), the model CTA,
+   "See all models" (tenant `default_cta_url`) and "Retake the quiz". FAQ:
+   hairline-divided native `<details>`, 18px questions, 17px answers. Dark
+   closing band with the same type scale as the hero. Section padding
+   80px desktop / 52px mobile, body 17px/1.6, one font weight (brand rule),
+   sizes in px. The tenant's uppercase-headline rule is switched off inside
+   the quiz and on the footer's Sources heading; the tenant disclosure
+   eyebrow is the only uppercase text left (unset for Peak).
+2. **Headline formula** (`harness/quiz.py`). Now "Which <category> is right
+   for <audience>?" in sentence case, nothing after it. The fixed words are
+   matched case-sensitively and a title-case `<category>` fails
+   `quiz:headline_case` (all-caps tokens such as a brand are allowed).
+   `display_headline()` shows a page written to the cycle-57 formula in the
+   new form, so `harness rerender` fixes existing pages with no writer call.
+   `schema.json` `headline_word_band` is now 7-14 (the old 10-18 counted
+   the removed tail).
+3. **Copy limits.** New gates `quiz:dek_length` (dek at most 20 words) and
+   `quiz:interstitial_length:<i>` (at most 25 words); `writer_lines`,
+   `cartridge.md`, `schema.json` and `rubric.md` state them, plus "no
+   'whether you're' opener, no list of three" for the dek. No claims gate
+   changed.
+4. **Result title** (`quiz.model_title`, wired in `render.py`). The storefront
+   prefix was already stripped (`tenant.display_product_name`); the Peak
+   short names begin with a bare "Peak ", which the card now shows in the
+   tenant short-name form and splits: "PEAK Mini" over "1-Person Infrared
+   Sauna". Nothing is added that the name does not say.
+5. **Rubric display fields** (`tenants/peak-saunas/quiz/rubric.yaml`, no
+   label, score or order changed). `result_label` per question (leads a
+   "why it fits you" row) and `display` on the two options over six words:
+   "Outdoors, on a deck or patio", "A new 240-volt circuit". The writer
+   still echoes `label`; `quiz.option_display` picks the tile text;
+   `validate_rubric` rejects a `display` over six words
+   (`quiz:rubric:option_display:*`). `build_rubric.py` does not write these
+   fields, so they must be re-added after a regeneration (the page falls
+   back to the label and a bare answer).
+
+### Verify
+- Tests first (19 failing before the change): progress/count/live region
+  markup, no uppercase micro-labels and one weight, result title without
+  the prefix, options are `<button>`s, no `<script src>`, FAQ is
+  `<details>`, headline case, dek/interstitial length, legacy headline
+  display, rubric display length. Suite: 1639 passed. Ruff clean.
+- Proof: a copy of the run in `~/adv-c61/tenants/peak-saunas/out/`,
+  `harness rerender --page quiz` (no model call). The copy's
+  `facts_pack.quiz.rubric` was swapped for the current rubric.yaml (ids,
+  labels, scores and tiebreak checked identical) so the display fields
+  show. Headless Chrome over CDP at 1280 and 390: hero, mid-quiz and result
+  screenshots in `/tmp/c61-proof/` (`after-*`, `before-*` for the old page),
+  a first-option click-through (PEAK Mini, the Python `pick_model` answer)
+  and a last-option one (PEAK Kilimanjaro, same as `pick_model`), no
+  horizontal scroll, and a scripts-off capture (`nojs-*`). Review html:
+  `/tmp/c61-proof/quiz-review.html`. The copied run dir was removed.
+
+### Open
+- Listicle cards and the product page still show "Peak Mini 1-Person
+  Infrared Sauna"; the comparison shows "Mini". The quiz now shows "PEAK
+  Mini". One shared rule across cartridges is a separate decision.
+- The byline starts with a check mark from `brand/byline.html` (tenant
+  file, not touched).
+- No lifestyle photo exists in this run's asset pool; the hero is the
+  cutout-on-panel form.

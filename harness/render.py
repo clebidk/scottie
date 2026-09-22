@@ -936,6 +936,11 @@ def render_page(
         quiz_data = quiz_mod.render_context(
             facts_pack, page, cta_text_for=_quiz_cta_text,
             warranty_claim_id=warranty_id if warranty_id in verified_by_id else None,
+            # Cycle 61: card titles lead with the tenant's short name;
+            # the result's "See all models" link is the tenant's own
+            # default_cta_url, omitted when the tenant sets none.
+            brand=tenant.get("tenant_short_name") or tenant.display_name,
+            all_models_url=tenant.get("default_cta_url"),
         )
         used_claim_ids |= quiz_data["claim_ids"]
         for card in quiz_data["cards"]:

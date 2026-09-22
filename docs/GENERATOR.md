@@ -333,9 +333,9 @@ with a note.
 | when | key | what |
 | --- | --- | --- |
 | before any writer call (`pipeline.ground`, STOP exit 2) | `quiz:rubric:*` | rubric loads; 5-7 questions, 2-4 options; every option scores an active model above zero; no retired/unknown slug; every active model wins some combination; no combination of answers leaves every model at zero (all combinations are enumerated) |
-| repair loop | `quiz:headline_formula`, `quiz:headline_slots` | "Which <category> Is Right for <audience>? Take the 60-Second Quiz"; no brand/model in the category; no generic audience |
+| repair loop | `quiz:headline_formula`, `quiz:headline_slots`, `quiz:headline_case`, `quiz:dek_length` | "Which <category> is right for <audience>?" in sentence case, nothing after it (cycle 61); no brand/model in the category; no generic audience; dek at most 20 words |
 | repair loop | `quiz:question_count`, `quiz:question_id:<i>`, `quiz:question_prompt:<i>`, `quiz:options:<qid>` | one question per rubric question, same ids, prompts end in "?", labels verbatim in order |
-| repair loop | `quiz:interstitial_count`, `quiz:interstitial_after:<i>`, `quiz:interstitial_claims:<i>` | one line per rubric slot; a digit or trigger word needs claim ids |
+| repair loop | `quiz:interstitial_count`, `quiz:interstitial_after:<i>`, `quiz:interstitial_claims:<i>`, `quiz:interstitial_length:<i>` | one line per rubric slot; a digit or trigger word needs claim ids; at most 25 words |
 | repair loop | `quiz:faq_count`, `quiz:faq_claims:<i>`, `quiz:urgency:*`, `quiz:discount`, `quiz:renderer_owned:*`, `quiz:hero`, `quiz:cta_url` | 3-5 FAQs with cited facts; no urgency/discount; no writer-built card/price/trust line; a hero; cta_url is the featured model's url |
 | post-render backstop | `quiz:script`, `quiz:script_external`, `quiz:script_network`, `quiz:result_cards`, `quiz:rendered_questions` | one inline quiz script, no `src`, no network token; cards exactly the active models; rendered question count |
 
@@ -343,7 +343,9 @@ with a note.
 `quiz:cta_url` have exactly one right answer (the rubric's, the product's)
 and are fixed deterministically, never with a repair call. Simplicity: the
 fold holds the renderer's "Start the quiz" anchor only (options are
-`<button>`s), and the headline band is 10-18 words.
+`<button>`s), and the headline band is 7-14 words. A page written to the
+cycle-57 formula renders its H1 in the current form (`quiz.display_headline`),
+so `harness rerender` updates it with no writer call.
 
 **Peak's rubric** is generated, not hand-written:
 `tenants/peak-saunas/quiz/build_rubric.py` reads `claims/verified.json` and

@@ -40,7 +40,7 @@ _INTERSTITIAL_LINES = {
     "placement": ("Every model here is full spectrum, with heater placement all around the cabin.",
                   ["gbrain-allowlist-360-full-spectrum"]),
     "power": ("Some cabins plug into an ordinary wall outlet; others need a dedicated circuit that an "
-              "electrician adds, so this answer narrows the list more than any other.", []),
+              "electrician adds.", []),
     "budget": ("Whatever the price, shipping is free and red light therapy comes standard.",
                ["gbrain-allowlist-free-shipping", "gbrain-allowlist-red-light"]),
 }
@@ -54,7 +54,7 @@ def _filler(n, offset=0):
 def quiz_page(rubric=None):
     rubric = rubric or quiz.load_rubric(RUBRIC_PATH)[0]
     return {
-        "headline": "Which Home Infrared Sauna Is Right for Busy Parents? Take the 60-Second Quiz",
+        "headline": "Which home infrared sauna is right for busy parents?",
         "dek": "Answer a few plain questions and see the one model that fits your home, your outlet and your budget.",
         "hero": {"asset_id": f"asset-{FUJI_SLUG}-1"},
         "questions": [
@@ -284,9 +284,9 @@ def test_headline_formula_and_slots():
     page = quiz_page()
     page["headline"] = "Find Your Perfect Sauna Today"
     assert "quiz:headline_formula" in _keys(_gate(page))
-    page["headline"] = "Which Home Infrared Sauna Is Right for People? Take the 60-Second Quiz"
+    page["headline"] = "Which home infrared sauna is right for people?"
     assert "quiz:headline_slots" in _keys(_gate(page))
-    page["headline"] = "Which Fuji Is Right for Busy Parents? Take the 60-Second Quiz"
+    page["headline"] = "Which Fuji is right for busy parents?"
     assert "quiz:headline_slots" in _keys(_gate(page))
 
 
@@ -383,10 +383,12 @@ def test_render_questions_are_buttons_carrying_the_rubric_scores(tmp_path):
     assert len(re.findall(r'data-qz-question="', html)) == len(rubric["questions"])
     rendered = re.findall(r'<button type="button" class="qz-option"[^>]*data-qz-scores="([^"]*)">([^<]*)</button>', html)
     expected = [
-        (" ".join(f"{s}:{v}" for s, v in sorted(o["scores"].items())), o["label"])
+        (" ".join(f"{s}:{v}" for s, v in sorted(o["scores"].items())), quiz.option_display(o))
         for q in rubric["questions"] for o in q["options"]
     ]
     assert [(s, label.replace("&#39;", "'").replace("&amp;", "&")) for s, label in rendered] == expected
+    # cycle 61: every scored control is a real <button>, never a div or a link
+    assert html.count("data-qz-scores=") == len(rendered)
     # the only links above the result are the start anchor(s); options are never links
     assert not re.search(r"<a[^>]*data-qz-scores", html)
     assert html.count('href="#qz-quiz"') == 2
@@ -481,9 +483,129 @@ def test_eyebrow_renders_only_when_the_tenant_sets_a_disclosure_label(tmp_path, 
     is the eyebrow when set, and nothing renders when it is unset."""
     monkeypatch.delitem(TENANT.config, "disclosure_label", raising=False)
     html, _ = _render(tmp_path / "unset")
-    assert 'class="qz-eyebrow">Your match' in html  # the result eyebrow is not the disclosure
+    assert 'class="qz-eyebrow"' not in html  # cycle 61: the disclosure is the page's only eyebrow
     hero = html.split('<header class="qz-hero">', 1)[1].split("</header>", 1)[0]
     assert "qz-eyebrow" not in hero and "Advertisement" not in hero
     monkeypatch.setitem(TENANT.config, "disclosure_label", "Paid content")
     html, _ = _render(tmp_path / "set")
     assert '<p class="qz-eyebrow">Paid content</p>' in html
+
+
+# ---------------------------------------------------------------------------
+# Cycle 61: polish (owner review of run 20260922-213606: "a good start, but
+# very rough") -- sentence case, short copy, a real product-finder card
+# ---------------------------------------------------------------------------
+
+def test_headline_is_sentence_case_with_no_quiz_suffix():
+    page = quiz_page()
+    assert quiz.find_headline_violations(page) == []
+    page["headline"] = "Which Home Infrared Sauna Is Right for Busy Parents? Take the 60-Second Quiz"
+    assert "quiz:headline_formula" in _keys(_gate(page))
+    page["headline"] = "Which Home Infrared Sauna is right for busy parents?"
+    assert "quiz:headline_case" in _keys(_gate(page))
+    # an all-caps brand word is not title case
+    page["headline"] = "Which home infrared sauna is right for NYC renters?"
+    assert "quiz:headline_case" not in _keys(quiz.find_headline_violations(page))
+
+
+def test_dek_and_interstitial_lengths_are_gated():
+    page = quiz_page()
+    page["dek"] = " ".join(["Answer"] * (quiz.DEK_MAX_WORDS + 1)) + "."
+    assert "quiz:dek_length" in _keys(_gate(page))
+    page = quiz_page()
+    page["interstitials"][0]["line"] = " ".join(["heat"] * (quiz.INTERSTITIAL_MAX_WORDS + 1)) + "."
+    assert "quiz:interstitial_length:0" in _keys(_gate(page))
+
+
+def test_writer_lines_state_the_length_limits():
+    lines = "\n".join(quiz.writer_lines(_facts_pack()))
+    assert f"at most {quiz.DEK_MAX_WORDS} words" in lines
+    assert f"at most {quiz.INTERSTITIAL_MAX_WORDS} words" in lines
+    assert "Take the 60-Second Quiz" not in lines
+
+
+def test_a_legacy_headline_displays_in_the_new_form():
+    legacy = "Which Home Infrared Sauna Is Right for Apartment Dwellers? Take the 60-Second Quiz"
+    assert quiz.display_headline(legacy) == "Which home infrared sauna is right for apartment dwellers?"
+    current = "Which home infrared sauna is right for busy parents?"
+    assert quiz.display_headline(current) == current
+    assert quiz.display_headline("Which Home Sauna Is Right for NYC Renters? Take the 60-Second Quiz") == \
+        "Which home sauna is right for NYC renters?"
+
+
+def test_peak_rubric_option_text_is_short_and_every_question_has_a_result_label():
+    rubric = quiz.load_rubric(RUBRIC_PATH)[0]
+    for q in rubric["questions"]:
+        assert q.get("result_label"), q["id"]
+        for o in q["options"]:
+            assert len(quiz.option_display(o).split()) <= quiz.OPTION_DISPLAY_MAX_WORDS, o["label"]
+
+
+def test_rubric_display_text_over_the_limit_fails():
+    rubric = _rubric()
+    rubric["questions"][0]["options"][0]["display"] = "one two three four five six seven"
+    keys = _keys(quiz.validate_rubric(rubric, _active_slugs(_facts_pack())))
+    assert "quiz:rubric:option_display:household:0" in keys
+
+
+def test_result_title_uses_the_brand_short_name_and_splits_the_descriptor():
+    assert quiz.model_title("Peak Mini 1-Person Infrared Sauna", "Mini", "PEAK") == ("PEAK Mini", "1-Person Infrared Sauna")
+    assert quiz.model_title("PEAK El Capitan 4-Person Outdoor Infrared Sauna", "El Capitan", "PEAK") == \
+        ("PEAK El Capitan", "4-Person Outdoor Infrared Sauna")
+    # no brand word in front: the name is shown whole, nothing is invented
+    assert quiz.model_title("Mini 1-Person Infrared Sauna", "Mini", "PEAK") == ("Mini", "1-Person Infrared Sauna")
+    assert quiz.model_title("Something Else", "Mini", "PEAK") == ("Something Else", None)
+
+
+def test_rendered_result_cards_show_the_display_title_never_the_storefront_prefix(tmp_path):
+    html, pack = _render(tmp_path)
+    result = html.split('data-qz-result', 1)[1].split('class="qz-faq"', 1)[0]
+    names = re.findall(r'<h3 class="qz-card-name">([^<]*)</h3>', result)
+    assert len(names) == len(pack["quiz"]["models"])
+    assert "PEAK Fuji" in names and "PEAK Mini" in names
+    visible = re.sub(r"<[^>]+>", " ", result)
+    assert not re.search(r"\bPeak Saunas\b", visible)
+    assert not re.search(r"\bPeak (Fuji|Mini|Denali)\b", visible)
+    assert "1-Person Infrared Sauna" in visible
+    assert 'data-claim-id="price-fuji"' in result
+
+
+def test_quiz_card_has_a_progress_indicator_back_and_a_live_region(tmp_path):
+    html, pack = _render(tmp_path)
+    n = len(pack["quiz"]["rubric"]["questions"])
+    assert 'role="progressbar"' in html and f'aria-valuemax="{n}"' in html
+    assert re.search(r'<p class="qz-count"[^>]*aria-live="polite"[^>]*>Question <span data-qz-num>1</span> of '
+                     rf'{n}</p>', html)
+    assert re.search(r'<button type="button" class="qz-back[^"]*" data-qz-back', html)
+    hero = html.split('<header class="qz-hero">', 1)[1].split("</header>", 1)[0]
+    assert f"{n} questions" in hero and "Start the quiz" in hero
+    assert 'data-qz-start' in hero
+    # every question and option carries what the "why it fits you" list needs
+    assert html.count("data-qz-label=") == n
+
+
+def test_no_uppercase_micro_labels_and_headings_stay_sentence_case(tmp_path):
+    html, _ = _render(tmp_path)
+    style = next(block for block in re.findall(r"<style>(.*?)</style>", html, re.DOTALL) if ".adv-quiz" in block)
+    # the only uppercase rule is the tenant disclosure eyebrow (unset for Peak)
+    assert style.count("text-transform:uppercase") == 1
+    assert re.search(r"\.qz-eyebrow\{[^}]*text-transform:uppercase", style)
+    assert "text-transform:none" in style  # overrides the tenant's uppercase headline rule
+    for gone in ("qz-why-h", "Good to know</p>", "Your match</p>"):
+        assert gone not in html
+    assert "font-weight:700" not in style and "font-weight:600" not in style  # brand: one weight
+
+
+def test_faq_is_a_native_details_accordion(tmp_path):
+    page = quiz_page()
+    html, _ = _render(tmp_path, page)
+    faq = html.split('class="qz-faq"', 1)[1]
+    assert faq.count('<details class="qz-faq-item"') == len(page["faq"]["questions"])
+    assert faq.count('<summary class="qz-faq-q"') == len(page["faq"]["questions"])
+
+
+def test_result_links_are_the_card_cta_and_the_tenant_all_models_page(tmp_path):
+    html, pack = _render(tmp_path)
+    assert '<a class="qz-link" href="/collections/all">See all models</a>' in html
+    assert re.search(r'<button type="button" class="qz-restart qz-link"[^>]*data-qz-restart', html)
+    assert not re.search(r"<script[^>]*\bsrc=", html)
