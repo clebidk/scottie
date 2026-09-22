@@ -148,6 +148,22 @@ def _keys(problems):
     return {p.get("key") for p in problems}
 
 
+def test_template_tenant_rubric_is_a_valid_example():
+    rubric, error = quiz.load_rubric(quiz.rubric_path(REPO_ROOT / "tenants" / "_template"))
+    assert error is None
+    assert quiz.validate_rubric(rubric, ["model-one", "model-two", "model-three"]) == []
+
+
+def test_fake_run_renders_a_quiz_page_offline():
+    from evals import fake_run
+
+    code, run_dir, pages = fake_run.run_once(
+        str(TENANT.fixtures_dir / "founder-warranty-demo.txt"), cartridges="quiz", seed=42)
+    assert code == 0
+    assert [p.parent.name for p in pages] == ["quiz"]
+    assert (run_dir / "quiz" / "index.html").exists()
+
+
 def test_rubric_missing_file_is_a_load_problem(tmp_path):
     rubric, error = quiz.load_rubric(tmp_path / "nope.yaml")
     assert rubric is None

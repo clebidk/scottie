@@ -1,0 +1,71 @@
+# tenants/<tenant>/quiz/rubric.yaml -- the quiz cartridge's scoring rubric
+# (cycle 57). Tenant data, not copy: the writer rephrases each prompt and
+# writes the interstitial lines, but the questions, their order, every option
+# label and every score come from here. See docs/GENERATOR.md ("quiz") and
+# docs/TENANT-ONBOARDING.md.
+#
+# Rules harness/quiz.py's validate_rubric enforces before any writer call:
+#   - 5-7 questions, each with a unique `id`, a `prompt`, and 2-4 `options`;
+#   - every option has a `label` and `scores: {<model_slug>: <int>}`, and
+#     scores at least one ACTIVE model (claims/products.json `active: true`,
+#     with a verified price-<slug> claim) above zero;
+#   - a model slug is the product name lowercased with spaces as hyphens --
+#     the namespace its claim ids use (price-<slug>, spec-<slug>-*);
+#   - every active model wins for at least one combination of answers, and
+#     no combination of answers leaves every model at zero;
+#   - `interstitials[].after` names a question id; `tiebreak` lists only
+#     active model slugs (a tie goes to the earliest).
+#
+# Derive every score from a verified claim and name the claim ids in a
+# comment above the option, as below. The slugs are placeholders.
+version: 1
+questions:
+  - id: household
+    prompt: "How many people will use it at the same time?"
+    options:
+      # claims: spec-model-one-capacity, spec-model-two-capacity
+      - label: "Just me"
+        scores: {model-one: 3, model-two: 1}
+      # claims: spec-model-two-capacity, spec-model-three-capacity
+      - label: "Two or more of us"
+        scores: {model-two: 3, model-three: 3}
+  - id: placement
+    prompt: "Where will it go?"
+    options:
+      # claims: none -- the models with no outdoor placement claim
+      - label: "Inside the house"
+        scores: {model-one: 5, model-two: 5}
+      # claims: spec-model-three-placement
+      - label: "Outside"
+        scores: {model-three: 5}
+  - id: space
+    prompt: "How much floor space can you give it?"
+    options:
+      # claims: spec-model-one-dimensions
+      - label: "A small corner"
+        scores: {model-one: 3}
+      # claims: spec-model-two-dimensions, spec-model-three-dimensions
+      - label: "Most of a spare room"
+        scores: {model-two: 3, model-three: 2}
+  - id: budget
+    prompt: "What budget are you working with?"
+    options:
+      # claims: price-model-one
+      - label: "The lowest price"
+        scores: {model-one: 3}
+      # claims: price-model-two, price-model-three
+      - label: "Whatever fits best"
+        scores: {model-two: 2, model-three: 2}
+  - id: priority
+    prompt: "Which matters most to you?"
+    options:
+      # claims: spec-model-two-heater, spec-model-three-heater
+      - label: "The most heat"
+        scores: {model-two: 2, model-three: 2}
+      # claims: spec-model-one-dimensions
+      - label: "The smallest footprint"
+        scores: {model-one: 2}
+interstitials:
+  - after: placement
+    topic: "One verified fact every model shares"
+tiebreak: [model-one, model-two, model-three]
