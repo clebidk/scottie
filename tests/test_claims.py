@@ -1421,8 +1421,11 @@ def test_gate_page_json_passes_the_real_price_comparison_scenario_end_to_end():
         "close": {
             "paragraphs": [
                 {
-                    "text": "One customer told us she put her studio memberships at around $200 a "
-                             "month, or about $2,400 a year.",
+                    # Cycle 65: her own words, framed neutrally -- "One
+                    # customer told us she put her studio memberships..."
+                    # now fails the quote-fidelity gate.
+                    "text": "In the ad, she says the average unlimited sauna membership is around $200 a "
+                             "month, so say $2,400 a year.",
                     "attributed_to_customer": True,
                 }
             ]

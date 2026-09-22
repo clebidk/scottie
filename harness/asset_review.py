@@ -6,7 +6,10 @@ ground.LocalFactsSource.facts_for, before the writer or ground.pick_hero/
 build_slot_plan ever see the pool. See docs/IMAGES.md.
 
 `{"version": 1, "assets": {"<asset id>": {"alt": str, "excluded": bool,
-"note": str, "by": str, "at": iso8601, "url": str (Shopify only)}}}`. The
+"note": str, "by": str, "at": iso8601, "url": str (Shopify only),
+"old_brand": bool, "old_brand_scores": {...}}}}`. old_brand (cycle 65) is
+set by `harness images brandcheck` (harness/brandcheck.py) on a graphic in
+the retired brand look, and excludes the asset exactly like excluded. The
 asset id is the full id as it appears in facts_for()'s pool (`asset-<slug>-
 <n>`, `asset-drive-<id>`, `asset-listicle-<id>`).
 """
@@ -81,6 +84,11 @@ def load_asset_review(brand_dir, *, log=None):
     return data
 
 
+def _is_excluded(override):
+    """A human exclusion, or (cycle 65) an old-brand graphic."""
+    return bool(override.get("excluded") or override.get("old_brand"))
+
+
 def excluded_ids(review, assets=()):
     """Cycle 36 fix: the set of ids `review` marks excluded=True, honoring
     the same url-mismatch rule apply_asset_review applies -- an override
@@ -99,7 +107,7 @@ def excluded_ids(review, assets=()):
     by_id = {a["id"]: a for a in assets}
     result = set()
     for asset_id, override in overrides.items():
-        if not override.get("excluded"):
+        if not _is_excluded(override):
             continue
         if "url" in override:
             current = by_id.get(asset_id)
@@ -129,7 +137,7 @@ def apply_asset_review(assets, review, *, log=None):
                 log.event("ground", f"asset-review override for {asset['id']} ignored: url changed")
             kept.append(asset)
             continue
-        if override.get("excluded"):
+        if _is_excluded(override):
             continue
         if override.get("alt"):
             asset = dict(asset, alt=_cap_alt(override["alt"]))

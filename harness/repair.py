@@ -398,6 +398,7 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         gate_page_json(
             page, facts_pack, cartridge_name,
             financing_lender=financing_lender, speaker_pov=speaker_pov, ad_brief=ad_brief,
+            ad_speaker_verified=(tenant or tenant_mod.active()).get("ad_speaker_is_verified_customer") is True,
         )
     except ClaimsGateFailure as e:
         problems += e.items

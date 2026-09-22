@@ -566,6 +566,10 @@ def _save_image_library(tenant, product_slug):
         if not (alt or excluded or note or asset_id in overrides):
             continue
         entry = {"alt": alt, "excluded": excluded, "note": note, "by": g.reviewer_email, "at": now}
+        # Cycle 65: keep `harness images brandcheck`'s old-brand flag -- a
+        # reviewer saving the page must not silently put the graphic back.
+        previous = overrides.get(asset_id) or {}
+        entry.update({k: previous[k] for k in ("old_brand", "old_brand_scores") if k in previous})
         if asset.get("source") == "shopify":
             entry["url"] = asset.get("url")
         overrides[asset_id] = entry

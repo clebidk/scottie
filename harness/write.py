@@ -136,6 +136,22 @@ def global_voice_block(tenant=None):
             "verbatim, nothing added before or after it in that field. Never invent a monthly figure or lender name."
         )
 
+    # Cycle 65: how an attributed line may name the ad speaker -- the same
+    # frames harness/quote_fidelity.py (the gate) accepts, so the prompt and
+    # the gate agree.
+    if tenant.get("ad_speaker_is_verified_customer") is True:
+        speaker_label = "a customer"
+        speaker_frames = (
+            '"In the ad, she says ...", "As one customer put it, ...", "a customer said ...", or a direct '
+            f'quote credited to a "{company} customer"'
+        )
+    else:
+        speaker_label = "the person in the ad"
+        speaker_frames = (
+            '"In the ad, she says ..." or "As one shopper put it, ..." -- never "customer", "buyer" or '
+            '"owner" (nothing shows the ad speaker bought one)'
+        )
+
     return f"""## Voice and output rules
 
 Voice: plain, specific, no hype words ({hype_words_list}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
@@ -152,11 +168,11 @@ Never write a URL anywhere in body text (prose, headings, alt text, quotes). Cit
 
 Claim ids never appear in any text field. Cite in prose only as (source name, year). Put ids only in claim_ids -- never in a headline, paragraph, label, or quote, even in parentheses next to the source name.
 
-If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to "a customer" -- or to the name in facts_pack.speaker_name if that field is non-null -- e.g. "One customer told us she..." or a short quoted line clearly credited to that customer. The page author ({author_name}) never speaks in the ad speaker's first person.
+If ad_brief.speaker_pov is "first_person", never write the speaker's story in the page author's own first-person voice ("I ran into this...", "it made my mornings better"). Attribute it instead to {speaker_label} -- or to the name in facts_pack.speaker_name if that field is non-null. Frame it as {speaker_frames}; never "told us" -- the speaker talked in an ad, not to {company}. An attributed_to_customer sentence says ONLY what the speaker actually said in ad_brief.transcript_or_text: prefer her exact words in quotation marks, word for word; a paraphrase keeps her own words and adds nothing -- no "almost", "nearly", "finally", "gave up", "never", "always", "best", "only", and no outcome or feeling she did not state. If she did not say it, do not attribute it to her. The page author ({author_name}) never speaks in the ad speaker's first person.
 
 Outside a sentence that carries a claim_id, write numbers as words, not numerals -- "seven in the morning", not "7 a.m."; "five-figure", not "5-figure"; "two hours", not "2 hours". This applies especially to an illustrative or incidental number with nothing to cite (a time of day, a small count, an age) -- it has no claim_id to give it, so numerals there read as an invented, uncited fact even when you didn't mean it as one. Never use a numeral for a time, a count, or an age unless that exact sentence's own claim_ids array cites a verified claim for it.
 
-A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "One customer told us she put her studio memberships at around $200 a month, or about $2,400 a year." The sentence must itself read as attributed: say "customer", or "she"/"he"/"they" together with "told us"/"estimated"/"said" -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
+A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "In the ad, she says the average unlimited membership is around $200 a month, so say $2,400 a year." The sentence must itself read as attributed, in one of the frames above -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
 
 If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
 

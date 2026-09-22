@@ -812,6 +812,48 @@ def cmd_images_pool(args):
     return 0
 
 
+def cmd_images_brandcheck(args):
+    """`harness images brandcheck --tenant <t> [--model <slug>] [--dry-run]
+    [--cache-dir DIR ...]`: cycle 65 -- scores every asset in the active
+    products' pools (or one model's) for the retired brand look and stores
+    old_brand on the flagged ones in asset-review.json, which keeps them off
+    every page (harness/brandcheck.py). No model call, no file deleted."""
+    from . import asset_review, brandcheck, ground as ground_mod
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    source = ground_mod.LocalFactsSource(tenant.claims_dir)
+    if args.model:
+        product = asset_describe.product_for_model(tenant, args.model)
+        if product is None:
+            available = ", ".join(asset_describe.available_model_slugs(tenant)) or "(none)"
+            print(f"unknown --model: {args.model!r}; available: {available}", file=sys.stderr)
+            return exits.USAGE
+        products = [product]
+    else:
+        products = source.active_products()
+    pool = {}
+    for product in products:
+        for asset in ground_mod.full_asset_pool(source, product, tenant.claims_config):
+            pool.setdefault(asset["id"], asset)
+
+    cache_dirs = [Path(d) for d in (args.cache_dir or [])] or [tenant.runs_dir / "asset-cache"]
+    results, unreadable = brandcheck.check_assets(list(pool.values()), cache_dirs)
+    review = asset_review.load_asset_review(tenant.brand_dir)
+    new_review, flagged, cleared = brandcheck.apply_flags(review, results)
+    for result in results:
+        if result["old_brand"]:
+            sc = result["scores"]
+            print(f"old-brand  green={sc['green']:.3f} mint={sc['mint']:.3f} flat={sc['flat']:.3f}  {result['asset']['id']}")
+    for asset_id in cleared:
+        print(f"cleared    {asset_id}")
+    print(f"{len(results)} checked, {len(flagged)} old-brand, {len(cleared)} cleared, {len(unreadable)} unreadable")
+    if args.dry_run:
+        print("--dry-run: asset-review.json not written")
+    else:
+        asset_review.save_asset_review(tenant.brand_dir, new_review)
+    return 0
+
+
 def cmd_images_describe(args):
     """`harness images describe --tenant <t> --model <slug> [--limit N]
     [--force] [--dry-run]`: vision-drafts alt text + tags for a model's
@@ -1136,6 +1178,15 @@ def build_parser():
     p_images_describe.add_argument("--dry-run", action="store_true", help="list what would be described and the estimated cost; makes no calls")
     _add_tenant_flag(p_images_describe)
     p_images_describe.set_defaults(func=cmd_images_describe)
+    p_images_brandcheck = images_sub.add_parser(
+        "brandcheck", help="flag graphics in the retired brand look (old_brand in asset-review.json)"
+    )
+    p_images_brandcheck.add_argument("--model", help="check one model's pool only (default: every active product)")
+    p_images_brandcheck.add_argument("--dry-run", action="store_true", help="print the result; do not write asset-review.json")
+    p_images_brandcheck.add_argument("--cache-dir", action="append",
+                                     help="where downloaded images are (repeatable); default <runs>/asset-cache")
+    _add_tenant_flag(p_images_brandcheck)
+    p_images_brandcheck.set_defaults(func=cmd_images_brandcheck)
     p_images_pool = images_sub.add_parser("pool", help="per-model total/reviewed/excluded/with-alt counts")
     _add_tenant_flag(p_images_pool)
     p_images_pool.set_defaults(func=cmd_images_pool)

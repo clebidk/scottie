@@ -50,7 +50,8 @@ FACTS_PACK = {
 AD_BRIEF = {
     "hook": "hook", "promise": "promise", "angle": "angle", "claims_made": [], "speaker_experience": [],
     "features_shown": [], "objections_raised": [], "cta": "See the models", "tone": "candid",
-    "speaker_pov": "third_person", "source_file": "ad.txt", "input_type": "text", "transcript_or_text": "text",
+    "speaker_pov": "third_person", "source_file": "ad.txt", "input_type": "text",
+    "transcript_or_text": "The room was warm within minutes.",
 }
 
 # Cycle 41: listicle v0.2 -- a style, a hero slot of its own, a proof line
@@ -68,7 +69,7 @@ LISTICLE_PAGE = {
             "heading": f"Reason number {i}",
             "text": "A plain, specific reason a buyer can check for themselves.",
             "image": {"asset_id": f"asset-{i + 1}"},
-            "proof": {"text": "One customer told us the room was warm within minutes.",
+            "proof": {"text": 'In the ad, she says: "The room was warm within minutes."',
                       "attributed_to_customer": True},
         }
         for i in range(1, 6)
