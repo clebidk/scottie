@@ -10,6 +10,7 @@ The company is still "PEAK"; "Peak Saunas" is still a retired name.
 """
 import copy
 import json
+import os
 import re
 
 import pytest
@@ -269,10 +270,18 @@ def fake_run_dir(tmp_path_factory):
         mp.setattr(type(TENANT), "out_dir", property(lambda self: base / "out"))
         mp.setattr(type(TENANT), "runs_dir", property(lambda self: base / "runs"))
         mp.setattr(type(TENANT), "evals_path", property(lambda self: base / "evals" / "scores.jsonl"))
-        code, run_dir, pages = fake_run.run_once(
-            str(TENANT.fixtures_dir / "founder-warranty-demo.txt"), tenant="peak-saunas",
-            cartridges="listicle,comparison,quiz,product-page", seed=42,
-        )
+        # run_once loads the tenant .env into os.environ; conftest's per-test
+        # environ restore does not cover a module-scoped fixture, so restore
+        # here or later tests see the real store credentials.
+        saved_environ = dict(os.environ)
+        try:
+            code, run_dir, pages = fake_run.run_once(
+                str(TENANT.fixtures_dir / "founder-warranty-demo.txt"), tenant="peak-saunas",
+                cartridges="listicle,comparison,quiz,product-page", seed=42,
+            )
+        finally:
+            os.environ.clear()
+            os.environ.update(saved_environ)
     assert code == 0
     return run_dir
 
