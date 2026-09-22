@@ -23,20 +23,36 @@
    only BODY styles, so everything is restated here. */
 .adv-listicle.look-lander{
   --pk-accent:var(--ps-accent,var(--adv-accent));
-  --pk-on-accent:#fff;
+  --pk-on-accent:var(--ps-on-accent,#fff);
   --pk-ink:var(--ps-text-strong,var(--adv-fg));
   --pk-body:var(--ps-text,var(--adv-fg));
   --pk-muted:var(--ps-muted,var(--adv-muted));
   --pk-bg:var(--ps-bg,var(--adv-bg));
   --pk-band:var(--ps-bg-muted,#f4f5f6);
   --pk-border:var(--ps-border,var(--adv-border));
-  --pk-yes:var(--pk-accent);
+  /* Cycle 52: every one of these resolves through the tenant's own brand
+     tokens first. --pk-dark/--pk-on-dark are the dark-band pair (a dark
+     band is not "the ink colour used as a background"), --pk-link is
+     body-copy link colour, --pk-editorial is the brand's editorial colour
+     block, and the radius tokens let a brand with square corners get 0
+     without this file naming a number twice. */
+  --pk-link:var(--ps-link,var(--pk-accent));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,#fff);
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-eyebrow-size:var(--ps-eyebrow-size,.75rem);
+  --pk-eyebrow-spacing:var(--ps-eyebrow-spacing,.14em);
+  --pk-eyebrow-color:var(--ps-eyebrow-color,var(--pk-accent));
+  --pk-yes:var(--ps-star-on,var(--pk-accent));
   --pk-no:var(--pk-muted);
-  --pk-radius:10px;
+  --pk-radius:var(--ps-radius-card,10px);
+  --pk-radius-sm:var(--ps-radius-btn,8px);
+  --pk-radius-round:var(--ps-radius-round,50%);
   --pk-measure:1060px;
   --pk-gap:48px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
 }
 .pk-lp{display:block}
@@ -46,7 +62,7 @@
 .adv-listicle.look-lander *::before,
 .adv-listicle.look-lander *::after{box-sizing:border-box}
 .adv-listicle.look-lander img{display:block;max-width:100%}
-.adv-listicle.look-lander .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:8px}
+.adv-listicle.look-lander .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:var(--pk-radius-sm)}
 .adv-listicle.look-lander .adv-img--contain{object-fit:contain}
 .adv-listicle.look-lander .adv-img--cover{object-fit:cover}
 .adv-listicle.look-lander picture{display:block}
@@ -57,8 +73,8 @@
    desktop and below the CTA on a phone, so the CTA is above the fold */
 .adv-listicle.look-lander .ld-hero{padding:24px 0 var(--pk-gap);background:var(--pk-band)}
 .adv-listicle.look-lander .ld-hero-grid{display:grid;gap:26px;align-items:center}
-.adv-listicle.look-lander .ld-eyebrow{margin:0 0 10px;font-size:.75rem;font-weight:700;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--pk-accent)}
+.adv-listicle.look-lander .ld-eyebrow{margin:0 0 10px;font-size:var(--pk-eyebrow-size);font-weight:700;
+  letter-spacing:var(--pk-eyebrow-spacing);text-transform:uppercase;color:var(--pk-eyebrow-color)}
 .adv-listicle.look-lander .ld-h1{font-size:2.25rem;line-height:1.12;margin:0 0 14px;
   color:var(--pk-ink);letter-spacing:-.02em}
 .adv-listicle.look-lander .ld-dek{font-size:1.0625rem;line-height:1.6;margin:0 0 22px;color:var(--pk-muted);max-width:60ch}
@@ -84,7 +100,7 @@
 .adv-listicle.look-lander .ld-link{display:inline-flex;align-items:center;min-height:52px;
   padding:14px 4px;color:var(--pk-ink);font-size:1.0625rem;font-weight:600;
   text-decoration:underline;text-underline-offset:4px}
-.adv-listicle.look-lander .ld-link:hover{color:var(--pk-accent)}
+.adv-listicle.look-lander .ld-link:hover{color:var(--pk-link)}
 .adv-listicle.look-lander .ld-btn--light{background:var(--pk-bg);color:var(--pk-ink)}
 
 /* items: a 2-up grid of panels, not a list */
@@ -92,14 +108,14 @@
 .adv-listicle.look-lander .ld-grid{display:grid;gap:18px}
 .adv-listicle.look-lander .ld-panel{border:1px solid var(--pk-border);border-radius:var(--pk-radius);
   padding:20px;background:var(--pk-bg);display:flex;flex-direction:column}
-.adv-listicle.look-lander .ld-thumb{margin:0 0 16px;background:var(--pk-band);border-radius:8px;overflow:hidden}
-.adv-listicle.look-lander .ld-thumb .adv-img{width:100%;border-radius:8px}
+.adv-listicle.look-lander .ld-thumb{margin:0 0 16px;background:var(--pk-band);border-radius:var(--pk-radius-sm);overflow:hidden}
+.adv-listicle.look-lander .ld-thumb .adv-img{width:100%;border-radius:var(--pk-radius-sm)}
 .adv-listicle.look-lander .ld-chip{display:inline-flex;align-items:center;justify-content:center;
-  width:30px;height:30px;border-radius:50%;background:var(--pk-accent);color:var(--pk-on-accent);
+  width:30px;height:30px;border-radius:var(--pk-radius-round);background:var(--pk-accent);color:var(--pk-on-accent);
   font-size:.875rem;font-weight:700;margin:0 0 10px}
 .adv-listicle.look-lander .ld-h2{font-size:1.1875rem;line-height:1.25;margin:0 0 10px;color:var(--pk-ink)}
 .adv-listicle.look-lander .ld-copy{font-size:1rem;line-height:1.6;color:var(--pk-body);margin:0 0 14px}
-.adv-listicle.look-lander .ld-proof{margin:auto 0 0;padding:10px 12px;border-radius:8px;background:var(--pk-band);
+.adv-listicle.look-lander .ld-proof{margin:auto 0 0;padding:10px 12px;border-radius:var(--pk-radius-sm);background:var(--pk-band);
   font-size:.9375rem;line-height:1.45;color:var(--pk-ink)}
 
 .adv-listicle.look-lander .ld-quote{margin:18px 0 0;padding:24px;border-radius:var(--pk-radius);
@@ -133,16 +149,20 @@
 .adv-listicle.look-lander .ld-faq-q{padding:16px 0;font-size:1.0625rem;font-weight:600;
   color:var(--pk-ink);cursor:pointer;list-style:none}
 .adv-listicle.look-lander .ld-faq-q::-webkit-details-marker{display:none}
-.adv-listicle.look-lander .ld-faq-q::after{content:"+";float:right;color:var(--pk-accent);font-weight:700}
+.adv-listicle.look-lander .ld-faq-q::after{content:"+";float:right;color:var(--pk-link);font-weight:700}
 .adv-listicle.look-lander .ld-faq-item[open] .ld-faq-q::after{content:"\2212"}
 .adv-listicle.look-lander .ld-faq-a{margin:0 0 16px;font-size:1rem;line-height:1.6;color:var(--pk-body)}
 
 /* the page ends on a dark band */
-.adv-listicle.look-lander .ld-close{margin:var(--pk-gap) 0 0;padding:var(--pk-gap) 0;background:var(--pk-ink);color:#fff}
-.adv-listicle.look-lander .ld-close-h{font-size:1.75rem;line-height:1.2;margin:0 0 16px;color:#fff}
-.adv-listicle.look-lander .ld-recap{margin:0 0 22px;padding-left:20px;color:#fff}
+.adv-listicle.look-lander .ld-close{margin:var(--pk-gap) 0 0;padding:var(--pk-gap) 0;background:var(--pk-dark);color:var(--pk-on-dark)}
+.adv-listicle.look-lander .ld-close-h{font-size:1.75rem;line-height:1.2;margin:0 0 16px;color:var(--pk-on-dark)}
+.adv-listicle.look-lander .ld-recap{margin:0 0 22px;padding-left:20px;color:var(--pk-on-dark)}
 .adv-listicle.look-lander .ld-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
-.adv-listicle.look-lander .ld-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:#fff;opacity:.75}
+.adv-listicle.look-lander .ld-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-on-dark);opacity:.75}
+/* headline case: see harness/render.py's wrap_class; restated here because
+   the storefront export keeps only what is inside the body */
+.adv-case-upper .ld-h1,.adv-case-upper .ld-h2,.adv-case-upper .ld-h2--section,
+.adv-case-upper .ld-fit-h3,.adv-case-upper .ld-close-h{text-transform:uppercase}
 
 /* sticky CTA bar: phones only */
 .adv-listicle.look-lander .ld-sticky{display:none}

@@ -162,6 +162,46 @@ png, jpg, or webp) the renderer copies it into the run's self-contained
 page header (`.adv-brand-logo` in `harness/structure.css`); no logo file,
 no `<img>` -- nothing else changes.
 
+**What a token is for (cycle 52).** Every cartridge resolves a colour, a
+shape or a face in one direction: `--pk-*` (the look's own name for it) ->
+`--ps-*` (this tenant's `brand/base.css`) -> `--adv-*` (the harness default
+in `harness/structure.css`). A cartridge never writes a literal, and
+`harness/structure.css`'s own `:root` block is the last word for a tenant
+that defines nothing, so adding a `--ps-*` token changes this tenant and no
+other. The set a brand can drive today: `--ps-accent` / `--ps-on-accent`
+(the accent fill and the text ON it -- set both, a light accent needs dark
+text), `--ps-link`, `--ps-text`, `--ps-text-strong`, `--ps-muted`, `--ps-bg`,
+`--ps-bg-muted`, `--ps-border`, `--ps-ink-dark` / `--ps-on-dark` (a dark
+band and its text, which is not simply the ink colour used as a background),
+`--ps-editorial`, `--ps-band`, `--ps-red`, `--ps-star-on` / `--ps-star-off`,
+`--ps-pill-bg` / `--ps-pill-text` / `--ps-pill-border`,
+`--ps-eyebrow-size` / `--ps-eyebrow-spacing` / `--ps-eyebrow-color`,
+`--ps-radius-card` / `--ps-radius-btn` / `--ps-radius-pill` /
+`--ps-radius-round` (all four to `0px` for a square-cornered brand), and
+`--ps-sans` / `--ps-serif`.
+
+Three tenant.yaml keys sit beside them:
+
+- `brand.headline_case: upper` renders every heading uppercase through CSS
+  (`adv-case-upper` on the page wrapper). It never rewrites the writer's
+  copy, so the gate and REVIEW.md still see what was written. Omit it, or
+  set `none`, and nothing changes.
+- `product_display_strip_prefix` removes a storefront title prefix (e.g.
+  `"Acme Saunas "`) wherever a product name is displayed and wherever the
+  writer is handed one. Slugs, URLs and claim ids keep it.
+- `brand:` is also where `harness brand import` merges what it found.
+
+**Self-hosted webfonts.** Put the files in `brand/fonts/` and write the
+`@font-face` in `brand/base.css` with a repo-relative `brand/fonts/...`
+URL. The export carries those rules into the storefront body, and the
+Shopify publisher uploads each file once, caches the CDN URLs in
+`brand/fonts/cdn-manifest.json`, and rewrites the URLs at publish time. A
+font that cannot be uploaded is logged and dropped from the export, so the
+page falls back to the rest of the font stack rather than waiting on a URL
+that never resolves. Never write a literal `<body>`, `<head>` or `<script>`
+tag in `base.css`, even inside a comment: the stylesheet is inlined into the
+document head and the export locates the document body by those tags.
+
 ### Brand kit import (Cycle 27)
 
 `harness brand import --tenant <slug> --drive-folder <url-or-id>

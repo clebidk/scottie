@@ -1916,3 +1916,80 @@ one layout.
 9. **Verified** by re-rendering copies of the ten live runs with their paired looks and
    reading the ten review htmls in a browser at 375px and 1280px -- not by the absence of
    errors in the run log.
+
+## Cycle 52 (the PEAK rebrand, 2026-09-22)
+
+The finalized design system replaced the extracted one. Tenant record and the
+full contrast table: `tenants/peak-saunas/docs/REBRAND-APPLIED-2026-09-22.md`.
+
+1. **Tenant brand files.** `brand/tokens.json` and `brand/base.css` rewritten
+   around the six named colours, radius 0 everywhere, the published type scale
+   and the two faces. The previous green/white extraction is kept beside them
+   as `tokens-legacy.json` / `base-legacy.css`, not loaded. `--ps-muted` was
+   computed rather than picked: Basalt mixed 28% toward Stone (`#54524C`),
+   6.17 on Stone and 4.57 on Fossil Dust, the darkest mix that passes AA on
+   both light grounds.
+2. **Copy identity.** Display name is PEAK in `tenant.yaml`, `authors.yaml`
+   and `brand/byline.html`. The domain, handles, claim ids and the legal
+   entity line are untouched, and `claims/verified.json` was not edited --
+   it is evidence, and its texts are quotations.
+3. **The looks stopped hardcoding what a brand owns.** Every `--pk-*` token
+   resolves `--ps-*` first and keeps its old literal as the fallback, so a
+   tenant with no brand tokens computes exactly what it computed before.
+   What was pinned and is now a token: `--pk-on-accent:#fff` (a light accent
+   needs dark text on it), every radius, the pill and circle shapes, the
+   dark-band background and its text colour (`--pk-dark`/`--pk-on-dark` --
+   a dark band is not "the ink colour used as a background"), the eyebrow
+   type scale, and the link colour. Same pass over `harness/structure.css`,
+   which is all the CSS the article, product-page and longform cartridges
+   have -- their CTAs had been rendering in the harness's own default
+   `#b3541e`, never the brand accent, since the tenant stylesheet does not
+   define `.adv-cta`.
+4. **`brand.headline_case`.** Uppercase headlines are a CSS rule carried by
+   one class on the page wrapper, never a rewrite of the writer's copy, so
+   nothing downstream sees a different string. Each look restates the rule
+   inside its own `<style>` because the export keeps only the body.
+5. **`product_display_strip_prefix`.** The storefront's product titles lead
+   with the full company name; that is copy, not an identifier. Stripped
+   wherever a name is displayed and wherever the writer is handed one;
+   slugs, URLs and claim ids keep it. `digit_exempt_terms` carries both
+   forms, since a verified claim can still quote the raw catalog name.
+6. **Self-hosted webfonts reach the storefront.** `brand/base.css` is a
+   document-HEAD stylesheet and the export keeps only the body, so the
+   `@font-face` rules were simply absent from every published page and the
+   fallback stack rendered with nothing to explain it. `page_body` carries
+   them into the export; the publisher uploads each file once as a generic
+   `FILE`, caches `{filename: cdn_url}` in `brand/fonts/cdn-manifest.json`,
+   and rewrites the URLs at publish time. `harness rerender` re-applies the
+   cache without credentials. A refused file loses its own `src` entry and
+   is logged; a face with nothing uploaded is dropped whole, so the browser
+   walks on to the fallback stack instead of stopping at a family it cannot
+   load.
+7. **A bug the rendering found, not the logs.** `page_body`'s body extractor
+   searched the whole document for the first opening body tag. The tenant
+   stylesheet is inlined into the head, so a stylesheet whose own comment
+   mentioned that tag was read as the start of the page: the rest of the
+   head stylesheet was emitted into the export as raw text outside any
+   `<style>`. The extractor now starts after `</head>`, with a regression
+   test.
+8. **Two smaller corrections.** The article warm-up exemplar filter matched
+   brand terms as bare substrings, which a four-letter brand name turns into
+   a false positive inside ordinary words ("peak" in "speakers") -- it now
+   matches on word boundaries like `claims.warmup_first_mentions` already
+   did. Every accent-coloured eyebrow, item numeral and FAQ marker moved to
+   Cedar, Red or Basalt: Solar Flare on Stone is 2.35:1 and was failing at
+   body sizes.
+9. **Verified** by re-rendering copies of the ten live listicle runs (no
+   model call) and resolving each page's emitted CSS token by token, not by
+   reading it: no legacy green anywhere, CTA `#F27046` on `#181918`, ground
+   `#EFE3D2`, every radius 0, Epika `@font-face` present, uppercase wrapper
+   -- 10/10 on all five looks. `evals/fake_run.py` covers article,
+   product-page and longform. No baseline recapture: all three `page.json`
+   files are byte-identical, since this cycle changed presentation only.
+10. **Left open deliberately** (see the tenant doc): Acid Grotesk is not
+    licensed, so headlines render in the fallback face; every CTA is the
+    accent fill rather than one per view; the listicle looks show no logo;
+    "PEAK" as a common English word makes the headline-slot gate
+    occasionally over-block; and the live theme around the page is still
+    green-and-white.
+

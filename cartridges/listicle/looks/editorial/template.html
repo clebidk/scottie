@@ -23,7 +23,7 @@
    here rather than relied on. */
 .adv-listicle.look-editorial{
   --pk-accent:var(--ps-accent,var(--adv-accent));
-  --pk-on-accent:#fff;
+  --pk-on-accent:var(--ps-on-accent,#fff);
   --pk-ink:var(--ps-text-strong,var(--adv-fg));
   --pk-body:var(--ps-text,var(--adv-fg));
   --pk-muted:var(--ps-muted,var(--adv-muted));
@@ -33,10 +33,23 @@
   /* the one font token this look adds: a tenant serif when the brand
      defines one, else a system serif stack */
   --pk-serif:var(--ps-serif,var(--adv-serif,Georgia,"Iowan Old Style","Times New Roman",Times,serif));
-  --pk-radius:4px;
+  /* Cycle 52: every one of these resolves through the tenant's own brand
+     tokens first. --pk-dark/--pk-on-dark are the dark-band pair (a dark
+     band is not "the ink colour used as a background"), --pk-link is
+     body-copy link colour, --pk-editorial is the brand's editorial colour
+     block, and the radius tokens let a brand with square corners get 0
+     without this file naming a number twice. */
+  --pk-link:var(--ps-link,var(--pk-accent));
+  --pk-editorial:var(--ps-editorial,var(--pk-ink));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-eyebrow-size:var(--ps-eyebrow-size,.75rem);
+  --pk-eyebrow-spacing:var(--ps-eyebrow-spacing,.14em);
+  --pk-eyebrow-color:var(--ps-eyebrow-color,var(--pk-accent));
+  --pk-radius:var(--ps-radius-card,4px);
   --pk-measure:680px;
   --pk-gap:48px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
 }
 .pk-lp{display:block}
@@ -56,8 +69,9 @@
 .adv-listicle.look-editorial .ed-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
 
 .adv-listicle.look-editorial .ed-masthead{padding:24px 0 8px}
-.adv-listicle.look-editorial .ed-eyebrow{margin:0 0 14px;font-size:.75rem;letter-spacing:.14em;
-  text-transform:uppercase;font-weight:700;color:var(--pk-accent)}
+.adv-listicle.look-editorial .ed-eyebrow{margin:0 0 14px;font-size:var(--pk-eyebrow-size);
+  letter-spacing:var(--pk-eyebrow-spacing);
+  text-transform:uppercase;font-weight:700;color:var(--pk-eyebrow-color)}
 .adv-listicle.look-editorial .ed-h1{font-family:var(--pk-serif);font-weight:700;font-size:2.25rem;
   line-height:1.18;color:var(--pk-ink);margin:0 0 18px;letter-spacing:-.01em}
 .adv-listicle.look-editorial .ed-byline{margin:0 0 20px;padding:0 0 18px;border-bottom:1px solid var(--pk-border);
@@ -67,7 +81,7 @@
 .adv-listicle.look-editorial .ed-cta-line{margin:0 0 18px;font-size:1.0625rem;line-height:1.5}
 /* the above-the-fold CTA of this look is a link, not a button -- that is the
    publisher pattern the references show; the two buttons come later */
-.adv-listicle.look-editorial .ed-link-cta{color:var(--pk-accent);font-weight:700;
+.adv-listicle.look-editorial .ed-link-cta{color:var(--pk-link);font-weight:700;
   text-decoration:underline;text-underline-offset:3px}
 .adv-listicle.look-editorial .ed-trust{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;
   margin:0 0 24px;padding:0;font-size:.875rem;color:var(--pk-muted)}
@@ -79,7 +93,7 @@
 .adv-listicle.look-editorial .ed-item{padding:0 0 var(--pk-gap)}
 .adv-listicle.look-editorial .ed-h2{font-family:var(--pk-serif);font-size:1.5rem;line-height:1.3;
   color:var(--pk-ink);margin:0 0 14px;font-weight:700}
-.adv-listicle.look-editorial .ed-num{color:var(--pk-accent)}
+.adv-listicle.look-editorial .ed-num{color:var(--pk-editorial)}
 .adv-listicle.look-editorial .ed-p{font-size:1.1875rem;line-height:1.62;color:var(--pk-body);margin:0 0 20px}
 /* images sit inline in the column, full measure, between the paragraphs */
 .adv-listicle.look-editorial .ed-fig{margin:0 0 20px}
@@ -112,7 +126,11 @@
 .adv-listicle.look-editorial .ed-model-name{margin:0 0 4px;font-size:1.0625rem;font-weight:700;color:var(--pk-ink)}
 .adv-listicle.look-editorial .ed-model-fit{margin:0 0 4px;font-size:.9375rem;color:var(--pk-muted)}
 .adv-listicle.look-editorial .ed-model-price{margin:0;font-size:1.0625rem;color:var(--pk-ink)}
-.adv-listicle.look-editorial .ed-model-link{color:var(--pk-accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.adv-listicle.look-editorial .ed-model-link{color:var(--pk-link);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+/* headline case: see harness/render.py's wrap_class. Restated inside this
+   look's own style block because the storefront export keeps only the body. */
+.adv-case-upper .ed-h1,.adv-case-upper .ed-h2,.adv-case-upper .ed-h3,
+.adv-case-upper .ed-faq-q{text-transform:uppercase}
 .adv-listicle.look-editorial .ed-faq{display:block}
 .adv-listicle.look-editorial .ed-faq-item{margin:0 0 20px}
 .adv-listicle.look-editorial .ed-faq-q{margin:0 0 6px;font-size:1.0625rem;font-weight:700;color:var(--pk-ink)}

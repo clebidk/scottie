@@ -32,6 +32,13 @@ theme:
 
 default_cta_url: /collections/all
 
+# Optional. A prefix the storefront's own product titles carry that should
+# never be shown or written ("Acme Saunas Fuji 2-Person ..." -> "Fuji
+# 2-Person ..."). Stripped wherever a product name is displayed and wherever
+# the writer is handed one; slugs, URLs and claim ids are never touched.
+# Leave it out and nothing is stripped.
+product_display_strip_prefix: ""
+
 disclosure_text: >-
   This page is an advertisement published by {tenant_name}, which sells the
   products described. Every specific claim on this page is sourced; see Sources

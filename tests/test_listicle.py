@@ -807,7 +807,7 @@ def test_render_listicle_page_has_every_section_when_the_data_is_there(tmp_path)
     html = _render(page, tmp_path, facts_pack=RICH_FACTS_PACK).read_text()
 
     assert "Advertisement" in html
-    assert "is an advertisement published by Peak Saunas" in html
+    assert "is an advertisement published by PEAK" in html
     assert '"@type": "ItemList"' in html
     assert 'class="pk-lp' in html
     assert "IntersectionObserver" in html

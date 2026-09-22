@@ -1,40 +1,65 @@
-/* Peak Saunas -- standalone brand stylesheet for generated landing pages.
-   Reproduces the live site's look (Aurora theme 4.0.1) without any Shopify
-   dependency. Fonts are self-hosted on Shopify's CDN (not Google Fonts). */
+/* PEAK -- standalone brand stylesheet for generated landing pages.
+   Cycle 52 rebrand. Source: PEAK design system 2026
+   (gbrain projects/peak-saunas/design-system-2026). The previous
+   green/white Aurora-theme sheet is kept beside this one as
+   base-legacy.css (not loaded) for reference.
 
-@font-face{font-family:"DM Sans";font-weight:400;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/dm_sans/dmsans_n4.ec80bd4dd7e1a334c969c265873491ae56018d72.woff2") format("woff2");}
-@font-face{font-family:"DM Sans";font-weight:500;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/dm_sans/dmsans_n5.8a0f1984c77eb7186ceb87c4da2173ff65eb012e.woff2") format("woff2");}
-@font-face{font-family:"DM Sans";font-weight:600;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/dm_sans/dmsans_n6.70a2453ea926d613c6a2f89af05180d14b3a7c96.woff2") format("woff2");}
-@font-face{font-family:"DM Sans";font-weight:700;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/dm_sans/dmsans_n7.97e21d81502002291ea1de8aefb79170c6946ce5.woff2") format("woff2");}
-@font-face{font-family:"Poppins";font-weight:400;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/poppins/poppins_n4.0ba78fa5af9b0e1a374041b3ceaadf0a43b41362.woff2") format("woff2");}
-@font-face{font-family:"Poppins";font-weight:500;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/poppins/poppins_n5.ad5b4b72b59a00358afc706450c864c3c8323842.woff2") format("woff2");}
-@font-face{font-family:"Poppins";font-weight:700;font-style:normal;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/fonts/poppins/poppins_n7.56758dcf284489feb014a026f3727f2f20a54626.woff2") format("woff2");}
+   Palette, by name: basalt #181918, stone #EFE3D2, fossil-dust #C0C8C3,
+   red #702B33, cedar #483215, solar-flare #F27046. No green, no gradients,
+   no shadows, square corners everywhere.
+
+   Fonts. Epika is licensed and self-hosted from brand/fonts/ below. Acid
+   Grotesk is NOT licensed yet (the toolbox carries a trial build only,
+   which must not be used), so --ps-sans is the fallback stack and every
+   headline renders in Schibsted Grotesk / Inter / Helvetica instead.
+   Acid Grotesk license pending; fallback in use.
+
+   Headline case is NOT set here: tenant.yaml's brand.headline_case drives it
+   (harness/render.py -> the .adv-case-upper class on .adv-wrap), so the same
+   rule reaches the standalone page, the review html and the storefront
+   export, which keeps only the document body. (Never write a literal
+   body/head/script tag in this file, even inside a comment: this stylesheet
+   is inlined into the page HEAD and harness/page_body.py reads the document
+   by locating those tags.) */
+
+@font-face{font-family:"Epika";font-weight:400;font-style:normal;font-display:swap;
+  src:url("brand/fonts/Epika-Regular.woff2") format("woff2"),
+      url("brand/fonts/Epika-Regular.otf") format("opentype");}
 
 :root{
-  --ps-accent:#16C47F;        /* primary brand green: buttons, stars, links-hover */
-  --ps-link:#0E9463;          /* darker green for body-copy links */
-  --ps-text:#141416;          /* article body text */
-  --ps-text-strong:#000000;   /* headings / theme body text */
-  --ps-muted:#55595E;
-  --ps-muted-alt:#75716B;
-  --ps-bg:#ffffff;
-  --ps-bg-muted:#F4F5F6;      /* table zebra, trust box */
-  --ps-border:#E9EAEC;        /* card / table border */
-  --ps-pill-bg:#E9F7F0;
-  --ps-pill-text:#0E7A50;
-  --ps-pill-border:rgba(22,196,127,.35);
-  --ps-red:#c33b3b;           /* only red used live: form error state */
-  --ps-star-on:#16C47F;
-  --ps-star-off:#D8DAD5;
-  --ps-radius-card:8px;       /* advertorial content-block radius (not theme chrome) */
-  --ps-radius-btn:2px;        /* site's global button/badge radius */
+  /* ---- palette, by role ---- */
+  --ps-accent:#F27046;         /* solar flare: the one accent per view (primary CTA) */
+  --ps-on-accent:#181918;      /* basalt on solar flare, 6.03 -- never light text here */
+  --ps-link:#181918;           /* basalt, underlined, on light grounds */
+  --ps-text:#181918;
+  --ps-text-strong:#181918;
+  --ps-muted:#54524C;          /* basalt mixed 28% to stone: 6.17 on stone, 4.57 on fossil dust */
+  --ps-muted-alt:#54524C;
+  --ps-bg:#EFE3D2;             /* stone: the page ground */
+  --ps-bg-muted:#C0C8C3;       /* fossil dust: panels and cards */
+  --ps-border:#483215;         /* cedar, always 1px */
+  --ps-ink-dark:#181918;       /* basalt: dark sections */
+  --ps-on-dark:#EFE3D2;        /* stone text and logo on dark, 13.93 */
+  --ps-editorial:#702B33;      /* red: editorial colour blocks and headline panels */
+  --ps-band:#483215;           /* cedar: thin accent bands and rules */
+  --ps-red:#702B33;
+  --ps-star-on:#181918;        /* stars are basalt, never green */
+  --ps-star-off:#C0C8C3;
+  --ps-pill-bg:transparent;    /* badges/eyebrows carry no fill */
+  --ps-pill-text:#483215;      /* cedar, 9.52 on stone */
+  --ps-pill-border:#483215;
+  --ps-focus:#F27046;
+  /* ---- shape: square corners everywhere ---- */
+  --ps-radius-card:0px;
+  --ps-radius-btn:0px;
+  --ps-radius-pill:0px;
+  --ps-radius-round:0px;
+  /* ---- type ---- */
+  --ps-sans:"Acid Grotesk","Schibsted Grotesk","Inter",Helvetica,Arial,sans-serif;
+  --ps-serif:"Epika","Instrument Serif","Playfair Display",Georgia,serif;
+  --ps-eyebrow-size:12px;
+  --ps-eyebrow-spacing:0.08em;
+  --ps-eyebrow-color:#483215;
   --ps-max-width:1320px;
 }
 
@@ -43,29 +68,37 @@
 body{
   margin:0;
   background:var(--ps-bg);
-  color:var(--ps-text-strong);
-  font-family:"DM Sans",-apple-system,BlinkMacSystemFont,sans-serif;
-  font-size:17.6px; /* 16px base * 1.1 theme scale */
-  line-height:1.5;
+  color:var(--ps-text);
+  font-family:var(--ps-sans);
+  font-size:18px;
+  line-height:28px;
+  font-weight:400;
   -webkit-font-smoothing:antialiased;
 }
 
+/* One weight only. No bold and no italics for emphasis anywhere -- scale,
+   case and placement carry it instead. */
+strong,b{font-weight:400}
+em,i{font-style:normal}
+
 h1,h2,h3,h4{
-  margin:0 0 1.6rem;
+  margin:0 0 16px;
   color:var(--ps-text-strong);
-  font-family:"Poppins",sans-serif;
-  font-weight:500;
+  font-family:var(--ps-sans);
+  font-weight:400;
   letter-spacing:0;
 }
-h1{font-size:44px;line-height:1.27}
-h2{font-size:40px;line-height:1.26}
-h3{font-size:36px;line-height:1.28}
-h4{font-size:32px;line-height:1.36}
-
-p{margin:0 0 16px;color:var(--ps-text);line-height:1.75}
+h1{font-size:48px;line-height:56px}
+h2{font-size:32px;line-height:40px}
+h3{font-size:25px;line-height:32px}
+h4{font-size:20px;line-height:28px}
+p{margin:0 0 16px;color:var(--ps-text);line-height:28px}
+small,.ps-small{font-size:14px;line-height:20px}
 
 a{color:var(--ps-link);text-decoration:underline}
-a:hover{color:var(--ps-accent)}
+a:hover{color:var(--ps-link)}
+
+:focus-visible{outline:2px solid var(--ps-focus);outline-offset:2px}
 
 .container{
   width:100%;
@@ -75,124 +108,109 @@ a:hover{color:var(--ps-accent)}
 }
 @media (max-width:640px){.container{padding:0 20px}}
 
-.section{padding:48px 0}
-.section--lg{padding:80px 0}
+.section{padding:64px 0}
+.section--lg{padding:96px 0}
 
-/* Buttons */
+/* Buttons. Square, uppercase, one weight. The primary is a Basalt fill and
+   the secondary a 1px Basalt outline; the accent fill (--ps-accent with
+   --ps-on-accent text) is reserved for the one primary CTA in a view and is
+   applied by the cartridge that renders it, not by a class here. */
 .btn-primary,.btn-secondary{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  min-height:56px;
-  padding:15px 32px;
+  min-height:52px;
+  padding:14px 32px;
   border-radius:var(--ps-radius-btn);
-  font-family:"DM Sans",sans-serif;
-  font-size:15.4px;
-  font-weight:500;
-  line-height:1.57;
+  font-family:var(--ps-sans);
+  font-size:14px;
+  font-weight:400;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  line-height:1.4;
   text-align:center;
   text-decoration:none;
   cursor:pointer;
   border:none;
 }
-.btn-primary{
-  background:var(--ps-accent);
-  color:#ffffff;
-}
-.btn-primary:hover{background:linear-gradient(0deg,rgba(255,255,255,.2),rgba(255,255,255,.2)),var(--ps-accent)}
+.btn-primary{background:var(--ps-ink-dark);color:var(--ps-on-dark)}
 .btn-secondary{
   background:transparent;
-  color:var(--ps-accent);
-  border:1px solid var(--ps-accent);
+  color:var(--ps-text-strong);
+  border:1px solid var(--ps-text-strong);
 }
-.btn-secondary:hover{box-shadow:0 0 0 1px var(--ps-accent) inset}
 
-/* Tables (buyer's-guide comparison-table style) */
+/* Tables */
 table{
   border-collapse:collapse;
   width:100%;
-  font-size:14px;
+  font-size:16px;
   line-height:1.5;
   margin:18px 0 26px;
   border-radius:var(--ps-radius-card);
-  overflow:hidden;
   border:1px solid var(--ps-border);
 }
-th{background:#141416;color:#fff;padding:10px 12px;font-weight:600;text-align:left;white-space:nowrap}
+th{background:var(--ps-ink-dark);color:var(--ps-on-dark);padding:10px 12px;font-weight:400;text-align:left;
+  text-transform:uppercase;letter-spacing:var(--ps-eyebrow-spacing);font-size:14px}
 td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
 tr:nth-child(even) td{background:var(--ps-bg-muted)}
 
-/* Cards */
+/* Cards: Fossil Dust fill, no shadow, square. */
 .card{
-  background:#fff;
-  border:1px solid var(--ps-border);
+  background:var(--ps-bg-muted);
+  border:none;
   border-radius:var(--ps-radius-card);
-  padding:16px 20px;
+  padding:20px 24px;
 }
 
-/* Green pill badge (e.g. "Best for hybrid heat") */
-.badge{
+/* Badges and eyebrows: uppercase 12px, Cedar text, no fill, square. */
+.badge,.financing-pill{
   display:inline-flex;
   align-items:center;
   gap:6px;
   background:var(--ps-pill-bg);
   color:var(--ps-pill-text);
   border:1px solid var(--ps-pill-border);
-  border-radius:999px;
-  padding:6px 13px;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.01em;
+  border-radius:var(--ps-radius-pill);
+  padding:4px 10px;
+  font-size:var(--ps-eyebrow-size);
+  font-weight:400;
+  letter-spacing:var(--ps-eyebrow-spacing);
+  text-transform:uppercase;
 }
 
-/* Financing pill -- same green-pill language as .badge, used inline in copy */
-.financing-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  background:var(--ps-pill-bg);
-  color:var(--ps-pill-text);
-  border:1px solid var(--ps-pill-border);
-  border-radius:999px;
-  padding:4px 12px;
-  font-size:13px;
-  font-weight:700;
-}
-
-/* "Advertisement" label -- small, muted, not part of the live theme;
-   styled to sit quietly above generated content. */
+/* "Advertisement" label */
 .ad-label{
   display:block;
-  font-family:"DM Sans",sans-serif;
-  font-size:11px;
-  font-weight:600;
-  letter-spacing:.08em;
+  font-family:var(--ps-sans);
+  font-size:var(--ps-eyebrow-size);
+  font-weight:400;
+  letter-spacing:var(--ps-eyebrow-spacing);
   text-transform:uppercase;
-  color:var(--ps-muted-alt);
+  color:var(--ps-eyebrow-color);
   margin-bottom:8px;
 }
 
 /* Disclosure line */
 .disclosure{
-  font-size:13px;
+  font-size:14px;
   color:var(--ps-muted);
-  line-height:1.6;
+  line-height:20px;
 }
 
-/* Byline block, matching the site's .pkx-byline pattern used on
-   buyer's-guide posts (see byline.html) */
+/* Byline block */
 .byline{
-  background:#fff;
+  background:var(--ps-bg);
   border:1px solid var(--ps-border);
   border-radius:var(--ps-radius-card);
   padding:16px 20px 12px;
   margin:0 0 26px;
-  font-size:14.5px;
+  font-size:16px;
   line-height:1.55;
 }
-.byline .byline__dates{color:var(--ps-muted);margin-top:8px;font-size:13px}
+.byline .byline__dates{color:var(--ps-muted);margin-top:8px;font-size:14px}
 
-/* Star rating widget, matching the site's .pk-rating pattern */
+/* Star rating widget -- Basalt fill on a Fossil Dust track, never green. */
 .pk-stars{
   position:relative;
   display:inline-block;

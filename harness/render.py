@@ -203,6 +203,7 @@ def source_label(url, *, product_name=None, explicit_label=None, tenant=None):
         return host
     path = parsed.path.rstrip("/")
     if path.startswith("/products/"):
+        product_name = tenant.display_product_name(product_name)
         return tenant.format("product_page_label", product_name=product_name or "product") or f"{prefix} – product page"
     path_labels = tenant.get("source_path_labels") or {}
     if path in path_labels:
@@ -253,7 +254,7 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
         return {
             "@context": "https://schema.org",
             "@type": "Product",
-            "name": product.get("short_name") or product["name"],
+            "name": tenant.display_product_name(product.get("short_name") or product["name"]),
             "url": product["url"],
             "image": product.get("image_urls", []),
             "offers": {
@@ -325,6 +326,8 @@ _ASSET_KIND_ALT_SUFFIXES = {
 
 def asset_alt(asset, product_short_name, tenant=None):
     tenant = tenant or tenant_mod.active()
+    # Cycle 52: alt text is copy, so the storefront title prefix goes.
+    product_short_name = tenant.display_product_name(product_short_name)
     product_short_name = product_short_name or tenant.get("asset_alt_fallback") or tenant.display_name
     suffix = _ASSET_KIND_ALT_SUFFIXES.get(asset.get("kind"), "photo")
     alt = f"{product_short_name} – {suffix}"
@@ -766,6 +769,25 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     return Markup(img_tag)
 
 
+# Cycle 52 (rebrand): a brand may ask for uppercase headlines. That is a
+# CASE rule, not a copy rule -- the writer's own words are never rewritten,
+# and nothing downstream (the claims gate, the visible-text scans, REVIEW.md)
+# sees a different string. It is carried as one opt-in class on the page
+# wrapper, which harness/structure.css and every listicle look have a rule
+# for; a tenant that does not set it renders exactly as before.
+HEADLINE_CASE_CLASS = "adv-case-upper"
+
+
+def wrap_class(tenant=None):
+    """The class list for base.html's page wrapper: "adv-wrap", plus the
+    uppercase-headline class when the tenant's own brand asks for it
+    (tenant.yaml `brand.headline_case: upper`). Any other value, or no
+    brand section at all, leaves the wrapper exactly as it was."""
+    tenant = tenant or tenant_mod.active()
+    case = str(tenant.get("brand.headline_case") or "none").strip().lower()
+    return f"adv-wrap {HEADLINE_CASE_CLASS}" if case == "upper" else "adv-wrap"
+
+
 # Cycle 27 (brand import): a tenant's brand/logo.<ext>, if `harness brand
 # import` (or a hand-placed file) has put one there. Checked in this fixed
 # extension order so a tenant with both an .svg and a .png (the import
@@ -997,6 +1019,7 @@ def render_page(
         micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
         tenant_name=tenant.display_name,
+        wrap_class=wrap_class(tenant),
         # Kimi long-run phase 3: a cartridge template composes a block with
         # {% include block_choice("slot", "default-name") ~ "/block.html" %};
         # the writer's recorded page.json "blocks" pick wins when it names a

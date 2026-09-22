@@ -1,4 +1,4 @@
-# Peak Saunas -- the first tenant of the harness.
+# PEAK -- the first tenant of the harness.
 # Every company-specific string the engine needs lives here (or in authors.yaml,
 # vocab.yaml, claims/config.json). harness/ never hardcodes any of it.
 
@@ -8,7 +8,7 @@
 # change would make an older tenant.yaml wrong, never when a key is added.
 schema_version: 1
 
-name: Peak Saunas
+name: PEAK
 slug: peak-saunas
 site_url: https://peaksaunas.com
 site_host: peaksaunas.com
@@ -47,6 +47,15 @@ theme:
 
 default_cta_url: /collections/all
 
+# Cycle 52 (rebrand). The storefront's own product titles still carry the
+# old full company name as a prefix ("Peak Saunas Fuji 2-Person ..."). It is
+# stripped wherever a product name is DISPLAYED (the listicle model picker,
+# image alt text, source labels, JSON-LD) and wherever the WRITER is handed
+# a product name (facts_pack), so no page ever says the old name in front of
+# a model name. Slugs, URLs and claim ids are never touched -- they are
+# identifiers, not copy. Remove this key and nothing is stripped.
+product_display_strip_prefix: "Peak Saunas "
+
 disclosure_text: >-
   This page is an advertisement published by {tenant_name}, which sells the
   products described. Every specific claim on this page is sourced; see Sources
@@ -54,7 +63,7 @@ disclosure_text: >-
   since.
 
 # Sources list: a short human-readable label per source URL, never the raw URL.
-source_label_prefix: "Peak Saunas"
+source_label_prefix: "PEAK"
 source_path_labels:
   /pages/warranty: Warranty
   /policies/shipping-policy: Shipping policy
@@ -62,7 +71,7 @@ source_path_labels:
   /pages/austin-laudenslager: Austin Laudenslager
 product_page_label: "{prefix} – {product_name} product page"
 review_source_label: "{platform_name} reviews for {tenant_name}"
-asset_alt_fallback: Peak Saunas
+asset_alt_fallback: PEAK
 
 # whisper.cpp initial prompt: biases decoding toward this vocabulary without
 # changing the model. Not a transcript prefix -- it never appears in the output.
@@ -153,7 +162,7 @@ models:
 
 # Cycle 16 item 9 (Thursday queue item 3, "consult-CTA variant per config"). A
 # short form of the company name for a consult-mode CTA phrase.
-tenant_short_name: Peak Saunas
+tenant_short_name: PEAK
 
 # cta_mode picks which CTA phrasing set a cartridge's allowed_cta_texts draws
 # from: "buy" (default here) leaves every cartridge's own schema.json
@@ -192,3 +201,36 @@ shopify_publish:
 notifications:
   slack: false
   email: []
+
+# Cycle 52: the finalized PEAK design system, applied 2026-09-22. The values
+# the engine actually reads are brand/tokens.json and brand/base.css; this
+# section is the short, readable statement of the same decisions, and
+# headline_case is read by the renderer (see harness/render.py). Source:
+# PEAK design system 2026 (gbrain projects/peak-saunas/design-system-2026).
+# See tenants/peak-saunas/docs/REBRAND-APPLIED-2026-09-22.md.
+brand:
+  name: PEAK
+  legal_entity: Peak Wellness USA LLC   # unchanged; used only where a legal line is rendered
+  # headlines render UPPERCASE via CSS text-transform -- never by rewriting
+  # the writer's copy. "none" leaves headline case exactly as written.
+  headline_case: upper
+  palette:
+    basalt: "#181918"        # primary dark: text on light, dark grounds, logo on light
+    stone: "#EFE3D2"         # primary light ground; text and logo on dark
+    fossil-dust: "#C0C8C3"   # secondary light ground: panels and cards
+    red: "#702B33"           # editorial colour blocks, headline panels
+    cedar: "#483215"         # thin accent bands, rules
+    solar-flare: "#F27046"   # accent: CTAs and highlights, sparingly
+  fonts:
+    main: Acid Grotesk
+    main_fallback: '"Acid Grotesk", "Schibsted Grotesk", "Inter", Helvetica, Arial, sans-serif'
+    secondary: Epika
+    secondary_fallback: '"Epika", "Instrument Serif", "Playfair Display", Georgia, serif'
+    self_hosted: [brand/fonts/Epika-Regular.woff2, brand/fonts/Epika-Regular.otf]
+  license_note: "Acid Grotesk license pending; fallback in use. Epika is licensed and self-hosted."
+  logo:
+    on_light: brand/logo.svg          # Basalt wordmark; the renderer's default
+    on_dark: brand/logo-on-dark.svg   # Stone wordmark
+    raster: [brand/logo-basalt.png, brand/logo-stone.png]
+    rule: "Basalt on light grounds, Stone on dark. Never a Stone or White logo on Solar Flare."
+  radius: 0

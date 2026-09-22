@@ -957,6 +957,7 @@ class LocalFactsSource:
         must join facts_pack.verified_claims so the page gate can cite the
         rows."""
         self._load()
+        tenant = tenant_mod.active()
         targets = []
         backing = []
         by_id = {c["id"]: c for c in self._verified}
@@ -974,8 +975,9 @@ class LocalFactsSource:
                     rows.append({"label": s["label"], "text": s["value"], "claim_ids": [claim["id"]]})
                     backing.append(claim)
             if rows:
-                targets.append({"id": product_name_slug(p["name"]), "name": p["name"],
-                                "short_name": p.get("short_name", p["name"]),
+                targets.append({"id": product_name_slug(p["name"]),
+                                "name": tenant.display_product_name(p["name"]),
+                                "short_name": tenant.display_product_name(p.get("short_name", p["name"])),
                                 "kind": "own-product", "rows": rows})
 
         competitors_dir = self.claims_dir / "competitors"
@@ -1016,6 +1018,7 @@ class LocalFactsSource:
         preferred over the static claim so the picker never shows a price
         this run already knows is stale."""
         self._load()
+        tenant = tenant_mod.active()
         live_price_claims = live_price_claims or {}
         by_id = {c["id"]: c for c in self._verified}
         active = [p for p in self._products.values() if p.get("active", True)]
@@ -1045,7 +1048,10 @@ class LocalFactsSource:
                 claim_ids.append(claim["id"])
                 backing.append(claim)
             options.append({
-                "name": p.get("short_name") or p["name"],
+                # Cycle 52: the picker's rows are read by a buyer, so the
+                # storefront title prefix is stripped here (tenant.yaml's
+                # product_display_strip_prefix). The URL beside it is not.
+                "name": tenant.display_product_name(p.get("short_name") or p["name"]),
                 "url": p["url"],
                 "price_text": format_price(p["price"]),
                 "fit": " \u00b7 ".join(fit_parts),
@@ -1171,19 +1177,30 @@ class LocalFactsSource:
         # by itself forces a claim_id onto a sentence that has nothing else
         # to cite. A generic "N-Person" capacity token is covered separately
         # by claims.py's own regex, not by this list.
+        tenant = tenant_mod.active()
         digit_exempt_terms = sorted(
             {
-                t
+                form
                 for p in self._products.values()
                 for t in (p.get("short_name"), p.get("title"), p.get("name"))
                 if t
+                # Cycle 52: both the raw catalog form and the display form
+                # (product_display_strip_prefix removed). The writer only
+                # ever sees the display form, but a page can still quote a
+                # claim that carries the raw one, and this list is what
+                # claims.py subtracts before looking for a bare digit.
+                for form in {t, tenant.display_product_name(t)}
             }
         )
 
         pack = {
             "product": {
-                "name": product["name"],
-                "short_name": product.get("short_name", product["name"]),
+                # Cycle 52: the writer is handed the DISPLAY form of every
+                # product name so it can never write the storefront's own
+                # title prefix into a sentence. "slug" and "url" below are
+                # identifiers and stay exactly as the catalog has them.
+                "name": tenant.display_product_name(product["name"]),
+                "short_name": tenant.display_product_name(product.get("short_name", product["name"])),
                 "slug": product["slug"],
                 "url": product["url"],
                 "price": product["price"],

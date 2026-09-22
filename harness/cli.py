@@ -33,6 +33,7 @@ from .errors import HarnessError
 from .ingest import run_ingest
 from .log import RunLog
 from .publishers.export import ExportPublisher
+from .publishers import shopify as shopify_pub
 from .publishers.shopify import ShopifyCredentialsMissing, ShopifyPublisher, rewrite_asset_srcs
 from .render import render_page
 from .review import build_review_for_page, build_reviews
@@ -320,6 +321,13 @@ def cmd_rerender(args):
 
     if (cartridge_dir / "shopify-body.html").exists():
         shopify_body_path, assets_manifest_path = write_shopify_body(cartridge_dir)
+        # Cycle 52: the export carries the tenant's @font-face rules, whose
+        # urls are repo-relative and would 404 on a storefront. Re-apply the
+        # CDN urls this tenant has already uploaded (cache only -- rerender
+        # never calls Shopify, and a tenant that has published no font is
+        # left with its fallback stack).
+        refreshed = shopify_pub.apply_cached_font_urls(shopify_body_path.read_text(), tenant)
+        shopify_body_path.write_text(refreshed)
         print(f"Wrote {shopify_body_path}")
         print(f"Wrote {assets_manifest_path}")
 
@@ -449,6 +457,36 @@ def _read_asset_manifest_bytes(cartridge_dir, assets_manifest):
 _HANDLE_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$")
 
 
+def _publish_brand_fonts(tenant, publisher, body_html):
+    """Point the export's @font-face rules at the storefront CDN.
+
+    A tenant's self-hosted webfonts are brand data, not per-page assets:
+    they are the same handful of files on every page, so they are uploaded
+    once and remembered in brand/fonts/cdn-manifest.json. A file that is
+    already in the manifest is never re-uploaded; a file Shopify refuses is
+    reported here and its @font-face entry is dropped from the export, so
+    the page renders in the tenant's fallback stack rather than waiting on
+    a URL that will never resolve."""
+    fonts = shopify_pub.font_files(tenant)
+    if not fonts:
+        return body_html
+    known = shopify_pub.load_font_cdn_manifest(tenant)
+    pending = [{"filename": f.name, "bytes": f.read_bytes()} for f in fonts if f.name not in known]
+    if pending:
+        urls, errors = publisher.upload_fonts(pending)
+        for filename, reason in sorted(errors.items()):
+            print(
+                f"font {filename} could not be uploaded ({reason}); this page falls back "
+                f"to the tenant's fallback font stack",
+                file=sys.stderr,
+            )
+        if urls:
+            known = {**known, **urls}
+            manifest_path = shopify_pub.save_font_cdn_manifest(tenant, known)
+            print(f"Uploaded {len(urls)} font file(s); cached in {manifest_path}")
+    return shopify_pub.rewrite_font_face_urls(body_html, known)
+
+
 def cmd_publish(args):
     """`harness publish <run-dir> --page <cartridge> [--live] [--dry-run]
     [--handle <slug>] [--redirect-from </path>] [--update]`: refuses unless
@@ -563,6 +601,7 @@ def cmd_publish(args):
         if isinstance(publisher, ShopifyPublisher):
             url_by_local_path = publisher.upload_assets(manifest_with_bytes)
             body_html = rewrite_asset_srcs(shopify_body_html, url_by_local_path)
+            body_html = _publish_brand_fonts(tenant, publisher, body_html)
         else:
             publisher.upload_assets(manifest_with_bytes)
             body_html = shopify_body_html

@@ -3,9 +3,11 @@ adapter is exercised entirely through a fake transport -- no real HTTP call
 is made anywhere in this file, matching the rest of this test suite."""
 import json
 import re
+from pathlib import Path
 
 import pytest
 
+from harness.publishers import shopify
 from harness.publishers.export import ExportPublisher
 from harness.publishers.shopify import (
     ShopifyCredentialsMissing,
@@ -585,3 +587,190 @@ def test_publisher_init_normalizes_store_url():
         store="https://Acme.myshopify.com/admin", token="tok", transport=FakeTransport()
     )
     assert publisher.store == "acme.myshopify.com"
+
+
+# ---------------------------------------------------------------------------
+# Cycle 52: a tenant's self-hosted webfonts on the storefront
+#
+# Same four steps as upload_assets, but a font is a generic FILE, not an
+# image: Shopify answers with a GenericFile carrying `url` directly rather
+# than a MediaImage's `image.url`. Fonts are brand data, identical on every
+# page, so they are uploaded once and remembered in
+# brand/fonts/cdn-manifest.json.
+# ---------------------------------------------------------------------------
+
+_FONT_FACE_CSS = (
+    '@font-face{font-family:"Epika";font-weight:400;font-style:normal;font-display:swap;\n'
+    '  src:url("brand/fonts/Epika-Regular.woff2") format("woff2"),\n'
+    '      url("brand/fonts/Epika-Regular.otf") format("opentype");}'
+)
+
+
+def _generic_file_create_response(file_id="gid://shopify/GenericFile/1", status="UPLOADED", url=None):
+    entry = {"id": file_id, "fileStatus": status}
+    if url:
+        entry["url"] = url
+    return {"data": {"fileCreate": {"files": [entry], "userErrors": []}}}
+
+
+def _generic_node_status_response(status, url=None):
+    node = {"fileStatus": status}
+    if url:
+        node["url"] = url
+    return {"data": {"node": node}}
+
+
+class _FontTenant:
+    """The two attributes the font helpers actually read."""
+
+    def __init__(self, brand_dir):
+        self.brand_dir = brand_dir
+
+
+def _font_tenant(tmp_path, filenames=("Epika-Regular.woff2", "Epika-Regular.otf")):
+    fonts = tmp_path / "brand" / "fonts"
+    fonts.mkdir(parents=True)
+    for name in filenames:
+        (fonts / name).write_bytes(b"wOF2" + name.encode())
+    return _FontTenant(tmp_path / "brand")
+
+
+def test_upload_fonts_goes_up_as_a_generic_file_not_an_image():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    transport.set_response(
+        "POST", "graphql.json", 200,
+        _generic_file_create_response(status="READY", url="https://cdn.shopify.com/files/Epika.woff2"),
+    )
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 201, {})
+
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok",
+        transport=transport, upload_transport=upload_transport, sleep=lambda s: None,
+    )
+    urls, errors = publisher.upload_fonts([{"filename": "Epika-Regular.woff2", "bytes": b"wOF2xx"}])
+
+    assert errors == {}
+    assert urls == {"Epika-Regular.woff2": "https://cdn.shopify.com/files/Epika.woff2"}
+
+    staged_input = json.loads(transport.calls[0]["body"])["variables"]["input"][0]
+    assert staged_input["resource"] == "FILE"
+    assert staged_input["mimeType"] == shopify.FONT_MIME_TYPE
+    assert staged_input["filename"] == "Epika-Regular.woff2"
+    file_create = json.loads(transport.calls[1]["body"])["variables"]["files"][0]
+    assert file_create["contentType"] == "FILE"
+
+
+def test_upload_fonts_polls_until_the_generic_file_is_ready():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, _staged_uploads_create_response())
+    transport.set_response("POST", "graphql.json", 200, _generic_file_create_response(status="UPLOADED"))
+    transport.set_response("POST", "graphql.json", 200, _generic_node_status_response("PROCESSING"))
+    transport.set_response(
+        "POST", "graphql.json", 200,
+        _generic_node_status_response("READY", url="https://cdn.shopify.com/files/E.woff2"),
+    )
+    upload_transport = FakeTransport()
+    upload_transport.set_response("POST", "shopify-staged-uploads/upload-1", 201, {})
+
+    sleeps = []
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok",
+        transport=transport, upload_transport=upload_transport, sleep=lambda s: sleeps.append(s),
+    )
+    urls, errors = publisher.upload_fonts([{"filename": "E.woff2", "bytes": b"wOF2"}])
+    assert urls == {"E.woff2": "https://cdn.shopify.com/files/E.woff2"}
+    assert errors == {}
+    assert sleeps == [1]
+
+
+def test_a_font_shopify_refuses_is_reported_and_does_not_stop_the_publish():
+    transport = FakeTransport()
+    transport.set_response("POST", "graphql.json", 200, {
+        "data": {"stagedUploadsCreate": {
+            "stagedTargets": [],
+            "userErrors": [{"field": ["input", "0", "filename"], "message": "unsupported"}],
+        }}
+    })
+    publisher = ShopifyPublisher(
+        store="example.myshopify.com", token="tok", transport=transport, sleep=lambda s: None,
+    )
+    urls, errors = publisher.upload_fonts([{"filename": "Bad.woff2", "bytes": b"x"}])
+    assert urls == {}
+    assert "Bad.woff2" in errors and "unsupported" in errors["Bad.woff2"]
+
+
+def test_font_face_urls_are_rewritten_to_the_cdn_by_filename():
+    out = shopify.rewrite_font_face_urls(_FONT_FACE_CSS, {
+        "Epika-Regular.woff2": "https://cdn.shopify.com/files/a.woff2",
+        "Epika-Regular.otf": "https://cdn.shopify.com/files/a.otf",
+    })
+    assert "brand/fonts/" not in out
+    assert 'url("https://cdn.shopify.com/files/a.woff2") format("woff2")' in out
+    assert 'url("https://cdn.shopify.com/files/a.otf") format("opentype")' in out
+    assert out.count("@font-face") == 1
+
+
+def test_a_font_with_no_cdn_url_loses_only_its_own_src_entry():
+    out = shopify.rewrite_font_face_urls(_FONT_FACE_CSS, {
+        "Epika-Regular.woff2": "https://cdn.shopify.com/files/a.woff2",
+    })
+    assert "https://cdn.shopify.com/files/a.woff2" in out
+    assert "Epika-Regular.otf" not in out
+    assert "@font-face" in out
+
+
+def test_a_font_face_with_nothing_uploaded_is_dropped_so_the_stack_falls_through():
+    """A declared family the browser cannot load is worse than no family at
+    all: the browser stops there instead of walking the fallback stack."""
+    assert shopify.rewrite_font_face_urls(_FONT_FACE_CSS, {}) == ""
+    assert shopify.rewrite_font_face_urls("body{color:red}" + _FONT_FACE_CSS, {}) == "body{color:red}"
+
+
+def test_the_cdn_manifest_round_trips_and_is_what_a_second_publish_reads(tmp_path):
+    tenant = _font_tenant(tmp_path)
+    assert shopify.load_font_cdn_manifest(tenant) == {}
+    shopify.save_font_cdn_manifest(tenant, {"Epika-Regular.woff2": "https://cdn.shopify.com/files/a.woff2"})
+    assert shopify.font_cdn_manifest_path(tenant).name == "cdn-manifest.json"
+    assert shopify.load_font_cdn_manifest(tenant) == {
+        "Epika-Regular.woff2": "https://cdn.shopify.com/files/a.woff2"
+    }
+
+
+def test_font_files_lists_only_fonts_never_the_manifest(tmp_path):
+    tenant = _font_tenant(tmp_path)
+    shopify.save_font_cdn_manifest(tenant, {"x": "y"})
+    (Path(tenant.brand_dir) / "fonts" / "EULA.pdf").write_bytes(b"%PDF")
+    assert [f.name for f in shopify.font_files(tenant)] == ["Epika-Regular.otf", "Epika-Regular.woff2"]
+
+
+def test_a_corrupt_manifest_is_treated_as_empty_rather_than_failing_a_publish(tmp_path):
+    tenant = _font_tenant(tmp_path)
+    shopify.font_cdn_manifest_path(tenant).write_text("{not json")
+    assert shopify.load_font_cdn_manifest(tenant) == {}
+
+
+def test_apply_cached_font_urls_is_the_no_credentials_rerender_path(tmp_path):
+    tenant = _font_tenant(tmp_path)
+    # nothing published yet: the export is returned untouched
+    assert shopify.apply_cached_font_urls(_FONT_FACE_CSS, tenant) == _FONT_FACE_CSS
+    shopify.save_font_cdn_manifest(tenant, {
+        "Epika-Regular.woff2": "https://cdn.shopify.com/files/a.woff2",
+        "Epika-Regular.otf": "https://cdn.shopify.com/files/a.otf",
+    })
+    out = shopify.apply_cached_font_urls(_FONT_FACE_CSS, tenant)
+    assert "brand/fonts/" not in out
+    assert "https://cdn.shopify.com/files/a.woff2" in out
+
+
+def test_a_tenant_with_no_brand_directory_never_breaks_a_publish():
+    class Bare:
+        pass
+
+    bare = Bare()
+    assert shopify.font_files(bare) == []
+    assert shopify.font_cdn_manifest_path(bare) is None
+    assert shopify.load_font_cdn_manifest(bare) == {}
+    assert shopify.save_font_cdn_manifest(bare, {"a": "b"}) is None
+

@@ -445,9 +445,15 @@ def _warmup_brand_terms(tenant):
 
 def _reference_article_breaks_warmup(text, brand_terms, window):
     """True when a markdown exemplar names the brand inside the first
-    `window` words -- feeding that as few-shot undercuts the warm-up rule."""
+    `window` words -- feeding that as few-shot undercuts the warm-up rule.
+
+    Matched on word boundaries, the same way claims.warmup_first_mentions
+    matches the page itself. A bare substring test reads a short brand name
+    inside ordinary words -- a four-letter name is a substring of several
+    everyday ones -- and would silently drop exemplars that never name the
+    brand at all."""
     head = " ".join(text.split()[:window]).lower()
-    return any(term.lower() in head for term in brand_terms)
+    return any(re.search(r"\b" + re.escape(term.lower()) + r"\b", head) for term in brand_terms if term)
 
 
 def filter_exemplars_for_warmup(exemplars, tenant, *, window=None):

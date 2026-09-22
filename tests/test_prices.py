@@ -92,7 +92,7 @@ def test_build_live_price_claims_omits_compare_at_unless_configured():
 
     # fix cycle 3 item 2: "$8,250" -- no ".00" cents suffix on a whole dollar amount.
     claims = build_live_price_claims(products, "2026-09-09", show_compare_at_price=False)
-    assert claims[0]["text"] == "The Peak Saunas Fuji is priced at $8,250."
+    assert claims[0]["text"] == "The PEAK Fuji is priced at $8,250."
 
     claims = build_live_price_claims(products, "2026-09-09", show_compare_at_price=True)
     assert "(list/compare-at $14,032)" in claims[0]["text"]
@@ -158,7 +158,7 @@ def test_refresh_price_data_never_writes_claims_products_json(tmp_path):
     # merge (old_products loaded from claims/products.json + live_products)
     # still happens, it's just never persisted back to disk.
     assert merged["peak-saunas-fuji"]["price"] == "9999.00"
-    assert price_claims_by_slug["peak-saunas-fuji"]["text"] == "The Peak Saunas Fuji is priced at $9,999."
+    assert price_claims_by_slug["peak-saunas-fuji"]["text"] == "The PEAK Fuji is priced at $9,999."
     assert live_products == live
 
     # The live refresh's only write anywhere is the existing raw-feed cache.
@@ -194,4 +194,4 @@ def test_refresh_price_data_reflects_a_price_change_on_the_very_next_call_too(tm
         today_iso="2026-09-10", fetch_page=_no_refetch,
     )
     assert merged["peak-saunas-fuji"]["price"] == "9999.00"
-    assert price_claims_by_slug["peak-saunas-fuji"]["text"] == "The Peak Saunas Fuji is priced at $9,999."
+    assert price_claims_by_slug["peak-saunas-fuji"]["text"] == "The PEAK Fuji is priced at $9,999."
