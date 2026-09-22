@@ -132,8 +132,7 @@ def test_each_look_renders_every_section(look, tmp_path):
     html = _render(look, tmp_path, page=page)
 
     # renderer-injected chrome that no look may drop
-    assert "Advertisement" in html
-    assert "is an advertisement published by" in html          # disclosure
+    assert "This page is published by" in html                 # disclosure
     assert "<h3>Sources</h3>" in html                          # sources list
     assert "Written by" in html                                # byline
 

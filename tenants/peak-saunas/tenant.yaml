@@ -56,11 +56,15 @@ default_cta_url: /collections/all
 # identifiers, not copy. Remove this key and nothing is stripped.
 product_display_strip_prefix: "Peak Saunas "
 
+# Cycle 55: no "Advertisement" wording anywhere on Peak pages. The header
+# label is the optional `disclosure_label` key, deliberately left unset here
+# (so no label renders); see docs/TENANT-ONBOARDING.md.
 disclosure_text: >-
-  This page is an advertisement published by {tenant_name}, which sells the
-  products described. Every specific claim on this page is sourced; see Sources
-  below. Prices were current as of the publish date above and may have changed
-  since.
+  This page is published by {tenant_name}, which sells the products described.
+  Prices, specifications and policies are verified against {tenant_name}'s own
+  published sources at the time of writing. Every specific claim on this page
+  is sourced; see Sources below. Prices were current as of the publish date
+  above and may have changed since.
 
 # Sources list: a short human-readable label per source URL, never the raw URL.
 source_label_prefix: "PEAK"

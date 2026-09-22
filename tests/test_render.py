@@ -202,8 +202,7 @@ def test_render_page(tmp_path, cartridge_name, page, expect_byline, expect_json_
     )
     html = index_path.read_text()
 
-    assert "Advertisement" in html
-    assert "is an advertisement published by PEAK" in html
+    assert "This page is published by PEAK" in html
     assert f'"@type": "{expect_json_ld_type}"' in html
     # fix 1: no lender/monthly figure renders while financing.lender is null
     assert "Bread Pay" not in html
@@ -356,7 +355,7 @@ def test_disclosure_paragraph_is_inside_main_or_article(tmp_path, cartridge_name
         download_assets=False,
     )
     html = index_path.read_text()
-    disclosure_pos = html.index("This page is an advertisement published by PEAK")
+    disclosure_pos = html.index("This page is published by PEAK")
     main_open = html.index("<main")
     main_close = html.rindex("</main>")
     assert main_open < disclosure_pos < main_close
@@ -752,7 +751,11 @@ def test_disclosure_text_omits_financing_estimates(tmp_path):
     html = index_path.read_text()
     assert "financing estimates" not in html
     assert (
-        "This page is an advertisement published by PEAK, which sells the products described. "
+        "This page is published by PEAK, which sells the products described. "
+        "Prices, specifications and policies are verified against PEAK&#39;s own "
+    ) in html
+    assert (
+        "published sources at the time of writing. "
         "Every specific claim on this page is sourced; see Sources below. "
         "Prices were current as of the publish date above and may have changed since."
     ) in html

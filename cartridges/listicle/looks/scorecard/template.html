@@ -11,7 +11,11 @@
    sentence) under a label chip that says WHY the line counts -- a verified
    spec or a customer statement. A comparison table recaps every item before
    the FAQ, the image sits small inside the panel, and there is no sticky
-   bar at all. #}
+   bar at all.
+
+   Cycle 55: the header is two columns at 768px up (copy left, hero right),
+   so one image no longer stacks under the whole header; a product cut-out
+   (image_fit(...) == "contain") sits whole on a muted panel. #}
 {% block title %}{{ page.headline }}{% endblock %}
 {% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
@@ -51,7 +55,13 @@
   --pk-radius-sm:var(--ps-radius-btn,4px);
   --pk-radius-pill:var(--ps-radius-pill,999px);
   --pk-measure:960px;
-  --pk-gap:48px;
+  /* Cycle 55 rhythm (cartridges/listicle/cartridge.md "Rhythm") */
+  --pk-gap:40px;
+  --pk-item-gap:32px;
+  --pk-hero-top:32px;
+  --pk-close-gap:48px;
+  --pk-panel-pad:24px;
+  --pk-panel-img:420px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
   font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
@@ -71,7 +81,8 @@
 .adv-listicle.look-scorecard .sc-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
 
 /* header: headline, dek, a trust ROW of bordered facts, then the CTA */
-.adv-listicle.look-scorecard .sc-header{padding:24px 0 var(--pk-gap);border-bottom:2px solid var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-header{padding:var(--pk-hero-top) 0 var(--pk-gap);border-bottom:2px solid var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-head-copy{min-width:0}
 .adv-listicle.look-scorecard .sc-h1{font-size:2.125rem;line-height:1.15;margin:0 0 12px;
   color:var(--pk-ink);letter-spacing:-.015em}
 .adv-listicle.look-scorecard .sc-dek{font-size:1.0625rem;line-height:1.6;margin:0 0 20px;color:var(--pk-muted);max-width:68ch}
@@ -81,6 +92,10 @@
 .adv-listicle.look-scorecard .sc-byline{margin:18px 0 0;font-size:.875rem;color:var(--pk-muted)}
 .adv-listicle.look-scorecard .sc-hero{margin:22px 0 0}
 .adv-listicle.look-scorecard .sc-hero .adv-img{max-height:300px}
+/* the contained-image panel: a cut-out sits whole on the muted ground */
+.adv-listicle.look-scorecard .sc-imgpanel{display:flex;align-items:center;justify-content:center;
+  padding:var(--pk-panel-pad);background:var(--pk-band);border-radius:var(--pk-radius)}
+.adv-listicle.look-scorecard .sc-imgpanel .adv-img{width:auto;max-width:100%}
 
 .adv-listicle.look-scorecard .sc-btn{display:flex;width:100%;align-items:center;justify-content:center;
   min-height:52px;padding:14px 28px;border:none;border-radius:var(--pk-radius);background:var(--pk-accent);
@@ -93,7 +108,9 @@
 /* items: a bordered panel, claim column left, evidence column right */
 .adv-listicle.look-scorecard .sc-items{display:block;padding:var(--pk-gap) 0 0}
 .adv-listicle.look-scorecard .sc-panel{border:1px solid var(--pk-border);border-radius:var(--pk-radius);
-  margin:0 0 20px;overflow:hidden;background:var(--pk-bg)}
+  margin:0 0 var(--pk-item-gap);overflow:hidden;background:var(--pk-bg)}
+/* the next section's own top padding is the gap after the last panel */
+.adv-listicle.look-scorecard .sc-items .sc-measure>:last-child{margin-bottom:0}
 .adv-listicle.look-scorecard .sc-grid{display:grid}
 .adv-listicle.look-scorecard .sc-claim{padding:22px}
 .adv-listicle.look-scorecard .sc-num{display:inline-block;margin:0 0 8px;padding:3px 9px;border-radius:var(--pk-radius-sm);
@@ -116,9 +133,9 @@
 
 /* one mid-page CTA row between the panels -- this look has no sticky bar,
    so the fold CTA and the closing band would otherwise be the only two */
-.adv-listicle.look-scorecard .sc-midcta{margin:0 0 20px;padding:20px;border-radius:var(--pk-radius);
+.adv-listicle.look-scorecard .sc-midcta{margin:0 0 var(--pk-item-gap);padding:20px;border-radius:var(--pk-radius);
   border:1px dashed var(--pk-border);text-align:center}
-.adv-listicle.look-scorecard .sc-quote{margin:0 0 20px;padding:22px;border:1px solid var(--pk-border);
+.adv-listicle.look-scorecard .sc-quote{margin:0 0 var(--pk-item-gap);padding:22px;border:1px solid var(--pk-border);
   border-radius:var(--pk-radius);background:var(--pk-band)}
 .adv-listicle.look-scorecard .sc-quote blockquote{margin:0;font-size:1.125rem;line-height:1.5;color:var(--pk-ink)}
 .adv-listicle.look-scorecard .sc-quote-attr{margin:10px 0 0;font-size:.875rem;color:var(--pk-muted)}
@@ -151,7 +168,7 @@
 .adv-listicle.look-scorecard .sc-faq-a{margin:0;font-size:1rem;line-height:1.6;color:var(--pk-body)}
 
 /* the closing CTA band carries the fixed warranty sentence */
-.adv-listicle.look-scorecard .sc-cta-band{margin:var(--pk-gap) 0 0;padding:var(--pk-gap) 0;
+.adv-listicle.look-scorecard .sc-cta-band{margin:var(--pk-gap) 0 0;padding:var(--pk-close-gap) 0;
   border-top:2px solid var(--pk-ink)}
 .adv-listicle.look-scorecard .sc-recap{margin:0 0 22px;padding-left:20px}
 .adv-listicle.look-scorecard .sc-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
@@ -164,11 +181,10 @@
 .adv-listicle.look-scorecard .sc-list li{margin:0 0 8px;font-size:1rem;line-height:1.5}
 
 @media (max-width:600px){
-  .adv-listicle.look-scorecard{--pk-gap:36px}
+  .adv-listicle.look-scorecard{--pk-gap:32px}
   .adv-listicle.look-scorecard .sc-h1{font-size:1.75rem}
 }
 @media (min-width:768px){
-  .adv-listicle.look-scorecard{--pk-gap:64px}
   .adv-listicle.look-scorecard .sc-h1{font-size:2.625rem}
   .adv-listicle.look-scorecard .sc-dek{font-size:1.1875rem}
   .adv-listicle.look-scorecard .sc-h2{font-size:1.5rem}
@@ -179,13 +195,22 @@
   .adv-listicle.look-scorecard .sc-evidence{border-top:none;border-left:1px solid var(--pk-border)}
   .adv-listicle.look-scorecard .sc-fit{grid-template-columns:1fr 1fr;gap:32px}
   .adv-listicle.look-scorecard .sc-models{grid-template-columns:repeat(3,1fr)}
+  /* two columns: the copy keeps two thirds, so a long headline stays at
+     three or four lines and the header under 700px */
+  .adv-listicle.look-scorecard .sc-head-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);
+    gap:40px;align-items:center}
+  .adv-listicle.look-scorecard .sc-head-grid .sc-h1{font-size:2.25rem}
+  .adv-listicle.look-scorecard .sc-head-grid .sc-hero{margin:0}
+  .adv-listicle.look-scorecard .sc-head-grid .sc-hero .adv-img{max-height:var(--pk-panel-img)}
 }
 </style>
 <div class="pk-lp adv-listicle look-scorecard">
 
+  {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
   <header class="sc-header">
-    <div class="sc-measure">
-      <span class="adv-badge">Advertisement</span>
+    <div class="sc-measure{{ ' sc-head-grid' if hero_asset else '' }}">
+     <div class="sc-head-copy">
+      {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
       <h1 class="sc-h1">{{ page.headline }}</h1>
       <p class="sc-dek">{{ page.dek }}</p>
       {# The trust row is verified facts only: the renderer-built trust items
@@ -199,8 +224,8 @@
       {% endif %}
       <a class="sc-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
       <div class="sc-byline adv-byline">{{ byline_html | safe }}</div>
-      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-      {% if hero_asset %}<div class="sc-hero">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+     </div>
+      {% if hero_asset %}<div class="sc-hero{{ ' sc-imgpanel' if image_fit(hero_asset) == 'contain' else '' }}">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
     </div>
   </header>
 
@@ -214,7 +239,7 @@
             <h2 class="sc-h2">{{ item.heading }}</h2>
             <p class="sc-copy">{{ item.text }}</p>
             {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-            {% if item_asset %}<div class="sc-thumb">{{ render_image_slot(item_asset) }}</div>{% endif %}
+            {% if item_asset %}<div class="sc-thumb{{ ' sc-imgpanel' if image_fit(item_asset) == 'contain' else '' }}">{{ render_image_slot(item_asset) }}</div>{% endif %}
           </div>
           <div class="sc-evidence">
             <p class="sc-evidence-h">What the facts say</p>

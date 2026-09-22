@@ -116,7 +116,7 @@ def test_run_dry_run_produces_three_pages(monkeypatch):
     for cartridge in ("article", "product-page", "longform"):
         index_html = run_dir / cartridge / "index.html"
         assert index_html.exists(), f"missing {index_html}"
-        assert "Advertisement" in index_html.read_text()
+        assert "This page is published by" in index_html.read_text()
 
     facts_pack = json.loads((run_dir / "facts_pack.json").read_text())
     assert facts_pack["product"]["slug"] == FUJI_SLUG

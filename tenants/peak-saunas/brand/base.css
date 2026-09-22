@@ -179,7 +179,8 @@ tr:nth-child(even) td{background:var(--ps-bg-muted)}
   text-transform:uppercase;
 }
 
-/* "Advertisement" label */
+/* disclosure label: tenant.yaml disclosure_label (unset for this tenant, so
+   it never renders; the rendered CSS carries no ad wording) */
 .ad-label{
   display:block;
   font-family:var(--ps-sans);

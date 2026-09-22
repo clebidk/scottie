@@ -1,6 +1,6 @@
 """Jinja2 rendering: page.json + facts_pack -> out/<run>/<cartridge>/index.html.
 
-Injects byline, dates, the "Advertisement" label, the disclosure paragraph,
+Injects byline, dates, the optional disclosure label (tenant disclosure_label), the disclosure paragraph,
 a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
@@ -663,6 +663,26 @@ def aspect_ratio_css(width, height):
 IMAGE_FRAMES = {"4x3": (4, 3), "3x2": (3, 2), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9)}
 
 
+def image_fit(asset, *, frame=None):
+    """"contain" or "cover": the object-fit render_image_slot gives `asset`
+    in a slot with this `frame` (None when there is no asset).
+
+    A studio cutout on white (generate_image_variants' border test) is
+    always "contain". In a named frame (IMAGE_FRAMES) only a lifestyle/
+    installation photo by its facts_pack "kind" may fill the frame; with no
+    frame the box is the image's own ratio, so anything that is not a
+    cutout is "cover". Cycle 55: a Jinja global too, so a look can pick its
+    LAYOUT from the same answer -- a cutout is placed contained on a panel,
+    never as a full-bleed cover band or behind an overlay."""
+    if not asset:
+        return None
+    is_cutout = bool(asset.get("cutout"))
+    if frame in IMAGE_FRAMES:
+        lifestyle = asset.get("kind") in ("lifestyle", "installation")
+        return "cover" if (lifestyle and not is_cutout) else "contain"
+    return "contain" if is_cutout else "cover"
+
+
 def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None):
     """The one function that builds an <img>/<picture> tag from an asset
     dict -- registered as a Jinja global in render_page's env (see below) so
@@ -706,11 +726,6 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     variants = asset.get("variants") or []
     width, height = asset.get("width"), asset.get("height")
     alt = asset.get("alt", "")
-    # A studio cutout on white (generate_image_variants' border test), as
-    # opposed to the facts_pack asset's own semantic "kind" -- both matter
-    # below, and they are different questions.
-    is_cutout = bool(asset.get("cutout"))
-    lifestyle = asset.get("kind") in ("lifestyle", "installation")
     sizes = sizes or (IMAGE_SIZES_HERO if hero else IMAGE_SIZES_DEFAULT)
 
     jpg_srcset = ", ".join(f"{v['jpg']} {v['width']}w" for v in variants)
@@ -729,10 +744,9 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
         if frame in IMAGE_FRAMES:
             fw, fh = IMAGE_FRAMES[frame]
             ratio = f"{fw} / {fh}"
-            fit = "cover" if (lifestyle and not is_cutout) else "contain"
         else:
             ratio = aspect_ratio_css(width, height)
-            fit = "contain" if is_cutout else "cover"
+        fit = image_fit(asset, frame=frame)
 
     classes = " ".join(
         c for c in (
@@ -838,6 +852,7 @@ def render_page(
     # block.html partials (loaded via {% include %}, not Python) can call
     # it too.
     env.globals["render_image_slot"] = render_image_slot
+    env.globals["image_fit"] = image_fit
 
     structure_css = load_structure_css()
     tenant_css = load_tenant_css(brand_dir, log)
@@ -1027,6 +1042,10 @@ def render_page(
         # never escape the blocks directory).
         block_choice=functools.partial(blocks.choice, page),
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
+        # Cycle 55: the header label ("Advertisement", "Sponsored", ...) is a
+        # tenant decision, not a template literal. Empty or unset renders no
+        # label at all; see docs/TENANT-ONBOARDING.md.
+        disclosure_label=str(tenant.get("disclosure_label") or "").strip(),
     )
 
     # Fix cycle 5 item 2: last line of defense -- a claim id printed in
