@@ -72,7 +72,9 @@ def _listicle_page(style):
                 "text": _filler_words(130, offset=i * 17),
                 "image": {"asset_id": _LISTICLE_ASSET_IDS[i]},
                 "proof": {
-                    "text": "One customer told us the room was warm before the kettle had boiled.",
+                    # Cycle 65: the fake-run listicle tests use the founder
+                    # fixture -- an attributed line must be his own words.
+                    "text": 'In the ad, he says: "I hated how confusing sauna shopping used to be."',
                     "attributed_to_customer": True,
                 },
             }

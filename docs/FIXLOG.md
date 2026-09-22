@@ -2555,3 +2555,123 @@ included, so the constraint that PDP must stay square was dropped.
 - `shape.radius`/`radius_note` in `tokens.json` and `tenant.yaml`'s
   `brand.radius` are hand-authored reference values only (`brand_import.py`:
   "a hand-authored reference document"); neither is read by the renderer.
+
+## Cycle 65 (quote fidelity + old-brand graphics filter, 2026-09-22)
+
+Live page listicle-test-1 (run `20260922-191713-hidden-costs-v2-55n2`,
+`$.reasons[0].proof`) published "One customer told us she almost gave up on
+her search entirely before finding a brand that just showed the number." with
+`attributed_to_customer: true`. The ad speaker said nothing like it. The
+claims gate only checked an attributed line's numbers and that it *read* as
+attributed, never what it claimed she said. Same pages also placed Shopify
+gallery infographics in the retired green look.
+
+1. **Quote-fidelity gate (`harness/quote_fidelity.py`, new).** For every
+   `attributed_to_customer` node: each sentence that reports the speaker (has
+   she/he/her/customer/said/says/told/"in the ad"/a quote) is scored with its
+   frame words removed -- lowercased, stopwords out, simple stemming -- as the
+   share of its distinct content words found in ONE contiguous window
+   (`max(n+4, 1.5n+2)` content words) of the transcript or one
+   `speaker_experience` line. Must be `>= 0.7`. A quoted span must score
+   `>= 0.9` (quotation marks promise her words). Author narration in the same
+   paragraph is not scored. Any embellishment word the speaker never used
+   ("almost", "nearly", "gave up", "finally", "life-changing", "every day",
+   "never", "always", "best", "only", "entirely", "completely", "totally",
+   "instantly", "forever", "obsessed", "love") fails the line outright. A
+   brand-voice ad (`speaker_pov` brand/none, e.g. a still) has no speaker, so
+   any attributed line fails.
+2. **Framing.** New tenant key `ad_speaker_is_verified_customer` (template
+   and peak-saunas: `false`). When false, "customer"/"buyer"/"owner"/
+   "purchaser"/"client" and "told us"/"wrote to us"/"shared with us"/"reached
+   out" fail -- nothing shows the person in the ad bought one or spoke to
+   the brand. "told us" fails even when true. Accepted frames: "In the ad,
+   she says ...", "As one shopper put it, ..." (plus "a customer said" / a
+   quote credited to a "<brand> customer" when true).
+   `claims.find_missing_attribution` now also accepts shopper/put it/in the
+   ad/says.
+3. **Wiring.** `claims.gate_page_json(..., ad_speaker_verified=)` runs it
+   when an ad_brief is given (pre-render; `repair.check_page_gates` passes
+   the tenant flag, so failures feed the writer repair loop under key
+   `quote_fidelity:<path>`). The issue text tells the writer to quote the
+   speaker's own words from `ad_brief.transcript_or_text` word for word, or
+   drop the attribution. `render.render_page` runs it again as a post-render
+   backstop. Writer prompt (`write.global_voice_block`, built from the tenant
+   flag) and the listicle/article/longform/product-page `cartridge.md` files
+   now give the allowed frames and "prefer her exact words in quotes"; the
+   old "One customer told us ..." examples are gone.
+4. **Threshold evidence** -- all 59 attributed nodes in 40 pages under
+   `tenants/peak-saunas/out/*/*/page.json` (lowest reported-sentence score,
+   embellishments found; trimmed):
+
+   | score | adds | text (start) |
+   |---|---|---|
+   | 0.00 | - | One customer told us the cedar scent alone made the sauna feel like a real room ... (still ad, no speaker) |
+   | 0.00 | - | One customer told us she had to reschedule installation because her outlet wasn't ... |
+   | 0.14 | loved | One customer told us she loved being able to preheat the sauna from the app ... |
+   | 0.17 | almost | One customer told us she almost bought a cheaper model before realizing ... |
+   | 0.25 | - | One customer told us the sauna fit perfectly into a spare bedroom without any construction. |
+   | 0.40 | never | One customer told us she liked that she never had to talk to anyone before deciding. |
+   | 0.45 | almost, gave up | One customer told us she almost gave up on her search after three sites in a row ... |
+   | 0.50 | almost, gave up, entirely | One customer told us she almost gave up on her search entirely ... (listicle-test-1) |
+   | 0.67 | - | One customer told us she liked that the price was right there without having to talk to anyone. |
+   | 0.71 | - | ... not having to talk to anyone was exactly the kind of buying experience she was looking for. |
+   | 0.73 | - | ... comparing a bunch of different sauna options and this one stood out because of its small footprint ... |
+   | 0.86 | - | ... she found all the information laid out right there and did not have to talk to anyone to get a price. |
+   | 1.00 | - | "I don't want to talk to anyone. Just tell me how much this costs," she told us. ... |
+
+   Faithful paraphrases land 0.71-0.86, verbatim quotes 1.00; the
+   listicle-test-1 embellishment 0.50; the 0.67 line merges two things she
+   said into one she did not. Cut at 0.7. The margin above 0.67 is thin, so
+   the embellishment list is the second, independent check. A false reject
+   costs one repair attempt (the writer then quotes her, 1.00). Every one of
+   the 59 existing lines also fails on framing ("customer"/"told us").
+5. **Old-brand graphics (`harness/brandcheck.py`, new; `harness images
+   brandcheck`).** On a 128 px copy: `green` = share of hue 90-170 deg,
+   saturation and value >= 0.25; `mint` = hue 90-170 deg, saturation
+   0.04-0.25, value >= 0.75; `flat` = share of the 6 most common colors (4
+   bits per channel). Green alone does not work -- product photos with the
+   cabin's green chromotherapy light on score up to 0.97 green, and
+   "Modern Infrared Luxury" only 0.005 (its mint is not saturated). Rule:
+   `(flat >= 0.7 and mint >= 0.2) or (flat >= 0.85 and green >= 0.04)`.
+   Whole pool (1,035 assets, 1,033 readable): the 20 flagged score mint
+   0.26-0.27 at flat 0.72-0.86 ("Modern Infrared Luxury", one per model) or
+   green 0.069-0.074 at flat 0.87-0.88 ("The essentials", one per model);
+   closest unflagged: a Drive photo of a lit panel, mint 0.18 at flat 0.61;
+   green-lit cabin photos, green 0.11-0.12 at flat 0.73-0.76; the "Free Gift
+   With This Model" graphics (teal, not green) green 0.024. Top 40 by green
+   were all green-lit product/studio photos -- none flagged.
+   The command writes `old_brand: true` + `old_brand_scores` into
+   `tenants/<t>/brand/asset-review.json` (Shopify entries keep the url rule:
+   a stale url is replaced, never re-pointed), clears the flag when an asset
+   no longer scores, and never deletes a file. `asset_review.excluded_ids`/
+   `apply_asset_review` treat `old_brand` like `excluded`, so every cartridge
+   (listicle, comparison, quiz, product-page -- all through
+   `LocalFactsSource.facts_for`) drops them; `serve.py`'s reviewer save keeps
+   the flag. Run for peak-saunas: 20 flagged (all Shopify: `-12`/`-14` for
+   denali, el-capitan, everest, fuji, kilimanjaro, rainier, shasta; `-12`/
+   `-14` shifted to `-13`/`-15` for patagonia, `-8`/`-10` for matterhorn,
+   `-9`/`-11` for mini). Fuji's facts_pack pool: 21 assets on master, 19
+   here, neither infographic.
+6. **Audit of the 12 live pages** (read-only). Quotes: listicle-test-1 (2
+   lines), -3 (2), -4 (1), -6 (1), -8 (2) fail -- every attributed line on
+   them; -2, -5, -7, -9, -10 have none; -11 (comparison) and -12 (quiz)
+   have none. Images: listicle-test-1, -4, -5 show fuji-12 and fuji-14; -2
+   fuji-12; -3 fuji-14; -6, -8, -10 mini-11; -7, -9, -11, -12 clean.
+7. **Tests.** `tests/test_quote_fidelity_cycle65.py` (22: the live
+   embellished line fails, a faithful paraphrase passes, a verbatim quote
+   passes, "told us" fails with the flag false, wiring through
+   gate_page_json/check_page_gates/revision note/writer prompt) and
+   `tests/test_brandcheck_cycle65.py` (10). Fixtures that used "One customer
+   told us ..." with no matching transcript now quote their own transcript
+   (`evals/fake_run.py`, `tests/test_listicle.py`, `tests/test_shopify_body.py`,
+   `tests/test_claims.py`). Full suite: 1757 passed (was 1725).
+
+### Open
+- The 12 live pages still carry the failing lines and images; they need a
+  re-write/re-render on this branch before republishing.
+- The same infographics are in each product's live Shopify gallery.
+- The teal "Free Gift With This Model" graphics carry the old "Peak Saunas"
+  logo but are not green, so they are not flagged.
+- Several vision-drafted alts on the flagged Shopify entries describe a
+  sauna photo, not the infographic -- the image order likely changed after
+  describe ran with the same url.

@@ -75,6 +75,13 @@ default_cartridge_pool: [article, product-page, longform]
 
 allow_ai_renders: false
 
+# Cycle 65: whether the person speaking in this tenant's ads is a verified
+# customer. false (the safe default): the page may quote what she says in the
+# ad, framed neutrally ("In the ad, she says ...", "As one shopper put it,
+# ..."), but never calls her a customer/buyer/owner or says she "told us"
+# anything. Set true only when every ad speaker is a confirmed buyer.
+ad_speaker_is_verified_customer: false
+
 # Cycle 30: per-cartridge overrides. article.warmup_window_words overrides
 # cartridges/article/schema.json's own default (600 words) -- the article
 # cartridge keeps pricing, the CTA, and the brand name out of this many

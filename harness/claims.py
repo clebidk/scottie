@@ -37,6 +37,7 @@ import json
 import re
 
 from . import config
+from . import quote_fidelity
 from . import tenant as tenant_mod
 from . import exits
 from . import vocab
@@ -811,9 +812,12 @@ def validate_page_claim_ids(page_json, valid_claim_ids, digit_exempt_terms=None,
     return problems
 
 
-_ATTRIBUTION_CUSTOMER_RE = re.compile(r"\bcustomer\b", re.IGNORECASE)
+# Cycle 65: "shopper" / "put it" / "in the ad" / "says" -- the neutral
+# frames (quote_fidelity.repair_instruction) a tenant whose ad speaker is not
+# a verified customer must use -- read as attributed too.
+_ATTRIBUTION_CUSTOMER_RE = re.compile(r"\b(?:customer|shopper)\b|\bput it\b|\bin the ad\b", re.IGNORECASE)
 _ATTRIBUTION_PRONOUN_RE = re.compile(r"\b(?:she|he|they)\b", re.IGNORECASE)
-_ATTRIBUTION_VERB_RE = re.compile(r"\btold us\b|\bestimated\b|\bsaid\b", re.IGNORECASE)
+_ATTRIBUTION_VERB_RE = re.compile(r"\btold us\b|\bestimated\b|\bsaid\b|\bsays\b", re.IGNORECASE)
 
 
 def _has_customer_attribution(text):
@@ -841,8 +845,9 @@ def find_missing_attribution(page_json):
                         {
                             "path": path,
                             "issue": 'attributed_to_customer item has no visible attribution -- the '
-                                     'sentence must contain "customer", or "she"/"he"/"they" plus '
-                                     '"told us"/"estimated"/"said"',
+                                     'sentence must read as the ad speaker\'s words: "In the ad, she says '
+                                     '...", "As one shopper put it, ...", or "she"/"he"/"they" plus '
+                                     '"said"/"says"/"estimated"',
                             "text": text,
                         }
                     )
@@ -1512,7 +1517,8 @@ def find_warmup_violations(page_json, tenant, window):
     return hits
 
 
-def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None, ad_brief=None):
+def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None, ad_brief=None,
+                   ad_speaker_verified=False):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
     digit_exempt_terms = facts_pack.get("digit_exempt_terms")
     # Fix cycle 11 problem A: only present when the caller has an ad_brief
@@ -1531,6 +1537,13 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_financing_violations(page_json, financing_lender=financing_lender)
     problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
     problems += find_missing_attribution(page_json)
+    # Cycle 65: an attributed line must also say what the speaker said --
+    # only checkable with her words in hand (same no-ad_brief contract as
+    # speaker_number_set above).
+    if ad_brief is not None:
+        problems += quote_fidelity.find_unfaithful_attribution(
+            page_json, ad_brief, ad_speaker_verified=ad_speaker_verified
+        )
     problems += find_proof_stats_violations(page_json)
     problems += find_comparison_table_violations(page_json)
     problems += find_second_cta_violation(page_json)

@@ -5,7 +5,7 @@ Audience temperature: cold. Reader does not know {{ tenant.name }} and did not p
 
 ## Structure (in order)
 1. Header block: the tenant's optional disclosure label (`disclosure_label`; none when unset), headline (curiosity or contrarian, no product name), dek (1 sentence), byline block, dates.
-2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. If the ad speaker is first person, tell it as a customer's story ("a customer told us...") -- never in the author's ({{ authors.author.name }}'s) own first person; see the global voice block.
+2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. If the ad speaker is first person, tell it as the ad speaker's story in her own words ("In the ad, she says ...") -- never in the author's ({{ authors.author.name }}'s) own first person; see the global voice block.
 3. Body: 3–5 H2 sections. Each answers one question the reader would ask next, with 2–3 full paragraphs of 3–4 sentences each (roughly 70 to 110 words per paragraph) -- not a one-paragraph, one-sentence answer. Education only. Never name {{ tenant.name }}, the product, or facts_pack.product.short_name anywhere in the body -- keep every section brand-free and product-name-free (warm-up window). Every body section must carry proof: at least one paragraph in each section needs a claim_id, or an attributed customer statement (attributed_to_customer: true, phrased as the customer's own words) -- a section of pure unsupported opinion is flagged in review (see Rules).
 4. Evidence: at least 2 cited facts from facts_pack.verified_claims, cited inline as "(source name, year)" -- never the raw URL; the renderer adds the link in the Sources list.
 5. Why the usual alternatives fall short: one H2 + 2–3 paragraphs (3–4 sentences each) on why the reader's obvious alternatives -- doing nothing, a generic/other brand, a DIY workaround -- don't actually solve the problem the open laid out. Objection-driven, still education, still no company or product name.
@@ -26,9 +26,10 @@ Audience temperature: cold. Reader does not know {{ tenant.name }} and did not p
 - The turn_section's "what to look for" criteria must include at least 1 product-benefit claim_id -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) from facts_pack.verified_claims -- not the price, shipping-policy, warranty-terms, or returns-policy claim_ids. The run STOPs if this minimum isn't met.
 - Images: 2–3 from the asset library, lifestyle over product, referenced by asset_id only -- the renderer derives alt text, never write your own "alt" field. No before/after, no clinical settings.
 - Voice: plain, specific, second person or first person. No exclamation marks. No "game-changer", "unlock", "elevate", "journey".
+- Attributed lines (`attributed_to_customer: true`): only the ad speaker's own words from ad_brief.transcript_or_text -- prefer a direct quote in quotation marks, word for word; a paraphrase adds nothing she did not say (no "almost", "finally", "gave up", "never", "best", "only", no outcome she did not state). Frame it "In the ad, she says ..." or "As one shopper put it, ..." -- never "told us", and never "customer"/"buyer"/"owner" unless the tenant marks its ad speaker as a verified customer (see the global voice block). The gate checks every attributed line against the transcript.
 
 ## From the ad
-Hook and angle → headline and open. Objections raised in the ad → body sections. Speaker's story → open, attributed to "a customer" (or facts_pack.speaker_name), never told in the author's own first person.
+Hook and angle → headline and open. Objections raised in the ad → body sections. Speaker's story → open, attributed to the ad speaker in her own words (see Attributed lines), never told in the author's own first person.
 
 ## From facts_pack
 Specs, price, financing, warranty, verified studies, reviews summary.

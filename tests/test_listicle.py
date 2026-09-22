@@ -464,10 +464,11 @@ def test_a_proof_line_with_neither_a_claim_id_nor_attribution_fails():
 def test_an_attributed_customer_proof_line_is_allowed():
     page = _listicle_page()
     page["reasons"][0]["proof"] = {
-        "text": "One customer told us the room was warm before the kettle had boiled.",
+        "text": 'In the ad, she says: "The room was warm before the kettle had boiled."',
         "attributed_to_customer": True,
     }
-    assert _gate(page, listicle_style="reasons") == []
+    brief = {**AD_BRIEF, "transcript_or_text": "The room was warm before the kettle had boiled."}
+    assert _gate(page, listicle_style="reasons", ad_brief=brief) == []
 
 
 def test_a_missing_hero_fails():

@@ -24,6 +24,7 @@ Audience temperature: warm to hot.
 - Wherever `financing_line` appears (hero or final_cta), its text must be exactly the allowed financing sentence given in the prompt's Financing rule -- verbatim, no monthly figure, APR, or lender name typed in by hand.
 - Images: 4–6 from the asset library, referenced by asset_id only -- the renderer derives alt text, never write your own "alt" field.
 - Voice: confident, specific, second person. No hype words, no fake urgency.
+- Attributed lines (`attributed_to_customer: true`): only the ad speaker's own words from ad_brief.transcript_or_text -- prefer a direct quote in quotation marks, word for word; a paraphrase adds nothing she did not say (no "almost", "finally", "gave up", "never", "best", "only", no outcome she did not state). Frame it "In the ad, she says ..." or "As one shopper put it, ..." -- never "told us", and never "customer"/"buyer"/"owner" unless the tenant marks its ad speaker as a verified customer (see the global voice block). The gate checks every attributed line against the transcript.
 
 ## From the ad
 Angle → hero. Objections → problem and FAQ. Features shown → how-it-works blocks.

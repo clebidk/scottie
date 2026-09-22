@@ -27,6 +27,7 @@ from . import looks as looks_mod
 from . import pagechecks
 from . import quiz as quiz_mod
 from . import pdp as pdp_mod
+from . import quote_fidelity
 from . import tenant as tenant_mod
 from .textutil import safe_filename, walk_page
 from .claims import (
@@ -1181,6 +1182,12 @@ def render_page(
     # EMF/leaked-claim-id defense-in-depth pattern rather than trusting the
     # earlier gate alone.
     hits += find_missing_attribution(page)
+    # Cycle 65: same backstop for the quote-fidelity gate -- an attributed
+    # line that embellishes what the ad speaker said never reaches a page.
+    if ad_brief is not None:
+        hits += quote_fidelity.find_unfaithful_attribution(
+            page, ad_brief, ad_speaker_verified=tenant.get("ad_speaker_is_verified_customer") is True
+        )
     if hits:
         raise ClaimsGateFailure(f"html_visible_text:{cartridge_name}", hits)
 
