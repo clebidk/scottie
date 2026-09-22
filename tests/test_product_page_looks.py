@@ -232,9 +232,10 @@ def test_the_compare_table_needs_two_models_and_shows_what_it_has(tmp_path):
 
 
 def test_the_disclosure_label_renders_only_when_the_tenant_sets_one(tmp_path):
-    assert 'class="pp-disclosure"' not in _render(tmp_path)
-    html = _render(tmp_path, tenant=_Pinned(disclosure_label="Advertisement"))
-    assert '<p class="pp-disclosure">Advertisement</p>' in html
+    body = _render(tmp_path).split("<body>", 1)[1]
+    assert "adv-badge" not in body
+    html = _render(tmp_path, tenant=_Pinned(disclosure_label="Paid Partnership"))
+    assert '<span class="adv-badge">Paid Partnership</span>' in html
 
 
 def test_renderer_owned_claims_join_the_sources_list(tmp_path):

@@ -4,7 +4,7 @@ Purpose: an editorial piece that a cold Meta reader accepts as a magazine articl
 Audience temperature: cold. Reader does not know {{ tenant.name }} and did not plan to buy today.
 
 ## Structure (in order)
-1. Header block: "Advertisement" label, headline (curiosity or contrarian, no product name), dek (1 sentence), byline block, dates.
+1. Header block: the tenant's optional disclosure label (`disclosure_label`; none when unset), headline (curiosity or contrarian, no product name), dek (1 sentence), byline block, dates.
 2. Open (2–3 short paragraphs): the reader's situation, taken from the ad's hook. If the ad speaker is first person, tell it as a customer's story ("a customer told us...") -- never in the author's ({{ authors.author.name }}'s) own first person; see the global voice block.
 3. Body: 3–5 H2 sections. Each answers one question the reader would ask next, with 2–3 full paragraphs of 3–4 sentences each (roughly 70 to 110 words per paragraph) -- not a one-paragraph, one-sentence answer. Education only. Never name {{ tenant.name }}, the product, or facts_pack.product.short_name anywhere in the body -- keep every section brand-free and product-name-free (warm-up window). Every body section must carry proof: at least one paragraph in each section needs a claim_id, or an attributed customer statement (attributed_to_customer: true, phrased as the customer's own words) -- a section of pure unsupported opinion is flagged in review (see Rules).
 4. Evidence: at least 2 cited facts from facts_pack.verified_claims, cited inline as "(source name, year)" -- never the raw URL; the renderer adds the link in the Sources list.

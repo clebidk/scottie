@@ -4,7 +4,7 @@ Purpose: a classic single-goal landing page for high-intent traffic. Hero → pr
 Audience temperature: warm to hot.
 
 ## Structure (in order)
-1. Header: "Advertisement" label, the tenant logo, sticky CTA bar (appears after the hero scrolls out).
+1. Header: the tenant's optional disclosure label (`disclosure_label`; none when unset), the tenant logo, sticky CTA bar (appears after the hero scrolls out).
 2. Hero: headline from the ad angle, subhead, an optional 3-stat proof row (`hero.proof_stats`, see Rules) directly under the subhead, hero image, financing line if the ad used price. CTA is `cta_text`/`cta_url` (top-level, see Rules) -- exactly one of schema.json's `allowed_cta_texts`, e.g. "See pricing", or a "Shop the ..." option; do not add a separate cta object here.
 3. Problem: H2 + 2–3 paragraphs on the reader's problem as the ad frames it, each paragraph 3–5 full sentences (roughly 60 to 100 words) -- not a one-line summary. Objections from the ad become the problem statements.
 4. How it works: H2 + 3 steps or 3 feature blocks, each with an image slot and step text of 3–4 full sentences (roughly 60 to 90 words), not a single-sentence caption. Technical facts from facts_pack.specs only. At least 3 steps combined must carry a product-benefit claim_id (see Rules).

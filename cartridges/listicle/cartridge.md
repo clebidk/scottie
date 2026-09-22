@@ -24,9 +24,9 @@ The style fixes the COPY. A second, independent dimension -- the LOOK -- fixes t
 
 | look | reference shape | what makes it look different |
 | --- | --- | --- |
-| editorial | publisher advertorial | one 680px column, serif display face and 19px serif body, "Sponsored content" eyebrow, author row under the H1, numbered subheads with inline full-width images, proof lines as pull-quote callouts, CTAs as links with one solid button mid-page and one at the end, plain Q/A FAQ, no sticky bar |
+| editorial | publisher advertorial | one 680px column, serif display face and 19px serif body, an eyebrow carrying the tenant's `disclosure_label` (none when unset), author row under the H1, numbered subheads with inline full-width images, proof lines as pull-quote callouts, CTAs as links with one solid button mid-page and one at the end, plain Q/A FAQ, no sticky bar |
 | cards | DTC listicle | two-column hero, alternating image/text cards on soft bands, big numerals, micro-CTAs after items 2 and 4, sticky bottom bar |
-| pillars | image-led band lander | every item a full-width band with a 3:2 edge-to-edge image, an uppercase pillar label over the H2, narrow copy under the picture, proof lines as badges, hero headline reversed out over the image, `<details>` FAQ, horizontal model cards, sticky proof bar |
+| pillars | image-led band lander | every item a full-width band with a 3:2 edge-to-edge image (a product cut-out instead gets a two-column band, image on a panel 40% / copy 60%, and a cut-out hero a split hero), an uppercase pillar label over the H2, narrow copy under the picture, proof lines as badges, hero headline reversed out over the image, `<details>` FAQ, horizontal model cards, sticky proof bar |
 | scorecard | evidence buyer's guide | a trust row of bordered verified facts, every item a bordered "claim vs what the facts say" panel with a check line and an evidence label chip, a summary table before the FAQ, a closing CTA band carrying the warranty sentence, no sticky bar |
 | lander | product lander | wide 1100px two-column hero with eyebrow, dual CTA (button + ghost link, same url) and trust line, items as a 2-up grid of panels with a 4:3 thumbnail and a numeral chip, check/cross audience-fit columns, three model cards, `<details>` FAQ, dark closing band, sticky bar on phones only |
 
@@ -34,8 +34,25 @@ The look is never written by the writer. It resolves in `harness/listicle.py`'s 
 
 Each look scopes its own `<style>` block under `.adv-listicle.look-<name>` and owns a class prefix nothing else uses (`ed-`, `lst-`, `pil-`, `sc-`, `ld-`), so two looks can never collide; `tests/test_listicle_looks.py` asserts the prefixes stay disjoint and that no two looks render the same set of section classes. The `cards` look keeps its original `.lst-*` rules unprefixed, since that namespace was already its alone and re-writing 130 working selectors would be churn.
 
+## Rhythm (cycle 55)
+One vertical scale for every look, as `--pk-*` tokens on each look's root so no look names a spacing number twice:
+
+| token | desktop | phone (<=600px) | what it spaces |
+| --- | --- | --- | --- |
+| `--pk-gap` | 40px | 32px | a section's top and bottom padding; FAQ 40/40 |
+| `--pk-item-gap` | 32px | 32px | items inside a list (editorial items, scorecard panels, the lander grid, micro-CTA rows) |
+| `--pk-hero-top` | 32px | 32px | the hero's top padding (its bottom is `--pk-gap`, so hero 32/40) |
+| `--pk-close-gap` | 48px | 48px | the closing band, top and bottom |
+| `--pk-panel-pad` / `--pk-panel-img` | 24px / 420px | 24px / 300px | the panel a product cut-out sits on, and the tallest the image may be |
+
+Sections have no margin between them: adjacent bands touch and alternating grounds do the separating. Where two sections share one ground (editorial throughout; the scorecard and lander middles; two plain pillars sections in a row) only one side carries the gap, so the space between them is one `--pk-gap`, never two.
+
+Image framing follows `harness/render.py`'s `image_fit`: a product cut-out (the white-border detector) is always contained, whole and centred, on a panel of the muted ground (`--ps-bg-muted`) -- never a full-bleed cover band and never behind an overlay. Only an image that fills its frame keeps a cover treatment (pillars' 3:2 band, capped at 480px; its overlay hero, capped at 560px).
+
+A top-level section should stay under 700px at a 1280px viewport unless it carries 3+ images or 1,200+ characters.
+
 ## Structure (in order)
-1. Header: the "Advertisement" label, H1 headline, one-line dek, hero image (`hero.asset_id`), the primary CTA button, a trust line under it, and the byline.
+1. Header: the tenant's optional disclosure label (`disclosure_label` in tenant.yaml; nothing renders when it is unset), H1 headline, one-line dek, hero image (`hero.asset_id`), the primary CTA button, a trust line under it, and the byline.
 2. 5-7 numbered items (`reasons`). Each: number, an H2 heading (<=10 words, no numeral), a 50-150 word body, one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
 3. A pull-quote band after item 3, when this run's facts pack carries a customer quote.
 4. "Who this is for / who it is not for" (`audience_fit`): two lists of 2-4 one-line entries.

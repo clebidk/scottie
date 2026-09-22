@@ -18,7 +18,7 @@
 </style>
 <div class="adv-comparison">
   <header class="adv-comparison-header">
-    <p class="adv-badge">Advertisement</p>
+    {% if disclosure_label %}<p class="adv-badge">{{ disclosure_label }}</p>{% endif %}
     <p class="adv-eyebrow">{{ page.eyebrow }}</p>
     <h1>{{ page.headline }}</h1>
     <p class="adv-dek">{{ page.subhead }}</p>

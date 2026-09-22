@@ -44,9 +44,13 @@ product_display_strip_prefix: ""
 # after the model's own fit line. "" shows the fit line alone.
 product_category: ""
 
+# Optional header label shown above the headline on every page, e.g.
+# "Advertisement" or "Sponsored" when the publisher's policy requires one.
+# Empty (the default) renders no label at all. See docs/TENANT-ONBOARDING.md.
+disclosure_label: ""
+
 disclosure_text: >-
-  This page is an advertisement published by {tenant_name}, which sells the
-  products described. Every specific claim on this page is sourced; see Sources
+  This page is published by {tenant_name}, which sells the products described. Every specific claim on this page is sourced; see Sources
   below. Prices were current as of the publish date above and may have changed
   since.
 

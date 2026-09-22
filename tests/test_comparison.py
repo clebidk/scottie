@@ -227,7 +227,8 @@ def test_comparison_renders_through_blocks(tmp_path):
         download_assets=False,
     )
     html = index_path.read_text()
-    assert "Advertisement" in html
+    # cycle 55: Peak sets no disclosure_label, so no header label renders
+    assert "Advertisement" not in html
     assert '"@type": "FAQPage"' in html
     # the table block rendered the sourced cells
     assert "Peak Mini" in html

@@ -63,12 +63,11 @@
 .adv-product-page.look-pdp .adv-img--cover{object-fit:cover}
 .adv-product-page.look-pdp .pp-measure{max-width:var(--pp-measure);margin:0 auto;padding:0 20px;width:100%}
 
-/* top bar: logo, and the disclosure label only when the tenant sets one */
+/* top bar: logo, and the disclosure label (render_page's disclosure_label,
+   tenant.yaml) only when the tenant sets one */
 .adv-product-page.look-pdp .pp-top{border-bottom:1px solid var(--pp-rule)}
 .adv-product-page.look-pdp .pp-top-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px}
 .adv-product-page.look-pdp .adv-brand-logo{height:22px;width:auto}
-.adv-product-page.look-pdp .pp-disclosure{margin:0;font-size:var(--pp-eyebrow-size);letter-spacing:var(--pp-eyebrow-spacing);
-  text-transform:uppercase;color:var(--pp-eyebrow-color)}
 
 /* 1. gallery + buy panel */
 .adv-product-page.look-pdp .pp-hero{padding:20px 0 var(--pp-gap)}
@@ -205,7 +204,7 @@
   <header class="pp-top">
     <div class="pp-measure pp-top-inner">
       {% if logo_url %}<img src="{{ logo_url }}" alt="{{ tenant_name }} logo" class="adv-brand-logo"{% if logo_w %} width="{{ logo_w }}" height="{{ logo_h }}"{% endif %}>{% endif %}
-      {% if d.disclosure_label %}<p class="pp-disclosure">{{ d.disclosure_label }}</p>{% endif %}
+      {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
     </div>
   </header>
 

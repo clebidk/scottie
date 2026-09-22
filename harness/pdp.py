@@ -327,7 +327,6 @@ def render_context(page, facts_pack, assets, gallery_ids, benefit_ids=(), *, ten
         "review_quote": listicle.pull_quote(facts_pack),
         "benefits": benefit_blocks(page, assets, list(benefit_ids)),
         "ghost_cta": ghost_cta(page, tenant),
-        "disclosure_label": tenant.get("disclosure_label") or "",
     }
     return ctx
 
