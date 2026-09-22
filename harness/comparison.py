@@ -96,6 +96,9 @@ ROWS = {
     },
     "red_light": {
         "label": "Red light therapy",
+        # (cycle 60: the table's heat/light row -- every model states it;
+        # "heaters" below is missing for some models, so it stays a cell the
+        # writer can cite, not a row)
         "suffixes": ("red-light", "rlt"),
         "patterns": (re.compile(r"therapy:\s*([^,.]+,\s*\d+\s+\w+\s+panels?)", re.IGNORECASE),),
     },
@@ -112,14 +115,13 @@ ROWS = {
             _label_value("requirement"),
         ),
     },
-    # Writer-pickable extra rows (EXTRA_ROWS below).
     "max_temperature": {
         "label": "Max temperature",
         "suffixes": ("max-temperature",),
         "patterns": (_label_value("temperature"),),
     },
     "cabin_material": {
-        "label": "Cabin wood",
+        "label": "Wood",
         "suffixes": ("cabin-material", "wood"),
         "patterns": (
             _label_value("material"),
@@ -142,11 +144,13 @@ ROWS = {
     },
 }
 
-# The rows every page carries, in table order (price and warranty close it).
-FIXED_ROWS = ("capacity", "dimensions", "placement", "infrared", "red_light", "controls", "power")
-# The rows the writer may add, 1-2 of them, by the ad's angle.
-EXTRA_ROWS = ("max_temperature", "cabin_material", "heaters", "audio")
-EXTRA_ROW_RANGE = (1, 2)
+# Cycle 60: the table is the 8 rows a buyer decides on, in this order, and
+# nothing else (price and warranty close it). v1 drew 9-11 rows -- 7 fixed
+# plus 1-2 the writer picked -- which made the table a spec dump. Every key
+# in ROWS still becomes a cell in facts_pack.comparison, so the writer can
+# cite a model's placement, wavelength range, app or audio claim in prose;
+# only these rows are drawn.
+FIXED_ROWS = ("capacity", "dimensions", "power", "red_light", "max_temperature", "cabin_material")
 PRICE_ROW = "price"
 WARRANTY_ROW = "warranty"
 ROW_LABELS = {key: spec["label"] for key, spec in ROWS.items()}
@@ -159,6 +163,9 @@ ALTERNATIVE_LIST_RANGE = (2, 3)
 FAQ_COUNT_RANGE = (5, 7)
 NUMBERS_MEAN_COUNT = 3
 RECAP_BULLET_COUNT = 3
+# Cycle 60: the header dek and each best-for line are one short line each.
+DEK_MAX_WORDS = 22
+BEST_FOR_MAX_WORDS = 14
 
 # page.json keys for sections the RENDERER owns. A writer that invents one
 # is rejected rather than quietly overriding data that must come from
@@ -184,9 +191,71 @@ def allowed_alternatives():
 
 
 def alternative_label(alternative_id):
-    """"far-infrared-only cabin" -> "Far-Infrared-Only Cabin" (a display
-    heading; the id itself is what the writer and the gate agree on)."""
-    return alternative_id.title()
+    """"far-infrared-only cabin" -> "Far-infrared-only cabin" (a display
+    heading in sentence case; the id itself is what the writer and the gate
+    agree on)."""
+    return alternative_id[:1].upper() + alternative_id[1:]
+
+
+# Cycle 60: sentence case. Words a sentence-case headline leaves lower case
+# even in a title-case writer's hands, so they never count either way.
+_MINOR_WORDS = frozenset({
+    "a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to", "vs", "with",
+})
+# A capitalised ordinary word: "Home", "At-Home", "Buyer's". Not an acronym
+# ("HSA", "RLT"), not a mixed-case name ("iOS"), not a number token.
+_CAPITALISED_WORD_RE = re.compile(r"^[A-Z][a-z'’]+(?:-[A-Za-z][a-z'’]*)*$")
+
+
+def _headline_words(headline):
+    return re.findall(r"[A-Za-z0-9][\w'’-]*", headline or "")
+
+
+def _proper_words(proper_names):
+    words = set()
+    for name in proper_names or ():
+        words.update(w.lower() for w in _headline_words(str(name)))
+    return words
+
+
+def _capitalised_positions(headline, proper_names):
+    """Indexes (into _headline_words) of every capitalised ordinary word
+    after the first word -- the words sentence case would write lower
+    case. Proper names (model and tenant names) never count."""
+    proper = _proper_words(proper_names)
+    positions = []
+    for i, word in enumerate(_headline_words(headline)):
+        if i == 0 or word.lower() in proper or word.lower() in _MINOR_WORDS:
+            continue
+        if _CAPITALISED_WORD_RE.match(word):
+            positions.append(i)
+    return positions
+
+
+def is_title_case(headline, proper_names=()):
+    """True when the headline capitalises ordinary words the way a title
+    does ("Which Home Infrared Cabin Fits ..."). Two or more capitalised
+    ordinary words after the first word is title case; one is allowed, since
+    it can be a proper name nothing here knows (a place, a wood)."""
+    return len(_capitalised_positions(headline, proper_names)) >= 2
+
+
+def display_headline(headline, proper_names=()):
+    """The headline as the page shows it: a title-case headline (a page
+    written before cycle 60) in sentence case, every other headline exactly
+    as written. A CASE rule, like brand.headline_case upper: no word is
+    added, removed or reordered, and the gate still reads page.json."""
+    if not is_title_case(headline, proper_names):
+        return headline
+    lower = set(_capitalised_positions(headline, proper_names))
+    out, index, pos = [], 0, 0
+    for m in re.finditer(r"[A-Za-z0-9][\w'’-]*", headline):
+        out.append(headline[pos:m.start()])
+        word = m.group(0)
+        out.append(word.lower() if index in lower else word)
+        pos, index = m.end(), index + 1
+    out.append(headline[pos:])
+    return "".join(out)
 
 
 def _alternative_re(alternative_id):
@@ -260,19 +329,17 @@ def build_model_cells(name_slug, claims_by_id, price_claim):
 
 
 def row_catalog():
-    """What facts_pack.comparison tells the writer about the table: the
-    fixed rows, and the extra rows it may pick 1-2 of."""
+    """What facts_pack.comparison tells the writer about the table: its
+    rows, in order. The writer picks none of them (cycle 60)."""
     return {
         "fixed_rows": [{"key": k, "label": ROW_LABELS[k]} for k in FIXED_ROWS]
         + [{"key": PRICE_ROW, "label": ROW_LABELS[PRICE_ROW]},
            {"key": WARRANTY_ROW, "label": vocab.ALLOWED_WARRANTY_SPEC_LABEL or "Warranty"}],
-        "extra_row_options": [{"key": k, "label": ROW_LABELS[k]} for k in EXTRA_ROWS],
     }
 
 
 # ---------------------------------------------------------------------------
-# Renderer-owned sections, built from facts_pack alone (plus the writer's
-# extra-row pick, which is a key from a fixed list, never a value)
+# Renderer-owned sections, built from facts_pack alone
 # ---------------------------------------------------------------------------
 
 def _models(facts_pack):
@@ -280,23 +347,15 @@ def _models(facts_pack):
     return [m for m in block.get("models") or [] if isinstance(m, dict)]
 
 
-def _extra_row_keys(page):
-    keys = []
-    for entry in (page or {}).get("extra_rows") or []:
-        key = entry.get("id") if isinstance(entry, dict) else entry
-        if key in EXTRA_ROWS and key not in keys:
-            keys.append(key)
-    return keys[: EXTRA_ROW_RANGE[1]]
-
-
-def table_rows(facts_pack, page=None):
+def table_rows(facts_pack):
     """[{"key", "label", "cells": [cell per model]}] in table order. A row
     no model has a verified value for is dropped rather than drawn as a line
-    of dashes -- it tells a reader nothing."""
+    of dashes -- it tells a reader nothing. Since cycle 60 the writer picks
+    no rows; an older page.json's "extra_rows" is ignored."""
     models = _models(facts_pack)
     if not models:
         return []
-    keys = list(FIXED_ROWS) + _extra_row_keys(page) + [PRICE_ROW, WARRANTY_ROW]
+    keys = list(FIXED_ROWS) + [PRICE_ROW, WARRANTY_ROW]
     rows = []
     for key in keys:
         cells = [(m.get("cells") or {}).get(key) or {"text": MISSING, "claim_ids": []} for m in models]
@@ -318,11 +377,12 @@ def column_assets(facts_pack):
     return assets
 
 
-def render_context(facts_pack, page, financing_lender=None):
+def render_context(facts_pack, page, financing_lender=None, tenant_name=None):
     """Everything cartridges/comparison/template.html renders that came
-    from facts_pack rather than from the writer. `claim_ids` is every id
-    the renderer itself cites, so the Sources list covers the table too."""
-    rows = table_rows(facts_pack, page)
+    from facts_pack rather than from the writer, plus the headline as the
+    page shows it (display_headline). `claim_ids` is every id the renderer
+    itself cites, so the Sources list covers the table too."""
+    rows = table_rows(facts_pack)
     trust = trust_line_items(facts_pack)
     rating = rating_line(facts_pack)
     hsa = hsa_claim(facts_pack)
@@ -346,8 +406,17 @@ def render_context(facts_pack, page, financing_lender=None):
         claim_ids.update(item.get("claim_ids") or ())
     if hsa:
         claim_ids.add(hsa["id"])
+    # Each column head shows its model's price: the price row's own cell
+    # (already cited above), never a second reading of the claim.
+    price_row = next((r for r in rows if r["key"] == PRICE_ROW), None)
+    head_models = [
+        dict(m, price=cell["text"] if cell.get("claim_ids") else None)
+        for m, cell in zip(models, price_row["cells"] if price_row else [{}] * len(models), strict=True)
+    ]
+    proper_names = [tenant_name] + [m.get("name") for m in models]
     return {
-        "models": models,
+        "headline": display_headline((page or {}).get("headline") or "", proper_names),
+        "models": head_models,
         "rows": rows,
         "trust_items": trust,
         "rating_line": rating,
@@ -401,8 +470,8 @@ def find_table_violations(context, facts_pack):
 def headline_formula(axis, models=None):
     names = [m.get("name") for m in (models or [])] or ["<Model A>", "<Model B>", "<Model C>"]
     if axis == "models":
-        return f"{' vs '.join(names)}: Which <category> Fits <audience>"
-    return "<category> vs <alternative>: What <audience> Should Compare"
+        return f"{' vs '.join(names)}: which <category> fits <audience>"
+    return "<category> vs <alternative>: what <audience> should compare"
 
 
 def writer_lines(facts_pack):
@@ -431,12 +500,20 @@ def writer_lines(facts_pack):
         "<alternative> is one of the alternatives you chose, in its own words. <category> is the "
         "product category, never the tenant's name or a model name. <audience> names people by "
         "situation or goal, 2-5 words, never a bare \"people\" or \"buyers\".",
-        "The comparison table, the trust line, the rating line, the warranty and financing "
-        "sentences, the HSA/FSA line and the sticky bar are drawn by the renderer from facts_pack "
-        "-- never write any of them, and never write a warranty or financing sentence anywhere.",
-        f'"extra_rows": pick {EXTRA_ROW_RANGE[0]}-{EXTRA_ROW_RANGE[1]} of '
-        f"{list(EXTRA_ROWS)} as [{{\"id\": \"<key>\"}}] -- the rows this ad's angle makes worth a "
-        "look. Read each model's cells in facts_pack.comparison.models to see what they say.",
+        "Headline in sentence case: capitalize the first word and proper names (model names, "
+        "the tenant's name) only -- never title case.",
+        f'"dek": one plain sentence of at most {DEK_MAX_WORDS} words. Each "best_for" line: at most '
+        f"{BEST_FOR_MAX_WORDS} words naming who that model suits.",
+        "Voice: calm and specific. Open every section with its point -- no filler intro "
+        "(\"When it comes to\", \"Whether you're\", \"Let's take a look\"). No lists of three "
+        "adjectives or three parallel phrases in a row (\"X, Y, and Z\") -- name the one or two "
+        "that matter. No exclamation marks.",
+        "The comparison table (its rows are fixed: capacity, footprint, power, red light, max "
+        "temperature, wood, price, warranty), the trust line, the rating line, the warranty and "
+        "financing sentences, the HSA/FSA line and the sticky bar are drawn by the renderer from "
+        "facts_pack -- never write any of them, and never write a warranty or financing sentence "
+        "anywhere. Read each model's cells in facts_pack.comparison.models for the values and "
+        "their claim ids.",
         f'"alternatives": {ALTERNATIVE_RANGE[0]}-{ALTERNATIVE_RANGE[1]} entries, each "id" one of '
         f"{list(alternatives)}. An alternative's summary, similarities and the alternative side "
         "of each difference contain NO digits, dollar amounts or percentages at all -- nothing "
@@ -449,9 +526,10 @@ def writer_lines(facts_pack):
         "rows mean for a buyer, each citing the claim_ids of the cells it reads from.",
         f'FAQ: {FAQ_COUNT_RANGE[0]}-{FAQ_COUNT_RANGE[1]} questions; an answer with a number, price, '
         'spec or trigger word carries claim_ids. Closing "recap": exactly 3 bullets.',
-        '"hero": the featured model\'s hero image; "lifestyle": one lifestyle photo -- both '
-        "asset ids from facts_pack.assets, different from each other and from every model's "
-        "column image id in facts_pack.comparison.models[].image.id.",
+        '"hero": the featured model\'s hero image -- a room or installation photo of that model '
+        "when facts_pack.assets has one, else its product shot; \"lifestyle\": one lifestyle "
+        "photo -- both asset ids from facts_pack.assets, different from each other and from every "
+        "model's column image id in facts_pack.comparison.models[].image.id.",
     ]
     return lines
 
@@ -675,14 +753,49 @@ def find_section_count_violations(page):
             "$.closing.recap", "comparison:recap",
             f"closing recap has {len(recap)} bullets; it must have exactly {RECAP_BULLET_COUNT}",
         ))
-    extra = _entries(page.get("extra_rows"))
-    keys = [e.get("id") if isinstance(e, dict) else e for e in extra]
-    lo, hi = EXTRA_ROW_RANGE
-    if not lo <= len(keys) <= hi or any(k not in EXTRA_ROWS for k in keys) or len(set(keys)) != len(keys):
+    return problems
+
+
+def find_headline_case_violations(page, models, tenant_name=None):
+    """Cycle 60: the headline is sentence case -- a title-case headline
+    (is_title_case) fails, naming the words to write in lower case."""
+    headline = page.get("headline") or ""
+    names = [tenant_name] + [m.get("name") for m in models]
+    if not isinstance(headline, str) or not is_title_case(headline, names):
+        return []
+    return [_problem(
+        "$.headline", "comparison:headline_case",
+        f"headline {headline!r} is in title case; write it in sentence case -- capitalize the first "
+        f"word and proper names only: {display_headline(headline, names)!r}",
+    )]
+
+
+def _word_count(text):
+    return len(re.findall(r"\S+", text or ""))
+
+
+def find_copy_length_violations(page):
+    """Cycle 60: the dek is one line of at most DEK_MAX_WORDS words, and
+    each best-for line at most BEST_FOR_MAX_WORDS."""
+    problems = []
+    dek = page.get("dek")
+    dek_text = dek.get("text") if isinstance(dek, dict) else dek
+    if isinstance(dek_text, str) and _word_count(dek_text) > DEK_MAX_WORDS:
         problems.append(_problem(
-            "$.extra_rows", "comparison:extra_rows",
-            f"extra_rows is {keys}; pick {lo}-{hi} different keys from {list(EXTRA_ROWS)}",
+            "$.dek.text", "comparison:dek_length",
+            f"dek is {_word_count(dek_text)} words; keep it to one plain sentence of at most "
+            f"{DEK_MAX_WORDS} words",
+            text=dek_text,
         ))
+    for i, entry in enumerate(_entries(page.get("best_for"))):
+        text = entry.get("text") if isinstance(entry, dict) else None
+        if isinstance(text, str) and _word_count(text) > BEST_FOR_MAX_WORDS:
+            problems.append(_problem(
+                f"$.best_for[{i}].text", f"comparison:best_for_length:{i}",
+                f"best_for[{i}] is {_word_count(text)} words; name who this model suits in at most "
+                f"{BEST_FOR_MAX_WORDS} words",
+                text=text,
+            ))
     return problems
 
 
@@ -738,6 +851,8 @@ def find_comparison_violations(page, facts_pack, tenant_name=None, allowlist=Non
     product_names = list(product_names) + [m.get("name") for m in models if m.get("name")]
     problems = []
     problems += find_axis_and_headline_violations(page, models, chosen, tenant_name, product_names)
+    problems += find_headline_case_violations(page, models, tenant_name)
+    problems += find_copy_length_violations(page)
     problems += find_alternative_violations(page, allowlist)
     problems += find_per_model_violations(page, models, "best_for")
     problems += find_per_model_violations(page, models, "who_for")

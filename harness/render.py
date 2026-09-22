@@ -906,6 +906,7 @@ def render_page(
     if cartridge_name == "comparison":
         comparison_context = comparison_mod.render_context(
             facts_pack, page, financing_lender=(product.get("financing") or {}).get("lender"),
+            tenant_name=tenant.display_name,
         )
         used_claim_ids |= comparison_context["claim_ids"]
         for asset in comparison_mod.column_assets(facts_pack):

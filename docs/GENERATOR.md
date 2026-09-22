@@ -285,13 +285,14 @@ claims-safe comparison lander on two axes, both from verified facts only:
   tenant's side (`ours`) is `{text, claim_ids}` and claims-gated.
 
 The writer picks `axis: models|alternatives`, which fixes the headline
-formula (`<A> vs <B> vs <C>: Which <category> Fits <audience>` or
-`<category> vs <alternative>: What <audience> Should Compare`). Gates live in
+formula, in sentence case since cycle 60 (`<A> vs <B> vs <C>: which <category> fits <audience>` or
+`<category> vs <alternative>: what <audience> should compare`). Gates live in
 `harness/comparison.py` (`find_comparison_violations`, stable
 `comparison:*` keys: axis, headline_formula, headline_slots,
 alternatives_count/allowlist, alternative_digits, alternative_claims,
-best_for, who_for, faq_count/faq_claims, numbers_mean, recap, extra_rows,
-images, renderer_owned); competitor and retired names stay the existing
+best_for, who_for, faq_count/faq_claims, numbers_mean, recap, headline_case,
+dek_length, best_for_length, images, renderer_owned; cycle 60 removed
+extra_rows -- the table is eight fixed rows); competitor and retired names stay the existing
 forbidden-vocab gate's job. `render_page` adds the table's claim ids to
 Sources (each model's facts fall back to that model's own page) and runs
 `find_table_violations` as a post-render backstop. The approved-competitor
