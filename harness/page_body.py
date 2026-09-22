@@ -14,6 +14,7 @@ import json
 import re
 from pathlib import Path
 
+from . import css_scope
 from . import tenant as tenant_mod
 
 _ROOT_BLOCK_RE = re.compile(r":root\s*\{([^}]*)\}", re.DOTALL)
@@ -181,6 +182,20 @@ def extract_page_css(body_html):
     return remaining, "\n\n".join(p for p in css_parts if p)
 
 
+def extract_head_css(html):
+    """Cycle 59: the CSS of every <style> block in the document HEAD --
+    harness/structure.css and the tenant's brand/base.css, exactly as the
+    review page was styled by them. A storefront keeps only the body, so
+    without this the export lost every element and structure rule those
+    sheets give (heading fonts and sizes, link and table styling, the
+    .adv-footer band) and the theme's own rules filled the gap."""
+    head_end = html.lower().find("</head>")
+    if head_end == -1:
+        return ""
+    parts = [c.strip() for c in _STYLE_BLOCK_RE.findall(html[:head_end])]
+    return "\n\n".join(p for p in parts if p)
+
+
 def extract_motion_script(body_html):
     """(remaining_html, script_html_or_None) -- the IntersectionObserver
     reveal-on-scroll script (present on any cartridge whose template
@@ -302,18 +317,33 @@ def build_shopify_body(cartridge_dir):
     body, page_css = extract_page_css(body)
     body, motion_script = extract_motion_script(body)
     body = relativize_internal_links(body).strip()
+    # Cycle 59: inline style attributes lose their rem too (the theme's
+    # root font size must not reach any length of ours).
+    body = css_scope.rem_to_px_in_style_attrs(body)
 
     theme_css = full_bleed_css()
     tokens = token_css()
     fonts = font_face_css()
+    # Cycle 59: the storefront-fit layers (harness/css_scope.py). The fit
+    # rules and the isolation reset are fixed text; the review page's head
+    # sheets and the cartridge's own CSS are scoped to the wrapper with two
+    # extra classes of specificity, head first (the order they had on the
+    # review page). :root and @font-face are dropped from the head copy --
+    # token_css and font_face_css above already carry them.
+    roots = css_scope.root_classes_of(body)
+    head_css = css_scope.scope_css(extract_head_css(html), roots, drop=(":root", "@font-face"))
+    page_css = css_scope.scope_css(page_css, roots) if page_css else ""
     style_block = "<style>\n" + theme_css
     # theme rules first (tests and operators expect the export to open with
     # them), then the tenant's @font-face rules, then the re-scoped head
-    # tokens, then the cartridge's own CSS.
-    for chunk in (fonts, tokens, page_css):
+    # tokens, then the storefront fit + isolation reset, then the review
+    # page's head stylesheets, then the cartridge's own CSS.
+    for chunk in (fonts, tokens, css_scope.STOREFRONT_FIT_CSS, css_scope.ISOLATION_RESET_CSS, head_css, page_css):
         if chunk:
             style_block += ("\n\n" if style_block.rstrip("\n") != "<style>" else "") + chunk
     style_block += "\n</style>"
+    # every rem in the export's CSS -> px at 16px (the theme sets html to 10px)
+    style_block = css_scope.rem_to_px(style_block)
 
     parts = [style_block, body]
     if motion_script:
