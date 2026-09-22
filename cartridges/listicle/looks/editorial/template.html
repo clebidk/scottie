@@ -1,14 +1,19 @@
 {% extends "base.html" %}
 {# LOOK: editorial (cycle 51) -- the publisher-article look, built from the
-   advertorial references in the lander pack: a "Sponsored content" eyebrow,
-   an author row with the date under the H1, a lede, then numbered subheads
+   advertorial references in the lander pack: an eyebrow carrying the
+   tenant's disclosure_label (when it sets one), an author row with the date under the H1, a lede, then numbered subheads
    with inline images and pull-quote callouts.
 
    What makes it visually distinct from the other four: ONE 680px column all
    the way down (no grid anywhere), a serif display face and a 19px serif
    body, no cards, no bands, no sticky bar, and CTAs that read as links in
    running text rather than as buttons -- one solid button mid-page and one
-   at the end are the only two buttons on the page. #}
+   at the end are the only two buttons on the page.
+
+   Cycle 55: one column on one ground, so each block carries only a BOTTOM
+   gap (two blocks never stack two paddings). A product cut-out
+   (image_fit(...) == "contain") sits whole on a muted panel, never as a
+   full-width picture; the hero image is its own block under the masthead. #}
 {% block title %}{{ page.headline }}{% endblock %}
 {% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
@@ -47,7 +52,13 @@
   --pk-eyebrow-color:var(--ps-eyebrow-color,var(--pk-accent));
   --pk-radius:var(--ps-radius-card,4px);
   --pk-measure:680px;
-  --pk-gap:48px;
+  /* Cycle 55 rhythm (cartridges/listicle/cartridge.md "Rhythm") */
+  --pk-gap:40px;
+  --pk-item-gap:32px;
+  --pk-hero-top:32px;
+  --pk-close-gap:48px;
+  --pk-panel-pad:24px;
+  --pk-panel-img:420px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
   font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
@@ -68,7 +79,8 @@
 /* the single column: one measure, top to bottom, at every width */
 .adv-listicle.look-editorial .ed-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
 
-.adv-listicle.look-editorial .ed-masthead{padding:24px 0 8px}
+.adv-listicle.look-editorial .ed-masthead{padding:var(--pk-hero-top) 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-masthead .ed-measure>:last-child{margin-bottom:0}
 .adv-listicle.look-editorial .ed-eyebrow{margin:0 0 14px;font-size:var(--pk-eyebrow-size);
   letter-spacing:var(--pk-eyebrow-spacing);
   text-transform:uppercase;font-weight:700;color:var(--pk-eyebrow-color)}
@@ -86,11 +98,18 @@
 .adv-listicle.look-editorial .ed-trust{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;
   margin:0 0 24px;padding:0;font-size:.875rem;color:var(--pk-muted)}
 .adv-listicle.look-editorial .ed-trust li{margin:0}
-.adv-listicle.look-editorial .ed-hero-fig{margin:0 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-hero{padding:0 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-hero-fig{margin:0}
 .adv-listicle.look-editorial .ed-hero-fig .adv-img{max-height:420px}
+/* the contained-image panel: a cut-out sits whole on the muted ground,
+   centred, never cropped. The masthead's panel is 480px tall at most. */
+.adv-listicle.look-editorial .ed-panel{display:flex;align-items:center;justify-content:center;
+  padding:var(--pk-panel-pad);background:var(--pk-band);border-radius:var(--pk-radius)}
+.adv-listicle.look-editorial .ed-panel .adv-img{width:auto;max-width:100%;max-height:var(--pk-panel-img)}
+.adv-listicle.look-editorial .ed-hero-fig.ed-panel .adv-img{max-height:calc(480px - 2 * var(--pk-panel-pad))}
 
 .adv-listicle.look-editorial .ed-body{display:block}
-.adv-listicle.look-editorial .ed-item{padding:0 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-item{padding:0 0 var(--pk-item-gap)}
 .adv-listicle.look-editorial .ed-h2{font-family:var(--pk-serif);font-size:1.5rem;line-height:1.3;
   color:var(--pk-ink);margin:0 0 14px;font-weight:700}
 .adv-listicle.look-editorial .ed-num{color:var(--pk-editorial)}
@@ -103,13 +122,13 @@
   font-family:var(--pk-serif);font-size:1.1875rem;line-height:1.5;color:var(--pk-ink)}
 .adv-listicle.look-editorial .ed-proof p{margin:0}
 
-.adv-listicle.look-editorial .ed-cta-band{padding:0 0 var(--pk-gap);text-align:center}
+.adv-listicle.look-editorial .ed-cta-band{padding:0 0 var(--pk-item-gap);text-align:center}
 .adv-listicle.look-editorial .ed-btn{display:inline-flex;align-items:center;justify-content:center;
   min-height:52px;padding:14px 30px;border:none;border-radius:var(--pk-radius);
   background:var(--pk-accent);color:var(--pk-on-accent);font-size:1.0625rem;font-weight:700;
   line-height:1.25;text-decoration:none;cursor:pointer}
 .adv-listicle.look-editorial .ed-btn:hover{opacity:.88}
-.adv-listicle.look-editorial .ed-bigquote{margin:0 0 var(--pk-gap);padding:0;font-family:var(--pk-serif);
+.adv-listicle.look-editorial .ed-bigquote{margin:0 0 var(--pk-item-gap);padding:0;font-family:var(--pk-serif);
   font-size:1.5rem;line-height:1.4;color:var(--pk-ink);text-align:center}
 .adv-listicle.look-editorial .ed-bigquote-attr{margin:12px 0 0;font-family:inherit;font-size:.9375rem;
   color:var(--pk-muted);text-align:center}
@@ -135,7 +154,7 @@
 .adv-listicle.look-editorial .ed-faq-item{margin:0 0 20px}
 .adv-listicle.look-editorial .ed-faq-q{margin:0 0 6px;font-size:1.0625rem;font-weight:700;color:var(--pk-ink)}
 .adv-listicle.look-editorial .ed-faq-a{margin:0;font-size:1.0625rem;line-height:1.6;color:var(--pk-body)}
-.adv-listicle.look-editorial .ed-close{padding:0 0 var(--pk-gap);border-top:1px solid var(--pk-border);padding-top:var(--pk-gap)}
+.adv-listicle.look-editorial .ed-close{padding:var(--pk-close-gap) 0;border-top:1px solid var(--pk-border)}
 .adv-listicle.look-editorial .ed-recap{margin:0 0 22px;padding-left:22px}
 .adv-listicle.look-editorial .ed-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.55}
 .adv-listicle.look-editorial .ed-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
@@ -145,14 +164,14 @@
 .adv-wrap:has(.look-editorial) .adv-footer{max-width:var(--pk-measure);margin:0 auto;padding-bottom:40px}
 
 @media (max-width:600px){
-  .adv-listicle.look-editorial{--pk-gap:36px}
+  .adv-listicle.look-editorial{--pk-gap:32px;--pk-panel-img:300px}
+  .adv-listicle.look-editorial .ed-hero-fig.ed-panel .adv-img{max-height:var(--pk-panel-img)}
   .adv-listicle.look-editorial .ed-h1{font-size:1.875rem}
   .adv-listicle.look-editorial .ed-lede{font-size:1.1875rem}
   .adv-listicle.look-editorial .ed-p{font-size:1.125rem}
   .adv-listicle.look-editorial .ed-btn{display:flex;width:100%}
 }
 @media (min-width:768px){
-  .adv-listicle.look-editorial{--pk-gap:56px}
   .adv-listicle.look-editorial .ed-h1{font-size:2.75rem}
   .adv-listicle.look-editorial .ed-h2{font-size:1.75rem}
 }
@@ -164,8 +183,9 @@
      comes after the CTA so the CTA is never pushed below the fold. #}
   <header class="ed-masthead">
     <div class="ed-measure">
-      <span class="adv-badge">Advertisement</span>
-      <p class="ed-eyebrow">Sponsored content</p>
+      {# Cycle 55: the tenant's disclosure_label, shown in this look's own
+         eyebrow style -- never a hardcoded word, and nothing when unset. #}
+      {% if disclosure_label %}<p class="ed-eyebrow">{{ disclosure_label }}</p>{% endif %}
       <h1 class="ed-h1">{{ page.headline }}</h1>
       <div class="ed-byline adv-byline">{{ byline_html | safe }}</div>
       <p class="ed-lede">{{ page.dek }}</p>
@@ -175,10 +195,17 @@
         {% for item in cartridge_data.trust_items %}<li>{{ item.text }}</li>{% endfor %}
       </ul>
       {% endif %}
-      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-      {% if hero_asset %}<figure class="ed-hero-fig">{{ render_image_slot(hero_asset, hero=True) }}</figure>{% endif %}
     </div>
   </header>
+
+  {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+  {% if hero_asset %}
+  <div class="ed-hero">
+    <div class="ed-measure">
+      <figure class="ed-hero-fig{{ ' ed-panel' if image_fit(hero_asset) == 'contain' else '' }}">{{ render_image_slot(hero_asset, hero=True) }}</figure>
+    </div>
+  </div>
+  {% endif %}
 
   <main class="ed-body">
     {% set item_count = (page.reasons or []) | length %}
@@ -189,7 +216,7 @@
         <h2 class="ed-h2"><span class="ed-num">{{ item.number }}.</span> {{ item.heading }}</h2>
         <p class="ed-p">{{ item.text }}</p>
         {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-        {% if item_asset %}<figure class="ed-fig">{{ render_image_slot(item_asset) }}</figure>{% endif %}
+        {% if item_asset %}<figure class="ed-fig{{ ' ed-panel' if image_fit(item_asset) == 'contain' else '' }}">{{ render_image_slot(item_asset) }}</figure>{% endif %}
         {% if item.proof and item.proof.text %}
         <blockquote class="ed-proof"><p>{{ item.proof.text }}</p></blockquote>
         {% endif %}

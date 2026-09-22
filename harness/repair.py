@@ -21,6 +21,7 @@ from pathlib import Path
 from . import listicle
 from . import pagechecks
 from . import quiz
+from . import pdp
 from . import simplicity
 from . import tenant as tenant_mod
 from . import vocab
@@ -332,6 +333,11 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
         )
+    # Cycle 54: the product-page cartridge's own structural checks (ad-proof
+    # tiles with claim ids, the FAQ, the promise line's numbers, urgency
+    # vocabulary, renderer-owned sections) -- harness/pdp.py.
+    if cartridge_name == "product-page":
+        problems += pdp.find_product_page_violations(page, facts_pack)
     # Cycle 32: simplicity gate (above-fold links, headline word band, one
     # offer element) -- hard gate only when this tenant's simplicity_mode is
     # "enforce" (default "warn": advisory REVIEW.md line only, see
@@ -799,7 +805,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
         # spending a repair call on it. A nested cta_url naming a DIFFERENT
         # url is a real second offer card and is left for the gate to
         # report (_remove_redundant_nested_cta_url returns False).
-        if cartridge_name == "listicle" and raw_path.endswith(".cta_url") and "second CTA url" in issue:
+        if cartridge_name in ("listicle", "product-page") and raw_path.endswith(".cta_url") and "second CTA url" in issue:
             if _remove_redundant_nested_cta_url(page, raw_path):
                 fixed += 1
                 if log is not None:

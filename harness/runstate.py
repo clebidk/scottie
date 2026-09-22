@@ -90,6 +90,20 @@ def record_listicle_choice(run_dir, *, style=None, look=None):
     return data
 
 
+def record_look(run_dir, cartridge, look):
+    """Cycle 54: the look a non-listicle cartridge's page was rendered in,
+    under state.json's "<cartridge>" key -- the same shape as the listicle's
+    own entry (record_listicle_choice), for the same reason: `harness
+    rerender --look` can change it later, so the resolved value is written
+    down, never re-derived."""
+    data = load_state(run_dir)
+    entry = dict(data.get(cartridge) or {})
+    entry["look"] = look
+    data[cartridge] = entry
+    save_state(run_dir, data)
+    return data
+
+
 def load_state(run_dir):
     path = state_path(run_dir)
     if not path.exists():

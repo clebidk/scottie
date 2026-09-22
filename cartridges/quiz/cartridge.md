@@ -8,7 +8,7 @@ Opt-in only: `discover_cartridges` finds this cartridge, but the default random-
 The tenant's `quiz/rubric.yaml` fixes the questions (their ids and order), every option label, how each option scores each model, where the interstitials go, and the tiebreak. It is in facts_pack.quiz.rubric. You never change a score, a label, or the order -- you only write the words around them.
 
 ## Structure (in order)
-1. Header: the "Advertisement" label, eyebrow, H1, one-line dek, the start link ("Start the quiz", renderer text, a same-page anchor), the compact byline, and the hero image (`hero.asset_id`, one of the featured model's assets).
+1. Header: the tenant disclosure label as an eyebrow (only when the tenant sets `disclosure_label`), H1, one-line dek, the start link ("Start the quiz", renderer text, a same-page anchor), the compact byline, and the hero image (`hero.asset_id`, one of the featured model's assets).
 2. The quiz: a thin progress bar, then one question at a time -- your rephrased prompt over the rubric's option buttons -- with a back button. After the questions the rubric names, one short interstitial line of yours ("Good to know"). Without a script, every question and interstitial shows as one plain list.
 3. The result: one card per active model, all hidden but the winner. Each card shows the model's display name, its verified price, its capacity, its product image, a "why this matches you" list (the reader's own chosen labels that scored the model) and the CTA to the model's page. Without a script, the card for the model the ad featured shows, with a note that says so.
 4. Under the result: the verified trust line, the fixed financing sentence, the HSA/FSA line (only when a verified claim exists), and the fixed warranty sentence.

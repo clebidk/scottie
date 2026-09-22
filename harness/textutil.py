@@ -18,7 +18,10 @@ import re
 # id-shaped tokens -- neither is writer-composed text, so every prose scan
 # (forbidden terms, leaked claim ids, warranty wording) and the word count skip
 # these keys.
-NON_PROSE_KEYS = frozenset({"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku"})
+# Cycle 54: "gallery_order" is the product-page pdp look's optional list of
+# asset id strings -- ids, never prose (an id can carry a product handle's
+# own words, which the forbidden-term scan must not read as copy).
+NON_PROSE_KEYS = frozenset({"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku", "gallery_order"})
 
 # "$8,250" / "$ 8250.00" -- the dollar figure itself is group 1, without the
 # sign, so a caller can float() it after stripping commas.

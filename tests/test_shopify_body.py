@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from harness import tenant as tenant_mod
 from harness.cli import cmd_shopify_body
 from harness.render import render_page
 from harness.page_body import (
@@ -194,12 +195,14 @@ def test_strip_document_chrome_still_unwraps_bare_nav_and_footer(tmp_path):
     assert strip_document_chrome(html) == "linksplain"
 
 
-def test_shopify_body_preserves_ad_label_byline_disclosure_and_sources(tmp_path):
+def test_shopify_body_preserves_ad_label_byline_disclosure_and_sources(tmp_path, monkeypatch):
+    # cycle 55: the label renders only when the tenant sets disclosure_label
+    monkeypatch.setitem(tenant_mod.active().config, "disclosure_label", "Advertisement")
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     html, _ = build_shopify_body(out_dir)
-    assert "Advertisement" in html
-    assert "is an advertisement published by PEAK" in html
+    assert '<span class="adv-badge">Advertisement</span>' in html
+    assert "This page is published by PEAK" in html
     assert "Sources" in html
 
 
@@ -354,7 +357,7 @@ def test_build_shopify_body_works_on_a_non_listicle_cartridge(tmp_path):
     )
     html, manifest = build_shopify_body(out_dir)
     assert "<header" not in html.lower()
-    assert "Advertisement" in html
+    assert "This page is published by PEAK" in html
     assert html.startswith("<style>\n" + full_bleed_css())
     assert manifest == []
 

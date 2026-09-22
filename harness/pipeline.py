@@ -26,6 +26,7 @@ from .ground import LocalFactsSource
 from .ingest import download_drive_file, run_ingest
 from .log import RunLog
 from . import listicle
+from . import looks
 from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
 from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
@@ -169,12 +170,24 @@ def prepare_run(state):
     # cartridges/listicle/looks/ renders that copy. Independent of the style:
     # the `--look` flag when the operator gave one, else the tenant's
     # look_by_style map, else the built-in style pairing.
+    # Cycle 54: `--look` names a look of ONE cartridge (harness/looks.py);
+    # each cartridge with looks takes the flag only when it is one of its
+    # own, so `--look pdp` sets the product page and leaves a listicle on
+    # its style pairing.
+    requested_look = getattr(args, "look", None)
     state.listicle_look = listicle.resolve_look(
-        getattr(args, "look", None), style=state.listicle_style, tenant=tenant
+        looks.requested_for("listicle", requested_look), style=state.listicle_style, tenant=tenant
     )
+    state.product_page_look = looks.resolve_look(
+        "product-page", looks.requested_for("product-page", requested_look), tenant=tenant
+    )
+    if requested_look and not any(looks.requested_for(c, requested_look) for c in selected):
+        state.log.event("run", f"--look {requested_look!r} is not a look of any selected cartridge; ignored")
     if "listicle" in selected:
         state.log.event("run", f"listicle style: {state.listicle_style}")
         state.log.event("run", f"listicle look: {state.listicle_look}")
+    if "product-page" in selected:
+        state.log.event("run", f"product-page look: {state.product_page_look}")
     state.claims_config = tenant.claims_config
     # R23: tenant.yaml and claims/config.json disagreeing on an overlapping
     # key is legal (config.json wins) but invisible without this line.
@@ -282,6 +295,8 @@ def ground(state):
         include_listicle="listicle" in state.selected,
         # Cycle 57: the quiz rubric and result cards, same opt-in shape.
         include_quiz="quiz" in state.selected,
+        # Cycle 54: the product-page `pdp` look's model compare table.
+        include_product_page="product-page" in state.selected,
         live_price_claims=state.live_price_claims_by_slug,
         log=state.log,
     )
@@ -468,6 +483,12 @@ def render_pages(state):
         runstate.record_listicle_choice(
             state.run_dir, style=state.listicle_style, look=state.listicle_look
         )
+    # Cycle 54: the product page's look, stamped and recorded the same way.
+    if "product-page" in state.pages and getattr(state, "product_page_look", None):
+        from . import runstate
+
+        state.pages["product-page"]["look"] = state.product_page_look
+        runstate.record_look(state.run_dir, "product-page", state.product_page_look)
 
     for cartridge_name, page in state.pages.items():
         index_path = render_page(

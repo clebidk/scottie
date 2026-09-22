@@ -132,8 +132,7 @@ def test_each_look_renders_every_section(look, tmp_path):
     html = _render(look, tmp_path, page=page)
 
     # renderer-injected chrome that no look may drop
-    assert "Advertisement" in html
-    assert "is an advertisement published by" in html          # disclosure
+    assert "This page is published by" in html                 # disclosure
     assert "<h3>Sources</h3>" in html                          # sources list
     assert "Written by" in html                                # byline
 
@@ -454,4 +453,4 @@ def test_rerender_look_is_refused_for_another_cartridge(run_dir, capsys):
     (run_dir / "longform").mkdir()
     (run_dir / "longform" / "page.json").write_text("{}")
     assert cli.cmd_rerender(_args(run_dir, page="longform", look="cards")) == 1
-    assert "--look applies to the listicle cartridge" in capsys.readouterr().err
+    assert "--look applies to a cartridge with looks" in capsys.readouterr().err

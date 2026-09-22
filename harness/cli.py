@@ -18,6 +18,7 @@ from . import budget as budget_mod
 from . import brand_import
 from . import notify
 from . import listicle
+from . import looks
 from . import pipeline
 from . import repair
 from . import runstate
@@ -290,10 +291,15 @@ def cmd_rerender(args):
     # end) and in state.json next to the style.
     requested_look = getattr(args, "look", None)
     if requested_look:
-        if cartridge_name != "listicle":
-            print(f"--look applies to the listicle cartridge, not {cartridge_name}", file=sys.stderr)
+        if not looks.has_looks(cartridge_name):
+            print(f"--look applies to a cartridge with looks ({', '.join(looks.CARTRIDGE_LOOKS)}), "
+                  f"not {cartridge_name}", file=sys.stderr)
             return 1
-        page["look"] = listicle.resolve_look(requested_look, tenant=tenant)
+        if requested_look not in looks.cartridge_looks(cartridge_name):
+            print(f"--look {requested_look!r} is not a {cartridge_name} look; choose one of "
+                  f"{list(looks.cartridge_looks(cartridge_name))}", file=sys.stderr)
+            return 1
+        page["look"] = looks.resolve_look(cartridge_name, requested_look, tenant=tenant)
     ad_brief_json = run_dir / "ad_brief.json"
     ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
 
@@ -333,7 +339,10 @@ def cmd_rerender(args):
         print(f"Wrote {assets_manifest_path}")
 
     if requested_look:
-        runstate.record_listicle_choice(run_dir, look=page["look"])
+        if cartridge_name == "listicle":
+            runstate.record_listicle_choice(run_dir, look=page["look"])
+        else:
+            runstate.record_look(run_dir, cartridge_name, page["look"])
     runstate.mark_rerendered(run_dir, page=cartridge_name, note=args.note or "")
     return 0
 
@@ -1050,10 +1059,11 @@ def build_parser():
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
     p_run.add_argument(
-        "--look", choices=list(listicle.LOOKS),
-        help="listicle look -- which of cartridges/listicle/looks/ lays the page out; "
-             "default: the look this run's style is paired with, or the tenant's own "
-             "look_by_style pin",
+        "--look", choices=list(looks.all_looks()),
+        help="page look -- which of cartridges/<cartridge>/looks/ lays the page out, for the "
+             "selected cartridge that has this look (listicle: editorial|cards|pillars|"
+             "scorecard|lander; product-page: pdp|classic); default: the listicle's style "
+             "pairing, product-page's pdp, or the tenant's own pins",
     )
     p_run.add_argument(
         "--style", choices=list(listicle.STYLES),
@@ -1092,8 +1102,9 @@ def build_parser():
     p_rerender.add_argument("run_dir", help="tenants/<t>/out/<run-id>")
     p_rerender.add_argument("--page", required=True, help="cartridge name, e.g. listicle")
     p_rerender.add_argument(
-        "--look", choices=list(listicle.LOOKS), default=None,
-        help="re-render the listicle page in a different look; the copy is untouched",
+        "--look", choices=list(looks.all_looks()), default=None,
+        help="re-render the page in a different look of its own cartridge (listicle or "
+             "product-page); the copy is untouched",
     )
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)

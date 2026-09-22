@@ -10,7 +10,11 @@
    top, so the page skims rather than reads; the audience fit is a
    check/cross pair of columns; the model picker is three product cards; the
    FAQ is a <details> accordion; and the page ends on a dark band. The sticky
-   CTA bar exists on phones only. #}
+   CTA bar exists on phones only.
+
+   Cycle 55: a product cut-out (image_fit(...) == "contain") sits whole on a
+   panel -- the hero's on the page ground (the hero band is already muted),
+   a thumbnail's on the muted ground -- never as a cover picture. #}
 {% block title %}{{ page.headline }}{% endblock %}
 {% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
@@ -49,7 +53,13 @@
   --pk-radius-sm:var(--ps-radius-btn,8px);
   --pk-radius-round:var(--ps-radius-round,50%);
   --pk-measure:1060px;
-  --pk-gap:48px;
+  /* Cycle 55 rhythm (cartridges/listicle/cartridge.md "Rhythm") */
+  --pk-gap:40px;
+  --pk-item-gap:32px;
+  --pk-hero-top:32px;
+  --pk-close-gap:48px;
+  --pk-panel-pad:24px;
+  --pk-panel-img:420px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
   font-family:var(--pk-sans);
@@ -71,7 +81,7 @@
 
 /* hero: eyebrow -> H1 -> dek -> dual CTA -> trust line, picture right on
    desktop and below the CTA on a phone, so the CTA is above the fold */
-.adv-listicle.look-lander .ld-hero{padding:24px 0 var(--pk-gap);background:var(--pk-band)}
+.adv-listicle.look-lander .ld-hero{padding:var(--pk-hero-top) 0 var(--pk-gap);background:var(--pk-band)}
 .adv-listicle.look-lander .ld-hero-grid{display:grid;gap:26px;align-items:center}
 .adv-listicle.look-lander .ld-eyebrow{margin:0 0 10px;font-size:var(--pk-eyebrow-size);font-weight:700;
   letter-spacing:var(--pk-eyebrow-spacing);text-transform:uppercase;color:var(--pk-eyebrow-color)}
@@ -85,6 +95,12 @@
 .adv-listicle.look-lander .ld-byline{margin:16px 0 0;font-size:.875rem;color:var(--pk-muted)}
 .adv-listicle.look-lander .ld-hero-media{margin:0}
 .adv-listicle.look-lander .ld-hero-media .adv-img{max-height:380px}
+/* the contained-image panel. The hero band is already the muted ground, so
+   the hero's panel inverts to the page ground to stay a distinct surface. */
+.adv-listicle.look-lander .ld-imgpanel{display:flex;align-items:center;justify-content:center;
+  padding:var(--pk-panel-pad);background:var(--pk-bg);border-radius:var(--pk-radius)}
+.adv-listicle.look-lander .ld-imgpanel .adv-img{width:auto;max-width:100%}
+.adv-listicle.look-lander .ld-thumb.ld-imgpanel{background:var(--pk-band)}
 
 .adv-listicle.look-lander .ld-btn{display:inline-flex;align-items:center;justify-content:center;
   min-height:52px;padding:14px 26px;border:none;border-radius:var(--pk-radius);background:var(--pk-accent);
@@ -105,7 +121,7 @@
 
 /* items: a 2-up grid of panels, not a list */
 .adv-listicle.look-lander .ld-items{padding:var(--pk-gap) 0 0}
-.adv-listicle.look-lander .ld-grid{display:grid;gap:18px}
+.adv-listicle.look-lander .ld-grid{display:grid;gap:var(--pk-item-gap)}
 .adv-listicle.look-lander .ld-panel{border:1px solid var(--pk-border);border-radius:var(--pk-radius);
   padding:20px;background:var(--pk-bg);display:flex;flex-direction:column}
 .adv-listicle.look-lander .ld-thumb{margin:0 0 16px;background:var(--pk-band);border-radius:var(--pk-radius-sm);overflow:hidden}
@@ -118,7 +134,7 @@
 .adv-listicle.look-lander .ld-proof{margin:auto 0 0;padding:10px 12px;border-radius:var(--pk-radius-sm);background:var(--pk-band);
   font-size:.9375rem;line-height:1.45;color:var(--pk-ink)}
 
-.adv-listicle.look-lander .ld-quote{margin:18px 0 0;padding:24px;border-radius:var(--pk-radius);
+.adv-listicle.look-lander .ld-quote{margin:var(--pk-item-gap) 0 0;padding:24px;border-radius:var(--pk-radius);
   background:var(--pk-band)}
 .adv-listicle.look-lander .ld-quote blockquote{margin:0;font-size:1.1875rem;line-height:1.5;color:var(--pk-ink)}
 .adv-listicle.look-lander .ld-quote-attr{margin:10px 0 0;font-size:.875rem;color:var(--pk-muted)}
@@ -154,7 +170,7 @@
 .adv-listicle.look-lander .ld-faq-a{margin:0 0 16px;font-size:1rem;line-height:1.6;color:var(--pk-body)}
 
 /* the page ends on a dark band */
-.adv-listicle.look-lander .ld-close{margin:var(--pk-gap) 0 0;padding:var(--pk-gap) 0;background:var(--pk-dark);color:var(--pk-on-dark)}
+.adv-listicle.look-lander .ld-close{margin:var(--pk-gap) 0 0;padding:var(--pk-close-gap) 0;background:var(--pk-dark);color:var(--pk-on-dark)}
 .adv-listicle.look-lander .ld-close-h{font-size:1.75rem;line-height:1.2;margin:0 0 16px;color:var(--pk-on-dark)}
 .adv-listicle.look-lander .ld-recap{margin:0 0 22px;padding-left:20px;color:var(--pk-on-dark)}
 .adv-listicle.look-lander .ld-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
@@ -179,21 +195,21 @@
 .adv-listicle.look-lander .ld-sticky .ld-btn{flex:1 1 auto;min-height:44px;padding:10px 18px}
 
 @media (max-width:600px){
-  .adv-listicle.look-lander{--pk-gap:36px}
+  .adv-listicle.look-lander{--pk-gap:32px}
   .adv-listicle.look-lander .ld-h1{font-size:1.875rem}
   .adv-listicle.look-lander .ld-ctas .ld-btn{flex:1 1 100%}
 }
 @media (min-width:768px){
-  .adv-listicle.look-lander{--pk-gap:64px}
   .adv-listicle.look-lander .ld-h1{font-size:2.75rem}
   .adv-listicle.look-lander .ld-dek{font-size:1.1875rem}
-  .adv-listicle.look-lander .ld-grid{grid-template-columns:1fr 1fr;gap:22px}
+  .adv-listicle.look-lander .ld-grid{grid-template-columns:1fr 1fr}
   .adv-listicle.look-lander .ld-fit{grid-template-columns:1fr 1fr;gap:22px}
   .adv-listicle.look-lander .ld-models{grid-template-columns:repeat(3,1fr)}
 }
 @media (min-width:900px){
   .adv-listicle.look-lander .ld-hero-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px}
   .adv-listicle.look-lander .ld-hero-media .adv-img{max-height:460px}
+  .adv-listicle.look-lander .ld-hero-media.ld-imgpanel .adv-img{max-height:var(--pk-panel-img)}
 }
 </style>
 <div class="pk-lp adv-listicle look-lander">
@@ -201,8 +217,9 @@
   <header class="ld-hero">
     <div class="ld-measure ld-hero-grid">
       <div>
-        <span class="adv-badge">Advertisement</span>
-        <p class="ld-eyebrow">Sponsored</p>
+        {# Cycle 55: the tenant's disclosure_label in this look's eyebrow
+           style; nothing when unset. #}
+        {% if disclosure_label %}<p class="ld-eyebrow">{{ disclosure_label }}</p>{% endif %}
         <h1 class="ld-h1">{{ page.headline }}</h1>
         <p class="ld-dek">{{ page.dek }}</p>
         {# Dual CTA: both anchors carry the page's one cta_text and its one
@@ -219,7 +236,7 @@
         <div class="ld-byline adv-byline">{{ byline_html | safe }}</div>
       </div>
       {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-      {% if hero_asset %}<div class="ld-hero-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+      {% if hero_asset %}<div class="ld-hero-media{{ ' ld-imgpanel' if image_fit(hero_asset) == 'contain' else '' }}">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
     </div>
   </header>
 
@@ -229,7 +246,7 @@
         {% for item in page.reasons or [] %}
         <section class="ld-panel">
           {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-          {% if item_asset %}<div class="ld-thumb">{{ render_image_slot(item_asset, frame="4x3") }}</div>{% endif %}
+          {% if item_asset %}<div class="ld-thumb{{ ' ld-imgpanel' if image_fit(item_asset, frame='4x3') == 'contain' else '' }}">{{ render_image_slot(item_asset, frame="4x3") }}</div>{% endif %}
           <span class="ld-chip">{{ item.number }}</span>
           <h2 class="ld-h2">{{ item.heading }}</h2>
           <p class="ld-copy">{{ item.text }}</p>

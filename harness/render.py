@@ -1,6 +1,6 @@
 """Jinja2 rendering: page.json + facts_pack -> out/<run>/<cartridge>/index.html.
 
-Injects byline, dates, the "Advertisement" label, the disclosure paragraph,
+Injects byline, dates, the optional disclosure label (tenant disclosure_label), the disclosure paragraph,
 a Sources list (from claim_ids used), and per-cartridge JSON-LD. The model
 never writes any of that -- it's all added here.
 """
@@ -22,8 +22,10 @@ from . import blocks
 from . import ground as ground_mod
 from . import ingest
 from . import listicle as listicle_mod
+from . import looks as looks_mod
 from . import pagechecks
 from . import quiz as quiz_mod
+from . import pdp as pdp_mod
 from . import tenant as tenant_mod
 from .textutil import safe_filename, walk_page
 from .claims import (
@@ -664,6 +666,26 @@ def aspect_ratio_css(width, height):
 IMAGE_FRAMES = {"4x3": (4, 3), "3x2": (3, 2), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9)}
 
 
+def image_fit(asset, *, frame=None):
+    """"contain" or "cover": the object-fit render_image_slot gives `asset`
+    in a slot with this `frame` (None when there is no asset).
+
+    A studio cutout on white (generate_image_variants' border test) is
+    always "contain". In a named frame (IMAGE_FRAMES) only a lifestyle/
+    installation photo by its facts_pack "kind" may fill the frame; with no
+    frame the box is the image's own ratio, so anything that is not a
+    cutout is "cover". Cycle 55: a Jinja global too, so a look can pick its
+    LAYOUT from the same answer -- a cutout is placed contained on a panel,
+    never as a full-bleed cover band or behind an overlay."""
+    if not asset:
+        return None
+    is_cutout = bool(asset.get("cutout"))
+    if frame in IMAGE_FRAMES:
+        lifestyle = asset.get("kind") in ("lifestyle", "installation")
+        return "cover" if (lifestyle and not is_cutout) else "contain"
+    return "contain" if is_cutout else "cover"
+
+
 def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None):
     """The one function that builds an <img>/<picture> tag from an asset
     dict -- registered as a Jinja global in render_page's env (see below) so
@@ -707,11 +729,6 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     variants = asset.get("variants") or []
     width, height = asset.get("width"), asset.get("height")
     alt = asset.get("alt", "")
-    # A studio cutout on white (generate_image_variants' border test), as
-    # opposed to the facts_pack asset's own semantic "kind" -- both matter
-    # below, and they are different questions.
-    is_cutout = bool(asset.get("cutout"))
-    lifestyle = asset.get("kind") in ("lifestyle", "installation")
     sizes = sizes or (IMAGE_SIZES_HERO if hero else IMAGE_SIZES_DEFAULT)
 
     jpg_srcset = ", ".join(f"{v['jpg']} {v['width']}w" for v in variants)
@@ -730,10 +747,9 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
         if frame in IMAGE_FRAMES:
             fw, fh = IMAGE_FRAMES[frame]
             ratio = f"{fw} / {fh}"
-            fit = "cover" if (lifestyle and not is_cutout) else "contain"
         else:
             ratio = aspect_ratio_css(width, height)
-            fit = "contain" if is_cutout else "cover"
+        fit = image_fit(asset, frame=frame)
 
     classes = " ".join(
         c for c in (
@@ -839,6 +855,7 @@ def render_page(
     # block.html partials (loaded via {% include %}, not Python) can call
     # it too.
     env.globals["render_image_slot"] = render_image_slot
+    env.globals["image_fit"] = image_fit
 
     structure_css = load_structure_css()
     tenant_css = load_tenant_css(brand_dir, log)
@@ -942,13 +959,50 @@ def render_page(
                     )
         ground_mod.record_used_asset_ids(run_dir, cartridge_name, final_used_ids)
 
+    # Cycle 51: the cartridge's LOOK -- which template under
+    # cartridges/<cartridge>/looks/<look>/ renders this page (listicle since
+    # cycle 51, product-page since cycle 54). Resolved here, in Python, so
+    # every caller (a run, `harness rerender`, the eval baseline) goes
+    # through the one rule (harness/looks.py's resolve_look): the page's own
+    # recorded "look" when it has one, else the listicle's style pairing or
+    # the cartridge's default, within the tenant's pinned looks. The
+    # cartridge's template.html is a dispatcher that {% extends %} the
+    # resolved path; the value is always one of the cartridge's own looks, so
+    # no page.json field can steer that path out of the looks folder. Empty
+    # for a cartridge with no looks, whose template never reads it.
+    look = ""
+    if looks_mod.has_looks(cartridge_name):
+        try:
+            look = looks_mod.resolve_look(cartridge_name, page.get("look"), style=page.get("style"), tenant=tenant)
+        except ValueError as e:
+            # Only reachable from a hand-edited page.json: `harness run
+            # --look` / `harness rerender --look` are checked first. A page
+            # still renders, in its default look.
+            look = looks_mod.resolve_look(cartridge_name, None, style=page.get("style"), tenant=tenant)
+            if log:
+                log.event("render", f"{e}; falling back to {look!r}")
+
+    # Cycle 54: the product-page `pdp` look's gallery (the product's own
+    # storefront images) and one image per benefit block, chosen from the
+    # page's FINAL asset picks (after the slot plan and the paragraph-image
+    # matcher above) so they are downloaded with everything else just
+    # below. Never written into page.json: the gallery repeats the hero on
+    # purpose, which the duplicate-asset check would read as a mistake.
+    gallery_ids, benefit_ids = [], []
+    if cartridge_name == "product-page" and look == "pdp":
+        pdp_ai = bool(tenant.claims_config.get("allow_ai_renders"))
+        gallery_ids = pdp_mod.gallery_asset_ids(page, facts_pack, allow_ai_renders=pdp_ai)
+        benefit_ids = pdp_mod.benefit_asset_ids(page, facts_pack, gallery_ids, allow_ai_renders=pdp_ai)
+
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
     # so the page folder is self-contained. An asset that fails to download
     # (or comes back as HTML) is dropped -- the template's own `{% if asset
     # %}` guards mean it's simply not rendered, with a warning logged.
     if download_assets:
-        used_asset_ids = collect_asset_ids(page) | quiz_asset_ids
+        used_asset_ids = (
+            collect_asset_ids(page) | set(gallery_ids) | {i for i in benefit_ids if i} | quiz_asset_ids
+        )
         assets_dir = out_dir / "assets"
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
@@ -989,27 +1043,15 @@ def render_page(
     if quiz_data is not None:
         cartridge_data = quiz_data
 
-    # Cycle 51: the listicle cartridge's LOOK -- which template under
-    # cartridges/listicle/looks/<look>/ renders this page. Resolved here, in
-    # Python, so every caller (a run, `harness rerender`, the eval baseline)
-    # goes through the one rule (listicle.resolve_look): the page's own
-    # recorded "look" when it has one, else the tenant's look_by_style map,
-    # else the built-in style pairing. The cartridge's template.html is a
-    # dispatcher that {% extends %} the resolved path; the value is always
-    # one of listicle.LOOKS, so no page.json field can steer that path out of
-    # the looks folder. Empty for every other cartridge, whose templates
-    # never read it.
-    look = ""
-    if cartridge_name == "listicle":
-        try:
-            look = listicle_mod.resolve_look(page.get("look"), style=page.get("style"), tenant=tenant)
-        except ValueError as e:
-            # Only reachable from a hand-edited page.json: `harness run
-            # --look` / `harness rerender --look` are argparse `choices`.
-            # A page still renders, in the look its style is paired with.
-            look = listicle_mod.resolve_look(None, style=page.get("style"), tenant=tenant)
-            if log:
-                log.event("render", f"{e}; falling back to {look!r}")
+    # Cycle 54: the product-page `pdp` look's renderer-owned sections, the
+    # same "from facts_pack alone" rule (harness/pdp.py). The claims they
+    # cite join the page's Sources list, since the writer never cites them.
+    if cartridge_name == "product-page" and look == "pdp":
+        cartridge_data = pdp_mod.render_context(page, facts_pack, assets_by_id, gallery_ids, benefit_ids, tenant=tenant)
+        sources = build_sources_list(
+            used_claim_ids | pdp_mod.context_claim_ids(cartridge_data), verified_by_id,
+            product_name=product_name, product_url=product.get("url"), tenant=tenant,
+        )
 
     # Cycle 27: same self-contained-folder treatment as an ad asset (Fix 8
     # above) -- the logo is brand data, not something download_asset's
@@ -1061,6 +1103,10 @@ def render_page(
         # never escape the blocks directory).
         block_choice=functools.partial(blocks.choice, page),
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
+        # Cycle 55: the header label ("Advertisement", "Sponsored", ...) is a
+        # tenant decision, not a template literal. Empty or unset renders no
+        # label at all; see docs/TENANT-ONBOARDING.md.
+        disclosure_label=str(tenant.get("disclosure_label") or "").strip(),
     )
 
     # Fix cycle 5 item 2: last line of defense -- a claim id printed in

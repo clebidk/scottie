@@ -174,8 +174,9 @@
   <header class="qz-hero">
     <div class="qz-measure qz-hero-grid">
       <div>
-        <span class="adv-badge">Advertisement</span>
-        <p class="qz-eyebrow">Model finder</p>
+        {# Cycle 55 convention: the tenant disclosure_label in the eyebrow
+           style; nothing when unset. #}
+        {% if disclosure_label %}<p class="qz-eyebrow">{{ disclosure_label }}</p>{% endif %}
         <h1 class="qz-h1">{{ page.headline }}</h1>
         <p class="qz-dek">{{ page.dek }}</p>
         <a class="qz-btn" href="#qz-quiz">{{ cartridge_data.start_text }}</a>

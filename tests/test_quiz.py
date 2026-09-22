@@ -474,3 +474,16 @@ def test_an_invalid_rubric_stops_the_run_before_any_writer_call(monkeypatch, tmp
     stop = json.loads((run_dir / "unmatched_claims.json").read_text())
     assert stop["stage"] == "quiz_rubric"
     assert any(i["key"].startswith("quiz:rubric:unknown_model") for i in stop["items"])
+
+
+def test_eyebrow_renders_only_when_the_tenant_sets_a_disclosure_label(tmp_path, monkeypatch):
+    """Cycle 55 convention: no hardcoded label; the tenant's disclosure_label
+    is the eyebrow when set, and nothing renders when it is unset."""
+    monkeypatch.delitem(TENANT.config, "disclosure_label", raising=False)
+    html, _ = _render(tmp_path / "unset")
+    assert 'class="qz-eyebrow">Your match' in html  # the result eyebrow is not the disclosure
+    hero = html.split('<header class="qz-hero">', 1)[1].split("</header>", 1)[0]
+    assert "qz-eyebrow" not in hero and "Advertisement" not in hero
+    monkeypatch.setitem(TENANT.config, "disclosure_label", "Paid content")
+    html, _ = _render(tmp_path / "set")
+    assert '<p class="qz-eyebrow">Paid content</p>' in html

@@ -61,6 +61,16 @@ Key by key, what it actually controls:
 - `source_path_labels` (`path -> label`) -- used for a same-host URL that
   isn't a product page. Skip it and those Sources entries fall back to a
   title-cased URL path.
+- `disclosure_label` (optional, default `""`) -- the small label every
+  cartridge and listicle look shows above the headline (the `adv-badge`, or
+  the editorial/lander looks' eyebrow). Empty or unset renders no label at
+  all. A publisher whose ad policy (or whose ad platform's policy) requires
+  one sets it here, e.g. `"Advertisement"` or `"Sponsored"`; templates never
+  hardcode the word.
+- `disclosure_text` -- the footer disclosure paragraph (`{tenant_name}` is
+  filled in). Say who publishes the page and that it sells the products
+  described; add the word "advertisement" here too only if the publisher's
+  policy asks for it.
 
 `authors.yaml`'s `author` (who signs the page) and `contributor` (who reviews
 it) feed the byline templates; leave a `CHANGE ME` here and the byline prints

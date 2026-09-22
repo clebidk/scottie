@@ -195,7 +195,7 @@ def test_run_detail_unknown_run_is_404(app_client):
 def test_page_review_serves_the_review_html(app_client, run_dir):
     resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
     assert resp.status_code == 200
-    assert b"Advertisement" in resp.data
+    assert b"This page is published by" in resp.data
 
 
 def test_page_review_builds_on_demand_when_review_file_missing(app_client, run_dir):
@@ -209,7 +209,7 @@ def test_page_review_builds_on_demand_when_review_file_missing(app_client, run_d
 
     resp = app_client.get(f"/run/{run_dir.name}/review/article", headers=_basic_auth_header(REVIEWER, PASSWORD))
     assert resp.status_code == 200
-    assert b"Advertisement" in resp.data
+    assert b"This page is published by" in resp.data
     assert review_path.exists()
 
 
