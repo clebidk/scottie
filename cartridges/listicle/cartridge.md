@@ -19,6 +19,21 @@ The headline's N is the number of entries in `reasons`, in every style (cycle 49
 
 `tested` reports a claims check -- verified facts and published specifications checked against claims people repeat about the category -- never a physical test, trial, or usage period; nobody ran one. `listicle:tested_no_fake_test` fails the headline, dek, any item heading/body, `audience_fit`, an FAQ answer, or the closing recap in ANY style (not only `tested`) if it asserts first-person testing or usage: "we tested", "our test", "we used", "we ran", "weeks of use", "weeks of testing", "session by session", "in our testing", "hands-on", "we measured".
 
+## Look
+The style fixes the COPY. A second, independent dimension -- the LOOK -- fixes the LAYOUT: which template under `cartridges/listicle/looks/<look>/template.html` renders that copy. All five consume the same page.json and the same renderer-built sections; `cartridges/listicle/template.html` is a dispatcher that extends the resolved one.
+
+| look | reference shape | what makes it look different |
+| --- | --- | --- |
+| editorial | publisher advertorial | one 680px column, serif display face and 19px serif body, "Sponsored content" eyebrow, author row under the H1, numbered subheads with inline full-width images, proof lines as pull-quote callouts, CTAs as links with one solid button mid-page and one at the end, plain Q/A FAQ, no sticky bar |
+| cards | DTC listicle | two-column hero, alternating image/text cards on soft bands, big numerals, micro-CTAs after items 2 and 4, sticky bottom bar |
+| pillars | image-led band lander | every item a full-width band with a 3:2 edge-to-edge image, an uppercase pillar label over the H2, narrow copy under the picture, proof lines as badges, hero headline reversed out over the image, `<details>` FAQ, horizontal model cards, sticky proof bar |
+| scorecard | evidence buyer's guide | a trust row of bordered verified facts, every item a bordered "claim vs what the facts say" panel with a check line and an evidence label chip, a summary table before the FAQ, a closing CTA band carrying the warranty sentence, no sticky bar |
+| lander | product lander | wide 1100px two-column hero with eyebrow, dual CTA (button + ghost link, same url) and trust line, items as a 2-up grid of panels with a 4:3 thumbnail and a numeral chip, check/cross audience-fit columns, three model cards, `<details>` FAQ, dark closing band, sticky bar on phones only |
+
+The look is never written by the writer. It resolves in `harness/listicle.py`'s `resolve_look`: `harness run --look` / `harness rerender --look` when an operator gave one, else page.json's own recorded `look`, else `tenant.yaml`'s `cartridges.listicle.look_by_style`, else the default pairing -- reasons->cards, mistakes->editorial, questions->scorecard, myths->pillars, tested->lander. `tenant.yaml` may also pin the allowed set with `cartridges.listicle.looks: [...]`.
+
+Each look scopes its own `<style>` block under `.adv-listicle.look-<name>` and owns a class prefix nothing else uses (`ed-`, `lst-`, `pil-`, `sc-`, `ld-`), so two looks can never collide; `tests/test_listicle_looks.py` asserts the prefixes stay disjoint and that no two looks render the same set of section classes. The `cards` look keeps its original `.lst-*` rules unprefixed, since that namespace was already its alone and re-writing 130 working selectors would be churn.
+
 ## Structure (in order)
 1. Header: the "Advertisement" label, H1 headline, one-line dek, hero image (`hero.asset_id`), the primary CTA button, a trust line under it, and the byline.
 2. 5-7 numbered items (`reasons`). Each: number, an H2 heading (<=10 words, no numeral), a 50-150 word body, one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
@@ -28,6 +43,8 @@ The headline's N is the number of entries in `reasons`, in every style (cycle 49
 6. FAQ (`faq.questions`): 5-7 questions with 2-4 sentence answers.
 7. Closing block: an optional short headline, a 3-bullet `recap`, the CTA, the fixed warranty sentence, the allowed financing sentence, and (only when this run's facts pack verifies it) an HSA/FSA line.
 8. Disclosure and Sources, same as every other cartridge, plus a sticky bottom CTA bar.
+
+Every look renders all eight, in its own arrangement -- a look may move a section or change how it is drawn, never drop one. Where this list names a placement (a micro-CTA after items 2 and 4, a sticky bar), that is the `cards` look's own; see the Look table above for what each of the others does instead.
 
 Sections 3, 5, the header's trust line, the HSA/FSA line and the sticky bar's rating line are built by the RENDERER from facts_pack -- you never write them, and a page.json that carries `trust_line`, `pull_quote`, `model_picker`, `models`, `hsa_line` or `proof_row` fails the gate. They are omitted entirely when the facts pack does not verify them; that is the design, not a gap to fill in prose.
 

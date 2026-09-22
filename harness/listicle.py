@@ -201,6 +201,79 @@ def resolve_style(requested=None, *, seed=0, tenant=None):
     return allowed[int(seed) % len(allowed)]
 
 
+# ---------------------------------------------------------------------------
+# Look selection (cycle 51)
+#
+# A listicle page has two independent dimensions. The STYLE above fixes the
+# COPY -- the headline formula and what a numbered item is. The LOOK fixes
+# the LAYOUT: which template under cartridges/listicle/looks/<look>/ renders
+# that copy. Every look consumes the same page.json and the same
+# renderer-owned context, so a run can switch look with no writer call at all
+# (`harness rerender --look`). The two dimensions are orthogonal: any style
+# reads correctly in any look.
+# ---------------------------------------------------------------------------
+
+LOOKS = ("editorial", "cards", "pillars", "scorecard", "lander")
+
+# The default pairing when nothing names a look. Each style is paired with the
+# look whose reference lander it reads most like: a mistakes list reads as a
+# publisher article, a questions list as an evidence check, a myths list as
+# image-led pillars, a claims check as a product lander.
+LOOK_BY_STYLE = {
+    "reasons": "cards",
+    "mistakes": "editorial",
+    "questions": "scorecard",
+    "myths": "pillars",
+    "tested": "lander",
+}
+
+DEFAULT_LOOK = "cards"
+
+
+def tenant_looks(tenant=None):
+    """The looks this tenant allows, in order -- tenant.yaml's
+    `cartridges.listicle.looks` filtered to real LOOKS, else all five. Same
+    shape and same "a pin that names nothing valid is ignored" rule as
+    tenant_styles above."""
+    tenant = tenant or tenant_mod.active()
+    pinned = tenant.get("cartridges.listicle.looks") or ()
+    chosen = tuple(look for look in pinned if look in LOOKS)
+    return chosen or LOOKS
+
+
+def tenant_look_by_style(tenant=None):
+    """The tenant's own style -> look map (tenant.yaml's
+    `cartridges.listicle.look_by_style`), filtered to real styles and real
+    looks. {} when the tenant pins none, which leaves LOOK_BY_STYLE in
+    charge."""
+    tenant = tenant or tenant_mod.active()
+    pinned = tenant.get("cartridges.listicle.look_by_style") or {}
+    if not isinstance(pinned, dict):
+        return {}
+    return {s: look for s, look in pinned.items() if s in STYLES and look in LOOKS}
+
+
+def resolve_look(requested=None, *, style=None, tenant=None):
+    """The look one page is rendered in. An explicit `requested` (the
+    `harness run --look` / `harness rerender --look` flag, or page.json's own
+    recorded "look") always wins, including over a tenant's pinned subset --
+    it is an operator's deliberate choice, the same way an explicit style is.
+
+    Otherwise the run's style picks it: the tenant's own look_by_style map
+    first, then the built-in LOOK_BY_STYLE pairing. A pairing that lands
+    outside the tenant's allowed looks falls back to the first allowed one,
+    so a tenant that pins two looks still only ever renders those two."""
+    if requested:
+        if requested not in LOOKS:
+            raise ValueError(f"unknown listicle look {requested!r}; choose one of {list(LOOKS)}")
+        return requested
+    allowed = tenant_looks(tenant)
+    paired = tenant_look_by_style(tenant).get(style) or LOOK_BY_STYLE.get(style)
+    if paired in allowed:
+        return paired
+    return allowed[0]
+
+
 # Spelled-out counts a headline may lead with instead of the numeral the
 # formula asks for ("Six Mistakes ..."). Observed on real runs; fixed
 # deterministically (fix_headline_number) rather than spent on a repair call.

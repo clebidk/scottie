@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{# LOOK: cards -- the DTC list look this cartridge shipped as v0.3, moved
+   under looks/ unchanged in cycle 51 when the other four looks were added.
+   Two-column hero, alternating image/text cards on soft bands, big
+   numerals, micro-CTAs between items, sticky bottom bar.
+
+   Its whole design system is namespaced .lst-* / .pk-*, which no other look
+   uses (each of the four newer looks has its own prefix and scopes every
+   rule under .adv-listicle.look-<name>), so the rules below are left exactly
+   as they were rather than re-prefixed -- see cartridges/listicle/cartridge.md.
+   tests/test_listicle_looks.py asserts the prefixes stay disjoint. #}
+{% block title %}{{ page.headline }}{% endblock %}
+{# Cycle 43: the compact byline (author/contributor/reviewer + dates) stays
+   in the header below (.lst-byline, inside .lst-header); the longer "About
+   the author" paragraph, when this tenant's byline.html carries one (see
+   harness/render.py's split_byline_html), renders here instead -- base.html's
+   own byline block, which sits in the footer just above the disclosure
+   paragraph, not above the fold with the rest of the header. #}
+{% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
+{% block content %}
+<style>
+/* Listicle cartridge v0.3 -- measurements taken from the reference lander
+   pack (tenants/<t>/docs/REFERENCE-LANDERS-*.md): 17-18px body at 1.6,
+   36-44px H1, 24-28px H2, 48-64px section rhythm, alternating soft bands, a
+   full-width mobile CTA at 52px, and a 64px sticky bottom bar.
+
+   Cycle 45 (v0.3): the hero and the numbered items are two-column on
+   desktop. Every other band keeps the single ~700px reading measure; the
+   two-column bands widen to ~1040px, with the text column itself still
+   capped at a readable measure. The DOM order is the MOBILE order --
+   headline, then image, then CTA for the hero; image, then copy for an item
+   -- and desktop re-places those same nodes with grid. That order is what
+   keeps the hero CTA above the fold on a 390px phone (Jones Road / Moon Pod
+   put the CTA directly under the headline block for the same reason), and
+   it means there is one set of markup rather than a duplicated desktop
+   copy.
+
+   Colours and fonts are NEVER written here. Every colour resolves through
+   the tenant's own brand tokens first (--ps-*, which `harness brand import`
+   writes into brand/base.css) and falls back to harness/structure.css's
+   structural defaults (--adv-*), so a brand import still drives the page and
+   this file stays tenant-neutral. Fonts are not declared at all: the
+   tenant's base.css (or structure.css's body rule) owns them, so headings
+   keep the brand's display face instead of being overridden here.
+
+   The ".pk-lp" class (kept alongside ".adv-listicle") is what `harness
+   shopify-body`'s theme full-bleed :has() rules target -- do not rename or
+   drop it. The sticky bar lives INSIDE this wrapper, never in base.html, so
+   `harness shopify-body` carries it into the storefront body with the rest
+   of the cartridge.
+   ---------------------------------------------------------------------- */
+.pk-lp{display:block}
+/* the look class the dispatcher selected this template with; it carries no
+   rules of its own because .lst-*/.pk-* are already this look's alone */
+.adv-listicle.look-cards{display:block}
+.adv-listicle{
+  --pk-accent:var(--ps-accent,var(--adv-accent));
+  --pk-on-accent:#fff;
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted,var(--adv-muted));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-band:var(--ps-bg-muted,#f4f5f6);
+  --pk-border:var(--ps-border,var(--adv-border));
+  --pk-radius:10px;
+  --pk-measure:700px;
+  --pk-measure-wide:1040px;
+  --pk-gap:48px;
+  --pk-sticky-h:64px;
+  display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  -webkit-font-smoothing:antialiased;
+}
+.adv-listicle *,.adv-listicle *::before,.adv-listicle *::after{box-sizing:border-box}
+.adv-listicle img{display:block;max-width:100%}
+
+/* Images. render.render_image_slot writes each image's TRUE ratio inline
+   (style="aspect-ratio:W / H"); these rules must never set a width and a
+   height together, or that ratio is overridden and the image is squished --
+   which is exactly the cycle 45 bug. `width:auto` + max-width/max-height is
+   the safe pair: the browser keeps the ratio and fits the image inside the
+   box. harness/structure.css's own .adv-img rules are loaded in the document
+   head, and `harness shopify-body` keeps only the style blocks found in the
+   body -- so they do NOT survive the export, and everything this cartridge
+   depends on is restated here instead of relied on. */
+.adv-listicle .adv-img{display:block;height:auto;max-width:100%;border-radius:var(--pk-radius)}
+.adv-listicle .adv-img--contain{object-fit:contain}
+.adv-listicle .adv-img--cover{object-fit:cover}
+.adv-listicle picture{display:block}
+
+/* A media box: a soft band the image sits on, centred, never cropped. The
+   max-heights stop a tall portrait cut-out from pushing the next thing off
+   the screen; `width:auto` is what keeps it from being squished to fit. */
+.lst-media{background:var(--pk-band);border-radius:var(--pk-radius);
+  padding:16px;display:flex;align-items:center;justify-content:center}
+.adv-listicle .lst-media .adv-img{width:auto;margin:0 auto;border-radius:6px}
+/* on a soft band, the media box inverts so it is still a distinct surface */
+.lst-item--soft .lst-media{background:var(--pk-bg)}
+
+/* one reading measure for every band's contents */
+.lst-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
+/* the two-column bands (hero, items) may run wider than the reading
+   measure; the TEXT column inside them is capped separately below, so the
+   line length never grows with the band. */
+.lst-measure--wide{max-width:var(--pk-measure-wide)}
+.lst-main,.lst-faq,.lst-models-band{display:block}
+
+/* bands: alternating soft background, consistent vertical rhythm */
+.lst-band{padding:var(--pk-gap) 0;border-bottom:1px solid var(--pk-border)}
+.lst-band--soft{background:var(--pk-band)}
+
+/* header / hero */
+.lst-header{padding:32px 0 var(--pk-gap);border-bottom:1px solid var(--pk-border)}
+.lst-h1{font-size:2.25rem;line-height:1.15;color:var(--pk-ink);margin:0 0 12px;letter-spacing:-.01em}
+.lst-dek{font-size:1.125rem;line-height:1.6;color:var(--pk-muted);margin:0 0 24px}
+.lst-hero-lede{margin:0}
+.lst-hero-actions{margin:0}
+.lst-hero-media{margin:0 0 24px}
+.lst-hero-media .adv-img{max-height:300px}
+.lst-trust{list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;margin:14px 0 0;padding:0;font-size:.9375rem;color:var(--pk-muted)}
+.lst-trust li{margin:0}
+.lst-byline{margin-top:20px;font-size:.875rem;color:var(--pk-muted)}
+
+/* buttons */
+.lst-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;
+  padding:14px 28px;border:none;border-radius:var(--pk-radius);background:var(--pk-accent);
+  color:var(--pk-on-accent);font-size:1.0625rem;font-weight:600;line-height:1.25;
+  text-decoration:none;cursor:pointer;transition:opacity .15s ease}
+.lst-btn:hover{opacity:.88}
+.lst-btn--ghost{background:transparent;color:var(--pk-ink);border:1px solid var(--pk-border);min-height:44px;padding:10px 18px;font-size:1rem}
+
+/* numbered items */
+.lst-item{padding:var(--pk-gap) 0;border-bottom:1px solid var(--pk-border)}
+.lst-item--soft{background:var(--pk-band)}
+/* the numeral sits inline with the H2 on a phone (where a 56px numeral on
+   its own line would cost most of the fold) and moves above it on desktop */
+.lst-item-head{display:flex;align-items:baseline;gap:14px;margin:0 0 12px}
+.lst-num{font-size:2rem;font-weight:700;line-height:1;letter-spacing:-.02em;
+  color:var(--pk-muted);margin:0;flex:0 0 auto}
+.lst-h2{font-size:1.5rem;line-height:1.25;color:var(--pk-ink);margin:0}
+.lst-item-copy{margin:0}
+.lst-item-media{margin:0 0 20px}
+.lst-item-media .adv-img{max-height:360px}
+.lst-body{font-size:1.0625rem;line-height:1.6;color:var(--pk-body);margin:0}
+.lst-proof{margin:16px 0 0;padding:12px 16px;border-left:3px solid var(--pk-accent);
+  background:var(--pk-bg);font-size:1rem;line-height:1.5;color:var(--pk-ink)}
+
+/* micro-CTA between items */
+.lst-micro-cta{padding:28px 0;border-bottom:1px solid var(--pk-border);text-align:center}
+
+/* pull-quote band */
+.lst-quote{padding:var(--pk-gap) 0;border-bottom:1px solid var(--pk-border);background:var(--pk-band)}
+.lst-quote blockquote{margin:0;font-size:1.25rem;line-height:1.5;color:var(--pk-ink)}
+.lst-quote-attr{margin:12px 0 0;font-size:.9375rem;color:var(--pk-muted)}
+
+/* who this is for / who it is not for */
+.lst-fit-lists{display:grid;gap:24px;margin:20px 0 0}
+.lst-fit h3{font-size:1.0625rem;margin:0 0 10px;color:var(--pk-ink)}
+.lst-fit ul{margin:0;padding-left:20px}
+.lst-fit li{margin:0 0 8px;font-size:1rem;line-height:1.5}
+
+/* model picker */
+.lst-models{display:grid;gap:16px;margin:20px 0 0}
+.lst-model{border:1px solid var(--pk-border);border-radius:var(--pk-radius);padding:20px;background:var(--pk-bg)}
+.lst-model h3{font-size:1.0625rem;margin:0 0 6px;color:var(--pk-ink)}
+.lst-model-fit{margin:0 0 6px;font-size:.9375rem;color:var(--pk-muted)}
+.lst-model-price{margin:0 0 14px;font-size:1.125rem;font-weight:700;color:var(--pk-ink)}
+
+/* FAQ */
+.lst-faq-item{margin:0 0 24px}
+.lst-faq-q{font-size:1.0625rem;margin:0 0 8px;color:var(--pk-ink)}
+.lst-faq-a{margin:0;font-size:1rem;line-height:1.6;color:var(--pk-body)}
+
+/* closing */
+.lst-close{padding:var(--pk-gap) 0}
+.lst-recap{margin:0 0 24px;padding-left:20px}
+.lst-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
+.lst-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
+
+/* section headings shared by the fit, model, FAQ and closing bands */
+.lst-h2--section{margin:0 0 8px}
+.lst-section-note{margin:0 0 4px;font-size:1rem;color:var(--pk-muted)}
+
+/* sticky bottom CTA bar -- inside this wrapper, never base.html. Visible by
+   default so a reader with no JS still gets it (the script below hides it
+   until the hero has scrolled past). */
+.lst-sticky{position:fixed;left:0;right:0;bottom:0;z-index:40;
+  min-height:var(--pk-sticky-h);display:flex;align-items:center;gap:16px;
+  padding:8px 16px calc(8px + env(safe-area-inset-bottom));
+  background:var(--pk-bg);border-top:1px solid var(--pk-border);
+  transform:translateY(0);transition:transform .2s ease}
+.lst-sticky--hidden{transform:translateY(110%)}
+.lst-sticky-inner{max-width:var(--pk-measure);margin:0 auto;width:100%;
+  display:flex;align-items:center;justify-content:space-between;gap:16px}
+.lst-sticky-proof{margin:0;font-size:.875rem;line-height:1.35;color:var(--pk-muted);flex:1 1 auto}
+.lst-sticky .lst-btn{flex:0 0 auto}
+/* the base template's footer sits below this cartridge; keep the fixed bar
+   from covering the disclosure and Sources list. */
+.adv-wrap:has(.adv-listicle) .adv-footer{padding-bottom:calc(var(--pk-sticky-h,64px) + 24px)}
+
+@media (max-width:600px){
+  .adv-listicle{--pk-gap:40px}
+  .lst-h1{font-size:2rem}
+  .lst-dek{font-size:1.0625rem}
+  .lst-num{font-size:1.75rem}
+  .lst-btn{display:flex;width:100%}
+  .lst-sticky-inner{gap:10px}
+  .lst-sticky-proof{display:none}
+}
+
+@media (min-width:768px){
+  .adv-listicle{--pk-gap:64px}
+  .lst-h1{font-size:2.75rem}
+  .lst-dek{font-size:1.25rem}
+  .lst-h2{font-size:1.625rem}
+  .lst-body{font-size:1.125rem}
+  .lst-fit-lists{grid-template-columns:1fr 1fr;gap:32px}
+  .lst-models{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ---------------------------------------------------------------------
+   Two columns (900px up). 900 rather than 768: at tablet-portrait width a
+   42/58 split leaves a text column too narrow to read comfortably, so the
+   stacked mobile layout is the better one right up to a real desktop.
+   Both grids re-place nodes that are already in mobile reading order --
+   nothing is duplicated, and nothing depends on source order.
+   --------------------------------------------------------------------- */
+@media (min-width:900px){
+  /* hero: copy left (lede above actions), image right, vertically centred */
+  .lst-hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+    column-gap:56px;align-items:center}
+  .lst-hero-lede{grid-column:1;grid-row:1;align-self:end;max-width:68ch}
+  .lst-hero-actions{grid-column:1;grid-row:2;align-self:start;max-width:68ch;margin:24px 0 0}
+  .lst-hero-media{grid-column:2;grid-row:1 / span 2;align-self:center;margin:0}
+  .lst-hero-media .adv-img{max-height:560px}
+
+  /* items: ~42% image / 58% text, sides alternating item by item */
+  .lst-item-grid{display:grid;grid-template-columns:42% minmax(0,1fr);
+    column-gap:48px;align-items:center}
+  .lst-item-media{grid-column:1;grid-row:1;margin:0}
+  .lst-item-copy{grid-column:2;grid-row:1;max-width:68ch}
+  /* One class drives both the soft band and the flipped side, so they
+     advance together down the page -- see the item loop below. */
+  .lst-item--soft .lst-item-media{grid-column:2}
+  .lst-item--soft .lst-item-copy{grid-column:1}
+  .lst-item-media .adv-img{max-height:420px}
+
+  /* the numeral moves above the H2 and grows into a real display figure */
+  .lst-item-head{display:block}
+  .lst-item .lst-num{display:block;font-size:3.5rem;margin:0 0 4px}
+  .lst-item .lst-h2{font-size:1.75rem;margin:0 0 16px}
+}
+
+/* reveal-on-scroll motion, carried over from v0.1 */
+.pk-reveal{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+.pk-reveal.pk-in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .adv-listicle .pk-reveal{opacity:1!important;transform:none!important;transition:none!important}
+}
+</style>
+<div class="pk-lp adv-listicle look-cards">
+
+  {# Source order is the MOBILE order -- eyebrow, headline, subhead, then the
+     image, then the CTA. The desktop two-column arrangement (copy left,
+     image right and vertically centred) is grid placement over these same
+     three nodes; see the 900px block above. #}
+  <header class="lst-header">
+    <div class="lst-measure lst-measure--wide lst-hero-grid pk-reveal" data-pk-mount data-lst-hero>
+      <div class="lst-hero-lede">
+        <span class="adv-badge">Advertisement</span>
+        <h1 class="lst-h1">{{ page.headline }}</h1>
+        <p class="lst-dek">{{ page.dek }}</p>
+      </div>
+      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+      {% if hero_asset %}<div class="lst-hero-media lst-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+      <div class="lst-hero-actions">
+        <a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+        {# The trust line is renderer-built from facts_pack (harness/listicle.py's
+           trust_line_items) -- it disappears entirely when nothing is verified,
+           rather than being padded out by the writer. #}
+        {% if cartridge_data.trust_items %}
+        <ul class="lst-trust">
+          {% for item in cartridge_data.trust_items %}<li>{{ item.text }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        <div class="lst-byline adv-byline">{{ byline_html | safe }}</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="lst-main">
+    {% for item in page.reasons or [] %}
+    {# lst-item--soft is the alternation: it carries BOTH the soft band and
+       (at 900px up) the flipped image side, so the two advance together down
+       the page instead of drifting out of step. Source order is again the
+       mobile order -- image above copy. #}
+    <section class="lst-item{{ ' lst-item--soft' if loop.index0 % 2 == 1 else '' }}">
+      <div class="lst-measure lst-measure--wide lst-item-grid pk-reveal">
+        {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
+        {% if item_asset %}<div class="lst-item-media lst-media">{{ render_image_slot(item_asset) }}</div>{% endif %}
+        <div class="lst-item-copy">
+          <div class="lst-item-head">
+            <span class="lst-num">{{ "%02d"|format(item.number) }}</span>
+            <h2 class="lst-h2">{{ item.heading }}</h2>
+          </div>
+          <p class="lst-body">{{ item.text }}</p>
+          {% if item.proof and item.proof.text %}<p class="lst-proof">{{ item.proof.text }}</p>{% endif %}
+        </div>
+      </div>
+    </section>
+    {% if loop.index in micro_cta_after %}
+    <div class="lst-micro-cta">
+      <div class="lst-measure"><a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+    </div>
+    {% endif %}
+    {% if loop.index == 3 and cartridge_data.pull_quote %}
+    <section class="lst-quote">
+      <div class="lst-measure pk-reveal">
+        <blockquote>{{ cartridge_data.pull_quote.text }}</blockquote>
+        <p class="lst-quote-attr">{{ cartridge_data.pull_quote.attribution }}</p>
+      </div>
+    </section>
+    {% endif %}
+    {% endfor %}
+  </main>
+
+  {% if page.audience_fit %}
+  <section class="lst-band lst-band--soft lst-fit">
+    <div class="lst-measure pk-reveal">
+      <h2 class="lst-h2 lst-h2--section">Who this is for, and who it is not for</h2>
+      <div class="lst-fit-lists">
+        <div>
+          <h3>This is for you if</h3>
+          <ul>{% for line in page.audience_fit.for_you or [] %}<li>{{ line.text }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <h3>This is not for you if</h3>
+          <ul>{% for line in page.audience_fit.not_for_you or [] %}<li>{{ line.text }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# Model picker: facts_pack.model_options only (harness/ground.py builds it
+     from the tenant's own active products and their verified price claims).
+     The writer never supplies a model, a price, or a link. #}
+  {% if cartridge_data.model_options %}
+  <section class="lst-band lst-models-band">
+    <div class="lst-measure pk-reveal">
+      <h2 class="lst-h2 lst-h2--section">Which model fits</h2>
+      <p class="lst-section-note">Prices as published on each model's own page.</p>
+      <div class="lst-models">
+        {% for model in cartridge_data.model_options %}
+        <div class="lst-model">
+          <h3>{{ model.name }}</h3>
+          <p class="lst-model-fit">{{ model.fit }}</p>
+          <p class="lst-model-price">{{ model.price_text }}</p>
+          <a class="lst-btn lst-btn--ghost" href="{{ model.url }}">View this model</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.faq and page.faq.questions %}
+  <section class="lst-band lst-band--soft lst-faq">
+    <div class="lst-measure pk-reveal">
+      <h2 class="lst-h2 lst-h2--section">Questions buyers ask</h2>
+      {% for entry in page.faq.questions %}
+      <div class="lst-faq-item">
+        <h3 class="lst-faq-q">{{ entry.question }}</h3>
+        <p class="lst-faq-a">{{ entry.answer }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="lst-close">
+    <div class="lst-measure pk-reveal">
+      {% if page.closing.headline %}<h2 class="lst-h2 lst-h2--section">{{ page.closing.headline }}</h2>{% endif %}
+      <ul class="lst-recap">
+        {% for bullet in page.closing.recap or [] %}<li>{{ bullet.text }}</li>{% endfor %}
+      </ul>
+      <a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      {% if page.closing.warranty_line %}<p class="lst-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
+      {% if page.closing.financing_line %}
+        {% if product.financing and product.financing.lender %}
+        <p class="lst-fine">{{ page.closing.financing_line.text }}</p>
+        {% else %}
+        <p class="lst-fine">Financing available</p>
+        {% endif %}
+      {% endif %}
+      {# HSA/FSA only when this run's facts_pack carries a verified claim for
+         it -- never otherwise, and never in the writer's own words. #}
+      {% if cartridge_data.hsa_claim %}<p class="lst-fine">{{ cartridge_data.hsa_claim.text }}</p>{% endif %}
+    </div>
+  </section>
+
+  <div class="lst-sticky" data-lst-sticky>
+    <div class="lst-sticky-inner">
+      {% if cartridge_data.rating_line %}<p class="lst-sticky-proof">{{ cartridge_data.rating_line.text }}</p>{% endif %}
+      <a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var root = document.querySelector('.pk-lp');
+  if(!root) return;
+
+  /* sticky bottom bar: hidden until the hero has scrolled past. The bar is
+     visible by default in CSS, so a reader with no JS (or with this script
+     blocked) still gets it -- this only adds the hide-then-reveal. */
+  var bar = root.querySelector('[data-lst-sticky]');
+  var hero = root.querySelector('[data-lst-hero]') || root.querySelector('.lst-header');
+  if(bar && hero){
+    bar.classList.add('lst-sticky--hidden');
+    var sync = function(){
+      var past = hero.getBoundingClientRect().bottom < 0;
+      bar.classList.toggle('lst-sticky--hidden', !past);
+    };
+    sync();
+    window.addEventListener('scroll', sync, {passive:true});
+    window.addEventListener('resize', sync, {passive:true});
+  }
+
+  var mount = root.querySelectorAll('[data-pk-mount]');
+  var start = function(){ mount.forEach(function(el){ el.classList.add('pk-in'); }); };
+  requestAnimationFrame(function(){ requestAnimationFrame(start); });
+  setTimeout(start, 120); /* rAF is paused in background tabs; timeout guarantees the mount reveal */
+  var targets = root.querySelectorAll('.pk-reveal:not([data-pk-mount])');
+  if(!('IntersectionObserver' in window)){
+    targets.forEach(function(el){ el.classList.add('pk-in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ e.target.classList.add('pk-in'); io.unobserve(e.target); }
+    });
+  }, { rootMargin: '-5% 0px -5% 0px' });
+  targets.forEach(function(el){ io.observe(el); });
+})();
+</script>
+{% endblock %}

@@ -1855,3 +1855,64 @@ a real repair call -- 3 of 10 pages failed all attempts on this today.
    untouched when the id is already valid; untouched for a non-pool (Shopify-style)
    id; untouched when `facts_pack` isn't passed; the manifest gate no longer fails on
    the rewritten page; the manifest gate still fails for a truly unknown id.
+
+## Cycle 51 (2026-09-22): five listicle LOOKS
+
+Reviewer verdict on the ten cycle-49/50 runs: "all 10 have the exact same look and
+style. I wanted the 5 different builds and looks." The cartridge had five COPY styles
+(headline formula + item pattern) rendered through ONE template, so five styles produced
+one layout.
+
+1. **A second, independent dimension.** `cartridges/listicle/template.html` is now a
+   dispatcher that `{% extends %}` `looks/<look>/template.html`; `harness/render.py`
+   resolves the look in Python and hands it to the template, so the renderer stays
+   generic instead of learning about one cartridge's sub-templates. The v0.3 design
+   moved to `looks/cards/` unchanged; `editorial`, `pillars`, `scorecard` and `lander`
+   are new. Every look consumes the same page.json and the same renderer-owned context
+   -- `schema.json`'s sections are unchanged -- and differs only in structure,
+   typography, bands, proof presentation, CTA treatment and image framing.
+2. **Resolution** (`harness/listicle.py`: `LOOKS`, `LOOK_BY_STYLE`, `tenant_looks`,
+   `tenant_look_by_style`, `resolve_look`). Explicit `--look` wins, else page.json's own
+   `look`, else `tenant.yaml`'s `cartridges.listicle.look_by_style`, else the default
+   pairing (reasons->cards, mistakes->editorial, questions->scorecard, myths->pillars,
+   tested->lander). A pairing outside a tenant's pinned `cartridges.listicle.looks`
+   falls back to the first allowed look. The resolved value is stamped onto page.json
+   before render and recorded in state.json next to the style
+   (`runstate.record_listicle_choice`), so a re-render reproduces the page rather than
+   re-deriving a look from a flag nobody kept. A hand-edited page.json naming an unknown
+   look logs a warning and renders the style's pairing instead of crashing.
+3. **`harness rerender --page listicle --look <l>`** switches a live page's layout with
+   no model call and without touching a word of copy -- the point of the command, now
+   applied to layout variants as well as template fixes.
+4. **Scoping.** Each of the four new looks scopes every rule under
+   `.adv-listicle.look-<name>` and owns a class prefix nothing else uses (`ed-`, `pil-`,
+   `sc-`, `ld-`); `cards` keeps its original `.lst-*` rules unprefixed, since that
+   namespace was already its alone and re-prefixing 130 working selectors would be churn
+   with no behaviour change. `tests/test_listicle_looks.py` asserts the prefixes stay
+   pairwise disjoint, which is the property the scoping exists for.
+5. **`render_image_slot` gains a `3x2` frame** (`IMAGE_FRAMES`), for `pillars`'
+   edge-to-edge item bands; `lander`'s grid thumbnails use the existing `4x3`. Both are
+   slots where every image has to share one box or the grid steps; every other slot
+   still keeps the image's own measured ratio, and a cut-out is still contained rather
+   than cropped.
+6. **`simplicity.py`** needed no code change: the above-fold rule already counted
+   distinct hrefs rather than anchors, which is exactly what `lander`'s primary button +
+   ghost link (same `cta_url`) needs. Its docstring now says so, so the next look does
+   not re-litigate it.
+7. **Two visual fixes found by looking at the rendered pages, not the logs.** `pillars`
+   overlaid the headline on a 300px-capped hero image on a phone, where a long headline
+   spilled past the gradient onto the bright part of the photograph -- it now stacks on a
+   solid dark band below the image under 768px and only overlays at desktop widths.
+   `lander`'s dual CTA rendered the same `cta_text` in two identical buttons side by
+   side; the secondary is now a ghost link.
+8. **Tests** (`tests/test_listicle_looks.py`, 58): every look renders every schema
+   section plus the renderer-owned ones; holds a CTA above the fold in markup order;
+   uses one CTA destination; survives the shopify-body export (no bare chrome tags,
+   tokens re-emitted on `.adv-wrap`) and the review inliner; declares colours through
+   `--pk-*` only. The reviewer's complaint is pinned as an offline check: the five looks'
+   section-class sets are pairwise different. Resolution and `rerender --look` covered
+   too. `tests/test_css_coverage.py` globs `*/looks/*/template.html`; `test_fake_run`'s
+   listicle assertions were cards-specific and now assert the style-to-look pairing.
+9. **Verified** by re-rendering copies of the ten live runs with their paired looks and
+   reading the ten review htmls in a browser at 375px and 1280px -- not by the absence of
+   errors in the run log.

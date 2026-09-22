@@ -8,6 +8,10 @@
       "type": "string",
       "description": "One of: reasons | mistakes | questions | myths | tested. The run tells you which one to write in its hard constraints; echo that exact value here. The style fixes the headline formula and what each numbered item is."
     },
+    "look": {
+      "type": "string",
+      "description": "OPTIONAL, and set by the renderer rather than written here: one of editorial | cards | pillars | scorecard | lander. It picks which template lays the page out and changes nothing about the copy, so leave it out -- the run resolves it from the style."
+    },
     "headline": {
       "type": "string",
       "description": "8-14 words, following THIS page's style formula exactly (the hard constraints quote it): reasons -> 'N Reasons <audience> Are Choosing <category>'; mistakes -> 'N Mistakes <audience> Make When Buying <category>'; questions -> 'N Questions <audience> Should Ask Before Buying <category>'; myths -> 'N <category> Myths <audience> Still Hear, and What the Evidence Says'; tested -> 'We Checked N <category> Claims <audience> Keep Hearing. Here Is What Held Up'. N is the number of entries in reasons in every style. Never contains a price. <audience> names the people the ad speaks to by their situation or goal (2-5 words), never a bare 'people' or 'buyers', never the company by name; <category> is the product category, never the company or a model name."

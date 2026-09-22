@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{# LOOK: editorial (cycle 51) -- the publisher-article look, built from the
+   advertorial references in the lander pack: a "Sponsored content" eyebrow,
+   an author row with the date under the H1, a lede, then numbered subheads
+   with inline images and pull-quote callouts.
+
+   What makes it visually distinct from the other four: ONE 680px column all
+   the way down (no grid anywhere), a serif display face and a 19px serif
+   body, no cards, no bands, no sticky bar, and CTAs that read as links in
+   running text rather than as buttons -- one solid button mid-page and one
+   at the end are the only two buttons on the page. #}
+{% block title %}{{ page.headline }}{% endblock %}
+{% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
+{% block content %}
+<style>
+/* Every rule is scoped under .adv-listicle.look-editorial and every class is
+   prefixed .ed-, so this look cannot reach a page rendered in another one.
+   Colours and fonts are never literals: each --pk-* token resolves through
+   the tenant's own brand tokens (--ps-*) first and falls back to
+   harness/structure.css's structural defaults (--adv-*). structure.css is
+   loaded in the document HEAD and `harness shopify-body` keeps only the
+   styles it finds in the BODY, so everything this look needs is restated
+   here rather than relied on. */
+.adv-listicle.look-editorial{
+  --pk-accent:var(--ps-accent,var(--adv-accent));
+  --pk-on-accent:#fff;
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted,var(--adv-muted));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-band:var(--ps-bg-muted,#f4f5f6);
+  --pk-border:var(--ps-border,var(--adv-border));
+  /* the one font token this look adds: a tenant serif when the brand
+     defines one, else a system serif stack */
+  --pk-serif:var(--ps-serif,var(--adv-serif,Georgia,"Iowan Old Style","Times New Roman",Times,serif));
+  --pk-radius:4px;
+  --pk-measure:680px;
+  --pk-gap:48px;
+  display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  -webkit-font-smoothing:antialiased;
+}
+.pk-lp{display:block}
+.adv-listicle.look-editorial *,
+.adv-listicle.look-editorial *::before,
+.adv-listicle.look-editorial *::after{box-sizing:border-box}
+.adv-listicle.look-editorial img{display:block;max-width:100%}
+/* render_image_slot writes each image's TRUE ratio inline; never pin a width
+   and a height together here or that ratio is overridden and the picture is
+   squished. width:auto + max-width is the safe pair. */
+.adv-listicle.look-editorial .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:var(--pk-radius)}
+.adv-listicle.look-editorial .adv-img--contain{object-fit:contain}
+.adv-listicle.look-editorial .adv-img--cover{object-fit:cover}
+.adv-listicle.look-editorial picture{display:block}
+
+/* the single column: one measure, top to bottom, at every width */
+.adv-listicle.look-editorial .ed-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
+
+.adv-listicle.look-editorial .ed-masthead{padding:24px 0 8px}
+.adv-listicle.look-editorial .ed-eyebrow{margin:0 0 14px;font-size:.75rem;letter-spacing:.14em;
+  text-transform:uppercase;font-weight:700;color:var(--pk-accent)}
+.adv-listicle.look-editorial .ed-h1{font-family:var(--pk-serif);font-weight:700;font-size:2.25rem;
+  line-height:1.18;color:var(--pk-ink);margin:0 0 18px;letter-spacing:-.01em}
+.adv-listicle.look-editorial .ed-byline{margin:0 0 20px;padding:0 0 18px;border-bottom:1px solid var(--pk-border);
+  font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
+.adv-listicle.look-editorial .ed-lede{font-family:var(--pk-serif);font-size:1.3125rem;line-height:1.55;
+  color:var(--pk-ink);margin:0 0 20px}
+.adv-listicle.look-editorial .ed-cta-line{margin:0 0 18px;font-size:1.0625rem;line-height:1.5}
+/* the above-the-fold CTA of this look is a link, not a button -- that is the
+   publisher pattern the references show; the two buttons come later */
+.adv-listicle.look-editorial .ed-link-cta{color:var(--pk-accent);font-weight:700;
+  text-decoration:underline;text-underline-offset:3px}
+.adv-listicle.look-editorial .ed-trust{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;
+  margin:0 0 24px;padding:0;font-size:.875rem;color:var(--pk-muted)}
+.adv-listicle.look-editorial .ed-trust li{margin:0}
+.adv-listicle.look-editorial .ed-hero-fig{margin:0 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-hero-fig .adv-img{max-height:420px}
+
+.adv-listicle.look-editorial .ed-body{display:block}
+.adv-listicle.look-editorial .ed-item{padding:0 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-h2{font-family:var(--pk-serif);font-size:1.5rem;line-height:1.3;
+  color:var(--pk-ink);margin:0 0 14px;font-weight:700}
+.adv-listicle.look-editorial .ed-num{color:var(--pk-accent)}
+.adv-listicle.look-editorial .ed-p{font-size:1.1875rem;line-height:1.62;color:var(--pk-body);margin:0 0 20px}
+/* images sit inline in the column, full measure, between the paragraphs */
+.adv-listicle.look-editorial .ed-fig{margin:0 0 20px}
+.adv-listicle.look-editorial .ed-fig .adv-img{max-height:460px}
+/* proof lines read as pull-quote callouts rather than as boxed badges */
+.adv-listicle.look-editorial .ed-proof{margin:0;padding:4px 0 4px 20px;border-left:3px solid var(--pk-accent);
+  font-family:var(--pk-serif);font-size:1.1875rem;line-height:1.5;color:var(--pk-ink)}
+.adv-listicle.look-editorial .ed-proof p{margin:0}
+
+.adv-listicle.look-editorial .ed-cta-band{padding:0 0 var(--pk-gap);text-align:center}
+.adv-listicle.look-editorial .ed-btn{display:inline-flex;align-items:center;justify-content:center;
+  min-height:52px;padding:14px 30px;border:none;border-radius:var(--pk-radius);
+  background:var(--pk-accent);color:var(--pk-on-accent);font-size:1.0625rem;font-weight:700;
+  line-height:1.25;text-decoration:none;cursor:pointer}
+.adv-listicle.look-editorial .ed-btn:hover{opacity:.88}
+.adv-listicle.look-editorial .ed-bigquote{margin:0 0 var(--pk-gap);padding:0;font-family:var(--pk-serif);
+  font-size:1.5rem;line-height:1.4;color:var(--pk-ink);text-align:center}
+.adv-listicle.look-editorial .ed-bigquote-attr{margin:12px 0 0;font-family:inherit;font-size:.9375rem;
+  color:var(--pk-muted);text-align:center}
+
+.adv-listicle.look-editorial .ed-section{padding:0 0 var(--pk-gap)}
+.adv-listicle.look-editorial .ed-h3{font-family:var(--pk-serif);font-size:1.375rem;line-height:1.3;
+  color:var(--pk-ink);margin:0 0 14px;font-weight:700}
+.adv-listicle.look-editorial .ed-sub{margin:0 0 8px;font-size:1rem;font-weight:700;color:var(--pk-ink)}
+.adv-listicle.look-editorial .ed-list{margin:0 0 20px;padding-left:22px}
+.adv-listicle.look-editorial .ed-list li{margin:0 0 8px;font-size:1.0625rem;line-height:1.55}
+.adv-listicle.look-editorial .ed-fit{display:block}
+.adv-listicle.look-editorial .ed-models{list-style:none;margin:0;padding:0}
+.adv-listicle.look-editorial .ed-model{margin:0 0 16px;padding:0 0 16px;border-bottom:1px solid var(--pk-border)}
+.adv-listicle.look-editorial .ed-model-name{margin:0 0 4px;font-size:1.0625rem;font-weight:700;color:var(--pk-ink)}
+.adv-listicle.look-editorial .ed-model-fit{margin:0 0 4px;font-size:.9375rem;color:var(--pk-muted)}
+.adv-listicle.look-editorial .ed-model-price{margin:0;font-size:1.0625rem;color:var(--pk-ink)}
+.adv-listicle.look-editorial .ed-model-link{color:var(--pk-accent);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.adv-listicle.look-editorial .ed-faq{display:block}
+.adv-listicle.look-editorial .ed-faq-item{margin:0 0 20px}
+.adv-listicle.look-editorial .ed-faq-q{margin:0 0 6px;font-size:1.0625rem;font-weight:700;color:var(--pk-ink)}
+.adv-listicle.look-editorial .ed-faq-a{margin:0;font-size:1.0625rem;line-height:1.6;color:var(--pk-body)}
+.adv-listicle.look-editorial .ed-close{padding:0 0 var(--pk-gap);border-top:1px solid var(--pk-border);padding-top:var(--pk-gap)}
+.adv-listicle.look-editorial .ed-recap{margin:0 0 22px;padding-left:22px}
+.adv-listicle.look-editorial .ed-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.55}
+.adv-listicle.look-editorial .ed-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
+
+/* base.html's disclosure + Sources list is this look's footnote block: keep
+   it in the same 680px column as the article above it. */
+.adv-wrap:has(.look-editorial) .adv-footer{max-width:var(--pk-measure);margin:0 auto;padding-bottom:40px}
+
+@media (max-width:600px){
+  .adv-listicle.look-editorial{--pk-gap:36px}
+  .adv-listicle.look-editorial .ed-h1{font-size:1.875rem}
+  .adv-listicle.look-editorial .ed-lede{font-size:1.1875rem}
+  .adv-listicle.look-editorial .ed-p{font-size:1.125rem}
+  .adv-listicle.look-editorial .ed-btn{display:flex;width:100%}
+}
+@media (min-width:768px){
+  .adv-listicle.look-editorial{--pk-gap:56px}
+  .adv-listicle.look-editorial .ed-h1{font-size:2.75rem}
+  .adv-listicle.look-editorial .ed-h2{font-size:1.75rem}
+}
+</style>
+<div class="pk-lp adv-listicle look-editorial">
+
+  {# Above the fold on a 390px phone, in this order: label, eyebrow, H1,
+     author row with the dates, lede, then the CTA link -- the hero image
+     comes after the CTA so the CTA is never pushed below the fold. #}
+  <header class="ed-masthead">
+    <div class="ed-measure">
+      <span class="adv-badge">Advertisement</span>
+      <p class="ed-eyebrow">Sponsored content</p>
+      <h1 class="ed-h1">{{ page.headline }}</h1>
+      <div class="ed-byline adv-byline">{{ byline_html | safe }}</div>
+      <p class="ed-lede">{{ page.dek }}</p>
+      <p class="ed-cta-line"><a class="ed-link-cta" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a></p>
+      {% if cartridge_data.trust_items %}
+      <ul class="ed-trust">
+        {% for item in cartridge_data.trust_items %}<li>{{ item.text }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+      {% if hero_asset %}<figure class="ed-hero-fig">{{ render_image_slot(hero_asset, hero=True) }}</figure>{% endif %}
+    </div>
+  </header>
+
+  <main class="ed-body">
+    {% set item_count = (page.reasons or []) | length %}
+    {% set mid_item = (item_count + 1) // 2 %}
+    {% for item in page.reasons or [] %}
+    <section class="ed-item">
+      <div class="ed-measure">
+        <h2 class="ed-h2"><span class="ed-num">{{ item.number }}.</span> {{ item.heading }}</h2>
+        <p class="ed-p">{{ item.text }}</p>
+        {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
+        {% if item_asset %}<figure class="ed-fig">{{ render_image_slot(item_asset) }}</figure>{% endif %}
+        {% if item.proof and item.proof.text %}
+        <blockquote class="ed-proof"><p>{{ item.proof.text }}</p></blockquote>
+        {% endif %}
+      </div>
+    </section>
+    {% if loop.index == mid_item %}
+    {# the one solid button in the body of the article #}
+    <div class="ed-cta-band">
+      <div class="ed-measure"><a class="ed-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+    </div>
+    {% if cartridge_data.pull_quote %}
+    <div class="ed-measure">
+      <blockquote class="ed-bigquote">{{ cartridge_data.pull_quote.text }}
+        <p class="ed-bigquote-attr">{{ cartridge_data.pull_quote.attribution }}</p>
+      </blockquote>
+    </div>
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+  </main>
+
+  {% if page.audience_fit %}
+  <section class="ed-section ed-fit">
+    <div class="ed-measure">
+      <h2 class="ed-h3">Who this is for, and who it is not for</h2>
+      <p class="ed-sub">This is for you if</p>
+      <ul class="ed-list">{% for line in page.audience_fit.for_you or [] %}<li>{{ line.text }}</li>{% endfor %}</ul>
+      <p class="ed-sub">This is not for you if</p>
+      <ul class="ed-list">{% for line in page.audience_fit.not_for_you or [] %}<li>{{ line.text }}</li>{% endfor %}</ul>
+    </div>
+  </section>
+  {% endif %}
+
+  {# Model picker: facts_pack.model_options only -- the writer never supplies
+     a model, a price or a link. #}
+  {% if cartridge_data.model_options %}
+  <section class="ed-section">
+    <div class="ed-measure">
+      <h2 class="ed-h3">Which model fits</h2>
+      <p class="ed-sub">Prices as published on each model's own page.</p>
+      <ul class="ed-models">
+        {% for model in cartridge_data.model_options %}
+        <li class="ed-model">
+          <p class="ed-model-name">{{ model.name }}</p>
+          <p class="ed-model-fit">{{ model.fit }}</p>
+          <p class="ed-model-price">{{ model.price_text }} &middot;
+            <a class="ed-model-link" href="{{ model.url }}">View this model</a></p>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.faq and page.faq.questions %}
+  <section class="ed-section ed-faq">
+    <div class="ed-measure">
+      <h2 class="ed-h3">Questions buyers ask</h2>
+      {% for entry in page.faq.questions %}
+      <div class="ed-faq-item">
+        <h3 class="ed-faq-q">{{ entry.question }}</h3>
+        <p class="ed-faq-a">{{ entry.answer }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="ed-close">
+    <div class="ed-measure">
+      {% if page.closing.headline %}<h2 class="ed-h3">{{ page.closing.headline }}</h2>{% endif %}
+      <ul class="ed-recap">
+        {% for bullet in page.closing.recap or [] %}<li>{{ bullet.text }}</li>{% endfor %}
+      </ul>
+      <a class="ed-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      {% if page.closing.warranty_line %}<p class="ed-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
+      {% if page.closing.financing_line %}
+        {% if product.financing and product.financing.lender %}
+        <p class="ed-fine">{{ page.closing.financing_line.text }}</p>
+        {% else %}
+        <p class="ed-fine">Financing available</p>
+        {% endif %}
+      {% endif %}
+      {# HSA/FSA only when this run's facts_pack carries a verified claim. #}
+      {% if cartridge_data.hsa_claim %}<p class="ed-fine">{{ cartridge_data.hsa_claim.text }}</p>{% endif %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

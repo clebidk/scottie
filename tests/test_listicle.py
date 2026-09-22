@@ -965,7 +965,7 @@ def test_shopify_body_export_keeps_the_sticky_bar_and_the_bands(tmp_path):
 # layout that only works at one width.
 # ---------------------------------------------------------------------------
 
-TEMPLATE_HTML = (CARTRIDGE_DIR / "template.html").read_text()
+TEMPLATE_HTML = (CARTRIDGE_DIR / "looks" / "cards" / "template.html").read_text()
 
 
 def _css(text):

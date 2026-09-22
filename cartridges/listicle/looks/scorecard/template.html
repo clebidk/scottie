@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{# LOOK: scorecard (cycle 51) -- the evidence look, built from the two
+   buyer's-guide references in the lander pack, whose trust mechanism is an
+   explicit evidence-labelling system plus a claim ledger rather than
+   photography.
+
+   What makes it visually distinct from the other four: no lifestyle band
+   anywhere. Every item is a bordered panel split into a claim column and an
+   evidence column, the evidence column holding a check line for the item's
+   proof (and a cross line only when the item itself carries a contrast
+   sentence) under a label chip that says WHY the line counts -- a verified
+   spec or a customer statement. A comparison table recaps every item before
+   the FAQ, the image sits small inside the panel, and there is no sticky
+   bar at all. #}
+{% block title %}{{ page.headline }}{% endblock %}
+{% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
+{% block content %}
+<style>
+/* Scoped under .adv-listicle.look-scorecard, classes prefixed .sc-, so this
+   look cannot reach a page rendered in another one. Colours are never
+   literals: every --pk-* token resolves through the tenant's brand tokens
+   (--ps-*) first and falls back to structure.css's defaults (--adv-*).
+   structure.css lives in the document HEAD and `harness shopify-body` keeps
+   only BODY styles, so everything is restated here. */
+.adv-listicle.look-scorecard{
+  --pk-accent:var(--ps-accent,var(--adv-accent));
+  --pk-on-accent:#fff;
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted,var(--adv-muted));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-band:var(--ps-bg-muted,#f4f5f6);
+  --pk-border:var(--ps-border,var(--adv-border));
+  /* the check colour is the brand accent, not an invented green, so a
+     tenant whose accent is not green still reads as one system */
+  --pk-yes:var(--pk-accent);
+  --pk-no:var(--pk-muted);
+  --pk-radius:8px;
+  --pk-measure:960px;
+  --pk-gap:48px;
+  display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  -webkit-font-smoothing:antialiased;
+}
+.pk-lp{display:block}
+.adv-wrap:has(.look-scorecard){max-width:1000px;padding-left:0;padding-right:0}
+.adv-wrap:has(.look-scorecard) .adv-footer{max-width:var(--pk-measure);margin:0 auto;padding-left:20px;padding-right:20px}
+.adv-listicle.look-scorecard *,
+.adv-listicle.look-scorecard *::before,
+.adv-listicle.look-scorecard *::after{box-sizing:border-box}
+.adv-listicle.look-scorecard img{display:block;max-width:100%}
+.adv-listicle.look-scorecard .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:6px}
+.adv-listicle.look-scorecard .adv-img--contain{object-fit:contain}
+.adv-listicle.look-scorecard .adv-img--cover{object-fit:cover}
+.adv-listicle.look-scorecard picture{display:block}
+
+.adv-listicle.look-scorecard .sc-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
+
+/* header: headline, dek, a trust ROW of bordered facts, then the CTA */
+.adv-listicle.look-scorecard .sc-header{padding:24px 0 var(--pk-gap);border-bottom:2px solid var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-h1{font-size:2.125rem;line-height:1.15;margin:0 0 12px;
+  color:var(--pk-ink);letter-spacing:-.015em}
+.adv-listicle.look-scorecard .sc-dek{font-size:1.0625rem;line-height:1.6;margin:0 0 20px;color:var(--pk-muted);max-width:68ch}
+.adv-listicle.look-scorecard .sc-trust-row{list-style:none;display:grid;gap:10px;margin:0 0 22px;padding:0}
+.adv-listicle.look-scorecard .sc-trust-cell{border:1px solid var(--pk-border);border-radius:var(--pk-radius);
+  padding:12px 14px;font-size:.9375rem;line-height:1.4;color:var(--pk-ink);background:var(--pk-bg)}
+.adv-listicle.look-scorecard .sc-byline{margin:18px 0 0;font-size:.875rem;color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-hero{margin:22px 0 0}
+.adv-listicle.look-scorecard .sc-hero .adv-img{max-height:300px}
+
+.adv-listicle.look-scorecard .sc-btn{display:flex;width:100%;align-items:center;justify-content:center;
+  min-height:52px;padding:14px 28px;border:none;border-radius:var(--pk-radius);background:var(--pk-accent);
+  color:var(--pk-on-accent);font-size:1.0625rem;font-weight:700;line-height:1.25;
+  text-decoration:none;cursor:pointer}
+.adv-listicle.look-scorecard .sc-btn:hover{opacity:.9}
+.adv-listicle.look-scorecard .sc-btn--ghost{background:transparent;color:var(--pk-ink);
+  border:1px solid var(--pk-border);min-height:44px;font-size:1rem;font-weight:600}
+
+/* items: a bordered panel, claim column left, evidence column right */
+.adv-listicle.look-scorecard .sc-items{display:block;padding:var(--pk-gap) 0 0}
+.adv-listicle.look-scorecard .sc-panel{border:1px solid var(--pk-border);border-radius:var(--pk-radius);
+  margin:0 0 20px;overflow:hidden;background:var(--pk-bg)}
+.adv-listicle.look-scorecard .sc-grid{display:grid}
+.adv-listicle.look-scorecard .sc-claim{padding:22px}
+.adv-listicle.look-scorecard .sc-num{display:inline-block;margin:0 0 8px;padding:3px 9px;border-radius:4px;
+  background:var(--pk-ink);color:var(--pk-bg);font-size:.75rem;font-weight:700;letter-spacing:.08em}
+.adv-listicle.look-scorecard .sc-h2{font-size:1.3125rem;line-height:1.25;margin:0 0 10px;color:var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-copy{font-size:1rem;line-height:1.6;color:var(--pk-body);margin:0}
+.adv-listicle.look-scorecard .sc-thumb{margin:16px 0 0}
+.adv-listicle.look-scorecard .sc-thumb .adv-img{max-height:200px}
+.adv-listicle.look-scorecard .sc-evidence{padding:22px;background:var(--pk-band);border-top:1px solid var(--pk-border)}
+.adv-listicle.look-scorecard .sc-evidence-h{margin:0 0 12px;font-size:.6875rem;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-chip{display:inline-block;margin:0 0 10px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--pk-border);background:var(--pk-bg);font-size:.75rem;font-weight:700;color:var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-lines{list-style:none;margin:0;padding:0}
+.adv-listicle.look-scorecard .sc-line{display:flex;gap:10px;margin:0 0 10px;font-size:.9375rem;line-height:1.5}
+.adv-listicle.look-scorecard .sc-mark{flex:0 0 auto;font-weight:700}
+.adv-listicle.look-scorecard .sc-line--yes .sc-mark{color:var(--pk-yes)}
+.adv-listicle.look-scorecard .sc-line--no{color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-line--no .sc-mark{color:var(--pk-no)}
+
+/* one mid-page CTA row between the panels -- this look has no sticky bar,
+   so the fold CTA and the closing band would otherwise be the only two */
+.adv-listicle.look-scorecard .sc-midcta{margin:0 0 20px;padding:20px;border-radius:var(--pk-radius);
+  border:1px dashed var(--pk-border);text-align:center}
+.adv-listicle.look-scorecard .sc-quote{margin:0 0 20px;padding:22px;border:1px solid var(--pk-border);
+  border-radius:var(--pk-radius);background:var(--pk-band)}
+.adv-listicle.look-scorecard .sc-quote blockquote{margin:0;font-size:1.125rem;line-height:1.5;color:var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-quote-attr{margin:10px 0 0;font-size:.875rem;color:var(--pk-muted)}
+
+.adv-listicle.look-scorecard .sc-section{padding:var(--pk-gap) 0 0}
+.adv-listicle.look-scorecard .sc-h2--section{font-size:1.5rem;line-height:1.2;margin:0 0 8px;color:var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-note{margin:0 0 18px;font-size:1rem;color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-fit{display:grid;gap:20px}
+.adv-listicle.look-scorecard .sc-fit-h3{font-size:1.0625rem;margin:0 0 10px;color:var(--pk-ink)}
+
+.adv-listicle.look-scorecard .sc-models{display:grid;gap:14px}
+.adv-listicle.look-scorecard .sc-model{border:1px solid var(--pk-border);border-radius:var(--pk-radius);
+  padding:18px;background:var(--pk-bg)}
+.adv-listicle.look-scorecard .sc-model h3{font-size:1.0625rem;margin:0 0 6px;color:var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-model-fit{margin:0 0 6px;font-size:.9375rem;color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-model-price{margin:0 0 14px;font-size:1.125rem;font-weight:700;color:var(--pk-ink)}
+
+/* the summary table: every item heading with a check, before the FAQ */
+.adv-listicle.look-scorecard .sc-table-wrap{overflow-x:auto}
+.adv-listicle.look-scorecard .sc-table{width:100%;border-collapse:collapse;font-size:.9375rem}
+.adv-listicle.look-scorecard .sc-table th,
+.adv-listicle.look-scorecard .sc-table td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--pk-border)}
+.adv-listicle.look-scorecard .sc-table th{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-table tr:nth-child(even) td{background:var(--pk-band)}
+.adv-listicle.look-scorecard .sc-table-mark{color:var(--pk-yes);font-weight:700;white-space:nowrap}
+
+.adv-listicle.look-scorecard .sc-faq{display:block}
+.adv-listicle.look-scorecard .sc-faq-item{margin:0 0 20px}
+.adv-listicle.look-scorecard .sc-faq-q{font-size:1.0625rem;margin:0 0 6px;color:var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-faq-a{margin:0;font-size:1rem;line-height:1.6;color:var(--pk-body)}
+
+/* the closing CTA band carries the fixed warranty sentence */
+.adv-listicle.look-scorecard .sc-cta-band{margin:var(--pk-gap) 0 0;padding:var(--pk-gap) 0;
+  border-top:2px solid var(--pk-ink)}
+.adv-listicle.look-scorecard .sc-recap{margin:0 0 22px;padding-left:20px}
+.adv-listicle.look-scorecard .sc-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
+.adv-listicle.look-scorecard .sc-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
+.adv-listicle.look-scorecard .sc-list{margin:0;padding-left:20px}
+.adv-listicle.look-scorecard .sc-list li{margin:0 0 8px;font-size:1rem;line-height:1.5}
+
+@media (max-width:600px){
+  .adv-listicle.look-scorecard{--pk-gap:36px}
+  .adv-listicle.look-scorecard .sc-h1{font-size:1.75rem}
+}
+@media (min-width:768px){
+  .adv-listicle.look-scorecard{--pk-gap:64px}
+  .adv-listicle.look-scorecard .sc-h1{font-size:2.625rem}
+  .adv-listicle.look-scorecard .sc-dek{font-size:1.1875rem}
+  .adv-listicle.look-scorecard .sc-h2{font-size:1.5rem}
+  .adv-listicle.look-scorecard .sc-copy{font-size:1.0625rem}
+  .adv-listicle.look-scorecard .sc-btn{display:inline-flex;width:auto}
+  .adv-listicle.look-scorecard .sc-trust-row{grid-template-columns:repeat(3,1fr)}
+  .adv-listicle.look-scorecard .sc-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+  .adv-listicle.look-scorecard .sc-evidence{border-top:none;border-left:1px solid var(--pk-border)}
+  .adv-listicle.look-scorecard .sc-fit{grid-template-columns:1fr 1fr;gap:32px}
+  .adv-listicle.look-scorecard .sc-models{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+<div class="pk-lp adv-listicle look-scorecard">
+
+  <header class="sc-header">
+    <div class="sc-measure">
+      <span class="adv-badge">Advertisement</span>
+      <h1 class="sc-h1">{{ page.headline }}</h1>
+      <p class="sc-dek">{{ page.dek }}</p>
+      {# The trust row is verified facts only: the renderer-built trust items
+         (rating sentence, free shipping) plus the page's fixed warranty
+         sentence. Nothing here is written for this page. #}
+      {% if cartridge_data.trust_items or page.closing.warranty_line %}
+      <ul class="sc-trust-row">
+        {% for item in cartridge_data.trust_items %}<li class="sc-trust-cell">{{ item.text }}</li>{% endfor %}
+        {% if page.closing.warranty_line %}<li class="sc-trust-cell">{{ page.closing.warranty_line.text }}</li>{% endif %}
+      </ul>
+      {% endif %}
+      <a class="sc-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      <div class="sc-byline adv-byline">{{ byline_html | safe }}</div>
+      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+      {% if hero_asset %}<div class="sc-hero">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+    </div>
+  </header>
+
+  <main class="sc-items">
+    <div class="sc-measure">
+      {% for item in page.reasons or [] %}
+      <section class="sc-panel">
+        <div class="sc-grid">
+          <div class="sc-claim">
+            <span class="sc-num">{{ "%02d"|format(item.number) }}</span>
+            <h2 class="sc-h2">{{ item.heading }}</h2>
+            <p class="sc-copy">{{ item.text }}</p>
+            {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
+            {% if item_asset %}<div class="sc-thumb">{{ render_image_slot(item_asset) }}</div>{% endif %}
+          </div>
+          <div class="sc-evidence">
+            <p class="sc-evidence-h">What the facts say</p>
+            {# The label chip is derived, never written: a proof line that
+               cites a verified claim id is a verified spec; one the writer
+               attributed to a customer is a customer statement. #}
+            {% if item.proof and item.proof.text %}
+            <span class="sc-chip">{{ "Customer statement" if item.proof.attributed_to_customer else ("Verified spec" if item.proof.claim_ids else "Published fact") }}</span>
+            {% endif %}
+            <ul class="sc-lines">
+              {% if item.proof and item.proof.text %}
+              <li class="sc-line sc-line--yes"><span class="sc-mark">&#10003;</span><span>{{ item.proof.text }}</span></li>
+              {% endif %}
+              {# A cross line ONLY when this item carries its own contrast
+                 sentence. Nothing is composed here: an item with a proof
+                 line and no alternative renders the check alone. #}
+              {% set contrast = item.alternative.text if item.alternative is mapping else item.alternative %}
+              {% if contrast %}
+              <li class="sc-line sc-line--no"><span class="sc-mark">&#10007;</span><span>{{ contrast }}</span></li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
+      </section>
+      {% if loop.index == 3 %}
+      <div class="sc-midcta"><a class="sc-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+      {% endif %}
+      {% if loop.index == 3 and cartridge_data.pull_quote %}
+      <div class="sc-quote">
+        <blockquote>{{ cartridge_data.pull_quote.text }}</blockquote>
+        <p class="sc-quote-attr">{{ cartridge_data.pull_quote.attribution }}</p>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </main>
+
+  {% if page.audience_fit %}
+  <section class="sc-section">
+    <div class="sc-measure">
+      <h2 class="sc-h2--section">Who this is for, and who it is not for</h2>
+      <div class="sc-fit">
+        <div>
+          <h3 class="sc-fit-h3">This is for you if</h3>
+          <ul class="sc-list">{% for line in page.audience_fit.for_you or [] %}<li>{{ line.text }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <h3 class="sc-fit-h3">This is not for you if</h3>
+          <ul class="sc-list">{% for line in page.audience_fit.not_for_you or [] %}<li>{{ line.text }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# Model picker: facts_pack.model_options only. #}
+  {% if cartridge_data.model_options %}
+  <section class="sc-section">
+    <div class="sc-measure">
+      <h2 class="sc-h2--section">Which model fits</h2>
+      <p class="sc-note">Prices as published on each model's own page.</p>
+      <div class="sc-models">
+        {% for model in cartridge_data.model_options %}
+        <div class="sc-model">
+          <h3>{{ model.name }}</h3>
+          <p class="sc-model-fit">{{ model.fit }}</p>
+          <p class="sc-model-price">{{ model.price_text }}</p>
+          <a class="sc-btn sc-btn--ghost" href="{{ model.url }}">View this model</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.reasons %}
+  <section class="sc-section">
+    <div class="sc-measure">
+      <h2 class="sc-h2--section">The scorecard at a glance</h2>
+      <div class="sc-table-wrap">
+        <table class="sc-table">
+          <thead><tr><th>Point</th><th>Checked</th></tr></thead>
+          <tbody>
+            {% for item in page.reasons %}
+            <tr><td>{{ item.heading }}</td><td class="sc-table-mark">&#10003;</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.faq and page.faq.questions %}
+  <section class="sc-section sc-faq">
+    <div class="sc-measure">
+      <h2 class="sc-h2--section">Questions buyers ask</h2>
+      {% for entry in page.faq.questions %}
+      <div class="sc-faq-item">
+        <h3 class="sc-faq-q">{{ entry.question }}</h3>
+        <p class="sc-faq-a">{{ entry.answer }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="sc-cta-band">
+    <div class="sc-measure">
+      {% if page.closing.headline %}<h2 class="sc-h2--section">{{ page.closing.headline }}</h2>{% endif %}
+      <ul class="sc-recap">
+        {% for bullet in page.closing.recap or [] %}<li>{{ bullet.text }}</li>{% endfor %}
+      </ul>
+      <a class="sc-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      {% if page.closing.warranty_line %}<p class="sc-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
+      {% if page.closing.financing_line %}
+        {% if product.financing and product.financing.lender %}
+        <p class="sc-fine">{{ page.closing.financing_line.text }}</p>
+        {% else %}
+        <p class="sc-fine">Financing available</p>
+        {% endif %}
+      {% endif %}
+      {% if cartridge_data.hsa_claim %}<p class="sc-fine">{{ cartridge_data.hsa_claim.text }}</p>{% endif %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}
