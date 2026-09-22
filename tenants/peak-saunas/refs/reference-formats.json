@@ -1,0 +1,194 @@
+[
+  {
+    "url": "https://sunhomesaunas.com/pages/quiz",
+    "brand": "Sun Home Saunas",
+    "format": "quiz",
+    "word_count": null,
+    "image_count": 64,
+    "h2_count": null,
+    "h2s": [],
+    "cta_count": null,
+    "cta_texts": [
+      "Next",
+      "Continue",
+      "Submit and View Results",
+      "Skip and View Results",
+      "Shop Now",
+      "Talk to a Sauna Expert",
+      "Retake Quiz"
+    ],
+    "sticky_bar": {
+      "present": true,
+      "contents": "full site nav + rotating promo/utility bar ('Save up to $1,500 with Free Shipping' / 'Which Setup is Right for You? Take the Quiz') carried over from the main theme; quiz body itself has a top progress bar (flame icon marker) instead of a sticky CTA"
+    },
+    "proof": [
+      "personalized 'WHY THIS MATCHES YOU' checklist (4 reasons tied directly to the visitor's own answers, e.g. 'You prioritized recovery...')",
+      "named product recommendation with price, not a generic result bucket"
+    ],
+    "offer": [
+      "'Start with $200 Off Plus Free Shipping ($1,500 Value)' — mid-quiz email-capture popup (interruptive, fires after question 1)",
+      "soft email gate at the end ('Last step! Enter your email...' with a visible 'Skip and View Results' link — NOT a hard gate)",
+      "financing/HSA-FSA not surfaced inside the quiz flow itself, only on product pages after 'Shop Now'"
+    ],
+    "faq_count": 0,
+    "above_fold": [
+      "utility/promo bar",
+      "full site nav (Saunas/Cold Plunges/Explore, search/account/cart, 'Need help?')",
+      "thin flame-icon progress bar",
+      "single question headline (e.g. 'What are you hoping to improve most?')",
+      "icon-card answer grid (4-6 options)",
+      "Next or auto-advance on single-select"
+    ],
+    "item_pattern": {
+      "heading_style": "one question per screen, short imperative headline + icon-card answers (multi-select shows a 'Next' button and enforces a 'select up to 2' minimum with inline validation; single-select auto-advances)",
+      "body_words_avg": null,
+      "item_end": "every 2 questions is followed by a non-interactive 'Did you know?' educational interstitial (photo + 2-3 sentences + single 'Continue' button) that paces the funnel and delivers category-education without asking anything"
+    },
+    "design": {
+      "body_font": "\"Suisse Intl\", sans-serif (same theme as sunhomesaunas.com blog pages)",
+      "body_size_px": 16,
+      "heading_font": "\"Suisse Intl\", sans-serif",
+      "max_width_px": null,
+      "cta_bg": "#1a2744 (dark navy, computed rgb(26,39,68))",
+      "cta_text_color": "#ffffff",
+      "cta_radius_px": 10,
+      "cta_height_px": 57,
+      "section_gap_px": null,
+      "band_colors": ["off-white/grey quiz background", "white result-page background", "dark navy CTA"]
+    },
+    "notes": "Full funnel walked step-by-step with a rendered browser (curl alone returns ~1,062 words and a single sr-only H1 — this is a client-side-rendered quiz app, not a static page). 6 question screens observed (goals / setup type / sauna type / usage occasions / group size / placement / familiarity — order varies by branch) interleaved with 3 educational interstitials, then a soft email-capture step, then a results page with 1 primary recommendation (photo, name, price, 4-point personalized 'why this matches you' list, dual CTA) plus a 3-item 'Complete Your Setup' cross-sell grid and a 'Retake Quiz' link. An unprompted popup offering $200 off + free shipping in exchange for email interrupted the flow after the first question and had to be dismissed with Escape (no visible close button was reachable via the accessibility tree, suggesting it renders in an iframe)."
+  },
+  {
+    "url": "https://www.eightsleep.com/blog/eight-sleep-versus-tempur-pedic/",
+    "brand": "Eight Sleep",
+    "format": "comparison",
+    "word_count": 1301,
+    "image_count": 7,
+    "h2_count": 0,
+    "h2s": [],
+    "cta_count": null,
+    "cta_texts": [],
+    "sticky_bar": {
+      "present": null,
+      "contents": "shares Eight Sleep's main site header/nav theme; no dedicated purchase sticky bar found in this blog template"
+    },
+    "proof": [
+      "'Key Similarities' / 'Key Differences' H3 pair as the core comparison device (bullet lists under each)",
+      "specific competing-product callouts (LuxeBreeze by Tempur-Pedic named directly, feature-by-feature: active cooling, temperature auto-adjustment, materials)"
+    ],
+    "offer": [],
+    "faq_count": 0,
+    "above_fold": [
+      "H1 naming both products ('Comparing the Eight Sleep Pod Pro and LuxeBreeze by Tempur-Pedic')",
+      "no hero CTA observed in this blog-template rendering; page reads as editorial content, not a hard-sell lander"
+    ],
+    "item_pattern": {
+      "heading_style": "H3 'Key Similarities:' then H3 'Key Differences:', each followed by short paragraphs/bullets contrasting the two named products point by point",
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {
+      "body_font": null,
+      "body_size_px": null,
+      "heading_font": null,
+      "max_width_px": null,
+      "cta_bg": null,
+      "cta_text_color": null,
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    },
+    "notes": "Published on Eight Sleep's own blog subdomain, not a dedicated ad-lander template — CSS/CTA styling could not be reliably attributed from the fetched bundle (Next.js hashed classes), and no purchase CTA button was found in the fetched HTML for this specific article (the format's conversion mechanism appears to be internal linking back to the product page rather than an embedded CTA). Included as the first-party, high-ticket ($2k-4k) 'vs a named competitor' precedent; Sun Home Saunas' own in-category vs page (https://sunhomesaunas.com/blogs/saunas/sun-home-vs-other-home-sauna-brands) was already measured in reference-landers.json (word_count 1494, 4 H2s, comparison-table + decision-framework structure, no purchase CTA either) and is the stronger structural model for this format — both brand-run comparison pages skip a hard sales CTA in favor of a comparison table/decision framework, which is notable for a considered-purchase category."
+  },
+  {
+    "url": "https://www.solar.com/learn/solar-calculator/",
+    "brand": "Solar.com",
+    "format": "calculator",
+    "word_count": 2609,
+    "image_count": 15,
+    "h2_count": 5,
+    "h2s": [
+      "How to use our solar panel cost calculator",
+      "Do you really save money with solar panels?",
+      "Using the solar panel cost calculator in California",
+      "How do I estimate solar installation costs?",
+      "Will solar panels get cheaper in 2023?"
+    ],
+    "cta_count": null,
+    "cta_texts": ["See your real solar price in 90 seconds"],
+    "sticky_bar": {
+      "present": null,
+      "contents": null
+    },
+    "proof": [
+      "output fields framed as concrete numbers, not vague ranges: 'Monthly payment', 'Bill reduction', 'Lifetime energy cost', 'Lifetime savings', 'Average electricity rate'"
+    ],
+    "offer": [
+      "financing-first framing — the calculator's primary output is a monthly payment, not a cash price",
+      "'See your real solar price in 90 seconds' sets a low-friction time expectation"
+    ],
+    "faq_count": null,
+    "above_fold": [
+      "H1 'Solar Panel Cost Calculator'",
+      "calculator input module (address/usage fields, inferred)",
+      "mid-page CTA module 'See your real solar price in 90 seconds'"
+    ],
+    "item_pattern": {
+      "heading_style": null,
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {
+      "body_font": null,
+      "body_size_px": null,
+      "heading_font": null,
+      "max_width_px": null,
+      "cta_bg": null,
+      "cta_text_color": null,
+      "cta_radius_px": null,
+      "cta_height_px": null,
+      "section_gap_px": null,
+      "band_colors": null
+    },
+    "notes": "Static curl only; the live calculator widget itself is client-rendered so its interaction pattern (address entry -> instant estimate) is inferred from surrounding copy and could not be exercised headlessly in this pass. Word count (2,609) is dominated by SEO/editorial content below the calculator (regional sections, FAQ-style Q&A, methodology) — the calculator module itself is a small fraction of the page. Included as the strongest available example of a financed, considered-purchase category (solar, $15k-30k systems) built around a payment-first ROI tool; Peak Saunas already runs its own version of this format live (peaksaunas.com/pages/sauna-cost-calculator), so this candidate is not a gap for Peak, unlike quiz and comparison."
+  },
+  {
+    "url": "https://ouraring.com/science-and-research",
+    "brand": "Oura",
+    "format": "expert-roundup",
+    "word_count": 1491,
+    "image_count": 17,
+    "h2_count": null,
+    "h2s": [
+      "The Promise of Sleep: A Multi-Sensor Approach for Accurate Sleep Stage Detection Using Oura Ring",
+      "Oura Ring's Ovulation Detection Algorithm Outperforms Calendar Tracking Method in New Validation Study",
+      "Heart Rate and HRV: Oura Ring's Average Nighttime Values Correspond Near-Perfect with ECG",
+      "Physiological Data Collected from Wearable Devices Identify and Predict Inflammatory Bowel Disease Flares",
+      "Biometrics of Complete Human Pregnancy Recorded by Wearable Devices",
+      "Effects of Fluid Intake on Sleep Duration and Quality Among Healthy Adults"
+    ],
+    "cta_count": null,
+    "cta_texts": [],
+    "sticky_bar": {"present": null, "contents": null},
+    "proof": [
+      "'Powering research published in over 130 peer-reviewed publications' claim",
+      "a scrolling/tiled list of individually named, individually linked peer-reviewed studies (not paraphrased claims — actual study titles)",
+      "'Independently validated sensors' section"
+    ],
+    "offer": [],
+    "faq_count": null,
+    "above_fold": [
+      "H1 'Grounded in science, driven by research'",
+      "'Our research-driven approach to innovation' framing section",
+      "no purchase CTA found above the fold — page reads as a trust/credibility destination, not a conversion page"
+    ],
+    "item_pattern": {
+      "heading_style": "each cited study gets its own heading (its real academic title) plus a short summary — a study library, not numbered claims",
+      "body_words_avg": null,
+      "item_end": null
+    },
+    "design": {"body_font": null, "body_size_px": null, "heading_font": null, "max_width_px": null, "cta_bg": null, "cta_text_color": null, "cta_radius_px": null, "cta_height_px": null, "section_gap_px": null, "band_colors": null},
+    "notes": "This is an organic/SEO trust hub, not a page built to receive cold paid-social traffic — no above-fold CTA, no offer, no urgency device were found. Its 'claim library with named sources' mechanic is structurally the same trust pattern Sun Home Saunas already runs in its guide (Claim Ledger / evidence-labeling, already measured in reference-landers.json), so it does not represent a structurally new opportunity for Peak beyond what the advertorial/guide format already covers."
+  }
+]
