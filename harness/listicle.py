@@ -38,16 +38,18 @@ from .textutil import NON_PROSE_KEYS, walk_page
 
 STYLES = ("reasons", "mistakes", "questions", "myths", "tested")
 
-# The headline the writer must produce, per style. N is a number the writer
-# fills in: the item count for the first four styles, the number of weeks
-# for "tested" (which is the one style whose headline number is not the
-# item count -- see _N_IS_ITEM_COUNT).
+# The headline the writer must produce, per style. N is the item count in
+# every style (cycle 49: "tested" used to lead with a number of weeks --
+# see the module docstring's Cycle 49 note -- but that asserted a physical
+# test that never happened, so it now counts items like the other four).
+# Every formula names an audience so two ads never land on the same
+# headline (cycle 49; see find_headline_slot_violations).
 HEADLINE_FORMULAS = {
     "reasons": "N Reasons <audience> Are Choosing <category>",
-    "mistakes": "N Mistakes People Make Buying <category>",
-    "questions": "N Questions to Ask Before You Buy <category>",
-    "myths": "N <category> Myths, and What the Evidence Says",
-    "tested": "We Tested <category> for N Weeks. Here Is What Held Up",
+    "mistakes": "N Mistakes <audience> Make When Buying <category>",
+    "questions": "N Questions <audience> Should Ask Before Buying <category>",
+    "myths": "N <category> Myths <audience> Still Hear, and What the Evidence Says",
+    "tested": "We Checked N <category> Claims <audience> Keep Hearing. Here Is What Held Up",
 }
 
 # What one numbered item is, in this style. The item heading itself is a
@@ -58,7 +60,11 @@ ITEM_PATTERNS = {
     "mistakes": "one mistake a buyer makes, named as the mistake itself",
     "questions": "one question to ask a seller, phrased as a question",
     "myths": "one myth, stated as the myth, with the body answering it from the evidence",
-    "tested": "one thing the test looked at, stated as what held up (or did not)",
+    "tested": (
+        "one claim people hear about this category, stated as the claim itself, with the "
+        "body saying what the verified facts support or do not -- never what a physical "
+        "test found, because no physical test was run"
+    ),
 }
 
 _HEADLINE_RES = {
@@ -66,12 +72,29 @@ _HEADLINE_RES = {
     "mistakes": re.compile(r"^\s*(\d+)\s+Mistakes\b", re.IGNORECASE),
     "questions": re.compile(r"^\s*(\d+)\s+Questions\b", re.IGNORECASE),
     "myths": re.compile(r"^\s*(\d+)\b.*\bMyths\b", re.IGNORECASE),
-    "tested": re.compile(r"^\s*We Tested\b.*?\b(\d+)\s+Weeks?\b", re.IGNORECASE),
+    "tested": re.compile(r"^\s*We\s+Checked\s+(\d+)\b.*\bClaims\b", re.IGNORECASE),
 }
 
-# Styles whose leading number states the item count. "tested"'s own number
-# is a duration, so its item count is only checked against ITEM_COUNT_RANGE.
-_N_IS_ITEM_COUNT = ("reasons", "mistakes", "questions", "myths")
+# The <audience> slot's own text, one regex per style, anchored on the fixed
+# words either side of it in HEADLINE_FORMULAS (cycle 49). Used by
+# find_headline_slot_violations, not by the formula check above -- that
+# check only needs the leading count.
+_AUDIENCE_SLOT_RES = {
+    "reasons": re.compile(r"\bReasons\s+(.+?)\s+Are\s+Choosing\b", re.IGNORECASE),
+    "mistakes": re.compile(r"\bMistakes\s+(.+?)\s+Make\s+When\s+Buying\b", re.IGNORECASE),
+    "questions": re.compile(r"\bQuestions\s+(.+?)\s+Should\s+Ask\s+Before\s+Buying\b", re.IGNORECASE),
+    "myths": re.compile(r"\bMyths\s+(.+?)\s+Still\s+Hear\b", re.IGNORECASE),
+    "tested": re.compile(r"\bClaims\s+(.+?)\s+Keep\s+Hearing\b", re.IGNORECASE),
+}
+
+# An <audience> slot filled with only one of these names no one in
+# particular -- the failure mode this gate exists to catch (cycle 49).
+GENERIC_AUDIENCE_WORDS = frozenset({"people", "buyers", "shoppers", "customers", "everyone"})
+
+# Cycle 49: every style's leading number is the item count -- "tested"
+# joined once its headline stopped asserting a duration ("N Weeks") that
+# never happened (docs/FIXLOG.md Cycle 49).
+_N_IS_ITEM_COUNT = STYLES
 
 ITEM_COUNT_RANGE = (5, 7)
 # Cycle 43: lowered from 60 -- observed real runs stopping items at 53-57
@@ -101,6 +124,21 @@ URGENCY_PHRASES = (
 _URGENCY_RES = tuple(
     (phrase, re.compile(r"\b" + re.escape(phrase).replace(r"\ ", r"\s+") + r"\b", re.IGNORECASE))
     for phrase in URGENCY_PHRASES
+)
+
+# Phrases that assert a first-person physical test, trial, or usage period --
+# this harness only ever checks claims against verified specs, it never runs
+# one (cycle 49; see the "tested" style's own headline formula and
+# find_fake_test_violations). Checked in every style, not only "tested": a
+# stray "we tested this for weeks" in a "reasons" FAQ answer is the same
+# unverifiable claim.
+FAKE_TEST_PHRASES = (
+    "we tested", "our test", "we used", "we ran", "weeks of use", "weeks of testing",
+    "session by session", "in our testing", "hands-on", "we measured",
+)
+_FAKE_TEST_RES = tuple(
+    (phrase, re.compile(r"\b" + re.escape(phrase).replace(r"\ ", r"\s+") + r"\b", re.IGNORECASE))
+    for phrase in FAKE_TEST_PHRASES
 )
 
 # page.json keys for sections the RENDERER owns (see the module docstring).
@@ -173,6 +211,19 @@ _COUNT_WORDS = {
 _LEADING_COUNT_RE = re.compile(
     r"^\s*(\d+|" + "|".join(_COUNT_WORDS) + r")\b", re.IGNORECASE
 )
+# "tested"'s count sits after "We Checked ", not at the headline's own start
+# (cycle 49 -- see HEADLINE_FORMULAS), so it gets its own leading-position
+# regex; every other style's count is still the very first token.
+_TESTED_LEADING_COUNT_RE = re.compile(
+    r"^\s*We\s+Checked\s+(\d+|" + "|".join(_COUNT_WORDS) + r")\b", re.IGNORECASE
+)
+_COUNT_TOKEN_RES = {
+    "reasons": _LEADING_COUNT_RE,
+    "mistakes": _LEADING_COUNT_RE,
+    "questions": _LEADING_COUNT_RE,
+    "myths": _LEADING_COUNT_RE,
+    "tested": _TESTED_LEADING_COUNT_RE,
+}
 
 
 def fix_headline_number(page):
@@ -195,7 +246,7 @@ def fix_headline_number(page):
         return None
     headline = page.get("headline") or ""
     count = len(_items(page))
-    match = _LEADING_COUNT_RE.match(headline)
+    match = _COUNT_TOKEN_RES[style].match(headline)
     if not match:
         return None
     fixed = headline[: match.start(1)] + str(count) + headline[match.end(1) :]
@@ -225,6 +276,16 @@ def writer_rules_lines():
         "words carries its own claim_ids -- that includes audience_fit lines, closing recap "
         "bullets and FAQ answers, not only item bodies. A line you cannot cite gets "
         "rewritten without the number, not shipped uncited.",
+        # Cycle 49: this harness checks claims against verified specs, it never runs a
+        # physical test, in any style -- stated here (not only in "tested"'s own lines
+        # below) because a stray "we tested this for weeks" in a "reasons" FAQ answer or
+        # audience_fit line is the same unverifiable claim, and find_fake_test_violations
+        # checks the whole page regardless of style.
+        "Never write \"we tested\", \"our test\", \"we used\", \"we ran\", \"weeks of use\", "
+        "\"weeks of testing\", \"session by session\", \"in our testing\", \"hands-on\", or "
+        "\"we measured\" anywhere on the page, in any style -- this harness reports a claims "
+        "check against verified specs and published facts, never a physical test, trial, or "
+        "usage period.",
     ]
 
 
@@ -247,11 +308,19 @@ def writer_style_lines(style):
     # term in <audience> and the tenant's own name in <category>. Stated once
     # here, next to the formula itself, rather than left for the gate
     # (find_headline_slot_violations below) to discover after the fact.
+    # Cycle 49: every style now names an audience (two ads used to land on
+    # the identical headline -- see docs/FIXLOG.md Cycle 49), so this line
+    # applies to all five, and also states the generic-word rule the gate
+    # enforces (an audience slot that is just "people" or "buyers" names no
+    # one in particular).
     if "<audience>" in formula:
         lines.append(
             "<audience> names people by their situation or goal (\"busy parents\", "
-            "\"apartment owners\", \"people who train at home\") -- never a real-estate term "
-            "and never the ad brief's audience field copied in verbatim."
+            "\"apartment dwellers\", \"people tired of studio fees\"), 2-5 words, derived from "
+            "the ad brief's own audience/angle -- never that field copied in verbatim, never a "
+            "real-estate term, never the tenant's name or a model name, and never left empty or "
+            "a bare \"people\", \"buyers\", \"shoppers\", \"customers\", or \"everyone\" with "
+            "nothing else."
         )
     if "<category>" in formula:
         lines.append(
@@ -259,19 +328,23 @@ def writer_style_lines(style):
             "tenant's name and never a model name."
         )
     lines += [
-        "Write N as a numeral (5, not \"five\"). "
-        + (
-            "N is the number of entries you actually put in \"reasons\" -- count them before "
-            "you answer, and if you add or drop an item while revising, change the headline's "
-            "number to match."
-            if style in _N_IS_ITEM_COUNT
-            else "N is the number of weeks the test ran, not the item count."
-        ),
+        "Write N as a numeral (5, not \"five\"). N is the number of entries you actually put "
+        "in \"reasons\" -- count them before you answer, and if you add or drop an item while "
+        "revising, change the headline's number to match.",
         f"Every numbered item is {ITEM_PATTERNS[style]}. Item headings carry no numeral "
         "(the renderer draws the number) and no price.",
         f"Write {lo}-{hi} items, each with a {wlo}-{whi} word body and a closing proof line "
         "that either cites a verified claim_id or is an attributed customer statement.",
     ]
+    if style == "tested":
+        lines.append(
+            "This page reports a claims check, not a test: verified facts and published "
+            "specifications checked against claims people repeat about this category. No "
+            "physical test, trial, or usage period happened -- never write \"we tested\", "
+            "\"our test\", \"we used\", \"we ran\", a number of weeks of use or testing, "
+            "\"session by session\", \"in our testing\", \"hands-on\", or \"we measured\" "
+            "anywhere on the page."
+        )
     return lines
 
 
@@ -433,7 +506,7 @@ def find_style_violations(page, style=None):
     return problems
 
 
-def find_headline_slot_violations(page, tenant_name=None, product_names=None):
+def find_headline_slot_violations(page, tenant_name=None, product_names=None, style=None):
     """The headline's <category> slot (see HEADLINE_FORMULAS/writer_style_
     lines) is the product category, never a brand or model name -- observed
     on a real run: a headline shaped like "6 Reasons Home Buyers Are
@@ -441,20 +514,52 @@ def find_headline_slot_violations(page, tenant_name=None, product_names=None):
     tenant_name and product_names are whatever this run's own tenant/
     facts_pack carry (see harness/repair.py's check_page_gates) -- taking
     them as plain strings keeps this module tenant-neutral rather than
-    importing harness/tenant.py here."""
+    importing harness/tenant.py here.
+
+    Cycle 49: also checks the <audience> slot every formula now carries, so
+    two ads never land on the identical headline (observed: "mistakes",
+    "questions" and "myths" all had no audience slot and three live ads
+    produced the same "7 Mistakes People Make Buying Home Infrared Saunas").
+    An empty slot or one that is only a generic word ("people", "buyers", ...
+    -- GENERIC_AUDIENCE_WORDS) fails; any other text in the slot passes here
+    -- the real-estate-term/brand-name rule for that slot is writer guidance
+    (writer_style_lines), not a structural check, since there is no fixed
+    list of real-estate terms to match against."""
     headline = page.get("headline") or ""
     if not headline:
         return []
+    problems = []
     names = [n for n in [tenant_name, *(product_names or [])] if n]
     for name in names:
         if re.search(r"\b" + re.escape(name) + r"\b", headline, re.IGNORECASE):
-            return [_problem(
+            problems.append(_problem(
                 "$.headline", "listicle:headline_slots",
                 f"headline contains {name!r} -- the <category> slot names the product "
                 'category only (e.g. "home infrared saunas"), never the tenant\'s name or a '
                 "product/model name; rewrite that slot without it",
-            )]
-    return []
+            ))
+            break
+
+    slot_style = style or page.get("style")
+    audience_re = _AUDIENCE_SLOT_RES.get(slot_style)
+    if audience_re:
+        match = audience_re.search(headline)
+        audience = match.group(1).strip() if match else ""
+        normalized = audience.strip(" .,!?").lower()
+        if not audience:
+            problems.append(_problem(
+                "$.headline", "listicle:headline_slots",
+                "headline's <audience> slot is empty; name people by their situation or goal "
+                "there (\"busy parents\", \"apartment dwellers\") so this headline cannot land "
+                "on the same words as another ad",
+            ))
+        elif normalized in GENERIC_AUDIENCE_WORDS:
+            problems.append(_problem(
+                "$.headline", "listicle:headline_slots",
+                f"<audience> slot is just {audience!r} -- that names no one in particular; "
+                "name people by their situation or goal instead",
+            ))
+    return problems
 
 
 def find_item_violations(page):
@@ -604,6 +709,29 @@ def find_urgency_violations(page):
     return problems
 
 
+def find_fake_test_violations(page):
+    """No writer-composed prose anywhere on the page asserts a physical
+    test, trial, or usage period -- this harness reports a claims check
+    against verified specs and published facts, and nothing here ever ran a
+    product for a stretch of time (cycle 49; FAKE_TEST_PHRASES). Applies to
+    every style, not only "tested": the repair message always asks for a
+    claims-check rewording, never "run a real test"."""
+    problems = []
+    for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
+        if not isinstance(node, str):
+            continue
+        for phrase, pattern in _FAKE_TEST_RES:
+            if pattern.search(node):
+                problems.append(_problem(
+                    path, "listicle:tested_no_fake_test",
+                    f"{phrase!r} asserts a physical test, trial, or usage period that never "
+                    "happened -- rewrite this as a claims check against verified specs and "
+                    "published facts, not a test",
+                    text=node,
+                ))
+    return problems
+
+
 def find_renderer_owned_violations(page):
     """The trust line, pull quote, model picker and HSA/FSA line are built
     by the renderer from facts_pack (see the module docstring) -- a writer
@@ -633,12 +761,13 @@ def find_listicle_violations(page, style=None, tenant_name=None, product_names=N
         return []
     problems = []
     problems += find_style_violations(page, style)
-    problems += find_headline_slot_violations(page, tenant_name, product_names)
+    problems += find_headline_slot_violations(page, tenant_name, product_names, style)
     problems += find_item_violations(page)
     problems += find_hero_violations(page)
     problems += find_audience_fit_violations(page)
     problems += find_faq_violations(page)
     problems += find_closing_violations(page)
     problems += find_urgency_violations(page)
+    problems += find_fake_test_violations(page)
     problems += find_renderer_owned_violations(page)
     return problems

@@ -1772,3 +1772,49 @@ name matches the run-id pattern (`tests/test_soak_safety.py`). Cycle 37's autous
 isolation keeps the suite off the real tenant regardless. `crons/backup-tenant-data.sh`
 snapshots every tenant's non-git data daily to `~/backups/advertorial` (14-day
 retention) so an operator mistake or a future bug of this class is recoverable.
+
+## Cycle 49 — `tested` re-scoped to an honest claims check; an audience slot in every headline formula (2026-09-22)
+
+1. **`tested` no longer asserts a test that never happened.** Old headline ("We
+   Tested \<category\> for N Weeks. Here Is What Held Up") and item pattern described a
+   physical usage period nobody ran. New formula: "We Checked N \<category\> Claims
+   \<audience\> Keep Hearing. Here Is What Held Up" -- N is now the item count, like
+   every other style (the old "N Weeks" duration logic is gone: `_N_IS_ITEM_COUNT` is
+   now all five styles, and `fix_headline_number`'s deterministic repair applies to
+   `tested` too, via a new per-style leading-count regex since its count no longer
+   sits at the headline's own start). `ITEM_PATTERNS["tested"]` re-scoped to a claim
+   people hear about the category, with the body saying what verified facts support or
+   do not.
+2. **New gate `listicle:tested_no_fake_test`** (`harness/listicle.py:
+   find_fake_test_violations`, `FAKE_TEST_PHRASES`) fails the headline, dek, any item
+   heading/body/proof, `audience_fit`, an FAQ answer, or the closing recap in ANY
+   style (not only `tested`) that contains a first-person testing/usage phrase ("we
+   tested", "our test", "we used", "we ran", "weeks of use", "weeks of testing",
+   "session by session", "in our testing", "hands-on", "we measured" --
+   case-insensitive, word-boundary). Reuses `textutil.walk_page`, the same pattern as
+   the existing urgency-vocabulary gate.
+3. **An `<audience>` slot in every headline formula**, so two ads never share a
+   headline -- `mistakes`, `questions` and `myths` had none, and three live pages used
+   the identical "7 Mistakes People Make Buying Home Infrared Saunas". New formulas:
+   `mistakes` -> "N Mistakes \<audience\> Make When Buying \<category\>"; `questions` ->
+   "N Questions \<audience\> Should Ask Before Buying \<category\>"; `myths` -> "N
+   \<category\> Myths \<audience\> Still Hear, and What the Evidence Says". `reasons` is
+   unchanged. `listicle:headline_slots` (`find_headline_slot_violations`, extended)
+   now also rejects an empty `<audience>` slot or one that is only a generic word
+   (`GENERIC_AUDIENCE_WORDS`: "people", "buyers", "shoppers", "customers", "everyone"),
+   extracted per style via `_AUDIENCE_SLOT_RES` (anchored on the fixed words either
+   side of the slot). The real-estate-term/brand-name rule for that slot stays writer
+   guidance (`writer_style_lines`) rather than a structural check -- there is no fixed
+   list of real-estate terms to gate against.
+4. **`tenants/peak-saunas/tenant.yaml`**: `cartridges.listicle.styles` now lists all
+   five (was four, excluding `tested`, since 2026-09-19); comment explains `tested` is
+   a claims-check format as of this cycle.
+5. **Docs**: `cartridges/listicle/cartridge.md`'s style table and rules, `docs/
+   GENERATOR.md`'s listicle section (formula table + the two new gate keys), and
+   `cartridges/listicle/schema.json`'s `headline` property description all updated to
+   the five new formulas.
+6. **Tests** (`tests/test_listicle.py`): formula acceptance/rejection per style with a
+   filled audience slot; empty-slot and generic-word rejection; the fake-test-phrase
+   gate on headline/dek/item body/FAQ answer, in a non-`tested` style too;
+   headline-count repair (including spelled-out and stale counts) on every formula,
+   `tested` included; `resolve_style` rotation over all five for the tenant.

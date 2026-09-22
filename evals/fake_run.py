@@ -47,10 +47,10 @@ _LISTICLE_ASSET_IDS = [f"asset-{FUJI_SLUG}-{i}" for i in range(1, 7)]
 
 _LISTICLE_HEADLINES = {
     "reasons": "5 Reasons Careful Buyers Are Choosing A Home Infrared Cabin",
-    "mistakes": "5 Mistakes People Make Buying A Home Infrared Cabin",
-    "questions": "5 Questions to Ask Before You Buy A Home Cabin",
-    "myths": "5 Home Infrared Cabin Myths, and What the Evidence Says",
-    "tested": "We Tested Home Infrared Cabins for 8 Weeks. Here Is What Held Up",
+    "mistakes": "5 Mistakes Careful Buyers Make When Buying A Home Infrared Cabin",
+    "questions": "5 Questions Careful Buyers Should Ask Before Buying A Home Cabin",
+    "myths": "5 Home Infrared Cabin Myths Careful Buyers Still Hear, and What the Evidence Says",
+    "tested": "We Checked 5 Home Infrared Cabin Claims Careful Buyers Keep Hearing. Here Is What Held Up",
 }
 
 

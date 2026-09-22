@@ -2,7 +2,7 @@
 
 Not executed in V1 (grader lands in V1.5). Twelve one-line checks a reviewer scores, derived from cartridge.md. Items 1-8 are also deterministic gates (harness/listicle.py); a reviewer scoring them is checking that the gate measured the right thing, not re-deriving it.
 
-1. `style` is one of reasons/mistakes/questions/myths/tested and the headline follows that style's formula, 8-14 words, no price. For the first four styles the headline's N equals the item count.
+1. `style` is one of reasons/mistakes/questions/myths/tested and the headline follows that style's formula, 8-14 words, no price. N equals the item count in every style; `tested`'s items report a claims check against verified specs, never a physical test.
 2. Item count N is 5-7; each item's `number` matches its position; each heading is <=10 words with no numeral and asserts what the style says it should.
 3. Each item body is 50-150 words and closes with a `proof` line that either cites a verified claim_id or reads, to a reader, as an attributed customer statement.
 4. Every claims-bearing sentence (number, %, $, medical/clinical/study/proven/rated/reviews) carries a claim_id that exists in facts_pack.verified_claims -- including every FAQ answer.
