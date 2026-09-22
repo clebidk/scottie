@@ -178,7 +178,8 @@ def find_duplicate_asset_violations(page, cartridge_name=None):
 
 
 def find_hero_requirement_violations(page, cartridge_name):
-    """longform, product-page and (cycle 41) listicle each declare an
+    """longform, product-page, (cycle 41) listicle and (cycle 56)
+    comparison each declare an
     explicit hero image slot (ground.hero_container) -- if one ends up with
     no usable hero asset_id at all (the writer left it out, or every
     candidate the run's facts_pack offered was ineligible), that is loud and
@@ -187,11 +188,11 @@ def find_hero_requirement_violations(page, cartridge_name):
     check is a no-op for it -- nothing to require."""
     from . import ground as ground_mod
 
-    if cartridge_name not in ("longform", "product-page", "listicle", "quiz"):
+    if cartridge_name not in ("longform", "product-page", "listicle", "comparison", "quiz"):
         return []
     node = ground_mod.hero_container(page, cartridge_name)
     if node is None or not node.get("asset_id"):
-        path = "$.hero" if cartridge_name in ("listicle", "quiz") else "$.hero.hero_image"
+        path = "$.hero" if cartridge_name in ("listicle", "comparison", "quiz") else "$.hero.hero_image"
         return [{"path": path, "issue": f"{cartridge_name} requires a hero image; none is set"}]
     return []
 

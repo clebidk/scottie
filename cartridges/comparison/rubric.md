@@ -1,14 +1,14 @@
-# Comparison cartridge rubric (10 points)
+# Comparison cartridge rubric (10 points, v1.0.0)
 
 Score the rendered page 0 or 1 per line; 8+ is publishable.
 
-1. The eyebrow is a literal "<A> vs. <B>" and the headline (<=8 words) matches it.
-2. The comparison table's rows come from facts_pack.comparison_targets and every cell cites a claim id that exists in facts_pack.verified_claims.
-3. No cell, column, or section states a fact with no source -- and nothing named that the tenant's vocab forbids.
-4. The deep dives cover the dimensions the run's product genuinely wins, with claim_ids on each stated fact.
-5. The alternative-strengths section is honest and specific (a reader would call it fair), not a strawman.
-6. Exactly one CTA phrase on the whole page, repeated verbatim (header + verdict); no second offer card.
-7. The verdict names who should pick which, in plain terms.
-8. Warranty/financing lines are the fixed sentences verbatim, or absent.
-9. The page reads like the tenant's site (voice, layout, no hype, no exclamation marks).
-10. Images come from the asset library with renderer-derived alt text; the page works at 390px wide.
+1. The headline follows the page's axis formula: the three model names in column order ("models"), or category vs one of the page's own alternatives ("alternatives"), with a real audience.
+2. Every filled table cell is a short fragment of one verified claim and cites it; a value nothing verifies shows a dash, and no row is all dashes.
+3. The three columns are the ad's product (featured) and two of the tenant's own active models; no competitor, retired model or brand name appears anywhere on the page.
+4. "What the numbers mean" reads the table for a buyer in plain terms, each paragraph citing the cells it uses.
+5. Each alternative card is fair and specific: no digit, dollar amount or percentage about the alternative, no invented weakness; the tenant's side of each difference is claim-backed.
+6. "Best for" and "who each model is for" name real, checkable fits and limits (room, power, household size, budget) for every model.
+7. Exactly one CTA phrase and one destination, repeated verbatim (header, closing, sticky bar); no second offer.
+8. Warranty and financing are the fixed sentences, drawn once in the closing block; HSA/FSA appears only when a verified claim states it.
+9. The page reads like the tenant's site: brand tokens only, square corners, uppercase headlines, no hype, no urgency, no exclamation marks.
+10. Images: the featured hero, one storefront image per model column, one lifestyle photo (3-5 in all, none repeated); the table scrolls sideways at 390px with the row labels pinned.

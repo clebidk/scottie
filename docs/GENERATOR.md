@@ -261,18 +261,42 @@ just as part of `harness/`); a `<script>` tag; an inline event handler; an
 fixed width over 390px (a block must never break the mobile-first layout).
 `tests/test_blocks.py` runs every registered block through this gate.
 
-## The comparison cartridge (opt-in)
+## The comparison cartridge (v1.0.0, cycle 56; opt-in)
 
-`cartridges/comparison/` is the sourced "<product> vs. <alternative>" page:
-a spec table where every cell needs `claim_ids`, 2-4 "deep dive" sections on
-dimensions the run's product wins, and a **required**
-`alternative_strengths` section -- real, sourced strengths of the
-alternative, so the page can never read as a one-sided attack ad. Competitor
-entries only ever load from `tenants/<t>/claims/competitors/` when they
-carry an `approved_by`; an unapproved entry is invisible to the writer. Like
-every cartridge it is opt-in only -- it does not appear in the no-flag
-random-3 default, the same way listicle doesn't -- so a tenant chooses it
-explicitly with `--cartridges comparison`.
+`harness run --tenant <t> --cartridges comparison <ad>` builds a
+claims-safe comparison lander on two axes, both from verified facts only:
+
+- **Model vs model (renderer-owned).** `ground.facts_for(...,
+  include_comparison=True)` adds `facts_pack.comparison`: the ad's product
+  (featured column) plus the two models `_model_options` already picks
+  (closest in price, active only), each with its URL, first storefront image
+  and one cell per row. Rows: capacity, footprint, indoor/outdoor, infrared
+  wavelengths, red light, controls/app, power, 1-2 writer-picked extras
+  (`max_temperature`, `cabin_material`, `heaters`, `audio`), price, warranty.
+  Every cell is a fragment of ONE verified claim's own text with that id
+  (claims namespaced `spec-/gbrain-/pdp-<model>-<suffix>`), the price cell is
+  the first dollar figure of the price claim (never a compare-at), the
+  warranty cell is vocab's fixed spec value; anything else is a dash, and an
+  all-dash row is dropped. The writer never writes a cell.
+- **Vs the alternatives (writer-owned).** 2-3 ids from
+  `cartridges/comparison/schema.json` `alternatives` (studio membership,
+  traditional sauna, far-infrared-only cabin, portable blanket). Summary,
+  similarities and `theirs` carry no digit, `$`, `%` or trigger word; the
+  tenant's side (`ours`) is `{text, claim_ids}` and claims-gated.
+
+The writer picks `axis: models|alternatives`, which fixes the headline
+formula (`<A> vs <B> vs <C>: Which <category> Fits <audience>` or
+`<category> vs <alternative>: What <audience> Should Compare`). Gates live in
+`harness/comparison.py` (`find_comparison_violations`, stable
+`comparison:*` keys: axis, headline_formula, headline_slots,
+alternatives_count/allowlist, alternative_digits, alternative_claims,
+best_for, who_for, faq_count/faq_claims, numbers_mean, recap, extra_rows,
+images, renderer_owned); competitor and retired names stay the existing
+forbidden-vocab gate's job. `render_page` adds the table's claim ids to
+Sources (each model's facts fall back to that model's own page) and runs
+`find_table_violations` as a post-render backstop. The approved-competitor
+store (`claims/competitors/`, `_comparison_targets`) no longer feeds this
+page. Rubric: `cartridges/comparison/rubric.md`.
 
 ## The quiz cartridge (opt-in, cycle 57)
 

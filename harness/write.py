@@ -12,6 +12,7 @@ from .design_skills import LANDING_CARTRIDGES
 from .design_skills.design_md import design_reference_guidance_lines
 from .errors import WriterFailed
 from .jsonutil import extract_json
+from . import comparison
 from . import listicle
 from . import quiz
 from . import pdp
@@ -448,6 +449,17 @@ def _append_listicle_style_guidance(hard_constraints, cartridge_name, style):
         hard_constraints.extend(listicle.writer_style_lines(style))
 
 
+# Cycle 56: the comparison cartridge's per-run lines (the run's own three
+# models by name, both headline formulas, the alternatives allowlist and its
+# digit-free rule) -- harness/comparison.py's writer_lines, the same module
+# the gate reads, so the prompt and the gate cannot drift. No-op for every
+# other cartridge.
+def _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack):
+    if cartridge_name != "comparison":
+        return
+    hard_constraints.extend(comparison.writer_lines(facts_pack))
+
+
 # Cycle 57: the quiz cartridge's hard constraints quote the run's own rubric
 # (question ids, option labels, interstitial slots) so the prompt states
 # exactly what harness/quiz.find_quiz_violations measures. No-op for every
@@ -634,6 +646,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
+    _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
@@ -682,6 +695,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
+    _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very

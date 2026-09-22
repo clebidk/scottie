@@ -128,7 +128,9 @@ def _canned_page(cartridge, style=None, tenant=None):
         return quiz_page(quiz_mod.load_rubric(quiz_mod.rubric_path(root))[0])
     if cartridge == "comparison":
         # Imported lazily so the driver's startup stays light when the
-        # comparison cartridge isn't involved.
+        # comparison cartridge isn't involved. Cycle 56: the v1.0.0 canned
+        # page is a Fuji "models" page (Fuji vs Everest vs Rainier) -- the
+        # product a claim-free brief defaults to, and the one the soak pins.
         from tests.test_comparison import COMPARISON_PAGE
 
         return COMPARISON_PAGE

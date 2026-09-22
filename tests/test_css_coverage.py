@@ -66,7 +66,7 @@ def _cartridge_templates():
 def test_every_cartridge_has_a_template():
     templates = _cartridge_templates()
     names = {p.parent.name for p in templates}
-    assert {"article", "listicle", "longform", "product-page", "quiz"} <= names
+    assert {"article", "comparison", "listicle", "longform", "product-page", "quiz"} <= names
     # cycle 51: the listicle cartridge's five looks are templates too
     assert {"editorial", "cards", "pillars", "scorecard", "lander"} <= names
 

@@ -227,6 +227,8 @@ _HERO_FIELD_PATH = {
     # treated as the de facto hero -- see the listicle branch below, kept
     # only for a page written against the older schema.
     "listicle": ("hero",),
+    # Cycle 56: comparison v1.0.0's header hero (the featured model).
+    "comparison": ("hero",),
     # Cycle 57: the quiz header carries one hero image of its own
     # (page.hero.asset_id), drawn from the featured model's assets.
     "quiz": ("hero",),
@@ -1075,6 +1077,66 @@ class LocalFactsSource:
                 unique.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
         return options, unique
 
+    def _comparison_models(self, product, *, live_price_claims=None, pdp_claims=None, excluded_asset_ids=frozenset()):
+        """Cycle 56: the comparison cartridge's model table -- the run's
+        product (the featured column) plus the next models `_model_options`
+        already picks for the listicle picker (closest in price), each with
+        every table row's cell cut from one of its own verified claims
+        (harness/comparison.py's build_model_cells), its storefront URL and
+        its first storefront image as the column image.
+
+        Returns (block, backing_claims): block is facts_pack["comparison"];
+        backing_claims are the claims the cells cite that must join
+        facts_pack.verified_claims so the gate and the Sources list resolve
+        them. `pdp_claims` is this run's full PDP seed (every product's), so
+        the other models' page-sourced facts are citable too."""
+        from . import comparison as comparison_mod
+
+        self._load()
+        tenant = tenant_mod.active()
+        live_price_claims = live_price_claims or {}
+        options, _backing = self._model_options(product, live_price_claims)
+        by_url = {p["url"]: p for p in self._products.values()}
+        chosen = [by_url[o["url"]] for o in options if o.get("url") in by_url]
+        if not chosen or chosen[0]["slug"] != product["slug"]:
+            chosen = [product] + [p for p in chosen if p["slug"] != product["slug"]]
+        claims_by_id = {c["id"]: c for c in self._verified}
+        claims_by_id.update({c["id"]: c for c in (pdp_claims or [])})
+        models, backing = [], []
+        for p in chosen[:MODEL_OPTION_MAX]:
+            name_slug = product_name_slug(p["name"])
+            price_claim = live_price_claims.get(p["slug"]) or claims_by_id.get(f"price-{name_slug}")
+            if price_claim:
+                claims_by_id[price_claim["id"]] = price_claim
+            cells = comparison_mod.build_model_cells(name_slug, claims_by_id, price_claim)
+            for cell in cells.values():
+                backing.extend(claims_by_id[cid] for cid in cell["claim_ids"] if cid in claims_by_id)
+            image_url = next(
+                (url for i, url in enumerate(p.get("image_urls", []))
+                 if f"asset-{p['slug']}-{i + 1}" not in excluded_asset_ids),
+                None,
+            )
+            image = None
+            if image_url:
+                index = p["image_urls"].index(image_url) + 1
+                image = {"id": f"asset-{p['slug']}-{index}", "url": image_url, "kind": "image"}
+            models.append({
+                "id": name_slug,
+                "name": tenant.display_product_name(p["name"]),
+                "title": tenant.display_product_name(p.get("short_name") or p["name"]),
+                "url": p["url"],
+                "featured": p["slug"] == product["slug"],
+                "image": image,
+                "cells": cells,
+            })
+        seen, unique = set(), []
+        for c in backing:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                unique.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
+        block = {"models": models, **comparison_mod.row_catalog()}
+        return block, unique
+
     def _quiz_models(self, live_price_claims=None):
         """Cycle 57: one quiz result card per ACTIVE product that carries a
         price claim -- display name, the verified price as its cited claim
@@ -1387,11 +1449,18 @@ class LocalFactsSource:
                 ]
         if include_comparison:
             # Kimi long-run phase 6: only a run whose selected cartridges
-            # include comparison gets the targets list (and the backing
+            # include comparison gets the comparison block (and the backing
             # claims joined into the citable universe) -- every other run's
-            # facts_pack is byte-identical to before.
-            targets, backing_claims = self._comparison_targets(product)
-            pack["comparison_targets"] = targets
+            # facts_pack is byte-identical to before. Cycle 56 (comparison
+            # v1.0.0): the block is the tenant's own model table
+            # (_comparison_models); the approved-competitor targets
+            # (_comparison_targets) no longer feed the page, which never
+            # names a competitor.
+            block, backing_claims = self._comparison_models(
+                product, live_price_claims=live_price_claims, pdp_claims=pdp_claims,
+                excluded_asset_ids=exclude_ids,
+            )
+            pack["comparison"] = block
             existing_ids = {c["id"] for c in pack["verified_claims"]}
             pack["verified_claims"] = pack["verified_claims"] + [
                 {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}

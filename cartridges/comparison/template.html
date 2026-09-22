@@ -1,62 +1,343 @@
 {% extends "base.html" %}
+{# Comparison cartridge v1.0.0 (cycle 56).
+
+   Two axes, both from verified facts only. The model table, the trust line,
+   the rating band, the warranty/financing/HSA lines and the sticky bar are
+   RENDERER-OWNED (harness/comparison.py's render_context, handed in as
+   cartridge_data): every table cell is a fragment of one verified claim, or a
+   dash. The writer's page.json supplies the headline, dek, best-for and
+   who-for lines, the "what the numbers mean" paragraphs, the alternatives
+   cards, the FAQ and the recap.
+
+   Visual language follows the listicle scorecard look (bordered evidence
+   panels, a summary table) on the tenant's own tokens: every colour, radius
+   and face resolves --pk-* -> --ps-* -> --adv-*, classes carry the cmp-
+   prefix nothing else uses, and headline case comes from wrap_class. #}
 {% block title %}{{ page.headline }}{% endblock %}
 {% block byline %}<div class="adv-byline">{{ byline_html | safe }}</div>{% endblock %}
 {% block content %}
-{# Kimi long-run phase 6: the first block-native cartridge -- every section
-   renders through a registered layout block (block_choice resolves the
-   writer's page.json "blocks" pick, or the slot default), and each chosen
-   block's own block.css is inlined below (ignore missing: a
-   structure-styled block ships no css file). #}
-{% set _proof_block = block_choice("proof", "proof-stat-row") %}
-{% set _table_block = block_choice("table", "comparison-table") %}
-{% set _faq_block = block_choice("faq", "faq-accordion") %}
-{% set _verdict_block = block_choice("verdict", "verdict-box") %}
-{% set _risk_block = block_choice("risk", "risk-reversal") %}
-{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
 <style>
-{% for _b in [_proof_block, _table_block, _faq_block, _verdict_block, _risk_block, _tagline_block] %}{% include _b ~ "/block.css" ignore missing %}{% endfor %}
+.cmp{
+  --pk-accent:var(--ps-accent,var(--adv-accent));
+  --pk-on-accent:var(--ps-on-accent,#fff);
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted,var(--adv-muted));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-band:var(--ps-bg-muted,#f4f5f6);
+  --pk-border:var(--ps-border,var(--adv-border));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
+  --pk-editorial:var(--ps-editorial,var(--pk-dark));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-serif:var(--ps-serif,var(--adv-serif,Georgia,serif));
+  --pk-eyebrow-size:var(--ps-eyebrow-size,.6875rem);
+  --pk-eyebrow-spacing:var(--ps-eyebrow-spacing,.16em);
+  --pk-eyebrow-color:var(--ps-eyebrow-color,var(--pk-muted));
+  --pk-radius:var(--ps-radius-card,8px);
+  --pk-radius-sm:var(--ps-radius-btn,4px);
+  --pk-measure:1080px;
+  --pk-text:720px;
+  --pk-gap:48px;
+  --pk-sticky-h:64px;
+  display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  font-family:var(--pk-sans);-webkit-font-smoothing:antialiased;
+}
+.pk-lp{display:block}
+.adv-wrap:has(.cmp){max-width:1120px;padding-left:0;padding-right:0}
+.adv-wrap:has(.cmp) .adv-footer{max-width:var(--pk-measure);margin:0 auto;padding-left:20px;padding-right:20px}
+.cmp *,.cmp *::before,.cmp *::after{box-sizing:border-box}
+.cmp img{display:block;max-width:100%}
+.cmp .adv-img{display:block;height:auto;max-width:100%;width:100%;margin:0 auto;border-radius:var(--pk-radius-sm)}
+.cmp .adv-img--contain{object-fit:contain}
+.cmp .adv-img--cover{object-fit:cover}
+.cmp picture{display:block}
+
+.cmp .cmp-measure{max-width:var(--pk-measure);margin:0 auto;padding:0 20px;width:100%}
+.cmp .cmp-text{max-width:var(--pk-text)}
+.cmp .cmp-eyebrow{margin:0 0 12px;font-size:var(--pk-eyebrow-size);letter-spacing:var(--pk-eyebrow-spacing);
+  text-transform:uppercase;font-weight:700;color:var(--pk-eyebrow-color)}
+.cmp .cmp-h1{font-family:var(--pk-serif);font-weight:400;font-size:2.25rem;line-height:1.08;margin:0 0 14px;color:var(--pk-ink);letter-spacing:-.01em}
+.cmp .cmp-h2{font-family:var(--pk-serif);font-weight:400;font-size:1.75rem;line-height:1.15;margin:0 0 16px;color:var(--pk-ink)}
+.cmp .cmp-h3{font-size:1.125rem;line-height:1.25;margin:0 0 8px;color:var(--pk-ink);font-weight:700}
+.cmp .cmp-h4{font-size:var(--pk-eyebrow-size);letter-spacing:var(--pk-eyebrow-spacing);text-transform:uppercase;
+  font-weight:700;margin:0 0 10px;color:var(--pk-eyebrow-color)}
+.cmp .cmp-copy{font-size:1.0625rem;line-height:1.65;margin:0 0 16px;color:var(--pk-body)}
+.cmp .cmp-note{font-size:.875rem;line-height:1.5;color:var(--pk-muted);margin:10px 0 0}
+
+/* header */
+.cmp .cmp-header{padding:28px 0 var(--pk-gap);border-bottom:2px solid var(--pk-ink)}
+.cmp .cmp-head-grid{display:grid;gap:28px;align-items:center}
+.cmp .cmp-hero{min-width:0}
+.cmp .cmp-dek{font-size:1.125rem;line-height:1.55;margin:0 0 20px;color:var(--pk-muted)}
+.cmp .cmp-trust{list-style:none;margin:0 0 20px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.cmp .cmp-trust-item{border:1px solid var(--pk-border);border-radius:var(--pk-radius);padding:8px 12px;font-size:.875rem;color:var(--pk-ink)}
+.cmp .cmp-btn{display:flex;width:100%;align-items:center;justify-content:center;min-height:52px;padding:14px 28px;
+  border:none;border-radius:var(--pk-radius-sm);background:var(--pk-accent);color:var(--pk-on-accent);
+  font-size:1rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+.cmp .cmp-btn:hover{opacity:.9}
+.cmp .cmp-link{color:var(--pk-ink);font-weight:700;font-size:.875rem;text-decoration:underline;text-underline-offset:3px}
+
+/* the model table: row labels pinned while the columns scroll on a phone */
+.cmp .cmp-section{padding:var(--pk-gap) 0 0}
+.cmp .cmp-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--pk-border);border-radius:var(--pk-radius)}
+.cmp .cmp-table{width:100%;min-width:620px;border-collapse:separate;border-spacing:0;font-size:.9375rem}
+.cmp .cmp-table th,.cmp .cmp-table td{text-align:left;vertical-align:top;padding:12px 14px;border-bottom:1px solid var(--pk-border);line-height:1.45}
+.cmp .cmp-rowhead{position:sticky;left:0;z-index:1;background:var(--pk-bg);font-size:.75rem;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--pk-muted);font-weight:700;min-width:128px;border-right:1px solid var(--pk-border)}
+.cmp .cmp-colhead{min-width:160px;background:var(--pk-bg)}
+.cmp .cmp-colhead .cmp-h3{margin:10px 0 4px}
+.cmp .cmp-thumb{max-width:180px}
+.cmp .cmp-featured{background:var(--pk-band)}
+.cmp .cmp-flag{display:inline-block;margin:0 0 8px;padding:3px 8px;background:var(--pk-dark);color:var(--pk-on-dark);
+  font-size:.6875rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;border-radius:var(--pk-radius-sm)}
+.cmp .cmp-missing{color:var(--pk-muted)}
+.cmp .cmp-bestfor td,.cmp .cmp-bestfor th{border-bottom:none}
+.cmp .cmp-bestfor td{font-size:.9375rem;color:var(--pk-ink)}
+
+/* alternatives: evidence panels, theirs vs ours */
+.cmp .cmp-alts{display:grid;gap:20px}
+.cmp .cmp-alt{border:1px solid var(--pk-border);border-radius:var(--pk-radius);padding:22px;background:var(--pk-bg)}
+.cmp .cmp-alt-grid{display:grid;gap:20px;margin-top:14px}
+.cmp .cmp-list{margin:0;padding-left:20px}
+.cmp .cmp-list li{margin:0 0 8px;font-size:1rem;line-height:1.5}
+.cmp .cmp-diffs{list-style:none;margin:0;padding:0}
+.cmp .cmp-diff{display:grid;gap:6px;margin:0 0 14px;padding:0 0 14px;border-bottom:1px solid var(--pk-border)}
+.cmp .cmp-diff:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.cmp .cmp-diff-side{margin:0;font-size:.9375rem;line-height:1.5}
+.cmp .cmp-diff-side--ours{padding:8px 10px;background:var(--pk-band);border-left:3px solid var(--pk-accent)}
+.cmp .cmp-diff-k{display:block;font-size:.6875rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--pk-muted)}
+
+.cmp .cmp-lifestyle{padding:var(--pk-gap) 0 0}
+.cmp .cmp-lifestyle .adv-img{max-height:520px}
+
+.cmp .cmp-fit{display:grid;gap:16px}
+.cmp .cmp-fit-card{border-top:3px solid var(--pk-editorial);padding:16px 0 0}
+
+.cmp .cmp-rating{margin:var(--pk-gap) 0 0;padding:28px 0;background:var(--pk-dark);color:var(--pk-on-dark)}
+.cmp .cmp-rating p{margin:0;font-family:var(--pk-serif);font-size:1.375rem;line-height:1.35;text-align:center}
+
+.cmp .cmp-faq-item{border-top:1px solid var(--pk-border);padding:16px 0}
+.cmp .cmp-faq-q{font-size:1.0625rem;margin:0 0 6px;color:var(--pk-ink);font-weight:700}
+.cmp .cmp-faq-a{margin:0;font-size:1rem;line-height:1.6}
+
+.cmp .cmp-close{margin:var(--pk-gap) 0 0;padding:var(--pk-gap) 0;border-top:2px solid var(--pk-ink)}
+.cmp .cmp-recap{margin:0 0 22px;padding-left:20px}
+.cmp .cmp-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
+.cmp .cmp-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
+
+/* sticky CTA bar: phones only, shown once the header has scrolled past */
+.cmp .cmp-sticky{display:none}
+@media (max-width:767px){
+  .cmp .cmp-sticky{position:fixed;left:0;right:0;bottom:0;z-index:40;min-height:var(--pk-sticky-h);
+    display:flex;align-items:center;gap:12px;padding:8px 16px calc(8px + env(safe-area-inset-bottom));
+    background:var(--pk-bg);border-top:1px solid var(--pk-border);transition:transform .2s ease}
+  .cmp .cmp-sticky--hidden{transform:translateY(110%)}
+  .cmp .cmp-sticky .cmp-btn{flex:1 1 auto;min-height:44px;padding:10px 16px}
+  .cmp .cmp-sticky-rating{flex:0 1 40%;font-size:.75rem;line-height:1.3;color:var(--pk-muted);margin:0}
+  .adv-wrap:has(.cmp) .adv-footer{padding-bottom:calc(var(--pk-sticky-h,64px) + 24px)}
+}
+
+.adv-case-upper .cmp-h1,.adv-case-upper .cmp-h2,.adv-case-upper .cmp-h3,
+.adv-case-upper .cmp-faq-q{text-transform:uppercase}
+
+@media (max-width:600px){
+  .cmp{--pk-gap:36px}
+  .cmp .cmp-h1{font-size:1.875rem}
+  .cmp .cmp-h2{font-size:1.5rem}
+}
+@media (min-width:768px){
+  .cmp{--pk-gap:64px}
+  .cmp .cmp-h1{font-size:3rem}
+  .cmp .cmp-h2{font-size:2.125rem}
+  .cmp .cmp-head-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+  .cmp .cmp-btn{display:inline-flex;width:auto}
+  .cmp .cmp-alt-grid{grid-template-columns:1fr 1.4fr;gap:28px}
+  .cmp .cmp-fit{grid-template-columns:repeat(3,1fr);gap:28px}
+}
 </style>
-<div class="adv-comparison">
-  <header class="adv-comparison-header">
-    {% if disclosure_label %}<p class="adv-badge">{{ disclosure_label }}</p>{% endif %}
-    <p class="adv-eyebrow">{{ page.eyebrow }}</p>
-    <h1>{{ page.headline }}</h1>
-    <p class="adv-dek">{{ page.subhead }}</p>
-    {% if page.proof_stats %}
-    {% with stats=page.proof_stats %}{% include _proof_block ~ "/block.html" %}{% endwith %}
-    {% endif %}
-    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
-    {% if page.risk_reversal %}
-    {% with text=page.risk_reversal.text, eyebrow=page.risk_reversal.eyebrow %}{% include _risk_block ~ "/block.html" %}{% endwith %}
-    {% endif %}
+{% set ctx = cartridge_data %}
+{% set label_for = ctx.alternative_labels or {} %}
+<div class="pk-lp adv-comparison cmp">
+
+  <header class="cmp-header" data-cmp-header>
+    <div class="cmp-measure cmp-head-grid">
+      <div>
+        {% if disclosure_label %}<p class="cmp-eyebrow">{{ disclosure_label }}</p>{% endif %}
+        <h1 class="cmp-h1">{{ page.headline }}</h1>
+        <p class="cmp-dek">{{ page.dek.text if page.dek is mapping else page.dek }}</p>
+        {% if ctx.trust_items %}
+        <ul class="cmp-trust">{% for item in ctx.trust_items %}<li class="cmp-trust-item">{{ item.text }}</li>{% endfor %}</ul>
+        {% endif %}
+        <a class="cmp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      </div>
+      {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+      {% if hero_asset %}<div class="cmp-hero">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+    </div>
   </header>
 
-  {% if page.tagline %}
-  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
+  {% if ctx.rows %}
+  <section class="cmp-section">
+    <div class="cmp-measure">
+      <h2 class="cmp-h2">Side by side</h2>
+      <div class="cmp-table-wrap">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th class="cmp-rowhead" scope="col">Model</th>
+              {% for model in ctx.models %}
+              <th class="cmp-colhead{{ ' cmp-featured' if model.featured else '' }}" scope="col">
+                {% if model.featured %}<span class="cmp-flag">This ad's pick</span>{% endif %}
+                {% set col_asset = assets.get(model.image.id) if model.image else None %}
+                {% if col_asset and model.image.id not in [page.hero.asset_id if page.hero else None, page.lifestyle.asset_id if page.lifestyle else None] %}<div class="cmp-thumb">{{ render_image_slot(col_asset, frame="4x3") }}</div>{% endif %}
+                <p class="cmp-h3">{{ model.name }}</p>
+                <a class="cmp-link" href="{{ model.url }}">View model</a>
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in ctx.rows %}
+            <tr>
+              <th class="cmp-rowhead" scope="row">{{ row.label }}</th>
+              {% for cell in row.cells %}
+              <td class="{{ 'cmp-featured' if ctx.models[loop.index0].featured else '' }}{{ ' cmp-missing' if not cell.claim_ids else '' }}">{{ cell.text }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+            {% if page.best_for %}
+            <tr class="cmp-bestfor">
+              <th class="cmp-rowhead" scope="row">Best for</th>
+              {% for model in ctx.models %}
+              <td class="{{ 'cmp-featured' if model.featured else '' }}">{% for entry in page.best_for if entry.id == model.id %}{{ entry.text }}{% endfor %}</td>
+              {% endfor %}
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <p class="cmp-note">Every value comes from a published specification; a dash means no verified figure is published for that model. Sources are listed at the end of the page.</p>
+    </div>
+  </section>
   {% endif %}
 
-  <section class="adv-comparison-table">
-    {% with columns=page.comparison_table.columns, rows=page.comparison_table.rows %}{% include _table_block ~ "/block.html" %}{% endwith %}
+  {% if page.numbers_mean and page.numbers_mean.paragraphs %}
+  <section class="cmp-section">
+    <div class="cmp-measure cmp-text">
+      <h2 class="cmp-h2">What the numbers mean</h2>
+      {% for p in page.numbers_mean.paragraphs %}<p class="cmp-copy">{{ p.text }}</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.alternatives %}
+  <section class="cmp-section">
+    <div class="cmp-measure">
+      <h2 class="cmp-h2">How it compares with the alternatives</h2>
+      <div class="cmp-alts">
+        {% for alt in page.alternatives %}
+        {% set alt_label = label_for.get(alt.id) or alt.id %}
+        <article class="cmp-alt">
+          <h3 class="cmp-h3">{{ alt_label }}</h3>
+          {% if alt.summary %}<p class="cmp-copy">{{ alt.summary }}</p>{% endif %}
+          <div class="cmp-alt-grid">
+            <div>
+              <h4 class="cmp-h4">Where they are similar</h4>
+              <ul class="cmp-list">{% for line in alt.similarities or [] %}<li>{{ line }}</li>{% endfor %}</ul>
+            </div>
+            <div>
+              <h4 class="cmp-h4">Where they differ</h4>
+              <ul class="cmp-diffs">
+                {% for diff in alt.differences or [] %}
+                <li class="cmp-diff">
+                  <p class="cmp-diff-side"><span class="cmp-diff-k">{{ alt_label }}</span>{{ diff.theirs }}</p>
+                  <p class="cmp-diff-side cmp-diff-side--ours"><span class="cmp-diff-k">{{ tenant_name }}</span>{{ diff.ours.text if diff.ours is mapping else diff.ours }}</p>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% set life_asset = assets.get(page.lifestyle.asset_id) if page.lifestyle else None %}
+  {% if life_asset %}
+  <div class="cmp-lifestyle"><div class="cmp-measure">{{ render_image_slot(life_asset, frame="16x9") }}</div></div>
+  {% endif %}
+
+  {% if page.who_for %}
+  <section class="cmp-section">
+    <div class="cmp-measure">
+      <h2 class="cmp-h2">Who each model is for</h2>
+      <div class="cmp-fit">
+        {% for model in ctx.models %}
+        <div class="cmp-fit-card">
+          <h3 class="cmp-h3">{{ model.name }}</h3>
+          {% for entry in page.who_for if entry.id == model.id %}<p class="cmp-copy">{{ entry.text }}</p>{% endfor %}
+          <a class="cmp-link" href="{{ model.url }}">View the {{ model.name }}</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if ctx.rating_line %}
+  <section class="cmp-rating"><div class="cmp-measure"><p>{{ ctx.rating_line.text }}</p></div></section>
+  {% endif %}
+
+  {% if page.faq and page.faq.questions %}
+  <section class="cmp-section">
+    <div class="cmp-measure cmp-text">
+      <h2 class="cmp-h2">Questions comparers ask</h2>
+      {% for entry in page.faq.questions %}
+      <div class="cmp-faq-item">
+        <h3 class="cmp-faq-q">{{ entry.question }}</h3>
+        <p class="cmp-faq-a">{{ entry.answer }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="cmp-close">
+    <div class="cmp-measure cmp-text">
+      {% if page.closing and page.closing.headline %}<h2 class="cmp-h2">{{ page.closing.headline }}</h2>{% endif %}
+      <ul class="cmp-recap">{% for bullet in (page.closing.recap if page.closing else []) or [] %}<li>{{ bullet.text }}</li>{% endfor %}</ul>
+      <a class="cmp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      {% if ctx.warranty_line %}<p class="cmp-fine">{{ ctx.warranty_line.text }}</p>{% endif %}
+      {% if ctx.financing_line %}<p class="cmp-fine">{{ ctx.financing_line.text }}</p>{% endif %}
+      {% if ctx.hsa_claim %}<p class="cmp-fine">{{ ctx.hsa_claim.text }}</p>{% endif %}
+    </div>
   </section>
 
-  {% for section in page.deep_dives %}
-  <section class="adv-deep-dive">
-    <h2>{{ section.heading }}</h2>
-    {% for p in section.paragraphs %}<p>{{ p.text }}</p>{% endfor %}
-  </section>
-  {% endfor %}
+  <div class="cmp-sticky" data-cmp-sticky>
+    {% if ctx.rating_line %}<p class="cmp-sticky-rating">{{ ctx.rating_line.text }}</p>{% endif %}
+    <a class="cmp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+  </div>
 
-  <section class="adv-alternative-strengths">
-    <h2>{{ page.alternative_strengths.heading }}</h2>
-    <ul>
-      {% for item in page.alternative_strengths.strengths %}<li>{{ item.text }}</li>{% endfor %}
-    </ul>
-  </section>
-
-  <section class="adv-faq">
-    {% with items=page.faq.questions %}{% include _faq_block ~ "/block.html" %}{% endwith %}
-  </section>
-
-  {% with eyebrow=none, heading=page.verdict.heading, paragraphs=page.verdict.paragraphs, cta={"text": page.cta_text, "url": page.cta_url} %}{% include _verdict_block ~ "/block.html" %}{% endwith %}
 </div>
+
+<script>
+(function(){
+  var root = document.querySelector('.cmp');
+  if(!root) return;
+  var bar = root.querySelector('[data-cmp-sticky]');
+  var head = root.querySelector('[data-cmp-header]');
+  if(!bar || !head) return;
+  /* CSS shows the bar on phones by default, so a reader with no JS still
+     gets it; this only hides it until the header has scrolled past */
+  bar.classList.add('cmp-sticky--hidden');
+  var sync = function(){
+    bar.classList.toggle('cmp-sticky--hidden', !(head.getBoundingClientRect().bottom < 0));
+  };
+  sync();
+  window.addEventListener('scroll', sync, {passive:true});
+  window.addEventListener('resize', sync, {passive:true});
+})();
+</script>
 {% endblock %}

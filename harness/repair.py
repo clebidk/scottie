@@ -18,6 +18,7 @@ import json
 import re
 from pathlib import Path
 
+from . import comparison
 from . import listicle
 from . import pagechecks
 from . import quiz
@@ -323,6 +324,13 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
         )
+    # Cycle 56: the comparison cartridge's own structural checks (axis and
+    # headline formula, alternatives allowlist and their digit-free rule,
+    # one best-for/who-for line per model, FAQ, recap, extra rows, images,
+    # renderer-owned sections) -- same writer-owned, stable-keyed shape as
+    # the listicle block above.
+    if cartridge_name == "comparison":
+        problems += comparison.find_comparison_violations(page, facts_pack, tenant_name=tenant.display_name)
     # Cycle 57: the quiz cartridge's own structural checks (headline formula,
     # questions/options against the rubric, interstitials, FAQ, offer
     # language, renderer-owned sections, hero, cta_url). Keys are "quiz:*".
