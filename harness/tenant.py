@@ -245,6 +245,30 @@ class Tenant:
     def display_name(self):
         return self.get("name") or self.name
 
+    def display_product_name(self, name):
+        """A product name as a reader should see it and as the writer should
+        be handed it.
+
+        A storefront's own product titles often lead with the full company
+        name ("<Company> <Model> 2-Person ..."), which reads as a stutter on a
+        page that already says who published it, and which the writer would
+        otherwise copy into its prose. tenant.yaml's optional
+        `product_display_strip_prefix` names that prefix and it is removed
+        here. Matching is case-insensitive and the result is trimmed.
+
+        Only COPY goes through this. Slugs, URLs, claim ids and every other
+        identifier are left exactly as they are -- they are how a page links
+        and cites, not what a reader reads. A tenant that sets no prefix gets
+        its name back unchanged, and stripping an already-stripped name is a
+        no-op, so a call site may be defensive without double-stripping."""
+        prefix = self.get("product_display_strip_prefix") or ""
+        text = name or ""
+        if prefix and text.lower().startswith(prefix.lower()):
+            # A title that is nothing BUT the prefix would be left nameless;
+            # keep the original rather than render an empty product.
+            return text[len(prefix):].strip() or text
+        return text
+
     @property
     def claims_config(self):
         """DEFAULT_CLAIMS_CONFIG, then tenant.yaml's overlapping keys, then

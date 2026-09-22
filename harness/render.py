@@ -203,6 +203,7 @@ def source_label(url, *, product_name=None, explicit_label=None, tenant=None):
         return host
     path = parsed.path.rstrip("/")
     if path.startswith("/products/"):
+        product_name = tenant.display_product_name(product_name)
         return tenant.format("product_page_label", product_name=product_name or "product") or f"{prefix} – product page"
     path_labels = tenant.get("source_path_labels") or {}
     if path in path_labels:
@@ -253,7 +254,7 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
         return {
             "@context": "https://schema.org",
             "@type": "Product",
-            "name": product.get("short_name") or product["name"],
+            "name": tenant.display_product_name(product.get("short_name") or product["name"]),
             "url": product["url"],
             "image": product.get("image_urls", []),
             "offers": {
@@ -325,6 +326,8 @@ _ASSET_KIND_ALT_SUFFIXES = {
 
 def asset_alt(asset, product_short_name, tenant=None):
     tenant = tenant or tenant_mod.active()
+    # Cycle 52: alt text is copy, so the storefront title prefix goes.
+    product_short_name = tenant.display_product_name(product_short_name)
     product_short_name = product_short_name or tenant.get("asset_alt_fallback") or tenant.display_name
     suffix = _ASSET_KIND_ALT_SUFFIXES.get(asset.get("kind"), "photo")
     alt = f"{product_short_name} – {suffix}"
