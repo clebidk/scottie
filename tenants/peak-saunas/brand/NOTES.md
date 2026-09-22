@@ -1,50 +1,93 @@
-# Peak Saunas brand extraction -- notes
+# PEAK brand files -- notes
 
-## Source pages fetched (read-only, curl with a real UA)
-- https://peaksaunas.com/ (home.html)
-- https://peaksaunas.com/products.json (to find the Fuji handle)
-- https://peaksaunas.com/collections/all
-- https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy (product-fuji.html)
-- https://peaksaunas.com/blogs/saunas/best-sauna-brands-2026 (blog-best-brands.html)
-- https://peaksaunas.com/pages/why-trust-peak-saunas
-- https://peaksaunas.com/pages/austin-laudenslager
-- Theme CSS: https://peaksaunas.com/cdn/shop/t/43/assets/bundle.css (684KB) and .../peak-assist.css
-All raw HTML/CSS saved under scratchpad/brand-raw/ for this session; not copied into /Users/calebniednagel/advertorial/brand/.
+Cycle 52 (2026-09-22) applied the finalized PEAK rebrand to this tenant.
+The previous extraction (the live Aurora storefront: green `#16C47F`,
+DM Sans / Poppins, white ground) is kept beside these files as
+`tokens-legacy.json` and `base-legacy.css`. Neither is loaded.
 
-## Theme
-- Name: "Live Peak Saunas Site" (shop's theme label, not a template name)
-- Schema: **Aurora**, schema_version **4.0.1**, Shopify Theme Store id 1770
-- Found in a `theme = {...}` JS object in the homepage `<head>`.
+## Name
 
-## Review app
-- **Judge.me**, loaded as a Shopify extension (id `01a086c4-2869-7ea0-af53-a261e1038ec8`, `judgeme-749`).
-- CSS: `https://cdn.shopify.com/extensions/01a086c4-2869-7ea0-af53-a261e1038ec8/judgeme-749/assets/shopify_v2.css`
-- Judge.me CSS vars are all set to the brand green `#16C47F` (--jdgm-star-color, --jdgm-primary-color, etc.) -- the store's stars are green, not gold.
-- The visible star widget on product cards/headers is actually a **custom** widget (`.pk-rating` / `.pk-stars`), not raw Judge.me markup: 5 unicode stars in a muted gray (`#D8DAD5`) with an absolutely-positioned green (`#16C47F`) overlay clipped by width to show the fill percentage. Reproduced in base.css as `.pk-stars` / `.pk-stars-on`.
-- Site-wide aggregate rating (schema.org JSON-LD on product pages): 4.76 / 5, 3,958 reviews.
+Display name is **PEAK**. Never "Peak Saunas", never "PEAK SAUNAS", in any
+new copy or label. Unchanged: the domain, the email addresses, every URL and
+product handle, and the legal entity line (Peak Wellness USA LLC) wherever a
+legal line is rendered. Shopify product titles still begin with
+"Peak Saunas " on the storefront; the harness strips that prefix before a
+product name is displayed or handed to the writer -- see
+`tenant.yaml`'s `product_display_strip_prefix`.
 
-## Important structural finding
-The site already runs its own advertorial/buyer's-guide content system, prefixed `pkx-` (`pkx-byline`, `pkx-tblwrap`, `pkx-direct`, `pkx-trust`, `pkx-fine`, `pkx-bio-*`), injected as an inline `<style>` block inside the article's rich-text field on both the blog post and the two /pages/ URLs. This is a closer match for "generated landing pages" than the theme's generic chrome, so base.css leans on this system (8px card radius, `#E9EAEC` borders, `#F4F5F6` zebra rows, `17px`/`1.75` body copy) rather than the theme's own product-card radius (2px). Noted both in tokens.json under `layout.card_radius_theme_px` vs `layout.card_radius_content_blocks_px`.
+## Palette (source: PEAK design system 2026, gbrain projects/peak-saunas/design-system-2026)
 
-## Colors
-- Primary color scheme (`.color-primary`, applied to `<body>`): bg `#ffffff`, text `#000000`, foreground/section-tint `#ebf9f2`, border `#efebdd`, button bg/accent `#16C47F`, button text `#ffffff`.
-- Dark/secondary scheme (`.color-secondary`, footer-type sections): bg `#252525`/`#37`ish dark gray, text `#ffffff`, button bg `#fffdf5` (cream), button text `#222222`.
-- The only **red** found anywhere in live CSS is `#c33b3b`, used solely for a shipping-calculator form-error state. The site has no red brand accent in general use -- if an ad needs a red accent (per the user's framing of the current ad creative), treat it as an ad-specific addition, not something sourced from the theme.
-- Author-bio pages (e.g. /pages/austin-laudenslager) use a one-off secondary accent, a gold/tan `#d8b189`, on a dark hero card. This is scoped to bio pages only and was not folded into the main token set.
+| Name | Hex | Role |
+|---|---|---|
+| Basalt | `#181918` | primary dark: text on light, dark grounds, default logo on light |
+| Stone | `#EFE3D2` | primary light ground, text/logo on dark |
+| Fossil Dust | `#C0C8C3` | secondary light ground: panels and cards |
+| Red | `#702B33` | secondary: editorial colour blocks, headline panels |
+| Cedar | `#483215` | thin accent bands, rules |
+| Solar Flare | `#F27046` | accent: CTAs and highlights, sparingly |
+
+No green, cyan, gold, purple or navy. No gradients, glows or drop shadows.
+No pill shapes and no rounded cards: **radius 0 everywhere**.
+
+Contrast rules that are not negotiable: buttons are a Solar Flare fill with
+**Basalt** text (6.03). Never light or white text on Solar Flare (2.92).
+Never Basalt text on Red (1.75). Solar Flare on Cedar or Red is large text
+only.
+
+`--ps-muted` is `#54524C`, Basalt mixed 28% toward Stone: 6.17 on Stone and
+4.57 on Fossil Dust, so muted body text passes AA on both light grounds.
 
 ## Fonts
-- Body: **DM Sans**, self-hosted on Shopify's asset CDN as woff2/woff (not Google Fonts). Weights present: 400/500/600/700.
-- Headings: **Poppins**, same CDN hosting pattern, weights 400/500/600/700.
-- A third face, **Figtree**, is used narrowly for header icon labels and product-card prices -- included in tokens.json for completeness but not wired into base.css since it isn't a primary content font.
-- Root `html{font-size:62.5%}` means `1rem = 10px` against a 16px browser default; the theme then layers a `--gsc-body-font-scale:1.1` multiplier on top of the 1.6rem (16px) base body size, landing on ~17.6px rendered. base.css uses that resolved 17.6px directly rather than replicating the two-step calc.
-- Heading sizes (h1-h4) are responsive with 4 breakpoint tiers in the CSS; NOTES + tokens.json record the **largest (desktop) tier** since that's what a landing page should target by default: h1 44px, h2 40px, h3 36px, h4 32px.
 
-## Layout
-- Max content width: **1320px** (`--gsc-large-container-width: 132rem`). Medium/small container variants exist (1140px/960px) for narrower content; the full-bleed background container is 2560px and is not a text-width value.
-- Section vertical spacing is set **per-section** by the page builder, not a single fixed token. 48px was the most common value sampled on the homepage; some hero-type sections use larger custom values. Treated 48px as the safe default (`.section`) and added an optional `.section--lg` (80px) for hero-scale spacing -- this second value is an estimate, not a scraped constant.
+- **Epika** (secondary; paragraph titles, editorial moments, sentence case)
+  is **licensed** -- Superior Type webfont EULA, in the toolbox's Fonts
+  folder. `Epika-Regular.woff2` and `Epika-Regular.otf` are self-hosted in
+  `fonts/` and declared with `@font-face` in `base.css`. Fallback stack:
+  `"Epika", "Instrument Serif", "Playfair Display", Georgia, serif`.
+- **Acid Grotesk license pending; fallback in use.** The toolbox carries a
+  TRIAL build only, which must not be used, so nothing is self-hosted for
+  the main face. `--ps-sans` is
+  `"Acid Grotesk", "Schibsted Grotesk", "Inter", Helvetica, Arial, sans-serif`;
+  in practice pages render in Schibsted Grotesk or Inter. Buy the licence and
+  drop the webfonts into `fonts/` to finish this.
+- One weight only. No bold, no italics for emphasis -- scale, case and
+  placement carry it instead.
+- Web scale: display 64/72, h1 48/56, h2 32/40, h3 25/32, body 18/28,
+  small 14/20. Labels and eyebrows are uppercase 12px at 0.08em.
 
-## Uncertainties / things not found
-- No literal "financing pill" or "Advertisement" label exists anywhere on the live site -- both are new to the advertorial use case. `.financing-pill` and `.ad-label` in base.css were designed to match the brand's existing green-pill (`.badge`) and muted-label visual language rather than lifted from a specific element.
-- Exact desktop-vs-mobile section spacing scale (i.e. how much bigger spacing gets above the ~750px breakpoint) wasn't fully mapped; only one clean top/bottom pair was visible per section in the fetched HTML, so the "lg" variant is a reasonable estimate rather than a scraped value.
-- Button hover state is not a color swap -- it's a `rgba(255,255,255,.2)` gradient overlaid on the existing background (subtle lighten). Reproduced as-is in base.css.
-- Did not verify Figtree's full weight set (only saw weight 400 loaded on the pages fetched); if it's ever promoted to a primary content font, re-check weights before relying on 500/600/700.
+## Logo
+
+Toolbox files only -- the wordmark is never redrawn and "PEAK" is never set
+in a font. Downloaded from the toolbox root Drive folder
+`1D8cG1cAY9sH0_fzMsUhseK_5sSWa_KCD`, `1 - Peak Logotype/RGB/`
+(folder `1WM-zbfE94cpG4H_eZqCTTU-Jr9RGbRV8`):
+
+| File here | Toolbox file | Drive id |
+|---|---|---|
+| `logo.svg`, `logo-basalt.svg` | `RGB-Peak-Logotype-Basalt.svg` | `1LPfUBvpBM-m_2-Qi5c7v7UbtnnrCHb-Q` |
+| `logo-basalt.png` | `RGB-Peak-Logotype-Basalt.png` | `1rmbeUQhHUBGTrJ66OtdpvgwRkcPdqL4M` |
+| `logo-on-dark.svg`, `logo-stone.svg` | `RGB-Peak-Logotype-Stone.svg` | `1_-JPu5BZat1BrIgII25Xei6w6XD7bCqe` |
+| `logo-stone.png` | `RGB-Peak-Logotype-Stone.png` | `1xZsv0PxU7qQei7UvuaO4VvyuPf9PoIwz` |
+
+`harness/render.py`'s `find_tenant_logo` prefers `logo.svg`, so a generated
+page shows the Basalt wordmark on its Stone ground, which is the rule:
+Basalt logo on light, Stone logo on dark, and **never** a Stone or White
+logo on Solar Flare. Clear space is the height of the A's chevron cap.
+
+Two details worth knowing rather than discovering: the toolbox SVGs fill
+with `#171817` (Basalt) and `#eee2d1` (Stone), one or two steps off the
+palette hexes above. They are the supplied artwork and are kept byte-exact.
+And there was never a `logo.png` committed under `brand/` to rename -- the
+old mark was referenced by storefront URL only (`tokens-legacy.json`'s
+`logo.url`).
+
+## Fonts on the storefront
+
+The Shopify export keeps only what was inside `<body>`, so the `@font-face`
+declarations travel there through `harness/page_body.py` (which now carries
+them into the exported `<style>` alongside the `:root` tokens) and their
+relative `brand/fonts/...` URLs are rewritten to Shopify CDN URLs at publish
+time by `harness/publishers/shopify.py`. Uploaded URLs are cached in
+`fonts/cdn-manifest.json`, so a font is uploaded once and reused. If a font
+cannot be uploaded, the export keeps the fallback stack and the publish logs
+which file failed.

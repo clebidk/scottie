@@ -5,19 +5,19 @@ author:
   name: Austin Laudenslager
   title: Founder & CEO
   bio: >-
-    Founder and CEO of Peak Saunas. Writes the buyer-education pieces on the
+    Founder and CEO of PEAK. Writes the buyer-education pieces on the
     site and is responsible for every claim on every page published under
     the brand.
   page: https://peaksaunas.com/pages/austin-laudenslager
 
-# Cycle 19 (Caleb's byline decision): contributor is the Peak Saunas
-# Editorial Team, not a named person -- the team byline credit that appears
+# Cycle 19 (Caleb's byline decision): contributor is the PEAK Editorial
+# Team, not a named person -- the team byline credit that appears
 # on every generated page. See `reviewer` below for the named person who
 # checks specifications and sources.
 contributor:
-  name: Peak Saunas Editorial Team
+  name: PEAK Editorial Team
   bio: >-
-    The Peak Saunas team that assembles and edits every buyer-education page
+    The PEAK team that assembles and edits every buyer-education page
     published under the brand.
 
 # Cycle 19: reviewer is the named person responsible for reviewing every
@@ -27,7 +27,7 @@ reviewer:
   name: Caleb Niednagel
   title: Technology Lead
   bio: >-
-    Technology Lead at Peak Saunas. Reviews the specifications and sources on
+    Technology Lead at PEAK. Reviews the specifications and sources on
     every generated page before it is published.
 
 # Rendered as "Written by {author_name}" / "{contributor_name}" / "Reviewed by
