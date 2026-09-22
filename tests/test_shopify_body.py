@@ -393,3 +393,20 @@ def test_shopify_body_carries_head_tokens_rescoped_to_the_wrapper(tmp_path):
     assert "--adv-accent" in css  # harness/structure.css defaults travel too
     assert css.index("--adv-accent") < css.index("--ps-accent")  # brand overrides defaults
     assert ".other" not in css
+
+
+def test_a_head_stylesheet_that_mentions_a_body_tag_does_not_become_the_body():
+    """Cycle 52, found while rendering the rebranded pages: a tenant's
+    brand/base.css is inlined into the document HEAD, and one whose own
+    comment mentioned a body tag was matched as the start of the document
+    body -- the rest of that stylesheet was then emitted into the export as
+    raw text, outside any <style>."""
+    html = (
+        "<!doctype html><html><head>"
+        "<style>/* keeps only what is inside <body> */ .x{color:red}</style>"
+        "</head><body><p>real body</p></body></html>"
+    )
+    body = strip_document_chrome(html)
+    assert body.strip() == "<p>real body</p>"
+    assert "color:red" not in body
+

@@ -145,7 +145,14 @@ def strip_document_chrome(html):
     keyed on whether each opener had a class, tracks openers in order so a
     closing tag becomes the matching </div> or is dropped to match its
     (classless) opener."""
-    m = _BODY_RE.search(html)
+    # Cycle 52: start the search after </head>. The tenant's own stylesheet
+    # is inlined into the document head, and a stylesheet that so much as
+    # mentions a body tag in a comment would otherwise be matched as the
+    # start of the document body -- the whole head stylesheet then landed in
+    # the export as raw text outside its <style>. Found rendering the
+    # rebranded pages, not by reading the regex.
+    head_end = html.lower().find("</head>")
+    m = _BODY_RE.search(html, head_end + 1 if head_end != -1 else 0)
     body = m.group(1) if m else html
 
     stack = []

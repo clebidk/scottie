@@ -17,7 +17,10 @@
    Headline case is NOT set here: tenant.yaml's brand.headline_case drives it
    (harness/render.py -> the .adv-case-upper class on .adv-wrap), so the same
    rule reaches the standalone page, the review html and the storefront
-   export, which keeps only what is inside <body>. */
+   export, which keeps only the document body. (Never write a literal
+   body/head/script tag in this file, even inside a comment: this stylesheet
+   is inlined into the page HEAD and harness/page_body.py reads the document
+   by locating those tags.) */
 
 @font-face{font-family:"Epika";font-weight:400;font-style:normal;font-display:swap;
   src:url("brand/fonts/Epika-Regular.woff2") format("woff2"),
