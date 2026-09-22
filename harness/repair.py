@@ -872,8 +872,17 @@ def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_b
     cartridge_md = tenant.render((cartridge_dir / "cartridge.md").read_text())
     schema = json.loads(tenant.render((cartridge_dir / "schema.json").read_text()))
     word_range = parse_word_range(cartridge_md)
+    # Fix cycle 58 item 1: facts_pack.product.short_name is the long,
+    # SEO-style descriptive form (see ground.py -- it comes from the
+    # catalog's own confusingly-named "short_name" field, which carries the
+    # full capacity/style title), never the short marketing model name the
+    # {short_name}/{model_name} CTA placeholders are documented (schema.json,
+    # cartridge.md) to mean. facts_pack.product.name IS that short model
+    # name -- pass it for both placeholders, matching what model_name
+    # already did (and what the listicle cartridge already renders
+    # correctly).
     allowed_cta_texts = resolve_allowed_cta_texts(
-        schema, facts_pack["product"]["short_name"], model_name=facts_pack["product"]["name"],
+        schema, facts_pack["product"]["name"], model_name=facts_pack["product"]["name"],
         tenant=tenant, ad_angle=(ad_brief or {}).get("angle"),
     )
     return schema, word_range, allowed_cta_texts

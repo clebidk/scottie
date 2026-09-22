@@ -11,6 +11,22 @@ they show a broken image. Standalone and iframe reviews therefore showed no
 images. The inliner now strips every <source> element and every srcset/sizes
 attribute before inlining `src`, so the one inlined JPEG is the only
 candidate. Production pages (index.html, shopify-body.html) are untouched.
+
+Fix cycle 58 item 2: render_image_slot gives every non-hero image (the pdp
+gallery's hidden slides and every thumbnail) `loading="lazy"` -- exactly
+right for the storefront, where it's a real fetch to defer. In a review
+file every image is already an inlined data: URI with no fetch to defer,
+but the attribute survives inlining, so the browser's native lazy-loading
+still gates *painting* the image on its own visibility/viewport heuristics.
+A gallery thumbnail row is on-screen from first paint so this is usually
+invisible, but a hidden slide (display:none until its thumbnail is clicked)
+never has a box for the browser to consider "near the viewport", and some
+renderers (and a fast scroll in any of them) leave the plain gray
+`.adv-img` placeholder background showing instead of the photo. The
+inliner now also forces every `loading="lazy"` to `loading="eager"` --
+harmless (nothing left to defer) and it removes the gate. Production pages
+(index.html, shopify-body.html) never call this function, so their real
+lazy-loading is unchanged.
 """
 import base64
 import mimetypes
@@ -22,6 +38,7 @@ _ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
 _PICTURE_SOURCE_RE = re.compile(r"<source\b[^>]*>\s*", re.IGNORECASE)
 _SRCSET_ATTR_RE = re.compile(r'\s+srcset="[^"]*"', re.IGNORECASE)
 _SIZES_ATTR_RE = re.compile(r'\s+sizes="[^"]*"', re.IGNORECASE)
+_LAZY_LOADING_RE = re.compile(r'loading="lazy"', re.IGNORECASE)
 
 # Cycle 31: docs/IMAGE-MAP.md documents a prior incident where an unresized
 # Drive original inlined at full size produced a 46 MB review file. Nothing
@@ -48,6 +65,12 @@ def inline_assets_as_data_uris(html_text, assets_dir):
     html_text = _PICTURE_SOURCE_RE.sub("", html_text)
     html_text = _SRCSET_ATTR_RE.sub("", html_text)
     html_text = _SIZES_ATTR_RE.sub("", html_text)
+    # Fix cycle 58 item 2: every image is now a self-contained data: URI --
+    # nothing left to defer -- so native lazy-loading can only gate the
+    # PAINT, never the fetch, and a hidden gallery slide (display:none
+    # until its thumbnail is clicked) can be left showing the plain
+    # `.adv-img` placeholder background instead of the photo.
+    html_text = _LAZY_LOADING_RE.sub('loading="eager"', html_text)
     return _ASSET_SRC_RE.sub(replace, html_text)
 
 
