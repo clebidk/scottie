@@ -39,6 +39,11 @@ default_cta_url: /collections/all
 # Leave it out and nothing is stripped.
 product_display_strip_prefix: ""
 
+# Cycle 54: the product-page `pdp` look's eyebrow over the product name --
+# the product category in plain words (e.g. "Espresso machine"), shown
+# after the model's own fit line. "" shows the fit line alone.
+product_category: ""
+
 disclosure_text: >-
   This page is an advertisement published by {tenant_name}, which sells the
   products described. Every specific claim on this page is sourced; see Sources

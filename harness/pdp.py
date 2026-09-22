@@ -71,6 +71,15 @@ def _page_asset_ids_in_order(page):
     return ids
 
 
+def _eligible(assets, allow_ai_renders):
+    def check(asset_id):
+        asset = assets.get(asset_id)
+        return bool(asset) and asset.get("kind") not in HERO_NEVER_KINDS and (
+            allow_ai_renders or not asset.get("ai_generated")
+        )
+    return check
+
+
 def gallery_asset_ids(page, facts_pack, *, allow_ai_renders=False, limit=GALLERY_MAX):
     """The gallery's asset ids, in order, at most `limit`:
 
@@ -91,12 +100,7 @@ def gallery_asset_ids(page, facts_pack, *, allow_ai_renders=False, limit=GALLERY
     slug = (facts_pack.get("product") or {}).get("slug") or ""
     prefix = f"asset-{slug}-"
 
-    def eligible(asset_id):
-        asset = assets.get(asset_id)
-        return bool(asset) and asset.get("kind") not in HERO_NEVER_KINDS and (
-            allow_ai_renders or not asset.get("ai_generated")
-        )
-
+    eligible = _eligible(assets, allow_ai_renders)
     order = []
 
     def add(asset_id):
@@ -232,31 +236,46 @@ def eyebrow(facts_pack, tenant=None):
     return " · ".join(parts)
 
 
-def benefit_blocks(page, assets):
-    """The first BENEFIT_BLOCK_COUNT proof bullets, each paired with an
-    image: the bullet's own `image` when it has one, else the next unused
-    one of angle_section.image / detail_images. A bullet with no image left
-    still renders, text only."""
+def benefit_asset_ids(page, facts_pack, gallery_ids, *, allow_ai_renders=False):
+    """One image id (or None) for each of the first BENEFIT_BLOCK_COUNT
+    proof bullets: the bullet's own `image` when it has one; else the next
+    unused angle_section.image / detail_images pick; else an eligible
+    facts_pack asset that is neither in the gallery nor anywhere else on the
+    page (a lifestyle or installation photo first). Called before assets are
+    downloaded, with gallery_asset_ids' result, so render_page downloads
+    exactly these."""
+    assets = {a["id"]: a for a in facts_pack.get("assets", [])}
+    eligible = _eligible(assets, allow_ai_renders)
+    bullets = [b for b in (page.get("proof_bullets") or []) if isinstance(b, dict)][:BENEFIT_BLOCK_COUNT]
+    own = [(b.get("image") or {}).get("asset_id") for b in bullets]
+    taken = {i for i in own if i} | set(gallery_ids)
     spare = []
     angle = (page.get("angle_section") or {}).get("image") or {}
     for node in [angle, *(page.get("detail_images") or [])]:
-        if isinstance(node, dict) and node.get("asset_id"):
+        if isinstance(node, dict) and node.get("asset_id") and node["asset_id"] not in taken:
             spare.append(node["asset_id"])
-    own = {
-        (b.get("image") or {}).get("asset_id")
-        for b in (page.get("proof_bullets") or [])[:BENEFIT_BLOCK_COUNT]
-        if isinstance(b, dict)
-    }
-    spare = [s for s in spare if s not in own]
+    on_page = set(_page_asset_ids_in_order(page))
+    pool = [a for a in facts_pack.get("assets", []) if a["id"] not in taken and a["id"] not in on_page]
+    pool.sort(key=lambda a: 0 if a.get("kind") in ("lifestyle", "installation") else 1)
+    spare += [a["id"] for a in pool]
+    picks = []
+    for asset_id in own:
+        if not (asset_id and eligible(asset_id)):
+            asset_id = next((s for s in spare if eligible(s) and s not in picks), None)
+        if asset_id:
+            spare = [s for s in spare if s != asset_id]
+        picks.append(asset_id)
+    return picks
+
+
+def benefit_blocks(page, assets, benefit_ids):
+    """The "why this model" blocks: the first BENEFIT_BLOCK_COUNT proof
+    bullets, each with the image benefit_asset_ids chose for it (absent when
+    its download failed -- the block then renders text only)."""
+    bullets = [b for b in (page.get("proof_bullets") or []) if isinstance(b, dict)][:BENEFIT_BLOCK_COUNT]
     blocks = []
-    for bullet in (page.get("proof_bullets") or [])[:BENEFIT_BLOCK_COUNT]:
-        if not isinstance(bullet, dict):
-            continue
-        asset_id = (bullet.get("image") or {}).get("asset_id")
-        if not asset_id or asset_id not in assets:
-            asset_id = next((s for s in spare if s in assets), None)
-            if asset_id:
-                spare.remove(asset_id)
+    for i, bullet in enumerate(bullets):
+        asset_id = benefit_ids[i] if i < len(benefit_ids) else None
         blocks.append({"label": bullet.get("label") or "", "text": bullet.get("text") or "",
                        "asset": assets.get(asset_id) if asset_id else None})
     return blocks
@@ -283,11 +302,12 @@ def ghost_cta(page, tenant=None):
     return {"text": text, "url": url, "kind": "link"}
 
 
-def render_context(page, facts_pack, assets, gallery_ids, *, tenant=None):
+def render_context(page, facts_pack, assets, gallery_ids, benefit_ids=(), *, tenant=None):
     """Everything the `pdp` look renders that came from facts_pack or
     tenant.yaml rather than from the writer. `assets` is render_page's
     assets_by_id after downloading (a failed download is simply absent);
-    `gallery_ids` is gallery_asset_ids' result from before the download."""
+    `gallery_ids`/`benefit_ids` are gallery_asset_ids'/benefit_asset_ids'
+    results from before the download."""
     tenant = tenant or tenant_mod.active()
     product = facts_pack.get("product") or {}
     min_reviews = tenant.get("reviews.min_count")
@@ -305,7 +325,7 @@ def render_context(page, facts_pack, assets, gallery_ids, *, tenant=None):
         "specs": spec_rows(facts_pack),
         "compare": facts_pack.get("model_compare"),
         "review_quote": listicle.pull_quote(facts_pack),
-        "benefits": benefit_blocks(page, assets),
+        "benefits": benefit_blocks(page, assets, list(benefit_ids)),
         "ghost_cta": ghost_cta(page, tenant),
         "disclosure_label": tenant.get("disclosure_label") or "",
     }

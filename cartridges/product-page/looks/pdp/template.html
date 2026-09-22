@@ -8,7 +8,8 @@
    lead-time line, the warranty sentence). Then: the ad-proof band, the
    "why this model" benefit blocks, the spec table, the model compare
    table, the reviews summary, the FAQ accordion, a dark closing buy band,
-   and a sticky price + CTA bar on phones.
+   and a sticky price + CTA bar on phones (shown whenever the buy panel's
+   own CTA is off screen, so the price is always in view).
 
    Everything under cartridge_data is renderer-owned (harness/pdp.py, from
    facts_pack alone): gallery, price, rating, HSA/FSA, spec rows, compare
@@ -57,7 +58,7 @@
 .adv-product-page.look-pdp *,.adv-product-page.look-pdp *::before,.adv-product-page.look-pdp *::after{box-sizing:border-box}
 .adv-product-page.look-pdp img{display:block;max-width:100%}
 .adv-product-page.look-pdp picture{display:block}
-.adv-product-page.look-pdp .adv-img{display:block;width:100%;height:auto;max-width:100%;margin:0;border-radius:0}
+.adv-product-page.look-pdp .adv-img{display:block;width:100%;height:auto;max-width:100%;margin:0}
 .adv-product-page.look-pdp .adv-img--contain{object-fit:contain}
 .adv-product-page.look-pdp .adv-img--cover{object-fit:cover}
 .adv-product-page.look-pdp .pp-measure{max-width:var(--pp-measure);margin:0 auto;padding:0 20px;width:100%}
@@ -129,7 +130,7 @@
 .adv-product-page.look-pdp .pp-benefit-text{margin:0;font-size:1rem;line-height:1.6;color:var(--pp-body)}
 
 .adv-product-page.look-pdp .pp-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.adv-product-page.look-pdp .pp-table{width:100%;border-collapse:collapse;margin:8px 0 0;font-size:.9375rem;background:transparent}
+.adv-product-page.look-pdp .pp-table{width:100%;border:0;border-collapse:collapse;margin:8px 0 0;font-size:.9375rem;background:transparent}
 .adv-product-page.look-pdp .pp-table th,.adv-product-page.look-pdp .pp-table td{padding:12px 10px;border:0;border-bottom:1px solid var(--pp-rule);
   text-align:left;vertical-align:top;background:transparent;color:var(--pp-body)}
 .adv-product-page.look-pdp .pp-table thead th,.adv-product-page.look-pdp .pp-table tbody th{font-size:var(--pp-eyebrow-size);
@@ -180,7 +181,7 @@
 @media (max-width:600px){
   .adv-product-page.look-pdp{--pp-gap:40px}
   .adv-product-page.look-pdp .pp-title{font-size:1.625rem}
-  .adv-product-page.look-pdp .pp-thumbs{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .adv-product-page.look-pdp .pp-thumbs{gap:6px}
 }
 @media (min-width:700px){
   .adv-product-page.look-pdp .pp-proof-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -232,7 +233,7 @@
         {% endif %}
       </div>
 
-      <aside class="pp-buy" data-pp-buy>
+      <aside class="pp-buy">
         {% if d.eyebrow %}<p class="pp-eyebrow">{{ d.eyebrow }}</p>{% endif %}
         <h1 class="pp-title">{{ d.product_name or page.hero.product_name }}</h1>
         {% if d.rating %}<p class="pp-rating">{{ d.rating.text }}</p>{% endif %}
@@ -240,7 +241,7 @@
         {% if d.price %}<p class="pp-price">{{ d.price.text }}{% if d.price.compare_at %}<s class="pp-price-was">{{ d.price.compare_at }}</s>{% endif %}</p>{% endif %}
         {% if d.financing %}<p class="pp-fine">{{ d.financing }}</p>{% endif %}
         {% if d.hsa %}<p class="pp-fine">{{ d.hsa.text }}</p>{% endif %}
-        <div class="pp-ctas">
+        <div class="pp-ctas" data-pp-ctas>
           <a class="pp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
           {% if d.ghost_cta and d.ghost_cta.kind == "button" %}
           <a class="pp-btn pp-btn--ghost" href="{{ d.ghost_cta.url }}">{{ d.ghost_cta.text }}</a>
@@ -402,12 +403,17 @@
     });
   });
   /* sticky phone bar: CSS shows it by default, so a reader with no JS
-     still gets it; this hides it until the buy panel has scrolled past */
+     still gets it. This hides it only while the buy panel's own CTA is on
+     screen, so a phone always has the price and the CTA in view -- above
+     the fold, before the reader reaches the buy panel under the gallery,
+     and after it has scrolled past. */
   var bar = root.querySelector('[data-pp-sticky]');
-  var buy = root.querySelector('[data-pp-buy]');
-  if(!bar || !buy) return;
-  bar.classList.add('pp-sticky--hidden');
-  var sync = function(){ bar.classList.toggle('pp-sticky--hidden', !(buy.getBoundingClientRect().bottom < 0)); };
+  var ctas = root.querySelector('[data-pp-ctas]');
+  if(!bar || !ctas) return;
+  var sync = function(){
+    var r = ctas.getBoundingClientRect();
+    bar.classList.toggle('pp-sticky--hidden', r.bottom > 0 && r.top < window.innerHeight);
+  };
   sync();
   window.addEventListener('scroll', sync, {passive:true});
   window.addEventListener('resize', sync, {passive:true});

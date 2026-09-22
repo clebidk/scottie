@@ -935,17 +935,17 @@ def render_page(
             if log:
                 log.event("render", f"{e}; falling back to {look!r}")
 
-    # Cycle 54: the product-page `pdp` look's gallery -- the product's own
-    # storefront images, chosen from the page's FINAL asset picks (after the
-    # slot plan and the paragraph-image matcher above) so they can be
-    # downloaded with everything else just below. Never written into
-    # page.json: the gallery repeats the hero on purpose, which the
-    # duplicate-asset check would otherwise read as a page.json mistake.
-    gallery_ids = []
+    # Cycle 54: the product-page `pdp` look's gallery (the product's own
+    # storefront images) and one image per benefit block, chosen from the
+    # page's FINAL asset picks (after the slot plan and the paragraph-image
+    # matcher above) so they are downloaded with everything else just
+    # below. Never written into page.json: the gallery repeats the hero on
+    # purpose, which the duplicate-asset check would read as a mistake.
+    gallery_ids, benefit_ids = [], []
     if cartridge_name == "product-page" and look == "pdp":
-        gallery_ids = pdp_mod.gallery_asset_ids(
-            page, facts_pack, allow_ai_renders=bool(tenant.claims_config.get("allow_ai_renders")),
-        )
+        pdp_ai = bool(tenant.claims_config.get("allow_ai_renders"))
+        gallery_ids = pdp_mod.gallery_asset_ids(page, facts_pack, allow_ai_renders=pdp_ai)
+        benefit_ids = pdp_mod.benefit_asset_ids(page, facts_pack, gallery_ids, allow_ai_renders=pdp_ai)
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
@@ -953,7 +953,7 @@ def render_page(
     # (or comes back as HTML) is dropped -- the template's own `{% if asset
     # %}` guards mean it's simply not rendered, with a warning logged.
     if download_assets:
-        used_asset_ids = collect_asset_ids(page) | set(gallery_ids)
+        used_asset_ids = collect_asset_ids(page) | set(gallery_ids) | {i for i in benefit_ids if i}
         assets_dir = out_dir / "assets"
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
@@ -995,7 +995,7 @@ def render_page(
     # same "from facts_pack alone" rule (harness/pdp.py). The claims they
     # cite join the page's Sources list, since the writer never cites them.
     if cartridge_name == "product-page" and look == "pdp":
-        cartridge_data = pdp_mod.render_context(page, facts_pack, assets_by_id, gallery_ids, tenant=tenant)
+        cartridge_data = pdp_mod.render_context(page, facts_pack, assets_by_id, gallery_ids, benefit_ids, tenant=tenant)
         sources = build_sources_list(
             used_claim_ids | pdp_mod.context_claim_ids(cartridge_data), verified_by_id,
             product_name=product_name, product_url=product.get("url"), tenant=tenant,
