@@ -125,7 +125,7 @@ def test_repair_loop_stops_after_max_repair_attempts(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_parse_word_range_reads_each_real_cartridge_md():
-    for name, expected in [("article", (1000, 1600)), ("longform", (800, 1400)), ("product-page", (400, 800))]:
+    for name, expected in [("article", (1000, 1600)), ("longform", (800, 1400)), ("product-page", (200, 360))]:
         cartridge_md = (REPO_ROOT / "cartridges" / name / "cartridge.md").read_text()
         assert parse_word_range(cartridge_md) == expected
 

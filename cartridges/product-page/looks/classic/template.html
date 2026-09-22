@@ -27,8 +27,8 @@
 
   <section class="adv-proof-bullets">
     <ul>
-      {% for b in page.proof_bullets %}
-      <li><strong>{{ b.label }}</strong> &mdash; {{ b.text }}</li>
+      {% for b in page.proof_bullets or page.included or [] %}
+      <li>{% if b.label %}<strong>{{ b.label }}</strong> &mdash; {% endif %}{{ b.text }}</li>
       {% endfor %}
     </ul>
   </section>
@@ -49,6 +49,7 @@
     {{ render_image_slot(angle_asset) }}
   </section>
 
+  {% if page.specs_table %}
   <table class="adv-specs">
     <tbody>
       {% for row in page.specs_table %}
@@ -56,13 +57,16 @@
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
 
+  {% if page.trust_strip %}
   <section class="adv-trust-strip">
     {% if page.trust_strip.warranty %}<div class="adv-trust-item"><strong>Warranty</strong><p>{{ page.trust_strip.warranty.text }}</p></div>{% endif %}
     {% if page.trust_strip.shipping %}<div class="adv-trust-item"><strong>Shipping</strong><p>{{ page.trust_strip.shipping.text }}</p></div>{% endif %}
     {% if page.trust_strip.returns %}<div class="adv-trust-item"><strong>Returns</strong><p>{{ page.trust_strip.returns.text }}</p></div>{% endif %}
     {% if facts_pack.reviews_summary and page.trust_strip.reviews %}<div class="adv-trust-item"><strong>Reviews</strong><p>{{ page.trust_strip.reviews.text }}</p></div>{% endif %}
   </section>
+  {% endif %}
 
   {% if page.detail_images %}
   <div class="adv-images">

@@ -310,6 +310,8 @@ def find_value_equation_warnings(page, cartridge_name, facts_pack):
     if cartridge_name != "product-page" or not isinstance(page, dict):
         return []
     bullets = page.get("proof_bullets") or []
+    if not bullets:
+        return []       # cycle 62: a page with an included list has no proof bullets
     verified_by_id = {c["id"]: c for c in (facts_pack or {}).get("verified_claims", [])}
     all_ids = []
     for bullet in bullets:

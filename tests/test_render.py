@@ -127,28 +127,26 @@ PRODUCT_PAGE_PAGE = {
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
         "hero_image": {"asset_id": FUJI_MANIFEST_ASSET_ID},
     },
-    "proof_bullets": [
-        # Fix cycle 7 item 1: warranty wording is now gated to the fixed
-        # sentence (claims.find_warranty_violations) -- "Backed by a written
-        # warranty." used to pass but is no longer one of the allowed forms.
-        {"label": "Warranty", "text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
-        {"label": "Red light therapy", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
-        {"label": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
-        {"label": "US-owned", "text": "PEAK is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
-    ],
-    "angle_section": {"heading": "Why the price is on the page", "paragraphs": [{"text": "No form required."}] + _filler_paragraphs(6)},
-    "specs_table": [{"label": "Capacity", "value": "2-Person"}],
-    "trust_strip": {
-        "warranty": {"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
-        "shipping": {"text": "shipping text", "claim_ids": ["shipping-policy"]},
-        "returns": {"text": "returns text", "claim_ids": ["returns-policy"]},
+    # Cycle 62 (product-page v0.3.0): one promise band (a heading and two
+    # short paragraphs), a short "what's included" list and exactly five
+    # FAQs. The proof tiles, proof bullets, trust strip and writer spec
+    # table are gone -- the specs are renderer-owned, from facts_pack.
+    "angle_section": {
+        "heading": "Why the price is on the page",
+        "paragraphs": [
+            {"text": "Some sauna brands ask for a call before they share a number. This page shows "
+                     "the price, the specs and the warranty terms, so you can decide on your own time. "
+                     "Every spec is listed below, next to the questions buyers ask most."},
+            {"text": "The cabin seats two. Medical-grade red light therapy is included standard, and "
+                     "the heaters cover near, mid and far infrared from every side. The cabin is built for "
+                     "two people sitting side by side.",
+             "claim_ids": ["gbrain-allowlist-red-light", "gbrain-allowlist-360-full-spectrum"]},
+        ],
     },
-    # Cycle 54 (product-page v0.2.0): the ad-proof tiles and the FAQ are
-    # required fields now -- the pdp look's proof band and accordion.
-    "ad_proof": [
-        {"label": "Published price", "text": "The price is on the page, before any form.", "claim_ids": ["price-fuji"]},
-        {"label": "Red light included", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
-        {"label": "Warranty", "text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
+    "included": [
+        {"text": "Medical-grade red light therapy panel", "claim_ids": ["gbrain-allowlist-red-light"]},
+        {"text": "Full-spectrum heaters on every side", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
+        {"text": "Support from a US-owned company", "claim_ids": ["gbrain-allowlist-us-owned"]},
     ],
     "faq": {
         "questions": [
@@ -392,7 +390,7 @@ def test_disclosure_paragraph_is_inside_main_or_article(tmp_path, cartridge_name
 
 def test_product_page_hides_reviews_block_when_reviews_summary_is_null(tmp_path):
     page = json.loads(json.dumps(PRODUCT_PAGE_PAGE))
-    page["trust_strip"]["reviews"] = {"text": "9,000+ reviews, 4.9 stars", "claim_ids": []}
+    page["trust_strip"] = {"reviews": {"text": "9,000+ reviews, 4.9 stars", "claim_ids": []}}   # a pre-cycle-62 field
     index_path = render_page(
         cartridge_name="product-page",
         page=page,
@@ -462,9 +460,16 @@ def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
     gbrain-allowlist-360-full-spectrum all share the product page URL -- one
     line, not three -- and no claim text (only the label) appears in the
     Sources list."""
+    # cycle 62: the current schema cites no shipping or returns claim, so an
+    # old page's trust strip carries them here -- the Sources list is built
+    # from every claim id a page.json cites, whatever the field
+    page = {**PRODUCT_PAGE_PAGE, "trust_strip": {
+        "shipping": {"text": "shipping text", "claim_ids": ["shipping-policy"]},
+        "returns": {"text": "returns text", "claim_ids": ["returns-policy"]},
+    }}
     index_path = render_page(
         cartridge_name="product-page",
-        page=PRODUCT_PAGE_PAGE,
+        page=page,
         ad_brief=AD_BRIEF,
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",

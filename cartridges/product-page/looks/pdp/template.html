@@ -1,33 +1,36 @@
 {% extends "base.html" %}
-{# LOOK: pdp (cycle 54) -- a landing page laid out like the brand's own
-   storefront product detail page, carrying the ad's angle.
+{# LOOK: pdp (cycle 54, simplified in cycle 62) -- a landing page laid out
+   like the brand's own storefront product detail page, carrying the ad's
+   angle. The live PDP's bones only (the tenant's docs/PDP-STRUCTURE-*.md):
 
-   Above the fold it is two columns at 900px up: the product gallery on the
-   left and a sticky buy panel on the right (eyebrow, product name, rating,
-   the ad-angle promise, price, financing, CTA, a short spec list, the
-   lead-time line, the warranty sentence). Then: the ad-proof band, the
-   "why this model" benefit blocks, the spec table, the model compare
-   table, the reviews summary, the FAQ accordion, a dark closing buy band,
-   and a sticky price + CTA bar on phones (shown whenever the buy panel's
-   own CTA is off screen, so the price is always in view).
+     1. gallery (main image + thumbnail strip) left, buy panel right, 50/50
+        from 768px: model name, the one-line promise, rating (only when
+        verified), price, the fixed financing sentence, the CTA, and the
+        fixed shipping/warranty lines;
+     2. one promise band: a heading, two short paragraphs, one image;
+     3. what's included, a plain list;
+     4. the specs in a details/summary row (the live PDP's collapsible tab);
+     5. exactly five FAQs;
+     6. one closing CTA, plus the sticky price + CTA bar on phones.
 
-   Everything under cartridge_data is renderer-owned (harness/pdp.py, from
-   facts_pack alone): gallery, price, rating, HSA/FSA, spec rows, compare
-   table, lead-time line, and the fixed financing and warranty sentences.
-   The writer's page.json supplies the promise, the proof tiles, the
-   benefit blocks, the angle copy and the FAQ. #}
-{% block title %}{{ cartridge_data.product_name or product.short_name or product.name }}{% endblock %}
+   No compare table, proof tiles, cards, chips, badges or eyebrows; sentence
+   case everywhere (the tenant's uppercase-headline class is switched off
+   inside this look); hairline rules, not boxes.
+
+   Everything under cartridge_data is built by harness/pdp.py: the
+   renderer-owned lines from facts_pack alone, and the writer's sections
+   trimmed to what this look shows. #}
+{% block title %}{{ cartridge_data.page_title or product.short_name or product.name }}{% endblock %}
 {% block content %}
-{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
 {% set d = cartridge_data %}
-<style>{% include _tagline_block ~ "/block.css" ignore missing %}</style>
 <style>
 /* Scoped under .adv-product-page.look-pdp, classes prefixed .pp-, so this
    look cannot reach a page rendered in another one. No colour literals:
    every --pp-* token resolves through the tenant's brand tokens (--ps-*)
    first and falls back to structure.css's defaults (--adv-*). structure.css
    lives in the document HEAD and `harness shopify-body` keeps only BODY
-   styles, so everything this look needs is restated here. */
+   styles, so everything this look needs is restated here. Sizes are px
+   (a storefront theme may set a 10px root). */
 .adv-product-page.look-pdp{
   --pp-accent:var(--ps-accent,var(--adv-accent));
   --pp-on-accent:var(--ps-on-accent,var(--adv-bg));
@@ -37,131 +40,107 @@
   --pp-bg:var(--ps-bg,var(--adv-bg));
   --pp-panel:var(--ps-bg-muted,var(--adv-bg));
   --pp-rule:var(--ps-border,var(--adv-border));
-  --pp-link:var(--ps-link,var(--pp-ink));
-  --pp-dark:var(--ps-ink-dark,var(--adv-fg));
-  --pp-on-dark:var(--ps-on-dark,var(--adv-bg));
+  --pp-focus:var(--ps-focus,var(--pp-accent));
   --pp-sans:var(--ps-sans,inherit);
   --pp-serif:var(--ps-serif,var(--pp-sans));
-  --pp-eyebrow-size:var(--ps-eyebrow-size,.75rem);
-  --pp-eyebrow-spacing:var(--ps-eyebrow-spacing,.12em);
-  --pp-eyebrow-color:var(--ps-eyebrow-color,var(--pp-muted));
   --pp-radius:var(--ps-radius-card,8px);
   --pp-radius-btn:var(--ps-radius-btn,6px);
-  --pp-measure:1180px;
-  --pp-gap:56px;
+  --pp-measure:var(--ps-max-width,1320px);
+  --pp-gutter:16px;
+  --pp-gap:48px;
   --pp-sticky-h:64px;
   display:block;width:100%;background:var(--pp-bg);color:var(--pp-body);text-align:left;
-  font-family:var(--pp-sans);-webkit-font-smoothing:antialiased;
+  font-family:var(--pp-sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
 }
 .adv-wrap:has(.look-pdp){max-width:none;padding-left:0;padding-right:0;padding-top:0}
-.adv-wrap:has(.look-pdp) .adv-footer{max-width:var(--pp-measure);margin:0 auto;padding-left:20px;padding-right:20px}
+.adv-wrap:has(.look-pdp) .adv-footer{max-width:var(--ps-max-width,1320px);margin:0 auto;padding-left:20px;padding-right:20px}
+.adv-case-upper:has(.look-pdp) .adv-footer h3{text-transform:none}
 .adv-product-page.look-pdp *,.adv-product-page.look-pdp *::before,.adv-product-page.look-pdp *::after{box-sizing:border-box}
 .adv-product-page.look-pdp img{display:block;max-width:100%}
 .adv-product-page.look-pdp picture{display:block}
 .adv-product-page.look-pdp .adv-img{display:block;width:100%;height:auto;max-width:100%;margin:0}
 .adv-product-page.look-pdp .adv-img--contain{object-fit:contain}
 .adv-product-page.look-pdp .adv-img--cover{object-fit:cover}
-.adv-product-page.look-pdp .pp-measure{max-width:var(--pp-measure);margin:0 auto;padding:0 20px;width:100%}
+.adv-product-page.look-pdp .pp-measure{max-width:var(--pp-measure);margin:0 auto;padding:0 var(--pp-gutter);width:100%}
+.adv-product-page.look-pdp p{margin:0;line-height:1.6;color:var(--pp-body)}
+.adv-product-page.look-pdp h1,.adv-product-page.look-pdp h2{margin:0;font-family:var(--pp-serif);font-weight:400;color:var(--pp-ink);letter-spacing:0}
+/* sentence case everywhere but the wordmark: structure.css uppercases
+   h1-h3 under the tenant's headline-case class, so this look opts out */
+.adv-case-upper .adv-product-page.look-pdp h1,.adv-case-upper .adv-product-page.look-pdp h2,
+.adv-case-upper .adv-product-page.look-pdp h3{text-transform:none}
+.adv-product-page.look-pdp a:focus-visible,.adv-product-page.look-pdp button:focus-visible,
+.adv-product-page.look-pdp summary:focus-visible{outline:2px solid var(--pp-focus);outline-offset:2px}
 
-/* top bar: logo, and the disclosure label (render_page's disclosure_label,
-   tenant.yaml) only when the tenant sets one */
+/* top bar: logo, and the disclosure label only when the tenant sets one */
 .adv-product-page.look-pdp .pp-top{border-bottom:1px solid var(--pp-rule)}
 .adv-product-page.look-pdp .pp-top-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px}
 .adv-product-page.look-pdp .adv-brand-logo{height:22px;width:auto}
 
-/* 1. gallery + buy panel */
-.adv-product-page.look-pdp .pp-hero{padding:20px 0 var(--pp-gap)}
+/* 1. gallery + buy panel (live PDP: 50/50 from 768px, thumbnails under
+   the main image, 64px wide on phones and 100px from 1016px) */
+.adv-product-page.look-pdp .pp-hero{padding:12px 0 var(--pp-gap)}
 .adv-product-page.look-pdp .pp-hero-grid{display:grid;gap:24px;align-items:start}
 .adv-product-page.look-pdp .pp-gallery{min-width:0}
 .adv-product-page.look-pdp .pp-stage{background:var(--pp-panel);border-radius:var(--pp-radius);overflow:hidden}
 .adv-product-page.look-pdp .pp-slide{margin:0;display:none}
 .adv-product-page.look-pdp .pp-slide.is-active{display:block}
-.adv-product-page.look-pdp .pp-slide .adv-img{max-height:620px;object-fit:contain}
-.adv-product-page.look-pdp .pp-thumbs{list-style:none;margin:12px 0 0;padding:0;display:grid;
-  grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.adv-product-page.look-pdp .pp-slide .adv-img{max-height:640px;object-fit:contain}
+.adv-product-page.look-pdp .pp-thumbs{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,64px));gap:10px}
 .adv-product-page.look-pdp .pp-thumbs li{margin:0}
-.adv-product-page.look-pdp .pp-thumb{display:block;width:100%;padding:0;margin:0;border:1px solid var(--pp-rule);
-  border-radius:var(--pp-radius-btn);background:var(--pp-panel);cursor:pointer;overflow:hidden;opacity:.7}
+.adv-product-page.look-pdp .pp-thumb{display:block;width:100%;padding:0;margin:0;border:1px solid transparent;
+  border-radius:var(--pp-radius-btn);background:var(--pp-panel);cursor:pointer;overflow:hidden;opacity:.75}
 .adv-product-page.look-pdp .pp-thumb.is-active,.adv-product-page.look-pdp .pp-thumb:hover{opacity:1;border-color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-thumb:focus-visible{outline:2px solid var(--pp-accent);outline-offset:2px}
 
-.adv-product-page.look-pdp .pp-buy{min-width:0}
-.adv-product-page.look-pdp .pp-eyebrow{margin:0 0 8px;font-size:var(--pp-eyebrow-size);letter-spacing:var(--pp-eyebrow-spacing);
-  text-transform:uppercase;color:var(--pp-eyebrow-color)}
-.adv-product-page.look-pdp .pp-title{margin:0 0 8px;font-family:var(--pp-serif);font-size:2rem;line-height:1.1;color:var(--pp-ink);letter-spacing:-.01em}
-.adv-product-page.look-pdp .pp-rating{margin:0 0 14px;font-size:.9375rem;color:var(--pp-muted)}
-.adv-product-page.look-pdp .pp-promise{margin:0 0 18px;font-size:1.1875rem;line-height:1.45;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-price{margin:0 0 6px;padding:14px 0 0;border-top:1px solid var(--pp-rule);font-size:1.75rem;line-height:1.2;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-price-was{margin-left:8px;font-size:1.125rem;color:var(--pp-muted)}
-.adv-product-page.look-pdp .pp-fine{margin:0 0 6px;font-size:.875rem;line-height:1.5;color:var(--pp-muted)}
-.adv-product-page.look-pdp .pp-ctas{display:flex;flex-direction:column;gap:10px;margin:18px 0 18px}
+.adv-product-page.look-pdp .pp-buy{min-width:0;max-width:520px}
+.adv-product-page.look-pdp .pp-title{font-size:32px;line-height:1.1}
+.adv-product-page.look-pdp .pp-promise{margin-top:12px}
+.adv-product-page.look-pdp .pp-rating{margin-top:8px;color:var(--pp-muted)}
+.adv-product-page.look-pdp .pp-price{margin-top:24px;padding-top:24px;border-top:1px solid var(--pp-rule);font-size:24px;line-height:1.2;color:var(--pp-ink)}
+.adv-product-page.look-pdp .pp-price-was{margin-left:8px;color:var(--pp-muted)}
+.adv-product-page.look-pdp .pp-fine{margin-top:6px;color:var(--pp-muted)}
 .adv-product-page.look-pdp .pp-btn{display:flex;align-items:center;justify-content:center;min-height:52px;padding:14px 24px;
-  border:1px solid var(--pp-accent);border-radius:var(--pp-radius-btn);background:var(--pp-accent);color:var(--pp-on-accent);
-  font-size:1rem;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;text-align:center;cursor:pointer}
+  border:0;border-radius:var(--pp-radius-btn);background:var(--pp-accent);color:var(--pp-on-accent);
+  font-family:var(--pp-sans);font-size:17px;line-height:1.4;letter-spacing:0;text-decoration:none;text-align:center;cursor:pointer}
 .adv-product-page.look-pdp .pp-btn:hover{opacity:.9}
-.adv-product-page.look-pdp .pp-btn--ghost{background:transparent;color:var(--pp-ink);border-color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;color:var(--pp-link);
-  font-size:.9375rem;text-decoration:underline;text-underline-offset:4px}
-.adv-product-page.look-pdp .pp-included{list-style:none;margin:0 0 14px;padding:0;border-top:1px solid var(--pp-rule)}
-.adv-product-page.look-pdp .pp-included li{display:flex;justify-content:space-between;gap:16px;margin:0;padding:10px 0;
-  border-bottom:1px solid var(--pp-rule);font-size:.9375rem}
-.adv-product-page.look-pdp .pp-included-label{color:var(--pp-muted)}
-.adv-product-page.look-pdp .pp-included-value{color:var(--pp-ink);text-align:right}
-.adv-product-page.look-pdp .pp-ship{margin:0 0 6px;font-size:.9375rem;line-height:1.5;color:var(--pp-body)}
+.adv-product-page.look-pdp .pp-buy .pp-btn{margin-top:20px;width:100%}
+.adv-product-page.look-pdp .pp-assure{list-style:none;margin:20px 0 0;padding:0}
+.adv-product-page.look-pdp .pp-assure li{margin:0;padding:10px 0;border-top:1px solid var(--pp-rule);color:var(--pp-body)}
 
-/* 2. ad-proof band */
-.adv-product-page.look-pdp .pp-proof{padding:var(--pp-gap) 0;background:var(--pp-panel)}
-.adv-product-page.look-pdp .pp-proof-grid{list-style:none;margin:0;padding:0;display:grid;gap:1px;background:var(--pp-rule);
-  border:1px solid var(--pp-rule)}
-.adv-product-page.look-pdp .pp-tile{margin:0;padding:22px;background:var(--pp-bg)}
-.adv-product-page.look-pdp .pp-tile-label{margin:0 0 8px;font-size:var(--pp-eyebrow-size);letter-spacing:var(--pp-eyebrow-spacing);
-  text-transform:uppercase;color:var(--pp-eyebrow-color)}
-.adv-product-page.look-pdp .pp-tile-text{margin:0;font-size:1.0625rem;line-height:1.5;color:var(--pp-ink)}
+/* 2-5. sections, each opened by one hairline */
+.adv-product-page.look-pdp .pp-section{padding:0 0 var(--pp-gap)}
+.adv-product-page.look-pdp .pp-section > .pp-measure > .pp-inner{padding-top:var(--pp-gap);border-top:1px solid var(--pp-rule)}
+.adv-product-page.look-pdp .pp-section > .pp-measure > .pp-inner--flush{padding-top:0}
+.adv-product-page.look-pdp .pp-h2{font-size:28px;line-height:1.2;margin-bottom:20px}
+.adv-product-page.look-pdp .pp-copy{max-width:640px}
+.adv-product-page.look-pdp .pp-body + .pp-body{margin-top:16px}
+.adv-product-page.look-pdp .pp-promise-grid{display:grid;gap:32px;align-items:center}
+.adv-product-page.look-pdp .pp-promise-media{background:var(--pp-panel);border-radius:var(--pp-radius);overflow:hidden}
+.adv-product-page.look-pdp .pp-list{list-style:none;margin:0;padding:0;max-width:880px}
+.adv-product-page.look-pdp .pp-list li{margin:0;padding:12px 0;border-bottom:1px solid var(--pp-rule)}
+.adv-product-page.look-pdp .pp-list li:first-child{border-top:1px solid var(--pp-rule)}
 
-/* 3-7. sections */
-.adv-product-page.look-pdp .pp-section{padding:var(--pp-gap) 0 0}
-.adv-product-page.look-pdp .pp-h2{margin:0 0 12px;font-family:var(--pp-serif);font-size:1.75rem;line-height:1.15;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-h3{margin:0 0 8px;font-size:1.0625rem;line-height:1.3;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-lede{margin:0 0 12px;max-width:68ch;font-size:1.0625rem;line-height:1.65;color:var(--pp-body)}
-.adv-product-page.look-pdp .pp-benefits{display:grid;gap:28px;margin:28px 0 0}
-.adv-product-page.look-pdp .pp-benefit{margin:0}
-.adv-product-page.look-pdp .pp-benefit-media{margin:0 0 14px;background:var(--pp-panel);border-radius:var(--pp-radius);overflow:hidden}
-.adv-product-page.look-pdp .pp-benefit-text{margin:0;font-size:1rem;line-height:1.6;color:var(--pp-body)}
-
-.adv-product-page.look-pdp .pp-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.adv-product-page.look-pdp .pp-table{width:100%;border:0;border-collapse:collapse;margin:8px 0 0;font-size:.9375rem;background:transparent}
-.adv-product-page.look-pdp .pp-table th,.adv-product-page.look-pdp .pp-table td{padding:12px 10px;border:0;border-bottom:1px solid var(--pp-rule);
-  text-align:left;vertical-align:top;background:transparent;color:var(--pp-body)}
-.adv-product-page.look-pdp .pp-table thead th,.adv-product-page.look-pdp .pp-table tbody th{font-size:var(--pp-eyebrow-size);
-  letter-spacing:var(--pp-eyebrow-spacing);text-transform:uppercase;color:var(--pp-muted)}
+/* details rows: the live PDP's collapsible tabs (20px padding, shared
+   hairlines, a plus sign) -- used for the specs and the FAQ */
+.adv-product-page.look-pdp .pp-rows{max-width:880px}
+.adv-product-page.look-pdp .pp-row,.adv-product-page.look-pdp .pp-faq-item{border-bottom:1px solid var(--pp-rule)}
+.adv-product-page.look-pdp .pp-faq-item:first-child{border-top:1px solid var(--pp-rule)}
+.adv-product-page.look-pdp .pp-row-q{display:block;padding:20px 32px 20px 0;position:relative;color:var(--pp-ink);cursor:pointer;list-style:none}
+.adv-product-page.look-pdp .pp-row-q::-webkit-details-marker{display:none}
+.adv-product-page.look-pdp .pp-row-q::after{content:"+";position:absolute;right:4px;top:20px;color:var(--pp-muted)}
+.adv-product-page.look-pdp details[open] > .pp-row-q::after{content:"\2212"}
+.adv-product-page.look-pdp .pp-row-a{margin:0 0 20px;max-width:640px}
+.adv-product-page.look-pdp .pp-table{width:100%;border:0;border-collapse:collapse;margin:0 0 20px;font-size:16px;line-height:1.5;background:transparent}
+.adv-product-page.look-pdp .pp-table th,.adv-product-page.look-pdp .pp-table td{padding:12px 16px 12px 0;border:0;border-top:1px solid var(--pp-rule);
+  text-align:left;vertical-align:top;font-weight:400;font-size:16px;letter-spacing:0;text-transform:none;background:transparent}
+.adv-product-page.look-pdp .pp-table th{width:34%;color:var(--pp-muted)}
 .adv-product-page.look-pdp .pp-table td{color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-specs th{width:40%}
-.adv-product-page.look-pdp .pp-compare{min-width:520px}
-.adv-product-page.look-pdp .pp-compare .is-current{background:var(--pp-panel)}
-.adv-product-page.look-pdp .pp-compare thead th.is-current{color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-current{display:block;margin-top:4px;color:var(--pp-muted);text-transform:none;letter-spacing:0}
 
-.adv-product-page.look-pdp .pp-reviews-line{margin:0;font-size:1.25rem;line-height:1.5;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-quote{margin:18px 0 0;padding:0 0 0 18px;border-left:2px solid var(--pp-rule)}
-.adv-product-page.look-pdp .pp-quote p{margin:0 0 6px;font-family:var(--pp-serif);font-size:1.25rem;line-height:1.45;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-quote cite{font-style:normal;font-size:.875rem;color:var(--pp-muted)}
-
-.adv-product-page.look-pdp .pp-faq-item{border-bottom:1px solid var(--pp-rule)}
-.adv-product-page.look-pdp .pp-faq-item:first-of-type{border-top:1px solid var(--pp-rule)}
-.adv-product-page.look-pdp .pp-faq-q{padding:18px 32px 18px 0;position:relative;font-size:1.0625rem;color:var(--pp-ink);cursor:pointer;list-style:none}
-.adv-product-page.look-pdp .pp-faq-q::-webkit-details-marker{display:none}
-.adv-product-page.look-pdp .pp-faq-q::after{content:"+";position:absolute;right:4px;top:16px;color:var(--pp-muted)}
-.adv-product-page.look-pdp .pp-faq-item[open] .pp-faq-q::after{content:"\2212"}
-.adv-product-page.look-pdp .pp-faq-a{margin:0 0 18px;max-width:68ch;font-size:1rem;line-height:1.6;color:var(--pp-body)}
-
-/* 8. closing buy band, then the sticky phone bar */
-.adv-product-page.look-pdp .pp-close{margin:var(--pp-gap) 0 0;padding:var(--pp-gap) 0;background:var(--pp-dark);color:var(--pp-on-dark)}
-.adv-product-page.look-pdp .pp-close-grid{display:grid;gap:18px;align-items:center}
-.adv-product-page.look-pdp .pp-close-title{margin:0 0 6px;font-family:var(--pp-serif);font-size:1.75rem;line-height:1.15;color:var(--pp-on-dark)}
-.adv-product-page.look-pdp .pp-close-price{margin:0 0 6px;font-size:1.375rem;color:var(--pp-on-dark)}
-.adv-product-page.look-pdp .pp-close .pp-fine{color:var(--pp-on-dark);opacity:.8}
+/* 6. closing CTA, then the sticky phone bar */
+.adv-product-page.look-pdp .pp-close{padding:0 0 var(--pp-gap)}
+.adv-product-page.look-pdp .pp-close-grid{display:grid;gap:20px;align-items:center;padding-top:var(--pp-gap);border-top:1px solid var(--pp-rule)}
+.adv-product-page.look-pdp .pp-close-price{margin-top:4px;color:var(--pp-ink)}
 .adv-product-page.look-pdp .pp-sticky{display:none}
-@media (max-width:899px){
+@media (max-width:767px){
   .adv-product-page.look-pdp .pp-sticky{position:fixed;left:0;right:0;bottom:0;z-index:40;min-height:var(--pp-sticky-h);
     display:flex;align-items:center;padding:8px 16px calc(8px + env(safe-area-inset-bottom));
     background:var(--pp-bg);border-top:1px solid var(--pp-rule);transform:translateY(0);transition:transform .2s ease}
@@ -169,34 +148,24 @@
   .adv-wrap:has(.look-pdp) .adv-footer{padding-bottom:calc(var(--pp-sticky-h) + 24px)}
 }
 .adv-product-page.look-pdp .pp-sticky-inner{width:100%;display:flex;align-items:center;gap:12px}
-.adv-product-page.look-pdp .pp-sticky-price{flex:0 0 auto;font-size:1.125rem;color:var(--pp-ink)}
-.adv-product-page.look-pdp .pp-sticky .pp-btn{flex:1 1 auto;min-height:44px;padding:10px 16px}
+.adv-product-page.look-pdp .pp-sticky-price{flex:0 0 auto;color:var(--pp-ink)}
+.adv-product-page.look-pdp .pp-sticky .pp-btn{flex:1 1 auto;min-height:48px;padding:10px 16px}
 
-/* headline case: see harness/render.py's wrap_class; restated here because
-   the storefront export keeps only what is inside the body */
-.adv-case-upper .pp-title,.adv-case-upper .pp-h2,.adv-case-upper .pp-h3,
-.adv-case-upper .pp-close-title{text-transform:uppercase}
-
-@media (max-width:600px){
-  .adv-product-page.look-pdp{--pp-gap:40px}
-  .adv-product-page.look-pdp .pp-title{font-size:1.625rem}
-  .adv-product-page.look-pdp .pp-thumbs{gap:6px}
-}
-@media (min-width:700px){
-  .adv-product-page.look-pdp .pp-proof-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .adv-product-page.look-pdp .pp-benefits{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
-@media (min-width:900px){
-  .adv-product-page.look-pdp{--pp-gap:80px}
-  .adv-product-page.look-pdp .pp-hero{padding-top:28px}
-  .adv-product-page.look-pdp .pp-hero-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:48px}
+@media (min-width:768px){
+  .adv-product-page.look-pdp{--pp-gutter:20px;--pp-gap:64px}
+  .adv-product-page.look-pdp .pp-hero{padding-top:33px}
+  .adv-product-page.look-pdp .pp-hero-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px}
   .adv-product-page.look-pdp .pp-buy{position:sticky;top:24px}
-  .adv-product-page.look-pdp .pp-title{font-size:2.5rem}
-  .adv-product-page.look-pdp .pp-h2{font-size:2.25rem}
-  .adv-product-page.look-pdp .pp-proof-grid--4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .adv-product-page.look-pdp .pp-proof-grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .adv-product-page.look-pdp .pp-close-grid{grid-template-columns:minmax(0,1fr) auto;gap:48px}
-  .adv-product-page.look-pdp .pp-close .pp-btn{min-width:280px}
+  .adv-product-page.look-pdp .pp-title{font-size:40px}
+  .adv-product-page.look-pdp .pp-h2{font-size:32px}
+  .adv-product-page.look-pdp .pp-promise-grid--media{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px}
+  .adv-product-page.look-pdp .pp-close-grid{grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:48px}
+}
+@media (min-width:1016px){
+  .adv-product-page.look-pdp .pp-thumbs{grid-template-columns:repeat(6,minmax(0,100px))}
+}
+@media (min-width:1360px){
+  .adv-product-page.look-pdp{--pp-gutter:40px}
 }
 </style>
 <div class="adv-product-page look-pdp">
@@ -220,168 +189,105 @@
       <div class="pp-gallery" data-pp-gallery>
         <div class="pp-stage">
           {% for asset in gallery %}
-          <figure class="pp-slide{{ ' is-active' if loop.first else '' }}" data-pp-slide="{{ loop.index0 }}">{{ render_image_slot(asset, hero=loop.first, sizes="(max-width: 899px) 100vw, 700px") }}</figure>
+          <figure class="pp-slide{{ ' is-active' if loop.first else '' }}" data-pp-slide="{{ loop.index0 }}">{{ render_image_slot(asset, hero=loop.first, sizes="(max-width: 767px) 100vw, 660px") }}</figure>
           {% endfor %}
         </div>
         {% if gallery|length > 1 %}
         <ul class="pp-thumbs">
           {% for asset in gallery %}
-          <li><button type="button" class="pp-thumb{{ ' is-active' if loop.first else '' }}" data-pp-thumb="{{ loop.index0 }}" aria-label="Show image {{ loop.index }} of {{ gallery|length }}">{{ render_image_slot(asset, sizes="120px", frame="1x1") }}</button></li>
+          <li><button type="button" class="pp-thumb{{ ' is-active' if loop.first else '' }}" data-pp-thumb="{{ loop.index0 }}" aria-label="Show image {{ loop.index }} of {{ gallery|length }}">{{ render_image_slot(asset, sizes="100px", frame="1x1") }}</button></li>
           {% endfor %}
         </ul>
         {% endif %}
       </div>
 
-      <aside class="pp-buy">
-        {% if d.eyebrow %}<p class="pp-eyebrow">{{ d.eyebrow }}</p>{% endif %}
+      <div class="pp-buy">
         <h1 class="pp-title">{{ d.product_name or page.hero.product_name }}</h1>
+        {% if page.hero and page.hero.promise %}<p class="pp-promise">{{ page.hero.promise }}</p>{% endif %}
         {% if d.rating %}<p class="pp-rating">{{ d.rating.text }}</p>{% endif %}
-        <p class="pp-promise">{{ page.hero.promise }}</p>
         {% if d.price %}<p class="pp-price">{{ d.price.text }}{% if d.price.compare_at %}<s class="pp-price-was">{{ d.price.compare_at }}</s>{% endif %}</p>{% endif %}
         {% if d.financing %}<p class="pp-fine">{{ d.financing }}</p>{% endif %}
-        {% if d.hsa %}<p class="pp-fine">{{ d.hsa.text }}</p>{% endif %}
-        <div class="pp-ctas" data-pp-ctas>
-          <a class="pp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-          {% if d.ghost_cta and d.ghost_cta.kind == "button" %}
-          <a class="pp-btn pp-btn--ghost" href="{{ d.ghost_cta.url }}">{{ d.ghost_cta.text }}</a>
-          {% elif d.ghost_cta %}
-          <a class="pp-link" href="{{ d.ghost_cta.url }}">{{ d.ghost_cta.text }} &rarr;</a>
-          {% endif %}
-        </div>
-        {% if d.buy_specs %}
-        <ul class="pp-included">
-          {% for row in d.buy_specs %}<li><span class="pp-included-label">{{ row.label }}</span><span class="pp-included-value">{{ row.value }}</span></li>{% endfor %}
+        <div data-pp-ctas><a class="pp-btn" href="{{ page.cta_url }}">{{ d.cta_text }}</a></div>
+        {% if d.shipping or d.warranty or d.hsa %}
+        <ul class="pp-assure">
+          {% if d.shipping %}<li>{{ d.shipping.text }}</li>{% endif %}
+          {% if d.warranty %}<li>{{ d.warranty.text }}</li>{% endif %}
+          {% if d.hsa %}<li>{{ d.hsa.text }}</li>{% endif %}
         </ul>
         {% endif %}
-        {% if d.shipping %}<p class="pp-ship">{{ d.shipping.text }}</p>{% endif %}
-        {% if d.warranty %}<p class="pp-fine">{{ d.warranty.text }}</p>{% endif %}
-      </aside>
+      </div>
     </div>
   </section>
 
-  {% if page.ad_proof %}
-  <section class="pp-proof" aria-label="Proof">
-    <div class="pp-measure">
-      <ul class="pp-proof-grid {{ 'pp-proof-grid--4' if page.ad_proof|length >= 4 else 'pp-proof-grid--3' }}">
-        {% for tile in page.ad_proof %}
-        <li class="pp-tile">{% if tile.label %}<p class="pp-tile-label">{{ tile.label }}</p>{% endif %}<p class="pp-tile-text">{{ tile.text }}</p></li>
-        {% endfor %}
-      </ul>
-    </div>
+  {% if d.promise.heading or d.promise.paragraphs %}
+  <section class="pp-section" id="pp-promise">
+    <div class="pp-measure"><div class="pp-inner pp-promise-grid{{ ' pp-promise-grid--media' if d.promise.asset else '' }}">
+      <div class="pp-copy">
+        {% if d.promise.heading %}<h2 class="pp-h2">{{ d.promise.heading }}</h2>{% endif %}
+        {% for text in d.promise.paragraphs %}<p class="pp-body">{{ text }}</p>{% endfor %}
+      </div>
+      {% if d.promise.asset %}<div class="pp-promise-media">{{ render_image_slot(d.promise.asset, frame="4x3", sizes="(max-width: 767px) 100vw, 640px") }}</div>{% endif %}
+    </div></div>
   </section>
   {% endif %}
 
-  <section class="pp-section">
-    <div class="pp-measure">
-      {% if page.angle_section and page.angle_section.heading %}<h2 class="pp-h2">{{ page.angle_section.heading }}</h2>{% endif %}
-      {% for p in (page.angle_section.paragraphs if page.angle_section else []) or [] %}
-      <p class="pp-lede">{{ p.text }}</p>
-      {% endfor %}
-      {% if d.benefits %}
-      <div class="pp-benefits">
-        {% for b in d.benefits %}
-        <article class="pp-benefit">
-          {% if b.asset %}<div class="pp-benefit-media">{{ render_image_slot(b.asset, frame="4x3") }}</div>{% endif %}
-          <h3 class="pp-h3">{{ b.label }}</h3>
-          <p class="pp-benefit-text">{{ b.text }}</p>
-        </article>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
+  {% if d.included %}
+  <section class="pp-section" id="pp-included">
+    <div class="pp-measure"><div class="pp-inner">
+      <h2 class="pp-h2">What's included</h2>
+      <ul class="pp-list">
+        {% for item in d.included %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+    </div></div>
   </section>
-
-  {% if page.tagline %}
-  <div class="pp-measure">{% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}</div>
   {% endif %}
 
   {% if d.specs %}
   <section class="pp-section" id="pp-specs">
-    <div class="pp-measure">
-      <h2 class="pp-h2">Specifications</h2>
-      <div class="pp-table-scroll">
-        <table class="pp-table pp-specs">
+    <div class="pp-measure"><div class="pp-inner pp-inner--flush pp-rows">
+      <details class="pp-row" open>
+        <summary class="pp-row-q">Specifications</summary>
+        <table class="pp-table">
           <tbody>
             {% for row in d.specs %}<tr><th scope="row">{{ row.label }}</th><td>{{ row.value }}</td></tr>{% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
-  </section>
-  {% endif %}
-
-  {% if d.compare %}
-  <section class="pp-section" id="pp-compare">
-    <div class="pp-measure">
-      <h2 class="pp-h2">Compare the models</h2>
-      <div class="pp-table-scroll">
-        <table class="pp-table pp-compare">
-          <thead>
-            <tr>
-              <th scope="col">Model</th>
-              {% for m in d.compare.models %}<th scope="col"{% if m.current %} class="is-current"{% endif %}>{{ m.name }}{% if m.current %}<span class="pp-current">This model</span>{% endif %}</th>{% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in d.compare.rows %}
-            <tr>
-              <th scope="row">{{ row.label }}</th>
-              {% for cell in row.cells %}<td{% if d.compare.models[loop.index0].current %} class="is-current"{% endif %}>{{ cell.text if cell else "—" }}</td>{% endfor %}
-            </tr>
-            {% endfor %}
-            <tr>
-              <th scope="row"><span class="pp-current">Details</span></th>
-              {% for m in d.compare.models %}<td{% if m.current %} class="is-current"{% endif %}>{% if m.current %}<a class="pp-link" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% else %}<a class="pp-link" href="{{ m.url }}">View this model</a>{% endif %}</td>{% endfor %}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-  {% endif %}
-
-  {% if d.rating or d.review_quote %}
-  <section class="pp-section" id="pp-reviews">
-    <div class="pp-measure">
-      <h2 class="pp-h2">Reviews</h2>
-      {% if d.rating %}<p class="pp-reviews-line">{{ d.rating.text }}</p>{% endif %}
-      {% if d.review_quote %}
-      <blockquote class="pp-quote"><p>{{ d.review_quote.text }}</p>{% if d.review_quote.attribution %}<cite>{{ d.review_quote.attribution }}</cite>{% endif %}</blockquote>
-      {% endif %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if page.faq and page.faq.questions %}
-  <section class="pp-section" id="pp-faq">
-    <div class="pp-measure">
-      <h2 class="pp-h2">Questions buyers ask</h2>
-      {% for entry in page.faq.questions %}
-      <details class="pp-faq-item"{{ " open" if loop.first else "" }}>
-        <summary class="pp-faq-q">{{ entry.question }}</summary>
-        <p class="pp-faq-a">{{ entry.answer }}</p>
       </details>
-      {% endfor %}
-    </div>
+    </div></div>
+  </section>
+  {% endif %}
+
+  {% if d.faq %}
+  <section class="pp-section" id="pp-faq">
+    <div class="pp-measure"><div class="pp-inner">
+      <h2 class="pp-h2">Questions</h2>
+      <div class="pp-rows">
+        {% for entry in d.faq %}
+        <details class="pp-faq-item">
+          <summary class="pp-row-q">{{ entry.question }}</summary>
+          <p class="pp-row-a">{{ entry.answer }}</p>
+        </details>
+        {% endfor %}
+      </div>
+    </div></div>
   </section>
   {% endif %}
 
   <section class="pp-close">
-    <div class="pp-measure pp-close-grid">
+    <div class="pp-measure"><div class="pp-close-grid">
       <div>
-        <h2 class="pp-close-title">{{ d.product_name or page.hero.product_name }}</h2>
+        <h2 class="pp-h2">{{ d.product_name or page.hero.product_name }}</h2>
         {% if d.price %}<p class="pp-close-price">{{ d.price.text }}</p>{% endif %}
         {% if d.financing %}<p class="pp-fine">{{ d.financing }}</p>{% endif %}
-        {% if d.warranty %}<p class="pp-fine">{{ d.warranty.text }}</p>{% endif %}
       </div>
-      <a class="pp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-    </div>
+      <a class="pp-btn" href="{{ page.cta_url }}">{{ d.cta_text }}</a>
+    </div></div>
   </section>
 
   <div class="pp-sticky" data-pp-sticky>
     <div class="pp-sticky-inner">
       {% if d.price %}<span class="pp-sticky-price">{{ d.price.text }}</span>{% endif %}
-      <a class="pp-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+      <a class="pp-btn" href="{{ page.cta_url }}">{{ d.cta_text }}</a>
     </div>
   </div>
 
@@ -403,9 +309,7 @@
   });
   /* sticky phone bar: CSS shows it by default, so a reader with no JS
      still gets it. This hides it only while the buy panel's own CTA is on
-     screen, so a phone always has the price and the CTA in view -- above
-     the fold, before the reader reaches the buy panel under the gallery,
-     and after it has scrolled past. */
+     screen, so a phone always has the price and the CTA in view. */
   var bar = root.querySelector('[data-pp-sticky]');
   var ctas = root.querySelector('[data-pp-ctas]');
   if(!bar || !ctas) return;

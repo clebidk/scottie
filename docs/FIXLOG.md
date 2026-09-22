@@ -2155,3 +2155,73 @@ Branch `cycle57/quiz`, worktree `~/adv-c57`, not merged, not pushed.
 - The HSA/FSA line shows only when an HSA claim is in the run's facts_pack;
   `hsa-fsa-truemed` is not in Peak's universal or benefit ids, so it did not
   show (same rule as the listicle).
+
+## Cycle 62 (pdp look: simpler, PEAK colours, less AI-looking, 2026-09-22)
+
+Branch `cycle62/pdp-simplify`, worktree `~/adv-c62`, not merged, not pushed.
+
+1. **The `pdp` look is the live PDP's bones only.** In order: gallery (main
+   image + thumbnail strip, 64px thumbs on phones, 100px from 1016px) and
+   buy panel at the live PDP's 50/50 split from 768px; one promise band
+   (heading + 2 paragraphs, optional image); "What's included" as a plain
+   list; the specs in a `<details>` row (the live PDP's collapsible tab);
+   exactly 5 FAQs; one closing CTA; the sticky phone bar. Removed: model
+   compare table, proof tiles, "why this model" benefit cards, reviews
+   section, pull quote, eyebrow, ghost CTA link, tagline block, the 3 spec
+   lines in the buy panel. One CTA text in exactly 3 buttons.
+2. **Buy panel.** Short model name ("Fuji") as the H1 (the `<title>` and
+   JSON-LD keep the full catalog title), `hero.promise` as the one-line
+   descriptor, rating only when `rating_line` returns one, the verified
+   price, the fixed financing sentence, a 52px Solar Flare CTA with Basalt
+   text, then the fixed shipping and warranty lines (and HSA/FSA when
+   verified). An old page's long-form CTA ("Shop the <catalog title>") is
+   shown as "Shop the <model>" (`pdp.display_cta_text`); page.json is not
+   changed.
+3. **Less AI-looking.** Sentence case everywhere: the look switches the
+   tenant's `.adv-case-upper` rule off inside itself and never uppercases a
+   button, label or table header. Hairline rules, no boxes, no chips; max 3
+   type sizes per section; body 17px/1.6; Epika (token) for H1/H2. All
+   colours from brand tokens; px sizes (a theme may set a 10px root).
+4. **Writer contract (product-page v0.3.0).** schema.json/cartridge.md ask
+   for `hero.promise` (4 to 10 words), `angle_section` (heading <=10 words,
+   exactly 2 paragraphs <=45 words), `included` (3-6 items <=8 words, each
+   with a claim_id), `faq` (exactly 5, question <=12 words, answer <=35
+   words). Dropped: `ad_proof`, `proof_bullets`, `trust_strip`,
+   `specs_table`, `detail_images`, `tagline`. Word range 200-360 (writer
+   copy; 250-450 on the rendered page). New gates in `harness/pdp.py`:
+   included count/claims, FAQ exactly 5 (`listicle.find_faq_violations`
+   takes a `count_range`; the listicle keeps 5-7), exactly 2 promise
+   paragraphs, power/outlet copy must agree with the product's own
+   electrical claim (the Fuji demo said "no electrician needed" against a
+   dedicated 20A claim), stock phrases (whether you're / elevate / unlock /
+   transform / sanctuary / game-changer). Removed: the ad_proof gate. The
+   product-benefit minimum (`claims.MIN_BENEFIT_CLAIMS`, 3) now reads
+   `proof_bullets + included`; not relaxed.
+5. **Old pages still render.** The renderer trims to 2 paragraphs, 6
+   included items and 5 FAQs and ignores the dropped fields; a page with no
+   `included` list shows its proof-bullet labels. The classic look renders
+   a v0.3.0 page (included list in place of proof bullets; trust strip and
+   writer spec table only when present).
+
+### Verify
+- Tests first: 19 new/changed tests in `tests/test_product_page_looks.py`
+  failed before the change. Suite: 1639 passed.
+- `evals/baseline/*/product-page.page.json` re-captured with
+  `python -m evals.fake_run ... --baseline-dir` (the fixture changed).
+- Both demo runs copied into `~/adv-c62/tenants/peak-saunas/out/` and
+  re-rendered with `harness rerender` (no model call): Fuji 423 words, Mini
+  331 words, 5 FAQs, 3 CTA buttons ("Shop the Fuji" / "Shop the Mini"), no
+  compare/proof/eyebrow markup. Screenshots at 1280 and 390 in
+  `/tmp/c62-proof/`. Copies removed before commit.
+
+### Open
+- The Fuji demo's old copy keeps FAQ 4 ("No special wiring or electrician
+  is needed...") because re-render runs no gate; the new power gate flags
+  it and angle paragraph 3, so a fresh run would repair both.
+- The Fuji gallery shows a storefront image with a "Free gift / limited
+  time" graphic (the writer's gallery_order pick). No asset filter exists
+  for promo graphics.
+- Neither demo has a lifestyle/installation asset or an `angle_section.image`,
+  so the promise band renders text only.
+- Brand tokens say headlines are uppercase (`brand.headline_case: upper`);
+  the owner asked for sentence case, so the pdp look overrides it locally.

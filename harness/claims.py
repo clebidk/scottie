@@ -1656,7 +1656,9 @@ def _excluded_benefit_ids():
     return set(tenant_mod.active().get("excluded_benefit_ids") or ())
 
 _BENEFIT_SECTION_GETTERS = {
-    "product-page": lambda page: page.get("proof_bullets", []),
+    # cycle 62: the included list is the product page's benefit section;
+    # a page written before it still carries proof_bullets
+    "product-page": lambda page: (page.get("proof_bullets") or []) + (page.get("included") or []),
     "longform": lambda page: (page.get("how_it_works") or {}).get("steps", []),
     "article": lambda page: (page.get("turn_section") or {}).get("criteria", []),
 }

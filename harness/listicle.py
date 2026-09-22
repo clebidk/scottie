@@ -718,8 +718,9 @@ def find_audience_fit_violations(page):
     return problems
 
 
-def find_faq_violations(page, prefix="listicle"):
-    """5-7 questions, and any answer that states a fact carries claim_ids.
+def find_faq_violations(page, prefix="listicle", count_range=None):
+    """5-7 questions (or `count_range`, cycle 62: the product page asks for
+    exactly 5), and any answer that states a fact carries claim_ids.
     The number/trigger-word rule is claims._trigger_reason itself, so an FAQ
     answer is held to exactly the standard every other sentence on the page
     is (the shared gate only reaches a node's own "text" field; an FAQ
@@ -729,12 +730,12 @@ def find_faq_violations(page, prefix="listicle"):
     faq = page.get("faq")
     questions = faq.get("questions") if isinstance(faq, dict) else faq
     questions = questions if isinstance(questions, list) else []
-    lo, hi = FAQ_COUNT_RANGE
+    lo, hi = count_range or FAQ_COUNT_RANGE
     problems = []
     if not lo <= len(questions) <= hi:
         problems.append(_problem(
             "$.faq.questions", f"{prefix}:faq_count",
-            f"FAQ has {len(questions)} questions; it needs {lo}-{hi}",
+            f"FAQ has {len(questions)} questions; it needs " + (f"exactly {lo}" if lo == hi else f"{lo}-{hi}"),
         ))
     for i, entry in enumerate(questions):
         if not isinstance(entry, dict):

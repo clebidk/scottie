@@ -1016,16 +1016,16 @@ def render_page(
                 log.event("render", f"{e}; falling back to {look!r}")
 
     # Cycle 54: the product-page `pdp` look's gallery (the product's own
-    # storefront images) and one image per benefit block, chosen from the
+    # storefront images) and the promise band's one image, chosen from the
     # page's FINAL asset picks (after the slot plan and the paragraph-image
     # matcher above) so they are downloaded with everything else just
     # below. Never written into page.json: the gallery repeats the hero on
     # purpose, which the duplicate-asset check would read as a mistake.
-    gallery_ids, benefit_ids = [], []
+    gallery_ids, promise_id = [], None
     if cartridge_name == "product-page" and look == "pdp":
         pdp_ai = bool(tenant.claims_config.get("allow_ai_renders"))
         gallery_ids = pdp_mod.gallery_asset_ids(page, facts_pack, allow_ai_renders=pdp_ai)
-        benefit_ids = pdp_mod.benefit_asset_ids(page, facts_pack, gallery_ids, allow_ai_renders=pdp_ai)
+        promise_id = pdp_mod.promise_asset_id(page, facts_pack, gallery_ids, allow_ai_renders=pdp_ai)
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
@@ -1035,7 +1035,7 @@ def render_page(
     if download_assets:
         used_asset_ids = (
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
-            | {i for i in benefit_ids if i} | quiz_asset_ids
+            | ({promise_id} if promise_id else set()) | quiz_asset_ids
         )
         assets_dir = out_dir / "assets"
         for asset_id in list(assets_by_id):
@@ -1083,7 +1083,7 @@ def render_page(
     # same "from facts_pack alone" rule (harness/pdp.py). The claims they
     # cite join the page's Sources list, since the writer never cites them.
     if cartridge_name == "product-page" and look == "pdp":
-        cartridge_data = pdp_mod.render_context(page, facts_pack, assets_by_id, gallery_ids, benefit_ids, tenant=tenant)
+        cartridge_data = pdp_mod.render_context(page, facts_pack, assets_by_id, gallery_ids, promise_id, tenant=tenant)
         sources = build_sources_list(
             used_claim_ids | pdp_mod.context_claim_ids(cartridge_data), verified_by_id,
             product_name=product_name, product_url=product.get("url"), tenant=tenant,
