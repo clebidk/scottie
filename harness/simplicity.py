@@ -45,6 +45,11 @@ Above-the-fold region per cartridge, per the research doc's own mapping:
     once the hero has scrolled past -- it is never above the fold. The
     trust line is renderer-built from facts_pack and never appears in
     page.json at all (harness/listicle.py), so it cannot carry a link.
+  - quiz (cycle 57): `headline` + `dek` + `hero`. The one link above the fold
+    is the renderer's "Start the quiz" anchor (#qz-quiz), which is not in
+    page.json; answer options are <button> elements, not links; the
+    page's `cta_url` renders only on the featured model's result card, below
+    the quiz -- so it is not counted as above the fold.
 
 The disclosure paragraph and the byline's "Full bio" link are exempt from
 every check here by construction, not by special-case code: both are
@@ -91,6 +96,7 @@ _TRANSACTIONAL_ID_MARKERS = ("warranty", "shipping", "returns")
 _HEADLINE_FIELDS = {
     "article": lambda page: page.get("headline"),
     "listicle": lambda page: page.get("headline"),
+    "quiz": lambda page: page.get("headline"),
     "longform": lambda page: (page.get("hero") or {}).get("headline"),
     "product-page": lambda page: (page.get("hero") or {}).get("promise"),
 }
@@ -98,6 +104,7 @@ _HEADLINE_FIELDS = {
 _HEADLINE_PATHS = {
     "article": "$.headline",
     "listicle": "$.headline",
+    "quiz": "$.headline",
     "longform": "$.hero.headline",
     "product-page": "$.hero.promise",
 }
@@ -156,6 +163,12 @@ def _above_fold_subtrees(page, cartridge_name):
         return None, [open_list[0] if open_list else None]
     if cartridge_name == "listicle":
         return page.get("cta_url"), [page.get("hero")]
+    if cartridge_name == "quiz":
+        # Cycle 57: the fold holds the renderer's one start link (a same-page
+        # anchor to the quiz, never a page.json url); the option controls are
+        # <button>s, not links; the page's cta_url renders only on the result
+        # card, below the quiz. So only the hero subtree is in the fold.
+        return None, [page.get("hero")]
     return None, None
 
 

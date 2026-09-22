@@ -20,6 +20,7 @@ from pathlib import Path
 
 from . import listicle
 from . import pagechecks
+from . import quiz
 from . import simplicity
 from . import tenant as tenant_mod
 from . import vocab
@@ -318,6 +319,16 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         # product name" list here with no new facts_pack field.
         problems += listicle.find_listicle_violations(
             page, style=listicle_style,
+            tenant_name=tenant.display_name,
+            product_names=facts_pack.get("digit_exempt_terms"),
+        )
+    # Cycle 57: the quiz cartridge's own structural checks (headline formula,
+    # questions/options against the rubric, interstitials, FAQ, offer
+    # language, renderer-owned sections, hero, cta_url). Keys are "quiz:*".
+    if cartridge_name == "quiz":
+        tenant = tenant or tenant_mod.active()
+        problems += quiz.find_quiz_violations(
+            page, facts_pack,
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
         )
@@ -755,6 +766,17 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
             continue
         term = item.get("term")
         issue = item.get("issue", "")
+
+        # Cycle 57: the quiz page echoes rubric data (question ids, option
+        # labels, interstitial slots) and the featured model's url -- a
+        # mismatch has exactly one right answer, so it is restored here
+        # rather than spent on a repair call.
+        if cartridge_name == "quiz" and quiz.is_fixable(item):
+            if quiz.apply_fix(page, facts_pack, item):
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", f"deterministic fix applied: {item.get('key')}")
+            continue
 
         # Cycle 41: a listicle headline whose leading count is spelled out,
         # or no longer matches the item count after another fix changed it.

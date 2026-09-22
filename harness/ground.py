@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Protocol
 
 from . import asset_review
+from . import quiz as quiz_mod
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
 from .prices import format_price
@@ -219,6 +220,9 @@ _HERO_FIELD_PATH = {
     # treated as the de facto hero -- see the listicle branch below, kept
     # only for a page written against the older schema.
     "listicle": ("hero",),
+    # Cycle 57: the quiz header carries one hero image of its own
+    # (page.hero.asset_id), drawn from the featured model's assets.
+    "quiz": ("hero",),
 }
 
 
@@ -1064,7 +1068,65 @@ class LocalFactsSource:
                 unique.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
         return options, unique
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, live_price_claims=None, log=None):
+    def _quiz_models(self, live_price_claims=None):
+        """Cycle 57: one quiz result card per ACTIVE product that carries a
+        price claim -- display name, the verified price as its cited claim
+        states it, capacity, the first storefront image and the product url,
+        cheapest first. Returns (models, backing_claims) the same way
+        _model_options does. A product with no price claim is skipped rather
+        than shown with an unsourced number, and so is never a slug a quiz
+        rubric may score (quiz.validate_rubric checks against this list).
+        `live_price_claims` wins over the static claim, as in the picker."""
+        self._load()
+        tenant = tenant_mod.active()
+        live_price_claims = live_price_claims or {}
+        by_id = {c["id"]: c for c in self._verified}
+        active = sorted(
+            (p for p in self._products.values() if p.get("active", True)),
+            key=lambda p: (float(p.get("price") or 0), p["slug"]),
+        )
+        models, backing = [], []
+        for p in active:
+            name_slug = product_name_slug(p["name"])
+            price_claim = live_price_claims.get(p["slug"]) or by_id.get(f"price-{name_slug}")
+            price_text = quiz_mod.price_text_from_claim(price_claim["text"]) if price_claim else None
+            if not price_text:
+                continue
+            backing.append(price_claim)
+            capacity_text = capacity_id = None
+            for spec in p.get("specs", []):
+                if (spec.get("label") or "").strip().lower() != "capacity":
+                    continue
+                claim = by_id.get(spec.get("claim_id") or "")
+                if claim:
+                    capacity_text, capacity_id = spec["value"], claim["id"]
+                    backing.append(claim)
+                break
+            image_urls = p.get("image_urls") or []
+            models.append({
+                "slug": name_slug,
+                # Copy, so the storefront title prefix goes (cycle 52); the
+                # url and slug are identifiers and stay as the catalog has them.
+                "name": tenant.display_product_name(p.get("short_name") or p["name"]),
+                "model_name": tenant.display_product_name(p["name"]),
+                "url": p["url"],
+                "price_text": price_text,
+                "price_claim_id": price_claim["id"],
+                "capacity_text": capacity_text,
+                "capacity_claim_id": capacity_id,
+                "image": (
+                    {"id": f"asset-quiz-{name_slug}", "url": image_urls[0], "kind": "image"}
+                    if image_urls else None
+                ),
+            })
+        seen, unique = set(), []
+        for c in backing:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                unique.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
+        return models, unique
+
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, include_quiz=False, live_price_claims=None, log=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -1253,5 +1315,24 @@ class LocalFactsSource:
                 {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}
                 for c in backing_claims
                 if c["id"] not in existing_ids
+            ]
+        if include_quiz:
+            # Cycle 57: only a run whose selected cartridges include quiz gets
+            # the tenant's rubric and one result card per active model (with
+            # the cards' backing claims joined into the citable universe) --
+            # every other run's facts_pack is byte-identical to before. A
+            # rubric that is missing or does not parse is carried as
+            # rubric_error; pipeline.ground STOPs on it before any writer call.
+            models, backing_claims = self._quiz_models(live_price_claims)
+            rubric, rubric_error = quiz_mod.load_rubric(quiz_mod.rubric_path(self.claims_dir.parent))
+            pack["quiz"] = {
+                "rubric": rubric,
+                "rubric_error": rubric_error,
+                "models": models,
+                "featured": name_slug,
+            }
+            existing_ids = {c["id"] for c in pack["verified_claims"]}
+            pack["verified_claims"] = pack["verified_claims"] + [
+                c for c in backing_claims if c["id"] not in existing_ids
             ]
         return pack
