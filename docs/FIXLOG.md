@@ -1818,3 +1818,40 @@ retention) so an operator mistake or a future bug of this class is recoverable.
    gate on headline/dek/item body/FAQ answer, in a non-`tested` style too;
    headline-count repair (including spelled-out and stale counts) on every formula,
    `tested` included; `resolve_style` rotation over all five for the tenant.
+
+## Cycle 50 — deterministic pre-repair fix for wrong asset-id pool prefix (2026-09-22)
+
+Observed on real runs (including 2026-09-15 and again today): the writer sometimes
+writes an image `asset_id` with the wrong pool prefix -- e.g.
+`asset-listicle-<driveid>` when the run's manifest (`facts_pack.assets`, built by
+`ground.py`) only has `asset-drive-<driveid>` for that same underlying Drive file, or
+vice versa. `pagechecks.find_image_allowlist_violations` correctly STOPs the run
+("asset id ... is not in this run's asset manifest"), but until now that always cost
+a real repair call -- 3 of 10 pages failed all attempts on this today.
+
+1. **`repair._fix_asset_id_prefix_violation`** (new, `harness/repair.py`): given a
+   gate-failure `path` pointing at an `asset_id` string and this run's `facts_pack`,
+   matches the id against `^asset-(drive|listicle)-(.+)$` and, when exactly one of
+   `asset-drive-<tail>` / `asset-listicle-<tail>` is present in
+   `facts_pack["assets"]`, rewrites the field to that id and returns `(old_id,
+   new_id)`. Returns `None` (page untouched) when the id doesn't match that shape, or
+   the manifest has neither or both candidates -- never guessed at; a truly unknown id
+   (or a Shopify-style `asset-<slug>-<n>` id) is left for the gate to report.
+2. **`repair.apply_deterministic_fixes`** gained a new branch (matched on the gate's
+   own `"is not in this run's asset manifest"` issue text, same pattern as the
+   warranty/financing branches) that calls the fix above and logs `"fix: asset id
+   prefix <old> -> <new>"`. New `facts_pack=None` keyword-only param, threaded
+   through from `write_and_gate_page`'s existing `facts_pack` in scope; the branch is
+   a no-op when `facts_pack` isn't passed (every pre-cycle-50 caller).
+3. **Pipeline order** (unchanged shape, `write_and_gate_page`): `write_page` ->
+   `check_page_gates` (produces the manifest-gate failure) -> `apply_deterministic_fixes`
+   (rewrites the id, no model call) -> `check_page_gates` again, which now passes. Only
+   a failure this pass can't resolve reaches a real repair call.
+4. **Tests** (`tests/test_repair_loop.py`): rewrite when the sibling prefix is present
+   (both directions, drive->listicle and listicle->drive); untouched when neither
+   sibling is present; untouched when both siblings are present (ambiguous, tested
+   directly against `_fix_asset_id_prefix_violation` since the natural gate can't
+   produce that state -- the page's own id is always one of the two candidates);
+   untouched when the id is already valid; untouched for a non-pool (Shopify-style)
+   id; untouched when `facts_pack` isn't passed; the manifest gate no longer fails on
+   the rewritten page; the manifest gate still fails for a truly unknown id.

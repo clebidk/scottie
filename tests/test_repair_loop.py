@@ -10,6 +10,7 @@ import pytest
 
 from harness.budget import Budget, BudgetExceeded
 from harness.claims import ClaimsGateFailure, find_financing_violations, find_warranty_violations
+from harness.pagechecks import find_image_allowlist_violations
 from harness.repair import (
     MAX_REPAIR_ATTEMPTS,
     apply_deterministic_fixes,
@@ -753,6 +754,152 @@ def test_apply_deterministic_fixes_does_not_touch_dollar_or_percentage_failures(
     fixed = apply_deterministic_fixes(page, failures, set())
     assert fixed == 0
     assert page["hero"]["text"] == "It costs $50 more."
+
+
+# ---------------------------------------------------------------------------
+# Cycle 50: asset_id pool-prefix rewrite. harness/ground.py builds ids with
+# two different prefixes for the same underlying Drive file --
+# asset-drive-<driveid> (brand/assets.json) and asset-listicle-<driveid>
+# (brand/assets-listicle-pack.json) -- and a writer that has both pools in
+# view sometimes emits the sibling prefix, tripping
+# find_image_allowlist_violations even though the same asset IS in the
+# manifest under its other prefix. These are direct unit tests against
+# apply_deterministic_fixes and find_image_allowlist_violations, same shape
+# as the hype-word/leaked-claim-id tests above.
+# ---------------------------------------------------------------------------
+
+_ASSET_TAIL = "1FYCbReXveSzJxIpNGxNWrMP_X6xbXP7f"
+
+
+def _asset_facts_pack(*asset_ids):
+    return {"assets": [{"id": aid} for aid in asset_ids]}
+
+
+def test_apply_deterministic_fixes_rewrites_asset_id_to_the_prefix_present_in_manifest():
+    # writer wrote the listicle prefix; the manifest only has the drive one.
+    wrong_id = f"asset-listicle-{_ASSET_TAIL}"
+    right_id = f"asset-drive-{_ASSET_TAIL}"
+    page = {"hero": {"asset_id": wrong_id}}
+    facts_pack = _asset_facts_pack(right_id)
+    failures = find_image_allowlist_violations(page, facts_pack)
+    assert len(failures) == 1
+
+    fixed = apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
+
+    assert fixed == 1
+    assert page["hero"]["asset_id"] == right_id
+
+
+def test_apply_deterministic_fixes_rewrites_the_other_direction_too():
+    # writer wrote the drive prefix; the manifest only has the listicle one.
+    wrong_id = f"asset-drive-{_ASSET_TAIL}"
+    right_id = f"asset-listicle-{_ASSET_TAIL}"
+    page = {"hero": {"asset_id": wrong_id}}
+    facts_pack = _asset_facts_pack(right_id)
+    failures = find_image_allowlist_violations(page, facts_pack)
+
+    fixed = apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
+
+    assert fixed == 1
+    assert page["hero"]["asset_id"] == right_id
+
+
+def test_apply_deterministic_fixes_leaves_asset_id_alone_when_neither_prefix_is_in_the_manifest():
+    unknown_id = f"asset-listicle-{_ASSET_TAIL}"
+    page = {"hero": {"asset_id": unknown_id}}
+    facts_pack = _asset_facts_pack("asset-drive-some-other-file")
+    failures = find_image_allowlist_violations(page, facts_pack)
+    assert len(failures) == 1
+
+    fixed = apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
+
+    assert fixed == 0
+    assert page["hero"]["asset_id"] == unknown_id
+
+
+def test_apply_deterministic_fixes_leaves_asset_id_alone_when_both_siblings_are_in_the_manifest():
+    # Ambiguous -- never guess which one the writer meant. The page's own
+    # id is always one of the two sibling forms of its own tail, so "both
+    # present" can only arise if the manifest itself lists both prefixes
+    # for that tail (a run whose asset pools overlap) -- exercised here
+    # directly against the fix function rather than through the id in
+    # `page`, which by construction can't itself be the failing id AND
+    # have both siblings present (see harness/repair.py's
+    # _fix_asset_id_prefix_violation docstring, cycle 50).
+    from harness.repair import _fix_asset_id_prefix_violation
+
+    tail = f"{_ASSET_TAIL}-both"
+    page = {"hero": {"asset_id": f"asset-listicle-{tail}"}}
+    facts_pack = _asset_facts_pack(f"asset-drive-{tail}", f"asset-listicle-{tail}")
+
+    result = _fix_asset_id_prefix_violation(page, "$.hero.asset_id", facts_pack)
+
+    assert result is None
+    assert page["hero"]["asset_id"] == f"asset-listicle-{tail}"
+
+
+def test_apply_deterministic_fixes_leaves_asset_id_alone_when_it_is_already_valid():
+    valid_id = f"asset-drive-{_ASSET_TAIL}"
+    page = {"hero": {"asset_id": valid_id}}
+    facts_pack = _asset_facts_pack(valid_id)
+    assert find_image_allowlist_violations(page, facts_pack) == []
+
+    fixed = apply_deterministic_fixes(page, [], set(), facts_pack=facts_pack)
+
+    assert fixed == 0
+    assert page["hero"]["asset_id"] == valid_id
+
+
+def test_apply_deterministic_fixes_leaves_a_non_pool_asset_id_alone():
+    # Shopify-style id (asset-<slug>-<n>) never matches the drive/listicle
+    # prefix shape -- left alone, same as a truly unknown id.
+    shopify_id = "asset-fuji-1"
+    page = {"hero": {"asset_id": shopify_id}}
+    facts_pack = _asset_facts_pack("asset-drive-something-else")
+    failures = find_image_allowlist_violations(page, facts_pack)
+    assert len(failures) == 1
+
+    fixed = apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
+
+    assert fixed == 0
+    assert page["hero"]["asset_id"] == shopify_id
+
+
+def test_apply_deterministic_fixes_asset_id_rewrite_is_skipped_without_a_facts_pack():
+    wrong_id = f"asset-listicle-{_ASSET_TAIL}"
+    right_id = f"asset-drive-{_ASSET_TAIL}"
+    page = {"hero": {"asset_id": wrong_id}}
+    facts_pack = _asset_facts_pack(right_id)
+    failures = find_image_allowlist_violations(page, facts_pack)
+
+    # facts_pack not passed through -- same as every caller before cycle 50.
+    fixed = apply_deterministic_fixes(page, failures, set())
+
+    assert fixed == 0
+    assert page["hero"]["asset_id"] == wrong_id
+
+
+def test_gate_no_longer_fails_on_the_rewritten_page():
+    wrong_id = f"asset-listicle-{_ASSET_TAIL}"
+    right_id = f"asset-drive-{_ASSET_TAIL}"
+    page = {"hero": {"asset_id": wrong_id}}
+    facts_pack = _asset_facts_pack(right_id)
+    failures = find_image_allowlist_violations(page, facts_pack)
+
+    apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
+
+    assert find_image_allowlist_violations(page, facts_pack) == []
+
+
+def test_manifest_gate_still_fails_for_a_truly_unknown_asset_id():
+    page = {"hero": {"asset_id": "asset-drive-totally-unknown-file"}}
+    facts_pack = _asset_facts_pack(f"asset-drive-{_ASSET_TAIL}")
+    failures = find_image_allowlist_violations(page, facts_pack)
+    assert len(failures) == 1
+
+    apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
+
+    assert len(find_image_allowlist_violations(page, facts_pack)) == 1
 
 
 def test_write_and_gate_page_resolves_incidental_numeral_via_deterministic_fix(tmp_path):

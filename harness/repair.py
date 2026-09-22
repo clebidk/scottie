@@ -546,20 +546,69 @@ def _fix_financing_violation(page, path, financing_lender):
     return True
 
 
+# ---------------------------------------------------------------------------
+# Cycle 50: an asset_id the writer wrote with the wrong pool prefix --
+# harness/ground.py builds asset ids with two different prefixes for the
+# same underlying Drive file, asset-drive-<driveid> (brand/assets.json) and
+# asset-listicle-<driveid> (brand/assets-listicle-pack.json) -- and a
+# writer that has both pools in view sometimes emits the sibling prefix,
+# tripping pagechecks.find_image_allowlist_violations ("is not in this
+# run's asset manifest") even though the same underlying asset IS in the
+# manifest under its other prefix. Same rationale as warranty/financing
+# above: the fix is a mechanical rewrite, not something worth a model call.
+# ---------------------------------------------------------------------------
+_ASSET_ID_PREFIX_RE = re.compile(r"^asset-(drive|listicle)-(.+)$")
+
+
+def _fix_asset_id_prefix_violation(page, path, facts_pack):
+    """Returns (old_id, new_id) and mutates `page`, rewriting the asset_id
+    at `path` to its sibling-prefix form, when: the id matches
+    asset-(drive|listicle)-<tail>, and exactly one of asset-drive-<tail> /
+    asset-listicle-<tail> is present in facts_pack.assets. Returns None
+    (page untouched) when `path` doesn't resolve to a string, the id
+    doesn't match that shape, or the manifest has neither or both
+    candidates -- a real unknown id, never guessed at, left for the gate to
+    report."""
+    try:
+        current = _get_at_path(page, path)
+    except (KeyError, IndexError, TypeError):
+        return None
+    if not isinstance(current, str):
+        return None
+    m = _ASSET_ID_PREFIX_RE.match(current)
+    if not m:
+        return None
+    tail = m.group(2)
+    allowed = {a.get("id") for a in facts_pack.get("assets", [])}
+    candidates = [c for c in (f"asset-drive-{tail}", f"asset-listicle-{tail}") if c in allowed]
+    if len(candidates) != 1 or candidates[0] == current:
+        return None
+    new_id = candidates[0]
+    _set_at_path(page, path, new_id)
+    return current, new_id
+
+
 def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
-                               financing_lender=None):
+                               financing_lender=None, facts_pack=None):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
     claim id leaked into a parenthetical, a trigger word with a safe
     generic synonym (_TRIGGER_WORD_SYNONYMS), a warranty-wording violation
-    (fix cycle 13 item 1), or a financing-wording violation (fix cycle 21) --
-    and leaving everything else (a missing claim_id with no safe rewrite, a
-    word-count or CTA violation, EMF, a banned name) for a real repair call.
-    Returns the number of fields changed. `log`/`cartridge_name`, when both
-    given, get one "deterministic fix applied: warranty sentence" (or
-    "...: financing sentence") event per field fixed. `financing_lender`
-    (fix cycle 21) is the run's configured lender, if any -- passed straight
-    through to vocab.allowed_financing_sentence for the financing fix."""
+    (fix cycle 13 item 1), a financing-wording violation (fix cycle 21), or
+    an asset_id written with the wrong pool prefix (fix cycle 50) -- and
+    leaving everything else (a missing claim_id with no safe rewrite, a
+    word-count or CTA violation, EMF, a banned name, or an asset id truly
+    absent from the manifest) for a real repair call. Returns the number of
+    fields changed. `log`/`cartridge_name`, when both given, get one
+    "deterministic fix applied: warranty sentence" (or "...: financing
+    sentence", or "fix: asset id prefix <old> -> <new>") event per field
+    fixed. `financing_lender` (fix cycle 21) is the run's configured
+    lender, if any -- passed straight through to
+    vocab.allowed_financing_sentence for the financing fix. `facts_pack`
+    (fix cycle 50), when given, is this run's facts pack -- its
+    facts_pack["assets"] is the manifest the asset-id-prefix fix checks
+    against; the fix is skipped (id left for the gate to report) when
+    facts_pack is None."""
     fixed = 0
     for item in failures:
         raw_path = item.get("path")
@@ -611,6 +660,15 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None and cartridge_name is not None:
                     log.event(f"write.{cartridge_name}", "deterministic fix applied: financing sentence")
+            continue
+
+        if facts_pack is not None and "is not in this run's asset manifest" in issue:
+            result = _fix_asset_id_prefix_violation(page, raw_path, facts_pack)
+            if result:
+                old_id, new_id = result
+                fixed += 1
+                if log is not None and cartridge_name is not None:
+                    log.event(f"write.{cartridge_name}", f"fix: asset id prefix {old_id} -> {new_id}")
             continue
 
         if term in _hype_synonyms() or term == "!":
@@ -807,7 +865,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         fixed = (
             apply_deterministic_fixes(
                 page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
-                financing_lender=financing_lender,
+                financing_lender=financing_lender, facts_pack=facts_pack,
             )
             if problems else 0
         )
