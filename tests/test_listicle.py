@@ -90,10 +90,10 @@ def _words(n):
 
 HEADLINES = {
     "reasons": "5 Reasons Busy Parents Are Choosing Home Infrared Saunas",
-    "mistakes": "5 Mistakes People Make Buying A Home Infrared Sauna",
-    "questions": "5 Questions to Ask Before You Buy A Home Sauna",
-    "myths": "5 Home Infrared Sauna Myths, and What the Evidence Says",
-    "tested": "We Tested Home Infrared Saunas for 8 Weeks. Here Is What Held Up",
+    "mistakes": "5 Mistakes Busy Parents Make When Buying A Home Infrared Sauna",
+    "questions": "5 Questions Busy Parents Should Ask Before Buying A Home Sauna",
+    "myths": "5 Home Infrared Sauna Myths Busy Parents Still Hear, and What the Evidence Says",
+    "tested": "We Checked 5 Home Infrared Sauna Claims Busy Parents Keep Hearing. Here Is What Held Up",
 }
 
 
@@ -261,15 +261,14 @@ def test_writer_style_lines_state_the_formula_the_gate_measures():
 def test_writer_style_lines_warn_against_real_estate_terms_and_brand_names():
     # Cycle 43: observed on a real run -- "6 Reasons Home Buyers Are Choosing
     # Peak Saunas Infrared Saunas" put a real-estate term in <audience> and
-    # the tenant's own name in <category>.
-    reasons_lines = " ".join(listicle.writer_style_lines("reasons"))
-    assert "real-estate term" in reasons_lines
-    assert "never the tenant's name" in reasons_lines
-    # "mistakes" has no <audience> slot in its formula -- only the
-    # <category> guidance applies.
-    mistakes_lines = " ".join(listicle.writer_style_lines("mistakes"))
-    assert "real-estate term" not in mistakes_lines
-    assert "never the tenant's name" in mistakes_lines
+    # the tenant's own name in <category>. Cycle 49: every style now names an
+    # <audience> (mistakes/questions/myths/tested joined reasons), so this
+    # guidance applies to all five.
+    for style in listicle.STYLES:
+        lines = " ".join(listicle.writer_style_lines(style))
+        assert "real-estate term" in lines
+        assert "never the tenant's name" in lines
+        assert '"people", "buyers"' in lines
 
 
 def test_headline_slot_gate_catches_the_tenant_name():
@@ -342,10 +341,51 @@ def test_the_headline_number_must_match_the_item_count():
     assert any(p["key"] == "listicle:headline_formula" and "6 items" in p["issue"] for p in problems)
 
 
-def test_the_tested_styles_number_is_weeks_not_the_item_count():
+def test_the_tested_style_headline_number_is_the_item_count():
+    # Cycle 49: "tested" used to lead with a number of weeks, exempt from the
+    # item-count check; it no longer does -- its headline's N is the item
+    # count exactly like the other four styles.
     page = _listicle_page("tested", n_items=7)
-    page["reasons"] = _items(7)
+    page["headline"] = HEADLINES["tested"]  # says 5
+    problems = listicle.find_listicle_violations(page, style="tested")
+    assert any(p["key"] == "listicle:headline_formula" and "7 items" in p["issue"] for p in problems)
+
+    page["headline"] = "We Checked 7 Home Infrared Sauna Claims Busy Parents Keep Hearing. Here Is What Held Up"
     assert listicle.find_listicle_violations(page, style="tested") == []
+
+
+@pytest.mark.parametrize("style", listicle.STYLES)
+def test_each_style_accepts_its_own_formula_with_a_filled_audience_slot(style):
+    page = _listicle_page(style)
+    assert listicle.find_listicle_violations(page, style=style) == []
+
+
+@pytest.mark.parametrize("style,bad_headline", [
+    ("reasons", "5 Reasons Are Choosing Home Infrared Saunas"),
+    ("mistakes", "5 Mistakes Make When Buying A Home Infrared Sauna"),
+    ("questions", "5 Questions Should Ask Before Buying A Home Sauna"),
+    ("myths", "5 Home Infrared Sauna Myths Still Hear, and What the Evidence Says"),
+    ("tested", "We Checked 5 Home Infrared Sauna Claims Keep Hearing. Here Is What Held Up"),
+])
+def test_each_style_rejects_an_empty_audience_slot(style, bad_headline):
+    page = _listicle_page(style)
+    page["headline"] = bad_headline
+    problems = listicle.find_listicle_violations(page, style=style)
+    assert any(p["key"] == "listicle:headline_slots" for p in problems)
+
+
+@pytest.mark.parametrize("style,generic_word", [
+    ("reasons", "People"),
+    ("mistakes", "Buyers"),
+    ("questions", "Shoppers"),
+    ("myths", "Customers"),
+    ("tested", "Everyone"),
+])
+def test_each_style_rejects_a_bare_generic_audience_word(style, generic_word):
+    page = _listicle_page(style)
+    page["headline"] = HEADLINES[style].replace("Busy Parents", generic_word)
+    problems = listicle.find_listicle_violations(page, style=style)
+    assert any(p["key"] == "listicle:headline_slots" for p in problems)
 
 
 def test_a_page_written_in_a_different_style_than_the_run_is_flagged():
@@ -474,6 +514,49 @@ def test_urgency_vocabulary_anywhere_fails():
     assert any(k.startswith("listicle:urgency") for k in keys)
 
 
+# Cycle 49: no style may assert a physical test that never happened -- this
+# harness only checks claims against verified specs.
+
+def test_fake_test_phrase_in_the_headline_fails():
+    page = _listicle_page("tested")
+    page["headline"] = "We Tested 5 Home Infrared Saunas for 8 Weeks. Here Is What Held Up"
+    keys = {p["key"] for p in listicle.find_listicle_violations(page, style="tested")}
+    assert "listicle:tested_no_fake_test" in keys
+
+
+def test_fake_test_phrase_in_the_dek_fails_even_in_a_non_tested_style():
+    # The gate applies to every style, not only "tested".
+    page = _listicle_page("reasons")
+    page["dek"] = "We measured every model ourselves before writing this."
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:tested_no_fake_test" in keys
+
+
+def test_fake_test_phrase_in_an_item_body_fails():
+    page = _listicle_page("reasons")
+    page["reasons"][0]["text"] = (
+        "In our testing, session by session, this held up better than the studio "
+        "membership it replaced, and the specification sheet backs that up on its own."
+    )
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:tested_no_fake_test" in keys
+
+
+def test_fake_test_phrase_in_an_faq_answer_fails():
+    page = _listicle_page("reasons")
+    page["faq"]["questions"][0]["answer"] = "We ran it for weeks of use before we were satisfied."
+    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
+    assert "listicle:tested_no_fake_test" in keys
+
+
+def test_a_claims_check_framed_tested_page_passes_the_fake_test_gate():
+    page = _listicle_page("tested")
+    assert not any(
+        p["key"] == "listicle:tested_no_fake_test"
+        for p in listicle.find_listicle_violations(page, style="tested")
+    )
+
+
 def test_a_writer_supplied_renderer_owned_section_fails():
     for key in ("trust_line", "pull_quote", "model_picker", "proof_row", "hsa_line"):
         page = _listicle_page()
@@ -499,7 +582,7 @@ def test_every_gate_problem_carries_a_stable_repair_key():
 
 def test_a_spelled_out_headline_count_is_fixed_deterministically():
     page = _listicle_page("mistakes")
-    page["headline"] = "Five Mistakes People Make Buying A Home Infrared Sauna"
+    page["headline"] = "Five Mistakes Busy Parents Make When Buying A Home Infrared Sauna"
     assert listicle.fix_headline_number(page) == HEADLINES["mistakes"]
 
 
@@ -509,11 +592,20 @@ def test_a_stale_headline_count_is_fixed_deterministically():
     assert listicle.fix_headline_number(page).startswith("6 Reasons")
 
 
+def test_a_stale_tested_headline_count_is_fixed_deterministically():
+    # Cycle 49: "tested"'s count sits after "We Checked ", not at the
+    # headline's own start -- the deterministic repair has to find it there.
+    page = _listicle_page("tested", n_items=7)
+    page["headline"] = HEADLINES["tested"]  # still says 5
+    fixed = listicle.fix_headline_number(page)
+    assert fixed == "We Checked 7 Home Infrared Sauna Claims Busy Parents Keep Hearing. Here Is What Held Up"
+
+
 def test_the_headline_fix_declines_a_headline_it_cannot_repair():
     page = _listicle_page("reasons")
     page["headline"] = "Why Careful Buyers Are Choosing A Home Infrared Cabin"
     assert listicle.fix_headline_number(page) is None
-    # tested's number is a duration, not the item count -- never rewritten
+    # Nothing wrong with the count -> nothing to fix.
     tested = _listicle_page("tested")
     assert listicle.fix_headline_number(tested) is None
 

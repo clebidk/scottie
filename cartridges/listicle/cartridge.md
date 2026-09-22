@@ -10,12 +10,14 @@ Every run writes in exactly ONE of five styles, named in this run's hard constra
 | style | headline formula | what one item is |
 | --- | --- | --- |
 | reasons | N Reasons \<audience\> Are Choosing \<category\> | one reason to choose the category, stated as the benefit it buys the reader |
-| mistakes | N Mistakes People Make Buying \<category\> | one mistake a buyer makes, named as the mistake itself |
-| questions | N Questions to Ask Before You Buy \<category\> | one question to ask a seller, phrased as a question |
-| myths | N \<category\> Myths, and What the Evidence Says | one myth, stated as the myth, with the body answering it from the evidence |
-| tested | We Tested \<category\> for N Weeks. Here Is What Held Up | one thing the test looked at, stated as what held up (or did not) |
+| mistakes | N Mistakes \<audience\> Make When Buying \<category\> | one mistake a buyer makes, named as the mistake itself |
+| questions | N Questions \<audience\> Should Ask Before Buying \<category\> | one question to ask a seller, phrased as a question |
+| myths | N \<category\> Myths \<audience\> Still Hear, and What the Evidence Says | one myth, stated as the myth, with the body answering it from the evidence |
+| tested | We Checked N \<category\> Claims \<audience\> Keep Hearing. Here Is What Held Up | one claim people hear about the category, stated as the claim itself, with the body saying what the verified facts support or do not |
 
-For the first four styles the headline's N is the number of entries in `reasons`. For `tested`, N is the number of weeks; the item count is still 5-7. Item headings never carry the numeral -- the renderer draws the number.
+The headline's N is the number of entries in `reasons`, in every style (cycle 49: `tested` used to lead with a number of weeks -- see the note below). Every formula names an `<audience>` (2 to 5 words, by situation or goal, e.g. "apartment dwellers" -- never a bare "people" or "buyers", never a real-estate term, never the brand or a model name) so two ads never land on the same headline; `<category>` never contains the brand or a model name. Item headings never carry the numeral -- the renderer draws the number.
+
+`tested` reports a claims check -- verified facts and published specifications checked against claims people repeat about the category -- never a physical test, trial, or usage period; nobody ran one. `listicle:tested_no_fake_test` fails the headline, dek, any item heading/body, `audience_fit`, an FAQ answer, or the closing recap in ANY style (not only `tested`) if it asserts first-person testing or usage: "we tested", "our test", "we used", "we ran", "weeks of use", "weeks of testing", "session by session", "in our testing", "hands-on", "we measured".
 
 ## Structure (in order)
 1. Header: the "Advertisement" label, H1 headline, one-line dek, hero image (`hero.asset_id`), the primary CTA button, a trust line under it, and the byline.
@@ -32,7 +34,7 @@ Sections 3, 5, the header's trust line, the HSA/FSA line and the sticky bar's ra
 ## Rules
 - 900-1,400 words. Same accounting as every other cartridge (see `adv/cli.py`'s `count_words`): urls, asset ids and claim ids are never part of the count.
 - Items: N between 5 and 7. Every item's `number` matches its 1-indexed position.
-- Headline: this style's formula, 8-14 words, with N written as a numeral (5, not "five"). For every style except `tested`, N is the number of entries you actually put in `reasons` -- count them before you answer, and if a revision adds or drops an item, change the headline's number in the same edit. Never contains a price. Name the audience when the ad names one; otherwise name the product category, never the company by name in the headline.
+- Headline: this style's formula, 8-14 words, with N written as a numeral (5, not "five"). N is the number of entries you actually put in `reasons`, in every style -- count them before you answer, and if a revision adds or drops an item, change the headline's number in the same edit. Never contains a price. `<audience>` names the people the ad speaks to (2 to 5 words, by situation or goal), never a bare "people"/"buyers"; `<category>` is the product category, never the company by name in the headline.
 - One CTA text and one `cta_url` for the whole page. The renderer draws that one CTA in five places (header, after item 2, after item 4, closing block, sticky bar) with the same text and url every time -- that is one offer repeated, not five offers. Never write a second `cta_url` anywhere in page.json. CTA text must be one of the allowed options in schema.json's `allowed_cta_texts`.
 - Proof inside every item: each item's `proof` line either carries a claim_id or is an attributed customer statement (`attributed_to_customer: true`, phrased as the customer's own words, and the sentence itself must read as attributed -- "one customer told us ...").
 - No claims outside verified_claims. Health statements cite the study and its population; never promise an outcome for {{ tenant.name }} hardware.

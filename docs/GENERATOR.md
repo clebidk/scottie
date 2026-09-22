@@ -54,10 +54,19 @@ formula and what a numbered item is:
 | style | headline formula |
 | --- | --- |
 | `reasons` | N Reasons \<audience\> Are Choosing \<category\> |
-| `mistakes` | N Mistakes People Make Buying \<category\> |
-| `questions` | N Questions to Ask Before You Buy \<category\> |
-| `myths` | N \<category\> Myths, and What the Evidence Says |
-| `tested` | We Tested \<category\> for N Weeks. Here Is What Held Up |
+| `mistakes` | N Mistakes \<audience\> Make When Buying \<category\> |
+| `questions` | N Questions \<audience\> Should Ask Before Buying \<category\> |
+| `myths` | N \<category\> Myths \<audience\> Still Hear, and What the Evidence Says |
+| `tested` | We Checked N \<category\> Claims \<audience\> Keep Hearing. Here Is What Held Up |
+
+N is the item count in every style (cycle 49: `tested` no longer leads with a number
+of weeks -- its old headline/dek asserted a first-person test that never happened).
+Every formula now names an `<audience>` so two ads never produce the identical
+headline; `listicle:headline_slots` rejects an empty slot or one that is just a
+generic word ("people", "buyers", "shoppers", "customers", "everyone"). `tested`
+reports a claims check against verified specs and published facts, never a physical
+test -- `listicle:tested_no_fake_test` rejects first-person testing/usage phrases
+("we tested", "our test", "hands-on", ...) anywhere on the page, in any style.
 
 ```
 .venv/bin/harness run <input> --cartridges listicle --style myths
@@ -100,6 +109,7 @@ repair loop can fix them). Each failure carries a stable key: `listicle:style`,
 `listicle:item_words:<i>`, `listicle:item_image:<i>`, `listicle:item_proof:<i>`,
 `listicle:hero`, `listicle:audience_fit[:<field>]`, `listicle:faq_count`,
 `listicle:faq_claims:<i>`, `listicle:recap`, `listicle:urgency:<phrase>`,
+`listicle:headline_slots`, `listicle:tested_no_fake_test`,
 `listicle:renderer_owned:<key>`.
 
 **Design.** The cartridge ships its own scoped `<style>` block (the one cartridge exempt

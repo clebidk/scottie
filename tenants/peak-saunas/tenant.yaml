@@ -118,11 +118,13 @@ allow_ai_renders: true
 # future baseline update ever fails this gate.
 cartridges:
   listicle:
-    # Cycle 41 styles: reasons|mistakes|questions|myths|tested. `tested` is
-    # excluded (2026-09-19): its headline/dek assert a first-person test that
-    # never happened -- an unverifiable claim. Re-enable only with a real,
-    # documented test behind it.
-    styles: [reasons, mistakes, questions, myths]
+    # Cycle 41 styles: reasons|mistakes|questions|myths|tested. `tested` was
+    # excluded 2026-09-19 (its headline/dek asserted a first-person test that
+    # never happened) and re-scoped in cycle 49: it now reports a claims
+    # check against verified specs and published facts, never a physical
+    # test, and the gate (listicle:tested_no_fake_test) rejects any
+    # first-person testing/usage phrasing on the page. All five styles run.
+    styles: [reasons, mistakes, questions, myths, tested]
   article:
     warmup_window_words: 600
     warmup_mode: warn
