@@ -651,10 +651,13 @@ def aspect_ratio_css(width, height):
 
 
 # Fixed frames a slot may ask for by name when it genuinely needs every
-# image in a row to share one box (`frame=` below). Nothing in the tree
-# asks for one today; the named ratios exist so a slot that needs a
-# uniform grid can opt in explicitly rather than getting one by accident.
-IMAGE_FRAMES = {"4x3": (4, 3), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9)}
+# image in a row to share one box (`frame=` below). Cycle 51: the listicle
+# cartridge's `pillars` look asks for "3x2" (its edge-to-edge item bands)
+# and its `lander` look for "4x3" (the small thumbnail on each grid panel) --
+# both are slots where every image must share one box or the grid steps. A
+# slot that does not need a uniform box asks for no frame and keeps the
+# image's own measured ratio.
+IMAGE_FRAMES = {"4x3": (4, 3), "3x2": (3, 2), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9)}
 
 
 def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None):
@@ -930,6 +933,20 @@ def render_page(
     # templates never read it.
     cartridge_data = listicle_mod.render_context(facts_pack) if cartridge_name == "listicle" else {}
 
+    # Cycle 51: the listicle cartridge's LOOK -- which template under
+    # cartridges/listicle/looks/<look>/ renders this page. Resolved here, in
+    # Python, so every caller (a run, `harness rerender`, the eval baseline)
+    # goes through the one rule (listicle.resolve_look): the page's own
+    # recorded "look" when it has one, else the tenant's look_by_style map,
+    # else the built-in style pairing. The cartridge's template.html is a
+    # dispatcher that {% extends %} the resolved path; the value is always
+    # one of listicle.LOOKS, so no page.json field can steer that path out of
+    # the looks folder. Empty for every other cartridge, whose templates
+    # never read it.
+    look = ""
+    if cartridge_name == "listicle":
+        look = listicle_mod.resolve_look(page.get("look"), style=page.get("style"), tenant=tenant)
+
     # Cycle 27: same self-contained-folder treatment as an ad asset (Fix 8
     # above) -- the logo is brand data, not something download_asset's
     # facts_pack.assets loop ever sees, so it's copied in on its own.
@@ -968,6 +985,7 @@ def render_page(
         updated=updated,
         cartridge=cartridge_name,
         cartridge_data=cartridge_data,
+        look=look,
         micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
         tenant_name=tenant.display_name,
