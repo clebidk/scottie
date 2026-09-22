@@ -24,7 +24,7 @@
    only BODY styles, so everything is restated here. */
 .adv-listicle.look-scorecard{
   --pk-accent:var(--ps-accent,var(--adv-accent));
-  --pk-on-accent:#fff;
+  --pk-on-accent:var(--ps-on-accent,#fff);
   --pk-ink:var(--ps-text-strong,var(--adv-fg));
   --pk-body:var(--ps-text,var(--adv-fg));
   --pk-muted:var(--ps-muted,var(--adv-muted));
@@ -33,12 +33,27 @@
   --pk-border:var(--ps-border,var(--adv-border));
   /* the check colour is the brand accent, not an invented green, so a
      tenant whose accent is not green still reads as one system */
-  --pk-yes:var(--pk-accent);
+  /* Cycle 52: every one of these resolves through the tenant's own brand
+     tokens first. --pk-dark/--pk-on-dark are the dark-band pair (a dark
+     band is not "the ink colour used as a background"), --pk-link is
+     body-copy link colour, --pk-editorial is the brand's editorial colour
+     block, and the radius tokens let a brand with square corners get 0
+     without this file naming a number twice. */
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-eyebrow-size:var(--ps-eyebrow-size,.6875rem);
+  --pk-eyebrow-spacing:var(--ps-eyebrow-spacing,.16em);
+  --pk-eyebrow-color:var(--ps-eyebrow-color,var(--pk-muted));
+  --pk-yes:var(--ps-star-on,var(--pk-accent));
   --pk-no:var(--pk-muted);
-  --pk-radius:8px;
+  --pk-radius:var(--ps-radius-card,8px);
+  --pk-radius-sm:var(--ps-radius-btn,4px);
+  --pk-radius-pill:var(--ps-radius-pill,999px);
   --pk-measure:960px;
   --pk-gap:48px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
 }
 .pk-lp{display:block}
@@ -48,7 +63,7 @@
 .adv-listicle.look-scorecard *::before,
 .adv-listicle.look-scorecard *::after{box-sizing:border-box}
 .adv-listicle.look-scorecard img{display:block;max-width:100%}
-.adv-listicle.look-scorecard .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:6px}
+.adv-listicle.look-scorecard .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:var(--pk-radius-sm)}
 .adv-listicle.look-scorecard .adv-img--contain{object-fit:contain}
 .adv-listicle.look-scorecard .adv-img--cover{object-fit:cover}
 .adv-listicle.look-scorecard picture{display:block}
@@ -81,16 +96,16 @@
   margin:0 0 20px;overflow:hidden;background:var(--pk-bg)}
 .adv-listicle.look-scorecard .sc-grid{display:grid}
 .adv-listicle.look-scorecard .sc-claim{padding:22px}
-.adv-listicle.look-scorecard .sc-num{display:inline-block;margin:0 0 8px;padding:3px 9px;border-radius:4px;
-  background:var(--pk-ink);color:var(--pk-bg);font-size:.75rem;font-weight:700;letter-spacing:.08em}
+.adv-listicle.look-scorecard .sc-num{display:inline-block;margin:0 0 8px;padding:3px 9px;border-radius:var(--pk-radius-sm);
+  background:var(--pk-dark);color:var(--pk-on-dark);font-size:.75rem;font-weight:700;letter-spacing:.08em}
 .adv-listicle.look-scorecard .sc-h2{font-size:1.3125rem;line-height:1.25;margin:0 0 10px;color:var(--pk-ink)}
 .adv-listicle.look-scorecard .sc-copy{font-size:1rem;line-height:1.6;color:var(--pk-body);margin:0}
 .adv-listicle.look-scorecard .sc-thumb{margin:16px 0 0}
 .adv-listicle.look-scorecard .sc-thumb .adv-img{max-height:200px}
 .adv-listicle.look-scorecard .sc-evidence{padding:22px;background:var(--pk-band);border-top:1px solid var(--pk-border)}
-.adv-listicle.look-scorecard .sc-evidence-h{margin:0 0 12px;font-size:.6875rem;font-weight:700;
-  letter-spacing:.16em;text-transform:uppercase;color:var(--pk-muted)}
-.adv-listicle.look-scorecard .sc-chip{display:inline-block;margin:0 0 10px;padding:4px 10px;border-radius:999px;
+.adv-listicle.look-scorecard .sc-evidence-h{margin:0 0 12px;font-size:var(--pk-eyebrow-size);font-weight:700;
+  letter-spacing:var(--pk-eyebrow-spacing);text-transform:uppercase;color:var(--pk-eyebrow-color)}
+.adv-listicle.look-scorecard .sc-chip{display:inline-block;margin:0 0 10px;padding:4px 10px;border-radius:var(--pk-radius-pill);
   border:1px solid var(--pk-border);background:var(--pk-bg);font-size:.75rem;font-weight:700;color:var(--pk-ink)}
 .adv-listicle.look-scorecard .sc-lines{list-style:none;margin:0;padding:0}
 .adv-listicle.look-scorecard .sc-line{display:flex;gap:10px;margin:0 0 10px;font-size:.9375rem;line-height:1.5}
@@ -141,6 +156,10 @@
 .adv-listicle.look-scorecard .sc-recap{margin:0 0 22px;padding-left:20px}
 .adv-listicle.look-scorecard .sc-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
 .adv-listicle.look-scorecard .sc-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
+/* headline case: see harness/render.py's wrap_class; restated here because
+   the storefront export keeps only what is inside the body */
+.adv-case-upper .sc-h1,.adv-case-upper .sc-h2,.adv-case-upper .sc-h2--section,
+.adv-case-upper .sc-fit-h3,.adv-case-upper .sc-faq-q{text-transform:uppercase}
 .adv-listicle.look-scorecard .sc-list{margin:0;padding-left:20px}
 .adv-listicle.look-scorecard .sc-list li{margin:0 0 8px;font-size:1rem;line-height:1.5}
 

@@ -615,7 +615,7 @@ def test_article_write_request_includes_warmup_hard_constraint():
         block["text"] if isinstance(block, dict) else block for block in kwargs["system"]
     )
     assert "Warm-up window" in system_text
-    assert "Peak Saunas" in system_text
+    assert "PEAK" in system_text
     assert "numeric gate" in system_text
     assert "never copy its brand-placement timing" in system_text or "voice and structure only" in system_text
 

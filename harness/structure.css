@@ -37,6 +37,16 @@ body {
    attributes made it onto the tag. */
 img { max-width: 100%; height: auto; }
 
+/* Cycle 52: an opt-in case rule. A tenant whose brand sets headline_case
+   to "upper" gets this class on .adv-wrap (harness/render.py) and every
+   heading renders uppercase through CSS -- the writer's copy is never
+   rewritten, and a tenant that does not ask for it is unaffected. Each
+   listicle look restates the same rule inside its own <style> block, which
+   is what `harness shopify-body` carries to a storefront. */
+.adv-case-upper h1,
+.adv-case-upper h2,
+.adv-case-upper h3 { text-transform: uppercase; }
+
 .adv-wrap {
   max-width: var(--adv-max-width);
   margin: 0 auto;
@@ -45,12 +55,12 @@ img { max-width: 100%; height: auto; }
 
 .adv-badge {
   display: inline-block;
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: var(--ps-eyebrow-size, 11px);
+  letter-spacing: var(--ps-eyebrow-spacing, 0.08em);
   text-transform: uppercase;
-  color: var(--adv-muted);
-  border: 1px solid var(--adv-border);
-  border-radius: 3px;
+  color: var(--ps-eyebrow-color, var(--adv-muted));
+  border: 1px solid var(--ps-border, var(--adv-border));
+  border-radius: var(--ps-radius-btn, 3px);
   padding: 2px 8px;
   margin-bottom: 12px;
 }
@@ -70,27 +80,27 @@ h1, h2, h3 { line-height: 1.2; }
 h1 { font-size: 2rem; margin: 0 0 8px; }
 h2 { font-size: 1.4rem; margin: 2em 0 0.5em; }
 
-.adv-dek { color: var(--adv-muted); font-size: 1.1rem; margin: 0 0 20px; }
+.adv-dek { color: var(--ps-muted, var(--adv-muted)); font-size: 1.1rem; margin: 0 0 20px; }
 
 .adv-cta {
   display: inline-block;
-  background: var(--adv-accent);
-  color: #fff;
+  background: var(--ps-accent, var(--adv-accent));
+  color: var(--ps-on-accent, #fff);
   text-decoration: none;
   padding: 12px 22px;
-  border-radius: 4px;
+  border-radius: var(--ps-radius-btn, 4px);
   font-weight: 600;
 }
 
 .adv-price { font-size: 1.6rem; font-weight: 700; }
-.adv-compare-at { color: var(--adv-muted); text-decoration: line-through; margin-left: 8px; }
-.adv-financing { color: var(--adv-muted); font-size: 0.95rem; }
+.adv-compare-at { color: var(--ps-muted, var(--adv-muted)); text-decoration: line-through; margin-left: 8px; }
+.adv-financing { color: var(--ps-muted, var(--adv-muted)); font-size: 0.95rem; }
 
 table.adv-specs { width: 100%; border-collapse: collapse; margin: 16px 0; }
 table.adv-specs th, table.adv-specs td {
   text-align: left;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--adv-border);
+  border-bottom: 1px solid var(--ps-border, var(--adv-border));
 }
 
 .adv-trust-strip {
@@ -99,17 +109,17 @@ table.adv-specs th, table.adv-specs td {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   margin: 20px 0;
 }
-.adv-trust-item { border: 1px solid var(--adv-border); border-radius: 6px; padding: 12px; }
+.adv-trust-item { border: 1px solid var(--ps-border, var(--adv-border)); border-radius: var(--ps-radius-card, 6px); padding: 12px; }
 
 .adv-images { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
-.adv-images img { max-width: 100%; border-radius: 6px; }
+.adv-images img { max-width: 100%; border-radius: var(--ps-radius-card, 6px); }
 
 .adv-footer {
   margin-top: 48px;
-  border-top: 1px solid var(--adv-border);
+  border-top: 1px solid var(--ps-border, var(--adv-border));
   padding-top: 20px;
   font-size: 0.9rem;
-  color: var(--adv-muted);
+  color: var(--ps-muted, var(--adv-muted));
 }
 
 .adv-byline { font-size: 0.95rem; }
@@ -126,13 +136,13 @@ table.adv-specs th, table.adv-specs td {
   position: sticky;
   bottom: 0;
   z-index: 10;
-  background: var(--adv-bg);
-  border-top: 1px solid var(--adv-border);
+  background: var(--ps-bg, var(--adv-bg));
+  border-top: 1px solid var(--ps-border, var(--adv-border));
   padding: 10px 20px;
   text-align: center;
 }
 
-.adv-hero-image { width: 100%; border-radius: 8px; }
+.adv-hero-image { width: 100%; border-radius: var(--ps-radius-card, 8px); }
 
 /* Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problem 9) reserved a box for
    every image slot so the layout can't jump while the image decodes.
@@ -151,15 +161,15 @@ table.adv-specs th, table.adv-specs td {
    lifestyle/installation photo fills the frame. A block that opts out
    (aspect_box=False -- press-logo-strip's brand marks) gets no box and no
    fit class, and keeps its natural ratio via the plain `img` rule above. */
-.adv-img { display: block; width: 100%; height: auto; border-radius: 8px; background: var(--adv-border); }
+.adv-img { display: block; width: 100%; height: auto; border-radius: var(--ps-radius-card, 8px); background: var(--ps-bg-muted, var(--adv-border)); }
 .adv-img--cover { object-fit: cover; }
-.adv-img--contain { object-fit: contain; background: var(--adv-bg-muted, #f4f5f6); }
+.adv-img--contain { object-fit: contain; background: var(--ps-bg-muted, var(--adv-bg-muted, #f4f5f6)); }
 /* Desktop default: contained within .adv-wrap's own padding, same as any
    other image. Mobile full-bleed override is in the <=480px block below. */
-.adv-img--hero { border-radius: 8px; }
+.adv-img--hero { border-radius: var(--ps-radius-card, 8px); }
 
 .adv-step { margin: 20px 0; }
-.adv-step img { max-width: 100%; border-radius: 6px; }
+.adv-step img { max-width: 100%; border-radius: var(--ps-radius-card, 6px); }
 .adv-quotes { list-style: none; padding: 0; }
 .adv-quotes li { font-style: italic; margin: 10px 0; }
 .adv-faq-item { margin: 16px 0; }
@@ -183,7 +193,7 @@ table.adv-specs th, table.adv-specs td {
   margin: 16px 0;
 }
 .adv-proof-value { display: block; font-size: 1.5rem; font-weight: 700; }
-.adv-proof-label { display: block; color: var(--adv-muted); font-size: 0.85rem; }
+.adv-proof-label { display: block; color: var(--ps-muted, var(--adv-muted)); font-size: 0.85rem; }
 
 .adv-problem { margin: 32px 0; }
 .adv-how-it-works { margin: 32px 0; }
@@ -194,9 +204,9 @@ table.adv-specs th, table.adv-specs td {
 .adv-social-proof { margin: 24px 0; }
 .adv-faq { margin: 32px 0; }
 .adv-final-cta { margin: 32px 0; text-align: center; }
-.adv-warranty { color: var(--adv-muted); font-size: 0.9rem; }
+.adv-warranty { color: var(--ps-muted, var(--adv-muted)); font-size: 0.9rem; }
 .adv-angle { margin: 24px 0; }
-.adv-angle img { max-width: 100%; border-radius: 6px; margin-top: 12px; }
+.adv-angle img { max-width: 100%; border-radius: var(--ps-radius-card, 6px); margin-top: 12px; }
 
 /* ---------------------------------------------------------------------
    Mobile (<=480px) -- fix cycle 23 / FIXLOG Cycle 19 mobile pass
@@ -206,8 +216,8 @@ table.adv-specs th, table.adv-specs td {
    the included blocks' own block.css. */
 .adv-comparison { margin: 0; }
 .adv-comparison-header { margin: 0 0 24px; }
-.adv-eyebrow { color: var(--adv-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; margin: 0 0 8px; }
-.adv-risk-reversal { color: var(--adv-muted); font-size: 0.9rem; margin: 8px 0 0; }
+.adv-eyebrow { color: var(--ps-eyebrow-color, var(--adv-muted)); text-transform: uppercase; letter-spacing: var(--ps-eyebrow-spacing, 0.08em); font-size: var(--ps-eyebrow-size, 0.8rem); margin: 0 0 8px; }
+.adv-risk-reversal { color: var(--ps-muted, var(--adv-muted)); font-size: 0.9rem; margin: 8px 0 0; }
 .adv-comparison-table { margin: 0 0 24px; }
 .adv-deep-dive { margin: 0 0 20px; }
 .adv-deep-dive h2 { margin: 0 0 8px; }

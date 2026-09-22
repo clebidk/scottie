@@ -199,7 +199,7 @@ def test_shopify_body_preserves_ad_label_byline_disclosure_and_sources(tmp_path)
     _render_listicle(out_dir)
     html, _ = build_shopify_body(out_dir)
     assert "Advertisement" in html
-    assert "is an advertisement published by Peak Saunas" in html
+    assert "is an advertisement published by PEAK" in html
     assert "Sources" in html
 
 

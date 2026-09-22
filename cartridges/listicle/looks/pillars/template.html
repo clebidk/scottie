@@ -22,18 +22,35 @@
    shopify-body` keeps only BODY styles, so everything is restated here. */
 .adv-listicle.look-pillars{
   --pk-accent:var(--ps-accent,var(--adv-accent));
-  --pk-on-accent:#fff;
+  --pk-on-accent:var(--ps-on-accent,#fff);
   --pk-ink:var(--ps-text-strong,var(--adv-fg));
   --pk-body:var(--ps-text,var(--adv-fg));
   --pk-muted:var(--ps-muted,var(--adv-muted));
   --pk-bg:var(--ps-bg,var(--adv-bg));
   --pk-band:var(--ps-bg-muted,#f4f5f6);
   --pk-border:var(--ps-border,var(--adv-border));
-  --pk-radius:0px;
+  /* Cycle 52: every one of these resolves through the tenant's own brand
+     tokens first. --pk-dark/--pk-on-dark are the dark-band pair (a dark
+     band is not "the ink colour used as a background"), --pk-link is
+     body-copy link colour, --pk-editorial is the brand's editorial colour
+     block, and the radius tokens let a brand with square corners get 0
+     without this file naming a number twice. */
+  --pk-link:var(--ps-link,var(--pk-accent));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,#fff);
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-eyebrow-size:var(--ps-eyebrow-size,.6875rem);
+  --pk-eyebrow-spacing:var(--ps-eyebrow-spacing,.18em);
+  --pk-eyebrow-color:var(--ps-eyebrow-color,var(--pk-accent));
+  --pk-radius:var(--ps-radius-card,0px);
+  --pk-radius-sm:var(--ps-radius-btn,6px);
+  --pk-radius-md:var(--ps-radius-card,8px);
+  --pk-radius-pill:var(--ps-radius-pill,999px);
   --pk-measure:620px;
   --pk-gap:48px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
 }
 .pk-lp{display:block}
@@ -57,7 +74,7 @@
    CTA in a band directly beneath it (never over it, so it is reachable and
    above the fold on a 390px phone) */
 .adv-listicle.look-pillars .pil-hero{display:block}
-.adv-listicle.look-pillars .pil-hero-media{position:relative;width:100%;overflow:hidden;background:var(--pk-ink)}
+.adv-listicle.look-pillars .pil-hero-media{position:relative;width:100%;overflow:hidden;background:var(--pk-dark)}
 .adv-listicle.look-pillars .pil-hero-media .adv-img{width:100%;max-height:440px}
 /* On a phone the headline block is often taller than the 300px-capped
    image, so an overlay would spill past the gradient and sit unreadable on
@@ -65,12 +82,12 @@
    image on a solid dark band there, and only becomes an overlay at 768px up,
    where the image is tall enough to hold it. */
 .adv-listicle.look-pillars .pil-hero-scrim{position:relative;display:flex;align-items:flex-end;
-  background:var(--pk-ink)}
+  background:var(--pk-dark)}
 .adv-listicle.look-pillars .pil-hero-media--empty{min-height:120px}
-.adv-listicle.look-pillars .pil-hero-inner{width:100%;max-width:820px;margin:0 auto;padding:24px 20px 28px;color:#fff}
-.adv-listicle.look-pillars .pil-h1{font-size:2.125rem;line-height:1.12;margin:0 0 10px;color:#fff;
+.adv-listicle.look-pillars .pil-hero-inner{width:100%;max-width:820px;margin:0 auto;padding:24px 20px 28px;color:var(--pk-on-dark)}
+.adv-listicle.look-pillars .pil-h1{font-size:2.125rem;line-height:1.12;margin:0 0 10px;color:var(--pk-on-dark);
   letter-spacing:-.015em;font-weight:700}
-.adv-listicle.look-pillars .pil-dek{font-size:1.0625rem;line-height:1.5;margin:0;color:#fff;opacity:.9}
+.adv-listicle.look-pillars .pil-dek{font-size:1.0625rem;line-height:1.5;margin:0;color:var(--pk-on-dark);opacity:.9}
 .adv-listicle.look-pillars .pil-actions{padding:20px 20px 28px;max-width:820px;margin:0 auto}
 .adv-listicle.look-pillars .pil-trust{list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;
   margin:14px 0 0;padding:0;font-size:.9375rem;color:var(--pk-muted)}
@@ -78,7 +95,7 @@
 .adv-listicle.look-pillars .pil-byline{margin-top:16px;font-size:.875rem;color:var(--pk-muted)}
 
 .adv-listicle.look-pillars .pil-btn{display:flex;width:100%;align-items:center;justify-content:center;
-  min-height:54px;padding:14px 28px;border:none;border-radius:6px;background:var(--pk-accent);
+  min-height:54px;padding:14px 28px;border:none;border-radius:var(--pk-radius-sm);background:var(--pk-accent);
   color:var(--pk-on-accent);font-size:1.0625rem;font-weight:700;line-height:1.25;
   text-decoration:none;cursor:pointer;letter-spacing:.01em}
 .adv-listicle.look-pillars .pil-btn:hover{opacity:.9}
@@ -92,20 +109,20 @@
 .adv-listicle.look-pillars .pil-media{width:100%;margin:0 0 22px;overflow:hidden;background:var(--pk-band)}
 .adv-listicle.look-pillars .pil-band--soft .pil-media{background:var(--pk-bg)}
 .adv-listicle.look-pillars .pil-media .adv-img{width:100%;max-height:420px}
-.adv-listicle.look-pillars .pil-label{margin:0 0 8px;font-size:.6875rem;font-weight:700;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--pk-accent)}
+.adv-listicle.look-pillars .pil-label{margin:0 0 8px;font-size:var(--pk-eyebrow-size);font-weight:700;
+  letter-spacing:var(--pk-eyebrow-spacing);text-transform:uppercase;color:var(--pk-eyebrow-color)}
 .adv-listicle.look-pillars .pil-h2{font-size:1.625rem;line-height:1.2;margin:0 0 12px;
   color:var(--pk-ink);letter-spacing:-.01em}
 .adv-listicle.look-pillars .pil-copy{font-size:1.0625rem;line-height:1.6;color:var(--pk-body);margin:0}
 /* the proof line is a badge, not a boxed callout */
 .adv-listicle.look-pillars .pil-proof{display:inline-block;margin:16px 0 0;padding:7px 14px;
-  border-radius:999px;background:var(--pk-band);border:1px solid var(--pk-border);
+  border-radius:var(--pk-radius-pill);background:var(--pk-band);border:1px solid var(--pk-border);
   font-size:.9375rem;line-height:1.4;color:var(--pk-ink)}
 .adv-listicle.look-pillars .pil-band--soft .pil-proof{background:var(--pk-bg)}
 
-.adv-listicle.look-pillars .pil-quote{padding:var(--pk-gap) 0;background:var(--pk-ink)}
-.adv-listicle.look-pillars .pil-quote blockquote{margin:0;font-size:1.25rem;line-height:1.45;color:#fff}
-.adv-listicle.look-pillars .pil-quote-attr{margin:12px 0 0;font-size:.9375rem;color:#fff;opacity:.75}
+.adv-listicle.look-pillars .pil-quote{padding:var(--pk-gap) 0;background:var(--pk-dark)}
+.adv-listicle.look-pillars .pil-quote blockquote{margin:0;font-size:1.25rem;line-height:1.45;color:var(--pk-on-dark)}
+.adv-listicle.look-pillars .pil-quote-attr{margin:12px 0 0;font-size:.9375rem;color:var(--pk-on-dark);opacity:.75}
 
 .adv-listicle.look-pillars .pil-section{padding:var(--pk-gap) 0}
 .adv-listicle.look-pillars .pil-section--soft{background:var(--pk-band)}
@@ -120,7 +137,7 @@
 .adv-listicle.look-pillars .pil-models{display:flex;gap:14px;overflow-x:auto;padding:4px 20px 8px;
   margin:0;-webkit-overflow-scrolling:touch}
 .adv-listicle.look-pillars .pil-model{flex:0 0 78%;min-width:240px;border:1px solid var(--pk-border);
-  border-radius:8px;padding:18px;background:var(--pk-bg)}
+  border-radius:var(--pk-radius-md);padding:18px;background:var(--pk-bg)}
 .adv-listicle.look-pillars .pil-model h3{font-size:1.0625rem;margin:0 0 6px;color:var(--pk-ink)}
 .adv-listicle.look-pillars .pil-model-fit{margin:0 0 6px;font-size:.9375rem;color:var(--pk-muted)}
 .adv-listicle.look-pillars .pil-model-price{margin:0 0 14px;font-size:1.125rem;font-weight:700;color:var(--pk-ink)}
@@ -131,7 +148,7 @@
 .adv-listicle.look-pillars .pil-faq-q{padding:16px 0;font-size:1.0625rem;font-weight:600;
   color:var(--pk-ink);cursor:pointer;list-style:none}
 .adv-listicle.look-pillars .pil-faq-q::-webkit-details-marker{display:none}
-.adv-listicle.look-pillars .pil-faq-q::after{content:"+";float:right;color:var(--pk-accent);font-weight:700}
+.adv-listicle.look-pillars .pil-faq-q::after{content:"+";float:right;color:var(--pk-link);font-weight:700}
 .adv-listicle.look-pillars .pil-faq-item[open] .pil-faq-q::after{content:"\2212"}
 .adv-listicle.look-pillars .pil-faq-a{margin:0 0 18px;font-size:1rem;line-height:1.6;color:var(--pk-body)}
 
@@ -146,11 +163,15 @@
 .adv-listicle.look-pillars .pil-sticky{position:fixed;left:0;right:0;bottom:0;z-index:40;
   min-height:var(--pk-sticky-h);display:flex;align-items:center;
   padding:8px 16px calc(8px + env(safe-area-inset-bottom));
-  background:var(--pk-ink);transform:translateY(0);transition:transform .2s ease}
+  background:var(--pk-dark);transform:translateY(0);transition:transform .2s ease}
 .adv-listicle.look-pillars .pil-sticky--hidden{transform:translateY(110%)}
 .adv-listicle.look-pillars .pil-sticky-inner{max-width:820px;margin:0 auto;width:100%;
   display:flex;align-items:center;justify-content:space-between;gap:14px}
-.adv-listicle.look-pillars .pil-sticky-proof{margin:0;font-size:.875rem;line-height:1.35;color:#fff;flex:1 1 auto}
+.adv-listicle.look-pillars .pil-sticky-proof{margin:0;font-size:.875rem;line-height:1.35;color:var(--pk-on-dark);flex:1 1 auto}
+/* headline case: see harness/render.py's wrap_class; restated here because
+   the storefront export keeps only what is inside the body */
+.adv-case-upper .pil-h1,.adv-case-upper .pil-h2,.adv-case-upper .pil-h2--section,
+.adv-case-upper .pil-fit-h3{text-transform:uppercase}
 .adv-listicle.look-pillars .pil-sticky .pil-btn{flex:0 0 auto;width:auto;min-height:44px;padding:10px 20px}
 
 @media (max-width:600px){

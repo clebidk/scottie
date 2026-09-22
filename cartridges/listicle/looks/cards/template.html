@@ -55,19 +55,28 @@
 .adv-listicle.look-cards{display:block}
 .adv-listicle{
   --pk-accent:var(--ps-accent,var(--adv-accent));
-  --pk-on-accent:#fff;
+  --pk-on-accent:var(--ps-on-accent,#fff);
   --pk-ink:var(--ps-text-strong,var(--adv-fg));
   --pk-body:var(--ps-text,var(--adv-fg));
   --pk-muted:var(--ps-muted,var(--adv-muted));
   --pk-bg:var(--ps-bg,var(--adv-bg));
   --pk-band:var(--ps-bg-muted,#f4f5f6);
   --pk-border:var(--ps-border,var(--adv-border));
-  --pk-radius:10px;
+  /* Cycle 52: every one of these resolves through the tenant's own brand
+     tokens first. --pk-dark/--pk-on-dark are the dark-band pair (a dark
+     band is not "the ink colour used as a background"), --pk-link is
+     body-copy link colour, --pk-editorial is the brand's editorial colour
+     block, and the radius tokens let a brand with square corners get 0
+     without this file naming a number twice. */
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-radius:var(--ps-radius-card,10px);
+  --pk-radius-sm:var(--ps-radius-btn,6px);
   --pk-measure:700px;
   --pk-measure-wide:1040px;
   --pk-gap:48px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
+  font-family:var(--pk-sans);
   -webkit-font-smoothing:antialiased;
 }
 .adv-listicle *,.adv-listicle *::before,.adv-listicle *::after{box-sizing:border-box}
@@ -92,7 +101,7 @@
    the screen; `width:auto` is what keeps it from being squished to fit. */
 .lst-media{background:var(--pk-band);border-radius:var(--pk-radius);
   padding:16px;display:flex;align-items:center;justify-content:center}
-.adv-listicle .lst-media .adv-img{width:auto;margin:0 auto;border-radius:6px}
+.adv-listicle .lst-media .adv-img{width:auto;margin:0 auto;border-radius:var(--pk-radius-sm)}
 /* on a soft band, the media box inverts so it is still a distinct surface */
 .lst-item--soft .lst-media{background:var(--pk-bg)}
 
@@ -111,6 +120,11 @@
 /* header / hero */
 .lst-header{padding:32px 0 var(--pk-gap);border-bottom:1px solid var(--pk-border)}
 .lst-h1{font-size:2.25rem;line-height:1.15;color:var(--pk-ink);margin:0 0 12px;letter-spacing:-.01em}
+/* headline case is the tenant's brand decision, carried as a class on the
+   page wrapper (harness/render.py's wrap_class); restated here because the
+   storefront export keeps only what is inside the body */
+.adv-case-upper .lst-h1,.adv-case-upper .lst-h2,.adv-case-upper .lst-fit h3,
+.adv-case-upper .lst-model h3,.adv-case-upper .lst-faq-q{text-transform:uppercase}
 .lst-dek{font-size:1.125rem;line-height:1.6;color:var(--pk-muted);margin:0 0 24px}
 .lst-hero-lede{margin:0}
 .lst-hero-actions{margin:0}

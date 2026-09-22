@@ -203,7 +203,7 @@ def test_render_page(tmp_path, cartridge_name, page, expect_byline, expect_json_
     html = index_path.read_text()
 
     assert "Advertisement" in html
-    assert "is an advertisement published by Peak Saunas" in html
+    assert "is an advertisement published by PEAK" in html
     assert f'"@type": "{expect_json_ld_type}"' in html
     # fix 1: no lender/monthly figure renders while financing.lender is null
     assert "Bread Pay" not in html
@@ -356,7 +356,7 @@ def test_disclosure_paragraph_is_inside_main_or_article(tmp_path, cartridge_name
         download_assets=False,
     )
     html = index_path.read_text()
-    disclosure_pos = html.index("This page is an advertisement published by Peak Saunas")
+    disclosure_pos = html.index("This page is an advertisement published by PEAK")
     main_open = html.index("<main")
     main_close = html.rindex("</main>")
     assert main_open < disclosure_pos < main_close
@@ -432,7 +432,7 @@ def test_render_page_sources_list_uses_label_not_raw_url_as_link_text(tmp_path):
     html = index_path.read_text()
     assert 'href="https://peaksaunas.com/products/fuji"' in html
     assert ">https://peaksaunas.com/products/fuji<" not in html
-    assert ">Peak Saunas – Fuji product page<" in html
+    assert ">PEAK – Fuji product page<" in html
 
 
 def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
@@ -461,9 +461,9 @@ def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
     # itself must never show claim text, just the label.
     assert "Medical-grade red light therapy" not in sources_html
     assert "Peak Saunas is a US-owned company" not in sources_html
-    assert ">Peak Saunas – Warranty<" in sources_html
-    assert ">Peak Saunas – Shipping policy<" in sources_html
-    assert ">Peak Saunas – Refund policy<" in sources_html
+    assert ">PEAK – Warranty<" in sources_html
+    assert ">PEAK – Shipping policy<" in sources_html
+    assert ">PEAK – Refund policy<" in sources_html
 
 
 # ---------------------------------------------------------------------------
@@ -496,7 +496,7 @@ def test_build_sources_list_skips_a_claim_with_no_resolvable_url():
 def test_build_sources_list_falls_back_to_product_url_for_internal_only_claim():
     verified_by_id = {"internal-only": {"text": "x", "category": "trust", "source": "gbrain:internal/only"}}
     sources = build_sources_list({"internal-only"}, verified_by_id, product_name="Fuji", product_url="https://peaksaunas.com/products/fuji")
-    assert sources == [{"url": "https://peaksaunas.com/products/fuji", "label": "Peak Saunas – Fuji product page"}]
+    assert sources == [{"url": "https://peaksaunas.com/products/fuji", "label": "PEAK – Fuji product page"}]
 
 
 def test_render_page_sources_list_resolves_compound_and_internal_only_sources(tmp_path):
@@ -642,14 +642,14 @@ def test_byline_shows_three_distinct_roles(tmp_path):
     html = index_path.read_text()
     assert "Written by" in html
     assert "Austin Laudenslager" in html
-    assert "Peak Saunas Editorial Team" in html
+    assert "PEAK Editorial Team" in html
     assert "Reviewed by" in html
     assert "Caleb Niednagel, Technology Lead" in html
     # never the word "credentialed" anywhere in the byline/about-author copy
     assert "credentialed" not in html.lower()
     # about-the-author block: Austin named responsible for every claim,
     # Caleb named as the reviewer of specifications and sources
-    assert "Austin Laudenslager is the Founder &amp; CEO of Peak Saunas and is responsible for every claim" in html
+    assert "Austin Laudenslager is the Founder &amp; CEO of PEAK and is responsible for every claim" in html
     assert "Caleb Niednagel, Technology Lead, reviews the specifications and sources" in html
 
 
@@ -658,7 +658,7 @@ def test_byline_names_returns_three_roles():
 
     author_name, contributor_name, reviewer_name = byline_names(TENANT)
     assert author_name == "Austin Laudenslager"
-    assert contributor_name == "Peak Saunas Editorial Team"
+    assert contributor_name == "PEAK Editorial Team"
     assert reviewer_name == "Caleb Niednagel, Technology Lead"
 
 
@@ -752,7 +752,7 @@ def test_disclosure_text_omits_financing_estimates(tmp_path):
     html = index_path.read_text()
     assert "financing estimates" not in html
     assert (
-        "This page is an advertisement published by Peak Saunas, which sells the products described. "
+        "This page is an advertisement published by PEAK, which sells the products described. "
         "Every specific claim on this page is sourced; see Sources below. "
         "Prices were current as of the publish date above and may have changed since."
     ) in html
