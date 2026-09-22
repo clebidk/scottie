@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ product.short_name or product.name }}{% endblock %}
+{% block title %}{{ product.full_name or product.name }}{% endblock %}
 {% block content %}
 {% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
 <style>{% include _tagline_block ~ "/block.css" ignore missing %}</style>
@@ -12,7 +12,7 @@
   <section class="adv-hero">
     {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
     {{ render_image_slot(hero_asset, hero=True, css_class="adv-hero-image") }}
-    <h1>{{ page.hero.product_name }}</h1>
+    <h1>{{ product.full_name or page.hero.product_name }}</h1>
     <p class="adv-dek">{{ page.hero.promise }}</p>
     <p class="adv-price">{{ page.hero.price_line.text }}</p>
     {% if page.hero.financing_line %}

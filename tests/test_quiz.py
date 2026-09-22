@@ -548,25 +548,18 @@ def test_rubric_display_text_over_the_limit_fails():
     assert "quiz:rubric:option_display:household:0" in keys
 
 
-def test_result_title_uses_the_brand_short_name_and_splits_the_descriptor():
-    assert quiz.model_title("Peak Mini 1-Person Infrared Sauna", "Mini", "PEAK") == ("PEAK Mini", "1-Person Infrared Sauna")
-    assert quiz.model_title("PEAK El Capitan 4-Person Outdoor Infrared Sauna", "El Capitan", "PEAK") == \
-        ("PEAK El Capitan", "4-Person Outdoor Infrared Sauna")
-    # no brand word in front: the name is shown whole, nothing is invented
-    assert quiz.model_title("Mini 1-Person Infrared Sauna", "Mini", "PEAK") == ("Mini", "1-Person Infrared Sauna")
-    assert quiz.model_title("Something Else", "Mini", "PEAK") == ("Something Else", None)
-
-
 def test_rendered_result_cards_show_the_display_title_never_the_storefront_prefix(tmp_path):
     html, pack = _render(tmp_path)
     result = html.split('data-qz-result', 1)[1].split('class="qz-faq"', 1)[0]
     names = re.findall(r'<h3 class="qz-card-name">([^<]*)</h3>', result)
     assert len(names) == len(pack["quiz"]["models"])
-    assert "PEAK Fuji" in names and "PEAK Mini" in names
+    # Cycle 64: the full name as the title, the descriptor on its own line
+    assert "Peak Fuji" in names and "Peak Mini" in names
     visible = re.sub(r"<[^>]+>", " ", result)
     assert not re.search(r"\bPeak Saunas\b", visible)
-    assert not re.search(r"\bPeak (Fuji|Mini|Denali)\b", visible)
-    assert "1-Person Infrared Sauna" in visible
+    assert not re.search(r"\bPEAK (Fuji|Mini|Denali)\b", visible)
+    assert "1-person infrared sauna" in visible
+    assert "1-Person Infrared Sauna" not in visible
     assert 'data-claim-id="price-fuji"' in result
 
 

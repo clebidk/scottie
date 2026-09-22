@@ -121,7 +121,7 @@ PRODUCT_PAGE_PAGE = {
     "cta_text": "Shop the Fuji",
     "cta_url": "https://peaksaunas.com/products/fuji",
     "hero": {
-        "product_name": "Fuji 2-Person Full Spectrum Infrared Sauna",
+        "product_name": "Peak Fuji",
         "promise": "A two-person sauna with the price shown up front.",
         "price_line": {"text": "$8,250.", "claim_ids": ["price-fuji"]},
         "financing_line": {"text": "Financing is available at checkout.", "claim_ids": []},
@@ -275,7 +275,9 @@ def test_render_page_uses_short_name_in_title_and_json_ld(tmp_path):
         download_assets=False,
     )
     html = index_path.read_text()
-    assert "<title>Peak Fuji 2-Person Infrared Sauna</title>" in html
+    # Cycle 64: the document title is the full name; only the JSON-LD keeps
+    # the catalog's long title
+    assert "<title>Peak Fuji</title>" in html
     assert '"name": "Peak Fuji 2-Person Infrared Sauna"' in html
 
 
@@ -758,7 +760,7 @@ def test_hero_image_alt_is_renderer_derived_not_writer_supplied(tmp_path):
     )
     html = index_path.read_text()
     assert "a description that doesn't match the image" not in html
-    assert 'alt="Peak Fuji 2-Person Infrared Sauna – product photo"' in html
+    assert 'alt="Peak Fuji – product photo"' in html
 
 
 # ---------------------------------------------------------------------------

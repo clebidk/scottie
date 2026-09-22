@@ -1061,10 +1061,10 @@ class LocalFactsSource:
                 claim_ids.append(claim["id"])
                 backing.append(claim)
             options.append({
-                # Cycle 52: the picker's rows are read by a buyer, so the
-                # storefront title prefix is stripped here (tenant.yaml's
-                # product_display_strip_prefix). The URL beside it is not.
-                "name": tenant.display_product_name(p.get("short_name") or p["name"]),
+                # Cycle 64: the picker's rows name each model by its full
+                # name ("Acme One"), never the long catalog title. The URL
+                # beside it is an identifier and stays as it is.
+                "name": tenant.product_names(p)["full_name"],
                 "url": p["url"],
                 "price_text": format_price(p["price"]),
                 "fit": " \u00b7 ".join(fit_parts),
@@ -1124,6 +1124,9 @@ class LocalFactsSource:
                 "id": name_slug,
                 "name": tenant.display_product_name(p["name"]),
                 "title": tenant.display_product_name(p.get("short_name") or p["name"]),
+                # Cycle 64: the name body copy uses at a first mention
+                # (comparison.writer_lines quotes it to the writer).
+                "full_name": tenant.product_names(p)["full_name"],
                 "url": p["url"],
                 "featured": p["slug"] == product["slug"],
                 "image": image,
@@ -1394,8 +1397,16 @@ class LocalFactsSource:
                 # product name so it can never write the storefront's own
                 # title prefix into a sentence. "slug" and "url" below are
                 # identifiers and stay exactly as the catalog has them.
+                # Cycle 64: "full_name" ("Acme One") is the title-level name
+                # and the first mention in body copy; "name" ("One") is the
+                # short name for later mentions and CTAs. The catalog's long
+                # title is carried as "seo_title" (the JSON-LD's Product
+                # name) -- it used to be "short_name", which invited the
+                # writer to use it as one. The capacity/style descriptor is
+                # not carried: the renderer derives it (tenant.product_names).
                 "name": tenant.display_product_name(product["name"]),
-                "short_name": tenant.display_product_name(product.get("short_name", product["name"])),
+                "full_name": tenant.product_names(product)["full_name"],
+                "seo_title": tenant.display_product_name(product.get("short_name", product["name"])),
                 "slug": product["slug"],
                 "url": product["url"],
                 "price": product["price"],

@@ -16,7 +16,7 @@
       "type": "object",
       "description": "The buy panel's writer lines: product name, the one-line promise, price, financing line, hero image.",
       "properties": {
-        "product_name": {"type": "string"},
+        "product_name": {"type": "string", "description": "Exactly facts_pack.product.full_name -- never the long catalog title (facts_pack.product.seo_title) and never the model with its capacity words. The renderer draws the full name itself."},
         "promise": {"type": "string", "description": "The one line under the model name in the buy panel, 4-10 words, sentence case: the ad's main point, said about the product in plain words (e.g. 'A two-person cedar sauna with the price on the page'). Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead; if the promise must state one, cite it in hero.claim_ids (the gate fails an uncited number here). This cartridge has no separate `headline` field -- the simplicity gate (harness/simplicity.py) measures this field's word count against this schema's own headline_word_band."},
         "claim_ids": {"type": "array", "description": "Claim ids backing hero.promise. Only needed when the promise states a number, price, percentage or trigger word; omit otherwise."},
         "price_line": {

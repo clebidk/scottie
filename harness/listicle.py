@@ -501,7 +501,7 @@ def pull_quote(facts_pack):
     return None
 
 
-def render_context(facts_pack):
+def render_context(facts_pack, tenant=None):
     """Everything cartridges/listicle/template.html renders that came from
     facts_pack rather than from the writer. One call, so the template never
     reaches into facts_pack itself and every "only when verified" rule lives
@@ -510,17 +510,27 @@ def render_context(facts_pack):
         "trust_items": trust_line_items(facts_pack),
         "rating_line": rating_line(facts_pack),
         "pull_quote": pull_quote(facts_pack),
-        "model_options": model_options(facts_pack),
+        "model_options": model_options(facts_pack, tenant=tenant),
         "hsa_claim": hsa_claim(facts_pack),
     }
 
 
-def model_options(facts_pack):
+def model_options(facts_pack, tenant=None):
     """The model picker's rows -- facts_pack.model_options, built by
     harness/ground.py from the tenant's own active products. [] when the
     run's facts_pack carries none (a run whose selected cartridges do not
-    include listicle never builds them)."""
-    return (facts_pack or {}).get("model_options") or []
+    include listicle never builds them).
+
+    Cycle 64: each row's name is the model's full name (tenant.product_names)
+    -- a facts_pack written before cycle 64 carries the long catalog title
+    there, and a rerender of it must name the model the same way a new run
+    does."""
+    tenant = tenant or tenant_mod.active()
+    rows = []
+    for row in (facts_pack or {}).get("model_options") or []:
+        names = tenant.product_names(row)
+        rows.append(dict(row, name=names["full_name"] or row.get("name"), descriptor=names["descriptor"]))
+    return rows
 
 
 # ---------------------------------------------------------------------------

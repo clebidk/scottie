@@ -117,7 +117,7 @@ def test_the_writer_is_handed_product_names_without_the_prefix(prefixed_claims_d
                             {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""},
                             include_listicle=True)
     assert not pack["product"]["name"].startswith(PREFIX)
-    assert not pack["product"]["short_name"].startswith(PREFIX)
+    assert not pack["product"]["seo_title"].startswith(PREFIX)
     assert pack["product"]["name"] == "Fuji"
     for option in pack["model_options"]:
         assert not option["name"].startswith(PREFIX), option["name"]

@@ -229,7 +229,7 @@ def test_every_pdp_section_renders_from_a_rich_facts_pack(tmp_path):
     html = _render(tmp_path)
     # buy panel: the short model name, the promise as its one-line
     # descriptor, rating, price, financing, CTA, the fixed reassurance lines
-    assert '<h1 class="pp-title">Fuji</h1>' in html
+    assert '<h1 class="pp-title">Peak Fuji</h1>' in html
     assert PRODUCT_PAGE_PAGE["hero"]["promise"] in html
     assert ">$8,250<" in html
     assert "Financing is available at checkout." in html

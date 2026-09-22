@@ -256,6 +256,127 @@ def apply_retired_name_fixes(page, facts_pack, tenant, log=None, cartridge_name=
     return changes
 
 
+# ---------------------------------------------------------------------------
+# Cycle 64: product naming (owner decision 2026-09-22). A product is named by
+# its full name ("Acme One", tenant.yaml product_name_format) or its model
+# alone ("One") -- never by the catalog's long capacity/style title ("One
+# 2-Person Cabin") and never with the brand word in another form in front
+# of the model ("ACME One", "Acme Saunas One"). The long title
+# is flagged for the writer repair loop (which words to drop depends on the
+# sentence); a wrong brand form has exactly one right answer and is
+# rewritten here. Tenant-neutral: every name comes from the tenant's own
+# catalog and tenant.yaml, and a tenant whose product_name_format puts no
+# brand word in front of the model gets no brand-form rewrite at all.
+# ---------------------------------------------------------------------------
+
+def _product_name_forms(facts_pack, tenant):
+    """[(model, full_name, descriptor)] for every product the tenant sells
+    plus this run's own product -- deduplicated, longest model first so
+    "Big Sky" is tried before a one-word model it might contain."""
+    catalog = getattr(tenant, "catalog_products", None)   # a stand-in tenant may have no catalog
+    products = list(catalog()) if catalog else []
+    if (facts_pack or {}).get("product"):
+        products.append(facts_pack["product"])
+    forms = {}
+    for product in products:
+        names = tenant_mod.product_names(product, tenant)
+        if names["short_name"]:
+            forms.setdefault(names["short_name"], (names["short_name"], names["full_name"], names["descriptor"]))
+    return sorted(forms.values(), key=lambda f: len(f[0]), reverse=True)
+
+
+def _model_pattern(model):
+    """The model as a proper name: its own casing or all capitals."""
+    forms = {re.escape(model), re.escape(model.upper())}
+    return "(?:" + "|".join(sorted(forms)) + ")"
+
+
+def _brand_form_regex(model, full_name, tenant):
+    """A regex for `model` with any configured brand word(s) in front of it,
+    in any case -- or None when the tenant's full name has no brand word."""
+    if not full_name or full_name == model:
+        return None
+    heads = {full_name[: -len(model)].strip()} if full_name.endswith(model) else set()
+    heads |= {n.strip() for n in (tenant.get("brand.retired_names") or []) if n and n.strip()}
+    heads |= {(tenant.get("product_display_strip_prefix") or "").strip(),
+              (getattr(tenant, "display_name", "") or "").strip()}
+    heads = sorted((h for h in heads if h), key=len, reverse=True)
+    if not heads:
+        return None
+    brand = "|".join(r"\s+".join(re.escape(w) for w in h.split()) for h in heads)
+    return re.compile(r"\b(?i:" + brand + r")\s+" + _model_pattern(model) + r"\b")
+
+
+def _fix_brand_forms(text, forms, tenant):
+    """`text` with every wrong brand form of a model rewritten to its full name."""
+    for model, full_name, _descriptor in forms:
+        regex = _brand_form_regex(model, full_name, tenant)
+        if regex is not None:
+            text = regex.sub(lambda _m, f=full_name: f, text)
+    return text
+
+
+def find_product_name_violations(page_json, facts_pack, tenant):
+    """Flags a writer-owned string (same NON_PROSE_KEYS skip as the other
+    copy checks) that names a product by its long catalog title (key
+    "product_name:long_title:<path>") or with a wrong brand form in front of
+    the model (key "product_name:brand_form:<path>", fixable). A field whose
+    whole text is a verified claim's own text is a verbatim quote and is
+    left alone, as find_retired_name_violations does."""
+    forms = _product_name_forms(facts_pack, tenant)
+    if not forms:
+        return []
+    verified_texts = {
+        c["text"].strip() for c in (facts_pack or {}).get("verified_claims", []) if c.get("text")
+    }
+    hits = []
+    for path, node in walk_page(page_json, skip_keys=NON_PROSE_KEYS):
+        if not isinstance(node, str) or node.strip() in verified_texts:
+            continue
+        for model, full_name, descriptor in forms:
+            first = descriptor.split()[0] if descriptor else ""
+            # the model followed by its descriptor's first word ("One 2-Person")
+            if first and re.search(r"\b" + _model_pattern(model) + r"\s+(?i:" + re.escape(first) + r")(?!\w)", node):
+                hits.append({
+                    "path": path,
+                    "key": f"product_name:long_title:{path}",
+                    "issue": (
+                        f"product named by its long catalog title ({model} {first} ...); write "
+                        f"{full_name!r} at its first mention and {model!r} after that -- the "
+                        "capacity/style words are not part of its name"
+                    ),
+                    "text": node,
+                })
+                break
+        if _fix_brand_forms(node, forms, tenant) != node:
+            hits.append({
+                "path": path,
+                "key": f"product_name:brand_form:{path}",
+                "issue": "product named with the brand in the wrong form; write the full name exactly "
+                         "as given (" + ", ".join(sorted({f[1] for f in forms if f[1] != f[0]})) + ")",
+                "text": node,
+            })
+    return hits
+
+
+def _fix_product_name_violation(page, path, tenant, facts_pack, log=None, cartridge_name=None):
+    """Rewrites every wrong brand form at `path` to the product's full name,
+    in place. True if the page changed."""
+    try:
+        current = _get_at_path(page, path)
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(current, str):
+        return False
+    new_text = _fix_brand_forms(current, _product_name_forms(facts_pack, tenant), tenant)
+    if new_text == current:
+        return False
+    _set_at_path(page, path, new_text)
+    if log is not None and cartridge_name is not None:
+        log.event(f"write.{cartridge_name}", f"fix: product name brand form at {path}")
+    return True
+
+
 def resolve_warmup_window(tenant, schema_default=None):
     """tenant.yaml's cartridges.article.warmup_window_words override, else
     the caller's own schema_default (write_and_gate_page already has
@@ -295,9 +416,13 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # checks (filler copy, leftover AI cliches, dead '#' links). Soft
     # counterparts stay in find_soft_check_warnings.
     problems += pagechecks.find_design_skill_violations(page)
+    # Cycle 64: product naming (long catalog title; wrong brand form). Ahead
+    # of the retired-name check so the deterministic pass fixes a product
+    # name before the retired-name rewrite sees the same path.
+    tenant = tenant or tenant_mod.active()
+    problems += find_product_name_violations(page, facts_pack, tenant)
     # Cycle 53: retired brand name -- tenant-neutral (a no-op unless this
     # tenant's own tenant.yaml sets brand.retired_names).
-    tenant = tenant or tenant_mod.active()
     problems += find_retired_name_violations(page, facts_pack, tenant, log=log, cartridge_name=cartridge_name)
     # Cycle 30: warm-up window -- article only, and only a hard gate when
     # this tenant's cartridges.article.warmup_mode is "enforce" (default
@@ -844,6 +969,15 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None and cartridge_name is not None:
                     log.event(f"write.{cartridge_name}", f"fix: asset id prefix {old_id} -> {new_id}")
+            continue
+
+        # Cycle 64: a product named with the brand in the wrong form ("ACME
+        # One", "<retired name> One") -- one right answer, its full name. Runs
+        # before the retired-name fix below, which would otherwise turn
+        # "<retired name> One" into "<company> One" at the same path.
+        if tenant is not None and (item.get("key") or "").startswith("product_name:brand_form:"):
+            if _fix_product_name_violation(page, raw_path, tenant, facts_pack, log=log, cartridge_name=cartridge_name):
+                fixed += 1
             continue
 
         if tenant is not None and "retired brand name" in issue:

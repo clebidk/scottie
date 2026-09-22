@@ -23,6 +23,8 @@ reviews:
   store_url: ""
   claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
 
+# {product_name} is the model alone; {product_full_name} is the model named
+# by product_name_format (cycle 64).
 price_claim_template: "The {tenant_name} {product_name} is priced at {price}."
 
 theme:
@@ -38,6 +40,13 @@ default_cta_url: /collections/all
 # the writer is handed one; slugs, URLs and claim ids are never touched.
 # Leave it out and nothing is stripped.
 product_display_strip_prefix: ""
+
+# Cycle 64: how a page names a product. "{model}" is replaced with the
+# model's own name (the catalog's `name`, e.g. "Fuji"); the result is the
+# product's full name, used for titles and a first mention in body copy,
+# while CTAs and later mentions use the model alone. "{model}" alone (the
+# default) names a product by its model; "Acme {model}" gives "Acme Fuji".
+product_name_format: "{model}"
 
 # Cycle 54: the product-page `pdp` look's eyebrow over the product name --
 # the product category in plain words (e.g. "Espresso machine"), shown

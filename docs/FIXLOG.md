@@ -2555,3 +2555,95 @@ included, so the constraint that PDP must stay square was dropped.
 - `shape.radius`/`radius_note` in `tokens.json` and `tenant.yaml`'s
   `brand.radius` are hand-authored reference values only (`brand_import.py`:
   "a hand-authored reference document"); neither is read by the renderer.
+
+## Cycle 64 (one product naming rule for every cartridge, 2026-09-22)
+
+Branch `cycle64/product-naming`, worktree `~/adv-c64`, not merged, not pushed.
+
+Owner decision 2026-09-22: "name Peak Mini with Mini in running text". Before
+this cycle each cartridge named a product its own way: listicle cards showed
+the raw catalog title ("Peak Mini 1-Person Infrared Sauna"), comparison the
+model alone ("Mini"), quiz "PEAK Mini" (its own `model_title`), the pdp buy
+panel "Fuji".
+
+1. **One helper.** `tenant.product_names(product)` (module function, also a
+   `Tenant` method) returns `full_name` ("Peak Mini"), `short_name` ("Mini")
+   and `descriptor` ("1-person infrared sauna", sentence case). New
+   tenant.yaml key `product_name_format` ("Peak {model}" for Peak; the
+   template's neutral default "{model}" names a product by its model alone).
+   The model comes from the catalog `name`, or from a title with the old
+   storefront prefix and/or the brand word stripped (any case), cut at the
+   first word that starts with a digit (the capacity) -- so "Peak Saunas
+   Shasta 1-Person Indoor ...", "PEAK Mini" and "El Capitan 4-Person ..."
+   all resolve. It accepts every product-shaped dict the harness carries
+   (catalog entry, old and new facts_pack.product, model_options row,
+   comparison/quiz model), so a rerender of an old run names products the
+   same way as a new run.
+2. **Every cartridge routes through it.** Listicle model picker (all five
+   looks) and pdp model rows: full name. Comparison: column heads and
+   section titles full name, "View the <model>" links short. Quiz: card title
+   full name, descriptor line under it, CTA "Shop the <model>"
+   (`quiz.model_title` deleted). Product page: pdp buy panel H1, closing H2
+   and `<title>` full name; classic look `<title>` and H1 full name
+   (renderer-owned now, not `hero.product_name`). Image alt text: full name.
+   Source labels: "<company> – <model> product page" (the comparison used
+   the long title). CTAs unchanged: the model alone.
+3. **The writer.** facts_pack.product gains `full_name`; the long catalog
+   title moves from `short_name` (which held the long form) to `seo_title`
+   (JSON-LD only). model_options rows are named by full name; comparison
+   models carry `full_name` and `comparison.writer_lines` quotes them. The
+   global voice rule now says: full_name at first mention in each section,
+   the model name after that and in CTAs, never seo_title or "<model>
+   N-Person ..." as a name, never another brand form in front of a model.
+   article/longform/product-page cartridge.md + schema.json follow it. The
+   live price claim template is "The {product_full_name} is priced at
+   {price}." (was "The PEAK Fuji ...").
+4. **New check** (`repair.find_product_name_violations`, in
+   `check_page_gates` for every cartridge, ahead of the retired-name check):
+   `product_name:long_title:<path>` flags a model followed by its own
+   descriptor's first word ("Mini 1-Person") for the writer repair loop;
+   `product_name:brand_form:<path>` flags "PEAK Mini" / "Peak Saunas Mini" /
+   "PEAK MINI" and the deterministic pass rewrites it to "Peak Mini" (before
+   the retired-name fix, which would otherwise make "PEAK Mini"). A field
+   that is a verbatim verified-claim quote is left alone. A tenant whose
+   format has no brand word gets no rewrite. The retired-name gate does not
+   fire on "Peak Mini"; "Peak Saunas app" stays an exception.
+
+### Verify
+- Tests first: `tests/test_product_naming_cycle64.py` (64 tests: helper
+  output for all 11 catalog products and from bare titles, facts_pack and
+  prompt, the check and repair, a fake run of listicle + comparison + quiz +
+  product-page, the classic look, and alt text after `harness rerender`)
+  -- 54 failed before the change. Updated old assertions that encoded the
+  old names (quiz, render, comparison sources, shopify-body alt, prices,
+  cycle-52 facts_pack key). Suite: 1780 passed.
+- `evals/baseline/*/product-page.page.json`: the canned page's
+  `hero.product_name` is now "Peak Fuji" (the new check flags the old long
+  title); only that line changed, and the byte-match test passes.
+- Proof: copies of listicle 191713-55n2, comparison 213923-fgag, quiz
+  213606-miqd and pdp 212004-iq7i re-rendered in `~/adv-c64` (no model
+  call). Title-level names: listicle picker "Peak Fuji / Peak Everest / Peak
+  Rainier" (was the 2-Person titles); comparison heads "Peak Mini / Peak
+  Shasta / Peak Rainier" (was "Mini"...); quiz cards "Peak Mini" ... "Peak El
+  Capitan" with "1-person infrared sauna" etc. under them (was the long
+  titles); pdp H1, closing H2 and `<title>` "Peak Fuji" (was the long
+  title). CTAs "Shop the Fuji" / "Shop the Mini" / "Shop the <model>".
+  No "PEAK <model>" or "Peak Saunas <model>" anywhere. Copies removed.
+
+### Open
+- Old writer copy still says the long title (listicle reason 1, comparison
+  dek, 2 quiz FAQ answers, pdp FAQ question) because re-render runs no
+  gate; the new check flags each of those 7 fields, so a fresh run repairs
+  them.
+- The JSON-LD Product name keeps the long catalog title (machine-read, not
+  displayed). Change `build_json_ld` if the owner wants "Peak <Model>" there.
+- The comparison headline formula still uses the model alone ("Mini vs
+  Shasta vs Rainier: ..."); the owner rule names titles, not headlines.
+- The pdp buy panel and comparison heads do not show the descriptor line
+  (optional in the rule; a new element needs CSS, left out to avoid the
+  parallel cycle 63 template CSS work).
+- `harness fixcopy` still runs only the retired-name fix, not the new
+  brand-form fix.
+- The article warm-up gate matches product mentions by the catalog's long
+  titles and the company name; "Mini" alone before the window is not
+  counted (unchanged by this cycle).
