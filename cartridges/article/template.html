@@ -3,7 +3,7 @@
 {% block content %}
 <article class="adv-article">
   <header>
-    <span class="adv-badge">Advertisement</span>
+    {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
     <h1>{{ page.headline }}</h1>
     <p class="adv-dek">{{ page.dek }}</p>
     <div class="adv-byline">{{ byline_html | safe }}</div>

@@ -8,7 +8,11 @@
    uses (each of the four newer looks has its own prefix and scopes every
    rule under .adv-listicle.look-<name>), so the rules below are left exactly
    as they were rather than re-prefixed -- see cartridges/listicle/cartridge.md.
-   tests/test_listicle_looks.py asserts the prefixes stay disjoint. #}
+   tests/test_listicle_looks.py asserts the prefixes stay disjoint.
+
+   Cycle 55: the rhythm tokens below follow cartridges/listicle/cartridge.md
+   "Rhythm", and a product cut-out (image_fit(...) == "contain") gets the
+   padded panel variant of the media box. #}
 {% block title %}{{ page.headline }}{% endblock %}
 {# Cycle 43: the compact byline (author/contributor/reviewer + dates) stays
    in the header below (.lst-byline, inside .lst-header); the longer "About
@@ -73,7 +77,13 @@
   --pk-radius-sm:var(--ps-radius-btn,6px);
   --pk-measure:700px;
   --pk-measure-wide:1040px;
-  --pk-gap:48px;
+  /* Cycle 55 rhythm (cartridges/listicle/cartridge.md "Rhythm") */
+  --pk-gap:40px;
+  --pk-item-gap:32px;
+  --pk-hero-top:32px;
+  --pk-close-gap:48px;
+  --pk-panel-pad:24px;
+  --pk-panel-img:420px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
   font-family:var(--pk-sans);
@@ -102,6 +112,7 @@
 .lst-media{background:var(--pk-band);border-radius:var(--pk-radius);
   padding:16px;display:flex;align-items:center;justify-content:center}
 .adv-listicle .lst-media .adv-img{width:auto;margin:0 auto;border-radius:var(--pk-radius-sm)}
+.lst-media--panel{padding:var(--pk-panel-pad)}
 /* on a soft band, the media box inverts so it is still a distinct surface */
 .lst-item--soft .lst-media{background:var(--pk-bg)}
 
@@ -118,7 +129,7 @@
 .lst-band--soft{background:var(--pk-band)}
 
 /* header / hero */
-.lst-header{padding:32px 0 var(--pk-gap);border-bottom:1px solid var(--pk-border)}
+.lst-header{padding:var(--pk-hero-top) 0 var(--pk-gap);border-bottom:1px solid var(--pk-border)}
 .lst-h1{font-size:2.25rem;line-height:1.15;color:var(--pk-ink);margin:0 0 12px;letter-spacing:-.01em}
 /* headline case is the tenant's brand decision, carried as a class on the
    page wrapper (harness/render.py's wrap_class); restated here because the
@@ -159,7 +170,7 @@
   background:var(--pk-bg);font-size:1rem;line-height:1.5;color:var(--pk-ink)}
 
 /* micro-CTA between items */
-.lst-micro-cta{padding:28px 0;border-bottom:1px solid var(--pk-border);text-align:center}
+.lst-micro-cta{padding:var(--pk-item-gap) 0;border-bottom:1px solid var(--pk-border);text-align:center}
 
 /* pull-quote band */
 .lst-quote{padding:var(--pk-gap) 0;border-bottom:1px solid var(--pk-border);background:var(--pk-band)}
@@ -185,7 +196,7 @@
 .lst-faq-a{margin:0;font-size:1rem;line-height:1.6;color:var(--pk-body)}
 
 /* closing */
-.lst-close{padding:var(--pk-gap) 0}
+.lst-close{padding:var(--pk-close-gap) 0}
 .lst-recap{margin:0 0 24px;padding-left:20px}
 .lst-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
 .lst-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
@@ -212,7 +223,7 @@
 .adv-wrap:has(.adv-listicle) .adv-footer{padding-bottom:calc(var(--pk-sticky-h,64px) + 24px)}
 
 @media (max-width:600px){
-  .adv-listicle{--pk-gap:40px}
+  .adv-listicle{--pk-gap:32px}
   .lst-h1{font-size:2rem}
   .lst-dek{font-size:1.0625rem}
   .lst-num{font-size:1.75rem}
@@ -222,7 +233,6 @@
 }
 
 @media (min-width:768px){
-  .adv-listicle{--pk-gap:64px}
   .lst-h1{font-size:2.75rem}
   .lst-dek{font-size:1.25rem}
   .lst-h2{font-size:1.625rem}
@@ -246,6 +256,10 @@
   .lst-hero-actions{grid-column:1;grid-row:2;align-self:start;max-width:68ch;margin:24px 0 0}
   .lst-hero-media{grid-column:2;grid-row:1 / span 2;align-self:center;margin:0}
   .lst-hero-media .adv-img{max-height:560px}
+  .lst-hero-media.lst-media--panel .adv-img{max-height:var(--pk-panel-img)}
+  /* the hero headline shares the row with the image, so it steps down from
+     the single-column 2.75rem to keep the header under 700px */
+  .lst-header .lst-h1{font-size:2.25rem}
 
   /* items: ~42% image / 58% text, sides alternating item by item */
   .lst-item-grid{display:grid;grid-template-columns:42% minmax(0,1fr);
@@ -280,12 +294,12 @@
   <header class="lst-header">
     <div class="lst-measure lst-measure--wide lst-hero-grid pk-reveal" data-pk-mount data-lst-hero>
       <div class="lst-hero-lede">
-        <span class="adv-badge">Advertisement</span>
+        {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
         <h1 class="lst-h1">{{ page.headline }}</h1>
         <p class="lst-dek">{{ page.dek }}</p>
       </div>
       {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-      {% if hero_asset %}<div class="lst-hero-media lst-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+      {% if hero_asset %}<div class="lst-hero-media lst-media{{ ' lst-media--panel' if image_fit(hero_asset) == 'contain' else '' }}">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
       <div class="lst-hero-actions">
         <a class="lst-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
         {# The trust line is renderer-built from facts_pack (harness/listicle.py's
@@ -310,7 +324,7 @@
     <section class="lst-item{{ ' lst-item--soft' if loop.index0 % 2 == 1 else '' }}">
       <div class="lst-measure lst-measure--wide lst-item-grid pk-reveal">
         {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-        {% if item_asset %}<div class="lst-item-media lst-media">{{ render_image_slot(item_asset) }}</div>{% endif %}
+        {% if item_asset %}<div class="lst-item-media lst-media{{ ' lst-media--panel' if image_fit(item_asset) == 'contain' else '' }}">{{ render_image_slot(item_asset) }}</div>{% endif %}
         <div class="lst-item-copy">
           <div class="lst-item-head">
             <span class="lst-num">{{ "%02d"|format(item.number) }}</span>

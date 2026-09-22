@@ -9,7 +9,14 @@
    directly under it and the body copy in a narrow measure below; the hero is
    one large image with the H1 reversed out over a dark gradient; the FAQ is
    a <details> accordion, the model picker a horizontal scroll of cards, and
-   a proof bar (rating + CTA) sits fixed at the bottom of the viewport. #}
+   a proof bar (rating + CTA) sits fixed at the bottom of the viewport.
+
+   Cycle 55: a product cut-out (image_fit(...) == "contain") is never a
+   cover band or an overlay background -- it would sit as a narrow cabin in
+   a wide dark or letterboxed strip. A cut-out hero becomes a split hero
+   (copy left on the page ground, the image contained on a panel right) and
+   a cut-out item becomes a two-column band (panel 40% / copy 60%). Only a
+   photo that fills the 3:2 frame keeps the full-bleed treatment. #}
 {% block title %}{{ page.headline }}{% endblock %}
 {% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
@@ -47,7 +54,15 @@
   --pk-radius-md:var(--ps-radius-card,8px);
   --pk-radius-pill:var(--ps-radius-pill,999px);
   --pk-measure:620px;
-  --pk-gap:48px;
+  /* Cycle 55 rhythm (cartridges/listicle/cartridge.md "Rhythm"): section
+     padding top and bottom, 32px on phones; item spacing inside a list; the
+     hero's top padding; the closing band; the contained-image panel. */
+  --pk-gap:40px;
+  --pk-item-gap:32px;
+  --pk-hero-top:32px;
+  --pk-close-gap:48px;
+  --pk-panel-pad:24px;
+  --pk-panel-img:420px;
   --pk-sticky-h:64px;
   display:block;width:100%;background:var(--pk-bg);color:var(--pk-body);text-align:left;
   font-family:var(--pk-sans);
@@ -75,7 +90,8 @@
    above the fold on a 390px phone) */
 .adv-listicle.look-pillars .pil-hero{display:block}
 .adv-listicle.look-pillars .pil-hero-media{position:relative;width:100%;overflow:hidden;background:var(--pk-dark)}
-.adv-listicle.look-pillars .pil-hero-media .adv-img{width:100%;max-height:440px}
+.adv-listicle.look-pillars .pil-hero-media{max-height:560px}
+.adv-listicle.look-pillars .pil-hero-media .adv-img{width:100%;max-height:560px}
 /* On a phone the headline block is often taller than the 300px-capped
    image, so an overlay would spill past the gradient and sit unreadable on
    whatever the top of the photograph happens to be. It stacks under the
@@ -88,7 +104,20 @@
 .adv-listicle.look-pillars .pil-h1{font-size:2.125rem;line-height:1.12;margin:0 0 10px;color:var(--pk-on-dark);
   letter-spacing:-.015em;font-weight:700}
 .adv-listicle.look-pillars .pil-dek{font-size:1.0625rem;line-height:1.5;margin:0;color:var(--pk-on-dark);opacity:.9}
-.adv-listicle.look-pillars .pil-actions{padding:20px 20px 28px;max-width:820px;margin:0 auto}
+.adv-listicle.look-pillars .pil-actions{padding:20px 20px var(--pk-gap);max-width:820px;margin:0 auto}
+
+/* the contained-image panel: a cut-out sits whole on the muted ground,
+   centred, never cropped and never taller than --pk-panel-img */
+.adv-listicle.look-pillars .pil-panel{display:flex;align-items:center;justify-content:center;
+  padding:var(--pk-panel-pad);background:var(--pk-band);border-radius:var(--pk-radius-md)}
+.adv-listicle.look-pillars .pil-panel .adv-img{width:auto;max-width:100%;max-height:var(--pk-panel-img);margin:0 auto}
+/* split hero (a cut-out hero): copy left on the page ground, panel right */
+.adv-listicle.look-pillars .pil-hero--split{padding:var(--pk-hero-top) 0 var(--pk-gap);background:var(--pk-bg)}
+.adv-listicle.look-pillars .pil-split{display:grid;gap:24px;max-width:1100px;margin:0 auto;padding:0 20px;width:100%}
+.adv-listicle.look-pillars .pil-hero--split .pil-h1{color:var(--pk-ink)}
+.adv-listicle.look-pillars .pil-hero--split .pil-dek{color:var(--pk-muted);opacity:1}
+.adv-listicle.look-pillars .pil-hero--split .pil-actions{padding:22px 0 0;max-width:none;margin:0}
+.adv-listicle.look-pillars .pil-split-copy{min-width:0}
 .adv-listicle.look-pillars .pil-trust{list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;
   margin:14px 0 0;padding:0;font-size:.9375rem;color:var(--pk-muted)}
 .adv-listicle.look-pillars .pil-trust li{margin:0}
@@ -106,9 +135,11 @@
 .adv-listicle.look-pillars .pil-body-list{display:block}
 .adv-listicle.look-pillars .pil-band{padding:0 0 var(--pk-gap)}
 .adv-listicle.look-pillars .pil-band--soft{background:var(--pk-band);padding-top:var(--pk-gap)}
+.adv-listicle.look-pillars .pil-band--split{padding:var(--pk-gap) 0}
+.adv-listicle.look-pillars .pil-band--soft .pil-panel{background:var(--pk-bg)}
 .adv-listicle.look-pillars .pil-media{width:100%;margin:0 0 22px;overflow:hidden;background:var(--pk-band)}
 .adv-listicle.look-pillars .pil-band--soft .pil-media{background:var(--pk-bg)}
-.adv-listicle.look-pillars .pil-media .adv-img{width:100%;max-height:420px}
+.adv-listicle.look-pillars .pil-media .adv-img{width:100%;max-height:480px}
 .adv-listicle.look-pillars .pil-label{margin:0 0 8px;font-size:var(--pk-eyebrow-size);font-weight:700;
   letter-spacing:var(--pk-eyebrow-spacing);text-transform:uppercase;color:var(--pk-eyebrow-color)}
 .adv-listicle.look-pillars .pil-h2{font-size:1.625rem;line-height:1.2;margin:0 0 12px;
@@ -126,6 +157,10 @@
 
 .adv-listicle.look-pillars .pil-section{padding:var(--pk-gap) 0}
 .adv-listicle.look-pillars .pil-section--soft{background:var(--pk-band)}
+/* two plain-ground sections in a row share one gap, not two; the same when
+   the item list ends on a soft band and the soft fit section follows */
+.adv-listicle.look-pillars .pil-section:not(.pil-section--soft)+.pil-section:not(.pil-section--soft){padding-top:0}
+.adv-listicle.look-pillars .pil-body-list:has(>.pil-band--soft:last-child)+.pil-section--soft{padding-top:0}
 .adv-listicle.look-pillars .pil-h2--section{font-size:1.5rem;line-height:1.2;margin:0 0 8px;color:var(--pk-ink)}
 .adv-listicle.look-pillars .pil-note{margin:0 0 18px;font-size:1rem;color:var(--pk-muted)}
 .adv-listicle.look-pillars .pil-fit{display:grid;gap:22px}
@@ -152,7 +187,7 @@
 .adv-listicle.look-pillars .pil-faq-item[open] .pil-faq-q::after{content:"\2212"}
 .adv-listicle.look-pillars .pil-faq-a{margin:0 0 18px;font-size:1rem;line-height:1.6;color:var(--pk-body)}
 
-.adv-listicle.look-pillars .pil-close{padding:var(--pk-gap) 0;background:var(--pk-band)}
+.adv-listicle.look-pillars .pil-close{padding:var(--pk-close-gap) 0;background:var(--pk-band)}
 .adv-listicle.look-pillars .pil-recap{margin:0 0 22px;padding-left:20px}
 .adv-listicle.look-pillars .pil-recap li{margin:0 0 10px;font-size:1.0625rem;line-height:1.5}
 .adv-listicle.look-pillars .pil-fine{margin:14px 0 0;font-size:.875rem;line-height:1.5;color:var(--pk-muted)}
@@ -175,13 +210,13 @@
 .adv-listicle.look-pillars .pil-sticky .pil-btn{flex:0 0 auto;width:auto;min-height:44px;padding:10px 20px}
 
 @media (max-width:600px){
-  .adv-listicle.look-pillars{--pk-gap:36px}
+  .adv-listicle.look-pillars{--pk-gap:32px;--pk-panel-img:300px}
+  .adv-listicle.look-pillars .pil-hero-media,
   .adv-listicle.look-pillars .pil-hero-media .adv-img{max-height:300px}
   .adv-listicle.look-pillars .pil-h1{font-size:1.75rem}
   .adv-listicle.look-pillars .pil-sticky-proof{display:none}
 }
 @media (min-width:768px){
-  .adv-listicle.look-pillars{--pk-gap:64px}
   .adv-listicle.look-pillars .pil-hero-scrim{position:absolute;left:0;right:0;top:0;bottom:0;
     background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.5) 45%,rgba(0,0,0,.08) 82%)}
   .adv-listicle.look-pillars .pil-hero-media--empty .pil-hero-scrim{position:relative}
@@ -193,24 +228,16 @@
   .adv-listicle.look-pillars .pil-fit{grid-template-columns:1fr 1fr;gap:32px}
   .adv-listicle.look-pillars .pil-model{flex:1 1 0;min-width:0}
   .adv-listicle.look-pillars .pil-models{overflow:visible;padding-left:20px;padding-right:20px}
+  .adv-listicle.look-pillars .pil-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center}
+  /* the split hero's headline has half the width the overlay's has */
+  .adv-listicle.look-pillars .pil-hero--split .pil-h1{font-size:2.25rem}
+  /* a cut-out item: panel 40% / copy 60% */
+  .adv-listicle.look-pillars .pil-band--split .pil-split{grid-template-columns:minmax(0,2fr) minmax(0,3fr)}
 }
 </style>
 <div class="pk-lp adv-listicle look-pillars">
 
-  {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-  <header class="pil-hero">
-    <div class="pil-hero-media{{ '' if hero_asset else ' pil-hero-media--empty' }}">
-      {% if hero_asset %}{{ render_image_slot(hero_asset, hero=True, frame="3x2") }}{% endif %}
-      <div class="pil-hero-scrim">
-        <div class="pil-hero-inner">
-          <span class="adv-badge">Advertisement</span>
-          <h1 class="pil-h1">{{ page.headline }}</h1>
-          <p class="pil-dek">{{ page.dek }}</p>
-        </div>
-      </div>
-    </div>
-    {# the CTA sits directly under the image so it is above the fold on a
-       390px phone, where the image is capped at 300px tall #}
+  {% macro pil_actions() %}
     <div class="pil-actions">
       <a class="pil-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
       {% if cartridge_data.trust_items %}
@@ -220,19 +247,60 @@
       {% endif %}
       <div class="pil-byline adv-byline">{{ byline_html | safe }}</div>
     </div>
-  </header>
-
-  <main class="pil-body-list">
-    {% for item in page.reasons or [] %}
-    <section class="pil-band{{ ' pil-band--soft' if loop.index0 % 2 == 1 else '' }}">
-      {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-      {% if item_asset %}<div class="pil-media">{{ render_image_slot(item_asset, frame="3x2") }}</div>{% endif %}
-      <div class="pil-measure">
+  {% endmacro %}
+  {% macro pil_item_copy(item) %}
         <p class="pil-label">Point {{ "%02d"|format(item.number) }}</p>
         <h2 class="pil-h2">{{ item.heading }}</h2>
         <p class="pil-copy">{{ item.text }}</p>
         {% if item.proof and item.proof.text %}<p class="pil-proof">{{ item.proof.text }}</p>{% endif %}
+  {% endmacro %}
+
+  {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
+  {% if hero_asset and image_fit(hero_asset, frame="3x2") == "contain" %}
+  {# a cut-out hero: split, never an overlay background #}
+  <header class="pil-hero pil-hero--split">
+    <div class="pil-split">
+      <div class="pil-split-copy">
+        {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
+        <h1 class="pil-h1">{{ page.headline }}</h1>
+        <p class="pil-dek">{{ page.dek }}</p>
+        {{ pil_actions() }}
       </div>
+      <div class="pil-panel">{{ render_image_slot(hero_asset, hero=True) }}</div>
+    </div>
+  </header>
+  {% else %}
+  <header class="pil-hero">
+    <div class="pil-hero-media{{ '' if hero_asset else ' pil-hero-media--empty' }}">
+      {% if hero_asset %}{{ render_image_slot(hero_asset, hero=True, frame="3x2") }}{% endif %}
+      <div class="pil-hero-scrim">
+        <div class="pil-hero-inner">
+          {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
+          <h1 class="pil-h1">{{ page.headline }}</h1>
+          <p class="pil-dek">{{ page.dek }}</p>
+        </div>
+      </div>
+    </div>
+    {# the CTA sits directly under the image so it is above the fold on a
+       390px phone, where the image is capped at 300px tall #}
+    {{ pil_actions() }}
+  </header>
+  {% endif %}
+
+  <main class="pil-body-list">
+    {% for item in page.reasons or [] %}
+    {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
+    {% set item_split = item_asset and image_fit(item_asset, frame="3x2") == "contain" %}
+    <section class="pil-band{{ ' pil-band--soft' if loop.index0 % 2 == 1 else '' }}{{ ' pil-band--split' if item_split else '' }}">
+      {% if item_split %}
+      <div class="pil-split">
+        <div class="pil-panel">{{ render_image_slot(item_asset) }}</div>
+        <div class="pil-split-copy">{{ pil_item_copy(item) }}</div>
+      </div>
+      {% else %}
+      {% if item_asset %}<div class="pil-media">{{ render_image_slot(item_asset, frame="3x2") }}</div>{% endif %}
+      <div class="pil-measure">{{ pil_item_copy(item) }}</div>
+      {% endif %}
     </section>
     {% if loop.index == 3 and cartridge_data.pull_quote %}
     <section class="pil-quote">
