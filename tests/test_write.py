@@ -244,15 +244,19 @@ def test_write_page_system_prompt_states_the_with_lender_financing_sentence(tmp_
 
 def test_global_voice_block_states_the_no_lender_sentence_when_no_lender_is_configured():
     # global_voice_block only reads tenant.claims_config, tenant.display_name,
-    # and tenant.author -- a minimal duck-typed double covers the no-lender
-    # branch directly without needing a second, fully-configured tenant
-    # fixture (TENANT, the only real one under test, has a lender configured).
+    # tenant.author, and tenant.get (cycle 53: brand.retired_names) -- a
+    # minimal duck-typed double covers the no-lender branch directly without
+    # needing a second, fully-configured tenant fixture (TENANT, the only
+    # real one under test, has a lender configured).
     class _NoLenderTenant:
         claims_config = {"financing_lender": None}
         display_name = "Test Co"
 
         def author(self, role):
             return {"name": "Test Author"}
+
+        def get(self, key, default=None):
+            return default
 
     block = global_voice_block(_NoLenderTenant())
     assert ALLOWED_FINANCING_SENTENCE_NO_LENDER in block

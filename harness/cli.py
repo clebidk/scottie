@@ -19,6 +19,7 @@ from . import brand_import
 from . import notify
 from . import listicle
 from . import pipeline
+from . import repair
 from . import runstate
 from . import page_body as shopify_body_mod
 from . import tenant as tenant_mod
@@ -334,6 +335,52 @@ def cmd_rerender(args):
     if requested_look:
         runstate.record_listicle_choice(run_dir, look=page["look"])
     runstate.mark_rerendered(run_dir, page=cartridge_name, note=args.note or "")
+    return 0
+
+
+def cmd_fixcopy(args):
+    """`harness fixcopy <run-dir> --page <cartridge>`: applies only the
+    deterministic copy fixes (currently: a retired brand name, tenant.yaml
+    brand.retired_names -- harness/repair.py's apply_retired_name_fixes) to
+    an existing page.json. No model call, no gate, no repair loop -- the
+    writer already ran; this just corrects text the deterministic pre-repair
+    pass would have caught had the gate flagged it for this run.
+
+    Writes the fixed page.json back and records a state.json history note
+    (approval untouched, same as `harness rerender` -- see
+    runstate.mark_fixcopy). This command does not re-render index.html or
+    republish; run `harness rerender <run-dir> --page <cartridge>` and then
+    `harness publish <run-dir> --page <cartridge> --update` afterward."""
+    tenant = _resolve_tenant_for_run(args)
+    tenant_mod.activate(tenant)
+    run_dir = Path(args.run_dir)
+    cartridge_name = args.page
+    cartridge_dir = run_dir / cartridge_name
+
+    page_json_path = cartridge_dir / "page.json"
+    facts_pack_json = run_dir / "facts_pack.json"
+    for path in (page_json_path, facts_pack_json):
+        if not path.exists():
+            print(f"no {path.name} found at {path}; nothing to fix", file=sys.stderr)
+            return 1
+
+    page = json.loads(page_json_path.read_text())
+    facts_pack = json.loads(facts_pack_json.read_text())
+
+    changes = repair.apply_retired_name_fixes(page, facts_pack, tenant, cartridge_name=cartridge_name)
+    if not changes:
+        print(f"No copy fixes needed for {cartridge_dir}")
+        return 0
+
+    page_json_path.write_text(json.dumps(page, indent=2))
+    for old, new, at_path in changes:
+        print(f'fix: retired name "{old}" -> "{new}" at {at_path}')
+    runstate.mark_fixcopy(run_dir, page=cartridge_name, note=f"{len(changes)} retired-name fix(es)")
+    print(f"Wrote {page_json_path}")
+    print(
+        f"Now run: harness rerender {run_dir} --page {cartridge_name} "
+        f"&& harness publish {run_dir} --page {cartridge_name} --update"
+    )
     return 0
 
 
@@ -1051,6 +1098,15 @@ def build_parser():
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)
     p_rerender.set_defaults(func=cmd_rerender)
+
+    p_fixcopy = sub.add_parser(
+        "fixcopy",
+        help="apply deterministic copy fixes (e.g. a retired brand name) to an existing page.json -- no model call",
+    )
+    p_fixcopy.add_argument("run_dir", help="tenants/<t>/out/<run-id>")
+    p_fixcopy.add_argument("--page", required=True, help="cartridge name, e.g. article")
+    _add_tenant_flag(p_fixcopy)
+    p_fixcopy.set_defaults(func=cmd_fixcopy)
 
     p_doctor = sub.add_parser("doctor", help="check that a tenant can actually run")
     p_doctor.add_argument("--offline", action="store_true", help="skip the models-endpoint check")

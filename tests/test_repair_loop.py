@@ -387,7 +387,7 @@ def test_apply_deterministic_fixes_leaves_trigger_words_with_no_safe_synonym_alo
 def test_write_and_gate_page_resolves_leaked_claim_id_via_deterministic_fix(tmp_path):
     bad_page = dict(
         ARTICLE_PAGE,
-        close={"paragraphs": [{"text": "Peak Saunas is one brand that does this (gbrain-allowlist-red-light)."}]},
+        close={"paragraphs": [{"text": "PEAK is one brand that does this (gbrain-allowlist-red-light)."}]},
     )
 
     (page, attempts, deterministic_fixes), client = _write_and_gate([json_response(bad_page)], tmp_path)
@@ -672,7 +672,7 @@ def test_write_and_gate_page_passes_an_article_page_with_no_financing_mention(tm
     assert len(client.messages.calls) == 1  # no repair call needed
     assert attempts == [[]]
     assert deterministic_fixes == [0]
-    assert page["close"]["paragraphs"][0]["text"] == "Peak Saunas is one brand that does this."
+    assert page["close"]["paragraphs"][0]["text"] == "PEAK is one brand that does this."
 
 
 # ---------------------------------------------------------------------------

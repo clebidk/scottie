@@ -189,6 +189,12 @@ Three tenant.yaml keys sit beside them:
 - `product_display_strip_prefix` removes a storefront title prefix (e.g.
   `"Acme Saunas "`) wherever a product name is displayed and wherever the
   writer is handed one. Slugs, URLs and claim ids keep it.
+- `brand.retired_names` (cycle 53) names a former display name (e.g. after a
+  rename) that the writer must never use and the gate deterministically
+  rewrites if it slips in from a quoted claim source; `brand.
+  retired_name_exceptions` lists a proper-name phrase (an app name, say)
+  that keeps the retired name on purpose. Both optional; a tenant that
+  never renamed leaves them out.
 - `brand:` is also where `harness brand import` merges what it found.
 
 **Self-hosted webfonts.** Put the files in `brand/fonts/` and write the

@@ -176,7 +176,7 @@ def test_revise_second_call_produces_v2(monkeypatch):
     runstate.request_changes(run_dir, TENANT, page="article", by="caleb@peaksaunas.com", cuts=["Buyers move on when the price is hidden."])
     revise.revise_page(run_dir, "article", tenant=TENANT, make_client_fn=lambda: (_ for _ in ()).throw(AssertionError))
 
-    runstate.request_changes(run_dir, TENANT, page="article", by="caleb@peaksaunas.com", cuts=["Peak Saunas is one brand that does this."])
+    runstate.request_changes(run_dir, TENANT, page="article", by="caleb@peaksaunas.com", cuts=["PEAK is one brand that does this."])
     result = revise.revise_page(run_dir, "article", tenant=TENANT, make_client_fn=lambda: (_ for _ in ()).throw(AssertionError))
 
     assert result["version"] == 2

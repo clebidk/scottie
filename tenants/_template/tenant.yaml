@@ -155,4 +155,16 @@ notifications:
 # folder and merges it here -- logo_path, primary_hex, accent_hex,
 # font_families. A value already here wins over a re-import unless --force.
 # Safe to leave empty; nothing in the engine requires it.
+#
+# Cycle 53: brand.retired_names is an optional list of a former display name
+# this tenant no longer goes by (e.g. ["Acme Saunas Co"] after a rename to
+# "Acme") -- the writer prompt is told to use this tenant's current display
+# name instead, and the gate rewrites any occurrence that still slips into a
+# fresh page.json (harness/repair.py's find_retired_name_violations /
+# apply_deterministic_fixes). A phrase that is itself a proper name and
+# should keep the retired name -- "Acme Saunas Co app", say -- goes in
+# brand.retired_name_exceptions and is left alone. Both are safe to leave
+# empty or out; nothing in the engine requires them.
 brand: {}
+#   retired_names: ["CHANGE ME (former display name)"]
+#   retired_name_exceptions: ["CHANGE ME (a proper-name phrase to keep)"]

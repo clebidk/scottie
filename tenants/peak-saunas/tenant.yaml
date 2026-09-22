@@ -211,6 +211,11 @@ notifications:
 brand:
   name: PEAK
   legal_entity: Peak Wellness USA LLC   # unchanged; used only where a legal line is rendered
+  # Cycle 53: pre-rebrand display name (cycle 52) -- never written by the
+  # writer; a fresh gate/repair-loop rewrite catches any that slips in from
+  # a quoted claim source (a policy title, "the Peak Saunas app").
+  retired_names: ["Peak Saunas"]
+  retired_name_exceptions: ["Peak Saunas app"]
   # headlines render UPPERCASE via CSS text-transform -- never by rewriting
   # the writer's copy. "none" leaves headline case exactly as written.
   headline_case: upper
