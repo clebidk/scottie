@@ -2155,3 +2155,60 @@ Branch `cycle57/quiz`, worktree `~/adv-c57`, not merged, not pushed.
 - The HSA/FSA line shows only when an HSA claim is in the run's facts_pack;
   `hsa-fsa-truemed` is not in Peak's universal or benefit ids, so it did not
   show (same rule as the listicle).
+
+## Cycle 59 (storefront fit, 2026-09-22)
+
+Measured on the live storefront (`/pages/listicle-test-12`, 1280px): the
+theme's `html{font-size:10px}` shrank every rem (body text 10.6px), the
+theme's `h1` font replaced ours (Poppins), the theme printed its own page
+title above our headline, and its 960px container (or, on the draft theme,
+our own un-centred max-width) trapped the page. Export only; the review html
+is unchanged.
+
+1. **rem -> px** (`harness/css_scope.py`). Every rem length in the export's
+   `<style>` and in inline `style=""` attributes becomes px at 16px (negatives,
+   decimals, calc/clamp/var fallbacks). Strings, `url()`, text content and
+   `<script>` are untouched.
+2. **Scoping, not a bigger reset.** The review page is styled by
+   structure.css + brand/base.css in its HEAD, which never reached the
+   storefront. The export now carries them (minus `:root`/`@font-face`,
+   already carried), and every selector in them and in the cartridge CSS
+   gets `.adv-wrap.adv-wrap` (merged into the first compound when it already
+   targets the wrapper; `html`/`body` map to the wrapper). Each rule gains
+   exactly two classes, so our own cascade is unchanged and our lowest rule
+   (0,2,1) ties or beats the theme's `.rte h1`/`.rte img`. A fixed isolation
+   reset (browser defaults for h1-h6, p, lists, a, tables, img, form
+   controls, blockquote at 0,2,1) sits before them for what the theme
+   restyles and we do not (e.g. `.rte ul{flex-flow:column}`).
+3. **Title + full-bleed**, page-scoped through `:has(.adv-wrap)`: hides
+   `.page__title`/`.main-page-title`/`.page-title` and an h1 sibling of the
+   wrapper's parent; every ancestor of `.adv-wrap` drops max-width, side
+   padding/margin, overflow and transform, so the wrapper fills the page at
+   `width:auto` (no 100vw, no scrollbar overflow, sticky/fixed bars keep
+   working). The `100vw` + `calc(50% - 50vw)` breakout is the fallback for a
+   browser without `:has()`. `overflow-x:clip` on the wrapper.
+4. **Tokenizer bugs found in our own CSS.** A `*/` inside comment prose closes
+   the comment early: `harness/structure.css` line 5
+   (`cartridge/*/template.html`) makes browsers drop its `:root{--adv-*}`
+   block on every review page, and the cards look's `.lst-*/.pk-*` dropped
+   `.adv-listicle.look-cards{display:block}`. The scoper drops such garbage
+   rules exactly as a browser does (and ends a string at a newline). The
+   cards comment is fixed; structure.css is NOT (fixing it turns on
+   `--adv-max-width:760px` on review pages -- a visible change, left for a
+   decision).
+
+### Verify
+- Suite: 1627 -> 1680 passed (53 new in `tests/test_storefront_fit.py`).
+  Ruff clean.
+- Proof in `/tmp/c59-proof/`: the comparison and quiz live runs re-exported
+  (read only) and wrapped in a hostile shell (10px root, theme title, 960px
+  box, Poppins headings, `.rte` list/link/img rules) plus a left-aligned
+  "live-like" shell. Headless Chrome at 1280 and 390: first h1/p inside
+  `.adv-wrap` match the review page (quiz 44px/17px, comparison 48px Epika /
+  18px; 30px h1 at 390), theme title hidden, wrapper 0-1280, no horizontal
+  scroll. Before (master): 27.5px Poppins / 10.6px, title shown, 960px.
+
+### Open
+- The export body grows about 23KB (head sheets travel now).
+- The reset covers the properties seen on the live and draft themes; a theme
+  that restyles something else on those elements can still leak.
