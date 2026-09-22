@@ -39,6 +39,7 @@ import json
 import re
 
 from . import config
+from . import tenant as tenant_mod
 from . import vocab
 from .claims import _trigger_reason, warranty_claim_id
 from .listicle import GENERIC_AUDIENCE_WORDS, hsa_claim, rating_line, trust_line_items
@@ -366,22 +367,27 @@ def table_rows(facts_pack):
     return rows
 
 
-def column_assets(facts_pack):
+def column_assets(facts_pack, tenant=None):
     """Each compared model's own column image (its first storefront image),
-    as an asset dict render_page can download like any other."""
+    as an asset dict render_page can download like any other. Its
+    `model_title` (the alt text's name) is the model's full name (cycle 64)."""
+    tenant = tenant or tenant_mod.active()
     assets = []
     for m in _models(facts_pack):
         image = m.get("image")
         if isinstance(image, dict) and image.get("id") and image.get("url"):
-            assets.append(dict(image, model_title=m.get("title") or m.get("name")))
+            assets.append(dict(image, model_title=tenant.product_names(m)["full_name"] or m.get("name")))
     return assets
 
 
-def render_context(facts_pack, page, financing_lender=None, tenant_name=None):
+def render_context(facts_pack, page, financing_lender=None, tenant_name=None, tenant=None):
     """Everything cartridges/comparison/template.html renders that came
     from facts_pack rather than from the writer, plus the headline as the
     page shows it (display_headline). `claim_ids` is every id the renderer
-    itself cites, so the Sources list covers the table too."""
+    itself cites, so the Sources list covers the table too. Cycle 64: each
+    model carries its `full_name` (column head, section title) and
+    `descriptor`; its `name` (the model alone) stays for links."""
+    tenant = tenant or tenant_mod.active()
     rows = table_rows(facts_pack)
     trust = trust_line_items(facts_pack)
     rating = rating_line(facts_pack)
@@ -410,7 +416,9 @@ def render_context(facts_pack, page, financing_lender=None, tenant_name=None):
     # (already cited above), never a second reading of the claim.
     price_row = next((r for r in rows if r["key"] == PRICE_ROW), None)
     head_models = [
-        dict(m, price=cell["text"] if cell.get("claim_ids") else None)
+        dict(m, price=cell["text"] if cell.get("claim_ids") else None,
+             full_name=tenant.product_names(m)["full_name"] or m.get("name"),
+             descriptor=tenant.product_names(m)["descriptor"])
         for m, cell in zip(models, price_row["cells"] if price_row else [{}] * len(models), strict=True)
     ]
     proper_names = [tenant_name] + [m.get("name") for m in models]
@@ -428,7 +436,9 @@ def render_context(facts_pack, page, financing_lender=None, tenant_name=None):
         # Sources: a model's own facts fall back to that model's own page,
         # labelled with its own name (render.build_sources_list).
         "source_url_by_claim": source_url_by_claim,
-        "model_title_by_url": {m["url"]: m.get("title") or m.get("name") for m in models if m.get("url")},
+        # (the model alone -- the label's "<company> –" prefix names the company)
+        "model_title_by_url": {m["url"]: tenant.product_names(m)["short_name"] or m.get("name")
+                               for m in models if m.get("url")},
     }
 
 
@@ -489,6 +499,15 @@ def writer_lines(facts_pack):
             f"This page compares these {len(models)} models, in this column order: {described}. "
             "Write each name exactly as given."
         )
+        # Cycle 64: the owner's naming rule, with this run's own full names.
+        full_names = [m.get("full_name") for m in models if m.get("full_name")]
+        if full_names and full_names != [m.get("name") for m in models]:
+            lines.append(
+                "In body copy, name each model by its full name at its first mention ("
+                + ", ".join(f'"{n}"' for n in full_names)
+                + ") and by the model name above after that. Never write a model's capacity/style "
+                "title (e.g. its name followed by \"2-Person ...\") as its name."
+            )
     lines += [
         'Pick "axis" from the ad brief: when the ad names or weighs ANOTHER WAY to get the same '
         "thing -- a studio, a membership, a gym or spa, a different kind of sauna, a blanket -- "

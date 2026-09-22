@@ -143,8 +143,10 @@ def build_live_price_claims(products, today_iso, show_compare_at_price):
         if price is None:
             continue
         name_slug = product_name_slug(p["name"])
-        text = tenant_mod.active().format(
-            "price_claim_template", product_name=p["name"], price=format_price(price)
+        tenant = tenant_mod.active()
+        text = tenant.format(
+            "price_claim_template", product_name=p["name"],
+            product_full_name=tenant.product_names(p)["full_name"], price=format_price(price),
         )
         compare_at = p.get("compare_at_price")
         if show_compare_at_price and compare_at:

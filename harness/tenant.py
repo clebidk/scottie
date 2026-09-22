@@ -166,6 +166,91 @@ def _flatten(prefix, node, out):
         out[prefix] = str(node)
 
 
+# ---------------------------------------------------------------------------
+# Cycle 64: product naming. One rule for every cartridge: the full name is
+# tenant.yaml's product_name_format with the model filled in ("Acme {model}"
+# -> "Acme One"), the short name is the model alone ("One"), and the long
+# catalog title's capacity/style words are never part of either -- they are
+# a separate sentence-case descriptor ("1-person infrared sauna") a template
+# may show on its own line.
+# ---------------------------------------------------------------------------
+
+DEFAULT_PRODUCT_NAME_FORMAT = "{model}"
+
+
+def _name_prefixes(tenant):
+    """Words a product title may carry in front of its model: the old
+    storefront prefix (product_display_strip_prefix) and the brand word of
+    product_name_format, longest first so "Acme Saunas" goes before "Acme"."""
+    fmt = (tenant.get("product_name_format") if tenant else None) or DEFAULT_PRODUCT_NAME_FORMAT
+    candidates = [fmt.split("{model}")[0], (tenant.get("product_display_strip_prefix") if tenant else "") or ""]
+    return sorted({c.strip() for c in candidates if c.strip()}, key=len, reverse=True)
+
+
+def _strip_name_prefixes(text, prefixes):
+    """`text` with any leading prefix word(s) removed, matched
+    case-insensitively and repeatedly ("Acme Saunas Acme One" -> "One")."""
+    text = " ".join(str(text or "").split())
+    stripped = True
+    while stripped:
+        stripped = False
+        for prefix in prefixes:
+            if text.casefold().startswith(prefix.casefold() + " "):
+                text = text[len(prefix) + 1:]
+                stripped = True
+    return text
+
+
+def _model_words(text):
+    """The leading words of a prefix-free title, up to the first word that
+    starts with a digit (the capacity, "1-Person"): "Big Sky 4-Person
+    Outdoor Cabin" -> "Big Sky". A curated model name with no
+    capacity word comes back whole."""
+    words = []
+    for word in text.split():
+        if word[:1].isdigit():
+            break
+        words.append(word)
+    return " ".join(words)
+
+
+def product_names(product, tenant=None):
+    """{"full_name", "short_name", "descriptor"} for one product.
+
+    `product` is any product-shaped dict the harness carries -- a catalog
+    entry (claims/products.json), facts_pack.product (old or new), a
+    model_options row, a comparison or quiz model -- or a bare title string.
+    The model comes from the first of model_name/name/seo_title/short_name/
+    title that yields one; the descriptor is whatever a long title says after
+    the model, in sentence case. Both come back "" when nothing names the
+    product. A tenant with no product_name_format names a product by its
+    model alone."""
+    if isinstance(product, str):
+        product = {"title": product}
+    product = product or {}
+    fmt = (tenant.get("product_name_format") if tenant else None) or DEFAULT_PRODUCT_NAME_FORMAT
+    prefixes = _name_prefixes(tenant)
+    model = ""
+    for key in ("model_name", "name", "seo_title", "short_name", "title"):
+        model = _model_words(_strip_name_prefixes(product.get(key), prefixes))
+        if model:
+            break
+    descriptor = ""
+    for key in ("seo_title", "short_name", "title", "name"):
+        rest = _strip_name_prefixes(product.get(key), prefixes)
+        if model and rest.casefold().startswith(model.casefold() + " "):
+            descriptor = rest[len(model):].strip(" -–—,").lower()
+            if descriptor:
+                break
+    # a dict this helper already named (a cycle 64 facts_pack row) keeps its own
+    descriptor = descriptor or str(product.get("descriptor") or "")
+    return {
+        "full_name": fmt.format(model=model) if model else "",
+        "short_name": model,
+        "descriptor": descriptor[:1].upper() + descriptor[1:],
+    }
+
+
 class Tenant:
     """One company's data and settings. Construct with `load_tenant`."""
 
@@ -268,6 +353,21 @@ class Tenant:
             # keep the original rather than render an empty product.
             return text[len(prefix):].strip() or text
         return text
+
+    def product_names(self, product):
+        """Cycle 64: the one naming rule for a product, for every cartridge.
+        See the module-level product_names below."""
+        return product_names(product, self)
+
+    def catalog_products(self):
+        """Every product dict in this tenant's claims/products.json, read
+        from disk (never a live fetch). [] when the file is missing or has
+        no products map."""
+        path = self.claims_dir / "products.json"
+        if not path.exists():
+            return []
+        products = (_load_json(path) or {}).get("products")
+        return [p for p in products.values() if isinstance(p, dict)] if isinstance(products, dict) else []
 
     @property
     def claims_config(self):

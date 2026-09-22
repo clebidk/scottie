@@ -28,8 +28,10 @@ reviews:
   store_url: https://judge.me/reviews/stores/peaksaunas.com
   claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
 
-# One in-memory price claim per product, built fresh every run.
-price_claim_template: "The {tenant_name} {product_name} is priced at {price}."
+# One in-memory price claim per product, built fresh every run. Cycle 64:
+# the product is named by its full name ("The Peak Fuji ..."), never the
+# company name in front of the model ("The PEAK Fuji ...").
+price_claim_template: "The {product_full_name} is priced at {price}."
 
 # Storefront theme. full_bleed_css is pasted verbatim at the top of
 # `harness shopify-body` output; it neutralises the theme's page container so a
@@ -55,6 +57,15 @@ default_cta_url: /collections/all
 # a model name. Slugs, URLs and claim ids are never touched -- they are
 # identifiers, not copy. Remove this key and nothing is stripped.
 product_display_strip_prefix: "Peak Saunas "
+
+# Cycle 64 (owner decision 2026-09-22): a product's full name is this format
+# with its model filled in -- "Peak Mini" -- in title case, never "PEAK Mini"
+# or "Peak Saunas Mini". It is the name wherever a page names a product as a
+# title and at its first mention in body copy; the model alone ("Mini") is
+# the short name used after that and in every CTA ("Shop the Mini"). The
+# catalog's long capacity/style title is never a displayed name. See
+# harness/tenant.py product_names.
+product_name_format: "Peak {model}"
 
 # Cycle 54: the product-page `pdp` look's eyebrow over the product name --
 # the product category in plain words (e.g. "Espresso machine"), shown

@@ -20,7 +20,7 @@
    Everything under cartridge_data is built by harness/pdp.py: the
    renderer-owned lines from facts_pack alone, and the writer's sections
    trimmed to what this look shows. #}
-{% block title %}{{ cartridge_data.page_title or product.short_name or product.name }}{% endblock %}
+{% block title %}{{ cartridge_data.page_title or product.full_name or product.name }}{% endblock %}
 {% block content %}
 {% set d = cartridge_data %}
 <style>

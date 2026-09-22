@@ -300,7 +300,8 @@ def display_cta_text(page, facts_pack):
     page.json is never changed."""
     text = page.get("cta_text") or ""
     product = facts_pack.get("product") or {}
-    long_name, short = product.get("short_name") or "", product.get("name") or ""
+    long_name = product.get("seo_title") or product.get("short_name") or ""
+    short = product.get("name") or ""
     if long_name and short and long_name != short and long_name in text:
         return text.replace(long_name, short)
     return text
@@ -344,11 +345,12 @@ def render_context(page, facts_pack, assets, gallery_ids, promise_id=None, *, te
     product = facts_pack.get("product") or {}
     min_reviews = tenant.get("reviews.min_count")
     angle = page.get("angle_section") if isinstance(page.get("angle_section"), dict) else {}
+    names = tenant.product_names(product)
     return {
-        # the buy panel shows the short model name; the document title keeps
-        # the full catalog title, as the JSON-LD does
-        "product_name": tenant.display_product_name(product.get("name") or product.get("short_name") or ""),
-        "page_title": tenant.display_product_name(product.get("short_name") or product.get("name") or ""),
+        # Cycle 64: the buy panel and the document title show the product's
+        # full name ("Acme One"); only the JSON-LD keeps the catalog title.
+        "product_name": names["full_name"] or tenant.display_product_name(product.get("name") or ""),
+        "page_title": names["full_name"] or tenant.display_product_name(product.get("name") or ""),
         "cta_text": display_cta_text(page, facts_pack),
         "gallery": [assets[i] for i in gallery_ids if i in assets],
         "price": price_panel(page, facts_pack),

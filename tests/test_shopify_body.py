@@ -257,7 +257,7 @@ def test_assets_manifest_lists_each_image_once_with_a_cdn_filename(tmp_path):
     by_path = {e["local_path"]: e for e in manifest}
     assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(1, 7) for ext in ("jpg", "webp")}
     entry = by_path["assets/asset-1-300.jpg"]
-    assert entry["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo"
+    assert entry["alt"] == "Peak Fuji – lifestyle photo"
     assert entry["cdn_filename"].startswith("pk-listicle-01-")
     assert entry["cdn_filename"].endswith(".jpg")
 
@@ -269,7 +269,7 @@ def test_assets_manifest_is_valid_json_on_disk(tmp_path):
     on_disk = json.loads(manifest_path.read_text())
     expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(1, 7) for ext in ("jpg", "webp")}
     assert {e["local_path"] for e in on_disk} == expected_paths
-    assert all(e["alt"] == "Peak Fuji 2-Person Infrared Sauna – lifestyle photo" for e in on_disk)
+    assert all(e["alt"] == "Peak Fuji – lifestyle photo" for e in on_disk)
     # every cdn_filename is distinct and carries the format's own extension
     cdn_filenames = [e["cdn_filename"] for e in on_disk]
     assert len(set(cdn_filenames)) == len(cdn_filenames)

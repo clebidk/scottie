@@ -629,8 +629,8 @@ def test_the_sources_list_covers_the_renderer_built_table(tmp_path):
     sources = html.split("<h3>Sources</h3>", 1)[1]
     # each model's facts cite that model's own page, labelled with its name --
     # an internal-only source never falls back to the featured model's page
-    assert "PEAK – Peak Everest 2-Person Infrared Sauna product page" in sources
-    assert "PEAK – Peak Rainier 1-Person Infrared Sauna product page" in sources
+    assert "PEAK – Everest product page" in sources
+    assert "PEAK – Rainier product page" in sources
 
 
 def test_the_eyebrow_renders_only_when_the_tenant_sets_a_disclosure_label(tmp_path, monkeypatch):

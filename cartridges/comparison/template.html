@@ -244,7 +244,7 @@
                 {% if model.featured %}<span class="cmp-label">Our pick</span>{% endif %}
                 {% set col_asset = assets.get(model.image.id) if model.image else None %}
                 {% if col_asset and model.image.id not in reserved_ids %}<div class="cmp-thumb">{{ render_image_slot(col_asset, frame="3x4") }}</div>{% endif %}
-                <p class="cmp-model">{{ model.name }}</p>
+                <p class="cmp-model">{{ model.full_name or model.name }}</p>
                 {% if model.price %}<p class="cmp-price">{{ model.price }}</p>{% endif %}
                 <a class="cmp-link" href="{{ model.url }}">View model</a>
               </th>
@@ -279,7 +279,7 @@
             {% if col_asset and model.image.id not in reserved_ids %}<div class="cmp-card-thumb">{{ render_image_slot(col_asset, frame="3x4") }}</div>{% else %}<div></div>{% endif %}
             <div>
               {% if model.featured %}<span class="cmp-label">Our pick</span>{% endif %}
-              <h3 class="cmp-h3">{{ model.name }}{% if model.price %} · {{ model.price }}{% endif %}</h3>
+              <h3 class="cmp-h3">{{ model.full_name or model.name }}{% if model.price %} · {{ model.price }}{% endif %}</h3>
               {% for entry in page.best_for or [] if entry.id == model.id %}<p class="cmp-copy">{{ entry.text }}</p>{% endfor %}
             </div>
           </div>
@@ -359,7 +359,7 @@
       <div class="cmp-fit">
         {% for model in ctx.models %}
         <div class="cmp-fit-item">
-          <h3 class="cmp-h3">{{ model.name }}</h3>
+          <h3 class="cmp-h3">{{ model.full_name or model.name }}</h3>
           {% for entry in page.who_for if entry.id == model.id %}<p class="cmp-copy">{{ entry.text }}</p>{% endfor %}
           <a class="cmp-link" href="{{ model.url }}">View the {{ model.name }}</a>
         </div>

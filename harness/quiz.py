@@ -35,6 +35,7 @@ from pathlib import Path
 import yaml
 
 from . import listicle
+from . import tenant as tenant_mod
 from . import vocab
 from .claims import _trigger_reason
 from .textutil import DOLLAR_AMOUNT_RE, NON_PROSE_KEYS, walk_page
@@ -641,36 +642,18 @@ def _scores_attr(option, allowed):
 _GRID_MAX_CHARS = 26
 
 
-def model_title(name, model_name, brand=None):
-    """(title, descriptor) for a result card. `name` is the model's display
-    name (the storefront prefix is already stripped -- ground._quiz_models
-    runs tenant.display_product_name), e.g. "Acme One 2-Person Cabin". A
-    leading brand word written in another case ("Acme") is shown as the
-    tenant's short name ("ACME"), the way every new label on the page
-    writes it; when the model's own short name follows, the card title is
-    "<brand> <model>" and the rest of the name ("2-Person Cabin") is the
-    descriptor line under it. Nothing is added that the name does
-    not already say."""
-    text = " ".join(str(name or "").split())
-    rest, prefix = text, ""
-    if brand and text.casefold().startswith(brand.casefold() + " "):
-        prefix, rest = brand + " ", text[len(brand) + 1:]
-    model = str(model_name or "").strip()
-    if model and rest.casefold().startswith(model.casefold()):
-        descriptor = rest[len(model):].strip(" -\u2013\u2014,")
-        return prefix + rest[:len(model)], descriptor or None
-    return prefix + rest, None
-
-
-def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None, brand=None,
+def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None, tenant=None,
                    all_models_url=None):
     """Everything cartridges/quiz/template.html renders that the writer did
     not write. `cta_text_for(model_name, short_name)` resolves a card's CTA
     text from the cartridge's allowlist (render.py owns the schema and the
-    tenant). `brand` is the tenant's short name for card titles
-    (model_title); `all_models_url` is the tenant's own all-models page for
-    the result's secondary link. Returns a dict; "claim_ids" is every claim
-    the renderer-built sections cite, for the Sources list."""
+    tenant). Cycle 64: a card's title is the model's full name and its
+    descriptor line the capacity/style words (tenant.product_names), and its
+    CTA names the model alone. `all_models_url` is the tenant's own
+    all-models page for the result's secondary link. Returns a dict;
+    "claim_ids" is every claim the renderer-built sections cite, for the
+    Sources list."""
+    tenant = tenant or tenant_mod.active()
     facts_pack = facts_pack or {}
     page = page or {}
     quiz = facts_pack.get("quiz") or {}
@@ -709,11 +692,13 @@ def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None, br
     for m in models:
         card = dict(m)
         card["featured"] = m["slug"] == featured
-        card["title"], card["descriptor"] = model_title(m["name"], m.get("model_name"), brand)
+        names = tenant.product_names(m)
+        card["title"] = names["full_name"] or m.get("name")
+        card["descriptor"] = names["descriptor"] or None
         if card["featured"] and page.get("cta_text"):
             card["cta_text"] = page["cta_text"]
         else:
-            card["cta_text"] = cta_text_for(m["model_name"], m["name"])
+            card["cta_text"] = cta_text_for(names["short_name"], names["short_name"])
         cards.append(card)
         claim_ids.update(cid for cid in (m.get("price_claim_id"), m.get("capacity_claim_id")) if cid)
 

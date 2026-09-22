@@ -271,7 +271,11 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
         return {
             "@context": "https://schema.org",
             "@type": "Product",
-            "name": tenant.display_product_name(product.get("short_name") or product["name"]),
+            # the catalog's long title (machine-read, never displayed);
+            # "short_name" is its name in a facts_pack from before cycle 64
+            "name": tenant.display_product_name(
+                product.get("seo_title") or product.get("short_name") or product["name"]
+            ),
             "url": product["url"],
             "image": product.get("image_urls", []),
             "offers": {
@@ -886,15 +890,20 @@ def render_page(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     product = facts_pack.get("product", {})
-    product_name = product.get("name")
-    product_short_name = product.get("short_name") or product_name
+    # Cycle 64: every name this page shows for its product comes from one
+    # helper -- the full name ("Acme One") for titles and alt text, the model
+    # alone ("One") for a source label, whose "<company> –" prefix already
+    # names the company; a facts_pack from before cycle 64 is named the same way.
+    product_names = tenant.product_names(product)
+    full_name = product_names["full_name"] or product.get("name")
+    product_name = product_names["short_name"] or product.get("name")
     assets_by_id = {a["id"]: dict(a) for a in facts_pack.get("assets", [])}
     for asset in assets_by_id.values():
         # Fix cycle 3 item 5: alt text is always renderer-derived from the
-        # asset's own kind + the product's short_name -- never the writer's
+        # asset's own kind + the product's name -- never the writer's
         # invented "alt" field (the template no longer reads it), since a
         # model-invented alt can describe something that isn't in the image.
-        asset["alt"] = asset_alt(asset, product_short_name, tenant=tenant)
+        asset["alt"] = asset_alt(asset, full_name, tenant=tenant)
     used_claim_ids = collect_claim_ids(page)
     # Cycle 56: the comparison cartridge's renderer-owned sections (the model
     # table and its column images, trust/rating lines, fixed warranty and
@@ -906,10 +915,10 @@ def render_page(
     if cartridge_name == "comparison":
         comparison_context = comparison_mod.render_context(
             facts_pack, page, financing_lender=(product.get("financing") or {}).get("lender"),
-            tenant_name=tenant.display_name,
+            tenant_name=tenant.display_name, tenant=tenant,
         )
         used_claim_ids |= comparison_context["claim_ids"]
-        for asset in comparison_mod.column_assets(facts_pack):
+        for asset in comparison_mod.column_assets(facts_pack, tenant=tenant):
             assets_by_id.setdefault(asset["id"], dict(asset, alt=asset_alt(asset, asset["model_title"], tenant=tenant)))
             comparison_asset_ids.add(asset["id"])
     verified_by_id = {c["id"]: c for c in facts_pack.get("verified_claims", [])}
@@ -936,17 +945,17 @@ def render_page(
         quiz_data = quiz_mod.render_context(
             facts_pack, page, cta_text_for=_quiz_cta_text,
             warranty_claim_id=warranty_id if warranty_id in verified_by_id else None,
-            # Cycle 61: card titles lead with the tenant's short name;
-            # the result's "See all models" link is the tenant's own
-            # default_cta_url, omitted when the tenant sets none.
-            brand=tenant.get("tenant_short_name") or tenant.display_name,
+            # Cycle 64: card titles are each model's full name
+            # (tenant.product_names); the result's "See all models" link is
+            # the tenant's own default_cta_url, omitted when the tenant sets none.
+            tenant=tenant,
             all_models_url=tenant.get("default_cta_url"),
         )
         used_claim_ids |= quiz_data["claim_ids"]
         for card in quiz_data["cards"]:
             if card.get("image"):
                 card_asset = dict(card["image"])
-                card_asset["alt"] = asset_alt(card_asset, card["name"], tenant=tenant)
+                card_asset["alt"] = asset_alt(card_asset, card["title"], tenant=tenant)
                 assets_by_id.setdefault(card_asset["id"], card_asset)
                 quiz_asset_ids.add(card_asset["id"])
     sources = build_sources_list(
@@ -1079,7 +1088,7 @@ def render_page(
     # "omitted when this run verified nothing" is structural: there is no
     # page.json field to invent one in. Empty for every other cartridge, whose
     # templates never read it.
-    cartridge_data = listicle_mod.render_context(facts_pack) if cartridge_name == "listicle" else {}
+    cartridge_data = listicle_mod.render_context(facts_pack, tenant=tenant) if cartridge_name == "listicle" else {}
     if comparison_context is not None:
         cartridge_data = comparison_context
     if quiz_data is not None:
@@ -1118,7 +1127,7 @@ def render_page(
         page=page,
         ad_brief=ad_brief,
         facts_pack=facts_pack,
-        product=facts_pack["product"],
+        product=dict(facts_pack["product"], full_name=full_name, descriptor=product_names["descriptor"]),
         structure_css=structure_css,
         tenant_css=tenant_css,
         byline_html=byline_html,

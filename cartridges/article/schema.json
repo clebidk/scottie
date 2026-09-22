@@ -30,7 +30,7 @@
     },
     "body_sections": {
       "type": "array",
-      "description": "3-5 H2 sections, each answering one question the reader would ask next. Education only; never name the company or product (no tenant name, no short_name) -- warm-up window. At least 2 paragraphs across body_sections must carry claim_ids citing facts_pack.verified_claims, with inline citation text like '(source name, year)'.",
+      "description": "3-5 H2 sections, each answering one question the reader would ask next. Education only; never name the company or product (no tenant name, no full_name) -- warm-up window. At least 2 paragraphs across body_sections must carry claim_ids citing facts_pack.verified_claims, with inline citation text like '(source name, year)'.",
       "items": {
         "type": "object",
         "properties": {
@@ -108,7 +108,7 @@
     },
     "close": {
       "type": "object",
-      "description": "1 paragraph naming {{ tenant.name }} -- the first and only place in the piece that may name the company or the product (use facts_pack.product.short_name here with its claim_id).",
+      "description": "1 paragraph naming {{ tenant.name }} -- the first and only place in the piece that may name the company or the product (use facts_pack.product.full_name here at the first mention, then facts_pack.product.name).",
       "properties": {
         "paragraphs": {
           "type": "array",
