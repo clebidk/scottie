@@ -59,11 +59,14 @@
 .adv-listicle.look-pillars .pil-hero{display:block}
 .adv-listicle.look-pillars .pil-hero-media{position:relative;width:100%;overflow:hidden;background:var(--pk-ink)}
 .adv-listicle.look-pillars .pil-hero-media .adv-img{width:100%;max-height:440px}
-.adv-listicle.look-pillars .pil-hero-scrim{position:absolute;left:0;right:0;bottom:0;top:0;
-  display:flex;align-items:flex-end;
-  background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.45) 42%,rgba(0,0,0,0) 78%)}
-.adv-listicle.look-pillars .pil-hero-media--empty{min-height:280px}
-.adv-listicle.look-pillars .pil-hero-media--empty .pil-hero-scrim{position:relative}
+/* On a phone the headline block is often taller than the 300px-capped
+   image, so an overlay would spill past the gradient and sit unreadable on
+   whatever the top of the photograph happens to be. It stacks under the
+   image on a solid dark band there, and only becomes an overlay at 768px up,
+   where the image is tall enough to hold it. */
+.adv-listicle.look-pillars .pil-hero-scrim{position:relative;display:flex;align-items:flex-end;
+  background:var(--pk-ink)}
+.adv-listicle.look-pillars .pil-hero-media--empty{min-height:120px}
 .adv-listicle.look-pillars .pil-hero-inner{width:100%;max-width:820px;margin:0 auto;padding:24px 20px 28px;color:#fff}
 .adv-listicle.look-pillars .pil-h1{font-size:2.125rem;line-height:1.12;margin:0 0 10px;color:#fff;
   letter-spacing:-.015em;font-weight:700}
@@ -158,6 +161,9 @@
 }
 @media (min-width:768px){
   .adv-listicle.look-pillars{--pk-gap:64px}
+  .adv-listicle.look-pillars .pil-hero-scrim{position:absolute;left:0;right:0;top:0;bottom:0;
+    background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.5) 45%,rgba(0,0,0,.08) 82%)}
+  .adv-listicle.look-pillars .pil-hero-media--empty .pil-hero-scrim{position:relative}
   .adv-listicle.look-pillars .pil-h1{font-size:2.75rem}
   .adv-listicle.look-pillars .pil-dek{font-size:1.1875rem}
   .adv-listicle.look-pillars .pil-h2{font-size:1.75rem}

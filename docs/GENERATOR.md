@@ -78,6 +78,39 @@ rotates through all five. `tenant.yaml` may pin a subset with
 `cartridges.listicle.styles: [myths, tested]`; an explicit `--style` still wins over
 the pin, because that is an operator's deliberate choice.
 
+**Five looks (cycle 51).** The style picks the copy; the LOOK picks the template that
+lays it out. Each look is `cartridges/listicle/looks/<look>/template.html` with its own
+`<style>` block scoped under `.adv-listicle.look-<name>`; `cartridges/listicle/template.html`
+is a dispatcher that `{% extends %}` the resolved one, so `harness/render.py` stays generic.
+
+| look | what it is |
+| --- | --- |
+| `editorial` | publisher article: one 680px column, serif headline and 19px serif body, sponsored eyebrow, author row under the H1, numbered subheads with inline images, pull-quote proof callouts, link CTAs plus one button mid-page and one at the end, no sticky bar |
+| `cards` | the v0.3 DTC look, unchanged: two-column hero, alternating image/text cards on soft bands, big numerals, micro-CTAs, sticky bar |
+| `pillars` | image-led: full-width 3:2 bands, uppercase pillar label over the H2, narrow copy, badge proof lines, headline reversed out over the hero image, `<details>` FAQ, sticky proof bar |
+| `scorecard` | evidence look: trust row of verified facts, per-item "claim vs what the facts say" panels with evidence label chips, a summary table before the FAQ, no sticky bar |
+| `lander` | product lander: wide two-column hero with a dual CTA, items as a 2-up panel grid with 4:3 thumbs, check/cross fit columns, three model cards, `<details>` FAQ, dark closing band, sticky bar on phones only |
+
+```
+.venv/bin/harness run <input> --cartridges listicle --look scorecard
+.venv/bin/harness rerender tenants/peak-saunas/out/<run-id> --page listicle --look pillars
+```
+
+`harness rerender --look` switches a live page's layout with no model call and without
+touching a word of copy. Without a flag the look comes from page.json's own `look`, else
+`tenant.yaml`'s `cartridges.listicle.look_by_style`, else the default pairing
+(`reasons`->`cards`, `mistakes`->`editorial`, `questions`->`scorecard`, `myths`->`pillars`,
+`tested`->`lander`). `tenant.yaml` may pin the allowed set with
+`cartridges.listicle.looks: [...]`. The resolved look is written to page.json and to
+state.json's `listicle` entry next to the style.
+
+Every look renders every section the schema provides, keeps the Advertisement label,
+byline, disclosure and Sources, holds a CTA above the fold in markup order, uses only
+`--pk-*` tokens, calls `render_image_slot` for every image, and survives `harness
+shopify-body` and the review inliner. `tests/test_listicle_looks.py` asserts all of that
+plus the property the looks exist for: no two of them render the same set of section
+classes.
+
 **Page structure.** Header (Advertisement label, H1, one-line dek, hero image, the
 primary CTA, a trust line, byline) -> 5-7 numbered items, each with an H2, a 60-150 word
 body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
@@ -112,11 +145,11 @@ repair loop can fix them). Each failure carries a stable key: `listicle:style`,
 `listicle:headline_slots`, `listicle:tested_no_fake_test`,
 `listicle:renderer_owned:<key>`.
 
-**Design.** The cartridge ships its own scoped `<style>` block (the one cartridge exempt
-from `tests/test_css_coverage.py`'s structure.css rule): a ~700px reading measure,
-17-18px body at 1.6, 36-44px H1, 24-28px H2, a 48-64px section rhythm, alternating soft
-bands, a full-width mobile CTA at 52px min-height, and a 64px sticky bar with
-safe-area padding. No colour or font is hardcoded: every token resolves through the
+**Design.** Each look ships its own scoped `<style>` block (this cartridge is the one
+exempt from `tests/test_css_coverage.py`'s structure.css rule). Shared across all five:
+17-18px body at 1.6 (19px serif in `editorial`), 36-44px H1, 24-28px H2, a 48-64px
+section rhythm, a full-width mobile CTA at 52px min-height, and, where a look has one,
+a 64px sticky bar with safe-area padding. No colour or font is hardcoded: every token resolves through the
 tenant's own `--ps-*` brand tokens first and `harness/structure.css`'s `--adv-*`
 defaults second, so `harness brand import` still drives the page. The sticky bar lives
 inside the cartridge wrapper, never in `base.html`, so `harness shopify-body` carries it

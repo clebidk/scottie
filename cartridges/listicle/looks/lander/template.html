@@ -75,10 +75,16 @@
   color:var(--pk-on-accent);font-size:1.0625rem;font-weight:700;line-height:1.25;
   text-decoration:none;cursor:pointer}
 .adv-listicle.look-lander .ld-btn:hover{opacity:.9}
-/* the secondary CTA is the same destination in a ghost treatment -- one
-   distinct href above the fold, two ways to take it */
 .adv-listicle.look-lander .ld-btn--ghost{background:transparent;color:var(--pk-ink);
   border:1px solid var(--pk-ink);font-weight:600}
+/* The secondary CTA above the fold: the same destination in a ghost link
+   treatment rather than a second button. The page has exactly one cta_text,
+   so two identical buttons side by side would read as a mistake -- a link
+   beside the button reads as the lower-commitment way to take it. */
+.adv-listicle.look-lander .ld-link{display:inline-flex;align-items:center;min-height:52px;
+  padding:14px 4px;color:var(--pk-ink);font-size:1.0625rem;font-weight:600;
+  text-decoration:underline;text-underline-offset:4px}
+.adv-listicle.look-lander .ld-link:hover{color:var(--pk-accent)}
 .adv-listicle.look-lander .ld-btn--light{background:var(--pk-bg);color:var(--pk-ink)}
 
 /* items: a 2-up grid of panels, not a list */
@@ -183,7 +189,7 @@
            cta_url, so the fold still holds a single distinct destination. #}
         <div class="ld-ctas">
           <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-          <a class="ld-btn ld-btn--ghost" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+          <a class="ld-link" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>
         </div>
         {% if cartridge_data.trust_items %}
         <ul class="ld-trust">
