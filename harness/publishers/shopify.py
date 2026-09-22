@@ -34,6 +34,14 @@ call here (`_graphql`, built on the existing `_transport`/`_request`
 machinery); step 2 is a plain POST to a non-Shopify host, so it goes through
 a second injectable transport (`upload_transport`, defaulting to the same
 urllib call `transport` does) instead of reusing `_transport`.
+
+Cycle 52 adds `upload_fonts`, the same four steps for a tenant's self-hosted
+webfonts. A font is not an image: it goes up as resource/contentType `FILE`
+with a generic mime type, and Shopify answers with a `GenericFile` whose
+`url` is read directly instead of a `MediaImage`'s `image.url`. Fonts are
+uploaded ONCE per tenant and remembered in
+`tenants/<t>/brand/fonts/cdn-manifest.json`, so republishing ten pages does
+not re-upload the same file ten times.
 """
 import json
 import mimetypes
@@ -158,6 +166,123 @@ def rewrite_asset_srcs(body_html, url_by_local_path):
     return _SRCSET_ATTR_RE.sub(replace_srcset, out)
 
 
+# ---------------------------------------------------------------------------
+# Cycle 52: a tenant's self-hosted webfonts on the storefront
+# ---------------------------------------------------------------------------
+
+# Shopify's staged upload wants a mime type; a webfont's exact one does not
+# matter to it (the file is served back with its own), and the stdlib's
+# mimetypes database does not know .woff2 on every platform.
+FONT_MIME_TYPE = "application/octet-stream"
+FONT_SUFFIXES = (".woff2", ".woff", ".otf", ".ttf")
+FONT_CDN_MANIFEST_NAME = "cdn-manifest.json"
+
+_FONT_FACE_BLOCK_RE = re.compile(r"@font-face\s*\{[^}]*\}", re.DOTALL)
+# One `url("...")` entry of a src list, with its optional format(...) suffix.
+_FONT_SRC_ENTRY_RE = re.compile(
+    r"""url\((?P<q>['"]?)(?P<path>[^'")]+)(?P=q)\)(?:\s*format\([^)]*\))?""",
+    re.IGNORECASE,
+)
+
+
+def _fonts_dir(tenant):
+    """tenants/<t>/brand/fonts, or None for a tenant object that has no brand
+    directory at all -- same tolerance harness/page_body.py's token_css
+    already shows, so a stub tenant never turns a publish into a traceback."""
+    brand_dir = getattr(tenant, "brand_dir", None)
+    return Path(brand_dir) / "fonts" if brand_dir else None
+
+
+def font_files(tenant):
+    """Every font file in this tenant's brand/fonts/, sorted. The manifest
+    file itself is not a font."""
+    fonts_dir = _fonts_dir(tenant)
+    if fonts_dir is None or not fonts_dir.is_dir():
+        return []
+    return sorted(p for p in fonts_dir.iterdir()
+                  if p.is_file() and p.suffix.lower() in FONT_SUFFIXES)
+
+
+def font_cdn_manifest_path(tenant):
+    fonts_dir = _fonts_dir(tenant)
+    return fonts_dir / FONT_CDN_MANIFEST_NAME if fonts_dir else None
+
+
+def load_font_cdn_manifest(tenant):
+    """{filename: cdn_url} for fonts already uploaded for this tenant, or {}.
+    A corrupt manifest is treated as empty rather than failing a publish --
+    the worst case is one re-upload."""
+    path = font_cdn_manifest_path(tenant)
+    if path is None or not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except (ValueError, OSError):
+        return {}
+    return {k: v for k, v in data.items() if isinstance(v, str) and v} if isinstance(data, dict) else {}
+
+
+def save_font_cdn_manifest(tenant, mapping):
+    path = font_cdn_manifest_path(tenant)
+    if path is None:
+        return None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(dict(sorted(mapping.items())), indent=2) + "\n")
+    return path
+
+
+def rewrite_font_face_urls(body_html, url_by_filename):
+    """Point every `@font-face` src at the storefront CDN.
+
+    Each `url(...)` entry is matched by its FILENAME, not its path, since the
+    export carries the repo-relative `brand/fonts/<name>` written in the
+    tenant's base.css. An entry whose file has no CDN URL is dropped, and a
+    block left with no src entry at all is dropped whole -- a family that is
+    declared but cannot load is worse than one that was never declared,
+    because the browser stops at it instead of walking on to the next name in
+    the fallback stack."""
+
+    def rewrite_block(match):
+        block = match.group(0)
+        kept, dropped_any = [], False
+
+        def replace_entry(entry):
+            nonlocal dropped_any
+            filename = Path(entry.group("path")).name
+            url = url_by_filename.get(filename)
+            if not url:
+                dropped_any = True
+                return ""
+            kept.append(url)
+            fmt = entry.group(0).split(")", 1)[1]
+            return f'url("{url}"){fmt}'
+
+        rewritten = _FONT_SRC_ENTRY_RE.sub(replace_entry, block)
+        if not kept:
+            return ""
+        if dropped_any:
+            # tidy the comma list the dropped entries left behind
+            rewritten = re.sub(r",\s*,", ",", rewritten)
+            rewritten = re.sub(r"(src\s*:)\s*,", r"\1", rewritten, flags=re.IGNORECASE)
+            rewritten = re.sub(r",\s*(;|\})", r"\1", rewritten)
+        return rewritten
+
+    return _FONT_FACE_BLOCK_RE.sub(rewrite_block, body_html)
+
+
+def apply_cached_font_urls(body_html, tenant):
+    """`rewrite_font_face_urls` using only what this tenant has already
+    uploaded. This is the no-credentials path -- `harness rerender` refreshes
+    an export without talking to Shopify, and an export that still carried
+    repo-relative font URLs would 404 on the storefront. A tenant that has
+    never published a font has no manifest, and the export is returned
+    unchanged so the fallback stack renders."""
+    mapping = load_font_cdn_manifest(tenant)
+    if not mapping:
+        return body_html
+    return rewrite_font_face_urls(body_html, mapping)
+
+
 class ShopifyCredentialsMissing(Exception):
     """SHOPIFY_STORE or SHOPIFY_TOKEN is not set for this tenant."""
 
@@ -197,6 +322,35 @@ mutation fileCreate($files: [FileCreateInput!]!) {
     userErrors {
       field
       message
+    }
+  }
+}
+"""
+
+_GENERIC_FILE_CREATE_QUERY = """
+mutation fileCreate($files: [FileCreateInput!]!) {
+  fileCreate(files: $files) {
+    files {
+      id
+      fileStatus
+      ... on GenericFile {
+        url
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+_GENERIC_FILE_STATUS_QUERY = """
+query fileStatus($id: ID!) {
+  node(id: $id) {
+    ... on GenericFile {
+      fileStatus
+      url
     }
   }
 }
@@ -342,11 +496,11 @@ class ShopifyPublisher(Publisher):
         guessed, _ = mimetypes.guess_type(filename)
         return guessed or "image/jpeg"
 
-    def _create_staged_target(self, item, mime_type):
+    def _create_staged_target(self, item, mime_type, *, resource="IMAGE"):
         variables = {
             "input": [
                 {
-                    "resource": "IMAGE",
+                    "resource": resource,
                     "filename": item["cdn_filename"],
                     "mimeType": mime_type,
                     "httpMethod": "POST",
@@ -469,6 +623,74 @@ class ShopifyPublisher(Publisher):
                 url = self._poll_until_ready(file_data["id"], item["cdn_filename"])
             mapping[item["local_path"]] = url
         return mapping
+
+    def upload_fonts(self, manifest):
+        """Uploads webfont files through the same staged-upload flow
+        `upload_assets` uses, as generic FILEs rather than images, and
+        returns {filename: cdn_url}.
+
+        `manifest`: [{"filename": str, "bytes": bytes}]. A file Shopify
+        refuses is reported in the returned `errors` mapping instead of
+        raising: a page whose webfont did not upload still publishes, with
+        its fallback stack, and the caller logs which file failed. Returns
+        (urls, errors)."""
+        self._require_credentials()
+        urls, errors = {}, {}
+        for item in manifest:
+            entry = {"cdn_filename": item["filename"], "bytes": item["bytes"], "alt": ""}
+            try:
+                target = self._create_staged_target(entry, FONT_MIME_TYPE, resource="FILE")
+                self._upload_to_staged_target(target, entry, FONT_MIME_TYPE)
+                url = self._create_generic_file(target, entry)
+                if not url:
+                    url = self._poll_generic_until_ready(entry["_id"], entry["cdn_filename"])
+                urls[item["filename"]] = url
+            except PublishFailed as e:
+                errors[item["filename"]] = str(e)
+        return urls, errors
+
+    def _create_generic_file(self, target, item):
+        variables = {
+            "files": [
+                {
+                    "originalSource": target["resourceUrl"],
+                    "contentType": "FILE",
+                    "filename": item["cdn_filename"],
+                }
+            ]
+        }
+        data = self._graphql(_GENERIC_FILE_CREATE_QUERY, variables)
+        result = data.get("fileCreate") or {}
+        user_errors = result.get("userErrors") or []
+        if user_errors:
+            raise PublishFailed(f"fileCreate failed for {item['cdn_filename']}: {user_errors}")
+        files = result.get("files") or []
+        if not files:
+            raise PublishFailed(f"fileCreate returned no files for {item['cdn_filename']}")
+        file_data = files[0]
+        item["_id"] = file_data.get("id")
+        if file_data.get("fileStatus") == "FAILED":
+            raise PublishFailed(
+                f"Shopify file processing failed for {item['cdn_filename']} (id={item['_id']})"
+            )
+        return file_data.get("url") or ""
+
+    def _poll_generic_until_ready(self, file_id, filename):
+        for attempt in range(_POLL_MAX_ATTEMPTS):
+            data = self._graphql(_GENERIC_FILE_STATUS_QUERY, {"id": file_id})
+            node = data.get("node") or {}
+            if node.get("fileStatus") == "READY" and node.get("url"):
+                return node["url"]
+            if node.get("fileStatus") == "FAILED":
+                raise PublishFailed(
+                    f"Shopify file processing failed for {filename} (id={file_id})"
+                )
+            if attempt < _POLL_MAX_ATTEMPTS - 1:
+                self._sleep(_POLL_INTERVAL_S)
+        raise PublishFailed(
+            f"Shopify file {filename} (id={file_id}) never reached fileStatus=READY "
+            f"after {_POLL_MAX_ATTEMPTS} polls"
+        )
 
     def publish(self, page, *, unpublished=True):
         """`page`: {"title", "body_html", ["handle"], ["storefront_host"]}.

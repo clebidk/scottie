@@ -224,3 +224,55 @@ def test_the_tenants_own_tokens_carry_the_finalized_palette():
     ]:
         assert f"{token}:{value}" in css.replace(" ", ""), token
     assert "16C47F" not in css.upper()
+
+
+# ---------------------------------------------------------------------------
+# 4. The self-hosted webfont reaches the storefront export
+# ---------------------------------------------------------------------------
+
+def test_the_tenant_self_hosts_the_licensed_face_and_falls_back_for_the_other():
+    css = (TENANT.brand_dir / "base.css").read_text()
+    assert "@font-face" in css
+    assert (TENANT.brand_dir / "fonts" / "Epika-Regular.woff2").exists()
+    # the unlicensed face is a fallback stack only -- no @font-face for it
+    assert "Acid Grotesk" in css
+    assert "Acid Grotesk license pending; fallback in use" in css
+    font_faces = re.findall(r"@font-face\s*\{[^}]*\}", css, re.DOTALL)
+    assert len(font_faces) == 1
+    assert "Acid" not in font_faces[0]
+
+
+def test_the_export_carries_the_font_face_rules_the_document_head_owns(tmp_path):
+    """`harness shopify-body` keeps only what was inside <body>, so a brand's
+    @font-face lived in the head and never reached a published page."""
+    from harness.page_body import build_shopify_body, font_face_css
+    from tests.test_listicle import AD_BRIEF, RICH_FACTS_PACK, _listicle_page
+
+    page = _listicle_page()
+    page["look"] = "editorial"
+    render_mod.render_page(
+        cartridge_name="listicle", page=page, ad_brief=AD_BRIEF, facts_pack=RICH_FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,
+        templates_dir=REPO_ROOT / "harness" / "templates", out_dir=tmp_path / "listicle",
+        published="2026-09-22", updated="2026-09-22", tenant=TENANT, download_assets=False,
+    )
+    body, _manifest = build_shopify_body(tmp_path / "listicle")
+    assert "@font-face" in body
+    assert "Epika-Regular.woff2" in body
+    assert font_face_css(TENANT) in body
+
+
+def test_publishing_rewrites_the_font_urls_to_the_cdn(tmp_path):
+    """The relative brand/fonts/... url in the export would 404 on a
+    storefront; the publisher swaps in the uploaded CDN url."""
+    from harness.page_body import font_face_css
+    from harness.publishers import shopify as shopify_pub
+
+    exported = "<style>\n" + font_face_css(TENANT) + "\n</style>"
+    rewritten = shopify_pub.rewrite_font_face_urls(exported, {
+        "Epika-Regular.woff2": "https://cdn.shopify.com/files/Epika-Regular.woff2",
+        "Epika-Regular.otf": "https://cdn.shopify.com/files/Epika-Regular.otf",
+    })
+    assert "brand/fonts/" not in rewritten
+    assert "https://cdn.shopify.com/files/Epika-Regular.woff2" in rewritten
+

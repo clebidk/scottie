@@ -17,6 +17,7 @@ from pathlib import Path
 from . import tenant as tenant_mod
 
 _ROOT_BLOCK_RE = re.compile(r":root\s*\{([^}]*)\}", re.DOTALL)
+_FONT_FACE_RE = re.compile(r"@font-face\s*\{[^}]*\}", re.DOTALL)
 
 
 def token_css(tenant=None):
@@ -43,6 +44,31 @@ def token_css(tenant=None):
             if declarations:
                 blocks.append(".adv-wrap{" + declarations + "}")
     return "\n".join(blocks)
+
+
+def font_face_css(tenant=None):
+    """Cycle 52: the tenant's own `@font-face` rules, taken from
+    brand/base.css and carried into the export.
+
+    Same reason token_css exists. base.css is a document-HEAD stylesheet and
+    a storefront keeps only what was inside <body>, so a brand's self-hosted
+    webfont was simply absent from every published page and the fallback
+    stack rendered instead. The rules are emitted verbatim -- an @font-face
+    is not scoped to a selector, so unlike the :root tokens there is nothing
+    to re-scope.
+
+    Their `url(...)` values are still the repo-relative brand/fonts/... paths
+    at this point; harness/publishers/shopify.py rewrites them to the
+    storefront CDN at publish time (and `harness rerender` re-applies the
+    cached URLs), because a relative path would 404 on a storefront."""
+    tenant = tenant or tenant_mod.active()
+    brand_dir = getattr(tenant, "brand_dir", None)
+    if not brand_dir:
+        return ""
+    path = Path(brand_dir) / "base.css"
+    if not path.exists():
+        return ""
+    return "\n".join(_FONT_FACE_RE.findall(path.read_text()))
 
 
 def full_bleed_css(tenant=None):
@@ -272,10 +298,12 @@ def build_shopify_body(cartridge_dir):
 
     theme_css = full_bleed_css()
     tokens = token_css()
+    fonts = font_face_css()
     style_block = "<style>\n" + theme_css
     # theme rules first (tests and operators expect the export to open with
-    # them), then the re-scoped head tokens, then the cartridge's own CSS.
-    for chunk in (tokens, page_css):
+    # them), then the tenant's @font-face rules, then the re-scoped head
+    # tokens, then the cartridge's own CSS.
+    for chunk in (fonts, tokens, page_css):
         if chunk:
             style_block += ("\n\n" if style_block.rstrip("\n") != "<style>" else "") + chunk
     style_block += "\n</style>"
