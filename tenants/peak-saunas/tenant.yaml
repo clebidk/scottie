@@ -56,6 +56,11 @@ default_cta_url: /collections/all
 # identifiers, not copy. Remove this key and nothing is stripped.
 product_display_strip_prefix: "Peak Saunas "
 
+# Cycle 54: the product-page `pdp` look's eyebrow over the product name --
+# the product category in plain words (e.g. "Espresso machine"), shown
+# after the model's own fit line. "" shows the fit line alone.
+product_category: "Infrared sauna"
+
 # Cycle 55: no "Advertisement" wording anywhere on Peak pages. The header
 # label is the optional `disclosure_label` key, deliberately left unset here
 # (so no label renders); see docs/TENANT-ONBOARDING.md.

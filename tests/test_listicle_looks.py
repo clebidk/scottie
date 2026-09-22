@@ -453,4 +453,4 @@ def test_rerender_look_is_refused_for_another_cartridge(run_dir, capsys):
     (run_dir / "longform").mkdir()
     (run_dir / "longform" / "page.json").write_text("{}")
     assert cli.cmd_rerender(_args(run_dir, page="longform", look="cards")) == 1
-    assert "--look applies to the listicle cartridge" in capsys.readouterr().err
+    assert "--look applies to a cartridge with looks" in capsys.readouterr().err

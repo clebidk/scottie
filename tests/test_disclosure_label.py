@@ -30,12 +30,12 @@ _CASES = [
     pytest.param(
         "comparison", lambda: copy.deepcopy(COMPARISON_PAGE), _facts_pack_with_comparison, None, id="comparison",
     ),
-    # cartridges/product-page/ is being rebuilt on another branch (cycle 54's
-    # pdp look) and still hardcodes the badge; this case reports XPASS once
-    # that template reads disclosure_label too -- then drop the mark.
+    # Cycle 54: both product-page looks read disclosure_label -- pdp (the
+    # default, look None) and classic.
+    pytest.param("product-page", lambda: copy.deepcopy(PRODUCT_PAGE_PAGE), lambda: FACTS_PACK, None, id="product-page"),
     pytest.param(
-        "product-page", lambda: copy.deepcopy(PRODUCT_PAGE_PAGE), lambda: FACTS_PACK, None, id="product-page",
-        marks=pytest.mark.xfail(reason="product-page template is owned by the concurrent pdp branch", strict=False),
+        "product-page", lambda: copy.deepcopy(PRODUCT_PAGE_PAGE), lambda: FACTS_PACK, "classic",
+        id="product-page-classic",
     ),
 ] + [
     pytest.param("listicle", _listicle_page, lambda: RICH_FACTS_PACK, look, id=f"listicle-{look}")

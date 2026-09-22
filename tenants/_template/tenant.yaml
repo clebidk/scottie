@@ -39,6 +39,11 @@ default_cta_url: /collections/all
 # Leave it out and nothing is stripped.
 product_display_strip_prefix: ""
 
+# Cycle 54: the product-page `pdp` look's eyebrow over the product name --
+# the product category in plain words (e.g. "Espresso machine"), shown
+# after the model's own fit line. "" shows the fit line alone.
+product_category: ""
+
 # Optional header label shown above the headline on every page, e.g.
 # "Advertisement" or "Sponsored" when the publisher's policy requires one.
 # Empty (the default) renders no label at all. See docs/TENANT-ONBOARDING.md.
