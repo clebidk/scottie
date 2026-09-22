@@ -123,17 +123,25 @@ def test_retired_models_never_appear():
     assert not re.search(r"\bcrown\b", text)
 
 
-def test_rubric_generator_reproduces_the_committed_rubric(tmp_path):
-    """The committed rubric.yaml is exactly what build_rubric.py derives from
-    the verified claims today -- a hand edit shows up here as a diff, which
-    is the point: re-derive, or update this test with the reason."""
+def test_rubric_generator_output_is_valid_and_matches_the_committed_questions(tmp_path):
+    """build_rubric.py derives a valid rubric from today's verified claims,
+    with the same questions and labels as the committed rubric.yaml. Scores
+    are not compared: Caleb tunes the weights by hand in the committed file."""
     script = RUBRIC_PATH.parent / "build_rubric.py"
     work = tmp_path / "tenant"
     shutil.copytree(TENANT.claims_dir, work / "claims")
     (work / "quiz").mkdir()
     shutil.copy(script, work / "quiz" / "build_rubric.py")
     subprocess.run([sys.executable, str(work / "quiz" / "build_rubric.py")], check=True, capture_output=True)
-    assert (work / "quiz" / "rubric.yaml").read_text() == RUBRIC_PATH.read_text()
+    generated, error = quiz.load_rubric(work / "quiz" / "rubric.yaml")
+    assert error is None
+    assert quiz.validate_rubric(generated, _active_slugs(_facts_pack())) == []
+    committed = quiz.load_rubric(RUBRIC_PATH)[0]
+
+    def shape(r):
+        return [(q["id"], [o["label"] for o in q["options"]]) for q in r["questions"]]
+
+    assert shape(generated) == shape(committed)
 
 
 # ---------------------------------------------------------------------------
