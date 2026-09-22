@@ -65,6 +65,24 @@ def global_voice_block(tenant=None):
         ban_sentences.append(f"Never name any of these: {names}.")
     for wrong, right in (v.competitor_aliases or {}).items():
         ban_sentences.append(f'Refer to that competitor as "{right}", never "{wrong.title()}".')
+    # Cycle 53: a former display name (tenant.yaml brand.retired_names, e.g.
+    # after a rebrand) must never be written, even when a quoted claim
+    # source still carries it (a policy title, an app name) -- the gate's
+    # own check (harness/repair.py's find_retired_name_violations) is what
+    # actually catches a slip here; this just heads it off up front.
+    retired_names = tenant.get("brand.retired_names") or []
+    if retired_names:
+        retired_list = ", ".join(f'"{n}"' for n in retired_names)
+        exceptions = tenant.get("brand.retired_name_exceptions") or []
+        exception_clause = (
+            " -- except the exact phrase" + ("s " if len(exceptions) != 1 else " ")
+            + ", ".join(f'"{e}"' for e in exceptions) + ", which may stay"
+            if exceptions else ""
+        )
+        ban_sentences.append(
+            f'This brand is called "{company}", never {retired_list}, even when a quoted source '
+            f"says otherwise{exception_clause}."
+        )
     ban_sentences.append(
         "Never claim third-party or accredited-laboratory testing of any kind. Competitor "
         "statements are only ever the speaker's own experience, never a sourced fact about a "

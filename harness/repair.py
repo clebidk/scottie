@@ -118,6 +118,141 @@ def find_word_range_violation(page_json, word_range):
     }]
 
 
+# ---------------------------------------------------------------------------
+# Cycle 53: retired brand name. A tenant that has renamed itself
+# (tenant.yaml brand.retired_names) must never have the old name written
+# into fresh copy -- write.py's global_voice_block already tells the writer
+# the current display name, but a quoted claim source (a policy title, an
+# app name) can still carry the old one and get echoed. Same shape as the
+# warranty/financing deterministic pre-repair passes above: a find_* gate
+# check feeding the writer repair loop, resolved here before ever spending
+# a real repair call, tenant-neutral (nothing company-specific in this
+# module -- every string comes from tenant.yaml).
+# ---------------------------------------------------------------------------
+
+def _protected_spans(text, phrases):
+    """Character spans in `text` covered by one of `phrases` (each an
+    exception phrase that legitimately still carries the retired name --
+    e.g. a storefront app whose own proper name embeds it) -- an occurrence
+    of the retired name fully inside one of these spans is a proper name,
+    not brand copy, and is left alone."""
+    spans = []
+    for phrase in phrases or ():
+        if not phrase:
+            continue
+        spans.extend(m.span() for m in re.finditer(re.escape(phrase), text))
+    return spans
+
+
+def _replace_retired_name(text, retired, display_name, exceptions):
+    """`text` with every occurrence of `retired` replaced by `display_name`,
+    except one fully inside one of `exceptions`'s own phrases. Case-sensitive,
+    exact-string match on both sides -- never a smart-case rewrite; a
+    configured display name written in an unusual case (e.g. an all-caps
+    acronym) is written exactly as configured, not case-matched to whatever
+    the retired name's own casing in that sentence was."""
+    protected = _protected_spans(text, exceptions)
+
+    def _sub(m):
+        s, e = m.span()
+        if any(ps <= s and e <= pe for ps, pe in protected):
+            return m.group(0)
+        return display_name
+
+    return re.sub(re.escape(retired), _sub, text)
+
+
+def find_retired_name_violations(page_json, facts_pack, tenant, *, log=None, cartridge_name=None):
+    """Flags a writer-owned string (every prose field in page_json, same
+    NON_PROSE_KEYS skip find_forbidden_terms uses -- url, asset_id,
+    claim_ids, etc. are never writer-composed copy) that still carries a
+    former display name (tenant.yaml brand.retired_names) outside a listed
+    exception phrase (brand.retired_name_exceptions).
+
+    A field whose ENTIRE text (stripped) exactly matches one of
+    facts_pack.verified_claims's own text is a verbatim quote of a sourced,
+    verified fact -- e.g. a policy title the claims store quoted before the
+    rename -- and is left alone rather than flagged, the same exemption
+    find_warranty_violations gives a verified warranty claim's own wording;
+    it can never be safely rewritten without breaking the quote. `log` /
+    `cartridge_name`, when both given, get one "note: retired name ... left
+    as-is ..." event per such occurrence, so the exemption is visible in
+    the run log even though it is never a gate failure -- informational
+    only, never a STOP. Returns [] (no-op) when this tenant sets no
+    retired_names."""
+    retired_names = tenant.get("brand.retired_names") or []
+    if not retired_names:
+        return []
+    exceptions = tenant.get("brand.retired_name_exceptions") or []
+    display_name = tenant.display_name
+    verified_texts = {
+        c["text"].strip() for c in (facts_pack or {}).get("verified_claims", []) if c.get("text")
+    }
+    hits = []
+    for path, node in walk_page(page_json, skip_keys=NON_PROSE_KEYS):
+        if not isinstance(node, str):
+            continue
+        is_verbatim_quote = node.strip() in verified_texts
+        for retired in retired_names:
+            if _replace_retired_name(node, retired, display_name, exceptions) == node:
+                continue
+            if is_verbatim_quote:
+                if log is not None and cartridge_name is not None:
+                    log.event(
+                        f"write.{cartridge_name}",
+                        f'note: retired name "{retired}" left as-is at {path} '
+                        "(verbatim quote of a verified claim)",
+                    )
+                continue
+            hits.append({
+                "path": path,
+                "term": retired,
+                "issue": f"retired brand name {retired!r} found; use {display_name!r} instead",
+                "key": f"retired_name:{path}",
+                "text": node,
+            })
+            break
+    return hits
+
+
+def _fix_retired_name_violation(page, path, retired, tenant, log=None, cartridge_name=None):
+    """Rewrites every unprotected occurrence of `retired` at `path` to the
+    tenant's current display name, in place. Returns True if the page was
+    changed. Only ever called on a path find_retired_name_violations
+    flagged, which already excludes an exception phrase and a verbatim
+    verified-claim quote -- so a resolved path always changes something."""
+    try:
+        current = _get_at_path(page, path)
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(current, str):
+        return False
+    exceptions = tenant.get("brand.retired_name_exceptions") or []
+    display_name = tenant.display_name
+    new_text = _replace_retired_name(current, retired, display_name, exceptions)
+    if new_text == current:
+        return False
+    _set_at_path(page, path, new_text)
+    if log is not None and cartridge_name is not None:
+        log.event(f"write.{cartridge_name}", f'fix: retired name "{retired}" -> "{display_name}" at {path}')
+    return True
+
+
+def apply_retired_name_fixes(page, facts_pack, tenant, log=None, cartridge_name=None):
+    """Runs find_retired_name_violations, then fixes every hit -- the same
+    two steps the writer repair loop's apply_deterministic_fixes takes for
+    a retired-name failure, called directly on an existing page.json with
+    no gate/repair loop around them. This is what `harness fixcopy` calls,
+    and what apply_deterministic_fixes's own retired-name branch is built
+    on. Returns the list of (retired_name, display_name, path) actually
+    changed."""
+    changes = []
+    for item in find_retired_name_violations(page, facts_pack, tenant, log=log, cartridge_name=cartridge_name):
+        if _fix_retired_name_violation(page, item["path"], item["term"], tenant, log=log, cartridge_name=cartridge_name):
+            changes.append((item["term"], tenant.display_name, item["path"]))
+    return changes
+
+
 def resolve_warmup_window(tenant, schema_default=None):
     """tenant.yaml's cartridges.article.warmup_window_words override, else
     the caller's own schema_default (write_and_gate_page already has
@@ -130,7 +265,7 @@ def resolve_warmup_window(tenant, schema_default=None):
     return default_warmup_window_words()
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, log=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
@@ -157,6 +292,10 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # checks (filler copy, leftover AI cliches, dead '#' links). Soft
     # counterparts stay in find_soft_check_warnings.
     problems += pagechecks.find_design_skill_violations(page)
+    # Cycle 53: retired brand name -- tenant-neutral (a no-op unless this
+    # tenant's own tenant.yaml sets brand.retired_names).
+    tenant = tenant or tenant_mod.active()
+    problems += find_retired_name_violations(page, facts_pack, tenant, log=log, cartridge_name=cartridge_name)
     # Cycle 30: warm-up window -- article only, and only a hard gate when
     # this tenant's cartridges.article.warmup_mode is "enforce" (default
     # "warn": advisory REVIEW.md line only, see find_soft_check_warnings).
@@ -589,7 +728,7 @@ def _fix_asset_id_prefix_violation(page, path, facts_pack):
 
 
 def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
-                               financing_lender=None, facts_pack=None):
+                               financing_lender=None, facts_pack=None, tenant=None):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
     claim id leaked into a parenthetical, a trigger word with a safe
@@ -669,6 +808,11 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None and cartridge_name is not None:
                     log.event(f"write.{cartridge_name}", f"fix: asset id prefix {old_id} -> {new_id}")
+            continue
+
+        if tenant is not None and "retired brand name" in issue:
+            if _fix_retired_name_violation(page, raw_path, term, tenant, log=log, cartridge_name=cartridge_name):
+                fixed += 1
             continue
 
         if term in _hype_synonyms() or term == "!":
@@ -774,6 +918,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             tenant=tenant,
             warmup_window_words=schema.get("warmup_window_words"),
             listicle_style=listicle_style,
+            log=log,
         )
 
     revision_note = None
@@ -865,7 +1010,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         fixed = (
             apply_deterministic_fixes(
                 page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
-                financing_lender=financing_lender, facts_pack=facts_pack,
+                financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
             )
             if problems else 0
         )

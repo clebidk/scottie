@@ -1992,4 +1992,56 @@ full contrast table: `tenants/peak-saunas/docs/REBRAND-APPLIED-2026-09-22.md`.
     "PEAK" as a common English word makes the headline-slot gate
     occasionally over-block; and the live theme around the page is still
     green-and-white.
+## Cycle 53 (retired brand names, 2026-09-22)
 
+A tenant that renames itself (cycle 52's own PEAK rebrand) can still have
+the old name echoed into fresh copy: the facts pack quotes verified claim
+text that carries it (a policy title, "the Peak Saunas app"), and the
+writer repeats it in writer-owned sentences ("Peak Saunas publishes its
+warranty...", "Does Peak Saunas charge for shipping?"). Renderer-owned
+strings were already clean -- this was a writer-prompt/gate gap only.
+
+1. **tenant.yaml.** Two new optional keys under `brand:` --
+   `retired_names` (former display names, never written) and
+   `retired_name_exceptions` (proper-name phrases, like an app name, that
+   keep a retired name on purpose). Documented in `tenants/_template/
+   tenant.yaml`; peak-saunas sets `retired_names: ["Peak Saunas"]` and
+   `retired_name_exceptions: ["Peak Saunas app"]`.
+2. **Writer prompt.** `harness/write.py`'s `global_voice_block` tells the
+   writer the current display name and never to write a configured retired
+   name, even when a quoted source says otherwise (except a listed
+   exception phrase) -- a no-op for a tenant with no `retired_names` set.
+3. **Gate + deterministic fix.** `harness/repair.py`'s
+   `find_retired_name_violations` scans every writer-owned string in
+   page.json (the same NON_PROSE_KEYS skip every other prose scan uses --
+   `url`, `asset_id`, `claim_ids`, etc. are never writer-composed copy) for
+   a retired name outside an exception phrase, feeding the writer repair
+   loop the same way the warranty/financing checks do. A field whose entire
+   text exactly matches a verified claim's own text is a verbatim quote of
+   a sourced fact -- e.g. a policy title the claims store quoted before the
+   rename -- and is left alone (a "note:" log line, never a gate failure,
+   same exemption `find_warranty_violations` gives a verified warranty
+   claim's own wording -- informational only, never a STOP). Everything
+   else is deterministically rewritten to the tenant's current display
+   name, case-preserving nothing: the configured display name (PEAK's own
+   all-caps form included) is written exactly as configured, never
+   case-matched to the retired name's casing in that sentence.
+4. **`harness fixcopy <run-dir> --page <cartridge>`.** A new command,
+   separate from `rerender` (which re-renders HTML/CSS from an unchanged
+   page.json and runs no gate): applies only the deterministic copy fixes
+   above to an existing page.json, writes it back with a state.json history
+   note (approval untouched, same non-destructive shape as
+   `mark_rerendered`), and reports what changed. The operator then runs
+   `harness rerender <run-dir> --page <cartridge>` and `harness publish
+   <run-dir> --page <cartridge> --update`.
+5. **Tests.** `tests/test_retired_names.py` -- nested-field replacement,
+   an exception phrase preserved (and the unprotected occurrence beside it
+   still flagged), a verbatim verified-claim quote preserved with a
+   note/warn, the display name already present left untouched, the full
+   writer-repair-loop path (no repair call spent), and `fixcopy` end to
+   end (rewrite + log, approval-state-preserving history note, no-op when
+   nothing needs fixing, refuses a run missing page.json/facts_pack.json,
+   makes no model call, argparse wiring). `evals/baseline/` recaptured
+   (byte-for-byte parity harness): both dry-run fixtures' `article.page.
+   json` used the retired name in a `close` paragraph pre-cycle-53; now
+   correctly reads "PEAK". Suite: 1465 passed. Ruff: clean.

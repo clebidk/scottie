@@ -108,7 +108,7 @@ ARTICLE_PAGE = {
             {"text": "Includes medical-grade red light therapy standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
         ],
     },
-    "close": {"paragraphs": [{"text": "Peak Saunas is one brand that does this."}]},
+    "close": {"paragraphs": [{"text": "PEAK is one brand that does this."}]},
     "cta": {"text": "See the models", "url": "https://peaksaunas.com/collections/all"},
     "images": [{"asset_id": FUJI_MANIFEST_ASSET_ID}],
 }
@@ -130,7 +130,7 @@ PRODUCT_PAGE_PAGE = {
         {"label": "Warranty", "text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
         {"label": "Red light therapy", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
         {"label": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
-        {"label": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
+        {"label": "US-owned", "text": "PEAK is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
     ],
     "angle_section": {"heading": "Why the price is on the page", "paragraphs": [{"text": "No form required."}] + _filler_paragraphs(6)},
     "specs_table": [{"label": "Capacity", "value": "2-Person"}],
@@ -157,7 +157,7 @@ LONGFORM_PAGE = {
             {"title": "See the price", "text": "The price is on the page."},
             {"title": "Red light therapy", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
             {"title": "Full spectrum infrared", "text": "360 full spectrum infrared heater placement.", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
-            {"title": "US-owned", "text": "Peak Saunas is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
+            {"title": "US-owned", "text": "PEAK is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
         ],
     },
     "specs_and_proof": {"specs_table": [{"label": "Capacity", "value": "2-Person"}], "proof_points": [{"text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]}]},
@@ -460,7 +460,7 @@ def test_render_page_sources_list_dedupes_by_url_and_omits_claim_text(tmp_path):
     # legitimately show it as persuasive copy) -- only the Sources list
     # itself must never show claim text, just the label.
     assert "Medical-grade red light therapy" not in sources_html
-    assert "Peak Saunas is a US-owned company" not in sources_html
+    assert "PEAK is a US-owned company" not in sources_html
     assert ">PEAK – Warranty<" in sources_html
     assert ">PEAK – Shipping policy<" in sources_html
     assert ">PEAK – Refund policy<" in sources_html

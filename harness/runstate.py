@@ -253,6 +253,28 @@ def mark_rerendered(run_dir, *, page, by="system", note=""):
     return data
 
 
+def mark_fixcopy(run_dir, *, page, by="system", note=""):
+    """Cycle 53: record that `page`'s page.json had a deterministic copy fix
+    applied (`harness fixcopy`) with no model call and no gate/repair loop --
+    same non-approval-changing shape as mark_rerendered above: an approved or
+    published page stays approved/published, and the history entry repeats
+    the page's current state (carrying `fixcopy_at`, which is what tells a
+    fixcopy apart from the state change it is not) rather than moving it."""
+    data = load_state(run_dir)
+    if page not in data["pages"]:
+        raise KeyError(f"unknown page {page!r} for this run; run has: {list(data['pages'])}")
+    at = _now()
+    data["history"].append({
+        "state": data["pages"][page],
+        "by": by,
+        "at": at,
+        "fixcopy_at": at,
+        "note": f"fixcopy page={page}" + (f"; {note}" if note else ""),
+    })
+    save_state(run_dir, data)
+    return data
+
+
 def run_started_date(run_dir):
     """The ISO date (YYYY-MM-DD) this run was first generated, from its own
     earliest history entry -- what `harness rerender` re-uses as the
