@@ -293,6 +293,22 @@ def test_review_html_is_untouched(tmp_path):
     assert (tmp_path / "quiz" / "index.html").read_text() == _REVIEW_DOC
 
 
+def _split_top_level_commas(selector_list):
+    """Split a selector list on commas outside parentheses, so
+    `.x :is(h1,h2)` stays one selector."""
+    parts, depth, start = [], 0, 0
+    for i, ch in enumerate(selector_list):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append(selector_list[start:i])
+            start = i + 1
+    parts.append(selector_list[start:])
+    return parts
+
+
 # Every cartridge type, rendered from the canned fake-run pages the eval
 # harness already builds, exports with no rem in its CSS.
 _CARTRIDGE_TEMPLATES = sorted(
@@ -321,5 +337,5 @@ def test_every_cartridge_template_css_exports_without_rem(tmp_path, template):
     page_css = css[css.index("/* storefront isolation reset"):]
     for item in css_scope.parse_stylesheet(page_css):
         if item[0] == "block" and not item[1].startswith("@"):
-            for sel in item[1].split(","):
+            for sel in _split_top_level_commas(item[1]):
                 assert sel.startswith(".adv-wrap.adv-wrap") or re.match(r"[a-z]+\.adv-wrap", sel), sel
