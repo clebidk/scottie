@@ -292,7 +292,7 @@
   </section>
 
   {% if page.tagline %}
-  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
+  <div class="pp-measure">{% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}</div>
   {% endif %}
 
   {% if d.specs %}
