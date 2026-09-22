@@ -16,6 +16,7 @@ from harness.repair import (
     apply_deterministic_fixes,
     apply_hype_synonyms,
     build_revision_note,
+    cartridge_write_constraints,
     convert_incidental_numerals,
     find_cta_violation,
     find_word_range_violation,
@@ -32,6 +33,7 @@ from harness.vocab import (
 )
 from harness.write import parse_word_range, resolve_allowed_cta_texts
 from tests.conftest import FakeClient, FakeResponse, block_text, json_response
+from tests.support import TENANT
 from tests.test_render import AD_BRIEF, ARTICLE_PAGE, FACTS_PACK
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -224,6 +226,26 @@ def test_find_cta_violation_passes_for_the_model_name_only_cta():
     schema = {"allowed_cta_texts": ["Shop the {short_name}", "Buy the {short_name}", "Shop the {model_name}"]}
     allowed = resolve_allowed_cta_texts(schema, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
     assert find_cta_violation({"cta_text": "Shop the Fuji"}, "product-page", allowed) == []
+
+
+def test_cartridge_write_constraints_pdp_cta_uses_the_short_model_name():
+    # Fix cycle 58 item 1: the product-page cartridge's pdp look renders
+    # page.cta_text verbatim in the hero, the closing CTA, the compare
+    # table, and the sticky phone bar -- one bug here shows up in all four
+    # places. Before the fix, cartridge_write_constraints passed
+    # facts_pack.product.short_name (the long, SEO-style form, e.g. "Peak
+    # Fuji 2-Person Infrared Sauna") as the {short_name} CTA-template
+    # substitution, instead of the actual short model name
+    # (facts_pack.product.name, e.g. "Fuji") that schema.json/cartridge.md
+    # document and that the listicle cartridge's {model_name} CTA already
+    # renders correctly.
+    _schema, _word_range, allowed = cartridge_write_constraints(
+        "product-page", REPO_ROOT / "cartridges", FACTS_PACK, AD_BRIEF, TENANT,
+    )
+    assert "Shop the Fuji" in allowed
+    assert "Buy the Fuji" in allowed
+    assert "Shop the Peak Fuji 2-Person Infrared Sauna" not in allowed
+    assert "Buy the Peak Fuji 2-Person Infrared Sauna" not in allowed
 
 
 # ---------------------------------------------------------------------------

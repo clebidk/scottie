@@ -114,7 +114,11 @@ ARTICLE_PAGE = {
 }
 
 PRODUCT_PAGE_PAGE = {
-    "cta_text": "Shop the Peak Fuji 2-Person Infrared Sauna",
+    # Fix cycle 58 item 1: the pdp/classic looks' allowed_cta_texts resolves
+    # {short_name}/{model_name} to the actual short model name ("Fuji"), not
+    # the long descriptive form -- see harness/repair.py's
+    # cartridge_write_constraints.
+    "cta_text": "Shop the Fuji",
     "cta_url": "https://peaksaunas.com/products/fuji",
     "hero": {
         "product_name": "Fuji 2-Person Full Spectrum Infrared Sauna",
@@ -703,7 +707,7 @@ def test_product_page_cta_text_appears_exactly_twice(tmp_path):
         download_assets=False,
     )
     html = index_path.read_text()
-    assert html.count(">Shop the Peak Fuji 2-Person Infrared Sauna<") == 2
+    assert html.count(">Shop the Fuji<") == 2
     assert html.count('href="https://peaksaunas.com/products/fuji"') >= 2
 
 
