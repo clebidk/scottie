@@ -718,12 +718,14 @@ def find_audience_fit_violations(page):
     return problems
 
 
-def find_faq_violations(page):
+def find_faq_violations(page, prefix="listicle"):
     """5-7 questions, and any answer that states a fact carries claim_ids.
     The number/trigger-word rule is claims._trigger_reason itself, so an FAQ
     answer is held to exactly the standard every other sentence on the page
     is (the shared gate only reaches a node's own "text" field; an FAQ
-    answer lives under "answer", which is why this check exists)."""
+    answer lives under "answer", which is why this check exists). `prefix` (cycle 54) is the key
+    namespace -- the product-page cartridge reuses this check as
+    "product-page:faq_*"."""
     faq = page.get("faq")
     questions = faq.get("questions") if isinstance(faq, dict) else faq
     questions = questions if isinstance(questions, list) else []
@@ -731,7 +733,7 @@ def find_faq_violations(page):
     problems = []
     if not lo <= len(questions) <= hi:
         problems.append(_problem(
-            "$.faq.questions", "listicle:faq_count",
+            "$.faq.questions", f"{prefix}:faq_count",
             f"FAQ has {len(questions)} questions; it needs {lo}-{hi}",
         ))
     for i, entry in enumerate(questions):
@@ -741,7 +743,7 @@ def find_faq_violations(page):
         reason = _trigger_reason(answer)
         if reason and not entry.get("claim_ids"):
             problems.append(_problem(
-                f"$.faq.questions[{i}].answer", f"listicle:faq_claims:{i}",
+                f"$.faq.questions[{i}].answer", f"{prefix}:faq_claims:{i}",
                 f"FAQ answer needs at least one claim_id ({reason}) -- cite a verified claim_id, "
                 "or rewrite the answer without it",
                 text=answer,
@@ -765,8 +767,10 @@ def find_closing_violations(page):
     return []
 
 
-def find_urgency_violations(page):
-    """No conversion-urgency vocabulary anywhere in writer-composed prose."""
+def find_urgency_violations(page, prefix="listicle"):
+    """No conversion-urgency vocabulary anywhere in writer-composed prose.
+    `prefix` (cycle 54): the key namespace, reused by the product-page
+    cartridge."""
     problems = []
     for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
         if not isinstance(node, str):
@@ -774,7 +778,7 @@ def find_urgency_violations(page):
         for phrase, pattern in _URGENCY_RES:
             if pattern.search(node):
                 problems.append(_problem(
-                    path, f"listicle:urgency:{phrase}",
+                    path, f"{prefix}:urgency:{phrase}",
                     f"urgency phrase {phrase!r} found; this page never uses urgency, a countdown, "
                     "or a discount to push the reader",
                     text=node,

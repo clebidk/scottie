@@ -163,7 +163,7 @@
   <header class="cmp-header" data-cmp-header>
     <div class="cmp-measure cmp-head-grid">
       <div>
-        {% if tenant.get("disclosure_label") %}<p class="cmp-eyebrow">{{ tenant.get("disclosure_label") }}</p>{% endif %}
+        {% if disclosure_label %}<p class="cmp-eyebrow">{{ disclosure_label }}</p>{% endif %}
         <h1 class="cmp-h1">{{ page.headline }}</h1>
         <p class="cmp-dek">{{ page.dek.text if page.dek is mapping else page.dek }}</p>
         {% if ctx.trust_items %}
