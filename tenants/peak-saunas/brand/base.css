@@ -6,7 +6,18 @@
 
    Palette, by name: basalt #181918, stone #EFE3D2, fossil-dust #C0C8C3,
    red #702B33, cedar #483215, solar-flare #F27046. No green, no gradients,
-   no shadows, square corners everywhere.
+   no shadows.
+
+   Cycle 63 (owner override, 2026-09-22): every box on every page type now
+   carries a 4px radius (--ps-radius-box), not 0. The generic --ps-radius-*
+   tokens below stay 0 -- structure.css and this file's own generic classes
+   (.card, .badge, table, .byline, ...) are shared by every cartridge this
+   harness renders, including ones outside this cycle's scope -- so the 4px
+   value is applied per page type instead, either inside that cartridge's
+   own <style> block (each listicle look, comparison, quiz and the pdp look
+   already point a local --pk-radius/--qz-radius/--pp-radius var at a brand
+   token the same way) or, for classic's shared structure.css classes,
+   through the ".adv-product-page ..." rules below.
 
    Fonts. Epika is licensed and self-hosted from brand/fonts/ below. Acid
    Grotesk is NOT licensed yet (the toolbox carries a trial build only,
@@ -49,11 +60,12 @@
   --ps-pill-text:#483215;      /* cedar, 9.52 on stone */
   --ps-pill-border:#483215;
   --ps-focus:#F27046;
-  /* ---- shape: square corners everywhere ---- */
+  /* ---- shape ---- */
   --ps-radius-card:0px;
   --ps-radius-btn:0px;
-  --ps-radius-pill:0px;
-  --ps-radius-round:0px;
+  --ps-radius-pill:0px;      /* fully-round shape: still unused, still square */
+  --ps-radius-round:0px;     /* fully-round shape: still unused, still square */
+  --ps-radius-box:4px;       /* cycle 63: the one radius every box uses now */
   /* ---- type ---- */
   --ps-sans:"Acid Grotesk","Schibsted Grotesk","Inter",Helvetica,Arial,sans-serif;
   --ps-serif:"Epika","Instrument Serif","Playfair Display",Georgia,serif;
@@ -61,6 +73,36 @@
   --ps-eyebrow-spacing:0.08em;
   --ps-eyebrow-color:#483215;
   --ps-max-width:1320px;
+}
+
+/* Cycle 63 box radius, scoped per page type (see the comment at the top of
+   this file). Each cartridge's own <style> block already routes its boxes
+   through a local var pointed at --ps-radius-box; these two rules cover the
+   remaining boxes that come from files shared across cartridges:
+   - .byline (this file, above) renders inside every listicle look and
+     comparison via their shared byline block -- quiz already strips the
+     box (.qz-byline .byline{border:0;background:none;padding:0}), and
+     product-page never renders a .byline at all.
+   - harness/structure.css's .adv-badge/.adv-cta/.adv-trust-item/
+     .adv-images img/.adv-hero-image/.adv-img/.adv-angle img are shared by
+     every cartridge this harness renders (article, longform, ...), so
+     they're re-scoped under .adv-product-page here rather than edited in
+     structure.css itself. The pdp look's own <style> block already
+     overrides .adv-img locally with no radius, so it wins over this rule
+     there (higher selector specificity) and pdp keeps using its own
+     --pp-radius/--pp-radius-btn instead; this rule only reaches classic. */
+.adv-listicle .byline,
+.adv-comparison .byline {
+  border-radius: var(--ps-radius-box, 4px);
+}
+.adv-product-page .adv-badge,
+.adv-product-page .adv-cta,
+.adv-product-page .adv-trust-item,
+.adv-product-page .adv-images img,
+.adv-product-page .adv-hero-image,
+.adv-product-page .adv-img,
+.adv-product-page .adv-angle img {
+  border-radius: var(--ps-radius-box, 4px);
 }
 
 *{box-sizing:border-box}

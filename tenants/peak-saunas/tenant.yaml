@@ -247,4 +247,7 @@ brand:
     on_dark: brand/logo-on-dark.svg   # Stone wordmark
     raster: [brand/logo-basalt.png, brand/logo-stone.png]
     rule: "Basalt on light grounds, Stone on dark. Never a Stone or White logo on Solar Flare."
-  radius: 0
+  radius: 4  # cycle 63, owner decision 2026-09-22: 4px on boxes on every page
+             # type (brand/tokens.json shape.radius_note). Not read by the
+             # renderer -- the actual value lives in brand/base.css's
+             # --ps-radius-box and each cartridge's own template.html.

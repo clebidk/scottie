@@ -2437,3 +2437,121 @@ Branch `cycle62/pdp-simplify`, worktree `~/adv-c62`, not merged, not pushed.
   so the promise band renders text only.
 - Brand tokens say headlines are uppercase (`brand.headline_case: upper`);
   the owner asked for sentence case, so the pdp look overrides it locally.
+
+## Cycle 63 (4px box radius on every page type, owner override, 2026-09-22)
+
+The brand shipped square (`shape.radius: 0`, every `--ps-radius-*` token
+`0px`) in cycle 52. The owner's verbatim ask -- "all boxes in all listicles
+need to have 4px rounding" -- started as a listicle-family-only change and
+was widened mid-cycle to every page type product-page (classic + pdp)
+included, so the constraint that PDP must stay square was dropped.
+
+1. **One new token, `--ps-radius-box: 4px`,** added to
+   `tenants/peak-saunas/brand/base.css`'s `:root` alongside the existing
+   `--ps-radius-card/-btn/-pill/-round` (all still `0px` -- pills and
+   fully-round shapes are still unused, still square, and those four
+   tokens are shared by every cartridge this harness renders, not just the
+   four in scope here). Each cartridge's own `<style>` block already
+   pointed a local var (`--pk-radius(-sm/-md)`, `--qz-radius(-btn)`,
+   `--pp-radius(-btn)`) at a brand token the same way cycle 52 set up --
+   only the token name changed, from `--ps-radius-card`/`--ps-radius-btn`
+   to `--ps-radius-box`, in the five listicle looks, comparison, quiz and
+   the pdp look.
+2. **classic has no `<style>` of its own** -- it renders `harness/
+   structure.css`'s generic classes (`.adv-cta`, `.adv-badge`,
+   `.adv-trust-item`, `.adv-images img`, `.adv-hero-image`, `.adv-img`,
+   `.adv-angle img`) directly, and those are shared with cartridges outside
+   this cycle's scope (article, longform), so `structure.css` itself was
+   not touched. `base.css` instead re-scopes them under `.adv-product-page`
+   with `border-radius: var(--ps-radius-box, 4px)`, which only reaches
+   classic (the pdp look's own `<style>` already overrides `.adv-img`
+   locally with no radius at all, so its higher specificity wins there and
+   pdp keeps using `--pp-radius`/`--pp-radius-btn` instead). The same
+   problem existed for `.byline` (base.css's own bordered/padded box,
+   rendered by every listicle look and comparison through their shared
+   byline block, but never by product-page or quiz -- quiz already strips
+   the box itself: `.qz-byline .byline{border:0;background:none;
+   padding:0}`) -- re-scoped the same way, under `.adv-listicle`/
+   `.adv-comparison`.
+3. **Two boxes comparison was missing a radius rule for entirely.**
+   `.cmp-media` (the hero image frame -- already `overflow:hidden`, never
+   had a `border-radius`) and the table-row/mobile-card product thumbnails
+   (`.cmp-thumb`/`.cmp-card-thumb`, which only ever set the wrapper's
+   width; `.cmp .adv-img{border-radius:0}` was blanket-resetting every
+   image in the cartridge, hero included). Added `border-radius:
+   var(--pk-radius)` to `.cmp-media` and a `border-radius: var(--pk-radius-
+   sm)` override for the two thumb wrappers' `.adv-img`.
+4. **Two filled badges were pinned to the pill token.** Pillars' `.pil-
+   proof` and scorecard's `.sc-chip` (both bordered, filled labels) used
+   `--pk-radius-pill`, which stays `0px` on purpose (item ... below). Since
+   the owner's scope names "badges/labels with a fill" as boxes, both now
+   use `--pk-radius-sm` (4px) instead; the pill token and its "not a pill"
+   semantics are untouched.
+5. **Left square, deliberately.** `.cmp.pk-lp table{border-radius:0}` (no
+   border or fill on the table itself -- "no boxed grid" is the page's own
+   design, a hairline table isn't a box). `.cmp .adv-img{border-radius:0}`
+   for images that sit flush inside an already-rounded frame (the hero
+   inside `.cmp-media`, and every look's `.adv-img`/`.qz-media .adv-img`
+   that sits flush inside its own already-rounded panel) -- rounding the
+   inner element too would either double the curve or leave a gap at the
+   frame edge. The "our pick" table-column tint (`.cmp-table .is-pick`) --
+   a background on a run of `<td>`/`<th>` cells, not a standalone panel;
+   rounding a few cells in the middle of a table row reads as broken, not
+   as a box. `--ps-radius-pill`/`--ps-radius-round` stay `0px` (still
+   unused, still square -- lander's numbered-step circle and the two
+   badges above are the only things that ever pointed at them, and the
+   badges were moved off in item 4). `harness/blocks/*/block.css` --
+   checked all twelve; none of them are included by listicle, comparison,
+   quiz or either product-page look (only `classic`'s `tagline-reveal` and
+   `longform` use `block_choice`), so nothing there needed a token.
+6. **Tests first.** `tests/test_brand_tokens_cycle52.py`: the four `0px`
+   assertions in `test_the_tenants_own_tokens_carry_the_finalized_palette`
+   are unchanged (still true) with `("--ps-radius-box", "4px")` added;
+   `test_every_radius_in_a_look_resolves_a_brand_token` (no hardcoded
+   number in a look) is unchanged and still passes; new
+   `test_every_look_points_its_box_radius_at_the_box_token` (each look's
+   `--pk-radius*` resolves `--ps-radius-box`, not `--ps-radius-card/-btn`),
+   `test_comparison_and_quiz_box_radius_resolves_to_the_box_token` (no
+   hardcoded non-zero number, the two new comparison box rules present,
+   `--pk-radius*`/`--qz-radius*` resolve the box token), and
+   `test_the_boxes_shared_across_cartridges_also_resolve_to_the_box_token`
+   (the `.byline` and `.adv-product-page ...` overrides exist in
+   base.css). `tests/test_product_page_looks.py`'s
+   `test_the_pdp_look_has_no_colour_literal_and_no_radius_number` extended
+   (still forbids a literal colour or radius number) to require
+   `--pp-radius`/`--pp-radius-btn` resolve `--ps-radius-box` and that the
+   gallery stage, promise-band media, thumbnails and every `.pp-btn` (buy
+   panel, sticky bar, closing CTA -- one class, three places) use one of
+   them. `tests/test_comparison.py::test_the_page_uses_brand_tokens_only`
+   (pre-existing, asserted the old `--ps-radius-card` name) updated to the
+   new token. New `tests/test_brand_tokens_cycle52.py::
+   test_the_export_carries_the_box_radius_token_and_a_rounded_box`: a real
+   listicle render through `harness.page_body.build_shopify_body` carries
+   both `--ps-radius-box:4px` (via `token_css`'s `:root` re-scope) and
+   `--pk-radius:var(--ps-radius-box,4px)` (the look's own restated
+   `<style>`) into the exported body.
+7. **Verified** by re-rendering read-only copies of nine live runs with
+   `harness rerender` (no model call) -- the five listicle looks (cards,
+   editorial, lander, pillars, scorecard), comparison, quiz, and both
+   product-page pdp demos, plus one extra `--look classic` re-render of the
+   `iq7i` copy for classic's own proof -- and reading real computed styles
+   with a small CDP script (`Page.captureScreenshot` + `Runtime.evaluate`
+   -> `getComputedStyle(...).borderTopLeftRadius`) against headless
+   `google-chrome`, not by reading the CSS: every measured box (image
+   frame/gallery stage, CTA/buy/start button, card/panel, badge/chip, quiz
+   option tile and card shell, thumbnails) computed `4px` on all ten pages.
+   Screenshots (1280 wide, top 1600px) and `computed-radii.json` in
+   `/tmp/c63-proof/` on the server. `.adv-badge` read `null` on the classic
+   screenshot only because this tenant's `disclosure_label` is unset, so it
+   never renders (confirmed the rule directly in base.css instead). Copied
+   run directories removed before commit. Full suite: 1725 passed (was
+   1717; 8 new tests).
+
+### Open
+- `.cmp-table .is-pick` and stacked-mobile `.cmp-card` stay square by
+  design (item 5) -- if the owner later wants the pick column or the
+  mobile model cards to read as boxes, that needs an actual panel/border
+  added first, not just a token swap.
+- `shape.radius`/`radius_note` in `tokens.json` and `tenant.yaml`'s
+  `brand.radius` are hand-authored reference values only (`brand_import.py`:
+  "a hand-authored reference document"); neither is read by the renderer.

@@ -35,8 +35,8 @@
   --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
   --pk-sans:var(--ps-sans,inherit);
   --pk-serif:var(--ps-serif,var(--adv-serif,Georgia,serif));
-  --pk-radius:var(--ps-radius-card,8px);
-  --pk-radius-sm:var(--ps-radius-btn,4px);
+  --pk-radius:var(--ps-radius-box,4px);
+  --pk-radius-sm:var(--ps-radius-box,4px);
   --cmp-outer:1200px;
   --cmp-text:680px;
   --cmp-gutter:40px;
@@ -55,7 +55,7 @@
 .cmp.pk-lp :is(h1,h2,h3,h4,p,th,dt,dd){text-transform:none;letter-spacing:0}
 /* the tenant's global table look (dark header cells, zebra rows, a boxed
    border) is for spec tables; this page draws its own hairlines */
-.cmp.pk-lp table{border:none;border-radius:0;margin:0;font-size:inherit}
+.cmp.pk-lp table{border:none;border-radius:0;margin:0;font-size:inherit} /* hairline table, no boxed panel -- stays square */
 .cmp.pk-lp :is(th,td){background:transparent;border:none;font-size:inherit}
 .cmp img{display:block;max-width:100%}
 .cmp picture{display:block}
@@ -88,7 +88,7 @@
 .cmp .cmp-reassure{margin:14px 0 0;font-size:.875rem;line-height:1.4;color:var(--pk-muted)}
 
 /* images: a photo fills its frame; a cut-out sits whole on a tinted panel */
-.cmp .cmp-media{margin:0;position:relative;overflow:hidden}
+.cmp .cmp-media{margin:0;position:relative;overflow:hidden;border-radius:var(--pk-radius)}
 .cmp .cmp-media--panel{background:var(--cmp-tint)}
 .cmp .cmp-media-in{position:absolute;inset:0}
 .cmp .cmp-media--panel .cmp-media-in{inset:7%}
@@ -114,6 +114,7 @@
 .cmp .cmp-table thead th,.cmp .cmp-table thead td{vertical-align:bottom;padding-top:24px;padding-bottom:24px;height:auto}
 .cmp .cmp-colhead .cmp-label{margin-bottom:16px;color:var(--pk-ink)}
 .cmp .cmp-thumb{width:100%;max-width:180px;margin:0 auto 20px}
+.cmp .cmp-thumb .adv-img{border-radius:var(--pk-radius-sm)}
 .cmp .cmp-model{font-size:1.375rem;line-height:1.25;font-weight:500;color:var(--pk-ink);margin:0 0 4px}
 .cmp .cmp-price{font-size:1rem;line-height:1.4;color:var(--pk-body);margin:0 0 12px}
 .cmp .cmp-table .is-pick{background:var(--cmp-tint)}
@@ -128,6 +129,7 @@
 .cmp .cmp-card.is-pick{background:var(--cmp-tint);margin:0 calc(-1 * var(--cmp-gutter));padding:28px var(--cmp-gutter)}
 .cmp .cmp-card-head{display:grid;grid-template-columns:96px minmax(0,1fr);gap:20px;align-items:end;margin:0 0 20px}
 .cmp .cmp-card-thumb{width:96px}
+.cmp .cmp-card-thumb .adv-img{border-radius:var(--pk-radius-sm)}
 .cmp .cmp-card-head .cmp-copy{font-size:1rem;line-height:1.5;margin:0}
 .cmp .cmp-specs{margin:0 0 20px}
 .cmp .cmp-spec{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;padding:12px 0;border-top:1px solid var(--cmp-rule)}
