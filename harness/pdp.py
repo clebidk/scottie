@@ -3,20 +3,28 @@ sections and the writer-owned structural gates.
 
 The `pdp` look lays a product page out like the brand's own storefront
 product detail page (see the tenant's docs/PDP-STRUCTURE-*.md for what was
-measured), but its headline, proof tiles and FAQ answer the ad the visitor
-clicked. Two halves, the same split harness/listicle.py uses:
+measured), but its promise band and FAQ answer the ad the visitor clicked.
+Cycle 62 made it simpler: the live PDP's bones only -- gallery + buy panel,
+one promise band, a short "what's included" list, the specs in a
+details row, exactly 5 FAQs, one closing CTA. No compare table, proof
+tiles, benefit cards or chips. Two halves, the same split
+harness/listicle.py uses:
 
   - render_context: everything the look shows that did NOT come from the
     writer -- the gallery, the price, the fixed financing and warranty
-    sentences, the rating line, the HSA/FSA line, the short spec list in the
-    buy panel, the lead-time line, the spec table, the model compare table.
-    Each one is built from facts_pack alone, so "omitted when unverified" is
-    structural: there is no page.json field to invent one in, and
-    find_renderer_owned_violations rejects a page that adds one.
+    sentences, the rating line, the HSA/FSA line, the lead-time line, the
+    spec table. Each one is built from facts_pack alone, so "omitted when
+    unverified" is structural: there is no page.json field to invent one
+    in, and find_renderer_owned_violations rejects a page that adds one.
+    It also trims the writer's sections to what the look shows (2 promise
+    paragraphs, 6 included items, 5 FAQs), so a page.json written before
+    cycle 62 still renders -- its extra fields are ignored.
   - find_product_page_violations: the writer-owned checks the repair loop
-    runs (harness/repair.py's check_page_gates) -- ad-proof tiles with claim
-    ids, a 5-7 question FAQ whose factual answers carry claim ids, a promise
-    line with no uncited number, no urgency vocabulary.
+    runs (harness/repair.py's check_page_gates) -- an included list with
+    claim ids, exactly 5 FAQs whose factual answers carry claim ids,
+    exactly 2 promise paragraphs, a promise line with no uncited number,
+    power/outlet copy that agrees with the product's electrical claim, no
+    stock marketing phrases, no urgency vocabulary.
 
 Tenant-neutral: every rule here is structural or plain English; any
 company, product or lender word comes from facts_pack or tenant.yaml.
@@ -29,15 +37,54 @@ from . import tenant as tenant_mod
 from . import vocab
 from .ground import HERO_NEVER_KINDS
 from .prices import format_price
-from .textutil import product_name_slug, walk_page
+from .textutil import NON_PROSE_KEYS, product_name_slug, walk_page
 
-AD_PROOF_RANGE = (3, 4)
-FAQ_COUNT_RANGE = listicle.FAQ_COUNT_RANGE
-BENEFIT_BLOCK_COUNT = 3
+FAQ_COUNT_RANGE = (5, 5)
+INCLUDED_RANGE = (3, 6)
+PROMISE_PARAGRAPHS = 2
 GALLERY_MAX = 6
 GALLERY_MIN_UNIQUE = 4
-BUY_PANEL_SPEC_LINES = 3
 SPEC_TABLE_MAX_ROWS = 10
+
+# Stock marketing phrases the owner named as "AI-generated" (cycle 62), on
+# top of the tenant's own vocab hype words. Matched on word stems, so
+# "transforms" and "sanctuaries" count too.
+_STOCK_PHRASE_RES = tuple(
+    (phrase, re.compile(pattern, re.IGNORECASE)) for phrase, pattern in (
+        ("whether you're", r"\bwhether\s+you(?:'|’)?(?:re|\s+are)\b"),
+        ("elevate", r"\belevat(?:e|es|ed|ing)\b"),
+        ("unlock", r"\bunlock\w*"),
+        ("transform", r"\btransform\w*"),
+        ("sanctuary", r"\bsanctuar(?:y|ies)\b"),
+        ("game-changer", r"\bgame[\s-]?chang\w*"),
+    )
+)
+
+# Power/outlet wording (cycle 62: one demo page said "no electrician needed"
+# while that model's own claim says it needs a dedicated 20A outlet). The
+# product's own claims decide which way round: a claim that says a
+# dedicated outlet or circuit is required makes the "plugs in anywhere"
+# phrases a contradiction; otherwise a claim that says a standard outlet
+# makes the "dedicated" phrases one.
+_NO_DEDICATED_RE = re.compile(r"\bno\s+dedicated\b", re.IGNORECASE)
+_DEDICATED_RE = re.compile(r"\bdedicated\b", re.IGNORECASE)
+_STANDARD_OUTLET_RES = (
+    re.compile(r"\b(?:no|without)\b[^.]{0,30}\belectrician", re.IGNORECASE),
+    # "a standard 15A outlet is not sufficient" states the dedicated rule,
+    # so a negated outlet phrase is not a contradiction
+    re.compile(r"\b(?:standard|normal|regular|ordinary|any)\s+(?:[\w/-]+\s+){0,2}outlet"
+               r"(?!\s+(?:is\s+not|isn't|will\s+not|won't|does\s+not|doesn't)\b)", re.IGNORECASE),
+    _NO_DEDICATED_RE,
+)
+# Stated requirements only: a question ("Do I need an electrician?") or a
+# negated clause ("no electrician or dedicated circuit is required") is
+# not one -- _NEGATED_CLAUSE_RE removes those clauses before the match.
+_DEDICATED_PAGE_RES = (
+    re.compile(r"\b(?:requires?|needs|runs\s+on|must\s+(?:have|use))\s+(?:a\s+|an\s+|its\s+own\s+)?dedicated\b", re.IGNORECASE),
+    re.compile(r"\bdedicated\s+(?:[\w/-]+\s+){0,3}(?:outlet|circuit|line)\s+(?:is\s+)?(?:required|needed)", re.IGNORECASE),
+    re.compile(r"\b(?:requires|needs)\s+an?\s+electrician", re.IGNORECASE),
+)
+_NEGATED_CLAUSE_RE = re.compile(r"\b(?:no|not|without|never)\b[^.;?!]*", re.IGNORECASE)
 
 # page.json keys for sections the RENDERER owns. A writer that adds one is
 # inventing data the gate cannot check (same rule as
@@ -61,6 +108,12 @@ def _problem(path, key, issue, **extra):
 
 def _hero_id(page):
     return ((page.get("hero") or {}).get("hero_image") or {}).get("asset_id")
+
+
+def _angle_image_id(page):
+    angle = page.get("angle_section") if isinstance(page.get("angle_section"), dict) else {}
+    image = angle.get("image") if isinstance(angle.get("image"), dict) else {}
+    return image.get("asset_id")
 
 
 def _page_asset_ids_in_order(page):
@@ -87,11 +140,10 @@ def gallery_asset_ids(page, facts_pack, *, allow_ai_renders=False, limit=GALLERY
          already leads with;
       2. the writer's optional page.gallery_order picks, in order;
       3. the product's own storefront images (facts_pack.product.slug's
-         `asset-<slug>-<n>` manifest ids) that the page does not already
-         show in another slot;
+         `asset-<slug>-<n>` manifest ids) other than the promise band's own
+         image (page.angle_section.image);
       4. only if that leaves fewer than GALLERY_MIN_UNIQUE images: storefront
-         images the page already shows elsewhere (the benefit blocks' and
-         the paragraph-image matcher's picks), in page order.
+         images the page names anywhere else, in page order.
 
     Every id is checked against facts_pack.assets; a never-eligible kind (a
     logo) or a disallowed AI render is skipped. Called before assets are
@@ -111,10 +163,10 @@ def gallery_asset_ids(page, facts_pack, *, allow_ai_renders=False, limit=GALLERY
     for asset_id in page.get("gallery_order") or []:
         if isinstance(asset_id, str):
             add(asset_id)
-    shown = set(_page_asset_ids_in_order(page))
+    promise_image = _angle_image_id(page)
     storefront = [a["id"] for a in facts_pack.get("assets", []) if slug and a["id"].startswith(prefix)]
     for asset_id in storefront:
-        if asset_id not in shown:
+        if asset_id != promise_image:
             add(asset_id)
     if len(order) < GALLERY_MIN_UNIQUE:
         for asset_id in _page_asset_ids_in_order(page):
@@ -220,115 +272,100 @@ def shipping_line(facts_pack, tenant=None):
     return {"text": " ".join(parts), "claim_ids": ids}
 
 
-def eyebrow(facts_pack, tenant=None):
-    """The small line over the product name: the model's own fit (its
-    capacity/placement spec values, as the model picker builds it) and the
-    tenant's product category (tenant.yaml `product_category`), whichever
-    exist."""
-    tenant = tenant or tenant_mod.active()
-    product = facts_pack.get("product") or {}
-    fit = ""
-    for option in facts_pack.get("model_options") or []:
-        if option.get("url") == product.get("url"):
-            fit = option.get("fit") or ""
-            break
-    parts = [p for p in (fit, tenant.get("product_category") or "") if p]
-    return " · ".join(parts)
-
-
-def benefit_asset_ids(page, facts_pack, gallery_ids, *, allow_ai_renders=False):
-    """One image id (or None) for each of the first BENEFIT_BLOCK_COUNT
-    proof bullets: the bullet's own `image` when it has one; else the next
-    unused angle_section.image / detail_images pick; else an eligible
-    facts_pack asset that is neither in the gallery nor anywhere else on the
-    page (a lifestyle or installation photo first). Called before assets are
+def promise_asset_id(page, facts_pack, gallery_ids, *, allow_ai_renders=False):
+    """The promise band's one image, or None: the writer's own
+    angle_section.image when it is eligible and not already in the gallery;
+    else an eligible lifestyle or installation photo that is neither in the
+    gallery nor anywhere else on the page. Called before assets are
     downloaded, with gallery_asset_ids' result, so render_page downloads
-    exactly these."""
+    exactly this one."""
     assets = {a["id"]: a for a in facts_pack.get("assets", [])}
     eligible = _eligible(assets, allow_ai_renders)
-    bullets = [b for b in (page.get("proof_bullets") or []) if isinstance(b, dict)][:BENEFIT_BLOCK_COUNT]
-    own = [(b.get("image") or {}).get("asset_id") for b in bullets]
-    taken = {i for i in own if i} | set(gallery_ids)
-    spare = []
-    angle = (page.get("angle_section") or {}).get("image") or {}
-    for node in [angle, *(page.get("detail_images") or [])]:
-        if isinstance(node, dict) and node.get("asset_id") and node["asset_id"] not in taken:
-            spare.append(node["asset_id"])
-    on_page = set(_page_asset_ids_in_order(page))
-    pool = [a for a in facts_pack.get("assets", []) if a["id"] not in taken and a["id"] not in on_page]
-    pool.sort(key=lambda a: 0 if a.get("kind") in ("lifestyle", "installation") else 1)
-    spare += [a["id"] for a in pool]
-    picks = []
-    for asset_id in own:
-        if not (asset_id and eligible(asset_id)):
-            asset_id = next((s for s in spare if eligible(s) and s not in picks), None)
-        if asset_id:
-            spare = [s for s in spare if s != asset_id]
-        picks.append(asset_id)
-    return picks
+    own = _angle_image_id(page)
+    if own and own not in gallery_ids and eligible(own):
+        return own
+    taken = set(gallery_ids) | set(_page_asset_ids_in_order(page))
+    for asset in facts_pack.get("assets", []):
+        if asset.get("kind") in ("lifestyle", "installation") and asset["id"] not in taken and eligible(asset["id"]):
+            return asset["id"]
+    return None
 
 
-def benefit_blocks(page, assets, benefit_ids):
-    """The "why this model" blocks: the first BENEFIT_BLOCK_COUNT proof
-    bullets, each with the image benefit_asset_ids chose for it (absent when
-    its download failed -- the block then renders text only)."""
-    bullets = [b for b in (page.get("proof_bullets") or []) if isinstance(b, dict)][:BENEFIT_BLOCK_COUNT]
-    blocks = []
-    for i, bullet in enumerate(bullets):
-        asset_id = benefit_ids[i] if i < len(benefit_ids) else None
-        blocks.append({"label": bullet.get("label") or "", "text": bullet.get("text") or "",
-                       "asset": assets.get(asset_id) if asset_id else None})
-    return blocks
-
-
-def ghost_cta(page, tenant=None):
-    """The buy panel's secondary action. "Book a consult" style text (the
-    tenant's own cta_variants.consult, first entry) only when the tenant's
-    cta_mode allows consult CTAs; otherwise the page's one cta_text as a
-    text link to the same cta_url -- one destination offered twice, never a
-    second phrase or a second destination."""
-    tenant = tenant or tenant_mod.active()
-    url = page.get("cta_url")
+def display_cta_text(page, facts_pack):
+    """The page's one CTA text, as every button shows it. A page written
+    before fix cycle 58 filled {short_name} with the long catalog title
+    ("Shop the <Company> <Model> 2-Person ..."); that exact string is shown
+    with the short model name instead -- the same allowed text
+    harness/repair.py resolves today. Any other text is shown verbatim, and
+    page.json is never changed."""
     text = page.get("cta_text") or ""
-    if (tenant.get("cta_mode") or "buy") in ("consult", "auto"):
-        variants = tenant.get("cta_variants.consult") or []
-        if variants:
-            consult = str(variants[0]).format(
-                tenant_short_name=tenant.get("tenant_short_name") or tenant.display_name,
-                short_name="", model_name="",
-            ).strip()
-            if consult and consult != text:
-                return {"text": consult, "url": url, "kind": "button"}
-    return {"text": text, "url": url, "kind": "link"}
+    product = facts_pack.get("product") or {}
+    long_name, short = product.get("short_name") or "", product.get("name") or ""
+    if long_name and short and long_name != short and long_name in text:
+        return text.replace(long_name, short)
+    return text
 
 
-def render_context(page, facts_pack, assets, gallery_ids, benefit_ids=(), *, tenant=None):
+def _paragraph_texts(page, limit=PROMISE_PARAGRAPHS):
+    angle = page.get("angle_section") if isinstance(page.get("angle_section"), dict) else {}
+    paragraphs = angle.get("paragraphs") if isinstance(angle.get("paragraphs"), list) else []
+    texts = [p.get("text") for p in paragraphs if isinstance(p, dict) and (p.get("text") or "").strip()]
+    return texts[:limit]
+
+
+def included_items(page):
+    """The "what's included" list: page.included's texts, at most
+    INCLUDED_RANGE[1]. A page written before cycle 62 has no included list;
+    its proof bullets' labels (each one a verified claim) stand in."""
+    items = page.get("included") if isinstance(page.get("included"), list) else None
+    key = "text"
+    if items is None:
+        items = page.get("proof_bullets") if isinstance(page.get("proof_bullets"), list) else []
+        key = "label"
+    texts = [i.get(key) for i in items if isinstance(i, dict) and (i.get(key) or "").strip()]
+    return texts[:INCLUDED_RANGE[1]]
+
+
+def faq_entries(page):
+    faq = page.get("faq")
+    questions = faq.get("questions") if isinstance(faq, dict) else faq
+    questions = questions if isinstance(questions, list) else []
+    return [q for q in questions if isinstance(q, dict) and q.get("question")][:FAQ_COUNT_RANGE[1]]
+
+
+def render_context(page, facts_pack, assets, gallery_ids, promise_id=None, *, tenant=None):
     """Everything the `pdp` look renders that came from facts_pack or
-    tenant.yaml rather than from the writer. `assets` is render_page's
-    assets_by_id after downloading (a failed download is simply absent);
-    `gallery_ids`/`benefit_ids` are gallery_asset_ids'/benefit_asset_ids'
+    tenant.yaml rather than from the writer, plus the writer's sections
+    trimmed to what the look shows. `assets` is render_page's assets_by_id
+    after downloading (a failed download is simply absent);
+    `gallery_ids`/`promise_id` are gallery_asset_ids'/promise_asset_id's
     results from before the download."""
     tenant = tenant or tenant_mod.active()
     product = facts_pack.get("product") or {}
     min_reviews = tenant.get("reviews.min_count")
-    ctx = {
-        "product_name": tenant.display_product_name(product.get("short_name") or product.get("name") or ""),
-        "eyebrow": eyebrow(facts_pack, tenant),
+    angle = page.get("angle_section") if isinstance(page.get("angle_section"), dict) else {}
+    return {
+        # the buy panel shows the short model name; the document title keeps
+        # the full catalog title, as the JSON-LD does
+        "product_name": tenant.display_product_name(product.get("name") or product.get("short_name") or ""),
+        "page_title": tenant.display_product_name(product.get("short_name") or product.get("name") or ""),
+        "cta_text": display_cta_text(page, facts_pack),
         "gallery": [assets[i] for i in gallery_ids if i in assets],
         "price": price_panel(page, facts_pack),
         "financing": financing_sentence(facts_pack),
         "rating": listicle.rating_line(facts_pack, min_reviews=int(min_reviews) if min_reviews else None),
         "hsa": listicle.hsa_claim(facts_pack),
-        "buy_specs": spec_rows(facts_pack, limit=BUY_PANEL_SPEC_LINES),
         "shipping": shipping_line(facts_pack, tenant),
         "warranty": warranty_line(facts_pack),
         "specs": spec_rows(facts_pack),
-        "compare": facts_pack.get("model_compare"),
-        "review_quote": listicle.pull_quote(facts_pack),
-        "benefits": benefit_blocks(page, assets, list(benefit_ids)),
-        "ghost_cta": ghost_cta(page, tenant),
+        "promise": {
+            "heading": angle.get("heading") or "",
+            "paragraphs": _paragraph_texts(page),
+            "asset": assets.get(promise_id) if promise_id else None,
+        },
+        "included": included_items(page),
+        "faq": faq_entries(page),
     }
-    return ctx
 
 
 def context_claim_ids(ctx):
@@ -340,12 +377,8 @@ def context_claim_ids(ctx):
             ids.update(ctx[key].get("claim_ids") or [])
     if ctx.get("hsa"):
         ids.add(ctx["hsa"]["id"])
-    for row in (ctx.get("buy_specs") or []) + (ctx.get("specs") or []):
+    for row in ctx.get("specs") or []:
         ids.update(row.get("claim_ids") or [])
-    for row in (ctx.get("compare") or {}).get("rows", []):
-        for cell in row.get("cells") or []:
-            if cell:
-                ids.update(cell.get("claim_ids") or [])
     return ids
 
 
@@ -354,22 +387,32 @@ def context_claim_ids(ctx):
 # ---------------------------------------------------------------------------
 
 def writer_rules_lines():
-    plo, phi = AD_PROOF_RANGE
-    flo, fhi = FAQ_COUNT_RANGE
+    ilo, ihi = INCLUDED_RANGE
     return [
-        "This is a product page whose headline, proof tiles and FAQ answer the ad the visitor "
-        "clicked. hero.promise is the headline: the ad's main claim or angle, rewritten for this "
-        "product -- a number, price or percentage in it needs its claim_id in hero.claim_ids, so "
-        "prefer a promise with no number at all.",
-        f"ad_proof has {plo}-{phi} tiles. Each tile answers one point the ad made, and each "
-        "carries at least one claim_id from facts_pack.verified_claims -- a tile you cannot cite "
-        "is replaced by one you can.",
-        f'faq.questions has {flo}-{fhi} entries: the questions a visitor from this ad asks before '
-        "buying (its objections, its hidden worries), each answered in 1-3 sentences. Any answer "
-        "stating a number, a price, a spec or a trigger word carries claim_ids.",
-        "Never write the gallery, the price panel, the rating, the spec table, the model compare "
-        "table, a lead-time line or an HSA/FSA line -- the renderer builds them from facts_pack. "
-        "No urgency: no countdown, no \"limited time\", no discount push.",
+        "This is a product page whose promise band and FAQ answer the ad the visitor clicked. "
+        "hero.promise is the one-line descriptor under the model name: the ad's main point, said "
+        "about the product in plain words -- a number, price or percentage in it needs its "
+        "claim_id in hero.claim_ids, so prefer a promise with no number at all.",
+        f"angle_section.paragraphs has exactly {PROMISE_PARAGRAPHS} short paragraphs (at most 45 "
+        "words each) under one heading (at most 10 words). They carry the ad's angle: what the ad "
+        "said, then what this product does about it.",
+        f"included has {ilo}-{ihi} items: what comes with the sauna, each a plain noun phrase of at "
+        "most 8 words (\"Full-body red light panel\"), each with at least one claim_id from "
+        "facts_pack.verified_claims.",
+        "faq.questions has exactly 5 entries: the questions a visitor from this ad asks before "
+        "buying (its objections, its hidden worries). Each question is at most 12 words; each "
+        "answer is 1-2 sentences, at most 35 words, answer first. Any answer stating a number, a "
+        "price, a spec or a trigger word carries claim_ids.",
+        "Power and outlet: state only what this product's own electrical claim says, in its own "
+        "terms (dedicated or standard outlet, volts, amps). Never say an electrician or a dedicated "
+        "circuit is or is not needed unless that claim says so.",
+        "Style: take the voice of the brand's own product pages -- short, concrete, product first. "
+        "Sentence case in every heading, question and item. No lists of three joined by \"and\" "
+        "for rhythm, no second-person scenario openers, no stock marketing verbs; name the part, "
+        "the number or the step instead.",
+        "Never write the gallery, the price panel, the rating, the spec table, a lead-time line or "
+        "an HSA/FSA line -- the renderer builds them from facts_pack. No urgency: no countdown, no "
+        "\"limited time\", no discount push.",
     ]
 
 
@@ -377,32 +420,104 @@ def writer_rules_lines():
 # Gate: writer-owned structural checks
 # ---------------------------------------------------------------------------
 
-def find_ad_proof_violations(page):
-    """3-4 proof tiles that answer the ad's angle, each one a verified claim
-    (at least one claim_id; that each id exists is the shared claims gate's
-    job)."""
-    tiles = page.get("ad_proof")
-    tiles = tiles if isinstance(tiles, list) else []
-    lo, hi = AD_PROOF_RANGE
+def find_included_violations(page):
+    """3-6 included items, each one a verified claim (at least one
+    claim_id; that each id exists is the shared claims gate's job)."""
+    items = page.get("included")
+    items = items if isinstance(items, list) else []
+    lo, hi = INCLUDED_RANGE
     problems = []
-    if not lo <= len(tiles) <= hi:
+    if not lo <= len(items) <= hi:
         problems.append(_problem(
-            "$.ad_proof", "product-page:ad_proof_count",
-            f"ad_proof has {len(tiles)} tiles; it needs {lo}-{hi}",
+            "$.included", "product-page:included_count",
+            f"included has {len(items)} items; it needs {lo}-{hi}",
         ))
-    for i, tile in enumerate(tiles):
-        path = f"$.ad_proof[{i}]"
-        if not isinstance(tile, dict) or not (tile.get("text") or "").strip():
-            problems.append(_problem(path, f"product-page:ad_proof_shape:{i}",
-                                     "proof tile needs a label and a text"))
+    for i, item in enumerate(items):
+        path = f"$.included[{i}]"
+        if not isinstance(item, dict) or not (item.get("text") or "").strip():
+            problems.append(_problem(path, f"product-page:included_shape:{i}",
+                                     "an included item needs a text"))
             continue
-        if not tile.get("claim_ids"):
+        if not item.get("claim_ids"):
             problems.append(_problem(
-                path, f"product-page:ad_proof_claims:{i}",
-                "every proof tile is one verified claim -- give it at least one claim_id from "
-                "facts_pack.verified_claims, or pick a different claim to show",
-                text=tile.get("text"),
+                path, f"product-page:included_claims:{i}",
+                "every included item is one verified claim -- give it at least one claim_id from "
+                "facts_pack.verified_claims, or name a different item",
+                text=item.get("text"),
             ))
+    return problems
+
+
+def find_angle_paragraph_violations(page):
+    angle = page.get("angle_section") if isinstance(page.get("angle_section"), dict) else {}
+    paragraphs = angle.get("paragraphs") if isinstance(angle.get("paragraphs"), list) else []
+    if len(paragraphs) != PROMISE_PARAGRAPHS:
+        return [_problem(
+            "$.angle_section.paragraphs", "product-page:angle_paragraphs",
+            f"angle_section has {len(paragraphs)} paragraphs; it needs exactly {PROMISE_PARAGRAPHS} "
+            "short ones",
+        )]
+    return []
+
+
+def _product_power_mode(facts_pack):
+    """"dedicated", "standard" or None: what this product's own verified
+    claims say about its outlet. Only claims about THIS product count -- a
+    claim whose id carries the product's name slug, or a facts_pack.specs
+    row -- so another model's claim in the same facts pack (the compare
+    data) never decides it."""
+    product = (facts_pack or {}).get("product") or {}
+    slug = product_name_slug(product.get("name") or "")
+    spec_ids = {s.get("claim_id") for s in (facts_pack or {}).get("specs") or []}
+    texts = [
+        c.get("text") or "" for c in (facts_pack or {}).get("verified_claims", [])
+        if c["id"] in spec_ids or (slug and re.search(r"(?:^|-)" + re.escape(slug) + r"(?:-|$)", c["id"]))
+    ]
+    if any(_DEDICATED_RE.search(_NO_DEDICATED_RE.sub("", t)) for t in texts):
+        return "dedicated"
+    if any(r.search(t) for t in texts for r in _STANDARD_OUTLET_RES):
+        return "standard"
+    return None
+
+
+def find_power_violations(page, facts_pack):
+    """No writer sentence may contradict the product's own outlet claim."""
+    mode = _product_power_mode(facts_pack)
+    if not mode:
+        return []
+    problems = []
+    for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
+        if not isinstance(node, str):
+            continue
+        if mode == "dedicated":
+            hit = any(r.search(node) for r in _STANDARD_OUTLET_RES)
+            says = "needs a dedicated outlet or circuit"
+        else:
+            hit = any(r.search(_NEGATED_CLAUSE_RE.sub("", node)) for r in _DEDICATED_PAGE_RES)
+            says = "runs on a standard outlet"
+        if hit:
+            problems.append(_problem(
+                path, f"product-page:power:{path}",
+                f"this product's own electrical claim says it {says}; this sentence says otherwise -- "
+                "state the outlet exactly as the cited claim does, or drop the power detail",
+                text=node,
+            ))
+    return problems
+
+
+def find_stock_phrase_violations(page):
+    problems = []
+    for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
+        if not isinstance(node, str):
+            continue
+        for phrase, pattern in _STOCK_PHRASE_RES:
+            if pattern.search(node):
+                problems.append(_problem(
+                    path, f"product-page:stock_phrase:{path}",
+                    f"stock marketing phrase {phrase!r} -- say what the product is or does instead",
+                    text=node,
+                ))
+                break
     return problems
 
 
@@ -442,9 +557,12 @@ def find_product_page_violations(page, facts_pack=None):
         return []
     digit_exempt_terms = (facts_pack or {}).get("digit_exempt_terms")
     problems = []
-    problems += find_ad_proof_violations(page)
-    problems += listicle.find_faq_violations(page, prefix="product-page")
+    problems += find_included_violations(page)
+    problems += listicle.find_faq_violations(page, prefix="product-page", count_range=FAQ_COUNT_RANGE)
+    problems += find_angle_paragraph_violations(page)
     problems += find_promise_violations(page, digit_exempt_terms)
+    problems += find_power_violations(page, facts_pack)
+    problems += find_stock_phrase_violations(page)
     problems += listicle.find_urgency_violations(page, prefix="product-page")
     problems += find_renderer_owned_violations(page)
     return problems

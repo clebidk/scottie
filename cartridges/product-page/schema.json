@@ -2,11 +2,11 @@
   "type": "object",
   "allowed_cta_texts": ["Shop the {short_name}", "Buy the {short_name}", "Shop the {model_name}"],
   "headline_word_band": [4, 10],
-  "required": ["cta_text", "cta_url", "hero", "proof_bullets", "angle_section", "specs_table", "trust_strip", "ad_proof", "faq"],
+  "required": ["cta_text", "cta_url", "hero", "angle_section", "included", "faq"],
   "properties": {
     "cta_text": {
       "type": "string",
-      "description": "Fix cycle 3 item 4: the ONE CTA button text for this page. Must be exactly one of this schema's top-level allowed_cta_texts, with {short_name} filled in with the product's actual short_name (fix cycle 4 item 3) . The renderer reuses it verbatim in the hero and the repeat CTA -- choose it once here, never repeat/vary it elsewhere."
+      "description": "Fix cycle 3 item 4: the ONE CTA button text for this page. Must be exactly one of this schema's top-level allowed_cta_texts, with {short_name} filled in with the product's short model name (fix cycle 58). The renderer reuses it verbatim in the buy panel, the closing CTA and the phone bar -- choose it once here, never repeat/vary it elsewhere."
     },
     "cta_url": {
       "type": "string",
@@ -14,10 +14,10 @@
     },
     "hero": {
       "type": "object",
-      "description": "product name, one-line promise from the ad angle, price, financing line, hero image.",
+      "description": "The buy panel's writer lines: product name, the one-line promise, price, financing line, hero image.",
       "properties": {
         "product_name": {"type": "string"},
-        "promise": {"type": "string", "description": "The page's headline: one line that answers the ad the visitor clicked -- the ad's main claim or angle, rewritten for this product page. Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead; if the promise must state one, cite it in hero.claim_ids (the gate fails an uncited number here). This cartridge has no separate `headline` field -- the simplicity gate (harness/simplicity.py) measures this field's word count against this schema's own headline_word_band, the same way the other cartridges' `headline` field is measured."},
+        "promise": {"type": "string", "description": "The one line under the model name in the buy panel, 4-10 words, sentence case: the ad's main point, said about the product in plain words (e.g. 'A two-person cedar sauna with the price on the page'). Keep it descriptive, not a numeric claim -- put any number/price/percent in price_line or financing_line instead; if the promise must state one, cite it in hero.claim_ids (the gate fails an uncited number here). This cartridge has no separate `headline` field -- the simplicity gate (harness/simplicity.py) measures this field's word count against this schema's own headline_word_band."},
         "claim_ids": {"type": "array", "description": "Claim ids backing hero.promise. Only needed when the promise states a number, price, percentage or trigger word; omit otherwise."},
         "price_line": {
           "type": "object",
@@ -35,30 +35,39 @@
         }
       }
     },
-    "proof_bullets": {
-      "type": "array",
-      "description": "Exactly 3 bullets, each one verified claim with a short label and a one-line explanation, chosen to match the ad's angle. Fix cycle 3 item 3: at least 3 of them must be product-benefit claim_ids -- what the sauna does or is built with (e.g. medical-grade red light therapy, full-spectrum near/mid/far infrared, US-owned company, free shipping, limited lifetime warranty) -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "label": {"type": "string"},
-          "text": {"type": "string"},
-          "claim_ids": {"type": "array"},
-          "image": {
+    "angle_section": {
+      "type": "object",
+      "description": "The promise band under the buy panel: one heading and exactly 2 short paragraphs that carry the ad's angle -- what the ad said, then what this product does about it.",
+      "properties": {
+        "heading": {"type": "string", "description": "At most 10 words, sentence case."},
+        "paragraphs": {
+          "type": "array",
+          "description": "Exactly 2 paragraphs, at most 45 words each.",
+          "items": {
             "type": "object",
-            "description": "Optional. The image shown with this bullet in the 'Why this model' block -- an asset_id from facts_pack.assets that shows what the bullet says, different from the hero and from every other image on the page.",
-            "properties": {"asset_id": {"type": "string"}}
+            "properties": {
+              "text": {"type": "string"},
+              "claim_ids": {"type": "array"},
+              "attributed_to_customer": {
+                "type": "boolean",
+                "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id. Never true anywhere else in this schema (never on a heading, an included item or an FAQ answer)."
+              }
+            }
           }
+        },
+        "image": {
+          "type": "object",
+          "description": "Optional. One asset_id from facts_pack.assets shown beside the paragraphs -- a lifestyle or installation photo, different from the hero.",
+          "properties": {"asset_id": {"type": "string"}}
         }
       }
     },
-    "ad_proof": {
+    "included": {
       "type": "array",
-      "description": "3-4 proof tiles, shown in a band right under the buy panel, that answer the ad's own angle point by point (e.g. an ad about hidden costs -> tiles on the published price, free shipping, no electrician needed, the warranty). Each tile is ONE verified claim: a 1-4 word label and a one-sentence text, with at least one claim_id from facts_pack.verified_claims. Prefer claims the proof_bullets do not already use.",
+      "description": "3-6 items for the 'What's included' list: what comes with the sauna, each a plain noun phrase of at most 8 words, sentence case (e.g. 'Full-body red light panel', 'Two Bluetooth speakers'). Each item is ONE verified claim with at least one claim_id from facts_pack.verified_claims. At least 3 of the claim_ids must be product-benefit claims -- what the sauna does or is built with -- not price, shipping-policy, warranty-terms, or returns-policy; the gate fails the page otherwise.",
       "items": {
         "type": "object",
         "properties": {
-          "label": {"type": "string"},
           "text": {"type": "string"},
           "claim_ids": {"type": "array"}
         }
@@ -66,15 +75,15 @@
     },
     "faq": {
       "type": "object",
-      "description": "5-7 questions a visitor who clicked THIS ad asks before buying, answered from verified facts. Every answer that states a fact (a number, a price, a spec, or one of the trigger words) carries claim_ids.",
+      "description": "Exactly 5 questions a visitor who clicked THIS ad asks before buying, answered from verified facts. Every answer that states a fact (a number, a price, a spec, or one of the trigger words) carries claim_ids.",
       "properties": {
         "questions": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "question": {"type": "string"},
-              "answer": {"type": "string", "description": "1-3 sentences. Answer the question first, then the detail."},
+              "question": {"type": "string", "description": "At most 12 words, sentence case."},
+              "answer": {"type": "string", "description": "1-2 sentences, at most 35 words. Answer the question first, then the detail."},
               "claim_ids": {"type": "array"}
             }
           }
@@ -85,78 +94,6 @@
       "type": "array",
       "description": "Optional. Up to 5 asset_id strings (plain strings, not objects) from facts_pack.assets, in the order the product gallery should show them after the hero image. Omit to let the renderer order the product's own storefront images.",
       "items": {"type": "string"}
-    },
-    "angle_section": {
-      "type": "object",
-      "description": "1 H2 + 2-4 short paragraphs (or an image/text pair) expanding what the ad said.",
-      "properties": {
-        "heading": {"type": "string"},
-        "paragraphs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"},
-              "attributed_to_customer": {
-                "type": "boolean",
-                "description": "True only if this paragraph states a number that comes solely from the ad speaker's own estimate/hedge (ad_brief.speaker_experience), phrased as her own words, never as a brand fact and never carrying a claim_id. Never true anywhere else in this schema (never on a heading, proof_bullets, or specs_table row)."
-              }
-            }
-          }
-        },
-        "image": {
-          "type": "object",
-          "properties": {"asset_id": {"type": "string"}}
-        }
-      }
-    },
-    "specs_table": {
-      "type": "array",
-      "description": "6-10 rows from facts_pack.specs.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "label": {"type": "string"},
-          "value": {"type": "string"},
-          "claim_id": {"type": "string"}
-        }
-      }
-    },
-    "trust_strip": {
-      "type": "object",
-      "description": "warranty, shipping/delivery, returns, review count+rating -- from verified_claims only.",
-      "properties": {
-        "warranty": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
-        "shipping": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
-        "returns": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}},
-        "reviews": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
-      }
-    },
-    "detail_images": {
-      "type": "array",
-      "description": "1-2 additional detail shots from the asset library.",
-      "items": {
-        "type": "object",
-        "properties": {"asset_id": {"type": "string"}}
-      }
-    },
-    "tagline": {
-      "type": "object",
-      "description": "Optional two-line benefit statement rendered after the proof bullets through the tagline-reveal block (design-skills B11). Omit the field to skip the section.",
-      "properties": {
-        "lines": {
-          "type": "array",
-          "description": "At least two lines. A benefit statement, not a generic section heading."
-        }
-      }
-    }
-  },
-  "block_slots": {
-    "tagline": {
-      "description": "Optional large-type two-line benefit statement (design-skills B11). Set page.tagline.lines to at least two strings; omit the field to skip.",
-      "blocks": ["tagline-reveal"],
-      "default": "tagline-reveal"
     }
   }
 }
