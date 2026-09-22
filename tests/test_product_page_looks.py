@@ -423,6 +423,20 @@ def test_the_pdp_look_has_no_colour_literal_and_no_radius_number():
     for colour_prop in re.findall(r"(?:^|[;{])\s*(?:color|background|border-color):([^;}]+)", css):
         value = colour_prop.strip()
         assert value.startswith("var(") or value in ("transparent", "inherit"), value
+    # Cycle 63 (owner override, 2026-09-22): 4px on boxes on every page
+    # type, not square -- --pp-radius/--pp-radius-btn must resolve through
+    # --ps-radius-box now, and every pdp box (gallery main image frame,
+    # thumbnails, the buy/sticky/closing button -- they all share .pp-btn)
+    # still reaches it through one of those two vars.
+    stripped = css.replace(" ", "")
+    assert "--pp-radius:var(--ps-radius-box,4px);" in stripped
+    assert "--pp-radius-btn:var(--ps-radius-box,4px);" in stripped
+    for selector in [".pp-stage{", ".pp-promise-media{"]:
+        rule = stripped[stripped.index(selector):stripped.index("}", stripped.index(selector)) + 1]
+        assert "border-radius:var(--pp-radius)" in rule, rule
+    for selector in [".pp-thumb{", ".pp-btn{"]:
+        rule = stripped[stripped.index(selector):stripped.index("}", stripped.index(selector)) + 1]
+        assert "border-radius:var(--pp-radius-btn)" in rule, rule
 
 
 def test_the_pdp_look_is_sentence_case_everywhere():

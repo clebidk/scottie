@@ -691,7 +691,7 @@ def test_the_page_uses_brand_tokens_only():
     css = (REPO_ROOT / "cartridges" / "comparison" / "template.html").read_text().split("<style>", 1)[1].split("</style>", 1)[0]
     assert set(re.findall(r"#[0-9a-fA-F]{3,8}\b", css)) <= {"#f4f5f6"}
     assert "--pk-accent:var(--ps-accent,var(--adv-accent))" in css
-    assert "--pk-radius:var(--ps-radius-card" in css and "--pk-serif:var(--ps-serif" in css
+    assert "--pk-radius:var(--ps-radius-box" in css and "--pk-serif:var(--ps-serif" in css  # cycle 63: box radius, not the (still-0) card token
 
 
 # ---------------------------------------------------------------------------

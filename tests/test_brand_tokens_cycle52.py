@@ -201,6 +201,44 @@ def test_every_radius_in_a_look_resolves_a_brand_token(look):
     assert hardcoded == [], f"{look}: {hardcoded}"
 
 
+@pytest.mark.parametrize("look", ["cards", "editorial", "lander", "pillars", "scorecard"])
+def test_every_look_points_its_box_radius_at_the_box_token(look):
+    """Cycle 63 (owner override, 2026-09-22): listicle boxes are 4px, not
+    square, so each look's --pk-radius(-sm/-md) vars must resolve through
+    --ps-radius-box, not --ps-radius-card/-btn (which stay 0)."""
+    css = _STYLE_RE.search((LOOKS_DIR / look / "template.html").read_text()).group(1).replace(" ", "")
+    box_vars = re.findall(r"--pk-radius(?:-sm|-md)?:var\(([^,)]+)", css)
+    assert box_vars, f"{look}: no --pk-radius* declaration found"
+    for name in box_vars:
+        assert name == "--ps-radius-box", f"{look}: {name}"
+
+
+def test_comparison_and_quiz_box_radius_resolves_to_the_box_token():
+    cmp_css = _STYLE_RE.search((REPO_ROOT / "cartridges" / "comparison" / "template.html").read_text()).group(1)
+    qz_css = _STYLE_RE.search((REPO_ROOT / "cartridges" / "quiz" / "template.html").read_text()).group(1)
+    for name, css in [("comparison", cmp_css), ("quiz", qz_css)]:
+        # a literal 0 is still allowed: it marks a deliberately-square,
+        # not-a-box rule (comparison's hairline .cmp-table has no boxed
+        # border, and .cmp .adv-img/.qz-media .adv-img reset the flush
+        # inner image to 0 so it doesn't double round inside its frame).
+        # A non-zero literal would mean a box pinned a number the brand
+        # cannot reach, which is what this test actually guards against.
+        hardcoded = [h for h in re.findall(r"border-radius:\s*(?!var\()([^;}]+)", css)
+                     if h.strip() not in ("0", "0px")]
+        assert hardcoded == [], f"{name}: {hardcoded}"
+    cmp_vars = re.findall(r"--pk-radius(?:-sm)?:var\(([^,)]+)", cmp_css.replace(" ", ""))
+    qz_vars = re.findall(r"--qz-radius(?:-btn)?:var\(([^,)]+)", qz_css.replace(" ", ""))
+    assert cmp_vars and all(v == "--ps-radius-box" for v in cmp_vars), cmp_vars
+    assert qz_vars and all(v == "--ps-radius-box" for v in qz_vars), qz_vars
+    # the hero image frame and the table-row/mobile-card photo tiles are
+    # boxes too (comparison had no .cmp-media radius before this cycle)
+    stripped = cmp_css.replace(" ", "")
+    assert ".cmp.cmp-media{margin:0;position:relative;overflow:hidden;border-radius:var(--pk-radius)}" \
+        in stripped
+    assert ".cmp.cmp-thumb.adv-img{border-radius:var(--pk-radius-sm)}" in stripped
+    assert ".cmp.cmp-card-thumb.adv-img{border-radius:var(--pk-radius-sm)}" in stripped
+
+
 def test_the_structural_stylesheet_resolves_brand_tokens_for_shape_and_cta():
     assert "border-radius: var(--ps-radius-btn, 4px)" in STRUCTURE_CSS   # .adv-cta
     assert "background: var(--ps-accent, var(--adv-accent))" in STRUCTURE_CSS
@@ -221,9 +259,26 @@ def test_the_tenants_own_tokens_carry_the_finalized_palette():
         ("--ps-star-on", "#181918"),
         ("--ps-radius-card", "0px"), ("--ps-radius-btn", "0px"),
         ("--ps-radius-pill", "0px"), ("--ps-radius-round", "0px"),
+        ("--ps-radius-box", "4px"),
     ]:
         assert f"{token}:{value}" in css.replace(" ", ""), token
     assert "16C47F" not in css.upper()
+
+
+def test_the_boxes_shared_across_cartridges_also_resolve_to_the_box_token():
+    """.byline (listicle/comparison) and structure.css's generic classes
+    (product-page classic) aren't restated per cartridge, so base.css must
+    re-scope them under the page-type wrapper rather than changing their
+    shared 0px default (which article/longform also read)."""
+    css = re.sub(r"\s+", "", (TENANT.brand_dir / "base.css").read_text())
+    assert ".adv-listicle.byline,.adv-comparison.byline{border-radius:var(--ps-radius-box,4px);}" in css
+    for selector in [
+        ".adv-product-page.adv-badge", ".adv-product-page.adv-cta",
+        ".adv-product-page.adv-trust-item", ".adv-product-page.adv-imagesimg",
+        ".adv-product-page.adv-hero-image", ".adv-product-page.adv-img",
+        ".adv-product-page.adv-angleimg",
+    ]:
+        assert selector in css, selector
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +315,29 @@ def test_the_export_carries_the_font_face_rules_the_document_head_owns(tmp_path)
     assert "@font-face" in body
     assert "Epika-Regular.woff2" in body
     assert font_face_css(TENANT) in body
+
+
+def test_the_export_carries_the_box_radius_token_and_a_rounded_box(tmp_path):
+    """Cycle 63: the 4px box radius must survive `harness shopify-body` the
+    same way the brand colours and font do -- the --ps-radius-box value
+    from the head's :root (via token_css, re-scoped to .adv-wrap) and the
+    look's own box rules (restated in its body <style>, so they travel
+    unchanged) must both land in the exported body."""
+    from harness.page_body import build_shopify_body, token_css
+    from tests.test_listicle import AD_BRIEF, RICH_FACTS_PACK, _listicle_page
+
+    page = _listicle_page()
+    page["look"] = "cards"
+    render_mod.render_page(
+        cartridge_name="listicle", page=page, ad_brief=AD_BRIEF, facts_pack=RICH_FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,
+        templates_dir=REPO_ROOT / "harness" / "templates", out_dir=tmp_path / "listicle",
+        published="2026-09-22", updated="2026-09-22", tenant=TENANT, download_assets=False,
+    )
+    body, _manifest = build_shopify_body(tmp_path / "listicle")
+    assert "--ps-radius-box:4px" in token_css(TENANT).replace(" ", "")
+    assert "--ps-radius-box:4px" in body.replace(" ", "")
+    assert "--pk-radius:var(--ps-radius-box,4px)" in body.replace(" ", "")
 
 
 def test_publishing_rewrites_the_font_urls_to_the_cdn(tmp_path):
