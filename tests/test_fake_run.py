@@ -68,12 +68,18 @@ def test_fake_run_renders_listicle_v2_in_every_style(tmp_path, style):
     assert page["style"] == style
     assert 900 <= count_words(page) <= 1400
     html = (run_dir / "listicle" / "index.html").read_text()
-    # the one CTA in its five places, the sticky bar, and the fit block
-    assert html.count(">See the models<") == 5
-    assert 'class="lst-sticky"' in html
+    # Cycle 51: the style picks the COPY, and the look picks the template
+    # that renders it -- so this asserts the pairing and the sections every
+    # look owes, not one look's own class names.
+    expected_look = listicle.LOOK_BY_STYLE[style]
+    assert page["look"] == expected_look
+    assert f'adv-listicle look-{expected_look}' in html
+    # the one CTA text, repeated wherever this look places it, and never a
+    # second one
+    assert html.count("See the models") >= 2
     assert "Who this is for, and who it is not for" in html
     # the model picker comes from facts_pack.model_options, not the writer
-    assert 'class="lst-models"' in html
+    assert "Which model fits" in html
     assert "model_options" not in page
 
 

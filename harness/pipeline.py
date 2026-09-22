@@ -107,6 +107,7 @@ class RunState:
         self.rng = None
         self.selected = []
         self.listicle_style = None
+        self.listicle_look = None
         self.claims_config = {}
         self.facts_source = None
         self.merged_products = {}
@@ -164,8 +165,16 @@ def prepare_run(state):
     state.listicle_style = listicle.resolve_style(
         getattr(args, "style", None), seed=state.seed, tenant=tenant
     )
+    # Cycle 51: the LOOK -- which of the five templates under
+    # cartridges/listicle/looks/ renders that copy. Independent of the style:
+    # the `--look` flag when the operator gave one, else the tenant's
+    # look_by_style map, else the built-in style pairing.
+    state.listicle_look = listicle.resolve_look(
+        getattr(args, "look", None), style=state.listicle_style, tenant=tenant
+    )
     if "listicle" in selected:
         state.log.event("run", f"listicle style: {state.listicle_style}")
+        state.log.event("run", f"listicle look: {state.listicle_look}")
     state.claims_config = tenant.claims_config
     # R23: tenant.yaml and claims/config.json disagreeing on an overlapping
     # key is legal (config.json wins) but invisible without this line.
@@ -422,6 +431,19 @@ def write_pages(state):
 
 def render_pages(state):
     published = updated = state.today_iso
+    # Cycle 51: stamp the run's resolved look onto the listicle page before
+    # it is rendered, so page.json carries it and every later re-render
+    # (`harness rerender`, the review site's rebuild) reproduces this page
+    # instead of re-deriving a look from a flag nobody kept. The writer never
+    # sets this field and the copy is untouched by it.
+    if "listicle" in state.pages and state.listicle_look:
+        from . import runstate
+
+        state.pages["listicle"]["look"] = state.listicle_look
+        runstate.record_listicle_choice(
+            state.run_dir, style=state.listicle_style, look=state.listicle_look
+        )
+
     for cartridge_name, page in state.pages.items():
         index_path = render_page(
             cartridge_name=cartridge_name,

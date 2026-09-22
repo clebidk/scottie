@@ -945,7 +945,15 @@ def render_page(
     # never read it.
     look = ""
     if cartridge_name == "listicle":
-        look = listicle_mod.resolve_look(page.get("look"), style=page.get("style"), tenant=tenant)
+        try:
+            look = listicle_mod.resolve_look(page.get("look"), style=page.get("style"), tenant=tenant)
+        except ValueError as e:
+            # Only reachable from a hand-edited page.json: `harness run
+            # --look` / `harness rerender --look` are argparse `choices`.
+            # A page still renders, in the look its style is paired with.
+            look = listicle_mod.resolve_look(None, style=page.get("style"), tenant=tenant)
+            if log:
+                log.event("render", f"{e}; falling back to {look!r}")
 
     # Cycle 27: same self-contained-folder treatment as an ad asset (Fix 8
     # above) -- the logo is brand data, not something download_asset's

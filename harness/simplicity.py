@@ -32,8 +32,13 @@ Above-the-fold region per cartridge, per the research doc's own mapping:
     `hero`, but it renders inside the fold).
   - article: `headline` + `dek` + `open[0]` (the first paragraph).
   - listicle: `headline` + `dek` + `hero`, plus the page's top-level
-    `cta_url` -- v0.2's header is a landing-page stack (hero image, primary
-    CTA, trust line), so the hero CTA IS the one link allowed above the
+    `cta_url`. What is counted is the set of DISTINCT hrefs, never the number
+    of anchors: cycle 51's `lander` look puts a primary button and a
+    secondary ghost link side by side above the fold, both pointing at the
+    same single `cta_url` -- one destination offered twice, not a second
+    offer. A look that put a genuinely different destination above the fold
+    would still fail here. v0.2's header is a landing-page stack (hero image,
+    primary CTA, trust line), so the hero CTA IS the one link allowed above the
     fold. The sticky bottom bar is exempt by construction, not by a special
     case: it renders that same single `cta_url`, so it adds no second href
     for this check to count, and it is renderer chrome that only appears

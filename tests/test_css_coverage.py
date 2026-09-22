@@ -54,13 +54,21 @@ def _has_structure_rule(class_name):
 
 
 def _cartridge_templates():
-    return sorted(CARTRIDGES_DIR.glob("*/template.html"))
+    """Every cartridge template, including the listicle cartridge's five
+    per-look templates (cycle 51), which carry the same promise: a class a
+    template's markup uses is either defined in that template's own inline
+    <style> or has a rule in structure.css."""
+    return sorted(CARTRIDGES_DIR.glob("*/template.html")) + sorted(
+        CARTRIDGES_DIR.glob("*/looks/*/template.html")
+    )
 
 
 def test_every_cartridge_has_a_template():
     templates = _cartridge_templates()
     names = {p.parent.name for p in templates}
     assert {"article", "listicle", "longform", "product-page"} <= names
+    # cycle 51: the listicle cartridge's five looks are templates too
+    assert {"editorial", "cards", "pillars", "scorecard", "lander"} <= names
 
 
 def test_every_template_class_not_self_styled_has_a_structure_css_rule():

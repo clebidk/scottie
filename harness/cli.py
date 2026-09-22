@@ -280,6 +280,18 @@ def cmd_rerender(args):
 
     page = json.loads(page_json.read_text())
     facts_pack = json.loads(facts_pack_json.read_text())
+
+    # Cycle 51: `--look` switches which template under
+    # cartridges/listicle/looks/ renders this page. It is a template choice,
+    # not a copy change -- there is still no model call in this path -- so it
+    # is recorded on page.json (render_page writes the page back out at the
+    # end) and in state.json next to the style.
+    requested_look = getattr(args, "look", None)
+    if requested_look:
+        if cartridge_name != "listicle":
+            print(f"--look applies to the listicle cartridge, not {cartridge_name}", file=sys.stderr)
+            return 1
+        page["look"] = listicle.resolve_look(requested_look, tenant=tenant)
     ad_brief_json = run_dir / "ad_brief.json"
     ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
 
@@ -311,6 +323,8 @@ def cmd_rerender(args):
         print(f"Wrote {shopify_body_path}")
         print(f"Wrote {assets_manifest_path}")
 
+    if requested_look:
+        runstate.record_listicle_choice(run_dir, look=page["look"])
     runstate.mark_rerendered(run_dir, page=cartridge_name, note=args.note or "")
     return 0
 
@@ -950,6 +964,12 @@ def build_parser():
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
     p_run.add_argument(
+        "--look", choices=list(listicle.LOOKS),
+        help="listicle look -- which of cartridges/listicle/looks/ lays the page out; "
+             "default: the look this run's style is paired with, or the tenant's own "
+             "look_by_style pin",
+    )
+    p_run.add_argument(
         "--style", choices=list(listicle.STYLES),
         help="listicle style; default: deterministic from the run seed, so a batch of runs "
              "rotates through every style the tenant allows",
@@ -985,6 +1005,10 @@ def build_parser():
     )
     p_rerender.add_argument("run_dir", help="tenants/<t>/out/<run-id>")
     p_rerender.add_argument("--page", required=True, help="cartridge name, e.g. listicle")
+    p_rerender.add_argument(
+        "--look", choices=list(listicle.LOOKS), default=None,
+        help="re-render the listicle page in a different look; the copy is untouched",
+    )
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)
     p_rerender.set_defaults(func=cmd_rerender)
