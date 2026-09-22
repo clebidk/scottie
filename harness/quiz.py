@@ -48,12 +48,28 @@ FAQ_COUNT_RANGE = (3, 5)
 # combinations rubric_reachability enumerates (4 ** 7 = 16384 at most).
 MAX_COMBINATIONS = OPTION_COUNT_RANGE[1] ** QUESTION_COUNT_RANGE[1]
 
-HEADLINE_FORMULA = "Which <category> Is Right for <audience>? Take the 60-Second Quiz"
+# Cycle 61: sentence case, and no "Take the 60-Second Quiz" tail -- the
+# page's own note under the start button says how long the quiz is. The
+# fixed words are matched case-sensitively, so a Title Case headline fails
+# the formula; find_headline_violations adds a case check on <category>.
+HEADLINE_FORMULA = "Which <category> is right for <audience>?"
 _HEADLINE_RE = re.compile(
+    r"^\s*Which\s+(?P<category>.+?)\s+is\s+right\s+for\s+(?P<audience>.+?)\?\s*$"
+)
+# The cycle-57 formula. Pages written to it before cycle 61 still render;
+# display_headline shows them in the current form without a new writer call.
+_LEGACY_HEADLINE_RE = re.compile(
     r"^\s*Which\s+(?P<category>.+?)\s+Is\s+Right\s+for\s+(?P<audience>.+?)\?\s+"
     r"Take\s+the\s+60-Second\s+Quiz\.?\s*$",
     re.IGNORECASE,
 )
+
+# Cycle 61 length limits (owner review: the page read as an AI-written form).
+DEK_MAX_WORDS = 20
+INTERSTITIAL_MAX_WORDS = 25
+# An option tile's text. Option labels are tenant data (rubric.yaml) the
+# writer echoes verbatim, so a longer label carries a short `display` text.
+OPTION_DISPLAY_MAX_WORDS = 6
 
 # The start link above the fold, and the retake/continue controls. Fixed
 # interface text, not copy -- the writer never writes them.
@@ -113,6 +129,15 @@ def load_rubric(path):
 def rubric_questions(rubric):
     questions = (rubric or {}).get("questions")
     return questions if isinstance(questions, list) else []
+
+
+def option_display(option):
+    """The text an option's tile shows: the rubric's optional `display`
+    (a short form of the label), else the label itself. Scores, the gate's
+    verbatim echo check and apply_fix all keep using `label`."""
+    if not isinstance(option, dict):
+        return ""
+    return str(option.get("display") or option.get("label") or "").strip()
 
 
 def rubric_interstitials(rubric):
@@ -205,6 +230,12 @@ def validate_rubric(rubric, active_slugs, *, load_error=None):
             if not isinstance(option, dict) or not str(option.get("label") or "").strip():
                 problems.append(_problem(opath, f"quiz:rubric:option_shape:{qid}:{j}", "option needs a label"))
                 continue
+            display = option.get("display")
+            if display is not None and len(str(display).split()) > OPTION_DISPLAY_MAX_WORDS:
+                problems.append(_problem(
+                    f"{opath}.display", f"quiz:rubric:option_display:{qid}:{j}",
+                    f"option display text {display!r} is over {OPTION_DISPLAY_MAX_WORDS} words",
+                ))
             scores = option_scores(option)
             unknown = sorted(s for s in scores if s not in active)
             if unknown:
@@ -267,10 +298,13 @@ def writer_lines(facts_pack):
     questions = rubric_questions(rubric)
     lo, hi = FAQ_COUNT_RANGE
     lines = [
-        f'The headline follows this formula exactly: "{HEADLINE_FORMULA}". <category> is the '
-        "product category (never the company or a model name); <audience> names people by their "
-        "situation or goal, 2-5 words, derived from the ad brief (never a bare \"people\", "
-        "\"buyers\", \"shoppers\", \"customers\" or \"everyone\").",
+        f'The headline follows this formula exactly, in sentence case: "{HEADLINE_FORMULA}". '
+        "<category> is the product category in lower case (never the company or a model name); "
+        "<audience> names people by their situation or goal, 2-5 words, derived from the ad brief "
+        "(never a bare \"people\", \"buyers\", \"shoppers\", \"customers\" or \"everyone\"). "
+        "Nothing after the question mark: the page itself says how long the quiz takes.",
+        f"The dek is one plain sentence of at most {DEK_MAX_WORDS} words on what the quiz does for "
+        "the reader. No \"whether you're\" opener and no list of three.",
         f'Write "questions" as exactly {len(questions)} entries, in this order, each with the same '
         '"id", a "prompt" you rephrase from the rubric prompt (one short question ending in "?"), '
         'and "options": the rubric labels copied verbatim, same count, same order:',
@@ -282,8 +316,8 @@ def writer_lines(facts_pack):
     if inter:
         lines.append(
             f'Write "interstitials" as exactly {len(inter)} entries, in this order, each '
-            '{"after": <question id>, "line": <1-3 short sentences>, "claim_ids": [...]}. A line '
-            "teaches one verified fact about the topic below. Any line that states a number, a "
+            '{"after": <question id>, "line": <1-2 short sentences>, "claim_ids": [...]}. A line '
+            f"is at most {INTERSTITIAL_MAX_WORDS} words and teaches one verified fact about the topic below. Any line that states a number, a "
             "price, a measurement or a trigger word carries claim_ids; a line with no claim_ids "
             "has no digit in it at all."
         )
@@ -321,16 +355,50 @@ def _norm(text):
     return " ".join(str(text or "").split()).casefold()
 
 
+def _is_title_word(word):
+    """A capitalised word that is not an all-caps token (a brand or an
+    acronym such as "NYC" is not title case)."""
+    letters = re.sub(r"[^A-Za-z]", "", word)
+    return bool(letters) and letters[0].isupper() and not letters.isupper()
+
+
+def _sentence_case(text):
+    """Lower-case every title-case word; all-caps tokens stay as written."""
+    return " ".join(w.lower() if _is_title_word(w) else w for w in str(text).split())
+
+
+def display_headline(headline):
+    """The H1 as the page shows it. A headline written to the cycle-57
+    formula ("Which <Category> Is Right for <Audience>? Take the 60-Second
+    Quiz") is shown in the current sentence-case form, without the tail, so
+    `harness rerender` brings an existing page up to date with no writer
+    call. Any other headline is returned unchanged -- current pages are
+    gated to the new form before they are ever rendered."""
+    text = str(headline or "")
+    legacy = _LEGACY_HEADLINE_RE.match(text)
+    if not legacy:
+        return text
+    return (f"Which {_sentence_case(legacy.group('category'))} is right for "
+            f"{_sentence_case(legacy.group('audience'))}?")
+
+
 def find_headline_violations(page, tenant_name=None, product_names=None):
     headline = page.get("headline") or ""
     match = _HEADLINE_RE.match(headline)
     if not match:
         return [_problem(
             "$.headline", "quiz:headline_formula",
-            f'headline {headline!r} does not follow the formula "{HEADLINE_FORMULA}"',
+            f'headline {headline!r} does not follow the formula "{HEADLINE_FORMULA}" (sentence '
+            "case, nothing after the question mark)",
         )]
     problems = []
     category = match.group("category")
+    if any(_is_title_word(w) for w in category.split()):
+        problems.append(_problem(
+            "$.headline", "quiz:headline_case",
+            f"<category> {category!r} is in title case; write the headline in sentence case "
+            "(\"Which home infrared sauna is right for ...?\")",
+        ))
     for name in [n for n in [tenant_name, *(product_names or [])] if n]:
         if re.search(r"\b" + re.escape(name) + r"\b", category, re.IGNORECASE):
             problems.append(_problem(
@@ -410,6 +478,12 @@ def find_interstitial_violations(page, rubric):
         if not line.strip():
             problems.append(_problem(f"{path}.line", f"quiz:interstitial_line:{i}", "interstitial has no line"))
             continue
+        if len(line.split()) > INTERSTITIAL_MAX_WORDS:
+            problems.append(_problem(
+                f"{path}.line", f"quiz:interstitial_length:{i}",
+                f"interstitial is {len(line.split())} words; keep it to {INTERSTITIAL_MAX_WORDS} or fewer",
+                text=line,
+            ))
         reason = _trigger_reason(line)
         if reason and not entry.get("claim_ids"):
             problems.append(_problem(
@@ -481,6 +555,13 @@ def find_quiz_violations(page, facts_pack, tenant_name=None, product_names=None)
     rubric = quiz.get("rubric") or {}
     problems = []
     problems += find_headline_violations(page, tenant_name, product_names)
+    dek_words = len(str(page.get("dek") or "").split())
+    if dek_words > DEK_MAX_WORDS:
+        problems.append(_problem(
+            "$.dek", "quiz:dek_length",
+            f"dek is {dek_words} words; keep it to one sentence of {DEK_MAX_WORDS} words or fewer",
+            text=page.get("dek"),
+        ))
     problems += find_question_violations(page, rubric)
     problems += find_interstitial_violations(page, rubric)
     problems += find_faq_violations(page)
@@ -556,12 +637,40 @@ def _scores_attr(option, allowed):
     )
 
 
-def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None):
+# Option tiles sit two to a row on desktop only when every label is short.
+_GRID_MAX_CHARS = 26
+
+
+def model_title(name, model_name, brand=None):
+    """(title, descriptor) for a result card. `name` is the model's display
+    name (the storefront prefix is already stripped -- ground._quiz_models
+    runs tenant.display_product_name), e.g. "Acme One 2-Person Cabin". A
+    leading brand word written in another case ("Acme") is shown as the
+    tenant's short name ("ACME"), the way every new label on the page
+    writes it; when the model's own short name follows, the card title is
+    "<brand> <model>" and the rest of the name ("2-Person Cabin") is the
+    descriptor line under it. Nothing is added that the name does
+    not already say."""
+    text = " ".join(str(name or "").split())
+    rest, prefix = text, ""
+    if brand and text.casefold().startswith(brand.casefold() + " "):
+        prefix, rest = brand + " ", text[len(brand) + 1:]
+    model = str(model_name or "").strip()
+    if model and rest.casefold().startswith(model.casefold()):
+        descriptor = rest[len(model):].strip(" -\u2013\u2014,")
+        return prefix + rest[:len(model)], descriptor or None
+    return prefix + rest, None
+
+
+def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None, brand=None,
+                   all_models_url=None):
     """Everything cartridges/quiz/template.html renders that the writer did
     not write. `cta_text_for(model_name, short_name)` resolves a card's CTA
     text from the cartridge's allowlist (render.py owns the schema and the
-    tenant). Returns a dict; "claim_ids" is every claim the renderer-built
-    sections cite, for the Sources list."""
+    tenant). `brand` is the tenant's short name for card titles
+    (model_title); `all_models_url` is the tenant's own all-models page for
+    the result's secondary link. Returns a dict; "claim_ids" is every claim
+    the renderer-built sections cite, for the Sources list."""
     facts_pack = facts_pack or {}
     page = page or {}
     quiz = facts_pack.get("quiz") or {}
@@ -578,14 +687,19 @@ def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None):
     for q in rubric_questions(rubric):
         qid = q.get("id")
         prompt = str((written.get(qid) or {}).get("prompt") or "").strip() or q.get("prompt")
+        options = [
+            {"label": option_display(o), "scores": _scores_attr(o, allowed)}
+            for o in q.get("options") or [] if isinstance(o, dict)
+        ]
         steps.append({
             "kind": "question",
             "id": qid,
             "prompt": prompt,
-            "options": [
-                {"label": str(o.get("label")), "scores": _scores_attr(o, allowed)}
-                for o in q.get("options") or [] if isinstance(o, dict)
-            ],
+            # the short noun phrase a result's "why it fits you" row leads
+            # with (rubric display field; the row is the answer alone without it)
+            "result_label": str(q.get("result_label") or "").strip(),
+            "layout": "grid" if all(len(o["label"]) <= _GRID_MAX_CHARS for o in options) else "stack",
+            "options": options,
         })
         for line in lines_after.get(qid, []):
             steps.append({"kind": "note", "line": line})
@@ -595,6 +709,7 @@ def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None):
     for m in models:
         card = dict(m)
         card["featured"] = m["slug"] == featured
+        card["title"], card["descriptor"] = model_title(m["name"], m.get("model_name"), brand)
         if card["featured"] and page.get("cta_text"):
             card["cta_text"] = page["cta_text"]
         else:
@@ -612,9 +727,19 @@ def render_context(facts_pack, page, *, cta_text_for, warranty_claim_id=None):
     warranty = vocab.ALLOWED_WARRANTY_SENTENCE if warranty_claim_id else None
     if warranty:
         claim_ids.add(warranty_claim_id)
+    # The verified rating is the FEATURED product's (facts_pack.reviews_summary),
+    # so the template shows it on the featured card only, and the trust line
+    # under the result drops it rather than say it twice.
+    rating = listicle.rating_line(facts_pack)
+    if rating:
+        claim_ids.update(rating.get("claim_ids") or [])
+        trust_items = [i for i in trust_items if i.get("text") != rating["text"]]
     return {
+        "headline": display_headline(page.get("headline")),
         "steps": steps,
         "question_count": sum(1 for s in steps if s["kind"] == "question"),
+        "rating_line": rating,
+        "all_models_url": all_models_url,
         "cards": cards,
         "featured": featured,
         "tiebreak": " ".join(s for s in (rubric.get("tiebreak") or []) if s in allowed),

@@ -1,25 +1,37 @@
 {% extends "base.html" %}
-{# Quiz cartridge (cycle 57): a self-assessment lander that recommends one of
-   the tenant's own active models.
+{# Quiz cartridge: a self-assessment lander that recommends one of the
+   tenant's own active models.
 
-   Visual language from the listicle's lander look -- a wide two-column hero
-   on a panel band, bordered panels, a <details> FAQ -- rebuilt as a single
-   quiz column: one question at a time over a thin progress bar, option
-   buttons in a grid, short "good to know" panels between questions, and a
-   result card that names one model and its verified price.
+   Cycle 61 (owner review: "a good start, but very rough"): rebuilt as a
+   product finder. A compact hero (sentence-case display headline, one-line
+   dek, the start button with a "<n> questions · about a minute" note, a
+   one-line byline, the picture on a panel that fills its column), then the
+   quiz card right under it: "Question 2 of 6", a Back link and a thin
+   progress bar over one question at a time, large option tiles that
+   auto-advance, and short notes between questions set as quiet text under a
+   hairline. The result card names one model ("<brand> <model>" over its
+   descriptor), its verified price, three "why it fits you" rows built from
+   the answers that scored it, the model's CTA, "See all models" and
+   "Retake the quiz". Then a hairline <details> FAQ and a dark closing band.
+
+   Sentence case everywhere: the tenant's uppercase-headline rule is turned
+   off inside the quiz, and the only uppercase text is the tenant
+   disclosure eyebrow (unset for most tenants). One font weight, as the
+   brand asks. Sizes are px so a storefront's root font size cannot shrink
+   them.
 
    Progressive enhancement. The markup is complete without a script: every
-   question and interstitial is a plain list, and the result section shows
-   the card for the model the ad featured with a note that says so. The one
-   inline script below (no src, no network) adds the class qz--js, shows one
-   step at a time, scores the chosen options from their data-qz-scores
+   question and note is a plain list, and the result section shows the card
+   for the model the ad featured with a note that says so. The one inline
+   script below (no src, no network) adds the class qz--js, shows one step
+   at a time, scores the chosen options from their data-qz-scores
    attributes and reveals the winning card. The scoring rule is
    harness/quiz.py's pick_model -- change one, change both.
 
    Every value in cartridge_data is renderer-owned (harness/quiz.py's
    render_context): the writer never writes a card, a price, a score or a
    "why" line. Colours are brand tokens only, never literals. #}
-{% block title %}{{ page.headline }}{% endblock %}
+{% block title %}{{ cartridge_data.headline }}{% endblock %}
 {% block byline %}{% if about_author_html %}<div class="adv-byline">{{ about_author_html | safe }}</div>{% endif %}{% endblock %}
 {% block content %}
 <style>
@@ -36,137 +48,186 @@
   --qz-bg:var(--ps-bg,var(--adv-bg));
   --qz-panel:var(--ps-bg-muted,var(--adv-bg));
   --qz-border:var(--ps-border,var(--adv-border));
-  --qz-rule:var(--ps-band,var(--adv-border));
   --qz-dark:var(--ps-ink-dark,var(--adv-fg));
   --qz-on-dark:var(--ps-on-dark,var(--adv-bg));
   --qz-focus:var(--ps-focus,var(--qz-accent));
   --qz-sans:var(--ps-sans,inherit);
-  --qz-eyebrow-size:var(--ps-eyebrow-size,.75rem);
-  --qz-eyebrow-spacing:var(--ps-eyebrow-spacing,.12em);
+  --qz-display:var(--ps-serif,var(--adv-serif,Georgia,serif));
+  --qz-eyebrow-size:var(--ps-eyebrow-size,12px);
+  --qz-eyebrow-spacing:var(--ps-eyebrow-spacing,.08em);
   --qz-eyebrow-color:var(--ps-eyebrow-color,var(--qz-muted));
-  --qz-radius:var(--ps-radius-card,10px);
-  --qz-radius-btn:var(--ps-radius-btn,8px);
-  --qz-measure:1060px;
+  --qz-radius:var(--ps-radius-card,0);
+  --qz-radius-btn:var(--ps-radius-btn,0);
+  /* hairlines and the quiet fills are the ink mixed into the page ground */
+  --qz-hair:var(--qz-border);
+  --qz-hair:color-mix(in srgb,var(--qz-ink) 20%,transparent);
+  --qz-line:var(--qz-border);
+  --qz-line:color-mix(in srgb,var(--qz-ink) 32%,transparent);
+  --qz-tint:var(--qz-panel);
+  --qz-tint:color-mix(in srgb,var(--qz-bg) 90%,var(--qz-ink));
+  --qz-measure:1120px;
   --qz-column:760px;
-  --qz-gap:48px;
+  --qz-wide:980px;
+  --qz-pad:52px;
   display:block;width:100%;background:var(--qz-bg);color:var(--qz-body);text-align:left;
-  font-family:var(--qz-sans);-webkit-font-smoothing:antialiased;
+  font-family:var(--qz-sans);font-size:17px;line-height:1.6;font-weight:400;-webkit-font-smoothing:antialiased;
 }
-.adv-wrap:has(.adv-quiz){max-width:1100px;padding-left:0;padding-right:0}
-.adv-wrap:has(.adv-quiz) .adv-footer{max-width:var(--qz-measure);margin:0 auto;padding-left:20px;padding-right:20px}
+.adv-wrap:has(.adv-quiz){max-width:none;padding-left:0;padding-right:0;padding-top:0}
+/* the footer sits outside .adv-quiz, so its width is the --qz-wide value restated */
+.adv-wrap:has(.adv-quiz) .adv-footer{max-width:980px;margin:0 auto;padding-left:20px;padding-right:20px}
+.adv-wrap:has(.adv-quiz) .adv-footer h3{text-transform:none}
 .adv-quiz *,.adv-quiz *::before,.adv-quiz *::after{box-sizing:border-box}
 .adv-quiz [hidden]{display:none !important}
+.adv-wrap .adv-quiz h1,.adv-wrap .adv-quiz h2,.adv-wrap .adv-quiz h3{text-transform:none;letter-spacing:0}
+.adv-quiz p{line-height:1.6}
 .adv-quiz img{display:block;max-width:100%}
-.adv-quiz .adv-img{display:block;height:auto;max-width:100%;width:auto;margin:0 auto;border-radius:var(--qz-radius)}
-.adv-quiz .adv-img--contain{object-fit:contain}
-.adv-quiz .adv-img--cover{object-fit:cover}
 .adv-quiz picture{display:block}
 .adv-quiz .qz-measure{max-width:var(--qz-measure);margin:0 auto;padding:0 20px;width:100%}
 .adv-quiz .qz-column{max-width:var(--qz-column);margin:0 auto;padding:0 20px;width:100%}
+.adv-quiz .qz-column--wide{max-width:var(--qz-wide)}
+.adv-quiz :focus-visible{outline:2px solid var(--qz-focus);outline-offset:3px}
 
-/* hero: eyebrow, H1, dek, the start link and the byline; picture right on desktop */
-.adv-quiz .qz-hero{padding:24px 0 var(--qz-gap);background:var(--qz-panel)}
-.adv-quiz .qz-hero-grid{display:grid;gap:26px;align-items:center}
-.adv-quiz .qz-eyebrow{margin:0 0 10px;font-size:var(--qz-eyebrow-size);font-weight:700;
-  letter-spacing:var(--qz-eyebrow-spacing);text-transform:uppercase;color:var(--qz-eyebrow-color)}
-.adv-quiz .qz-h1{font-size:2.25rem;line-height:1.1;margin:0 0 14px;color:var(--qz-ink);letter-spacing:-.01em}
-.adv-quiz .qz-dek{font-size:1.0625rem;line-height:1.6;margin:0 0 22px;color:var(--qz-body);max-width:58ch}
-.adv-quiz .qz-byline{margin:18px 0 0;font-size:.875rem;color:var(--qz-muted)}
-.adv-quiz .qz-hero-media{margin:0}
-.adv-quiz .qz-hero-media .adv-img{max-height:420px}
+/* type */
+.adv-quiz .qz-eyebrow{margin:0 0 14px;font-size:var(--qz-eyebrow-size);letter-spacing:var(--qz-eyebrow-spacing);
+  text-transform:uppercase;color:var(--qz-eyebrow-color)}
+.adv-quiz .qz-h1{margin:0 0 16px;font-family:var(--qz-display);font-weight:400;font-size:34px;line-height:1.08;color:var(--qz-ink)}
+.adv-quiz .qz-dek{margin:0 0 28px;font-size:18px;line-height:1.5;color:var(--qz-body);max-width:34em}
+.adv-quiz .qz-h2{margin:0 0 24px;font-family:var(--qz-display);font-weight:400;font-size:30px;line-height:1.12;color:var(--qz-ink)}
+.adv-quiz .qz-h2:focus,.adv-quiz .qz-q:focus,.adv-quiz .qz-note:focus{outline:none}
 
-.adv-quiz .qz-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;
-  padding:14px 28px;border:0;border-radius:var(--qz-radius-btn);background:var(--qz-accent);
-  color:var(--qz-on-accent);font:inherit;font-size:1.0625rem;font-weight:700;line-height:1.25;
-  text-decoration:none;cursor:pointer}
-.adv-quiz .qz-btn:hover{filter:brightness(.95)}
-.adv-quiz .qz-btn:focus-visible,.adv-quiz .qz-option:focus-visible,.adv-quiz .qz-back:focus-visible,
-.adv-quiz .qz-next:focus-visible,.adv-quiz .qz-restart:focus-visible{outline:2px solid var(--qz-focus);outline-offset:2px}
+/* buttons and links */
+.adv-quiz .qz-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 32px;
+  border:0;border-radius:var(--qz-radius-btn);background:var(--qz-accent);color:var(--qz-on-accent);
+  font:inherit;font-size:17px;line-height:1.2;text-decoration:none;text-transform:none;letter-spacing:0;cursor:pointer}
+.adv-quiz .qz-btn:hover{background:color-mix(in srgb,var(--qz-accent) 88%,var(--qz-ink));color:var(--qz-on-accent)}
+.adv-quiz .qz-link{padding:0;border:0;background:none;color:var(--qz-ink);font:inherit;font-size:16px;
+  text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px;cursor:pointer}
+.adv-quiz .qz-link:hover{text-decoration-thickness:2px}
 
-/* the quiz column */
-.adv-quiz .qz-quiz{padding:var(--qz-gap) 0 0;scroll-margin-top:16px}
-.adv-quiz .qz-bar-row{display:none;align-items:center;gap:14px;margin:0 0 24px}
-.adv-quiz .qz-progress{flex:1 1 auto;height:4px;background:var(--qz-rule);overflow:hidden}
-.adv-quiz .qz-bar{display:block;height:100%;width:0;background:var(--qz-accent);transition:width .25s ease}
-.adv-quiz .qz-back{flex:0 0 auto;padding:6px 0;border:0;background:none;color:var(--qz-ink);
-  font:inherit;font-size:.9375rem;font-weight:600;text-decoration:underline;text-underline-offset:4px;cursor:pointer}
-.adv-quiz .qz-step{margin:0 0 32px}
-.adv-quiz .qz-q{font-size:1.5rem;line-height:1.2;margin:0 0 18px;color:var(--qz-ink)}
-.adv-quiz .qz-q:focus{outline:none}
+/* hero */
+.adv-quiz .qz-hero{padding:32px 0 var(--qz-pad)}
+.adv-quiz .qz-hero-grid{display:grid;gap:32px;align-items:center}
+.adv-quiz .qz-start{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin:0 0 28px}
+.adv-quiz .qz-start-note{margin:0;font-size:15px;color:var(--qz-muted)}
+.adv-quiz .qz-byline{margin:0;font-size:14px;line-height:1.5;color:var(--qz-muted)}
+.adv-quiz .qz-byline .byline{margin:0;padding:0;border:0;background:none;font-size:14px;line-height:1.5;color:var(--qz-muted)}
+.adv-quiz .qz-byline .byline div{display:inline;margin:0;font-size:14px;color:var(--qz-muted)}
+.adv-quiz .qz-byline .byline__dates::before{content:"\00B7";padding:0 6px}
+.adv-quiz .qz-byline a{color:var(--qz-muted)}
+
+/* picture panels: a cutout sits whole on a quiet panel with no white tile;
+   a lifestyle photo fills the panel */
+.adv-quiz .qz-media{display:flex;align-items:center;justify-content:center;margin:0;overflow:hidden;
+  background:var(--qz-tint);border-radius:var(--qz-radius)}
+.adv-quiz .qz-media picture{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.adv-quiz .qz-media .adv-img{width:auto;height:100%;max-width:100%;max-height:100%;margin:0;border-radius:0;background:transparent}
+.adv-quiz .qz-media--contain{padding:28px}
+.adv-quiz .qz-media--contain .adv-img{object-fit:contain;mix-blend-mode:multiply}
+.adv-quiz .qz-media--cover .adv-img{width:100%;height:100%;object-fit:cover}
+.adv-quiz .qz-hero-media{aspect-ratio:16/10;max-height:300px;width:100%}
+
+/* the quiz card */
+.adv-quiz .qz-quiz{padding:0 0 var(--qz-pad);scroll-margin-top:16px}
+.adv-quiz .qz-card-shell{padding:24px 20px 28px;border:1px solid var(--qz-hair);border-radius:var(--qz-radius);background:var(--qz-bg)}
+.adv-quiz .qz-top{display:none;margin:0 0 28px}
+.adv-quiz .qz-top-row{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:0 0 12px;min-height:24px}
+.adv-quiz .qz-back{font-size:15px;color:var(--qz-ink)}
+.adv-quiz .qz-back[aria-hidden="true"]{visibility:hidden}
+.adv-quiz .qz-count{margin:0 0 0 auto;font-size:15px;line-height:1.4;color:var(--qz-muted)}
+.adv-quiz .qz-progress{height:3px;background:var(--qz-hair);overflow:hidden}
+.adv-quiz .qz-bar{display:block;height:100%;width:0;background:var(--qz-ink);transition:width .3s ease}
+.adv-quiz .qz-step{margin:0 0 40px}
+.adv-quiz.qz--js .qz-step{margin:0}
+.adv-quiz .qz-q{margin:0 0 24px;font-family:var(--qz-display);font-weight:400;font-size:26px;line-height:1.18;color:var(--qz-ink)}
 .adv-quiz .qz-options{list-style:none;margin:0;padding:0;display:grid;gap:12px}
-.adv-quiz .qz-options li{margin:0}
-.adv-quiz .qz-option{display:flex;align-items:center;width:100%;min-height:60px;padding:14px 18px;
-  border:1px solid var(--qz-border);border-radius:var(--qz-radius-btn);background:var(--qz-bg);
-  color:var(--qz-ink);font:inherit;font-size:1.0625rem;font-weight:600;line-height:1.3;text-align:left;cursor:pointer}
-.adv-quiz .qz-option:hover{background:var(--qz-panel)}
-.adv-quiz .qz-option[aria-pressed="true"]{background:var(--qz-panel);box-shadow:inset 4px 0 0 var(--qz-accent)}
-.adv-quiz .qz-note-panel{padding:22px 24px;border-left:4px solid var(--qz-rule);background:var(--qz-panel)}
-.adv-quiz .qz-note{font-size:1.125rem;line-height:1.55;margin:0;color:var(--qz-ink)}
-.adv-quiz .qz-note:focus{outline:none}
-.adv-quiz .qz-next{display:none;margin:18px 0 0;padding:12px 22px;border:1px solid var(--qz-ink);
-  border-radius:var(--qz-radius-btn);background:transparent;color:var(--qz-ink);font:inherit;font-weight:700;cursor:pointer}
-.adv-quiz.qz--js .qz-bar-row{display:flex}
-.adv-quiz.qz--js .qz-next{display:inline-flex}
+.adv-quiz .qz-options li{margin:0;padding:0}
+.adv-quiz .qz-options li::before{content:none}
+.adv-quiz .qz-option{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:64px;
+  padding:16px 20px;border:1px solid var(--qz-line);border-radius:var(--qz-radius-btn);background:var(--qz-bg);
+  color:var(--qz-ink);font:inherit;font-size:17px;line-height:1.35;text-align:left;text-transform:none;letter-spacing:0;cursor:pointer;
+  transition:border-color .15s ease,background-color .15s ease}
+.adv-quiz .qz-option::after{content:"";flex:0 0 auto;width:16px;height:16px;border:1px solid var(--qz-line);background:transparent}
+.adv-quiz .qz-option:hover{border-color:var(--qz-ink)}
+.adv-quiz .qz-option[aria-pressed="true"]{padding:15px 19px;border:2px solid var(--qz-ink);background:var(--qz-tint)}
+.adv-quiz .qz-option[aria-pressed="true"]::after{border-color:var(--qz-ink);background:var(--qz-ink)}
+.adv-quiz .qz-step--note{padding:24px 0 0;border-top:1px solid var(--qz-hair)}
+.adv-quiz .qz-note{margin:0 0 28px;font-family:var(--qz-display);font-size:22px;line-height:1.4;color:var(--qz-ink);max-width:32em}
+.adv-quiz .qz-next{display:none;min-height:48px;padding:0 28px;border:1px solid var(--qz-ink);border-radius:var(--qz-radius-btn);
+  background:transparent;color:var(--qz-ink);font:inherit;font-size:17px;text-transform:none;letter-spacing:0;cursor:pointer}
+.adv-quiz .qz-next:hover{background:var(--qz-tint)}
+.adv-quiz.qz--js .qz-top{display:block}
+.adv-quiz.qz--js .qz-next{display:inline-flex;align-items:center}
 
 /* the result */
-.adv-quiz .qz-result{padding:var(--qz-gap) 0 0;scroll-margin-top:16px}
-.adv-quiz .qz-h2{font-size:1.75rem;line-height:1.15;margin:0 0 12px;color:var(--qz-ink)}
-.adv-quiz .qz-h2:focus{outline:none}
-.adv-quiz .qz-nojs{margin:0 0 20px;font-size:.9375rem;line-height:1.5;color:var(--qz-muted)}
-.adv-quiz .qz-card{display:grid;gap:22px;margin:0 0 20px;padding:22px;border:1px solid var(--qz-border);
-  border-radius:var(--qz-radius);background:var(--qz-bg)}
-.adv-quiz .qz-card-media{margin:0;background:var(--qz-panel);border-radius:var(--qz-radius);overflow:hidden}
-.adv-quiz .qz-card-media .adv-img{width:100%}
-.adv-quiz .qz-card-name{font-size:1.375rem;line-height:1.2;margin:0 0 6px;color:var(--qz-ink)}
-.adv-quiz .qz-card-cap{margin:0 0 6px;font-size:.9375rem;color:var(--qz-muted)}
-.adv-quiz .qz-card-price{margin:0 0 18px;font-size:1.5rem;font-weight:700;color:var(--qz-ink)}
-.adv-quiz .qz-why-h{margin:0 0 10px;font-size:.8125rem;font-weight:700;letter-spacing:var(--qz-eyebrow-spacing);
-  text-transform:uppercase;color:var(--qz-eyebrow-color)}
-.adv-quiz .qz-why{list-style:none;margin:0 0 20px;padding:0}
-.adv-quiz .qz-why li{position:relative;margin:0 0 8px;padding-left:22px;font-size:1rem;line-height:1.45}
-.adv-quiz .qz-why li::before{content:"";position:absolute;left:0;top:.5em;width:10px;height:10px;background:var(--qz-accent)}
-.adv-quiz .qz-restart{display:none;padding:8px 0;border:0;background:none;color:var(--qz-ink);font:inherit;
-  font-size:.9375rem;font-weight:600;text-decoration:underline;text-underline-offset:4px;cursor:pointer}
-.adv-quiz.qz--js .qz-restart{display:inline-block}
-.adv-quiz .qz-assure{margin:28px 0 0;padding:20px 0 0;border-top:1px solid var(--qz-rule)}
-.adv-quiz .qz-trust{list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 12px;padding:0;
-  font-size:.9375rem;font-weight:600;color:var(--qz-ink)}
-.adv-quiz .qz-trust li{margin:0}
-.adv-quiz .qz-fine{margin:0 0 8px;font-size:.875rem;line-height:1.5;color:var(--qz-muted)}
+.adv-quiz .qz-result{padding:0 0 var(--qz-pad);scroll-margin-top:16px}
+.adv-quiz .qz-nojs{margin:-12px 0 24px;font-size:15px;line-height:1.5;color:var(--qz-muted)}
+.adv-quiz .qz-card{display:grid;gap:0;margin:0 0 24px;border:1px solid var(--qz-hair);border-radius:var(--qz-radius);background:var(--qz-bg)}
+.adv-quiz .qz-card-media{aspect-ratio:4/3;width:100%}
+.adv-quiz .qz-card-body{padding:24px 20px 28px}
+.adv-quiz .qz-card-name{margin:0 0 4px;font-family:var(--qz-display);font-weight:400;font-size:34px;line-height:1.1;color:var(--qz-ink)}
+.adv-quiz .qz-card-desc{margin:0 0 16px;font-size:16px;color:var(--qz-muted)}
+.adv-quiz .qz-card-price{margin:0 0 4px;font-size:26px;line-height:1.3;color:var(--qz-ink)}
+.adv-quiz .qz-card-rating{margin:0;font-size:15px;color:var(--qz-muted)}
+.adv-quiz .qz-why-block{margin:24px 0 0}
+.adv-quiz .qz-why-title{margin:0 0 4px;font-size:17px;color:var(--qz-ink)}
+.adv-quiz .qz-why{list-style:none;margin:0;padding:0}
+.adv-quiz .qz-why li{display:flex;flex-wrap:wrap;gap:2px 16px;margin:0;padding:12px 0;border-top:1px solid var(--qz-hair)}
+.adv-quiz .qz-why li::before{content:none}
+.adv-quiz .qz-why-k{flex:0 0 132px;font-size:15px;color:var(--qz-muted)}
+.adv-quiz .qz-why-v{flex:1 1 180px;font-size:17px;color:var(--qz-ink)}
+.adv-quiz .qz-card .qz-btn{width:100%;margin:28px 0 0}
+.adv-quiz .qz-result-links{display:flex;flex-wrap:wrap;gap:12px 28px;margin:0 0 40px}
+.adv-quiz .qz-restart{display:none}
+.adv-quiz.qz--js .qz-restart{display:inline}
+.adv-quiz .qz-assure{padding:20px 0 0;border-top:1px solid var(--qz-hair)}
+.adv-quiz .qz-trust{list-style:none;display:flex;flex-wrap:wrap;gap:4px 24px;margin:0 0 8px;padding:0;font-size:15px;color:var(--qz-ink)}
+.adv-quiz .qz-trust li{margin:0;padding:0}
+.adv-quiz .qz-trust li::before{content:none}
+.adv-quiz .qz-fine{margin:0 0 6px;font-size:15px;line-height:1.5;color:var(--qz-muted)}
 
-/* FAQ, then a dark closing band */
-.adv-quiz .qz-faq{padding:var(--qz-gap) 0 0}
-.adv-quiz .qz-faq-item{border:1px solid var(--qz-border);border-radius:var(--qz-radius);margin:0 0 10px;
-  padding:0 16px;background:var(--qz-bg)}
-.adv-quiz .qz-faq-q{padding:16px 0;font-size:1.0625rem;font-weight:600;color:var(--qz-ink);cursor:pointer;list-style:none}
+/* FAQ: hairline-divided native accordion */
+.adv-quiz .qz-faq{padding:var(--qz-pad) 0;border-top:1px solid var(--qz-hair)}
+.adv-quiz .qz-faq-list{border-bottom:1px solid var(--qz-hair)}
+.adv-quiz .qz-faq-item{margin:0;border-top:1px solid var(--qz-hair)}
+.adv-quiz .qz-faq-q{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 0;
+  font-size:18px;line-height:1.4;color:var(--qz-ink);cursor:pointer;list-style:none}
 .adv-quiz .qz-faq-q::-webkit-details-marker{display:none}
-.adv-quiz .qz-faq-q::after{content:"+";float:right;font-weight:700}
+.adv-quiz .qz-faq-q::after{content:"+";flex:0 0 auto;font-size:24px;line-height:1;color:var(--qz-ink)}
 .adv-quiz .qz-faq-item[open] .qz-faq-q::after{content:"\2212"}
-.adv-quiz .qz-faq-a{margin:0 0 16px;font-size:1rem;line-height:1.6;color:var(--qz-body)}
-.adv-quiz .qz-close{margin:var(--qz-gap) 0 0;padding:36px 0;background:var(--qz-dark);color:var(--qz-on-dark)}
-.adv-quiz .qz-close-text{margin:0 0 16px;font-size:1.25rem;line-height:1.35;color:var(--qz-on-dark)}
-.adv-quiz .qz-close .qz-btn{background:var(--qz-accent);color:var(--qz-on-accent)}
+.adv-quiz .qz-faq-a{margin:0;padding:0 0 24px;font-size:17px;line-height:1.6;color:var(--qz-body);max-width:40em}
 
-/* headline case (harness/render.py's wrap_class), restated for the export */
-.adv-case-upper .qz-h1,.adv-case-upper .qz-q,.adv-case-upper .qz-h2,.adv-case-upper .qz-card-name{text-transform:uppercase}
+/* closing band */
+.adv-quiz .qz-close{padding:var(--qz-pad) 0;background:var(--qz-dark);color:var(--qz-on-dark)}
+.adv-quiz .qz-close-text{margin:0 0 28px;font-family:var(--qz-display);font-size:30px;line-height:1.15;color:var(--qz-on-dark);max-width:18em}
 
-@media (max-width:600px){
-  .adv-quiz{--qz-gap:36px}
-  .adv-quiz .qz-h1{font-size:1.875rem}
-  .adv-quiz .qz-q{font-size:1.3125rem}
-  .adv-quiz .qz-hero .qz-btn{width:100%}
-}
-@media (min-width:600px){
-  .adv-quiz .qz-options{grid-template-columns:1fr 1fr}
+@media (min-width:640px){
+  .adv-quiz .qz-options--grid{grid-template-columns:1fr 1fr}
+  .adv-quiz .qz-card-shell{padding:36px 40px 40px}
 }
 @media (min-width:768px){
-  .adv-quiz{--qz-gap:64px}
-  .adv-quiz .qz-h1{font-size:2.75rem}
-  .adv-quiz .qz-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;padding:28px}
+  .adv-quiz{--qz-pad:80px}
+  .adv-quiz .qz-h1{font-size:44px}
+  .adv-quiz .qz-dek{font-size:19px}
+  .adv-quiz .qz-h2{font-size:36px}
+  .adv-quiz .qz-q{font-size:30px}
+  .adv-quiz .qz-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .adv-quiz .qz-card-media{aspect-ratio:auto;height:100%;min-height:420px}
+  .adv-quiz .qz-card-body{padding:40px}
+  .adv-quiz .qz-card-name{font-size:40px}
+  .adv-quiz .qz-card .qz-btn{width:auto}
+  .adv-quiz .qz-close-text{font-size:40px}
 }
-@media (min-width:900px){
-  .adv-quiz .qz-hero-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:48px}
-  .adv-quiz .qz-hero-media .adv-img{max-height:480px}
+@media (min-width:960px){
+  .adv-quiz .qz-hero{padding:48px 0 var(--qz-pad)}
+  .adv-quiz .qz-h1{font-size:52px}
+  .adv-quiz .qz-hero-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:64px}
+  .adv-quiz .qz-hero-media{aspect-ratio:4/5;max-height:480px}
+}
+@media (max-width:479px){
+  .adv-quiz .qz-hero .qz-btn{width:100%}
+  .adv-quiz .qz-hero-media .adv-img--hero{width:auto;margin:0}
+  .adv-quiz .qz-hero-media{max-height:240px}
+  .adv-quiz .qz-hero-media.qz-media--contain{padding:12px}
 }
 </style>
 <div class="adv-quiz" data-qz data-qz-tiebreak="{{ cartridge_data.tiebreak }}">
@@ -175,69 +236,78 @@
     <div class="qz-measure qz-hero-grid">
       <div>
         {# Cycle 55 convention: the tenant disclosure_label in the eyebrow
-           style; nothing when unset. #}
+           style; nothing when unset. It is the page's only uppercase text. #}
         {% if disclosure_label %}<p class="qz-eyebrow">{{ disclosure_label }}</p>{% endif %}
-        <h1 class="qz-h1">{{ page.headline }}</h1>
+        <h1 class="qz-h1">{{ cartridge_data.headline }}</h1>
         <p class="qz-dek">{{ page.dek }}</p>
-        <a class="qz-btn" href="#qz-quiz">{{ cartridge_data.start_text }}</a>
+        <div class="qz-start">
+          <a class="qz-btn" href="#qz-quiz" data-qz-start>{{ cartridge_data.start_text }}</a>
+          <p class="qz-start-note">{{ cartridge_data.question_count }} questions &middot; about a minute</p>
+        </div>
         <div class="qz-byline adv-byline">{{ byline_html | safe }}</div>
       </div>
       {% set hero_asset = assets.get(page.hero.asset_id) if page.hero else None %}
-      {% if hero_asset %}<div class="qz-hero-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
+      {% if hero_asset %}<div class="qz-media {{ 'qz-media--contain' if image_fit(hero_asset) == 'contain' else 'qz-media--cover' }} qz-hero-media">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
     </div>
   </header>
 
-  <section class="qz-quiz" id="qz-quiz">
+  <section class="qz-quiz" id="qz-quiz" aria-label="Quiz" data-qz-quiz>
     <div class="qz-column">
-      <div class="qz-bar-row">
-        <button type="button" class="qz-back" data-qz-back hidden>Back</button>
-        <div class="qz-progress" aria-hidden="true"><span class="qz-bar" data-qz-bar></span></div>
-      </div>
-      {% for step in cartridge_data.steps %}
-      {% if step.kind == "question" %}
-      <div class="qz-step" data-qz-step data-qz-question="{{ step.id }}">
-        <h2 class="qz-q" tabindex="-1">{{ step.prompt }}</h2>
-        <ul class="qz-options">
-          {% for option in step.options %}
-          <li><button type="button" class="qz-option" aria-pressed="false" data-qz-scores="{{ option.scores }}">{{ option.label }}</button></li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% else %}
-      <div class="qz-step" data-qz-step>
-        <div class="qz-note-panel">
-          <p class="qz-eyebrow">Good to know</p>
+      <div class="qz-card-shell">
+        <div class="qz-top">
+          <div class="qz-top-row">
+            <button type="button" class="qz-back qz-link" data-qz-back aria-hidden="true" tabindex="-1">Back</button>
+            <p class="qz-count" data-qz-count aria-live="polite">Question <span data-qz-num>1</span> of {{ cartridge_data.question_count }}</p>
+          </div>
+          <div class="qz-progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="{{ cartridge_data.question_count }}" aria-valuenow="0" data-qz-progress><span class="qz-bar" data-qz-bar></span></div>
+        </div>
+        {% for step in cartridge_data.steps %}
+        {% if step.kind == "question" %}
+        <div class="qz-step" data-qz-step data-qz-question="{{ step.id }}" data-qz-label="{{ step.result_label }}" role="group" aria-labelledby="qz-q-{{ loop.index }}">
+          <h2 class="qz-q" id="qz-q-{{ loop.index }}" tabindex="-1">{{ step.prompt }}</h2>
+          <ul class="qz-options{{ ' qz-options--grid' if step.layout == 'grid' else '' }}">
+            {% for option in step.options %}
+            <li><button type="button" class="qz-option" aria-pressed="false" data-qz-scores="{{ option.scores }}">{{ option.label }}</button></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% else %}
+        <div class="qz-step qz-step--note" data-qz-step>
           <p class="qz-note" tabindex="-1">{{ step.line }}</p>
           <button type="button" class="qz-next" data-qz-next>Continue</button>
         </div>
+        {% endif %}
+        {% endfor %}
       </div>
-      {% endif %}
-      {% endfor %}
     </div>
   </section>
 
   <section class="qz-result" id="qz-result" data-qz-result>
-    <div class="qz-column">
-      <p class="qz-eyebrow">Your match</p>
-      <h2 class="qz-h2" tabindex="-1" data-qz-result-heading>The model that fits your answers</h2>
+    <div class="qz-column qz-column--wide">
+      <h2 class="qz-h2" tabindex="-1" data-qz-result-heading>Your best match</h2>
       <p class="qz-nojs" data-qz-nojs>Scripts are off in this browser, so the quiz cannot score your answers. This is the model the ad featured; every model has its own page.</p>
       {% for card in cartridge_data.cards %}
       <article class="qz-card" data-qz-model="{{ card.slug }}"{% if card.featured %} data-qz-featured{% else %} hidden{% endif %}>
         {% set card_asset = assets.get(card.image.id) if card.image else None %}
-        {% if card_asset %}<div class="qz-card-media">{{ render_image_slot(card_asset, frame="4x3") }}</div>{% endif %}
-        <div>
-          <h3 class="qz-card-name">{{ card.name }}</h3>
-          {% if card.capacity_text %}<p class="qz-card-cap">Capacity: {{ card.capacity_text }}</p>{% endif %}
+        {% if card_asset %}<div class="qz-media {{ 'qz-media--contain' if image_fit(card_asset, frame='4x3') == 'contain' else 'qz-media--cover' }} qz-card-media">{{ render_image_slot(card_asset, frame="4x3") }}</div>{% endif %}
+        <div class="qz-card-body">
+          <h3 class="qz-card-name">{{ card.title }}</h3>
+          {% if card.descriptor %}<p class="qz-card-desc">{{ card.descriptor }}</p>
+          {% elif card.capacity_text %}<p class="qz-card-desc">Capacity: {{ card.capacity_text }}</p>{% endif %}
           <p class="qz-card-price" data-claim-id="{{ card.price_claim_id }}">{{ card.price_text }}</p>
-          <div data-qz-why-block hidden>
-            <p class="qz-why-h">Why this matches you</p>
+          {% if card.featured and cartridge_data.rating_line %}<p class="qz-card-rating">{{ cartridge_data.rating_line.text }}</p>{% endif %}
+          <div class="qz-why-block" data-qz-why-block hidden>
+            <p class="qz-why-title">Why it fits you</p>
             <ul class="qz-why" data-qz-why></ul>
           </div>
           <a class="qz-btn" href="{{ card.url }}">{{ card.cta_text }}</a>
         </div>
       </article>
       {% endfor %}
-      <button type="button" class="qz-restart" data-qz-restart>Retake the quiz</button>
+      <div class="qz-result-links">
+        {% if cartridge_data.all_models_url %}<a class="qz-link" href="{{ cartridge_data.all_models_url }}">See all models</a>{% endif %}
+        <button type="button" class="qz-restart qz-link" data-qz-restart>Retake the quiz</button>
+      </div>
       <div class="qz-assure">
         {% if cartridge_data.trust_items %}
         <ul class="qz-trust">
@@ -253,22 +323,24 @@
 
   {% if page.faq and page.faq.questions %}
   <section class="qz-faq">
-    <div class="qz-column">
+    <div class="qz-column qz-column--wide">
       <h2 class="qz-h2">Questions buyers ask</h2>
-      {% for entry in page.faq.questions %}
-      <details class="qz-faq-item"{{ " open" if loop.first else "" }}>
-        <summary class="qz-faq-q">{{ entry.question }}</summary>
-        <p class="qz-faq-a">{{ entry.answer }}</p>
-      </details>
-      {% endfor %}
+      <div class="qz-faq-list">
+        {% for entry in page.faq.questions %}
+        <details class="qz-faq-item">
+          <summary class="qz-faq-q">{{ entry.question }}</summary>
+          <p class="qz-faq-a">{{ entry.answer }}</p>
+        </details>
+        {% endfor %}
+      </div>
     </div>
   </section>
   {% endif %}
 
   <section class="qz-close">
-    <div class="qz-column">
-      <p class="qz-close-text">Not sure yet? The quiz takes a minute, and you can change any answer.</p>
-      <a class="qz-btn" href="#qz-quiz">{{ cartridge_data.start_text }}</a>
+    <div class="qz-column qz-column--wide">
+      <p class="qz-close-text">Still deciding? The quiz takes about a minute, and you can change any answer.</p>
+      <a class="qz-btn" href="#qz-quiz" data-qz-start>{{ cartridge_data.start_text }}</a>
     </div>
   </section>
 
@@ -278,16 +350,20 @@
 (function(){
   var root = document.querySelector('[data-qz]');
   if (!root) return;
+  var quiz = root.querySelector('[data-qz-quiz]');
   var steps = [].slice.call(root.querySelectorAll('[data-qz-step]'));
   var questions = steps.filter(function(s){ return s.hasAttribute('data-qz-question'); });
   var cards = [].slice.call(root.querySelectorAll('[data-qz-model]'));
   var result = root.querySelector('[data-qz-result]');
   var bar = root.querySelector('[data-qz-bar]');
+  var progress = root.querySelector('[data-qz-progress]');
+  var num = root.querySelector('[data-qz-num]');
   var back = root.querySelector('[data-qz-back]');
   var tiebreak = (root.getAttribute('data-qz-tiebreak') || '').split(' ');
   var answers = {};
   var current = 0;
-  if (!steps.length || !questions.length || !result) return;
+  var busy = false;
+  if (!quiz || !steps.length || !questions.length || !result) return;
   root.classList.add('qz--js');
   var nojs = root.querySelector('[data-qz-nojs]');
   if (nojs) nojs.hidden = true;
@@ -320,18 +396,46 @@
     }
     return best;
   }
-  function progress(){
+  /* The "why it fits you" rows: the three answers that gave the winner the
+     most points (question order breaks a tie), shown in question order. */
+  function reasons(winner){
+    var rows = [];
+    questions.forEach(function(q, i){
+      var chosen = answers[qid(q)];
+      if (!chosen) return;
+      var points = parse(chosen.getAttribute('data-qz-scores'))[winner] || 0;
+      if (points > 0) rows.push({points: points, i: i, label: q.getAttribute('data-qz-label') || '',
+                                 answer: chosen.textContent.replace(/\s+/g, ' ').trim()});
+    });
+    rows.sort(function(a, b){ return (b.points - a.points) || (a.i - b.i); });
+    return rows.slice(0, 3).sort(function(a, b){ return a.i - b.i; });
+  }
+  function setProgress(){
     var done = questions.filter(function(q){ return answers[qid(q)]; }).length;
     if (bar) bar.style.width = Math.round(100 * done / questions.length) + '%';
+    if (progress) progress.setAttribute('aria-valuenow', String(done));
   }
   function focus(el){ if (el) { try { el.focus({preventScroll: true}); } catch (e) { el.focus(); } } }
-  function show(i){
+  function reveal(el){
+    var top = el.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.6) el.scrollIntoView({block: 'start', behavior: 'smooth'});
+  }
+  function setBack(on){
+    if (!back) return;
+    back.setAttribute('aria-hidden', on ? 'false' : 'true');
+    back.tabIndex = on ? 0 : -1;
+  }
+  function show(i, moveFocus){
     current = i;
+    busy = false;
     steps.forEach(function(s, j){ s.hidden = j !== i; });
+    quiz.hidden = false;
     result.hidden = true;
-    if (back) back.hidden = i === 0;
-    progress();
-    focus(steps[i].querySelector('[tabindex]'));
+    setBack(i > 0);
+    var qi = questions.indexOf(steps[i]);
+    if (qi !== -1 && num) num.textContent = String(qi + 1);
+    setProgress();
+    if (moveFocus) { reveal(quiz); focus(steps[i].querySelector('[tabindex]')); }
   }
   function finish(){
     var winner = pick();
@@ -346,46 +450,63 @@
       var block = card.querySelector('[data-qz-why-block]');
       if (!won || !list) return;
       list.textContent = '';
-      questions.forEach(function(q){
-        var chosen = answers[qid(q)];
-        if (!chosen || !(parse(chosen.getAttribute('data-qz-scores'))[winner] > 0)) return;
+      reasons(winner).forEach(function(row){
         var li = document.createElement('li');
-        li.textContent = chosen.textContent.replace(/\s+/g, ' ').trim();
+        if (row.label) {
+          var k = document.createElement('span');
+          k.className = 'qz-why-k';
+          k.textContent = row.label;
+          li.appendChild(k);
+        }
+        var v = document.createElement('span');
+        v.className = 'qz-why-v';
+        v.textContent = row.answer;
+        li.appendChild(v);
         list.appendChild(li);
       });
       if (block) block.hidden = !list.children.length;
     });
     current = steps.length;
-    steps.forEach(function(s){ s.hidden = true; });
-    if (back) back.hidden = false;
-    if (bar) bar.style.width = '100%';
+    busy = false;
+    setProgress();
+    quiz.hidden = true;
     result.hidden = false;
     result.scrollIntoView({block: 'start'});
     focus(root.querySelector('[data-qz-result-heading]'));
   }
-  function advance(){ if (current + 1 < steps.length) show(current + 1); else finish(); }
+  function advance(){ if (current + 1 < steps.length) show(current + 1, true); else finish(); }
+  function restart(){
+    answers = {};
+    [].forEach.call(root.querySelectorAll('[data-qz-scores]'), function(b){ b.setAttribute('aria-pressed', 'false'); });
+    show(0, true);
+  }
 
   root.addEventListener('click', function(e){
-    var t = e.target.closest ? e.target.closest('button') : null;
+    var t = e.target.closest ? e.target.closest('button, a[data-qz-start]') : null;
     if (!t || !root.contains(t)) return;
-    if (t.hasAttribute('data-qz-scores')) {
+    if (t.hasAttribute('data-qz-start')) {
+      e.preventDefault();
+      if (!result.hidden) { result.scrollIntoView({block: 'start', behavior: 'smooth'}); return; }
+      quiz.scrollIntoView({block: 'start', behavior: 'smooth'});
+      focus(steps[current] && steps[current].querySelector('[tabindex]'));
+    } else if (t.hasAttribute('data-qz-scores')) {
+      if (busy) return;
       var step = t.closest('[data-qz-question]');
       [].forEach.call(step.querySelectorAll('[data-qz-scores]'), function(b){ b.setAttribute('aria-pressed', 'false'); });
       t.setAttribute('aria-pressed', 'true');
       answers[qid(step)] = t;
-      advance();
+      setProgress();
+      busy = true;
+      window.setTimeout(advance, 320);
     } else if (t.hasAttribute('data-qz-next')) {
       advance();
     } else if (t.hasAttribute('data-qz-back')) {
-      if (current > 0) show(current - 1);
+      if (current > 0) show(current - 1, true);
     } else if (t.hasAttribute('data-qz-restart')) {
-      answers = {};
-      [].forEach.call(root.querySelectorAll('[data-qz-scores]'), function(b){ b.setAttribute('aria-pressed', 'false'); });
-      show(0);
-      root.querySelector('#qz-quiz').scrollIntoView({block: 'start'});
+      restart();
     }
   });
-  show(0);
+  show(0, false);
 })();
 </script>
 {% endblock %}
