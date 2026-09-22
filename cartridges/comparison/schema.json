@@ -6,7 +6,7 @@
   "properties": {
     "axis": {
       "type": "string",
-      "description": "models | alternatives. 'models' when the ad is about choosing between, pricing or sizing the tenant's own cabins; 'alternatives' when the ad weighs owning one against another way to get the same thing. It picks the headline formula."
+      "description": "alternatives | models. 'alternatives' when the ad names or weighs another way to get the same thing (a studio, a membership, a gym or spa, another kind of sauna, a blanket), even if it also quotes a price; 'models' only when the ad is purely about choosing between, pricing or sizing the tenant's own cabins. It picks the headline formula."
     },
     "headline": {
       "type": "string",

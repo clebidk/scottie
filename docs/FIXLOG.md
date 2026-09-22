@@ -2045,3 +2045,38 @@ strings were already clean -- this was a writer-prompt/gate gap only.
    (byte-for-byte parity harness): both dry-run fixtures' `article.page.
    json` used the retired name in a `close` paragraph pre-cycle-53; now
    correctly reads "PEAK". Suite: 1465 passed. Ruff: clean.
+
+## Cycle 56 (comparison cartridge v1.0.0, 2026-09-22)
+
+The parked comparison draft ("needs competitor claims sources") is replaced by
+a page that needs no competitor claims at all.
+
+1. **Model table, renderer-owned.** `harness/comparison.py` +
+   `ground._comparison_models`: `facts_for(..., include_comparison=True)` now
+   adds `facts_pack.comparison` -- the ad's product (featured) plus the two
+   `_model_options` picks, each with every row's cell. A cell is a fragment
+   cut from ONE verified claim (`spec-/gbrain-/pdp-<model>-<suffix>`) with its
+   id, or a dash; an all-dash row is dropped; price is the claim's first dollar
+   figure (never compare-at); warranty is vocab's fixed spec value. The other
+   models' cited claims join `verified_claims`. `render_page` adds the table's
+   ids to Sources (new optional `fallback_url_by_claim`/`product_name_by_url`
+   on `build_sources_list`, so an internal-only source falls back to its own
+   model's page) and runs `find_table_violations` as a post-render backstop.
+   `_comparison_targets` (approved-competitor store) no longer feeds the page.
+2. **Alternatives, writer-owned.** Allowlist in the cartridge schema
+   (`alternatives`). Summary/similarities/`theirs` carry no digit, `$`, `%`
+   or trigger word; `ours` is claims-gated like any `{text, claim_ids}`.
+3. **Gates** (`comparison:*`): axis, headline_formula (models: the three
+   names in column order; alternatives: the slot names a chosen alternative),
+   headline_slots, alternatives_count/allowlist, alternative_digits,
+   alternative_claims, best_for, who_for, faq_count/faq_claims, numbers_mean,
+   recap, extra_rows, images, renderer_owned. Plumbing: hero requirement,
+   simplicity above-fold (header CTA = one link), writer lines, fake-run page.
+4. **Bug found by the e2e test:** `parse_word_range` reads the FIRST "N-M
+   words" in cartridge.md; the audience rule's "2-5 words" made the range 2-5.
+   Written "2 to 5 words"; `test_the_cartridge_states_one_word_range...` pins it.
+5. **Real runs** (worktree, peak-saunas): price-comparison-v2 -> first run
+   PASS but picked `models`; axis guidance sharpened (another way named =>
+   `alternatives`); re-run PASS on `alternatives` (2 repairs: an FAQ
+   `attributed_to_customer`, then a "$200 monthly" dek, both caught).
+   hidden-costs-v2 -> PASS on `models`, attempt 1. Suite: 1496 passed; ruff clean.

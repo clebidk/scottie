@@ -120,7 +120,9 @@ def _listicle_page(style):
 def _canned_page(cartridge, style=None):
     if cartridge == "comparison":
         # Imported lazily so the driver's startup stays light when the
-        # comparison cartridge isn't involved.
+        # comparison cartridge isn't involved. Cycle 56: the v1.0.0 canned
+        # page is a Fuji "models" page (Fuji vs Everest vs Rainier) -- the
+        # product a claim-free brief defaults to, and the one the soak pins.
         from tests.test_comparison import COMPARISON_PAGE
 
         return COMPARISON_PAGE

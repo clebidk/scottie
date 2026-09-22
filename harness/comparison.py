@@ -421,9 +421,11 @@ def writer_lines(facts_pack):
             "Write each name exactly as given."
         )
     lines += [
-        'Set "axis" to "models" when the ad is about choosing between, pricing, or sizing the '
-        "tenant's own cabins; set it to \"alternatives\" when the ad weighs owning one against "
-        "another way to get the same thing (a studio, a different kind of sauna, a blanket).",
+        'Pick "axis" from the ad brief: when the ad names or weighs ANOTHER WAY to get the same '
+        "thing -- a studio, a membership, a gym or spa, a different kind of sauna, a blanket -- "
+        "the axis is \"alternatives\", even when the ad also quotes a price or names one of the "
+        "tenant's models. Only when the ad is purely about choosing between, pricing, or sizing "
+        "the tenant's own cabins (no other way named) is the axis \"models\".",
         f'"models" headline formula, exactly: "{headline_formula("models", models)}". '
         f'"alternatives" headline formula, exactly: "{headline_formula("alternatives")}", where '
         "<alternative> is one of the alternatives you chose, in its own words. <category> is the "

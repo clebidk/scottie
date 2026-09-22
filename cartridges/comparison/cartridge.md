@@ -9,8 +9,8 @@ Every page picks ONE axis in page.json's `axis` field; it fixes the headline for
 
 | axis | when | headline formula |
 | --- | --- | --- |
-| models | the ad is about choosing between, pricing, or sizing the tenant's own cabins | \<Model A\> vs \<Model B\> vs \<Model C\>: Which \<category\> Fits \<audience\> |
-| alternatives | the ad weighs owning one against another way to get the same thing | \<category\> vs \<alternative\>: What \<audience\> Should Compare |
+| alternatives | the ad names or weighs another way to get the same thing (a studio, a membership, a gym or spa, another kind of sauna, a blanket) -- even when it also quotes a price or names a model | \<category\> vs \<alternative\>: What \<audience\> Should Compare |
+| models | the ad is purely about choosing between, pricing, or sizing the tenant's own cabins, with no other way named | \<Model A\> vs \<Model B\> vs \<Model C\>: Which \<category\> Fits \<audience\> |
 
 The model names are the three in facts_pack.comparison.models, exactly as written there and in column order (the featured model -- this run's product -- first). `<alternative>` is one of the alternatives this page covers, in its own words. `<category>` is the product category, never {{ tenant.name }} or a model name. `<audience>` names people by situation or goal, 2 to 5 words, never a bare "people" or "buyers". The hard constraints for this run quote both formulas with the real model names filled in.
 
