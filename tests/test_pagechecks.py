@@ -198,7 +198,7 @@ def test_json_ld_catches_a_missing_block():
 
 def test_json_ld_catches_an_unregistered_cartridge():
     html = '<html><head><script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article"}</script></head></html>'
-    problems = pagechecks.find_rendered_json_ld_violations(html, "quiz")
+    problems = pagechecks.find_rendered_json_ld_violations(html, "no-such-cartridge")
     assert any("no registered JSON-LD type" in p["issue"] for p in problems)
 
 

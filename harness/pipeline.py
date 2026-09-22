@@ -293,12 +293,37 @@ def ground(state):
         include_comparison="comparison" in state.selected,
         # Cycle 41: the listicle model picker's rows, same opt-in shape.
         include_listicle="listicle" in state.selected,
+        # Cycle 57: the quiz rubric and result cards, same opt-in shape.
+        include_quiz="quiz" in state.selected,
         # Cycle 54: the product-page `pdp` look's model compare table.
         include_product_page="product-page" in state.selected,
         live_price_claims=state.live_price_claims_by_slug,
         log=state.log,
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
+    if "quiz" in state.selected:
+        _gate_quiz_rubric(state)
+
+
+def _gate_quiz_rubric(state):
+    """Cycle 57: the quiz rubric is tenant data the writer cannot repair, so a
+    rubric that fails to load, scores a retired or unknown model, leaves a
+    model unreachable, or lets any combination of answers score nothing
+    STOPs the run here, before a single writer call is spent."""
+    from . import quiz as quiz_mod
+
+    pack = state.facts_pack.get("quiz") or {}
+    slugs = [m["slug"] for m in pack.get("models") or []]
+    problems = quiz_mod.validate_rubric(pack.get("rubric"), slugs, load_error=pack.get("rubric_error"))
+    if problems:
+        raise ClaimsGateFailure("quiz_rubric", problems)
+    wins, _empty, total = quiz_mod.rubric_reachability(pack["rubric"], set(slugs))
+    state.log.event(
+        "ground",
+        f"quiz rubric PASS: {len(quiz_mod.rubric_questions(pack['rubric']))} questions, {total} answer "
+        f"combinations, every one of {len(slugs)} active models reachable "
+        f"({', '.join(f'{s}={wins[s]}' for s in slugs)})",
+    )
 
 
 def gate_ad_claims(state):
