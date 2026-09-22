@@ -2,7 +2,7 @@
   "type": "object",
   "allowed_cta_texts": ["See the models", "Shop the {model_name}", "See pricing"],
   "alternatives": ["studio membership", "traditional sauna", "far-infrared-only cabin", "portable blanket"],
-  "required": ["axis", "headline", "dek", "hero", "lifestyle", "extra_rows", "best_for", "numbers_mean", "alternatives", "who_for", "faq", "closing", "cta_text", "cta_url"],
+  "required": ["axis", "headline", "dek", "hero", "lifestyle", "best_for", "numbers_mean", "alternatives", "who_for", "faq", "closing", "cta_text", "cta_url"],
   "properties": {
     "axis": {
       "type": "string",
@@ -10,16 +10,16 @@
     },
     "headline": {
       "type": "string",
-      "description": "axis models: '<Model A> vs <Model B> vs <Model C>: Which <category> Fits <audience>', the three names exactly as facts_pack.comparison.models gives them, in column order. axis alternatives: '<category> vs <alternative>: What <audience> Should Compare', <alternative> one of this page's alternatives. <category> is the product category, never the tenant's name or a model name; <audience> names people by situation or goal (2 to 5 words), never a bare 'people' or 'buyers'. Never a price."
+      "description": "Sentence case: capitalize the first word and proper names (model names, the tenant's name) only, never title case. axis models: '<Model A> vs <Model B> vs <Model C>: which <category> fits <audience>', the three names exactly as facts_pack.comparison.models gives them, in column order. axis alternatives: '<category> vs <alternative>: what <audience> should compare', <alternative> one of this page's alternatives. <category> is the product category, never the tenant's name or a model name; <audience> names people by situation or goal (2 to 5 words), never a bare 'people' or 'buyers'. Never a price."
     },
     "dek": {
       "type": "object",
-      "description": "One-sentence subhead under the headline. Any number or spec in it cites claim_ids.",
+      "description": "One plain sentence under the headline, at most 22 words, that says what the page compares. No filler opener ('When it comes to', 'Whether you're'). Any number or spec in it cites claim_ids.",
       "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
     },
     "hero": {
       "type": "object",
-      "description": "The header's hero image: the featured model, one asset_id from facts_pack.assets -- never a model's column image (facts_pack.comparison.models[].image.id).",
+      "description": "The header's hero image: the featured model, one asset_id from facts_pack.assets -- a room or installation photo of that model when the assets have one, else its product shot; never a model's column image (facts_pack.comparison.models[].image.id).",
       "properties": {"asset_id": {"type": "string"}}
     },
     "lifestyle": {
@@ -27,14 +27,9 @@
       "description": "One lifestyle or installation photo from facts_pack.assets, shown between the alternatives and the who-it-is-for section. Different from the hero and from every column image.",
       "properties": {"asset_id": {"type": "string"}}
     },
-    "extra_rows": {
-      "type": "array",
-      "description": "1-2 extra table rows worth a look for this ad's angle, each {\"id\": \"<key>\"} with key one of facts_pack.comparison.extra_row_options[].key. You pick the row; the renderer fills every cell from verified claims.",
-      "items": {"type": "object", "properties": {"id": {"type": "string"}}}
-    },
     "best_for": {
       "type": "array",
-      "description": "Exactly one entry per model, in column order: {\"id\": \"<model id>\", \"text\": \"one short line naming who this model suits\", \"claim_ids\": [...]}. Shown under the table. Any number or spec cites that model's own cell claim_ids.",
+      "description": "Exactly one entry per model, in column order: {\"id\": \"<model id>\", \"text\": \"one line of at most 14 words naming who this model suits\", \"claim_ids\": [...]}. Shown under the table. Any number or spec cites that model's own cell claim_ids.",
       "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "claim_ids": {"type": "array"}}}
     },
     "numbers_mean": {

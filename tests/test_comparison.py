@@ -33,14 +33,13 @@ MODEL_IDS = ["fuji", "everest", "rainier"]
 
 COMPARISON_PAGE = {
     "axis": "models",
-    "headline": "Fuji vs Everest vs Rainier: Which Home Infrared Cabin Fits Couples Short on Floor Space",
+    "headline": "Fuji vs Everest vs Rainier: which home infrared cabin fits couples short on floor space",
     "dek": {
         "text": "Three indoor cabins with published prices, compared line by line so you can see where they match and where they part ways.",
         "claim_ids": [],
     },
     "hero": {"asset_id": HERO_ID},
     "lifestyle": {"asset_id": LIFESTYLE_ID},
-    "extra_rows": [{"id": "max_temperature"}, {"id": "heaters"}],
     "best_for": [
         {"id": "fuji", "text": "Two people who want a red cedar cabin.", "claim_ids": ["spec-fuji-capacity", "spec-fuji-cabin-material"]},
         {"id": "everest", "text": "Two people who want the same footprint for less.", "claim_ids": ["spec-everest-capacity", "price-everest"]},
@@ -247,19 +246,40 @@ def test_the_other_models_backing_claims_join_the_citable_universe():
 # Renderer-owned table rows
 # ---------------------------------------------------------------------------
 
-def test_rows_follow_the_fixed_order_with_the_writers_extra_rows_before_price():
+DECISION_ROWS = ["capacity", "dimensions", "power", "red_light", "max_temperature", "cabin_material", "price", "warranty"]
+
+
+def test_the_table_is_the_eight_decision_rows_in_order():
+    # Cycle 60: at most 8 rows, the ones a buyer decides on, in this order.
+    # A row no model has a verified value for is still dropped, never drawn
+    # as a line of dashes.
     ctx = comparison.render_context(_facts_pack_with_comparison(), _page())
     keys = [r["key"] for r in ctx["rows"]]
+    assert len(keys) <= 8
+    assert keys == [k for k in DECISION_ROWS if k in keys]
     assert keys[-2:] == ["price", "warranty"]
-    assert keys[-4:-2] == ["max_temperature", "heaters"]
-    assert "controls" not in keys  # no verified value for any model -> no row of dashes
+    assert {"capacity", "power", "price"} <= set(keys)
+    assert [row["key"] for row in comparison.row_catalog()["fixed_rows"]] == DECISION_ROWS
 
 
-def test_an_extra_row_outside_the_allowlist_is_never_drawn():
+def test_a_writer_extra_rows_pick_from_an_old_page_json_never_adds_a_row():
     page = _page()
-    page["extra_rows"] = [{"id": "made_up_row"}]
+    page["extra_rows"] = [{"id": "audio"}, {"id": "heaters"}, {"id": "made_up_row"}]
     ctx = comparison.render_context(_facts_pack_with_comparison(), page)
-    assert "made_up_row" not in [r["key"] for r in ctx["rows"]]
+    keys = [r["key"] for r in ctx["rows"]]
+    assert not {"audio", "heaters", "made_up_row"} & set(keys)
+    assert len(keys) <= 8
+
+
+def test_row_labels_are_sentence_case():
+    for row in comparison.render_context(_facts_pack_with_comparison(), _page())["rows"]:
+        label = row["label"]
+        assert label[:1].isupper() and label[1:] == label[1:].lower() or "W × D × H" in label, label
+
+
+def test_each_column_head_carries_its_models_price():
+    ctx = comparison.render_context(_facts_pack_with_comparison(), _page())
+    assert [m.get("price") for m in ctx["models"]][0] == "$8,250"
 
 
 def test_the_table_backstop_catches_an_unverified_cell_and_a_banned_column():
@@ -298,7 +318,7 @@ def test_a_models_headline_must_name_the_three_columns_in_order():
 def test_an_alternatives_headline_names_one_of_the_pages_alternatives():
     page = _page()
     page["axis"] = "alternatives"
-    page["headline"] = "Home Infrared Cabins vs Studio Memberships: What Busy Commuters Should Compare"
+    page["headline"] = "Home infrared cabins vs studio memberships: what busy commuters should compare"
     assert _gate(page) == []
     page["headline"] = "Home Infrared Cabins vs Far-Infrared-Only Cabins: What Busy Commuters Should Compare"
     assert "comparison:headline_formula" in _keys(_gate(page))
@@ -402,10 +422,52 @@ def test_images_are_distinct_and_never_a_column_image():
     assert {"comparison:images:hero", "comparison:images:lifestyle"} <= keys
 
 
-def test_extra_rows_are_one_or_two_allowlisted_keys():
+def test_a_title_case_headline_fails_and_sentence_case_passes():
+    # Cycle 60: sentence case -- the first word and proper names only.
     page = _page()
-    page["extra_rows"] = [{"id": "audio"}, {"id": "heaters"}, {"id": "cabin_material"}]
-    assert "comparison:extra_rows" in _keys(_gate(page))
+    page["headline"] = "Fuji vs Everest vs Rainier: Which Home Infrared Cabin Fits Couples Short on Floor Space"
+    assert "comparison:headline_case" in _keys(_gate(page))
+    page["axis"] = "alternatives"
+    page["headline"] = "Infrared Sauna vs Studio Membership: What At-Home Wellness Buyers Should Compare"
+    assert "comparison:headline_case" in _keys(_gate(page))
+    page["headline"] = "Infrared sauna vs studio membership: what at-home wellness buyers should compare"
+    assert "comparison:headline_case" not in _keys(_gate(page))
+
+
+def test_the_dek_and_best_for_lines_stay_short():
+    page = _page()
+    page["dek"]["text"] = " ".join(["word"] * 23) + "."
+    page["best_for"][1]["text"] = "Two people who want the same footprint for less and do not mind a little extra wait."
+    keys = _keys(_gate(page))
+    assert "comparison:dek_length" in keys
+    assert "comparison:best_for_length:1" in keys
+    assert not {"comparison:best_for_length:0", "comparison:best_for_length:2"} & keys
+
+
+def test_extra_rows_are_no_longer_a_writer_field():
+    # the table's rows are fixed; an old page.json that still carries the
+    # key is neither required nor rejected
+    page = _page()
+    assert "extra_rows" not in page
+    assert _gate(page) == []
+    page["extra_rows"] = [{"id": "audio"}]
+    assert not any(k.startswith("comparison:extra_rows") for k in _keys(_gate(page)))
+
+
+def test_the_display_headline_is_sentence_case_for_a_title_case_page():
+    fp = _facts_pack_with_comparison()
+    page = _page()
+    page["headline"] = "Fuji vs Everest vs Rainier: Which Home Infrared Cabin Fits Couples Short on Floor Space"
+    ctx = comparison.render_context(fp, page, tenant_name="PEAK")
+    assert ctx["headline"] == "Fuji vs Everest vs Rainier: which home infrared cabin fits couples short on floor space"
+    page["headline"] = "Infrared Sauna vs Studio Membership: What At-Home PEAK Buyers Should Compare"
+    assert comparison.render_context(fp, page, tenant_name="PEAK")["headline"] == (
+        "Infrared sauna vs studio membership: what at-home PEAK buyers should compare"
+    )
+    # a headline already in sentence case is left exactly as written,
+    # proper names included
+    page["headline"] = "Red cedar cabins vs studio memberships: what Canadian commuters should compare"
+    assert comparison.render_context(fp, page, tenant_name="PEAK")["headline"] == page["headline"]
 
 
 def test_counts_numbers_mean_faq_and_recap():
@@ -433,11 +495,15 @@ def test_the_writer_is_told_the_three_models_and_both_formulas():
         facts_pack=_facts_pack_with_comparison(), model="m", tenant=TENANT,
     )
     tail = kwargs["system"][-1]["text"]
-    assert '"Fuji vs Everest vs Rainier: Which <category> Fits <audience>"' in tail
-    assert "<category> vs <alternative>: What <audience> Should Compare" in tail
+    assert '"Fuji vs Everest vs Rainier: which <category> fits <audience>"' in tail
+    assert "<category> vs <alternative>: what <audience> should compare" in tail
     assert "NO digits" in tail
     for alt in comparison.allowed_alternatives():
         assert alt in tail
+    # cycle 60: the copy rules that keep the page calm
+    assert "sentence case" in tail
+    assert "22 words" in tail and "14 words" in tail
+    assert "extra_rows" not in tail
 
 
 # ---------------------------------------------------------------------------
@@ -467,12 +533,95 @@ def test_the_page_renders_the_table_alternatives_and_fixed_lines(tmp_path):
     assert '"@type": "FAQPage"' in html
     assert "$8,250" in html and "$7,950" in html and "$7,250" in html
     assert "120V/15A, standard outlet" in html
-    assert 'class="cmp-rowhead" scope="row"' in html  # the pinned row labels
-    assert "Studio Membership" in html and "Traditional Sauna" in html
+    assert 'class="cmp-rowhead" scope="row"' in html
+    assert "Studio membership" in html and "Traditional sauna" in html
     assert "Limited lifetime warranty; full terms by component are published on the warranty page." in html
     assert "Financing is available through Bread Pay at checkout." in html
     assert html.count(">See the models<") == 3  # header, closing, sticky bar -- one offer
     assert 'class="adv-badge"' not in html
+
+
+def _template_css():
+    text = (REPO_ROOT / "cartridges" / "comparison" / "template.html").read_text()
+    return text.split("<style>", 1)[1].split("</style>", 1)[0]
+
+
+def _table_html(html):
+    return html.split('<table class="cmp-table"', 1)[1].split("</table>", 1)[0]
+
+
+def test_the_page_is_sentence_case_with_no_uppercase_micro_labels(tmp_path):
+    # Cycle 60: no text-transform:uppercase anywhere in the page's own CSS
+    # (headlines, buttons and labels included), and none of v1's micro-label
+    # classes are drawn.
+    css = _template_css()
+    assert "uppercase" not in css
+    assert ".adv-case-upper" not in css
+    html = _render(tmp_path)
+    for cls in ("cmp-h4", "cmp-diff-k", "cmp-flag", "cmp-trust-item", "cmp-diff-side--ours"):
+        assert f'class="{cls}' not in html and f" {cls}" not in html, cls
+    h1 = html.split('<h1 class="cmp-h1">', 1)[1].split("</h1>", 1)[0]
+    assert h1 == COMPARISON_PAGE["headline"]
+
+
+def test_best_for_sits_outside_the_table(tmp_path):
+    html = _render(tmp_path)
+    table = _table_html(html)
+    assert "Best for" not in table
+    for entry in COMPARISON_PAGE["best_for"]:
+        assert entry["text"] not in table
+        assert entry["text"] in html
+
+
+def test_each_column_head_has_name_price_and_link_and_the_pick_label(tmp_path):
+    html = _render(tmp_path)
+    head = _table_html(html).split("</thead>", 1)[0]
+    assert head.count('class="cmp-price"') == 3
+    assert "$8,250" in head
+    assert head.count(">View model<") == 3
+    assert head.count(">Our pick<") == 1
+
+
+def test_the_trust_line_is_one_plain_line_under_the_cta(tmp_path):
+    html = _render(tmp_path)
+    hero = html.split("</header>", 1)[0]
+    assert "<ul" not in hero
+    cta_then_line = hero.split('class="cmp-btn"', 1)[1]
+    assert 'class="cmp-reassure"' in cta_then_line
+
+
+def test_alternatives_are_a_two_column_row_list(tmp_path):
+    html = _render(tmp_path)
+    alts = html.split('class="cmp-alts"', 1)[1]
+    assert alts.count('class="cmp-vs"') == len(COMPARISON_PAGE["alternatives"])
+    assert ">Studio membership<" in alts and ">PEAK at home<" in alts
+    for diff in COMPARISON_PAGE["alternatives"][0]["differences"]:
+        assert diff["theirs"] in alts and diff["ours"]["text"] in alts
+
+
+def test_phones_get_one_stacked_card_per_model(tmp_path):
+    html = _render(tmp_path)
+    assert html.count('<article class="cmp-card') == 3
+    css = _template_css()
+    assert "@media (max-width:640px)" in css
+    mobile = css.split("@media (max-width:640px)", 1)[1]
+    assert ".cmp .cmp-table-wrap{display:none}" in mobile and ".cmp .cmp-cards{display:block}" in mobile
+
+
+def test_one_content_grid_with_a_left_aligned_text_column():
+    css = _template_css()
+    assert "--cmp-outer:1200px" in css and "--cmp-text:680px" in css
+    text_rule = css.split(".cmp .cmp-text{", 1)[1].split("}", 1)[0]
+    assert "margin" not in text_rule  # shares the headings' left edge, never centred
+
+
+def test_images_never_sit_on_a_white_tile():
+    # a studio cut-out's own white ground is multiplied into the panel it
+    # sits on, so it never reads as a pasted white rectangle
+    css = _template_css()
+    rule = css.split(".cmp .adv-img--contain{", 1)[1].split("}", 1)[0]
+    assert "mix-blend-mode:multiply" in rule and "background:transparent" in rule
+    assert "#fff" not in css.lower() and "white" not in css.lower()
 
 
 def test_the_sources_list_covers_the_renderer_built_table(tmp_path):
@@ -540,7 +689,7 @@ def test_the_page_uses_brand_tokens_only():
     import re
 
     css = (REPO_ROOT / "cartridges" / "comparison" / "template.html").read_text().split("<style>", 1)[1].split("</style>", 1)[0]
-    assert set(re.findall(r"#[0-9a-fA-F]{3,8}\b", css)) <= {"#fff", "#f4f5f6"}
+    assert set(re.findall(r"#[0-9a-fA-F]{3,8}\b", css)) <= {"#f4f5f6"}
     assert "--pk-accent:var(--ps-accent,var(--adv-accent))" in css
     assert "--pk-radius:var(--ps-radius-card" in css and "--pk-serif:var(--ps-serif" in css
 

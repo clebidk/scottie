@@ -2212,3 +2212,69 @@ is unchanged.
 - The export body grows about 23KB (head sheets travel now).
 - The reset covers the properties seen on the live and draft themes; a theme
   that restyles something else on those elements can still leak.
+
+## Cycle 60 (comparison page polish, 2026-09-22)
+
+Owner review of the live comparison page (run
+`20260922-213923-price-comparison-v2-fgag`): "a good start, but very rough".
+Template, renderer context and writer contract redesigned toward a calm
+brand page. Storefront export fixes (theme root font, heading font, title,
+960px container) are a separate cycle and are not touched here.
+
+1. **Template (`cartridges/comparison/template.html`, v1.1.0).** One grid:
+   1200px outer measure, 680px text column on the headings' left edge (no
+   centred text column). Sentence case everywhere: no `text-transform:
+   uppercase` in the page CSS, the brand's uppercase-headline class is
+   overridden, CTA in sentence case. Hero: Epika 52/36px, 20px dek, 52px CTA,
+   trust items as one plain muted line under the CTA (was bordered chips).
+   Table: 16px cells, sentence-case 16px row labels, 60px rows, hairline
+   rules (Basalt 15%), no box; the tenant's global table look (dark header
+   cells, zebra rows, border) is reset for this page; the featured column is
+   tinted (Stone 4% darker) under a small "Our pick" label; each column head
+   is image, name, price, "View model"; model columns are centred. Best-for
+   moved out of the table to one aligned line per model under it. Phones
+   (<=640px): one stacked card per model instead of the table.
+   Alternatives: a plain two-column "<alternative> | PEAK at home" row list
+   with hairlines (was bordered boxes, uppercase micro-labels and a red
+   callout bar). Images: a studio cut-out's white ground is multiplied into
+   a tinted panel (no white tile); every media slot is an absolutely sized
+   box, so a tall image can no longer overflow its panel. One small label
+   style for the page.
+2. **Table rows (`harness/comparison.py`).** Eight fixed rows: capacity,
+   footprint, power, red light therapy, max temperature, wood, price,
+   warranty. The writer no longer picks `extra_rows` (removed from the
+   schema, prompt and gate; an old page.json that carries it is ignored).
+   All other cells stay in facts_pack for the writer to cite. Column heads
+   carry the price row's own cell (no new claim reading).
+3. **Copy contract.** Headline formulas in sentence case; new gates
+   `comparison:headline_case` (two or more capitalised ordinary words after
+   the first, model/tenant names excluded), `comparison:dek_length` (> 22
+   words), `comparison:best_for_length:<i>` (> 14 words). Writer lines add a
+   no-filler-intro / no-triplet voice rule and prefer a room photo of the
+   featured model for the hero. Claims gates, fixed warranty/financing
+   sentences and the CTA allowlist are unchanged.
+4. **Display case for old pages.** `display_headline` renders a title-case
+   headline (a page written before this cycle) in sentence case -- a case
+   rule like `headline_case: upper`, no word added or removed; a headline
+   already in sentence case is left exactly as written.
+
+### Verify
+- Tests first (new/changed in `tests/test_comparison.py`: 8-row cap, old
+  extra_rows ignored, column-head price, sentence-case gate and display,
+  dek/best-for length, no uppercase or micro-label classes, best-for outside
+  the table, pick label, plain trust line, two-column alternatives, stacked
+  phone cards, one grid, no white tile); watched them fail, then fixed.
+- Suite: 1640 passed. Ruff: clean.
+- Proof: the live run copied to the worktree and re-rendered with
+  `harness rerender` (no model call); review html and 1280/390 screenshots
+  checked in headless Chrome. The copy was deleted before commit.
+
+### Open
+- The existing run's dek (27 words) and best-for lines (18-21 words) are over
+  the new limits; a re-render keeps them (no writer call). A fresh run is
+  gated.
+- Row labels and the CTA use weight 500, against the brand's one-weight
+  rule; on the fallback sans stack this renders as 400 anyway.
+- Hero and lifestyle in this run are both product cut-outs, so both render
+  on panels. A room photo of the featured model is now asked for in the
+  prompt, not enforced.
