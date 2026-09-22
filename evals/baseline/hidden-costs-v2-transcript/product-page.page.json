@@ -99,5 +99,65 @@
         "returns-policy"
       ]
     }
-  }
+  },
+  "ad_proof": [
+    {
+      "label": "Published price",
+      "text": "The price is on the page, before any form.",
+      "claim_ids": [
+        "price-fuji"
+      ]
+    },
+    {
+      "label": "Red light included",
+      "text": "Medical-grade red light therapy is included standard.",
+      "claim_ids": [
+        "gbrain-allowlist-red-light"
+      ]
+    },
+    {
+      "label": "Warranty",
+      "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    }
+  ],
+  "faq": {
+    "questions": [
+      {
+        "question": "Is the price shown up front?",
+        "answer": "Yes. The price is shown on the product page before any form or call.",
+        "claim_ids": [
+          "price-fuji"
+        ]
+      },
+      {
+        "question": "Is red light therapy an add-on?",
+        "answer": "No. Medical-grade red light therapy is included standard.",
+        "claim_ids": [
+          "gbrain-allowlist-red-light"
+        ]
+      },
+      {
+        "question": "What does the warranty cover?",
+        "answer": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+        "claim_ids": [
+          "warranty-terms"
+        ]
+      },
+      {
+        "question": "Where is the company based?",
+        "answer": "PEAK is a US-owned company.",
+        "claim_ids": [
+          "gbrain-allowlist-us-owned"
+        ]
+      },
+      {
+        "question": "Can I pay over time?",
+        "answer": "Financing is offered at checkout, and the checkout page shows the terms before you commit."
+      }
+    ]
+  },
+  "look": "pdp"
 }

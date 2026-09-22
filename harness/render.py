@@ -22,7 +22,9 @@ from . import blocks
 from . import ground as ground_mod
 from . import ingest
 from . import listicle as listicle_mod
+from . import looks as looks_mod
 from . import pagechecks
+from . import pdp as pdp_mod
 from . import tenant as tenant_mod
 from .textutil import safe_filename, walk_page
 from .claims import (
@@ -910,13 +912,48 @@ def render_page(
                     )
         ground_mod.record_used_asset_ids(run_dir, cartridge_name, final_used_ids)
 
+    # Cycle 51: the cartridge's LOOK -- which template under
+    # cartridges/<cartridge>/looks/<look>/ renders this page (listicle since
+    # cycle 51, product-page since cycle 54). Resolved here, in Python, so
+    # every caller (a run, `harness rerender`, the eval baseline) goes
+    # through the one rule (harness/looks.py's resolve_look): the page's own
+    # recorded "look" when it has one, else the listicle's style pairing or
+    # the cartridge's default, within the tenant's pinned looks. The
+    # cartridge's template.html is a dispatcher that {% extends %} the
+    # resolved path; the value is always one of the cartridge's own looks, so
+    # no page.json field can steer that path out of the looks folder. Empty
+    # for a cartridge with no looks, whose template never reads it.
+    look = ""
+    if looks_mod.has_looks(cartridge_name):
+        try:
+            look = looks_mod.resolve_look(cartridge_name, page.get("look"), style=page.get("style"), tenant=tenant)
+        except ValueError as e:
+            # Only reachable from a hand-edited page.json: `harness run
+            # --look` / `harness rerender --look` are checked first. A page
+            # still renders, in its default look.
+            look = looks_mod.resolve_look(cartridge_name, None, style=page.get("style"), tenant=tenant)
+            if log:
+                log.event("render", f"{e}; falling back to {look!r}")
+
+    # Cycle 54: the product-page `pdp` look's gallery -- the product's own
+    # storefront images, chosen from the page's FINAL asset picks (after the
+    # slot plan and the paragraph-image matcher above) so they can be
+    # downloaded with everything else just below. Never written into
+    # page.json: the gallery repeats the hero on purpose, which the
+    # duplicate-asset check would otherwise read as a page.json mistake.
+    gallery_ids = []
+    if cartridge_name == "product-page" and look == "pdp":
+        gallery_ids = pdp_mod.gallery_asset_ids(
+            page, facts_pack, allow_ai_renders=bool(tenant.claims_config.get("allow_ai_renders")),
+        )
+
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
     # so the page folder is self-contained. An asset that fails to download
     # (or comes back as HTML) is dropped -- the template's own `{% if asset
     # %}` guards mean it's simply not rendered, with a warning logged.
     if download_assets:
-        used_asset_ids = collect_asset_ids(page)
+        used_asset_ids = collect_asset_ids(page) | set(gallery_ids)
         assets_dir = out_dir / "assets"
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
@@ -954,28 +991,15 @@ def render_page(
     # page.json field to invent one in. Empty for every other cartridge, whose
     # templates never read it.
     cartridge_data = listicle_mod.render_context(facts_pack) if cartridge_name == "listicle" else {}
-
-    # Cycle 51: the listicle cartridge's LOOK -- which template under
-    # cartridges/listicle/looks/<look>/ renders this page. Resolved here, in
-    # Python, so every caller (a run, `harness rerender`, the eval baseline)
-    # goes through the one rule (listicle.resolve_look): the page's own
-    # recorded "look" when it has one, else the tenant's look_by_style map,
-    # else the built-in style pairing. The cartridge's template.html is a
-    # dispatcher that {% extends %} the resolved path; the value is always
-    # one of listicle.LOOKS, so no page.json field can steer that path out of
-    # the looks folder. Empty for every other cartridge, whose templates
-    # never read it.
-    look = ""
-    if cartridge_name == "listicle":
-        try:
-            look = listicle_mod.resolve_look(page.get("look"), style=page.get("style"), tenant=tenant)
-        except ValueError as e:
-            # Only reachable from a hand-edited page.json: `harness run
-            # --look` / `harness rerender --look` are argparse `choices`.
-            # A page still renders, in the look its style is paired with.
-            look = listicle_mod.resolve_look(None, style=page.get("style"), tenant=tenant)
-            if log:
-                log.event("render", f"{e}; falling back to {look!r}")
+    # Cycle 54: the product-page `pdp` look's renderer-owned sections, the
+    # same "from facts_pack alone" rule (harness/pdp.py). The claims they
+    # cite join the page's Sources list, since the writer never cites them.
+    if cartridge_name == "product-page" and look == "pdp":
+        cartridge_data = pdp_mod.render_context(page, facts_pack, assets_by_id, gallery_ids, tenant=tenant)
+        sources = build_sources_list(
+            used_claim_ids | pdp_mod.context_claim_ids(cartridge_data), verified_by_id,
+            product_name=product_name, product_url=product.get("url"), tenant=tenant,
+        )
 
     # Cycle 27: same self-contained-folder treatment as an ad asset (Fix 8
     # above) -- the logo is brand data, not something download_asset's

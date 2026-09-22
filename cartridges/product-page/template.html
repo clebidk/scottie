@@ -1,78 +1,19 @@
-{% extends "base.html" %}
-{% block title %}{{ product.short_name or product.name }}{% endblock %}
-{% block content %}
-{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
-<style>{% include _tagline_block ~ "/block.css" ignore missing %}</style>
-<div class="adv-product-page">
-  <header>
-    <span class="adv-badge">Advertisement</span>
-    {% if logo_url %}<img src="{{ logo_url }}" alt="{{ tenant_name }} logo" class="adv-brand-logo"{% if logo_w %} width="{{ logo_w }}" height="{{ logo_h }}"{% endif %}>{% endif %}
-  </header>
+{# Product-page cartridge -- LOOK dispatcher (cycle 54).
 
-  <section class="adv-hero">
-    {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
-    {{ render_image_slot(hero_asset, hero=True, css_class="adv-hero-image") }}
-    <h1>{{ page.hero.product_name }}</h1>
-    <p class="adv-dek">{{ page.hero.promise }}</p>
-    <p class="adv-price">{{ page.hero.price_line.text }}</p>
-    {% if page.hero.financing_line %}
-      {% if product.financing and product.financing.lender %}
-      <p class="adv-financing">{{ page.hero.financing_line.text }}</p>
-      {% else %}
-      <p class="adv-financing">Financing available</p>
-      {% endif %}
-    {% endif %}
-    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
-  </section>
+   Same mechanism as the listicle cartridge (cycle 51): `look` fixes the
+   LAYOUT, never the copy. Every look consumes the same page.json and the
+   same renderer-owned context (cartridge_data, built by harness/pdp.py from
+   facts_pack alone).
 
-  <section class="adv-proof-bullets">
-    <ul>
-      {% for b in page.proof_bullets %}
-      <li><strong>{{ b.label }}</strong> &mdash; {{ b.text }}</li>
-      {% endfor %}
-    </ul>
-  </section>
+     pdp      -- the default: a landing page laid out like the brand's own
+                 product detail page (gallery + sticky buy panel, ad-proof
+                 band, benefits, specs, model compare, reviews summary,
+                 FAQ, closing buy band, sticky mobile bar).
+     classic  -- the cycle-3 "simplified product page", unchanged.
 
-  {% if page.tagline %}
-  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
-  {% endif %}
-
-  <section class="adv-angle">
-    <h2>{{ page.angle_section.heading }}</h2>
-    {% for p in page.angle_section.paragraphs %}
-    <p>{{ p.text }}</p>
-    {% endfor %}
-    {% set angle_asset = assets.get(page.angle_section.image.asset_id) if page.angle_section.image else None %}
-    {# Cycle 31: this slot used to render with no loading attribute at all
-       (docs/IMAGES-AUDIT-2026-09-14.md problem 6) -- render_image_slot
-       always sets one. #}
-    {{ render_image_slot(angle_asset) }}
-  </section>
-
-  <table class="adv-specs">
-    <tbody>
-      {% for row in page.specs_table %}
-      <tr><th>{{ row.label }}</th><td>{{ row.value }}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <section class="adv-trust-strip">
-    {% if page.trust_strip.warranty %}<div class="adv-trust-item"><strong>Warranty</strong><p>{{ page.trust_strip.warranty.text }}</p></div>{% endif %}
-    {% if page.trust_strip.shipping %}<div class="adv-trust-item"><strong>Shipping</strong><p>{{ page.trust_strip.shipping.text }}</p></div>{% endif %}
-    {% if page.trust_strip.returns %}<div class="adv-trust-item"><strong>Returns</strong><p>{{ page.trust_strip.returns.text }}</p></div>{% endif %}
-    {% if facts_pack.reviews_summary and page.trust_strip.reviews %}<div class="adv-trust-item"><strong>Reviews</strong><p>{{ page.trust_strip.reviews.text }}</p></div>{% endif %}
-  </section>
-
-  {% if page.detail_images %}
-  <div class="adv-images">
-    {% for img in page.detail_images %}
-      {% set asset = assets.get(img.asset_id) %}
-      {{ render_image_slot(asset) }}
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
-</div>
-{% endblock %}
+   `look` is resolved in Python, once, before this template runs
+   (harness/looks.py's resolve_look: an explicit --look flag or page.json's
+   own "look", else the tenant's pinned looks, else "pdp"), and is always
+   one of harness/looks.py's CARTRIDGE_LOOKS["product-page"], so the path
+   built here can never escape the looks folder. #}
+{% extends "looks/" ~ (look or "pdp") ~ "/template.html" %}

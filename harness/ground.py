@@ -70,6 +70,13 @@ DEFAULT_SECTION_SLOT_COUNT = 6
 MODEL_OPTION_MAX = 3
 MODEL_FIT_SPEC_LABELS = ("capacity", "placement")
 
+# Cycle 54 (product-page `pdp` look): the model compare table's spec rows.
+# A row is kept only when at least MODEL_COMPARE_MIN_MODELS of the compared
+# models carry that spec label WITH its own verified claim_id, so the table
+# never lines one model's claim up against another model's blank.
+MODEL_COMPARE_MAX_SPEC_ROWS = 5
+MODEL_COMPARE_MIN_MODELS = 2
+
 
 def pick_hero(assets, *, allow_ai_renders, exclude_ids=frozenset()):
     """The best hero candidate from `assets` (facts_for()'s combined list):
@@ -1064,7 +1071,71 @@ class LocalFactsSource:
                 unique.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
         return options, unique
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, live_price_claims=None, log=None):
+    def _model_compare(self, product, live_price_claims=None):
+        """Cycle 54: the product-page `pdp` look's compare table -- the same
+        models the listicle's model picker offers (_model_options: the run's
+        own product first, then the tenant's other active products closest
+        in price), laid out as columns, with a price row and up to
+        MODEL_COMPARE_MAX_SPEC_ROWS spec rows. Every cell carries the claim
+        id that backs it; a model with no verified value for a row shows an
+        empty cell (None), never a guess. Only ever the tenant's OWN
+        products -- no competitor data enters this table.
+
+        Returns (compare_or_None, backing_claims) in _model_options' shape.
+        None when fewer than two models can be compared."""
+        self._load()
+        options, backing = self._model_options(product, live_price_claims)
+        if len(options) < 2:
+            return None, backing
+        by_id = {c["id"]: c for c in self._verified}
+        by_url = {p["url"]: p for p in self._products.values()}
+        records = [by_url.get(o["url"]) or {} for o in options]
+
+        def spec_cell(record, label):
+            for spec in record.get("specs", []):
+                if (spec.get("label") or "").strip().lower() != label.lower():
+                    continue
+                claim = by_id.get(spec.get("claim_id") or "")
+                if claim:
+                    return {"text": spec["value"], "claim_ids": [claim["id"]]}, claim
+            return None, None
+
+        labels = []
+        for record in records:
+            for spec in record.get("specs", []):
+                label = (spec.get("label") or "").strip()
+                if label and label.lower() not in {x.lower() for x in labels}:
+                    labels.append(label)
+
+        rows = [{
+            "label": "Price",
+            "cells": [{"text": o["price_text"], "claim_ids": o["claim_ids"][:1]} for o in options],
+        }]
+        extra = []
+        for label in labels:
+            if len(rows) > MODEL_COMPARE_MAX_SPEC_ROWS:
+                break
+            cells, claims = zip(*(spec_cell(r, label) for r in records), strict=True)
+            if sum(1 for c in cells if c) < MODEL_COMPARE_MIN_MODELS:
+                continue
+            rows.append({"label": label, "cells": list(cells)})
+            extra.extend(c for c in claims if c)
+
+        seen = {c["id"] for c in backing}
+        for c in extra:
+            if c["id"] not in seen:
+                seen.add(c["id"])
+                backing.append({"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]})
+        compare = {
+            "models": [
+                {"name": o["name"], "url": o["url"], "current": o["url"] == product["url"]}
+                for o in options
+            ],
+            "rows": rows,
+        }
+        return compare, backing
+
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, include_product_page=False, live_price_claims=None, log=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -1230,17 +1301,28 @@ class LocalFactsSource:
             # or reorders "assets" itself.
             "image_slots": _lean_slot_plan(build_slot_plan(assets, allow_ai_renders=bool(config.get("allow_ai_renders")))),
         }
-        if include_listicle:
+        if include_listicle or include_product_page:
             # Cycle 41: only a run whose selected cartridges include listicle
             # gets the model picker's rows (and their backing claims joined
             # into the citable universe) -- every other run's facts_pack is
-            # byte-identical to before.
+            # byte-identical to before. Cycle 54: the product-page `pdp`
+            # look shows the same models, so it opts in the same way.
             options, backing_claims = self._model_options(product, live_price_claims)
             pack["model_options"] = options
             existing_ids = {c["id"] for c in pack["verified_claims"]}
             pack["verified_claims"] = pack["verified_claims"] + [
                 c for c in backing_claims if c["id"] not in existing_ids
             ]
+        if include_product_page:
+            # Cycle 54: the product-page `pdp` look's model compare table --
+            # the same models as above, with claim-backed spec rows.
+            compare, backing_claims = self._model_compare(product, live_price_claims)
+            if compare:
+                pack["model_compare"] = compare
+                existing_ids = {c["id"] for c in pack["verified_claims"]}
+                pack["verified_claims"] = pack["verified_claims"] + [
+                    c for c in backing_claims if c["id"] not in existing_ids
+                ]
         if include_comparison:
             # Kimi long-run phase 6: only a run whose selected cartridges
             # include comparison gets the targets list (and the backing

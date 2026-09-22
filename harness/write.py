@@ -13,6 +13,7 @@ from .design_skills.design_md import design_reference_guidance_lines
 from .errors import WriterFailed
 from .jsonutil import extract_json
 from . import listicle
+from . import pdp
 from . import tenant as tenant_mod
 from . import vocab
 
@@ -446,6 +447,14 @@ def _append_listicle_style_guidance(hard_constraints, cartridge_name, style):
         hard_constraints.extend(listicle.writer_style_lines(style))
 
 
+# Cycle 54: the product-page cartridge's own writer lines -- the same
+# constants harness/pdp.py's gate measures. No-op for every other cartridge.
+def _append_product_page_guidance(hard_constraints, cartridge_name):
+    if cartridge_name != "product-page":
+        return
+    hard_constraints.extend(pdp.writer_rules_lines())
+
+
 def _warmup_window_words(tenant):
     window = tenant.get("cartridges.article.warmup_window_words")
     if not isinstance(window, int) or window <= 0:
@@ -614,6 +623,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
+    _append_product_page_guidance(hard_constraints, cartridge_name)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
     kwargs = {
@@ -660,6 +670,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
+    _append_product_page_guidance(hard_constraints, cartridge_name)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification

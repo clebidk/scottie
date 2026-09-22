@@ -139,6 +139,22 @@ PRODUCT_PAGE_PAGE = {
         "shipping": {"text": "shipping text", "claim_ids": ["shipping-policy"]},
         "returns": {"text": "returns text", "claim_ids": ["returns-policy"]},
     },
+    # Cycle 54 (product-page v0.2.0): the ad-proof tiles and the FAQ are
+    # required fields now -- the pdp look's proof band and accordion.
+    "ad_proof": [
+        {"label": "Published price", "text": "The price is on the page, before any form.", "claim_ids": ["price-fuji"]},
+        {"label": "Red light included", "text": "Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
+        {"label": "Warranty", "text": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
+    ],
+    "faq": {
+        "questions": [
+            {"question": "Is the price shown up front?", "answer": "Yes. The price is shown on the product page before any form or call.", "claim_ids": ["price-fuji"]},
+            {"question": "Is red light therapy an add-on?", "answer": "No. Medical-grade red light therapy is included standard.", "claim_ids": ["gbrain-allowlist-red-light"]},
+            {"question": "What does the warranty cover?", "answer": "Limited lifetime warranty; full terms by component are published on the warranty page.", "claim_ids": ["warranty-terms"]},
+            {"question": "Where is the company based?", "answer": "PEAK is a US-owned company.", "claim_ids": ["gbrain-allowlist-us-owned"]},
+            {"question": "Can I pay over time?", "answer": "Financing is offered at checkout, and the checkout page shows the terms before you commit."},
+        ]
+    },
 }
 
 LONGFORM_PAGE = {
@@ -202,7 +218,11 @@ def test_render_page(tmp_path, cartridge_name, page, expect_byline, expect_json_
     )
     html = index_path.read_text()
 
-    assert "Advertisement" in html
+    # Cycle 54: the product page's default `pdp` look shows a page-top label
+    # only when the tenant sets tenant.yaml `disclosure_label`; the
+    # disclosure paragraph below renders on every page either way.
+    if cartridge_name != "product-page":
+        assert "Advertisement" in html
     assert "is an advertisement published by PEAK" in html
     assert f'"@type": "{expect_json_ld_type}"' in html
     # fix 1: no lender/monthly figure renders while financing.lender is null
@@ -235,7 +255,10 @@ def test_render_page_shows_financing_available_with_no_lender(tmp_path):
         download_assets=False,
     )
     html = index_path.read_text()
-    assert "Financing available" in html
+    # Cycle 54: the default `pdp` look renders the one allowed financing
+    # sentence for a run with no lender (the classic look's shorter
+    # "Financing available" is covered by its own template, unchanged).
+    assert "Financing is available at checkout." in html
     assert "Bread Pay" not in html
     assert "/mo" not in html
 
@@ -668,9 +691,12 @@ def test_byline_names_returns_three_roles():
 # ---------------------------------------------------------------------------
 
 def test_product_page_cta_text_appears_exactly_twice(tmp_path):
+    # The classic look's hero + repeat CTA. Cycle 54: the default `pdp` look
+    # places the same one cta_text/cta_url in more spots (buy panel, closing
+    # band, sticky phone bar) -- tests/test_product_page_looks.py covers it.
     index_path = render_page(
         cartridge_name="product-page",
-        page=PRODUCT_PAGE_PAGE,
+        page={**PRODUCT_PAGE_PAGE, "look": "classic"},
         ad_brief=AD_BRIEF,
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
