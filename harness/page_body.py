@@ -305,6 +305,21 @@ def build_asset_manifest(html, cartridge_name):
     return manifest
 
 
+def _abtest_beacon(cartridge_dir):
+    """Cycle 67: the tracking beacon (harness/abtest.py) for a page that the
+    run's state.json marks as an A/B/C test variant, else None. Every other
+    page's export is unchanged."""
+    from . import abtest, runstate
+
+    record = runstate.abtest_record(cartridge_dir.parent, cartridge_dir.name)
+    if not record:
+        return None
+    beacon_url = abtest.settings(tenant_mod.active())["beacon_url"]
+    if not beacon_url:
+        return None
+    return abtest.beacon_script(record["test_id"], record["key"], beacon_url)
+
+
 def build_shopify_body(cartridge_dir):
     """out/<run>/<cartridge>/index.html -> (shopify_body_html, assets_manifest).
     Pure transform, no file I/O -- see write_shopify_body for the CLI-facing
@@ -348,6 +363,9 @@ def build_shopify_body(cartridge_dir):
     parts = [style_block, body]
     if motion_script:
         parts.append(motion_script)
+    beacon = _abtest_beacon(cartridge_dir)
+    if beacon:
+        parts.append(beacon)
     shopify_body_html = "\n\n".join(parts) + "\n"
 
     assets_manifest = build_asset_manifest(shopify_body_html, cartridge_name)

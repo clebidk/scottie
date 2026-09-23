@@ -1,6 +1,9 @@
 # Tenant run artifacts and secrets -- never committed.
 tenants/*/out/
 tenants/*/runs/
+# Cycle 67: A/B/C test records + beacon events (runtime data, backed up by
+# crons/backup-tenant-data.sh with the rest of the tenant tree).
+tenants/*/abtests/
 # Append-only server-side ledgers (scores/approvals). The suite writes them
 # into the live tenant tree (finding R30); ignoring them keeps test pollution
 # and prod data out of the repo. A real ledger can still be committed with
