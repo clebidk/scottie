@@ -47,11 +47,14 @@ ROOT_CLASS = "adv-wrap"
 # rem -> px
 # ---------------------------------------------------------------------------
 
-# Strings and url(...) are copied unchanged; a number directly followed by
+# Comments, strings and url(...) are copied unchanged (a string ends at an
+# unescaped newline, as in a browser, so an apostrophe in prose cannot
+# swallow the rems after it); a number directly followed by
 # `rem` (and not part of an identifier such as `.m-2rem`) is converted.
 _REM_OR_SKIP_RE = re.compile(
-    r"""(?P<skip>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\burl\(\s*[^)]*\))"""
-    r"""|(?<![\w.#-])(?P<sign>[+-]?)(?P<num>\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)(?i:rem)(?![\w-])"""
+    r"""(?P<skip>/\*.*?(?:\*/|\Z)|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\burl\(\s*[^)]*\))"""
+    r"""|(?<![\w.#-])(?P<sign>[+-]?)(?P<num>\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)(?i:rem)(?![\w-])""",
+    re.DOTALL,
 )
 REM_BASE_PX = 16
 

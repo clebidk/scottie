@@ -23,13 +23,17 @@ from harness.page_body import build_shopify_body, font_face_css
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# A rem unit in CSS text, outside strings (the same shape rem_to_px converts).
+# A rem unit in CSS text, outside comments and strings (the same shape
+# rem_to_px converts). A string ends at a newline, as in a browser: the old
+# helper let an apostrophe in comment prose hide every rem after it, which is
+# how unconverted rems reached listicle-test-4 on 2026-09-23.
 _CSS_REM_RE = re.compile(r"(?<![\w.#-])[+-]?(?:\d+(?:\.\d*)?|\.\d+)rem(?![\w-])", re.IGNORECASE)
-_STRING_RE = re.compile(r""""(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'""")
+_COMMENT_RE = re.compile(r"/\*.*?(?:\*/|\Z)", re.DOTALL)
+_STRING_RE = re.compile(r""""(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'""")
 
 
 def _css_rems(css):
-    return _CSS_REM_RE.findall(_STRING_RE.sub("", css))
+    return _CSS_REM_RE.findall(_STRING_RE.sub("", _COMMENT_RE.sub("", css)))
 
 
 # ---------------------------------------------------------------------------
