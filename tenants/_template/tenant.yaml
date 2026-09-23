@@ -167,6 +167,21 @@ shopify_publish:
   store: CHANGE-ME.example   # the storefront's own domain -- documentation only, not used for API calls
   store_admin_domain: null   # the *.myshopify.com admin domain; SHOPIFY_STORE (env) must hold this once known
 
+# Cycle 67: A/B/C tests (`harness abtest`, docs/ABTEST.md). Each new ad gets
+# three page builds from `library`, one split link, and a CTA click-through
+# score per build. library: [] uses the engine's built-in builds (the five
+# listicle style:look pairs, comparison, quiz); an entry is "cartridge" or
+# "cartridge:style[:look]". explore: share of tests whose three builds are
+# picked at random instead of by past results. min_views: unique views each
+# variant needs before `harness abtest finish` names a winner. beacon_url:
+# where variant pages send view/CTA events (harness serve's POST /e);
+# `harness abtest publish` refuses while it is empty.
+abtest:
+  library: []
+  explore: 0.2
+  min_views: 300
+  beacon_url: ""
+
 # Reviewer notifications sent on: a run reaching needs_review, an approve,
 # and a publish. Both channels are entirely optional and fail closed -- no
 # SLACK_WEBHOOK_URL / SMTP_* in .env just logs a skip, never blocks a run

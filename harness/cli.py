@@ -13,6 +13,7 @@ import sys
 import urllib.parse
 from pathlib import Path
 
+from . import abtest
 from . import asset_describe
 from . import budget as budget_mod
 from . import brand_import
@@ -674,6 +675,9 @@ def cmd_publish(args):
     }
     if handle:
         page_payload["handle"] = handle
+    # Cycle 67: an A/B/C test page is kept out of the sitemap and search.
+    if getattr(args, "seo_hidden", False):
+        page_payload["metafields"] = [dict(abtest.SEO_HIDDEN_METAFIELD)]
 
     try:
         if update:
@@ -733,6 +737,232 @@ def cmd_digest_needs_review(args):
         pending_pages = [p for p, s in data["pages"].items() if s == "needs_review"]
         print(f"  - {run_dir.name}: pending={','.join(pending_pages)} since {entered_dt.isoformat()}")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# harness abtest (cycle 67) -- see harness/abtest.py and docs/ABTEST.md
+# ---------------------------------------------------------------------------
+
+def _abtest_tenant(args):
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    return tenant
+
+
+def _print_build_result(rc, rec):
+    for v in rec["variants"]:
+        print(f"  {v['key']}  {v['arm']:32s} {v.get('run_dir') or '(not built)'}")
+    for failed in rec.get("failed_arms") or []:
+        print(f"  (variant {failed['key']}: {failed['arm']} failed {failed['attempts']} attempts; replaced)")
+    if rc == exits.BUDGET:
+        print(f"test {rec['test_id']} is queued: {rec['reason']}", file=sys.stderr)
+    elif rc != exits.OK:
+        print(f"test {rec['test_id']} failed: {rec['reason']}", file=sys.stderr)
+    else:
+        print(f"Next: harness abtest publish {rec['test_id']} --by <reviewer email>")
+    return rc
+
+
+def cmd_abtest_create(args):
+    """`harness abtest create --input <ad> --name "<ad name>" [--source-json
+    <meta fields>] [--seed N]`: choose three builds from the tenant's library
+    and run the harness once per build (up to 3 seeds each; a build that keeps
+    failing is replaced by the next-best unused one). The daily budget cap
+    leaves the test "queued" (exit 3) for `harness abtest resume`."""
+    tenant = _abtest_tenant(args)
+    source = {"kind": "upload"}
+    if args.source_json:
+        data = json.loads(Path(args.source_json).read_text())
+        if not isinstance(data, dict):
+            print(f"--source-json {args.source_json} must hold a JSON object", file=sys.stderr)
+            return exits.USAGE
+        source = {"kind": "meta", **data}
+    rc, rec = abtest.create_test(
+        tenant, input_path=args.input, name=args.name, source=source, seed=args.seed,
+        runner=abtest.default_runner,
+    )
+    print(f"A/B/C test {rec['test_id']} ({rec['status']}):")
+    return _print_build_result(rc, rec)
+
+
+def cmd_abtest_resume(args):
+    tenant = _abtest_tenant(args)
+    rec = abtest.load_test(tenant, args.test_id)
+    if rec["status"] not in ("queued", "building"):
+        print(f"test {rec['test_id']} is {rec['status']!r}; only a queued or building test resumes",
+              file=sys.stderr)
+        return exits.USAGE
+    rc, rec = abtest.build_variants(tenant, rec, abtest.default_runner)
+    print(f"A/B/C test {rec['test_id']} ({rec['status']}):")
+    return _print_build_result(rc, rec)
+
+
+def cmd_abtest_publish(args):
+    """`harness abtest publish <test_id> --by <email> [--draft]`: approve and
+    ship-stamp each variant's page, publish it through `harness publish`
+    (handle lp-<test>-a|b|c, SEO hidden, tracking beacon in the body), then
+    publish the split page lp-<test> and print its URL. Re-running after a
+    partial failure updates what is already published instead of creating
+    duplicates."""
+    tenant = _abtest_tenant(args)
+    rec = abtest.load_test(tenant, args.test_id)
+    test_id = rec["test_id"]
+    if rec["status"] not in ("built", "live"):
+        print(f"test {test_id} is {rec['status']!r}; only a built test can be published", file=sys.stderr)
+        return exits.USAGE
+    if not abtest.settings(tenant)["beacon_url"]:
+        print("tenant.yaml abtest.beacon_url is empty -- variant pages would record nothing. "
+              "Set it before publishing a test.", file=sys.stderr)
+        return exits.USAGE
+    if runstate.find_reviewer(tenant, args.by) is None:
+        print(f"{args.by!r} is not a listed reviewer for tenant {tenant.name!r}", file=sys.stderr)
+        return exits.USAGE
+    live = not args.draft
+
+    for v in rec["variants"]:
+        run_dir, page = Path(v["run_dir"]), v["cartridge"]
+        runstate.record_abtest(run_dir, page=page, test_id=test_id, key=v["key"])
+        runstate.approve(run_dir, tenant, by=args.by, pages=[page], note=f"abtest {test_id} variant {v['key']}")
+        runstate.set_packet_stamp(run_dir, stamp="ship", by=args.by, note=f"abtest {test_id}")
+        already = runstate.published_page_record(run_dir, page)
+        publish_args = argparse.Namespace(
+            run_dir=str(run_dir), page=page, live=live, dry_run=False, redirect_from=None,
+            handle=None if already else abtest.variant_handle(test_id, v["key"]),
+            update=bool(already), tenant=tenant.name, seo_hidden=True,
+        )
+        rc = cmd_publish(publish_args)
+        if rc != exits.OK:
+            print(f"variant {v['key']} did not publish; test {test_id} left {rec['status']!r}. "
+                  f"Fix the error above and run this command again.", file=sys.stderr)
+            return rc
+        record = runstate.published_page_record(run_dir, page) or {}
+        v["shopify"] = {k: record.get(k) for k in ("page_id", "handle", "url")}
+        abtest.save_test(tenant, rec)
+
+    variant_paths = {}
+    for v in rec["variants"]:
+        url = (v.get("shopify") or {}).get("url") or ""
+        variant_paths[v["key"]] = urllib.parse.urlparse(url).path or f"/pages/{abtest.variant_handle(test_id, v['key'])}"
+    payload = {
+        "title": rec["name"],
+        "body_html": abtest.split_body(test_id, variant_paths),
+        "storefront_host": tenant.get("site_host"),
+        "handle": abtest.split_handle(test_id),
+        "metafields": [dict(abtest.SEO_HIDDEN_METAFIELD)],
+    }
+    publisher = _make_publisher(tenant, export_dir=tenant.abtests_dir / test_id / "split-export")
+    split_id = (rec.get("split") or {}).get("page_id")
+    try:
+        if split_id and isinstance(publisher, ShopifyPublisher):
+            result = publisher.update_page(split_id, payload, unpublished=not live)
+        else:
+            result = publisher.publish(payload, unpublished=not live)
+    except ShopifyCredentialsMissing as e:
+        print(str(e), file=sys.stderr)
+        return exits.USAGE
+    rec["split"] = {"handle": result.get("handle"), "url": result.get("url"), "page_id": result.get("id")}
+    if live:
+        rec["status"] = "live"
+        rec["live_at"] = rec.get("live_at") or abtest._utc_now()
+    abtest.save_test(tenant, rec)
+    print(f"Test {test_id} is {'live' if live else 'published as drafts'}.")
+    print(f"SPLIT LINK (paste as the ad's destination in Ads Manager): {rec['split']['url']}")
+    return exits.OK
+
+
+def cmd_abtest_status(args):
+    tenant = tenant_mod.load_tenant(args.tenant)
+    if args.test_id:
+        rec = abtest.load_test(tenant, args.test_id)
+        print(f"{rec['test_id']}  {rec['status']}  \"{rec['name']}\"  created {rec['created_at']}")
+        if rec.get("reason"):
+            print(f"  reason: {rec['reason']}")
+        print(f"  source: {json.dumps(rec.get('source'))}  input: {rec.get('input')}")
+        for v in rec["variants"]:
+            url = (v.get("shopify") or {}).get("url") or "-"
+            print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {url}")
+            print(f"     run: {v.get('run_dir') or '-'}")
+        print(f"  split: {(rec.get('split') or {}).get('url') or '-'}")
+        if rec.get("winner"):
+            w = rec["winner"]
+            print(f"  winner: {w['key']} {w['arm']} (P(best) {w['p_best']:.3f}{', forced' if w.get('forced') else ''})")
+        return exits.OK
+    tests = abtest.list_tests(tenant)
+    if not tests:
+        print(f"No A/B/C tests for {tenant.name}.")
+        return exits.OK
+    for rec in tests:
+        arms = ", ".join(f"{v['key']}={v['arm']}" for v in rec["variants"])
+        print(f"{rec['test_id']:40s} {rec['status']:9s} {arms}")
+    return exits.OK
+
+
+def _abtest_orders(tenant, rec):
+    """(attribution, None) or (None, reason) -- orders since the test went
+    live, from the Shopify Admin API (read_orders scope)."""
+    if not rec.get("live_at"):
+        return None, "the test has not gone live"
+    publisher = _make_publisher(tenant, export_dir=tenant.abtests_dir / rec["test_id"])
+    if not isinstance(publisher, ShopifyPublisher):
+        return None, "the tenant's publisher is not shopify"
+    try:
+        orders = publisher.list_orders(created_at_min=rec["live_at"])
+    except (ShopifyCredentialsMissing, HarnessError) as e:
+        return None, str(e)
+    return abtest.attribute_orders(orders, rec["test_id"], [v["key"] for v in rec["variants"]]), None
+
+
+def cmd_abtest_results(args):
+    tenant = _abtest_tenant(args)
+    rec = abtest.load_test(tenant, args.test_id)
+    orders, why = (None, "skipped (--no-orders)") if args.no_orders else _abtest_orders(tenant, rec)
+    print(abtest.format_results(rec, abtest.results(tenant, rec, orders)))
+    if orders is None:
+        print(f"orders: {why}")
+    return exits.OK
+
+
+def cmd_abtest_orders(args):
+    tenant = _abtest_tenant(args)
+    rec = abtest.load_test(tenant, args.test_id)
+    orders, why = _abtest_orders(tenant, rec)
+    if orders is None:
+        print(f"orders unavailable: {why}", file=sys.stderr)
+        return exits.USAGE
+    for v in rec["variants"]:
+        o = orders[v["key"]]
+        print(f"{v['key']}  {v['arm']:32s} orders {o['orders']:>4}  revenue {o['revenue']:>11}")
+    return exits.OK
+
+
+def cmd_abtest_finish(args):
+    tenant = _abtest_tenant(args)
+    rec = abtest.load_test(tenant, args.test_id)
+    orders = None
+    if args.orders:
+        orders, why = _abtest_orders(tenant, rec)
+        if orders is None:
+            print(f"orders unavailable ({why}); finishing on CTA click-through alone", file=sys.stderr)
+    rec = abtest.finish(tenant, rec, force=args.force, orders=orders)
+    w = rec["winner"]
+    print(f"Test {rec['test_id']} finished. Winner: {w['key']} {w['arm']} "
+          f"(CTR {w['ctr']:.1%}, P(best) {w['p_best']:.3f}{', forced' if w['forced'] else ''})")
+    return exits.OK
+
+
+def cmd_abtest_library(args):
+    tenant = tenant_mod.load_tenant(args.tenant)
+    stats = abtest.pooled_arm_stats(tenant)
+    weights = abtest.selection_weights(tenant, stats=stats)
+    cfg = abtest.settings(tenant)
+    print(f"{tenant.name} build library (explore {cfg['explore']:.0%}, pooled over live + finished tests)")
+    print(f"{'build':32s} {'tests':>5s} {'views':>7s} {'CTA':>6s} {'CTR':>7s} {'P(picked)':>10s}")
+    for arm in abtest.library(tenant):
+        s = stats.get(arm.id) or {"views": 0, "clicks": 0, "tests": 0}
+        ctr = f"{s['clicks'] / s['views']:.1%}" if s["views"] else "-"
+        print(f"{arm.id:32s} {s['tests']:>5d} {s['views']:>7d} {s['clicks']:>6d} {ctr:>7s} {weights[arm.id]:>10.1%}")
+    return exits.OK
 
 
 # ---------------------------------------------------------------------------
@@ -1311,6 +1541,48 @@ def build_parser():
     )
     _add_tenant_flag(p_publish)
     p_publish.set_defaults(func=cmd_publish)
+
+    p_ab = sub.add_parser("abtest", help="A/B/C tests: three builds per ad behind one split link (docs/ABTEST.md)")
+    ab_sub = p_ab.add_subparsers(dest="abtest_command", required=True)
+    p_ab_create = ab_sub.add_parser("create", help="choose three builds and run the harness for each")
+    p_ab_create.add_argument("--input", required=True, help="the ad file (video, image, or transcript)")
+    p_ab_create.add_argument("--name", required=True, help="the ad's name; the test id is a slug of it")
+    p_ab_create.add_argument("--source-json", help="JSON object of the ad's Meta fields (ad id, name, ...)")
+    p_ab_create.add_argument("--seed", type=int, help="seeds build choice and run seeds; default random")
+    _add_tenant_flag(p_ab_create)
+    p_ab_create.set_defaults(func=cmd_abtest_create)
+    p_ab_resume = ab_sub.add_parser("resume", help="build the variants a queued test is still missing")
+    p_ab_resume.add_argument("test_id")
+    _add_tenant_flag(p_ab_resume)
+    p_ab_resume.set_defaults(func=cmd_abtest_resume)
+    p_ab_publish = ab_sub.add_parser("publish", help="approve + publish the three variants and the split page")
+    p_ab_publish.add_argument("test_id")
+    p_ab_publish.add_argument("--by", required=True, help="reviewer email; must match a tenant.yaml reviewers entry")
+    p_ab_publish.add_argument("--draft", action="store_true", help="publish as unpublished drafts (no live link)")
+    _add_tenant_flag(p_ab_publish)
+    p_ab_publish.set_defaults(func=cmd_abtest_publish)
+    p_ab_status = ab_sub.add_parser("status", help="every test, or one test in detail")
+    p_ab_status.add_argument("test_id", nargs="?")
+    _add_tenant_flag(p_ab_status)
+    p_ab_status.set_defaults(func=cmd_abtest_status)
+    p_ab_results = ab_sub.add_parser("results", help="views, CTA clicks, CTR, P(best), orders per variant")
+    p_ab_results.add_argument("test_id")
+    p_ab_results.add_argument("--no-orders", action="store_true", help="skip the Shopify order lookup")
+    _add_tenant_flag(p_ab_results)
+    p_ab_results.set_defaults(func=cmd_abtest_results)
+    p_ab_orders = ab_sub.add_parser("orders", help="Shopify orders and revenue per variant since the test went live")
+    p_ab_orders.add_argument("test_id")
+    _add_tenant_flag(p_ab_orders)
+    p_ab_orders.set_defaults(func=cmd_abtest_orders)
+    p_ab_finish = ab_sub.add_parser("finish", help="name the winner (P(best) >= 0.95 and min_views per variant)")
+    p_ab_finish.add_argument("test_id")
+    p_ab_finish.add_argument("--force", action="store_true", help="finish without the P(best)/min_views thresholds")
+    p_ab_finish.add_argument("--orders", action="store_true", help="fetch orders to break a near-tie")
+    _add_tenant_flag(p_ab_finish)
+    p_ab_finish.set_defaults(func=cmd_abtest_finish)
+    p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")
+    _add_tenant_flag(p_ab_library)
+    p_ab_library.set_defaults(func=cmd_abtest_library)
 
     p_digest = sub.add_parser("digest", help="reviewer-backlog and score digests")
     digest_sub = p_digest.add_subparsers(dest="digest_command", required=True)

@@ -367,6 +367,25 @@ def published_page_record(run_dir, page):
     return (data.get("published_pages") or {}).get(page)
 
 
+def record_abtest(run_dir, *, page, test_id, key):
+    """Cycle 67: marks `page` as variant `key` of A/B/C test `test_id`.
+    harness/page_body.py reads this at export time and adds the tracking
+    beacon, so a later `harness rerender` or `harness publish --update` of
+    the same page keeps it."""
+    data = load_state(run_dir)
+    data.setdefault("abtest", {})[page] = {"test_id": test_id, "key": key}
+    save_state(run_dir, data)
+    return data
+
+
+def abtest_record(run_dir, page):
+    """{"test_id", "key"} when `page` is part of an A/B/C test, else None
+    (also None for a directory with no state.json)."""
+    if not state_path(run_dir).exists():
+        return None
+    return (load_state(run_dir).get("abtest") or {}).get(page)
+
+
 # ---------------------------------------------------------------------------
 # packet.json -- the ship-stamp gate `harness publish` checks
 # ---------------------------------------------------------------------------

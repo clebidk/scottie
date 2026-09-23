@@ -24,6 +24,8 @@ from pathlib import Path
 from flask import Flask, Response, abort, g, redirect, request, send_file, url_for
 from PIL import Image
 
+from . import abevents
+from . import abtest
 from . import asset_review
 from . import ground as ground_mod
 from . import notify
@@ -713,6 +715,59 @@ def _check_post_origin():
 
 
 # ---------------------------------------------------------------------------
+# Cycle 67: the A/B/C test beacon receiver (POST /e) -- the one public route
+# ---------------------------------------------------------------------------
+
+_LOOPBACK = ("127.0.0.1", "::1")
+
+
+def _client_ip():
+    """The visitor's IP. Behind a local reverse proxy / Cloudflare tunnel the
+    socket peer is loopback, and only then is a forwarding header trusted."""
+    peer = request.remote_addr or ""
+    if peer in _LOOPBACK:
+        forwarded = request.headers.get("CF-Connecting-IP") or (
+            request.headers.get("X-Forwarded-For") or "").split(",")[0]
+        if forwarded.strip():
+            return forwarded.strip()
+    return peer
+
+
+def _handle_beacon(tenant, limiter, limiter_salt):
+    """204 for a stored, duplicate or bot event (a client learns nothing
+    from which); 400 malformed or unknown test/variant; 413 over
+    MAX_BODY_BYTES; 429 over the per-IP rate. The IP itself is never stored
+    or logged -- only salted, truncated hashes of it."""
+    empty = lambda status: Response(status=status)  # noqa: E731
+    if (request.content_length or 0) > abevents.MAX_BODY_BYTES:
+        return empty(413)
+    raw = request.stream.read(abevents.MAX_BODY_BYTES + 1)
+    if len(raw) > abevents.MAX_BODY_BYTES:
+        return empty(413)
+    if abevents.is_bot(request.headers.get("User-Agent", "")):
+        return empty(204)
+    ip = _client_ip()
+    if not limiter.allow(abevents.hash_ip(ip, limiter_salt)):
+        return empty(429)
+    event, _reason = abevents.parse_event(raw)
+    if event is None:
+        return empty(400)
+    rec = abtest.find_test(tenant, event["t"])
+    if not rec or rec.get("status") not in abtest.POOLED_STATUSES:
+        return empty(400)
+    if event["v"] not in {v.get("key") for v in rec.get("variants") or []}:
+        return empty(400)
+    conn = abevents.connect(abevents.db_path(tenant))
+    try:
+        iph = abevents.hash_ip(ip, abevents.ip_salt(conn))
+        abevents.record_event(conn, test_id=event["t"], key=event["v"], event=event["e"],
+                              vid=event["vid"], iph=iph)
+    finally:
+        conn.close()
+    return empty(204)
+
+
+# ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
 
@@ -729,9 +784,15 @@ def build_app(tenant):
         )
 
     app = Flask(__name__)
+    beacon_limiter = abevents.RateLimiter()
+    beacon_limiter_salt = os.urandom(16).hex()
 
     @app.before_request
     def _require_auth():
+        # Cycle 67: storefront visitors' view/CTA events -- public by design,
+        # checked and rate limited in _handle_beacon instead.
+        if request.endpoint == "beacon":
+            return None
         email, error = _authenticate(tenant)
         if error is not None:
             return error
@@ -910,5 +971,9 @@ def build_app(tenant):
     @app.route("/images/thumb/<asset_id>")
     def image_thumb(asset_id):
         return _image_thumb_response(tenant, asset_id)
+
+    @app.route("/e", methods=["POST"])
+    def beacon():
+        return _handle_beacon(tenant, beacon_limiter, beacon_limiter_salt)
 
     return app

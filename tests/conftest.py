@@ -188,6 +188,8 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     # Cycle 68: `harness meta pull` writes ads and their media here. Not
     # created up front -- the inbox makes its own directories.
     monkeypatch.setattr(type(TENANT), "meta_inbox_dir", property(lambda self: base / "meta_inbox"))
+    # Cycle 67: A/B/C test records and the beacon event database.
+    monkeypatch.setattr(type(TENANT), "abtests_dir", property(lambda self: base / "abtests"))
     return base
 
 
@@ -235,6 +237,10 @@ def _real_tenant_evals_unchanged():
 # writes it knows about; this catches anything it doesn't.
 # ---------------------------------------------------------------------------
 
+# Cycle 67: abtests/ (test records, events.sqlite) is tracked like out/.
+TRACKED_TENANT_SUBDIRS = ("out", "runs", "evals", "meta_inbox", "abtests")
+
+
 def _tracked_run_artifact_paths():
     """Every path that currently exists under <tenant>/out, <tenant>/runs,
     <tenant>/evals, or <tenant>/meta_inbox (cycle 68) for every tenant
@@ -245,7 +251,7 @@ def _tracked_run_artifact_paths():
     that touches nothing real leaves this fixture's own footprint at zero."""
     paths = set()
     for tenant_root in sorted(p for p in tenant_mod.TENANTS_DIR.iterdir() if p.is_dir()):
-        for sub in ("out", "runs", "evals", "meta_inbox"):
+        for sub in TRACKED_TENANT_SUBDIRS:
             base = tenant_root / sub
             if not base.exists():
                 continue

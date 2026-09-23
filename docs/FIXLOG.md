@@ -2843,3 +2843,110 @@ Not verifiable until the token is on the server: field names on v24.0
 (`link_url` least certain), the `effective_status`/`updated_since`
 filters, video `source` access for Page-owned videos, CDN content types.
 See docs/META-INGEST.md "Not verified without a live token".
+
+## Cycle 67 (A/B/C tests: three builds per ad, one split link, 2026-09-23)
+
+Owner decision 2026-09-23: every new Meta ad gets an A/B/C test. The harness
+generates 3 page builds from the ad and publishes them. The team gets one
+split link to paste into the ad in Ads Manager. The winner is the build with
+the highest CTA click-through, and orders are secondary. Over time, the
+selection favors the builds that work for PEAK. Operator doc: `docs/ABTEST.md`.
+
+1. **Library + selection (`harness/abtest.py`).** Arms are the 5 listicle
+   style:look pairs from `listicle.LOOK_BY_STYLE`, plus `comparison` and
+   `quiz`. The list is `tenant.yaml` `abtest.library`. The template sets
+   `library: []`, which means the built-in list. `rank_arms` makes one
+   Thompson draw per arm from Beta(clicks + 1, views - clicks + 1), pooled
+   over live and finished tests. With probability `abtest.explore` (0.2), or
+   when no arm has data yet, it uses a uniform random order. `choose_arms`
+   returns the top 3.
+2. **Test record.** Location: `tenants/<t>/abtests/<test_id>.json` (new
+   `Tenant.abtests_dir`, gitignored, not under `out/`). Statuses: building,
+   queued (budget cap), built, live, finished, failed. `tests/conftest.py`
+   redirects `abtests_dir` like `out_dir`, and the session backstop now also
+   watches `abtests/` (`TRACKED_TENANT_SUBDIRS`).
+3. **CLI `harness abtest create|resume|publish|status|results|orders|finish|library`.**
+   `create` calls the same pipeline stages as `harness run` for each arm. It
+   uses 3 seeds per arm and then substitutes the next-ranked unused arm.
+   Exit 3 at the budget cap leaves the test `queued` for `resume`. `publish`
+   runs approve, packet ship, and `cmd_publish` for each variant, with handle
+   `lp-<id>-a|b|c`, `seo_hidden`, and `--update` on a re-run. Then it
+   publishes the split page `lp-<id>` and prints the split link. `cmd_publish`
+   gained a `seo_hidden` arg, and `ShopifyPublisher.publish` passes page
+   `metafields` through (`seo.hidden=1`).
+4. **Split script.** An inline script is the first element of the split body.
+   It uses the cookie `pk_ab_<id>` (30 days, path=/, SameSite=Lax), else a
+   uniform pick. Then it calls `location.replace` with the full query string
+   (old `pk_t`/`pk_v` removed) plus `pk_t`/`pk_v`, and a `<noscript>` link
+   list follows. It does nothing in the theme editor (`Shopify.designMode`).
+   The script is 885 bytes. A test confirms that the export transforms
+   (`strip_document_chrome`, `extract_page_css`, `extract_motion_script`,
+   `relativize_internal_links`, `rem_to_px_in_style_attrs`) leave the script
+   unchanged.
+5. **Beacon.** `runstate.record_abtest` marks a page as variant K of test T
+   in state.json. `page_body.build_shopify_body` then appends the beacon to
+   that page's export only. Thus `rerender` and `publish --update` keep the
+   beacon. The beacon sets the cookie `pk_vid` (28 random base-36 characters,
+   1 year). It sends `navigator.sendBeacon` as text/plain (no preflight): a
+   `view` on load and a `cta` on the click of an anchor with a class in
+   `abtest.CTA_CLASSES` whose path is `/products/` or `/collections/`. On a
+   CTA click, it also sets the cart attribute `pk_ab=<id>:<key>`. A test
+   checks that every product link in all 7 arm templates has a CTA class.
+6. **Receiver `POST /e` (serve.py, `harness/abevents.py`).** The login
+   bypass applies to this one endpoint only. The receiver refuses a body over
+   1 KB (413). It checks shape, event, and vid, and requires a known live or
+   finished test with that variant key (400). It drops a bot or empty user
+   agent (204, not stored). It allows 60 events per minute per IP hash (429)
+   and ignores a duplicate (test, variant, vid, event) through a UNIQUE
+   constraint. The database is SQLite in WAL mode. It stores a salted
+   16-hex-character IP hash and never the IP.
+7. **Orders.** `ShopifyPublisher.list_orders` is a read-only
+   `GET orders.json` (status any, created_at_min, since_id paging, 7 fields).
+   `abtest.attribute_orders` parses the `landing_site` query with
+   `parse_qs`, or reads the `pk_ab` note attribute, and skips cancelled
+   orders.
+8. **Stats (`harness/abstats.py`).** A seeded pure-Python Monte Carlo
+   calculates P(best) (numpy is not in the venv). A test compares it with
+   Evan Miller's exact 2-arm formula, and the result is within 0.01.
+   `finish` requires at least `min_views` (300) views for each variant and
+   P(best) of 0.95 or more, unless `--force`. With `--orders`, orders break a
+   near-tie (P(best) values within 0.05).
+
+### Verify
+- `tests/test_abtest_cycle67.py`: 47 tests. The node-run script tests need
+  `/usr/bin/node` (v22 on the server) and are skipped without it. Full
+  suite: 1867 passed (was 1820).
+- Offline dry demo: a fake runner copies existing runs (read-only) from
+  `~/advertorial/tenants/peak-saunas/out/`. A fake Shopify transport handles
+  publish, and synthetic events go to a temp db. The demo ran create (seed
+  67: quiz, listicle:myths:pillars, comparison), publish (4 pages, all
+  `seo.hidden`, one beacon on each variant, 885-byte split body), and /e
+  (view/cta 204, duplicate ignored, facebookexternalhit dropped). With 420
+  views each, `finish` refused at P(best) 0.925. With 1,200 views each,
+  `finish` named B (listicle:myths:pillars, CTR 18.8%, P(best) 1.000).
+  There were no model calls and no network calls, and the temp dir was
+  removed.
+
+### Open
+- `listicle.peaksaunasteam.com` must route to `harness serve` (a later
+  cycle). Until then variants record nothing. Exposing `harness serve`
+  publicly exposes only `/e` without login, but the whole app is then
+  reachable on that host.
+- Split latency: the split page is a full Shopify theme page. The script
+  runs after the theme `<head>` and the header markup are parsed, so
+  visitors get two page loads and can see a header flash. A theme template
+  `page.split` with an empty layout would remove most of this, but it needs
+  a theme edit.
+- `seo.hidden=1` comes from Shopify's documented page metafield and the
+  2024-10 REST `metafields` on page create. It is not yet checked against the
+  live store. After the first publish, check the split page's HTML for a
+  robots noindex tag and check that it is not in the sitemap.
+- `landing_site` is probably the split page, not the variant: Shopify
+  records the session's first page, and the variant is reached by a
+  client-side redirect. Order attribution therefore depends mostly on the
+  `pk_ab` cart attribute, which the beacon sets on a CTA click. It needs the
+  token's `read_orders` scope.
+- A build with no data draws from Beta(1, 1), so the harness tries every
+  untested build first (`P(picked)` about 64% each in the demo). This
+  follows the specified prior. A pooled-mean prior would move sooner to the
+  builds that are known to be good.

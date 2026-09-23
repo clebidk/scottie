@@ -706,6 +706,10 @@ class ShopifyPublisher(Publisher):
         }
         if page.get("handle"):
             payload["page"]["handle"] = page["handle"]
+        # Cycle 67: optional page metafields, e.g. seo.hidden=1 for an A/B/C
+        # test page (keeps it out of the sitemap and search results).
+        if page.get("metafields"):
+            payload["page"]["metafields"] = page["metafields"]
         status, data = self._request("POST", "pages.json", payload)
         if status not in (200, 201) or "page" not in data:
             raise PublishFailed(f"page create failed: status={status} body={data}")
@@ -750,6 +754,33 @@ class ShopifyPublisher(Publisher):
             "admin_url": f"https://{self.store}/admin/pages/{updated['id']}",
             "handle": handle,
         }
+
+    # Cycle 67: read-only order lookup for A/B/C test attribution
+    # (harness/abtest.py attribute_orders). Needs the read_orders scope.
+    ORDER_FIELDS = "id,created_at,cancelled_at,total_price,currency,landing_site,note_attributes"
+    _ORDERS_PAGE = 250
+    _ORDERS_MAX_PAGES = 40
+
+    def list_orders(self, *, created_at_min):
+        """Every order (any status) created at or after `created_at_min` (ISO
+        8601), with only ORDER_FIELDS. Pages by since_id -- the transport
+        returns no headers, so Link-header pagination is not available -- and
+        stops after _ORDERS_MAX_PAGES pages (10,000 orders)."""
+        orders, since_id = [], 0
+        for _ in range(self._ORDERS_MAX_PAGES):
+            query = urllib.parse.urlencode({
+                "status": "any", "created_at_min": created_at_min, "limit": self._ORDERS_PAGE,
+                "fields": self.ORDER_FIELDS, "since_id": since_id,
+            })
+            status, data = self._request("GET", f"orders.json?{query}")
+            if status != 200 or "orders" not in data:
+                raise PublishFailed(f"order list failed: status={status} body={data}")
+            batch = data["orders"]
+            orders.extend(batch)
+            if len(batch) < self._ORDERS_PAGE:
+                break
+            since_id = max(o["id"] for o in batch)
+        return orders
 
     def create_redirect(self, path, target):
         """Creates a URL redirect from `path` (e.g. "/listicle-test-1") to

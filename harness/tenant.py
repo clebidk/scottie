@@ -72,6 +72,8 @@ TENANT_KEY_TYPES = {
     "design_reference": list,
     # Cycle 68
     "meta": dict,
+    # Cycle 67
+    "abtest": dict,
 }
 
 
@@ -288,6 +290,12 @@ class Tenant:
     @property
     def runs_dir(self):
         return self.root / "runs"
+
+    @property
+    def abtests_dir(self):
+        """Cycle 67: A/B/C test records and the beacon event database. Not
+        under out/, so clearing old run output never deletes a test."""
+        return self.root / "abtests"
 
     @property
     def inbox_dir(self):

@@ -225,6 +225,23 @@ shopify_publish:
   store: peaksaunas.com     # the live storefront domain -- documentation only, not used for API calls
   store_admin_domain: null  # the *.myshopify.com admin domain is not yet confirmed; SHOPIFY_STORE must hold it once known
 
+# Cycle 67 (owner decision 2026-09-23): every new Meta ad gets an A/B/C test
+# -- three builds from this library, one split link pasted into the ad in
+# Ads Manager, winner by CTA click-through (docs/ABTEST.md). The listicle
+# entries are the style:look pairs the renderer already uses.
+abtest:
+  library:
+    - listicle:reasons:cards
+    - listicle:mistakes:editorial
+    - listicle:questions:scorecard
+    - listicle:myths:pillars
+    - listicle:tested:lander
+    - comparison
+    - quiz
+  explore: 0.2
+  min_views: 300
+  beacon_url: https://listicle.peaksaunasteam.com/e
+
 notifications:
   slack: false
   email: []
