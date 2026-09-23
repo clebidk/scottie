@@ -2767,3 +2767,79 @@ gallery infographics in the retired green look.
 - Several vision-drafted alts on the flagged Shopify entries describe a
   sauna photo, not the infographic -- the image order likely changed after
   describe ran with the same url.
+
+## Cycle 68 (Meta ad ingest, owner decision 2026-09-23)
+
+Owner: "connects to your meta account and pulls ads uploaded there". Every
+new ad in PEAK's Meta ad account (`act_963439094733982`, created on or after
+2026-09-23) is pulled into the tenant so the next cycle can build an A/B/C
+landing-page test from it. Read only (`ads_read`). No token on the server
+yet; nothing here has made a live call.
+
+1. **`harness/meta_ingest.py` (new).** `GraphClient`: GET only, injectable
+   `transport` (same shape as the Shopify publisher's) and
+   `download_transport`, token in the `Authorization: Bearer` header only,
+   `redact()` on every error message. Retries HTTP 429/5xx, network errors,
+   `is_transient`, and codes 4/17/32/613/80000-80014 up to 4 times (backoff
+   2/4/8/16 s); 190/102 -> `MetaAuthError` "invalid or expired", 10/200-299
+   -> `MetaAuthError` permission, never retried. `paged()` follows
+   `paging.next` only on graph.facebook.com and strips any echoed
+   `access_token`. `download()` streams to a `.part` file, no token sent,
+   https only, 500 MB cap (Content-Length and while streaming), content type
+   must be a video/image type `harness run` reads; a refused download leaves
+   no file.
+2. **Listing.** `act_<id>/ads` with `effective_status` = ACTIVE, PAUSED,
+   IN_PROCESS, PENDING_REVIEW, PREAPPROVED, CAMPAIGN_PAUSED, ADSET_PAUSED,
+   WITH_ISSUES (a new ad is often PENDING_REVIEW first; DISAPPROVED, DELETED,
+   ARCHIVED never) and `updated_since` = cutoff as a server-side superset;
+   the `created_time` cutoff and the status list are applied again locally.
+3. **Media.** First video anywhere in the creative (own `video_id`,
+   `video_data`, carousel `child_attachments`, `asset_feed_spec.videos`),
+   else first image (`image_hash` -> `act_<id>/adimages?hashes=[..]` full
+   URL, else `image_url`/`picture`). All candidates recorded in
+   `media_candidates`. Video: `<video_id>?fields=source,length,title,picture`;
+   no `source` -> `failed` with a reason naming Page access.
+4. **Inbox.** `tenants/<t>/meta_inbox/<ad_id>/ad.json` + `meta-<ad_id>.<ext>`
+   (new `Tenant.meta_inbox_dir`, gitignored). Normalized fields (ad_id,
+   ad_name, created_time, primary_text, headline, description, cta,
+   destination_url, media_type, media_file, ...) plus Meta's raw item under
+   `meta`. States new -> queued -> building -> tested, or failed/skipped,
+   with reason and history; `Inbox.set_state` refuses a move the lifecycle
+   does not allow. Idempotent: an item in the inbox is skipped unless
+   `--refresh` or its last pull failed (retried automatically). A refresh
+   keeps a queued/building/tested state.
+5. **Ad copy into the brief.** `ingest.load_ad_copy`: when the input file
+   has an `ad.json` beside it whose `media_file` names it, `primary_text`,
+   `headline`, `description`, `cta` ("SHOP_NOW" -> "Shop now") go to the
+   ad-brief call as `ad_copy`, with `AD_COPY_RULES` appended to the system
+   prompt: use it for hook/claims/features/cta, never put it in
+   `speaker_experience` or `transcript_or_text` (so the cycle 65
+   quote-fidelity gate still checks against the transcript only). No
+   sidecar -> the prompt is byte-identical to before. `destination_url` is
+   not sent.
+6. **CLI.** `harness meta check` (token presence; `/me` and
+   `act_<id>?fields=name,account_status`), `harness meta pull [--since]
+   [--limit] [--refresh] [--dry-run]`, `harness meta inbox`.
+   `tenant.yaml` `meta:` block (`ad_account_id`, `graph_api_version: v24.0`,
+   `ingest_since`, `token_env: META_ACCESS_TOKEN`) in peak-saunas and the
+   template; no `ingest_since` is an error, so a pull never takes the whole
+   account history by accident.
+7. **Cron.** `crons/meta-pull.sh [tenant]`: flock, appends to
+   `runs/meta-pull.log`. Not installed; crontab line in docs/META-INGEST.md.
+8. **Suite isolation.** `isolated_tenant_paths` redirects
+   `Tenant.meta_inbox_dir` into tmp_path; the session backstop now also
+   snapshots `<tenant>/meta_inbox`. Checked by removing the redirect: the
+   backstop failed with the three leaked paths.
+9. **Tests.** `tests/test_meta_ingest.py` (56) with hand-written response
+   fixtures in `tests/fixtures/meta/`: paging, created_time and status
+   filters, video/image/carousel/asset_feed/no-media resolution, size cap
+   (header and streaming), content type, idempotence, refresh, retry of a
+   failed pull, state transitions, token never in URL/log/ad.json/error,
+   retry on 17/4/32/613 and 5xx/429, no retry on 100 and 190,
+   missing-token message, CLI check/pull/inbox, ad-copy passthrough.
+   Full suite 1876 passed (1820 + 56).
+
+Not verifiable until the token is on the server: field names on v24.0
+(`link_url` least certain), the `effective_status`/`updated_since`
+filters, video `source` access for Page-owned videos, CDN content types.
+See docs/META-INGEST.md "Not verified without a live token".

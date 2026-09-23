@@ -54,6 +54,7 @@ def test_tenant_paths_all_live_under_the_tenant_root():
     for path in (
         TENANT.claims_dir, TENANT.brand_dir, TENANT.fixtures_dir, TENANT.env_path,
         TENANT.out_dir, TENANT.runs_dir, TENANT.evals_path, TENANT.inbox_dir,
+        TENANT.meta_inbox_dir,
     ):
         assert TENANT.root in path.parents
 

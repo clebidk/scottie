@@ -70,6 +70,8 @@ TENANT_KEY_TYPES = {
     # Cycle 30
     "cartridges": dict,
     "design_reference": list,
+    # Cycle 68
+    "meta": dict,
 }
 
 
@@ -290,6 +292,12 @@ class Tenant:
     @property
     def inbox_dir(self):
         return self.root / "inbox"
+
+    @property
+    def meta_inbox_dir(self):
+        """Cycle 68: ads pulled from the tenant's Meta ad account, one
+        directory per ad id (harness/meta_ingest.py)."""
+        return self.root / "meta_inbox"
 
     @property
     def evals_path(self):

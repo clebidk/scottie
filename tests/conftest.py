@@ -185,6 +185,9 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     monkeypatch.setattr(type(TENANT), "out_dir", property(lambda self: out_dir))
     monkeypatch.setattr(type(TENANT), "runs_dir", property(lambda self: runs_dir))
     monkeypatch.setattr(type(TENANT), "evals_path", property(lambda self: base / "evals" / "scores.jsonl"))
+    # Cycle 68: `harness meta pull` writes ads and their media here. Not
+    # created up front -- the inbox makes its own directories.
+    monkeypatch.setattr(type(TENANT), "meta_inbox_dir", property(lambda self: base / "meta_inbox"))
     return base
 
 
@@ -233,16 +236,16 @@ def _real_tenant_evals_unchanged():
 # ---------------------------------------------------------------------------
 
 def _tracked_run_artifact_paths():
-    """Every path that currently exists under <tenant>/out, <tenant>/runs, or
-    <tenant>/evals for every tenant directory, excluding anything under a
-    path component that starts with "_archive" (tenants/peak-saunas/out/
+    """Every path that currently exists under <tenant>/out, <tenant>/runs,
+    <tenant>/evals, or <tenant>/meta_inbox (cycle 68) for every tenant
+    directory, excluding anything under a path component that starts with "_archive" (tenants/peak-saunas/out/
     _archive-test-runs-2026-09-16/ and tenants/*/evals/_archive/ are
     reference/history, not something a clean session should add to or
     remove from). Pure reads -- no directory is created here, so a suite run
     that touches nothing real leaves this fixture's own footprint at zero."""
     paths = set()
     for tenant_root in sorted(p for p in tenant_mod.TENANTS_DIR.iterdir() if p.is_dir()):
-        for sub in ("out", "runs", "evals"):
+        for sub in ("out", "runs", "evals", "meta_inbox"):
             base = tenant_root / sub
             if not base.exists():
                 continue
@@ -273,7 +276,7 @@ def _no_new_tenant_run_artifacts():
     after = _tracked_run_artifact_paths()
     new_paths = sorted(str(p) for p in (after - before))
     assert not new_paths, (
-        "the test suite left new files under a tenant's out/, runs/, or evals/ "
+        "the test suite left new files under a tenant's out/, runs/, evals/, or meta_inbox/ "
         "directory -- isolated_tenant_paths should have redirected this write "
         "into tmp_path:\n  " + "\n  ".join(new_paths)
     )
