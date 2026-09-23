@@ -1,0 +1,82 @@
+{
+  "data": [
+    {
+      "id": "120210000000000101",
+      "name": "Hidden costs v3 - UGC",
+      "created_time": "2026-09-24T09:15:02-0700",
+      "effective_status": "ACTIVE",
+      "adset": {"id": "120210000000000201", "name": "Broad US 25-65"},
+      "campaign": {"id": "120210000000000301", "name": "Prospecting - Video"},
+      "creative": {
+        "id": "120210000000000401",
+        "name": "Hidden costs v3 creative",
+        "title": "No sales call. Just the price.",
+        "body": "I didn't want to talk to anyone. I just wanted the price.",
+        "object_type": "VIDEO",
+        "video_id": "900000000000001",
+        "thumbnail_url": "https://scontent.xx.fbcdn.net/v/t15/thumb-101.jpg?stp=dst-jpg",
+        "url_tags": "utm_source=meta&utm_medium=paid",
+        "call_to_action_type": "SHOP_NOW",
+        "object_story_spec": {
+          "page_id": "100000000000001",
+          "video_data": {
+            "video_id": "900000000000001",
+            "message": "I didn't want to talk to anyone. I just wanted the price.",
+            "title": "No sales call. Just the price.",
+            "link_description": "Free shipping on every sauna",
+            "image_url": "https://scontent.xx.fbcdn.net/v/t15/thumb-101.jpg",
+            "call_to_action": {
+              "type": "SHOP_NOW",
+              "value": {"link": "https://peaksaunas.com/products/fuji"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "120210000000000102",
+      "name": "Static - price card",
+      "created_time": "2026-09-25T11:00:00-0700",
+      "effective_status": "PAUSED",
+      "adset": {"id": "120210000000000202", "name": "Retargeting 30d"},
+      "campaign": {"id": "120210000000000302", "name": "Retargeting - Static"},
+      "creative": {
+        "id": "120210000000000402",
+        "name": "Price card creative",
+        "object_type": "SHARE",
+        "image_hash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+        "image_url": "https://scontent.xx.fbcdn.net/v/t45/low-res-102.jpg",
+        "thumbnail_url": "https://scontent.xx.fbcdn.net/v/t45/thumb-102.jpg",
+        "call_to_action_type": "LEARN_MORE",
+        "object_story_spec": {
+          "page_id": "100000000000001",
+          "link_data": {
+            "link": "https://peaksaunas.com/pages/pricing",
+            "message": "The price is on the page. No quote form, no call.",
+            "name": "See every price up front",
+            "description": "Home infrared saunas",
+            "image_hash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+            "call_to_action": {"type": "LEARN_MORE", "value": {"link": "https://peaksaunas.com/pages/pricing"}}
+          }
+        }
+      }
+    },
+    {
+      "id": "120210000000000103",
+      "name": "Old ad edited after the cutoff",
+      "created_time": "2026-09-01T08:00:00-0700",
+      "effective_status": "PAUSED",
+      "adset": {"id": "120210000000000203", "name": "Old adset"},
+      "campaign": {"id": "120210000000000303", "name": "Old campaign"},
+      "creative": {
+        "id": "120210000000000403",
+        "object_type": "VIDEO",
+        "video_id": "900000000000003"
+      }
+    }
+  ],
+  "paging": {
+    "cursors": {"before": "QVFIUBEFORE1", "after": "QVFIUAFTER1"},
+    "next": "https://graph.facebook.com/v24.0/act_963439094733982/ads?fields=id%2Cname&limit=100&access_token=EAAB-token-echoed-by-meta&after=QVFIUAFTER1"
+  }
+}

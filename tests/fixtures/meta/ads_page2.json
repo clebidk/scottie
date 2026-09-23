@@ -1,0 +1,77 @@
+{
+  "data": [
+    {
+      "id": "120210000000000104",
+      "name": "Carousel - four models",
+      "created_time": "2026-09-26T10:30:00-0700",
+      "effective_status": "IN_PROCESS",
+      "adset": {"id": "120210000000000204", "name": "Broad US"},
+      "campaign": {"id": "120210000000000304", "name": "Prospecting - Carousel"},
+      "creative": {
+        "id": "120210000000000404",
+        "object_type": "SHARE",
+        "object_story_spec": {
+          "page_id": "100000000000001",
+          "link_data": {
+            "link": "https://peaksaunas.com/collections/all",
+            "message": "Four saunas. Four prices. All on the page.",
+            "child_attachments": [
+              {"link": "https://peaksaunas.com/products/fuji", "name": "Fuji", "image_hash": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c001"},
+              {"link": "https://peaksaunas.com/products/everest", "name": "Everest", "video_id": "900000000000004", "image_hash": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c002"},
+              {"link": "https://peaksaunas.com/products/rainier", "name": "Rainier", "image_hash": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c003"}
+            ],
+            "call_to_action": {"type": "SHOP_NOW", "value": {"link": "https://peaksaunas.com/collections/all"}}
+          }
+        }
+      }
+    },
+    {
+      "id": "120210000000000105",
+      "name": "Flexible format - dynamic creative",
+      "created_time": "2026-09-27T14:00:00-0700",
+      "effective_status": "ACTIVE",
+      "adset": {"id": "120210000000000205", "name": "Advantage+"},
+      "campaign": {"id": "120210000000000305", "name": "Advantage+ Shopping"},
+      "creative": {
+        "id": "120210000000000405",
+        "object_type": "SHARE",
+        "asset_feed_spec": {
+          "images": [{"hash": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d001"}],
+          "videos": [{"video_id": "900000000000005", "thumbnail_url": "https://scontent.xx.fbcdn.net/v/t15/thumb-105.jpg"}],
+          "bodies": [{"text": "A sauna at home costs less than a year of memberships."}, {"text": "Second body variant."}],
+          "titles": [{"text": "Your own sauna, priced up front"}],
+          "descriptions": [{"text": "Ships free"}],
+          "link_urls": [{"website_url": "https://peaksaunas.com/"}],
+          "call_to_action_types": ["SHOP_NOW"],
+          "ad_formats": ["AUTOMATIC_FORMAT"]
+        }
+      }
+    },
+    {
+      "id": "120210000000000106",
+      "name": "Deleted test ad",
+      "created_time": "2026-09-27T15:00:00-0700",
+      "effective_status": "DELETED",
+      "creative": {"id": "120210000000000406", "object_type": "VIDEO", "video_id": "900000000000006"}
+    },
+    {
+      "id": "120210000000000107",
+      "name": "Catalog ad - no fixed media",
+      "created_time": "2026-09-28T09:00:00-0700",
+      "effective_status": "ACTIVE",
+      "adset": {"id": "120210000000000207", "name": "Catalog"},
+      "campaign": {"id": "120210000000000307", "name": "Catalog sales"},
+      "creative": {
+        "id": "120210000000000407",
+        "object_type": "SHARE",
+        "object_story_spec": {
+          "page_id": "100000000000001",
+          "template_data": {"message": "{{product.name}} is on the page with its price.", "link": "https://peaksaunas.com/"}
+        }
+      }
+    }
+  ],
+  "paging": {
+    "cursors": {"before": "QVFIUBEFORE2", "after": "QVFIUAFTER2"}
+  }
+}

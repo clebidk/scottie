@@ -175,6 +175,17 @@ notifications:
   slack: false
   email: []
 
+# Cycle 68: `harness meta pull` copies every new ad in this Meta ad account
+# (created on or after ingest_since) into tenants/<t>/meta_inbox/ -- read
+# only, ads_read scope. The token is never here: it goes in this tenant's
+# .env under the name token_env gives. See docs/META-INGEST.md. Leave
+# ad_account_id empty until the tenant uses Meta.
+meta:
+  ad_account_id: ""            # act_<digits>, from Ads Manager's account menu
+  graph_api_version: v24.0
+  ingest_since: ""             # ISO date; ads created before it are never pulled
+  token_env: META_ACCESS_TOKEN
+
 # Cycle 27: `harness brand import --tenant <slug> --drive-folder <url-or-id>`
 # (or `--local <dir>`) fills this in from a logo/brand-guide/palette/fonts
 # folder and merges it here -- logo_path, primary_hex, accent_hex,

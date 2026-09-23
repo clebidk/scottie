@@ -229,6 +229,15 @@ notifications:
   slack: false
   email: []
 
+# Cycle 68 (owner decision 2026-09-23): every new ad in PEAK's Meta ad
+# account is pulled into meta_inbox/ for an A/B/C landing-page test. Read
+# only (ads_read). META_ACCESS_TOKEN lives in .env; see docs/META-INGEST.md.
+meta:
+  ad_account_id: act_963439094733982
+  graph_api_version: v24.0
+  ingest_since: "2026-09-23"
+  token_env: META_ACCESS_TOKEN
+
 # Cycle 52: the finalized PEAK design system, applied 2026-09-22. The values
 # the engine actually reads are brand/tokens.json and brand/base.css; this
 # section is the short, readable statement of the same decisions, and

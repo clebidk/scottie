@@ -13,6 +13,8 @@ tenants/*/fixtures/*.png
 tenants/*/fixtures/*.jpg
 tenants/*/inbox/*
 !tenants/*/inbox/.gitkeep
+# Cycle 68: ads pulled from Meta (harness meta pull) -- media and metadata.
+tenants/*/meta_inbox/
 
 # Cycle 27: harness brand import's working copy of whatever it downloaded/
 # copied from a Drive folder or --local dir -- the classified/processed

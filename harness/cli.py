@@ -1,5 +1,5 @@
 """`harness` console entry point: run / ingest / claims / review / score /
-shopify-body / tenant / workflow / design-skills.
+shopify-body / tenant / workflow / design-skills / meta.
 
 The CLI resolves which tenant a command is for (--tenant > HARNESS_TENANT >
 tenants/default.txt), activates it, and hands the pipeline a Tenant object. No
@@ -19,6 +19,7 @@ from . import brand_import
 from . import notify
 from . import listicle
 from . import looks
+from . import meta_ingest
 from . import pipeline
 from . import repair
 from . import runstate
@@ -768,6 +769,72 @@ def cmd_spend(args):
 
 
 # ---------------------------------------------------------------------------
+# harness meta check / pull / inbox (cycle 68) -- read-only Meta ad ingest
+# ---------------------------------------------------------------------------
+
+def _meta_setup(tenant, *, need_token=True):
+    """(config, client) for a meta command. The token is read from the
+    environment after the tenant's .env is loaded, and never printed."""
+    tenant.load_env()
+    cfg = meta_ingest.meta_config(tenant)
+    if not need_token:
+        return cfg, None
+    token = meta_ingest.token_from_env(cfg, tenant)
+    return cfg, meta_ingest.make_client(token, cfg)
+
+
+def cmd_meta_check(args):
+    """`harness meta check`: is the token set, and can it read the ad
+    account? The only command that calls Meta without pulling anything."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    cfg, client = _meta_setup(tenant)
+    result = meta_ingest.check(client, cfg["ad_account_id"])
+    me, account = result["me"], result["account"]
+    status = account.get("account_status")
+    print(f"token: OK, acting as {me.get('name') or '?'} (id {me.get('id') or '?'})")
+    print(f"ad account {cfg['ad_account_id']}: {account.get('name') or '?'}, "
+          f"status {meta_ingest.ACCOUNT_STATUS.get(status, status)}")
+    print(f"graph api {cfg['graph_api_version']}; new ads counted from {cfg['ingest_since'].date().isoformat()}")
+    return exits.OK
+
+
+def cmd_meta_pull(args):
+    """`harness meta pull [--since DATE] [--limit N] [--refresh] [--dry-run]`."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    since = None
+    if args.since:
+        since = meta_ingest.parse_since(args.since, what="--since")
+    cfg, client = _meta_setup(tenant)
+    summary = meta_ingest.pull(
+        client, meta_ingest.Inbox(tenant.meta_inbox_dir),
+        account_id=cfg["ad_account_id"], since=since or cfg["ingest_since"],
+        limit=args.limit, refresh=args.refresh, dry_run=args.dry_run,
+    )
+    if args.dry_run:
+        print(f"dry run: {len(summary['would_ingest'])} would be ingested, "
+              f"{len(summary['existing'])} already in the inbox. Nothing written.")
+    else:
+        print(f"{len(summary['ingested'])} ingested, {len(summary['failed'])} failed, "
+              f"{len(summary['skipped'])} skipped, {len(summary['existing'])} already in the inbox")
+    return exits.OK
+
+
+def cmd_meta_inbox(args):
+    """`harness meta inbox`: one line per item, oldest first."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    items = meta_ingest.Inbox(tenant.meta_inbox_dir).items()
+    if not items:
+        print(f"{tenant.meta_inbox_dir} is empty.")
+        return exits.OK
+    print(f"{'ad_id':20s} {'state':9s} {'created':10s} {'media':6s} {'ad name':32s} reason")
+    for item in items:
+        print(f"{item.get('ad_id', ''):20s} {item.get('state', ''):9s} "
+              f"{(item.get('created_time') or '')[:10]:10s} {item.get('media_type') or '-':6s} "
+              f"{(item.get('ad_name') or '')[:32]:32s} {item.get('reason') or ''}")
+    return exits.OK
+
+
+# ---------------------------------------------------------------------------
 # harness doctor
 # ---------------------------------------------------------------------------
 
@@ -1351,6 +1418,22 @@ def build_parser():
     p_workflow_run.set_defaults(func=cmd_workflow_run)
     p_workflow_list = workflow_sub.add_parser("list", help="every workflow in workflows/")
     p_workflow_list.set_defaults(func=cmd_workflow_list)
+
+    p_meta = sub.add_parser("meta", help="pull new ads from the tenant's Meta ad account (read only)")
+    meta_sub = p_meta.add_subparsers(dest="meta_command", required=True)
+    p_meta_check = meta_sub.add_parser("check", help="check the token and the ad account (one live call each)")
+    _add_tenant_flag(p_meta_check)
+    p_meta_check.set_defaults(func=cmd_meta_check)
+    p_meta_pull = meta_sub.add_parser("pull", help="download new ads into tenants/<t>/meta_inbox/")
+    p_meta_pull.add_argument("--since", help="ISO date; default: tenant.yaml meta.ingest_since")
+    p_meta_pull.add_argument("--limit", type=int, help="ingest at most N ads this run")
+    p_meta_pull.add_argument("--refresh", action="store_true", help="pull ads already in the inbox again")
+    p_meta_pull.add_argument("--dry-run", action="store_true", help="list what would be ingested; write nothing")
+    _add_tenant_flag(p_meta_pull)
+    p_meta_pull.set_defaults(func=cmd_meta_pull)
+    p_meta_inbox = meta_sub.add_parser("inbox", help="every inbox item and its state")
+    _add_tenant_flag(p_meta_inbox)
+    p_meta_inbox.set_defaults(func=cmd_meta_inbox)
 
     return parser
 

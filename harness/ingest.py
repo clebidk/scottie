@@ -5,6 +5,7 @@ input -> resolve (local path or Drive link/id) -> detect type -> transcribe
 call -> validated ad_brief dict.
 """
 import base64
+import json
 import mimetypes
 import subprocess
 from pathlib import Path
@@ -194,6 +195,46 @@ Rules:
 - Output valid JSON only. No prose before or after, no markdown fences."""
 
 
+# Cycle 68: an ad pulled from Meta (harness/meta_ingest.py) sits in its inbox
+# directory next to an ad.json whose media_file names it. That ad.json holds
+# the copy Meta shows around the media -- primary text above it, headline and
+# description under it, the button -- which a still or a video with no voice
+# over often carries all of the offer in.
+AD_COPY_FIELDS = ("primary_text", "headline", "description", "cta")
+
+AD_COPY_RULES = """The input also has ad_copy: the text the ad platform shows around the video or image (primary_text above it, headline and description below it, cta on the button). It is part of the same ad, written by the brand:
+- Use it for hook, promise, angle, claims_made, features_shown, objections_raised, audience, and cta, together with the transcript or on-image text. When the media has no call to action, cta comes from ad_copy.cta or the headline.
+- It is brand copy, not the speaker: never put ad_copy text into speaker_experience, and do not count it when you decide speaker_pov.
+- transcript_or_text is still only the transcript or on-image text you were given, verbatim. Never copy ad_copy into it."""
+
+
+def load_ad_copy(path, log=None):
+    """{primary_text, headline, description, cta} from the ad.json next to
+    `path` when that ad.json's media_file is this file; None otherwise. A
+    Meta CTA type ("SHOP_NOW") comes back as words ("Shop now")."""
+    path = Path(path)
+    sidecar = path.parent / "ad.json"
+    if not sidecar.is_file():
+        return None
+    try:
+        data = json.loads(sidecar.read_text())
+    except (OSError, ValueError) as e:
+        if log is not None:
+            log.event("ingest", f"ignored unreadable ad copy sidecar {sidecar}: {type(e).__name__}")
+        return None
+    if not isinstance(data, dict) or data.get("media_file") != path.name:
+        return None
+    copy = {}
+    for key in AD_COPY_FIELDS:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            copy[key] = value.strip()
+    cta = copy.get("cta", "")
+    if cta and cta.replace("_", "").isupper():
+        copy["cta"] = cta.replace("_", " ").capitalize()
+    return copy or None
+
+
 def validate_ad_brief(data):
     if not isinstance(data, dict):
         raise ValueError("ad_brief is not a JSON object")
@@ -211,13 +252,14 @@ def validate_ad_brief(data):
         raise ValueError("; ".join(errors))
 
 
-def build_ad_brief(*, transcript_or_text, source_file, input_type, client, model, budget, log):
-    import json
-
+def build_ad_brief(*, transcript_or_text, source_file, input_type, client, model, budget, log, ad_copy=None):
     stage = "ingest.ad_brief"
-    user_msg = json.dumps(
-        {"source_file": source_file, "input_type": input_type, "transcript_or_text": transcript_or_text}
-    )
+    payload = {"source_file": source_file, "input_type": input_type, "transcript_or_text": transcript_or_text}
+    system = AD_BRIEF_SYSTEM
+    if ad_copy:
+        payload["ad_copy"] = ad_copy
+        system = AD_BRIEF_SYSTEM + "\n\n" + AD_COPY_RULES
+    user_msg = json.dumps(payload)
 
     last_error = None
     for attempt in range(2):
@@ -228,7 +270,7 @@ def build_ad_brief(*, transcript_or_text, source_file, input_type, client, model
             # Structured extraction task, no reasoning needed -- disable
             # thinking when the model accepts the param (Haiku 4.5 doesn't;
             # see anthropic_client.thinking_kwargs).
-            system=AD_BRIEF_SYSTEM,
+            system=system,
             messages=[{"role": "user", "content": user_msg}],
             **thinking_kwargs(model),
         )
@@ -288,6 +330,9 @@ def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, wh
     path = resolve_input(input_arg, workdir)
     input_type = detect_type(path)
     log.event("ingest", f"resolved input {input_arg!r} -> {path} (type={input_type})")
+    ad_copy = load_ad_copy(path, log)
+    if ad_copy:
+        log.event("ingest", f"ad copy from {Path(path).parent / 'ad.json'}: {', '.join(sorted(ad_copy))}")
 
     if input_type == "video":
         transcript_or_text = video_to_transcript(path, workdir, ffmpeg_bin, whisper_bin, whisper_model)
@@ -307,6 +352,7 @@ def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, wh
         model=model,
         budget=budget,
         log=log,
+        ad_copy=ad_copy,
     )
     # The key name is part of ad_brief.json's shape (it is written to disk and
     # sent to the writer), so it keeps the historical spelling; the function
