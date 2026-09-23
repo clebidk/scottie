@@ -1,0 +1,21 @@
+[Unit]
+Description=Listicle site job worker (harness worker) for tenant @@TENANT@@
+# Cycle 69: runs the jobs harness serve's listicle site queues (regenerate,
+# A/B/C test builds, publishes). One worker per tenant. See docs/LISTICLE-SITE.md.
+
+[Service]
+Type=simple
+WorkingDirectory=@@REPO@@
+EnvironmentFile=@@REPO@@/tenants/@@TENANT@@/.env
+ExecStart=@@REPO@@/.venv/bin/harness worker --tenant @@TENANT@@
+# SIGTERM: the worker finishes the job in hand, then exits. A test build can
+# take several minutes; after this timeout systemd kills it and the next
+# start marks that job failed with a reason.
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=900
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

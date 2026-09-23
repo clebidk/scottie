@@ -181,6 +181,10 @@ abtest:
   explore: 0.2
   min_views: 300
   beacon_url: ""
+  # Cycle 69: publish a test as soon as its three pages are built (uploads on
+  # the listicle site and `harness abtest from-inbox`). false: publish by hand
+  # with `harness abtest publish`.
+  auto_publish: false
 
 # Reviewer notifications sent on: a run reaching needs_review, an approve,
 # and a publish. Both channels are entirely optional and fail closed -- no

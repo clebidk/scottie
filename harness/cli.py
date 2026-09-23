@@ -965,6 +965,58 @@ def cmd_abtest_library(args):
     return exits.OK
 
 
+def cmd_abtest_from_inbox(args):
+    """`harness abtest from-inbox [--limit N] [--by <email>]` (cycle 69):
+    build an A/B/C test for each new inbox item (Meta pulls; uploads go
+    through the listicle site's job queue), and publish it when
+    abtest.auto_publish is on. Stops at the daily budget cap and leaves the
+    rest "queued" (reason "budget cap") for the next run. Skips the run when
+    a job holds the tenant's build lock."""
+    from . import abtest_inbox, jobs
+
+    tenant = _abtest_tenant(args)
+    by = args.by or abtest_inbox.default_by(tenant)
+    if abtest.settings(tenant)["auto_publish"] and runstate.find_reviewer(tenant, by) is None:
+        print(f"{by!r} is not a listed reviewer for tenant {tenant.name!r}; pass --by <reviewer email>",
+              file=sys.stderr)
+        return exits.USAGE
+    try:
+        with jobs.build_lock(tenant, blocking=False):
+            summary = abtest_inbox.from_inbox(tenant, by=by, limit=args.limit)
+    except jobs.JobError as e:
+        print(f"{e}; from-inbox skipped this run", file=sys.stderr)
+        return exits.OK
+    print(f"from-inbox: {len(summary['built'])} built, {len(summary['failed'])} failed, "
+          f"{len(summary['left'])} left for the next run"
+          + (f" ({summary['stopped']})" if summary["stopped"] else ""))
+    return exits.OK
+
+
+def cmd_worker(args):
+    """`harness worker --tenant <t> [--once] [--interval S]` (cycle 69): runs
+    the listicle site's jobs (harness/jobs.py), one at a time. SIGTERM ends
+    the loop after the job in hand."""
+    import signal
+    import threading
+
+    from . import jobs
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    stop = threading.Event()
+
+    def _stop(signum, _frame):
+        print(f"signal {signum}: stopping after the current job", flush=True)
+        stop.set()
+
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGINT, _stop)
+    jobs.work(tenant, once=args.once, interval=args.interval, stop=stop,
+              log=lambda msg: print(msg, flush=True))
+    return exits.OK
+
+
 # ---------------------------------------------------------------------------
 # harness spend -- K2 (docs/REVIEW-KIMI-LONG-RUN.md, Cycle 28)
 # ---------------------------------------------------------------------------
@@ -1518,6 +1570,12 @@ def build_parser():
     _add_tenant_flag(p_revise)
     p_revise.set_defaults(func=cmd_revise)
 
+    p_worker = sub.add_parser("worker", help="run the listicle site's job queue (regenerate, tests, publishes)")
+    p_worker.add_argument("--once", action="store_true", help="run the queued jobs, then exit")
+    p_worker.add_argument("--interval", type=float, default=5.0, help="seconds between queue checks when idle")
+    _add_tenant_flag(p_worker)
+    p_worker.set_defaults(func=cmd_worker)
+
     p_serve = sub.add_parser("serve", help="run the reviewer web app")
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=4870)
@@ -1580,6 +1638,11 @@ def build_parser():
     p_ab_finish.add_argument("--orders", action="store_true", help="fetch orders to break a near-tie")
     _add_tenant_flag(p_ab_finish)
     p_ab_finish.set_defaults(func=cmd_abtest_finish)
+    p_ab_inbox = ab_sub.add_parser("from-inbox", help="build (and auto publish) a test for each new inbox item")
+    p_ab_inbox.add_argument("--limit", type=int, help="work on at most N inbox items this run")
+    p_ab_inbox.add_argument("--by", help="reviewer email recorded on auto publishes; default: the primary reviewer")
+    _add_tenant_flag(p_ab_inbox)
+    p_ab_inbox.set_defaults(func=cmd_abtest_from_inbox)
     p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")
     _add_tenant_flag(p_ab_library)
     p_ab_library.set_defaults(func=cmd_abtest_library)

@@ -131,6 +131,9 @@ def settings(tenant):
         "explore": min(max(float(explore if explore is not None else DEFAULT_EXPLORE), 0.0), 1.0),
         "min_views": int(min_views if min_views is not None else DEFAULT_MIN_VIEWS),
         "beacon_url": (tenant.get("abtest.beacon_url") or "").strip(),
+        # Cycle 69: publish a test as soon as its three builds exist (the
+        # listicle site's upload and `harness abtest from-inbox`).
+        "auto_publish": tenant.get("abtest.auto_publish") is True,
     }
 
 
@@ -148,10 +151,14 @@ def pooled_arm_stats(tenant):
             continue
         counts = abevents.counts(db, rec["test_id"])
         for v in rec.get("variants") or []:
-            c = counts.get(v["key"], {"views": 0, "clicks": 0})
             slot = stats.setdefault(v["arm"], {"views": 0, "clicks": 0, "tests": 0})
-            slot["views"] += c["views"]
-            slot["clicks"] += min(c["clicks"], c["views"])
+            # Cycle 69: a replaced variant's old events (archived key) are
+            # still evidence for the same build.
+            keys = [v["key"]] + [r["archived_key"] for r in v.get("replacements") or []]
+            for key in keys:
+                c = counts.get(key, {"views": 0, "clicks": 0})
+                slot["views"] += c["views"]
+                slot["clicks"] += min(c["clicks"], c["views"])
             slot["tests"] += 1
     return stats
 
@@ -340,8 +347,10 @@ def build_variants(tenant, rec, runner):
     return exits.OK, rec
 
 
-def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None):
-    """Chooses three builds, records the test, and builds them."""
+def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None, on_record=None):
+    """Chooses three builds, records the test, and builds them. `on_record`
+    (cycle 69) is called with the record once it is saved, before the first
+    build, so a caller can link it (an inbox item keeps the test id)."""
     seed = seed if seed is not None else random.randrange(1_000_000)
     ranking = rank_arms(tenant, random.Random(seed))
     rec = {
@@ -364,7 +373,27 @@ def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None
         "winner": None,
     }
     save_test(tenant, rec)
+    if on_record is not None:
+        on_record(rec)
     return build_variants(tenant, rec, runner or default_runner)
+
+
+def reset_variant_stats(tenant, rec, key, *, by, note=""):
+    """Cycle 69 ("Replace live variant"): the variant's page was replaced
+    with a new version, so its views and CTA clicks start again at zero.
+    Its events move to the key "<key>@<n>" (abevents.archive_variant); the
+    record keeps {archived_key, at, by, rows, note} under the variant's
+    "replacements". results() counts only the current key; pooled_arm_stats
+    still counts the archived rows for the build."""
+    variant = next((v for v in rec["variants"] if v["key"] == key), None)
+    if variant is None:
+        raise AbtestError(f"test {rec['test_id']} has no variant {key!r}")
+    replacements = variant.setdefault("replacements", [])
+    archived_key = f"{key}@{len(replacements) + 1}"
+    rows = abevents.archive_variant(abevents.db_path(tenant), rec["test_id"], key, archived_key)
+    replacements.append({"archived_key": archived_key, "at": _utc_now(), "by": by, "rows": rows, "note": note})
+    save_test(tenant, rec)
+    return replacements[-1]
 
 
 # ---------------------------------------------------------------------------

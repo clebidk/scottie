@@ -241,6 +241,8 @@ abtest:
   explore: 0.2
   min_views: 300
   beacon_url: https://listicle.peaksaunasteam.com/e
+  # Cycle 69 (owner decision): tests go live as soon as their pages are built.
+  auto_publish: true
 
 notifications:
   slack: false

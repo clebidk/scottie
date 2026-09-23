@@ -539,6 +539,11 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
 
 
+# Cycle 69: an ad uploaded on the listicle site (harness/upload.py) gets an
+# inbox item too, with the id "up-<8 lowercase letters/digits>".
+UPLOAD_ID_RE = re.compile(r"up-[a-z0-9]{8}")
+
+
 class Inbox:
     """tenants/<t>/meta_inbox/<ad_id>/ad.json plus one media file."""
 
@@ -547,8 +552,8 @@ class Inbox:
 
     def item_dir(self, ad_id):
         ad_id = str(ad_id)
-        if not ad_id.isdigit():
-            raise ValueError(f"not a Meta ad id: {ad_id!r}")
+        if not (ad_id.isdigit() and ad_id.isascii()) and not UPLOAD_ID_RE.fullmatch(ad_id):
+            raise ValueError(f"not a Meta ad id or an upload id: {ad_id!r}")
         return self.root / ad_id
 
     def read(self, ad_id):
@@ -587,6 +592,18 @@ class Inbox:
         if state not in TRANSITIONS.get(current, set()):
             raise ValueError(f"ad {ad_id}: {current} -> {state} is not allowed")
         _record(item, state, reason)
+        self.write(item)
+        return item
+
+    def note(self, ad_id, reason, **fields):
+        """Cycle 69: a new reason (and extra fields, e.g. test_id) on an
+        item that keeps its state -- a "building" item the budget cap
+        stopped, say. Adds a history entry like set_state does."""
+        item = self.read(ad_id)
+        if item is None:
+            raise ValueError(f"no inbox item for ad {ad_id}")
+        item.update(fields)
+        _record(item, item.get("state"), reason)
         self.write(item)
         return item
 

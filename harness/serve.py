@@ -285,7 +285,7 @@ def _render_run_list(tenant, runs, *, show_test=False, hidden_count=0):
         toggle = ""
     body = (
         f"<h1>{html.escape(tenant.display_name)} -- runs</h1>"
-        f"<p><a href=\"{url_for('image_library')}\">Image library</a></p>"
+        f"<p><a href=\"{url_for('ads_home')}\">Ads</a> | <a href=\"{url_for('image_library')}\">Image library</a></p>"
         + toggle
         + "<table><thead><tr><th>Run</th><th>State</th><th>Ad</th><th>Product</th>"
         "<th>Cartridges</th><th>Cost</th><th>Gate</th><th>Not repeated</th><th>Reviewer actions</th>"
@@ -813,7 +813,8 @@ def build_app(tenant):
         # too, so the preview never rendered. Relax only this one route to
         # SAMEORIGIN / frame-ancestors 'self': still refuses any third-party
         # framing, just not the app's own.
-        if request.endpoint == "page_review":
+        # Cycle 69: the listicle site's old-version preview is framed the same way.
+        if request.endpoint in ("page_review", "page_review_version"):
             resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
             resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
         else:
@@ -821,7 +822,9 @@ def build_app(tenant):
             resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
         return resp
 
-    @app.route("/")
+    # Cycle 69: "/" is the listicle site's ads page (harness/site.py); the
+    # run list moved to /runs.
+    @app.route("/runs")
     def run_list():
         show_test = request.args.get("show_test") == "1"
         runs = []
@@ -976,4 +979,8 @@ def build_app(tenant):
     def beacon():
         return _handle_beacon(tenant, beacon_limiter, beacon_limiter_salt)
 
+    # Cycle 69: the listicle site (ads, feedback -> regenerate, uploads, jobs).
+    from . import site
+
+    site.register(app, tenant)
     return app

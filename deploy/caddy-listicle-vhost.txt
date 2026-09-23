@@ -1,0 +1,34 @@
+# Cycle 69 DRAFT -- not applied. The listicle site (harness serve, docs/LISTICLE-SITE.md).
+# Append this block to /etc/caddy/Caddyfile with the steps in docs/LISTICLE-SITE.md section 2.
+# DNS: A listicle.peaksaunasteam.com -> 167.233.29.4, DNS only (grey cloud), so Caddy gets
+# the certificate itself and sees the visitor's real IP.
+
+listicle.peaksaunasteam.com {
+	# Internal tool and beacon endpoint: never in a search index.
+	header X-Robots-Tag "noindex, nofollow"
+	header -Server
+
+	# Ad uploads are up to 500 MB (harness/upload.py); the form adds a few fields.
+	request_body {
+		max_size 520MB
+	}
+
+	reverse_proxy 127.0.0.1:4870 {
+		# harness serve trusts CF-Connecting-IP / X-Forwarded-For only when the
+		# socket peer is loopback (serve.py _client_ip), which is Caddy. With DNS
+		# only there is no Cloudflare in front, so a visitor could send their own
+		# CF-Connecting-IP and dodge the POST /e rate limit: remove it. Caddy
+		# itself sets X-Forwarded-For to the address it saw (no trusted_proxies
+		# is set, so a visitor's own X-Forwarded-For is replaced, not appended).
+		header_up -CF-Connecting-IP
+
+		# A 500 MB upload on a slow phone connection takes minutes: no read or
+		# write deadline on the proxy side (Caddy's defaults are already none;
+		# written out so nobody adds a short one later).
+		transport http {
+			read_timeout 0
+			write_timeout 0
+			dial_timeout 10s
+		}
+	}
+}
