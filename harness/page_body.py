@@ -345,7 +345,10 @@ def build_shopify_body(cartridge_dir):
     # every rem in the export's CSS -> px at 16px (the theme sets html to 10px)
     style_block = css_scope.rem_to_px(style_block)
 
-    parts = [style_block, body]
+    # The live publish checks the storefront for the run id
+    # (cli.cmd_publish -> verify_cache(marker=run_dir.name)); carry it.
+    run_id = re.sub(r"[^A-Za-z0-9_.-]", "", cartridge_dir.parent.name)
+    parts = [style_block, body, f'<div hidden data-pk-run="{run_id}"></div>']
     if motion_script:
         parts.append(motion_script)
     shopify_body_html = "\n\n".join(parts) + "\n"
