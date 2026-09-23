@@ -33,6 +33,11 @@ harness abtest create --tenant peak-saunas \
 
 Review the three pages in the review app as usual before you publish.
 
+Cycle 69: an ad uploaded on the listicle site (docs/LISTICLE-SITE.md) and
+`harness abtest from-inbox` (Meta inbox items) create tests the same way.
+When `abtest.auto_publish` is true in `tenant.yaml` (PEAK: true; template:
+false), they also run step 2 at once, with no review first.
+
 ## 2. Publish
 
 ```
@@ -106,6 +111,17 @@ of these are true:
 `--force` finishes without these rules. `--orders` fetches orders, and when
 two P(best) values are within 0.05, the variant with more orders wins.
 Finishing does not remove the pages. To stop traffic, change the ad's URL.
+
+## Replace a live variant (cycle 69)
+
+On the listicle site, feedback on a live variant makes a new version of its
+page but does not publish it. **Replace live variant** (with a confirm step)
+updates the variant's Shopify page and resets that variant's views and CTA
+clicks: its old events move to the key `<key>@<n>` in `events.sqlite`, and
+the test record lists them under the variant's `replacements`. `results` and
+`finish` count only the events after the replacement; the library's pooled
+statistics still count the old ones for the build. See
+docs/LISTICLE-SITE.md.
 
 ## How builds are picked
 

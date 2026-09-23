@@ -156,13 +156,14 @@ def test_run_list_hides_test_runs_by_default_and_shows_with_flag(app_client, run
     state = runstate.load_state(run_dir)
     assert state["dry_run"] is True
 
-    resp = app_client.get("/", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    # Cycle 69: the run list moved from / (now the listicle site's ads page) to /runs.
+    resp = app_client.get("/runs", headers=_basic_auth_header(REVIEWER, PASSWORD))
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert run_dir.name not in body
     assert "Show test runs" in body
 
-    resp = app_client.get("/?show_test=1", headers=_basic_auth_header(REVIEWER, PASSWORD))
+    resp = app_client.get("/runs?show_test=1", headers=_basic_auth_header(REVIEWER, PASSWORD))
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert run_dir.name in body
@@ -342,7 +343,7 @@ def test_non_run_dirs_are_skipped(app_client, run_dir):
     junk.mkdir(exist_ok=True)
     (junk / "old-review.html").write_text("<html>junk</html>")
     try:
-        resp = app_client.get("/?show_test=1", headers=_basic_auth_header(REVIEWER, PASSWORD))
+        resp = app_client.get("/runs?show_test=1", headers=_basic_auth_header(REVIEWER, PASSWORD))
         assert resp.status_code == 200
         assert "_archive-test-runs" not in resp.get_data(as_text=True)
 

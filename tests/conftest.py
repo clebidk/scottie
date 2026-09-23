@@ -190,6 +190,8 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     monkeypatch.setattr(type(TENANT), "meta_inbox_dir", property(lambda self: base / "meta_inbox"))
     # Cycle 67: A/B/C test records and the beacon event database.
     monkeypatch.setattr(type(TENANT), "abtests_dir", property(lambda self: base / "abtests"))
+    # Cycle 69: the listicle site's job queue and audit log.
+    monkeypatch.setattr(type(TENANT), "jobs_dir", property(lambda self: base / "jobs"))
     return base
 
 
@@ -238,7 +240,8 @@ def _real_tenant_evals_unchanged():
 # ---------------------------------------------------------------------------
 
 # Cycle 67: abtests/ (test records, events.sqlite) is tracked like out/.
-TRACKED_TENANT_SUBDIRS = ("out", "runs", "evals", "meta_inbox", "abtests")
+# Cycle 69: jobs/ (job queue + audit log) too.
+TRACKED_TENANT_SUBDIRS = ("out", "runs", "evals", "meta_inbox", "abtests", "jobs")
 
 
 def _tracked_run_artifact_paths():

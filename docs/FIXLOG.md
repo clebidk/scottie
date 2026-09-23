@@ -2950,3 +2950,131 @@ selection favors the builds that work for PEAK. Operator doc: `docs/ABTEST.md`.
   untested build first (`P(picked)` about 64% each in the demo). This
   follows the specified prior. A pooled-mean prior would move sooner to the
   builds that are known to be good.
+
+## Cycle 69 (listicle site: feedback -> regenerate, ad upload -> test, 2026-09-23)
+
+Owner: "lets build listicle.peaksaunasteam.com to leave feedback on
+generations based on ad name that it then regenerates once submitted and
+also allows for upload of an ad to build off in a test". The site is part of
+`harness serve` (same login, same process on 127.0.0.1:4870). Full guide:
+docs/LISTICLE-SITE.md.
+
+1. **Ads home (`/`, `harness/ads.py`, `harness/site.py`).** Every ad grouped
+   by name (lower case, non-alphanumeric runs = one space) across A/B/C
+   tests, inbox items (Meta and uploads) and older runs (ad brief
+   `source_file` stem; a test variant's run shows only under its test; test
+   suite runs hidden). Per ad: status, created date, three variants with a
+   thumbnail (first page asset, cached in `runs/thumb-cache/`), build name,
+   views / CTA / CTR / P(best) for a live or finished test, split link with a
+   Copy button, and today's spend against the daily cap. Search, 20 ads per
+   page. The run list moved from `/` to `/runs` (three tests in
+   tests/test_serve.py now use `/runs`).
+2. **Generation page (`/gen/<run>/<page>`).** Review render (desktop/mobile),
+   versions (`page.vN.json` files; the current page is N + 1, and the
+   history note "revised to vN" is shown as "new version N + 1"), feedback
+   history, and the feedback form (required, 2,000 characters max, author =
+   logged-in email). Feedback goes through `runstate.request_changes` and
+   queues one `regenerate` job, which runs `revise.revise_page` (the `harness
+   revise` code). No second feedback while that job waits. When the job is
+   done, the old version and the new one show side by side
+   (`/run/<run>/review/<page>/v/<n>`, framed SAMEORIGIN like `page_review`).
+3. **Publish and replace.** Regenerating never publishes. A non-test page
+   that has a Shopify page and was regenerated after its last publish gets
+   **Publish new version** (confirm page, then a `publish_page` job: approve,
+   stamp ship, `harness publish --update`, live or draft as the history
+   says; unknown -> refused). A variant of a live test gets **Replace live
+   variant** instead (confirm page, then a `replace_variant` job: the same
+   publish with SEO hidden and the beacon, then
+   `abtest.reset_variant_stats`). The reset moves the variant's events to the
+   key `<key>@<n>` (`abevents.archive_variant`, one UPDATE); results count
+   only the new key, `pooled_arm_stats` still counts the archived rows for
+   the build, the record keeps `replacements` [{archived_key, at, by, rows}].
+   Chosen over a new variant key because A/B/C are in the split cookie, the
+   beacon and order attribution; moving rows changes nothing a visitor sees
+   and lets a returning visitor count again on the new page.
+4. **Upload (`/upload`, `harness/upload.py`).** Ad name required (200
+   characters), media mp4/mov/jpg/png/webp up to 500 MB, type read from the
+   first bytes and checked against the extension, streamed to a `.part` file
+   in 1 MB chunks with the cap checked while writing (werkzeug limit 520 MB
+   for the whole request). Saved as `meta_inbox/up-<8>/upload-up-<8>.<ext>`;
+   the browser's file name is never a path. The inbox item has the Meta item
+   shape plus `source: "upload"` and `uploaded_by`; `Inbox.item_dir` now
+   accepts `up-[a-z0-9]{8}` ids too. The item goes to `queued` and a
+   `create_test` job is queued.
+5. **Inbox -> test (`harness/abtest_inbox.py`).** One path for uploads and
+   Meta items: queued -> building (`abtest.create_test`, new `on_record` hook
+   puts the test id on the item before the first build) -> tested / failed;
+   a budget stop keeps the item `building` with the test `queued`. New
+   tenant setting `abtest.auto_publish` (template false, PEAK true): then the
+   job runs `harness abtest publish --by <uploader>` and the job page and the
+   Ads page show the split link. `harness abtest from-inbox [--limit N]
+   [--by]`: resumes budget-stopped tests, then budget-queued items, then new
+   items; checks the cap before each (committed + one reservation <= cap);
+   at the cap it stops and sets the rest `queued` with reason "budget cap".
+   Holds the build lock (skips the run when a job is running).
+   `crons/meta-pull.sh` runs it after the pull, also when the pull fails.
+6. **Job queue + worker (`harness/jobs.py`, `harness worker`).**
+   `tenants/<t>/jobs/jobs.sqlite` (WAL): queued -> running -> done | failed
+   with reason; claim is one `BEGIN IMMEDIATE` transaction. One worker per
+   tenant (flock `worker.lock`); every job and `from-inbox` hold
+   `build.lock`. On start the worker marks any job left `running` as failed
+   ("the worker stopped while this job was running"). SIGTERM: finish the job
+   in hand, take no new one. A handler exception fails the job, not the
+   worker. Unit template `crons/worker.service` (rendered by
+   `crons/install.sh` as `harness-worker@<t>.service`, not installed, not
+   started; install.sh prints the enable line).
+7. **Auth and safety.** All new routes behind the existing login (only
+   `POST /e` is public). Every site POST needs a form token (HMAC of the
+   reviewer email, key from REVIEW_PASSWORD) on top of the Origin/Referer
+   check; the old reviewer POST routes keep only the Origin/Referer check.
+   Rate limits per reviewer: feedback 10/min, uploads 6/10 min (429). All
+   text escaped. `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+   same-origin`, and `<meta name="robots" content="noindex, nofollow">` on
+   site pages. Audit table (`/audit`): feedback (with text), upload, publish,
+   replace requests, and publish_done / replace_done, each with email and
+   time.
+8. **Look.** PEAK tokens (Basalt #181918 text, Stone #EFE3D2 background,
+   Solar Flare #F27046 buttons with Basalt text, Fossil Dust #C0C8C3
+   borders), 4px radius, system fonts, viewport meta, grids that stack on a
+   phone.
+9. **Caddy draft (`deploy/caddy-listicle-vhost.txt`).** X-Robots-Tag, body
+   520 MB, proxy to 127.0.0.1:4870, `header_up -CF-Connecting-IP` (DNS only:
+   no Cloudflare in front, and serve.py trusts that header from loopback),
+   no proxy read/write timeout. `caddy adapt` accepts it. Not applied.
+
+### Verify
+- `tests/test_listicle_site_cycle69.py`: 43 tests (Flask test client, fake
+  revise with the real versioning helpers, cycle 67 FakeRunner, real
+  ShopifyPublisher over FakeTransport; no model or Shopify call). Grouping
+  across sources, search, pagination, live stats, feedback validation and the
+  queued job, the new version next to the old, the live variant never
+  replaced without the confirmed action (and Shopify untouched by the
+  regenerate), publish --update after confirm, upload validation (magic
+  bytes, extension mismatch, size cap, name), inbox item + job, auto publish
+  on/off, from-inbox budget stop and next-day resume, mid-build resume, crash
+  recovery, worker order and SIGTERM stop, one worker per tenant, login on
+  every new route (401/403), CSRF 403, rate limits, escaping, audit rows,
+  jobs dir isolation. Full suite: 1970 passed (was 1927).
+- Smoke on the server: a temp copy of the worktree with 3 real listicle runs
+  copied from `~/advertorial` (media left out), `harness serve` on
+  127.0.0.1:4879, a fake revise and a fake runner / fake Shopify in process.
+  Home, generation (before/after), feedback 303, regenerate done (v1 next to
+  v2), upload 303 -> job, create_test done with a split link, jobs, audit,
+  live variant page: all 200. Headless Chrome screenshots at 1280 and 390
+  wide; no horizontal scroll on any page at 390. Proof: `/tmp/c69-proof/`
+  on the server. Server stopped and temp data deleted.
+
+### Open
+- Operator: merge, restart `harness-review@peak-saunas`, install and start
+  `harness-worker@peak-saunas`, add the DNS record and the Caddy block
+  (docs/LISTICLE-SITE.md section 2). Until the worker runs, jobs stay queued.
+- Only `tenant.yaml` `reviewers` can log in (Michael, Caleb now), all with
+  one shared REVIEW_PASSWORD over basic auth. Add team members before
+  sharing the link. The whole review app becomes reachable on the public
+  host (behind that login).
+- `harness serve` is the werkzeug development server. It handles a 500 MB
+  upload in one thread; enough for a small team, not for load.
+- Auto publish sends an upload live with no human review of the three pages
+  (owner decision). Replace/publish buttons do need a review step.
+- The old reviewer pages' POST routes have the Origin/Referer check only, not
+  the new form token.

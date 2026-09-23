@@ -101,6 +101,22 @@ def counts(path, test_id):
     return out
 
 
+def archive_variant(path, test_id, key, archived_key):
+    """Cycle 69 ("Replace live variant"): move every event of (test_id, key)
+    to the key `archived_key` (e.g. "A@1"). The variant's counts start again
+    at zero, the old rows are kept, and a returning visitor's first event on
+    the new page is not a duplicate. The beacon receiver never accepts an
+    archived key (it is not a variant of the test). Returns the rows moved."""
+    conn = connect(path)
+    try:
+        cur = conn.execute("UPDATE events SET variant = ? WHERE test_id = ? AND variant = ?",
+                           (archived_key, test_id, key))
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
 def parse_event(raw):
     """(event dict, None) or (None, reason). Checks shape only; whether the
     test and key exist is the caller's check."""

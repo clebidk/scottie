@@ -141,6 +141,13 @@ new -> queued -> building -> tested
 Code that moves an item calls `harness.meta_ingest.Inbox.set_state(ad_id,
 state, reason)`, which refuses a move the lifecycle does not allow.
 
+Cycle 69: `harness abtest from-inbox` (run by `crons/meta-pull.sh` after the
+pull) moves `new` items through `queued` and `building` to `tested`, one A/B/C
+test each, and stops at the daily budget cap (the rest stay `queued`, reason
+`budget cap`). An ad uploaded on the listicle site is an inbox item too, with
+the id `up-<8 characters>`, `source: "upload"`, and `uploaded_by`. See
+docs/LISTICLE-SITE.md.
+
 ### Build pages from an item
 
 ```bash

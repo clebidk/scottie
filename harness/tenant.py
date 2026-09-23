@@ -298,6 +298,12 @@ class Tenant:
         return self.root / "abtests"
 
     @property
+    def jobs_dir(self):
+        """Cycle 69: the listicle site's job queue and audit log
+        (harness/jobs.py). Runtime data, like abtests/."""
+        return self.root / "jobs"
+
+    @property
     def inbox_dir(self):
         return self.root / "inbox"
 

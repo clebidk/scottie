@@ -69,6 +69,13 @@ for unit in "${installed_timers[@]}"; do
   echo "  systemctl --user enable --now ${unit}"
 done
 
+if [ -f "${UNIT_DIR}/harness-worker@${TENANT}.service" ]; then
+  echo
+  echo "Cycle 69: the listicle site's job worker (docs/LISTICLE-SITE.md) is a"
+  echo "long-running service, not a timer. To start it:"
+  echo "  systemctl --user enable --now harness-worker@${TENANT}.service"
+fi
+
 echo
 echo "NOTE: no timer was enabled or started by this script. Nothing runs on"
 echo "a schedule until you run one of the commands above yourself."
