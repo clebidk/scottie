@@ -1613,7 +1613,9 @@ def find_leaked_claim_ids_visible_text(rendered_html, valid_claim_ids):
     claim id that slipped past find_leaked_claim_ids above. Same detection
     rule -- exact known id, or an id-shaped token starting with a known id
     prefix."""
-    text = strip_html_to_visible_text(rendered_html).lower()
+    # no .lower(): claim ids are lowercase, and lowercasing turned title-case
+    # prose like "Price-Conscious" into a price-* id (cycle 71, run 7q2w)
+    text = strip_html_to_visible_text(rendered_html)
     hits = []
     for m in _ID_SHAPED_TOKEN_RE.finditer(text):
         token = m.group(0)
