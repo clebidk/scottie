@@ -161,6 +161,10 @@ cartridges:
     # test, and the gate (listicle:tested_no_fake_test) rejects any
     # first-person testing/usage phrasing on the page. All five styles run.
     styles: [reasons, mistakes, questions, myths, tested]
+    # Cycle 70 headline templates (cartridges/listicle/headlines.yaml,
+    # docs/HEADLINES.md): every template the style and the verified evidence
+    # allow is in the rotation. To pin or drop some:
+    # headline_templates: {include: [s-reasons, h04, h16], exclude: [h08]}
   article:
     warmup_window_words: 600
     warmup_mode: warn

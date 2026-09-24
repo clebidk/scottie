@@ -953,6 +953,17 @@ def cmd_abtest_finish(args):
 
 def cmd_abtest_library(args):
     tenant = tenant_mod.load_tenant(args.tenant)
+    if getattr(args, "by", "build") == "headline":
+        # Cycle 70: pooled results per listicle headline template.
+        stats = abtest.pooled_arm_stats(tenant, by="headline")
+        print(f"{tenant.name} listicle headline templates (pooled over live + finished tests)")
+        print(f"{'template':10s} {'tests':>5s} {'views':>7s} {'CTA':>6s} {'CTR':>7s}")
+        for tid, s in sorted(stats.items()):
+            ctr = f"{s['clicks'] / s['views']:.1%}" if s["views"] else "-"
+            print(f"{tid:10s} {s['tests']:>5d} {s['views']:>7d} {s['clicks']:>6d} {ctr:>7s}")
+        if not stats:
+            print("(no listicle variant with a headline template in a live or finished test yet)")
+        return exits.OK
     stats = abtest.pooled_arm_stats(tenant)
     weights = abtest.selection_weights(tenant, stats=stats)
     cfg = abtest.settings(tenant)
@@ -1461,6 +1472,11 @@ def build_parser():
         help="listicle style; default: deterministic from the run seed, so a batch of runs "
              "rotates through every style the tenant allows",
     )
+    p_run.add_argument(
+        "--headline-template",
+        help="listicle headline template id from cartridges/listicle/headlines.yaml (e.g. h04, s-reasons); "
+             "default: a pick from the run seed among the templates the style and the evidence allow",
+    )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)
     p_run.add_argument(
@@ -1645,6 +1661,8 @@ def build_parser():
     p_ab_inbox.set_defaults(func=cmd_abtest_from_inbox)
     p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")
     _add_tenant_flag(p_ab_library)
+    p_ab_library.add_argument("--by", choices=["build", "headline"], default="build",
+                              help="group results by build (default) or by listicle headline template")
     p_ab_library.set_defaults(func=cmd_abtest_library)
 
     p_digest = sub.add_parser("digest", help="reviewer-backlog and score digests")

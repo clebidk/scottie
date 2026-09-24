@@ -3166,3 +3166,83 @@ before the fix. Full suite: 1976 passed (was 1970).
   sentence. A per-component paraphrase of the warranty claim passes it
   (as before); with this fix it can now sit next to the fixed sentence in
   the same item body. The two observed ones match the verified claim.
+
+## Cycle 70 (listicle headline template library, 2026-09-24)
+
+Owner request: add the 17 "best-performing pre-sell listicle" headline types
+as listicle titles. The brand's claims rules apply to headlines too. Guide:
+docs/HEADLINES.md.
+
+1. **Library (data).** `cartridges/listicle/headlines.yaml`: h01-h17 plus the
+   five cycle 41 style formulas as `s-<style>` (patterns identical to
+   `listicle.HEADLINE_FORMULAS`; a test holds them equal). Each entry: pattern
+   with named `<slot>`s, styles, slot definitions (kind, max words,
+   description), `requires` (evidence kinds), optional `item_pattern`,
+   `item_gates` (fear / medical), `allowed_headline_terms`, and an example.
+   The file is validated on load (unknown style, slot, slot key, evidence
+   kind, duplicate id, N not exactly once).
+2. **Styles by item type.** "Reasons"/"Ways" templates -> `reasons` (h07,
+   h13 items are ways the product helps). h11, h17 -> `mistakes`.
+   `questions`, `myths`, `tested` keep only their own formula.
+3. **Evidence gating (`harness/headlines.py`).** A claim is evidence when its
+   `evidence` field names the kind, its category is listed, or its text
+   matches a pattern. h09 needs a customer/order count (a review count is
+   not one) and shows it rounded down to two significant figures ("12,000+
+   Customers"); h02/h05 need growth; h12 exclusivity (niche must be the
+   claim's own); h15 a named endorsement (the name comes from the claim);
+   h01/h07/h14 a spec claim. The items must cite the evidence
+   (`listicle:headline_evidence:<kind>`). h11 says "Safe" only with a safety
+   certification claim, else "Better". The first exclusivity pattern
+   (`the only`) matched "The only two financing providers are ..." in
+   verified.json; it now needs "the only ... built/designed/made for".
+4. **Slot rules.** Brand, year (run date), count, authority and Safe/Better
+   are filled by the harness. No digit in a writer slot except a two-digit
+   age (h08). No fear words anywhere in a headline (list plus vocab
+   `emf_terms`). No competitor name (vocab `banned_names`,
+   `competitor_aliases`). Problem-type slots reject `word_lists.medical` and
+   the vocab trigger words. The brand only in `<brand>`; a `<product>` is the
+   category or a cycle 64 full name. Item gates: h11 items reject fear words;
+   h07/h08/h11/h13/h17 items reject `word_lists.medical_items`, a narrower
+   list -- the first run of the fake pipeline with h08 failed on "how it
+   treats a customer".
+5. **Selection.** `headlines.resolve_plan` in `pipeline.write_pages` (the
+   facts pack decides eligibility): `--headline-template` (must fit the style
+   and the evidence), else a seeded pick; `weights` is the hook for A/B/C
+   results. Tenant `cartridges.listicle.headline_templates: {include,
+   exclude}`; an empty result falls back to the style formula.
+6. **Writer and gate.** `listicle.writer_style_lines(style, headline=plan)`
+   gives the template, slot rules, fixed parts, allowed numbers and the claim
+   ids to cite; the product example is the run's own product, never a name
+   vocab bans. `find_listicle_violations(..., headline=plan)` checks the
+   template instead of the style formula; `fix_headline_number` fixes a stale
+   or spelled-out N for any template. `check_page_gates` drops the hype-word
+   hit for the template's own headline words (h16 "Game-Changer", h04
+   "Must-Have") at `$.headline` only.
+7. **Recorded.** `page.json` / `state.json` `headline_template_id`; `harness
+   revise` reads it back and re-stamps it; an A/B/C listicle variant records
+   it; `harness abtest library --by headline` pools results per template.
+8. **Fake run.** `evals/fake_run.py` pins the style formula unless
+   `--headline-template` names one (the canned items cite no evidence).
+
+### Verify
+- `tests/test_headlines_cycle70.py`: 120 tests (written first; failed on the
+  missing module). Full suite: 2090 passed (was 1970).
+- Offline demo (no model call): a temp copy of
+  `20260923-000237-hidden-costs-v2-spea`; for each of the 16 templates
+  eligible on its facts pack, the real `build_initial_write_request` system
+  prompt holds every template line, and the example headline passes the
+  gate.
+- Fake pipeline runs (founder fixture) with h16, h11, h08, h17, h13, h10:
+  exit 0, page.json and state.json carry the id, the headline is in the
+  rendered HTML.
+
+### Open
+- PEAK today: h02, h05, h09, h12, h15 are not eligible (no growth, count,
+  exclusivity or named endorsement claim). A verified claim tagged with
+  `evidence:` makes one eligible (docs/HEADLINES.md).
+- Several templates run past the 8-14 word headline band (h01, h10 examples
+  are 15-16 words). Under `simplicity_mode: warn` that is advisory only; a
+  tenant on `enforce` would need a wider band for these templates.
+- h06 ("Started Switching"), h08 ("Obsessed With") and h01 ("Most ... Don't
+  Work") make soft popularity/comparison statements with no evidence gate,
+  as the request specified.

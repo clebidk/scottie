@@ -25,6 +25,7 @@ from .claims import ClaimsGateFailure, gate_ad_brief_claims
 from .ground import LocalFactsSource
 from .ingest import download_drive_file, run_ingest
 from .log import RunLog
+from . import headlines
 from . import listicle
 from . import looks
 from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
@@ -109,6 +110,7 @@ class RunState:
         self.selected = []
         self.listicle_style = None
         self.listicle_look = None
+        self.listicle_headline = None
         self.claims_config = {}
         self.facts_source = None
         self.merged_products = {}
@@ -166,6 +168,16 @@ def prepare_run(state):
     state.listicle_style = listicle.resolve_style(
         getattr(args, "style", None), seed=state.seed, tenant=tenant
     )
+    # Cycle 70: an explicit --headline-template must exist and fit the style
+    # before any model call; its evidence is checked in write_pages, once the
+    # facts pack exists.
+    requested_headline = getattr(args, "headline_template", None)
+    if requested_headline and "listicle" in selected:
+        if state.listicle_style not in headlines.template(requested_headline)["styles"]:
+            raise headlines.HeadlineTemplateError(
+                f"headline template {requested_headline!r} does not fit the {state.listicle_style!r} style "
+                f"(it fits {headlines.template(requested_headline)['styles']})"
+            )
     # Cycle 51: the LOOK -- which of the five templates under
     # cartridges/listicle/looks/ renders that copy. Independent of the style:
     # the `--look` flag when the operator gave one, else the tenant's
@@ -385,6 +397,7 @@ def _write_initial_pages_via_batch(state, write_model):
         cartridge_names=state.selected,
         cartridges_dir=CARTRIDGES_DIR,
         listicle_style=state.listicle_style,
+        listicle_headline=state.listicle_headline,
         ad_brief=state.ad_brief,
         facts_pack=state.facts_pack,
         model=write_model,
@@ -423,6 +436,21 @@ def write_pages(state):
     repair_first_model = state.tenant.model_for("repair_first")
     repair_next_model = state.tenant.model_for("repair_next")
 
+    # Cycle 70: the listicle's headline template (harness/headlines.py),
+    # picked here because the facts pack's evidence decides which templates
+    # are eligible: --headline-template when given, else a pick from the run
+    # seed.
+    if "listicle" in state.selected and state.listicle_headline is None:
+        state.listicle_headline = headlines.resolve_plan(
+            state.listicle_style, state.facts_pack, state.tenant, seed=state.seed, today=state.today_iso,
+            requested=getattr(state.args, "headline_template", None),
+        )
+        state.log.event(
+            "run",
+            f"listicle headline template: {state.listicle_headline['id']} "
+            f"({state.listicle_headline['headline_pattern']})",
+        )
+
     # Fix cycle 17 item 5: `harness run --batch` submits every selected
     # cartridge's initial write as one Message Batch before this loop runs,
     # instead of each cartridge making its own synchronous attempt-1 call
@@ -454,6 +482,7 @@ def write_pages(state):
                 initial_page=initial_page,
                 initial_call_tokens=initial_call_tokens,
                 listicle_style=state.listicle_style,
+                listicle_headline=state.listicle_headline,
             )
         except ClaimsGateFailure as e:
             attempts = getattr(e, "attempts", [e.items])
@@ -480,8 +509,14 @@ def render_pages(state):
         from . import runstate
 
         state.pages["listicle"]["look"] = state.listicle_look
+        # Cycle 70: the headline template too, so a revise and the A/B/C
+        # results can read it back from page.json.
+        template_id = (state.listicle_headline or {}).get("id")
+        if template_id:
+            state.pages["listicle"]["headline_template_id"] = template_id
         runstate.record_listicle_choice(
-            state.run_dir, style=state.listicle_style, look=state.listicle_look
+            state.run_dir, style=state.listicle_style, look=state.listicle_look,
+            headline_template_id=template_id,
         )
     # Cycle 54: the product page's look, stamped and recorded the same way.
     if "product-page" in state.pages and getattr(state, "product_page_look", None):

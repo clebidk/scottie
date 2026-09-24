@@ -457,12 +457,14 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
 # prompt states exactly what harness/listicle.find_listicle_violations will
 # then measure. No-op for every other cartridge, and for a listicle run with
 # no style resolved (the gate still rejects a page with no valid style).
-def _append_listicle_style_guidance(hard_constraints, cartridge_name, style):
+# Cycle 70: `headline` is the run's headline template plan (harness/
+# headlines.py) -- the template, its slots and the claim_ids to cite.
+def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None):
     if cartridge_name != "listicle":
         return
     hard_constraints.extend(listicle.writer_rules_lines())
     if style:
-        hard_constraints.extend(listicle.writer_style_lines(style))
+        hard_constraints.extend(listicle.writer_style_lines(style, headline=headline))
 
 
 # Cycle 56: the comparison cartridge's per-run lines (the run's own three
@@ -648,7 +650,7 @@ def _content_len(content):
 # revision_note -- attempt 1 never has one either way.
 def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, model,
                                  word_range=None, allowed_cta_texts=None, ad_not_repeated=None,
-                                 tenant=None, listicle_style=None):
+                                 tenant=None, listicle_style=None, listicle_headline=None):
     """(schema, kwargs) -- schema so the caller can validate_schema() the
     parsed response the same way write_page does; kwargs is ready to pass to
     client.messages.create(**kwargs) or wrap in a batch Request's params."""
@@ -661,7 +663,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
-    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
+    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
@@ -679,7 +681,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
-               tenant=None, listicle_style=None):
+               tenant=None, listicle_style=None, listicle_headline=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -710,7 +712,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
-    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style)
+    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
