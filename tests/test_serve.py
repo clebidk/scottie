@@ -87,9 +87,13 @@ def test_wrong_password_is_401(app_client):
     assert resp.status_code == 401
 
 
-def test_non_reviewer_is_403(app_client):
+def test_non_reviewer_is_asked_to_sign_in_again(app_client):
+    # A 403 left the browser stuck on the cached wrong username (seen
+    # 2026-09-24 on listicle.peaksaunasteam.com); a 401 makes it prompt again.
     resp = app_client.get("/", headers=_basic_auth_header("nobody@example.com", PASSWORD))
-    assert resp.status_code == 403
+    assert resp.status_code == 401
+    assert "WWW-Authenticate" in resp.headers
+    assert "email" in resp.headers["WWW-Authenticate"]
 
 
 def test_correct_reviewer_and_password_is_200(app_client):

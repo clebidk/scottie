@@ -696,7 +696,7 @@ def test_every_new_route_requires_login(monkeypatch, client):
         resp = client.open(url, method=method)
         assert resp.status_code == 401, (method, url)
         resp = client.open(url, method=method, headers=_auth("nobody@example.com"))
-        assert resp.status_code == 403, (method, url)
+        assert resp.status_code == 401, (method, url)
 
 
 def test_posts_without_the_csrf_token_are_refused(monkeypatch, client):

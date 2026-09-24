@@ -630,8 +630,10 @@ def _image_thumb_response(tenant, asset_id):
 # ---------------------------------------------------------------------------
 
 def _unauthorized_response():
-    resp = Response("Authentication required.\n", status=401)
-    resp.headers["WWW-Authenticate"] = 'Basic realm="harness review"'
+    resp = Response(
+        "Sign in with your listed reviewer email and the review password.\n", status=401,
+    )
+    resp.headers["WWW-Authenticate"] = 'Basic realm="Sign in with your reviewer email"'
     return resp
 
 
@@ -676,7 +678,9 @@ def _authenticate(tenant):
     if not auth or not auth.username or not auth.password:
         return None, _unauthorized_response()
     if runstate.find_reviewer(tenant, auth.username) is None:
-        return None, Response("Not a listed reviewer for this tenant.\n", status=403)
+        # 401, not 403: the browser then asks again instead of re-sending
+        # the cached wrong username forever.
+        return None, _unauthorized_response()
     if not hmac.compare_digest(auth.password, password):
         return None, _unauthorized_response()
     return auth.username, None
