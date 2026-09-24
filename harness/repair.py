@@ -27,7 +27,12 @@ from . import simplicity
 from . import tenant as tenant_mod
 from . import vocab
 from .claims import (
+    _LIFETIME_WARRANTY_BIGRAM_RE,
+    _QUOTED_SPAN_RE,
+    _WARRANTY_SENTENCE_CORE_RE,
     ClaimsGateFailure,
+    _extract_numbers,
+    _strip_digit_exempt_tokens,
     default_warmup_window_words,
     find_warmup_violations,
     gate_page_json,
@@ -795,11 +800,45 @@ def _fix_warranty_violation(page, path, valid_claim_ids):
             node["claim_id"] = _warranty_claim_id(valid_claim_ids) or node["claim_id"]
         return True
 
-    node[key] = vocab.ALLOWED_WARRANTY_SENTENCE
+    new_text = _replace_warranty_sentences(node[key])
+    node[key] = new_text
     claim_id = _warranty_claim_id(valid_claim_ids)
     if "claim_ids" in node and claim_id:
-        node["claim_ids"] = [claim_id]
+        if new_text == vocab.ALLOWED_WARRANTY_SENTENCE:
+            node["claim_ids"] = [claim_id]
+        elif claim_id not in (node["claim_ids"] or []):
+            # Cycle 71: the rest of the field is still there, and so are the
+            # claims it cites.
+            node["claim_ids"] = list(node["claim_ids"] or []) + [claim_id]
     return True
+
+
+_SENTENCE_BREAK_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _replace_warranty_sentences(text):
+    """`text` with each sentence that trips the warranty gate (a "lifetime
+    warranty" outside the fixed sentence) replaced by the fixed sentence,
+    once. Cycle 71: this used to replace the whole field, so a 50-150 word
+    listicle item body with one warranty sentence in it became the 13-word
+    fixed sentence and failed listicle:item_words -- a failure the writer
+    was never told the reason for, and wrote again on every full rewrite
+    (every recorded `tested` run on product-features-v2.mov). A field with
+    no such sentence found still becomes the fixed sentence, as before."""
+    kept = []
+    placed = bool(_WARRANTY_SENTENCE_CORE_RE.search(text))
+    replaced = False
+    for sentence in _SENTENCE_BREAK_RE.split(text.strip()):
+        if _LIFETIME_WARRANTY_BIGRAM_RE.search(_WARRANTY_SENTENCE_CORE_RE.sub("", sentence)):
+            replaced = True
+            if not placed:
+                kept.append(vocab.ALLOWED_WARRANTY_SENTENCE)
+                placed = True
+            continue
+        kept.append(sentence)
+    if not replaced:
+        return vocab.ALLOWED_WARRANTY_SENTENCE
+    return " ".join(kept)
 
 
 # ---------------------------------------------------------------------------
@@ -876,6 +915,57 @@ def _fix_asset_id_prefix_violation(page, path, facts_pack):
     new_id = candidates[0]
     _set_at_path(page, path, new_id)
     return current, new_id
+
+
+# ---------------------------------------------------------------------------
+# Cycle 71: a listicle item has two text nodes -- its body ("text") and its
+# proof line ("proof.text") -- and the gate reads each one's own claim_ids.
+# The writer is told the proof line is where an item cites, so it often cites
+# once, on the proof, while the body states the same spec number with no
+# claim_ids of its own: "text needs at least one claim_id" at $.reasons[N]
+# (62% of "mistakes" and 70% of "tested" attempts in the 2026-09 runs, which
+# state spec numbers in the body more than the other styles do). A full
+# rewrite repeats the same shape. When every number and trigger word in the
+# body is in the text of the claims the proof already cites, those are the
+# body's claims too -- attach them; anything else stays for the writer.
+# ---------------------------------------------------------------------------
+_LISTICLE_ITEM_PATH_RE = re.compile(r"^\$\.reasons\[(\d+)\]$")
+
+
+def _cite_listicle_item_body_from_proof(page, path, facts_pack):
+    """Sets the item's claim_ids to its proof line's claim_ids and returns
+    them, when `path` is a listicle item with no claim_ids of its own, the
+    proof cites verified claims, and every number (after the digit-exempt
+    product names) and every trigger word in the body appears in those
+    claims' own text. Returns None, page untouched, otherwise -- a body
+    number the proof's claims do not state is never given a citation."""
+    m = _LISTICLE_ITEM_PATH_RE.match(path or "")
+    if not m or facts_pack is None:
+        return None
+    try:
+        item = page["reasons"][int(m.group(1))]
+    except (KeyError, IndexError, TypeError):
+        return None
+    if not isinstance(item, dict) or item.get("claim_ids") or item.get("attributed_to_customer") is True:
+        return None
+    body = item.get("text")
+    proof = item.get("proof")
+    if not isinstance(body, str) or not isinstance(proof, dict) or not isinstance(proof.get("claim_ids"), list):
+        return None
+    claim_texts = {c["id"]: c.get("text") or "" for c in facts_pack.get("verified_claims", [])}
+    cited = [cid for cid in proof["claim_ids"] if cid in claim_texts]
+    if not cited:
+        return None
+    cited_text = " ".join(claim_texts[cid] for cid in cited)
+    unquoted = _QUOTED_SPAN_RE.sub(" ", body)
+    body_numbers = _extract_numbers(_strip_digit_exempt_tokens(unquoted, facts_pack.get("digit_exempt_terms")))
+    if not body_numbers <= _extract_numbers(cited_text):
+        return None
+    cited_lower = cited_text.lower()
+    if any(w.group(0) not in cited_lower for w in vocab.TRIGGER_WORD_RE.finditer(unquoted.lower())):
+        return None
+    item["claim_ids"] = list(cited)
+    return item["claim_ids"]
 
 
 def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
@@ -985,6 +1075,14 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
             if _fix_retired_name_violation(page, raw_path, term, tenant, log=log, cartridge_name=cartridge_name):
                 fixed += 1
             continue
+
+        if cartridge_name == "listicle" and "text needs at least one claim_id" in issue:
+            cited = _cite_listicle_item_body_from_proof(page, raw_path, facts_pack)
+            if cited:
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", f"fix: {raw_path} cites its proof's claims {cited}")
+                continue
 
         if term in _hype_synonyms() or term == "!":
             path = raw_path
