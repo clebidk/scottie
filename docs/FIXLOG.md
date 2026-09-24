@@ -3078,3 +3078,91 @@ docs/LISTICLE-SITE.md.
   (owner decision). Replace/publish buttons do need a review step.
 - The old reviewer pages' POST routes have the Origin/Referer check only, not
   the new form token.
+
+## Cycle 71 (listicle `mistakes` / `tested` claims-gate STOPs, 2026-09-24)
+
+Problem: `mistakes` on hidden-costs-v2.mov and `tested` on
+product-features-v2.mov STOPped (exit 2) on all 14 recorded attempts of
+2026-09-23 (fresh12 / finish2 batches). One `tested` attempt exited 1 instead.
+
+### Root cause
+1. **Item body cited on the proof line only.** A listicle item has two text
+   nodes, `text` (the body) and `proof.text`, and the gate reads each one's own
+   `claim_ids` (`claims.validate_page_claim_ids`, path `$.reasons[N]`). The
+   writer is told the proof line is where an item cites, and the item-level
+   `claim_ids` had no description in schema.json, so it cited once, on the
+   proof, while the body stated the same spec ("120V / 20A", "$8,250",
+   "31.1 inches", "1500W"). Every claim needed was in facts_pack: this was
+   not a missing claim, a wrong id or a path the writer could not fill. A
+   repair is a full rewrite with the failures listed, and it wrote the same
+   shape again (attempt 3 repeated attempt 1's text almost word for word).
+   Captured writer drafts: every item of the attempt-1 drafts had
+   `proof.claim_ids` and no item `claim_ids`. It is not only these two
+   styles: across the 2026-09 logs, uncited item bodies were in 62% of
+   `mistakes`, 70% of `tested`, 53-63% of the other three styles' attempts.
+   `tested` ("what the verified facts support") and `mistakes` ("skipped the
+   spec check") put spec numbers in the body more often.
+2. **Warranty fix emptied an item.** `repair._fix_warranty_violation`
+   replaced the whole flagged field with the 13-word fixed sentence. On an
+   item body that is always `listicle:item_words` ("item body is 13 words"),
+   and the writer is never told why, because the warranty failure was
+   already fixed before the revision note is built. It comes back on every
+   full rewrite. `tested` on the Mini ad (its "free lifetime warranty"
+   claim becomes an item) and `mistakes` ("reading warranty language") write
+   a warranty item often: 13-word items in 32% / 30% of their attempts, 6%
+   in `reasons`. It was the only failure left on kc2r's last attempt.
+3. Exit 1 (20260923-211941-product-features-v2-q76x): the first repair,
+   claude-haiku-4-5, returned invalid JSON on the call and on its one retry
+   (`write.py` `WriterFailed`). The raw output is not saved, so the bad
+   token is not known. Not a claims problem; not changed here.
+4. "we checked the factory measurements directly": not a
+   `listicle:tested_no_fake_test` hit. "we checked" is the `tested`
+   headline's own verb, and a factory spec sheet is a published fact. Left
+   as is.
+
+### Fix
+- `harness/repair.py` `_cite_listicle_item_body_from_proof`, called from
+  `apply_deterministic_fixes` for a listicle "text needs at least one
+  claim_id" at `$.reasons[N]`: the item gets its proof's `claim_ids` only
+  when every number (after the digit-exempt product names) and every trigger
+  word in the body is in those claims' own text. The copy is not changed. A
+  number the cited claims do not state stays uncited and goes to the writer
+  (stricter than the gate, which accepts any valid id). No gate rule changed.
+- `harness/repair.py` `_replace_warranty_sentences`: the warranty fix
+  replaces only the sentence(s) with a "lifetime warranty" outside the fixed
+  sentence, once, and keeps the rest of the field. A one-sentence field still
+  becomes the fixed sentence (cycle 13 tests unchanged). The field's other
+  `claim_ids` are kept and the warranty id is added.
+- Prompt, at the cause: `listicle.writer_rules_lines` says the body and the
+  proof line each carry their own `claim_ids`; schema.json's item
+  `claim_ids` now has that description.
+
+### Tests
+`tests/test_listicle_cycle71.py` (6), fixture
+`tests/fixtures/listicle_c71/uncited_item_bodies.json` (real attempt-1
+drafts, items only, with the claims they cite). The 3 real-draft tests failed
+before the fix. Full suite: 1976 passed (was 1970).
+
+### Verify (real runs from the worktree, $0.91 total)
+- Baseline, code before the fix (drafts captured): tested fty4 PASS in 2,
+  mistakes vkag PASS in 3; both attempt-1 drafts had only proof-level ids.
+- After the deterministic fixes: tested n5a4 PASS in 2 (item bodies cited
+  from the proof, warranty item kept at 126 words); mistakes s3yd PASS in 3
+  (attempt 2's only failure: headline formula, "... Make When Choosing
+  Peak").
+- After the prompt line: tested phvy PASS in 1 (warranty item 95 words).
+  mistakes 7q2w: attempt 1 had no claim failure at all, write gate PASS in 3,
+  then STOPped post-render: `find_leaked_claim_ids_visible_text` lowercases
+  the page, so the headline audience "Price-Conscious Shoppers" read as a
+  `price-` claim id. The page.json check is case-sensitive and passed it.
+
+### Open
+- The post-render leaked-id check and the page.json check disagree on case
+  (`claims.py` `find_leaked_claim_ids` vs `find_leaked_claim_ids_visible_text`),
+  so an ordinary capitalized word starting with a claim-id prefix STOPs a run
+  with no repair. Not fixed here.
+- Headline formula / audience-slot failures remain (cycle 70's area).
+- The warranty gate only fails a "lifetime warranty" outside the fixed
+  sentence. A per-component paraphrase of the warranty claim passes it
+  (as before); with this fix it can now sit next to the fixed sentence in
+  the same item body. The two observed ones match the verified claim.

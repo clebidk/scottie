@@ -349,6 +349,11 @@ def writer_rules_lines():
         "words carries its own claim_ids -- that includes audience_fit lines, closing recap "
         "bullets and FAQ answers, not only item bodies. A line you cannot cite gets "
         "rewritten without the number, not shipped uncited.",
+        # Cycle 71: the writer cited an item once, on its proof line, and left the
+        # body that states the same spec number with no claim_ids of its own.
+        "An item's body and its proof line are two lines, each with its own claim_ids: a "
+        "claim_id on the proof never covers the body. When the body states a number, price "
+        "or spec, put that claim's id in the item's own \"claim_ids\" too.",
         # Cycle 49: this harness checks claims against verified specs, it never runs a
         # physical test, in any style -- stated here (not only in "tested"'s own lines
         # below) because a stray "we tested this for weeks" in a "reasons" FAQ answer or

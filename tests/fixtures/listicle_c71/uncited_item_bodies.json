@@ -1,0 +1,294 @@
+{
+ "tested": {
+  "source": "20260924-161158-product-features-v2-fty4: writer draft 1 (attempt 1, before any gate fix), items only, images dropped",
+  "page": {
+   "style": "tested",
+   "reasons": [
+    {
+     "number": 1,
+     "heading": "A one-person sauna will not fit in a small apartment",
+     "text": "This is the most common hesitation, and it is a fair one. The Peak Mini has exterior dimensions of about 31.1 inches wide by 31.9 inches deep by 66.9 inches tall, which is closer to a large wardrobe than a room addition. That footprint is what lets it sit in a corner of a bedroom, a covered patio, or a spare closet space without reworking the room around it. The claim that a single-person cabin can work in tight square footage checks out against the published measurements, not just marketing language.",
+     "proof": {
+      "text": "Exterior dimensions are 31.1 in wide by 31.9 in deep by 66.9 in tall.",
+      "claim_ids": [
+       "spec-mini-dimensions"
+      ]
+     }
+    },
+    {
+     "number": 2,
+     "heading": "You need an electrician to install a home sauna",
+     "text": "This claim does not hold up for this model. The Peak Mini is built to plug into a standard 120V household outlet, drawing around 1500W, with no dedicated circuit or electrician visit required. That matters for renters especially, since altering apartment wiring is usually not allowed or not worth the cost for a temporary living situation. The unit uses clasp-together assembly rather than tools and a contractor, so setup is closer to furniture assembly than a construction project.",
+     "proof": {
+      "text": "Plugs into a standard 120V household outlet, no electrician or dedicated circuit needed.",
+      "claim_ids": [
+       "spec-mini-electrical",
+       "pdp-mini-electrical"
+      ]
+     }
+    },
+    {
+     "number": 3,
+     "heading": "Red light therapy is an upgrade you have to pay extra for",
+     "text": "Not on this model. The Peak Mini includes one front-facing red light therapy panel as standard equipment, not as an add-on tier you pay more to unlock. It is described as medical-grade in the product specifications, which is a claims-check distinction worth knowing: it refers to the panel's classification, not a promised health outcome. If red light therapy was the feature that drew you to a particular listing, confirm it is included standard rather than sold separately, because that varies by brand.",
+     "proof": {
+      "text": "Includes one front-facing, full-body medical-grade red light therapy panel, included standard.",
+      "claim_ids": [
+       "spec-mini-red-light"
+      ]
+     }
+    },
+    {
+     "number": 4,
+     "heading": "App control is just a gimmick with little real function",
+     "text": "The specification sheet supports more than a novelty toggle here. The Peak Saunas app lets you preheat the cabin, adjust temperature, and set session length remotely, on iOS and Android, so the sauna can be close to ready by the time you get to it rather than waiting after you arrive. Paired with the two built-in Bluetooth speakers, the app functions as the main control point for a session, not a secondary switch that duplicates a physical panel already on the unit.",
+     "proof": {
+      "text": "Preheat from anywhere and adjust temperature, lighting, and session length in the Peak Saunas app.",
+      "claim_ids": [
+       "pdp-mini-app-control"
+      ]
+     }
+    },
+    {
+     "number": 5,
+     "heading": "Free shipping quietly hides extra fees somewhere else",
+     "text": "On the delivery side, this checks out as stated: shipping is free on the order itself, with in-stock items carrying a 2-4 business day handling window followed by 3-7 business days in transit. Where cost does show up is on the back end, not the front: returns require the unit to be disassembled and repacked in its original packaging, and are subject to a 25% restocking fee plus return shipping paid by the customer. That is a real cost to know about before ordering, not a reason to doubt the free-shipping claim itself.",
+     "proof": {
+      "text": "Free shipping on all orders; returns carry a 25% restocking fee and customer-paid return shipping.",
+      "claim_ids": [
+       "shipping-policy",
+       "returns-policy"
+      ]
+     }
+    },
+    {
+     "number": 6,
+     "heading": "A lifetime warranty means every part is covered the same way",
+     "text": "This is the myth worth reading carefully before you buy. Peak Saunas' warranty is real and applies to the original purchaser, but coverage length is not uniform across components: heating elements and the cabinetry and structure carry longer terms, while the control system, power supply, and lighting carry shorter ones, and installation must happen within a set window after delivery for coverage to apply. Skimming past this detail is the actual mistake, not the existence of the warranty itself.",
+     "proof": {
+      "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+       "warranty-terms"
+      ]
+     }
+    }
+   ]
+  },
+  "facts_pack": {
+   "verified_claims": [
+    {
+     "id": "warranty-terms",
+     "text": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; cabinetry and structure 7 years; control system and power supply 3 years; red light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original purchaser only and requires installation within 6 months of delivery."
+    },
+    {
+     "id": "shipping-policy",
+     "text": "Peak Saunas offers free shipping on all orders. In-stock items have a 2-4 business day handling time, then 3-7 business days in transit. Heavy/bulky items ship via LTL freight with a scheduled delivery appointment."
+    },
+    {
+     "id": "returns-policy",
+     "text": "Peak Saunas returns require the sauna to be disassembled and repacked in its original crate; all returns are subject to a 25% restocking fee and the customer pays return shipping. Orders cancelled before shipping incur a 5% cancellation fee."
+    },
+    {
+     "id": "spec-mini-electrical",
+     "text": "Mini electrical: 120V/15A, standard outlet -- no electrician needed. Wattage ~1500W."
+    },
+    {
+     "id": "spec-mini-red-light",
+     "text": "Mini red light therapy: included standard, 1 RLT panel, front-facing full-body medical-grade red light therapy panel."
+    },
+    {
+     "id": "spec-mini-dimensions",
+     "text": "Mini exterior dimensions: 31.1 in wide × 31.9 in deep × 66.9 in tall (factory spec sheet: 31.10 × 31.81 × 67.12 in)."
+    },
+    {
+     "id": "pdp-mini-app-control",
+     "text": "Preheat from anywhere; adjust temperature, lighting, and session length in the Peak Saunas app (iOS & Android)."
+    },
+    {
+     "id": "pdp-mini-electrical",
+     "text": "Plugs into a standard 120V household outlet — no electrician, no dedicated circuit."
+    }
+   ],
+   "digit_exempt_terms": [
+    "Crown",
+    "Denali",
+    "El Capitan",
+    "Everest",
+    "Fuji",
+    "Kilimanjaro",
+    "Matterhorn",
+    "Mini",
+    "Patagonia",
+    "Peak Crown 2-Person Full Spectrum Infrared Sauna",
+    "Peak Crown 2-Person Infrared Sauna",
+    "Peak Denali 3-Person Full Spectrum Infrared Sauna",
+    "Peak Denali 3-Person Infrared Sauna",
+    "Peak El Capitan 4-Person Outdoor Infrared Sauna",
+    "Peak Everest 2-Person Full Spectrum Infrared Sauna",
+    "Peak Everest 2-Person Infrared Sauna",
+    "Peak Fuji 2-Person Full Spectrum Infrared Sauna",
+    "Peak Fuji 2-Person Infrared Sauna",
+    "Peak Kilimanjaro 5-Person Outdoor Infrared Sauna",
+    "Peak Matterhorn 3-Person Full Spectrum Infrared Sauna",
+    "Peak Matterhorn 3-Person Infrared Sauna",
+    "Peak Mini 1-Person Full Spectrum Infrared Sauna",
+    "Peak Mini 1-Person Infrared Sauna",
+    "Peak Patagonia 2-Person Outdoor Infrared Sauna",
+    "Peak Rainier 1-Person Full Spectrum Infrared Sauna",
+    "Peak Rainier 1-Person Infrared Sauna",
+    "Peak Shasta 1-Person Full Spectrum Infrared Sauna",
+    "Peak Shasta 1-Person Infrared Sauna",
+    "Rainier",
+    "Shasta"
+   ]
+  }
+ },
+ "mistakes": {
+  "source": "20260924-161217-hidden-costs-v2-vkag: writer draft 1 (attempt 1, before any gate fix), items only, images dropped",
+  "page": {
+   "style": "mistakes",
+   "reasons": [
+    {
+     "number": 1,
+     "heading": "Handing over contact information before seeing a price",
+     "text": "Many sauna sites ask for a name, email, and phone number before showing a single number. That approach turns a simple comparison into a string of sales calls. The Peak Fuji lists its price, $8,250, directly on the product page, so there is nothing to submit first and no call required to see it. Shoppers comparing options should treat a hidden price as a signal to move on, not a hoop to jump through.",
+     "proof": {
+      "text": "The price, $8,250, is listed on the product page.",
+      "claim_ids": [
+       "price-fuji"
+      ]
+     }
+    },
+    {
+     "number": 2,
+     "heading": "Assuming red light therapy is a paid upgrade",
+     "text": "A common mistake is budgeting for red light therapy as an add-on, then getting quoted extra for it later. On the Peak Fuji, red light therapy is included standard, not gated behind a higher tier or a separate purchase. Buyers should ask directly whether a listed price already includes it, since some brands quote a base sauna and add therapy panels as a line item afterward, which changes the real total significantly.",
+     "proof": {
+      "text": "In the ad, she says, \"I had all the information laid out right there. Didn't have to talk to anyone.\"",
+      "attributed_to_customer": true
+     }
+    },
+    {
+     "number": 3,
+     "heading": "Overlooking the electrical requirement until delivery day",
+     "text": "A sauna that needs a dedicated 120V/20A outlet cannot simply be plugged into a standard household circuit. Shoppers who skip this spec sometimes discover, once the crate arrives, that an electrician visit is now part of the cost. The Fuji's requirement is listed plainly rather than buried in a spec sheet you have to request, and confirming outlet type before ordering avoids a delivery-day scramble.",
+     "proof": {
+      "text": "Fuji runs on a 120V / 20A outlet.",
+      "claim_ids": [
+       "spec-fuji-electrical-requirement"
+      ]
+     }
+    },
+    {
+     "number": 4,
+     "heading": "Not checking what material the cabin is actually built from",
+     "text": "Cabin material affects durability, scent, and how the wood ages with repeated heat cycles, yet it is easy to buy a sauna without ever confirming what's inside the walls. The Fuji's cabin is Canadian red cedar, a detail worth checking against any brand's listing rather than assuming a generic \"wood\" description covers it. A buyer who skips this step may end up with a lower-grade material than expected.",
+     "proof": {
+      "text": "Fuji's cabin material is Canadian red cedar.",
+      "claim_ids": [
+       "spec-fuji-cabin-material"
+      ]
+     }
+    },
+    {
+     "number": 5,
+     "heading": "Ignoring the wavelength range behind the word \"infrared\"",
+     "text": "Not every product marketed as infrared covers the same range, and the difference matters for how the heat feels and where it's produced. The Fuji covers 700 to 25,000 nanometers across near, mid, and far infrared, a full range some competing units do not list at all. Skipping this comparison means buying on the word \"infrared\" alone rather than on what's actually inside the heater panels.",
+     "proof": {
+      "text": "Fuji's infrared wavelength range spans 700 to 25,000 nanometers, covering near, mid, and far infrared.",
+      "claim_ids": [
+       "spec-fuji-infrared-wavelength-range"
+      ]
+     }
+    },
+    {
+     "number": 6,
+     "heading": "Reading warranty language as covering everything equally",
+     "text": "Warranty pages often use broad phrases like \"lifetime coverage\" without stating that components are covered differently. Electronics, lighting, and audio typically carry shorter terms than cabinetry or heating elements. Buyers should read the actual component breakdown rather than the headline word before assuming full replacement coverage on every part for the same length of time.",
+     "proof": {
+      "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+       "warranty-terms"
+      ]
+     }
+    },
+    {
+     "number": 7,
+     "heading": "Skipping the return and shipping terms until after ordering",
+     "text": "Free shipping sounds simple, but the return side of the transaction is where the real cost differences show up. Some buyers order first and find out afterward what a return actually requires. The Fuji ships free, and its return policy, restocking fee, and cancellation terms are published rather than disclosed only after a purchase, which is worth reading in full before checkout, not after.",
+     "proof": {
+      "text": "Peak Saunas offers free shipping on all orders, and returns are subject to a 25% restocking fee with the customer paying return shipping.",
+      "claim_ids": [
+       "shipping-policy",
+       "returns-policy"
+      ]
+     }
+    }
+   ]
+  },
+  "facts_pack": {
+   "verified_claims": [
+    {
+     "id": "warranty-terms",
+     "text": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; cabinetry and structure 7 years; control system and power supply 3 years; red light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original purchaser only and requires installation within 6 months of delivery."
+    },
+    {
+     "id": "shipping-policy",
+     "text": "Peak Saunas offers free shipping on all orders. In-stock items have a 2-4 business day handling time, then 3-7 business days in transit. Heavy/bulky items ship via LTL freight with a scheduled delivery appointment."
+    },
+    {
+     "id": "returns-policy",
+     "text": "Peak Saunas returns require the sauna to be disassembled and repacked in its original crate; all returns are subject to a 25% restocking fee and the customer pays return shipping. Orders cancelled before shipping incur a 5% cancellation fee."
+    },
+    {
+     "id": "spec-fuji-cabin-material",
+     "text": "Fuji -- Cabin material: Canadian red cedar."
+    },
+    {
+     "id": "spec-fuji-infrared-wavelength-range",
+     "text": "Fuji -- Infrared wavelength range: 700–25,000nm (near, mid, far)."
+    },
+    {
+     "id": "spec-fuji-electrical-requirement",
+     "text": "Fuji -- Electrical requirement: 120V / 20A outlet."
+    },
+    {
+     "id": "price-fuji",
+     "text": "The Peak Fuji is priced at $8,250."
+    }
+   ],
+   "digit_exempt_terms": [
+    "Crown",
+    "Denali",
+    "El Capitan",
+    "Everest",
+    "Fuji",
+    "Kilimanjaro",
+    "Matterhorn",
+    "Mini",
+    "Patagonia",
+    "Peak Crown 2-Person Full Spectrum Infrared Sauna",
+    "Peak Crown 2-Person Infrared Sauna",
+    "Peak Denali 3-Person Full Spectrum Infrared Sauna",
+    "Peak Denali 3-Person Infrared Sauna",
+    "Peak El Capitan 4-Person Outdoor Infrared Sauna",
+    "Peak Everest 2-Person Full Spectrum Infrared Sauna",
+    "Peak Everest 2-Person Infrared Sauna",
+    "Peak Fuji 2-Person Full Spectrum Infrared Sauna",
+    "Peak Fuji 2-Person Infrared Sauna",
+    "Peak Kilimanjaro 5-Person Outdoor Infrared Sauna",
+    "Peak Matterhorn 3-Person Full Spectrum Infrared Sauna",
+    "Peak Matterhorn 3-Person Infrared Sauna",
+    "Peak Mini 1-Person Full Spectrum Infrared Sauna",
+    "Peak Mini 1-Person Infrared Sauna",
+    "Peak Patagonia 2-Person Outdoor Infrared Sauna",
+    "Peak Rainier 1-Person Full Spectrum Infrared Sauna",
+    "Peak Rainier 1-Person Infrared Sauna",
+    "Peak Shasta 1-Person Full Spectrum Infrared Sauna",
+    "Peak Shasta 1-Person Infrared Sauna",
+    "Rainier",
+    "Shasta"
+   ]
+  }
+ }
+}

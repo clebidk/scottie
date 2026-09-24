@@ -34,7 +34,7 @@
           "number": {"type": "integer", "description": "1-indexed position, matching the reading order (1, 2, 3, ...)."},
           "heading": {"type": "string", "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test."},
           "text": {"type": "string", "description": "50-150 word body for this item."},
-          "claim_ids": {"type": "array"},
+          "claim_ids": {"type": "array", "description": "The BODY's own citations: every claim_id behind a number, price, spec or trigger word in text. The proof line's claim_ids cover the proof line only -- when the body states the same fact, cite it here too."},
           "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
           "proof": {
             "type": "object",
