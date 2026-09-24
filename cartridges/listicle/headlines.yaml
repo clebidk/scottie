@@ -1,0 +1,312 @@
+# Cycle 70: the listicle headline template library (owner request 2026-09-24).
+#
+# Data, not code. harness/headlines.py loads and validates this file, decides
+# which templates a run may use (its style + the evidence its facts_pack can
+# cite + the tenant's include/exclude), tells the writer the chosen one, and
+# gates the headline against it. docs/HEADLINES.md is the readable version.
+#
+# Pattern syntax: "N" is the item count (always a numeral, always the number
+# of entries in page.json's "reasons"). <slot> is a named slot, defined under
+# the template's `slots`. Every other word is kept exactly (case, curly or
+# straight apostrophes, a dropped comma or parenthesis are tolerated).
+#
+# Slot kinds (the checks live in harness/headlines.py):
+#   filled by the HARNESS, never by the writer:
+#     brand       -- the tenant's name (tenant.yaml `name`)
+#     year        -- the run's own year, from the run date; never hard-coded
+#     count       -- a verified customer/order count, rounded down ("12,000+")
+#     count_unit  -- what that count counts, from the same claim ("Customers")
+#     authority   -- the named authority of a verified endorsement claim
+#     alternative -- "Safe" only when a safety claim is verified, else "Better"
+#   filled by the WRITER:
+#     audience        -- people by situation or goal; never a bare "people"/"buyers"
+#     category        -- the product category; never the tenant or a model name
+#     product         -- the category, or a model's full name (tenant.yaml product_name_format)
+#     common_solution -- a CATEGORY the reader uses now; never a competitor brand
+#     problem, solution, desire, usp, concern, features
+#                     -- everyday, non-medical wording (see word_lists.medical)
+#     age             -- a plain age, two digits ("40")
+#     niche           -- the niche a verified exclusivity claim names
+#     choice          -- one of the slot's `options`
+# No slot may carry a digit except `age`: any other number in a headline would
+# need a verified claim (N, the year and the count are the only others).
+version: 1
+
+# Evidence kinds a template may `require`. A verified claim (facts_pack.
+# verified_claims) is evidence of a kind when its own "evidence" field names
+# the kind, when its "category" is one of `categories`, or when its text
+# matches one of `patterns`. Patterns are case-insensitive. A kind a page
+# needs must be cited by at least one numbered item (claim_ids or proof).
+evidence:
+  feature:
+    description: a verified product spec or feature
+    categories: [spec]
+  customer_count:
+    description: a verified count of customers, owners, households or orders (a review count is not one)
+    categories: [customer_count]
+    patterns:
+      - '(?P<count>\d{1,3}(?:,\d{3})+|\d{3,})\+?\s+(?P<unit>customers|owners|households|orders)\b'
+    min_count: 100
+  growth:
+    description: a verified growth or popularity figure (year-over-year growth, sales volume, social views)
+    categories: [growth]
+    patterns:
+      - '\byear[- ]over[- ]year\b'
+      - '\bYoY\b'
+      - '\b\d[\d,.]*\s*(?:million|thousand|k|m)?\s+(?:views|followers|units sold|saunas sold)\b'
+  exclusivity:
+    description: a verified claim that the product is the only one of its kind for a niche
+    categories: [exclusivity]
+    # "the only <thing> built/designed/made for <niche>" -- a bare "the only"
+    # also matches "The only two financing providers are ..." (a real
+    # verified.json claim), which is not exclusivity. Tagging the claim
+    # `evidence: exclusivity` is the reliable path.
+    patterns:
+      - '\bthe only\b[^.]{0,60}?\b(?:built|designed|made)\s+for\b'
+  endorsement:
+    description: a real, attributable endorsement by a named authority (the claim's "authority" field, or "Dr. <Name> recommends/endorses ...")
+    categories: [endorsement]
+    patterns:
+      - '^(?P<authority>(?:Dr\.?|Doctor|Professor|Prof\.)\s+[A-Z][\w''.-]+(?:\s+[A-Z][\w''.-]+)+)\s+(?:recommends|endorses)\b'
+  safety:
+    description: a verified safety certification (e.g. ETL or UL listed); lets template h11 say "Safe"
+    categories: [safety]
+    patterns:
+      - '\b(?:ETL|UL|CSA)[- ](?:listed|certified)\b'
+
+word_lists:
+  # Never in any template's headline, and never in the items of a template
+  # with `item_gates: [fear]`. The brand's absolute rule: no EMF, radiation,
+  # "toxins" or other safety-fear wording anywhere.
+  fear: [emf, electromagnetic, radiation, radioactive, 'toxins?', toxic, 'detox\w*', 'chemicals?',
+         'off[- ]?gas\w*', 'carcinogen\w*', 'cancer\w*', 'poison\w*', 'hazard\w*', 'danger\w*', unsafe,
+         fumes, 'vocs?', formaldehyde, bpa, mold, mould, 'bacteria\w*', 'germs?', 'contaminat\w*',
+         harmful, heavy metals]
+  # Never in a problem/solution/desire/usp/concern/features slot (on top of
+  # the tenant's own claim trigger words, vocab.yaml trigger_words).
+  medical: ['diseases?', 'conditions?', 'symptoms?', 'cure[sd]?', curing, 'treat(?:s|ed|ing|ments?)?',
+            'heal(?:s|ed|ing|er)?', 'pain\w*', 'aches?', aching, 'inflamm\w*', 'arthrit\w*', insomnia,
+            anxiety, 'depress\w*', 'diabet\w*', hypertension, blood pressure, eczema, psoriasis, acne,
+            'illness\w*', 'sick\w*', 'injur\w*', 'infection\w*', 'immun\w*', weight loss, cellulite, chronic,
+            'diagnos\w*', 'prescription\w*', 'medication\w*', 'patients?']
+  # Never in the items (heading, body, proof) of a template with
+  # `item_gates: [medical]`. Narrower than `medical`: item prose is long, and
+  # "treat", "condition", "pain" or "sick" are ordinary English there ("how it
+  # treats a customer", "terms and conditions", "a pain to install").
+  medical_items: ['diseases?', 'symptoms?', 'cure[sd]?', curing, 'heal(?:s|ed|ing|er)?', 'inflamm\w*',
+                  'arthrit\w*', insomnia, 'diabet\w*', hypertension, blood pressure, eczema, psoriasis, acne,
+                  'illness\w*', 'infection\w*', 'immune', 'immunity', weight loss, cellulite, 'diagnos\w*',
+                  'prescription\w*', 'medication\w*', 'patients?', 'chronic pain', 'medical conditions?']
+
+templates:
+  # -- the five cycle 41 style formulas, unchanged (harness/listicle.py
+  #    HEADLINE_FORMULAS stays the gate for these ids) -----------------------
+  - id: s-reasons
+    source: cycle 41 style formula
+    pattern: "N Reasons <audience> Are Choosing <category>"
+    styles: [reasons]
+    legacy_style: reasons
+    slots:
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal, e.g. "apartment dwellers"'}
+      category: {kind: category, max_words: 5, description: 'the product category, e.g. "home infrared saunas"'}
+    example: {audience: Busy Parents, category: Home Infrared Saunas}
+  - id: s-mistakes
+    source: cycle 41 style formula
+    pattern: "N Mistakes <audience> Make When Buying <category>"
+    styles: [mistakes]
+    legacy_style: mistakes
+    slots:
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
+      category: {kind: category, max_words: 5, description: 'the product category'}
+    example: {audience: Busy Parents, category: A Home Infrared Sauna}
+  - id: s-questions
+    source: cycle 41 style formula
+    pattern: "N Questions <audience> Should Ask Before Buying <category>"
+    styles: [questions]
+    legacy_style: questions
+    slots:
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
+      category: {kind: category, max_words: 5, description: 'the product category'}
+    example: {audience: Busy Parents, category: A Home Sauna}
+  - id: s-myths
+    source: cycle 41 style formula
+    pattern: "N <category> Myths <audience> Still Hear, and What the Evidence Says"
+    styles: [myths]
+    legacy_style: myths
+    slots:
+      category: {kind: category, max_words: 5, description: 'the product category'}
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
+    example: {category: Home Infrared Sauna, audience: Busy Parents}
+  - id: s-tested
+    source: cycle 41 style formula (cycle 49 claims check)
+    pattern: "We Checked N <category> Claims <audience> Keep Hearing. Here Is What Held Up"
+    styles: [tested]
+    legacy_style: tested
+    slots:
+      category: {kind: category, max_words: 5, description: 'the product category'}
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
+    example: {category: Home Infrared Sauna, audience: Busy Parents}
+
+  # -- the 17 pre-sell listicle templates (owner request 2026-09-24) ---------
+  - id: h01
+    pattern: "N Reasons Why Most <product_category> Don't Work for <problem> (and How <brand> Is Different)"
+    styles: [reasons]
+    requires: [feature]
+    item_pattern: >-
+      one way the usual products named in the headline fall short for this problem and what the
+      product does instead, stated as the benefit it buys the reader and backed by a cited spec
+    slots:
+      product_category: {kind: common_solution, max_words: 4, description: 'the category of product the reader has tried or considered (e.g. "gym saunas", "sauna blankets"), never a brand'}
+      problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "busy schedules")'}
+      brand: {kind: brand}
+    example: {product_category: Gym Saunas, problem: Busy Schedules}
+  - id: h02
+    pattern: "N Reasons Why Everyone's Switching to <brand> for <solution> in <year>"
+    styles: [reasons]
+    requires: [growth]
+    slots:
+      brand: {kind: brand}
+      solution: {kind: solution, max_words: 4, description: 'what the reader wants from it, non-medical (e.g. "home heat sessions")'}
+      year: {kind: year}
+    example: {solution: Home Heat Sessions}
+  - id: h03
+    pattern: "N Reasons Why Every <audience> Needs This <product> for <problem>"
+    styles: [reasons]
+    slots:
+      audience: {kind: audience, max_words: 4, description: 'ONE person by situation or goal, singular (e.g. "apartment dweller")'}
+      product: {kind: product, max_words: 4, description: 'the category, singular (e.g. "compact home sauna"), or a model''s full name'}
+      problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "cold winter evenings")'}
+    example: {audience: Apartment Dweller, product: Compact Home Sauna, problem: Cold Winter Evenings}
+  - id: h04
+    pattern: "N Reasons <product> Is a Must-Have for <problem>"
+    styles: [reasons]
+    allowed_headline_terms: [must-have, must have]
+    slots:
+      product: {kind: product, max_words: 5, description: 'the category, singular (e.g. "a home infrared sauna"), or a model''s full name'}
+      problem: {kind: problem, max_words: 5, description: 'a common, everyday, non-medical situation (e.g. "long winter evenings")'}
+    example: {product: A Home Infrared Sauna, problem: Long Winter Evenings}
+  - id: h05
+    pattern: "N Reasons This <product> Is Going Viral (and How It Works)"
+    styles: [reasons]
+    requires: [growth]
+    slots:
+      product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
+    example: {product: Home Infrared Sauna}
+  - id: h06
+    pattern: "N Reasons <audience> Started Switching to <product>"
+    styles: [reasons]
+    slots:
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
+      product: {kind: product, max_words: 5, description: 'the product or solution: the category (e.g. "home infrared saunas") or a model''s full name'}
+    example: {audience: Busy Parents, product: Home Infrared Saunas}
+  - id: h07
+    pattern: "N Ways <product> Helps Solve <problem>, <with_without> <usp>"
+    styles: [reasons]
+    requires: [feature]
+    item_pattern: >-
+      one way the product helps with the everyday problem named in the headline, stated as what it
+      changes for the reader and backed by a cited claim where it states a spec
+    item_gates: [medical]
+    slots:
+      product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
+      problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "crowded gym schedules")'}
+      with_without: {kind: choice, options: [With, Without]}
+      usp: {kind: usp, max_words: 5, description: 'the unique selling point: with a verified feature, or without something the reader avoids (e.g. "leaving the house")'}
+    example: {product: A Home Sauna, problem: Crowded Gym Schedules, with_without: Without, usp: Leaving the House}
+  - id: h08
+    pattern: "N Reasons People Over <age> Are Obsessed With <brand>"
+    styles: [reasons]
+    item_gates: [medical]
+    slots:
+      age: {kind: age, description: 'a plain age, e.g. "40" or "50" -- never a health claim tied to it'}
+      brand: {kind: brand}
+    example: {age: "40"}
+  - id: h09
+    pattern: "N Reasons Why <count> <count_unit> Switched to This <product>"
+    styles: [reasons]
+    requires: [customer_count]
+    slots:
+      count: {kind: count}
+      count_unit: {kind: count_unit}
+      product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
+    example: {product: Home Sauna}
+  - id: h10
+    pattern: "N Reasons <audience> Who Swore They Couldn't <desire> Are Choosing <brand>"
+    styles: [reasons]
+    slots:
+      audience: {kind: audience, max_words: 4, description: 'people by situation or goal'}
+      desire: {kind: desire, max_words: 6, description: 'something everyday they wanted, non-medical (e.g. "fit a sauna at home")'}
+      brand: {kind: brand}
+    example: {audience: Apartment Dwellers, desire: Fit a Sauna at Home}
+  - id: h11
+    pattern: "N Concerning <features> in <common_solution>, and a <alternative> Alternative"
+    styles: [mistakes]
+    item_pattern: >-
+      one concrete, checkable drawback of the common solution named in the headline (shared
+      equipment, schedule limits, extra electrical work, hidden fees), named as the drawback
+      itself -- never a health, safety or fear claim
+    item_gates: [fear, medical]
+    slots:
+      features: {kind: features, max_words: 4, description: 'a concrete, verifiable kind of category fact (e.g. "hidden costs", "schedule limits") -- never a health or safety fear'}
+      common_solution: {kind: common_solution, max_words: 4, description: 'what the reader uses now, as a CATEGORY (e.g. "gym sauna memberships"), never a brand'}
+      alternative: {kind: alternative}
+    example: {features: Hidden Costs, common_solution: Gym Sauna Memberships}
+  - id: h12
+    pattern: "N Reasons This Is the Only <product> Built for <niche>"
+    styles: [reasons]
+    requires: [exclusivity]
+    slots:
+      product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
+      niche: {kind: niche, max_words: 5, description: 'the niche the verified exclusivity claim names, in its words'}
+    example: {product: Home Sauna, niche: Small Apartments}
+  - id: h13
+    pattern: "N Ways <product> Removes Embarrassing <problem>, Without <concern>"
+    styles: [reasons]
+    item_pattern: >-
+      one way the product removes the everyday problem named in the headline, stated as what it
+      changes for the reader
+    item_gates: [medical]
+    slots:
+      product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
+      problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "locker room moments")'}
+      concern: {kind: concern, max_words: 4, description: 'the usual catch, non-medical (e.g. "a gym membership")'}
+    example: {product: A Home Sauna, problem: Locker Room Moments, concern: a Gym Membership}
+  - id: h14
+    pattern: "N Reasons Why This Breakthrough <product> Crushes <common_solution>"
+    styles: [reasons]
+    requires: [feature]
+    item_pattern: >-
+      one way this product beats the common solution named in the headline, stated as the benefit
+      and backed by the cited spec that proves it
+    slots:
+      product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
+      common_solution: {kind: common_solution, max_words: 4, description: 'a CATEGORY (e.g. "gym saunas", "traditional saunas", "sauna blankets"), never a competitor brand'}
+    example: {product: Home Sauna, common_solution: Gym Saunas}
+  - id: h15
+    pattern: "N Reasons Why <authority> Loves <product> for <problem>"
+    styles: [reasons]
+    requires: [endorsement]
+    slots:
+      authority: {kind: authority}
+      product: {kind: product, max_words: 4, description: 'the category or a model''s full name'}
+      problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation'}
+    example: {product: Home Infrared Saunas, problem: Busy Training Weeks}
+  - id: h16
+    pattern: "N Reasons Why <product> Is a Game-Changer for <audience>"
+    styles: [reasons]
+    allowed_headline_terms: [game-changer, game changer]
+    slots:
+      product: {kind: product, max_words: 5, description: 'the category, singular, or a model''s full name'}
+      audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
+    example: {product: A Home Infrared Sauna, audience: Busy Parents}
+  - id: h17
+    pattern: "N Reasons Why You're Still <problem>, Even After Trying <common_solution>"
+    styles: [mistakes]
+    item_pattern: >-
+      one reason the usual fixes named in the headline leave the reader stuck, named as the gap or
+      mistake itself
+    item_gates: [medical]
+    slots:
+      problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "skipping sauna sessions")'}
+      common_solution: {kind: common_solution, max_words: 5, description: 'the usual fixes, as CATEGORIES (e.g. "gym passes"), never a brand'}
+    example: {problem: Skipping Sauna Sessions, common_solution: Gym Passes}

@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 from harness import cli
+from harness import headlines
 from harness import listicle as listicle_mod
 from harness import pipeline
 from harness import tenant as tenant_mod
@@ -59,10 +60,10 @@ def _filler_words(n, offset=0):
     return " ".join(stream[offset:offset + n])
 
 
-def _listicle_page(style):
+def _listicle_page(style, headline=None):
     return {
         "style": style,
-        "headline": _LISTICLE_HEADLINES[style],
+        "headline": headline or _LISTICLE_HEADLINES[style],
         "dek": "A plain look at what actually holds up once the box arrives.",
         "hero": {"asset_id": _LISTICLE_ASSET_IDS[0]},
         "reasons": [
@@ -119,7 +120,7 @@ def _listicle_page(style):
     }
 
 
-def _canned_page(cartridge, style=None, tenant=None):
+def _canned_page(cartridge, style=None, tenant=None, headline=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -137,7 +138,7 @@ def _canned_page(cartridge, style=None, tenant=None):
 
         return COMPARISON_PAGE
     if cartridge == "listicle":
-        return _listicle_page(style or listicle_mod.STYLES[0])
+        return _listicle_page(style or listicle_mod.STYLES[0], headline)
     return CANNED_PAGES[cartridge]
 
 
@@ -248,7 +249,7 @@ def _newest_run_dir(base_dir, pattern):
 
 
 def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
-             style=None):
+             style=None, headline_template=None):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
     None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
     (the 200-generation dry run)."""
@@ -268,12 +269,25 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
         resolved_style = listicle_mod.resolve_style(
             style, seed=seed, tenant=tenant_mod.load_tenant(tenant, require=True)
         )
+    # Cycle 70: the canned headline has to be the one the run's headline
+    # template asks for, so a fake run pins the template -- the style's own
+    # formula unless the caller names one. A named one must need no extra
+    # evidence: the canned items cite none.
+    canned_headline = None
+    if "listicle" in selected:
+        headline_template = headline_template or headlines.legacy_id(resolved_style)
+        if headline_template != headlines.legacy_id(resolved_style):
+            plan = headlines.build_plan(
+                headline_template, resolved_style, {"verified_claims": []},
+                tenant=tenant_mod.load_tenant(tenant, require=True), today=datetime.date.today(),
+            )
+            canned_headline = headlines.example_headline(plan, 5)
 
     brief = _brief_for(input_arg)
     responses = [json_response(brief)]
     if brief.get("claims_made"):
         responses.append(json_response({}))  # the semantic-match call only happens when claims exist
-    responses += [json_response(_canned_page(c, resolved_style, tenant)) for c in selected]
+    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline)) for c in selected]
     client = FakeClient(responses)
 
     args = argparse.Namespace(
@@ -281,6 +295,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
         cartridges=cartridges,
         seed=seed,
         style=style,
+        headline_template=headline_template,
         product=product,
         ffmpeg_bin="/usr/bin/ffmpeg",
         whisper_bin="/nonexistent/whisper-cli",
@@ -307,6 +322,8 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--style", choices=list(listicle_mod.STYLES), default=None,
                         help="listicle style; default: deterministic from --seed")
+    parser.add_argument("--headline-template", default=None,
+                        help="listicle headline template id; default: the style's own formula")
     parser.add_argument("--product", default=None)
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
@@ -314,7 +331,7 @@ def main(argv=None):
 
     exit_code, run_dir, pages = run_once(
         ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
-        style=ns.style,
+        style=ns.style, headline_template=ns.headline_template,
     )
     if exit_code != 0:
         return exit_code

@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 from . import comparison
+from . import headlines
 from . import listicle
 from . import pagechecks
 from . import quiz
@@ -389,7 +390,7 @@ def resolve_warmup_window(tenant, schema_default=None):
     return default_warmup_window_words()
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, log=None):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, listicle_headline=None, log=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
@@ -402,6 +403,15 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         )
     except ClaimsGateFailure as e:
         problems += e.items
+    # Cycle 70: a listicle is held to its headline template -- the run's plan,
+    # else the one its page.json was stamped with (a revise) -- and that
+    # template's own headline words ("Game-Changer", "Must-Have") are allowed
+    # in its headline only; the ban stays everywhere else on the page.
+    if cartridge_name == "listicle" and listicle_headline is None:
+        listicle_headline = headlines.plan_for_page(page, facts_pack, tenant or tenant_mod.active())
+    allowed_terms = set((listicle_headline or {}).get("allowed_headline_terms") or ())
+    if allowed_terms:
+        problems = [p for p in problems if not (p.get("path") == "$.headline" and p.get("term") in allowed_terms)]
     problems += find_word_range_violation(page, word_range)
     problems += find_cta_violation(page, cartridge_name, allowed_cta_texts)
     # Kimi long-run phase 2: the writer owns a page's asset ids and CTA urls,
@@ -446,7 +456,7 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         # whole catalog (see harness/ground.py), so it doubles as the "any
         # product name" list here with no new facts_pack field.
         problems += listicle.find_listicle_violations(
-            page, style=listicle_style,
+            page, style=listicle_style, headline=listicle_headline,
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
         )
@@ -879,7 +889,7 @@ def _fix_asset_id_prefix_violation(page, path, facts_pack):
 
 
 def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
-                               financing_lender=None, facts_pack=None, tenant=None):
+                               financing_lender=None, facts_pack=None, tenant=None, listicle_headline=None):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
     claim id leaked into a parenthetical, a trigger word with a safe
@@ -924,7 +934,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
         # listicle.fix_headline_number for why this is deterministic rather
         # than a repair call.
         if cartridge_name == "listicle" and item.get("key") == "listicle:headline_formula":
-            corrected = listicle.fix_headline_number(page)
+            corrected = listicle.fix_headline_number(page, headline=listicle_headline)
             if corrected:
                 page["headline"] = corrected
                 fixed += 1
@@ -1056,7 +1066,8 @@ def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_b
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                          financing_lender, speaker_pov, ad_not_repeated=None, tenant=None,
                          repair_first_model=None, repair_next_model=None,
-                         initial_page=None, initial_call_tokens=0, listicle_style=None):
+                         initial_page=None, initial_call_tokens=0, listicle_style=None,
+                         listicle_headline=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -1098,6 +1109,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             tenant=tenant,
             warmup_window_words=schema.get("warmup_window_words"),
             listicle_style=listicle_style,
+            listicle_headline=listicle_headline,
             log=log,
         )
 
@@ -1183,6 +1195,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 ad_not_repeated=ad_not_repeated,
                 tenant=tenant,
                 listicle_style=listicle_style,
+                listicle_headline=listicle_headline,
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
@@ -1191,6 +1204,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             apply_deterministic_fixes(
                 page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
                 financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
+                listicle_headline=listicle_headline,
             )
             if problems else 0
         )

@@ -299,7 +299,7 @@ _COUNT_TOKEN_RES = {
 }
 
 
-def fix_headline_number(page):
+def fix_headline_number(page, headline=None):
     """The corrected headline when the only thing wrong with it is its
     leading count -- spelled out ("Six Mistakes ...") where the formula wants
     a numeral, or a numeral that no longer matches the item count -- else
@@ -313,7 +313,15 @@ def fix_headline_number(page):
     adds an item to fix a word-count failure silently invalidates the
     headline's number, and chasing the two around costs every attempt the
     loop has (observed on the cycle 41 verification runs -- attempt 3 STOPped
-    on nothing but this)."""
+    on nothing but this).
+
+    Cycle 70: `headline` is the run's headline template plan
+    (harness/headlines.py); any template other than the style's own formula
+    is re-checked against that template instead."""
+    if headline is not None and not headline.get("legacy_style") and isinstance(page, dict):
+        from . import headlines
+
+        return headlines.fix_headline_number(page, headline)
     style = page.get("style") if isinstance(page, dict) else None
     if style not in _N_IS_ITEM_COUNT:
         return None
@@ -362,10 +370,15 @@ def writer_rules_lines():
     ]
 
 
-def writer_style_lines(style):
+def writer_style_lines(style, headline=None):
     """The hard-constraint lines write.py adds to the writer's prompt for
     this style. Empty for an unknown style (the gate still rejects the
-    page) so a bad value can never produce a contradictory prompt."""
+    page) so a bad value can never produce a contradictory prompt.
+
+    Cycle 70: `headline` is the run's headline template plan
+    (harness/headlines.py). A template other than the style's own formula
+    replaces the formula and slot lines with its own (headlines.writer_lines)
+    and may name its own item pattern."""
     if style not in STYLES:
         return []
     lo, hi = ITEM_COUNT_RANGE
@@ -376,6 +389,11 @@ def writer_style_lines(style):
         f'"{formula}" -- fill in N and the bracketed parts, keep the rest of '
         f'the wording. Set page.json\'s "style" field to "{style}".',
     ]
+    templated = headline is not None and not headline.get("legacy_style")
+    if templated:
+        from . import headlines
+
+        lines = headlines.writer_lines(headline)
     # Cycle 43: observed on a real run -- a headline shaped like "6 Reasons
     # Home Buyers Are Choosing Acme Saunas Infrared Saunas" put a real-estate
     # term in <audience> and the tenant's own name in <category>. Stated once
@@ -386,7 +404,7 @@ def writer_style_lines(style):
     # applies to all five, and also states the generic-word rule the gate
     # enforces (an audience slot that is just "people" or "buyers" names no
     # one in particular).
-    if "<audience>" in formula:
+    if not templated and "<audience>" in formula:
         lines.append(
             "<audience> names people by their situation or goal (\"busy parents\", "
             "\"apartment dwellers\", \"people tired of studio fees\"), 2-5 words, derived from "
@@ -395,7 +413,7 @@ def writer_style_lines(style):
             "a bare \"people\", \"buyers\", \"shoppers\", \"customers\", or \"everyone\" with "
             "nothing else."
         )
-    if "<category>" in formula:
+    if not templated and "<category>" in formula:
         lines.append(
             '<category> is the product category (e.g. "home infrared saunas") -- never the '
             "tenant's name and never a model name."
@@ -404,7 +422,8 @@ def writer_style_lines(style):
         "Write N as a numeral (5, not \"five\"). N is the number of entries you actually put "
         "in \"reasons\" -- count them before you answer, and if you add or drop an item while "
         "revising, change the headline's number to match.",
-        f"Every numbered item is {ITEM_PATTERNS[style]}. Item headings carry no numeral "
+        f"Every numbered item is {(templated and headline.get('item_pattern')) or ITEM_PATTERNS[style]}. "
+        "Item headings carry no numeral "
         "(the renderer draws the number) and no price.",
         f"Write {lo}-{hi} items, each with a {wlo}-{whi} word body and a closing proof line "
         "that either cites a verified claim_id or is an attributed customer statement.",
@@ -548,10 +567,12 @@ def _items(page):
     return reasons if isinstance(reasons, list) else []
 
 
-def find_style_violations(page, style=None):
+def find_style_violations(page, style=None, check_formula=True):
     """page.style is one of STYLES (and is the run's own style, when the
     caller knows it), and the headline follows that style's formula with a
-    number that matches the item count where the formula says it should."""
+    number that matches the item count where the formula says it should.
+    `check_formula=False` (cycle 70): the run's headline template is not the
+    style's formula, so harness/headlines.py checks the headline instead."""
     problems = []
     page_style = page.get("style")
     if page_style not in STYLES:
@@ -567,6 +588,8 @@ def find_style_violations(page, style=None):
             f'(headline formula: "{HEADLINE_FORMULAS[style]}")',
         ))
         page_style = style
+    if not check_formula:
+        return problems
 
     headline = page.get("headline") or ""
     match = _HEADLINE_RES[page_style].search(headline)
@@ -838,7 +861,7 @@ def find_renderer_owned_violations(page):
     return problems
 
 
-def find_listicle_violations(page, style=None, tenant_name=None, product_names=None):
+def find_listicle_violations(page, style=None, tenant_name=None, product_names=None, headline=None):
     """Every listicle-specific structural check, combined. Wired into
     harness/repair.py's check_page_gates for the listicle cartridge only.
     tenant_name/product_names (cycle 43) feed find_headline_slot_violations
@@ -848,8 +871,18 @@ def find_listicle_violations(page, style=None, tenant_name=None, product_names=N
     if not isinstance(page, dict):
         return []
     problems = []
-    problems += find_style_violations(page, style)
-    problems += find_headline_slot_violations(page, tenant_name, product_names, style)
+    # Cycle 70: `headline` is the run's headline template plan
+    # (harness/headlines.py). A template other than the style's own formula is
+    # checked against that template instead of the formula and its
+    # <audience>/<category> slot checks.
+    templated = headline is not None and not headline.get("legacy_style")
+    problems += find_style_violations(page, style, check_formula=not templated)
+    if templated:
+        from . import headlines
+
+        problems += headlines.find_headline_violations(page, headline)
+    else:
+        problems += find_headline_slot_violations(page, tenant_name, product_names, style)
     problems += find_item_violations(page)
     problems += find_hero_violations(page)
     problems += find_audience_fit_violations(page)

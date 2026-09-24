@@ -23,6 +23,7 @@ import json
 import re
 from pathlib import Path
 
+from . import headlines
 from . import notify
 from . import runstate
 from . import tenant as tenant_mod
@@ -247,6 +248,10 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
     page = json.loads((cartridge_dir / "page.json").read_text())
     ad_brief = json.loads((run_dir / "ad_brief.json").read_text())
     facts_pack = json.loads((run_dir / "facts_pack.json").read_text())
+    # Cycle 70: the headline template this page was written to, read from its
+    # own page.json before any change -- the gate holds the revised page to it
+    # and the stamp survives a rewrite that drops it.
+    headline_plan = headlines.plan_for_page(page, facts_pack, tenant) if page_name == "listicle" else None
 
     cuts = feedback.get("cuts") or []
     notes = feedback.get("notes") or ""
@@ -315,6 +320,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
                         repair_first_model=tenant.model_for("repair_first"),
                         repair_next_model=tenant.model_for("repair_next"),
                         initial_page=initial_page, initial_call_tokens=initial_call_tokens,
+                        listicle_headline=headline_plan,
                     )
                 except (ClaimsGateFailure, BudgetExceeded) as e:
                     # Same rule a fresh run follows: never write a page that failed
@@ -346,11 +352,14 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
                 financing_lender=tenant.claims_config.get("financing_lender"),
                 speaker_pov=ad_brief.get("speaker_pov"), word_range=word_range,
                 allowed_cta_texts=allowed_cta_texts, ad_brief=ad_brief,
+                listicle_headline=headline_plan,
             )
             log.gate_result("PASS" if not gate_problems else "FAIL", f"page_json:{page_name} (cuts only)")
         else:
             raise ReviseError(f"feedback for page {page_name!r} has no cut: lines and no notes -- nothing to revise")
 
+        if headline_plan is not None:
+            page["headline_template_id"] = headline_plan["id"]
         _version_existing_files(run_dir, page_name, version)
         (cartridge_dir / "page.json").write_text(json.dumps(page, indent=2) + "\n")
 

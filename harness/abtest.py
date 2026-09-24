@@ -141,9 +141,13 @@ def settings(tenant):
 # arm selection
 # ---------------------------------------------------------------------------
 
-def pooled_arm_stats(tenant):
+def pooled_arm_stats(tenant, by="arm"):
     """{arm_id: {"views", "clicks", "tests"}} summed over every live or
-    finished test's variants (unique visitors, from events.sqlite)."""
+    finished test's variants (unique visitors, from events.sqlite).
+    Cycle 70: by="headline" groups by each listicle variant's
+    headline_template_id instead (variants with none are left out) -- what
+    `harness abtest library --by headline` shows, and what a later cycle can
+    feed to headlines.resolve_plan's `weights`."""
     db = abevents.db_path(tenant)
     stats = {}
     for rec in list_tests(tenant):
@@ -151,7 +155,10 @@ def pooled_arm_stats(tenant):
             continue
         counts = abevents.counts(db, rec["test_id"])
         for v in rec.get("variants") or []:
-            slot = stats.setdefault(v["arm"], {"views": 0, "clicks": 0, "tests": 0})
+            group = v["arm"] if by == "arm" else v.get("headline_template_id")
+            if not group:
+                continue
+            slot = stats.setdefault(group, {"views": 0, "clicks": 0, "tests": 0})
             # Cycle 69: a replaced variant's old events (archived key) are
             # still evidence for the same build.
             keys = [v["key"]] + [r["archived_key"] for r in v.get("replacements") or []]
@@ -289,6 +296,15 @@ def default_runner(tenant, input_path, arm, seed):
     return rc, state.run_dir
 
 
+def _headline_template_id(run_dir):
+    """Cycle 70: the headline template a listicle build used (its page.json's
+    headline_template_id), so results can be grouped by template."""
+    try:
+        return json.loads((Path(run_dir) / "listicle" / "page.json").read_text()).get("headline_template_id")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def _build_variant(tenant, rec, variant, runner):
     """Up to MAX_ATTEMPTS runs of the variant's current arm, each with a new
     seed. Returns "built", "budget" or "failed"."""
@@ -308,6 +324,8 @@ def _build_variant(tenant, rec, variant, runner):
             return "budget"
         if rc == 0 and run_dir and (Path(run_dir) / arm.cartridge / "index.html").exists():
             variant.update(run_dir=str(run_dir), cartridge=arm.cartridge, status="built")
+            if arm.cartridge == "listicle":
+                variant["headline_template_id"] = _headline_template_id(run_dir)
             save_test(tenant, rec)
             return "built"
         tries.append(attempt)
