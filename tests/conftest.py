@@ -15,6 +15,8 @@ from harness import tenant as tenant_mod
 from harness import vocab
 from tests.support import TENANT
 
+pytest_plugins = ["pytester"]
+
 
 class FakeUsage:
     def __init__(self, input_tokens=10, output_tokens=10, *,
@@ -307,3 +309,64 @@ def _restore_os_environ():
     finally:
         os.environ.clear()
         os.environ.update(saved)
+
+
+# ---------------------------------------------------------------------------
+# Env-guard: _restore_os_environ above snapshots at function setup, which is
+# AFTER any module- or session-scoped fixture has run. A module-scoped fixture
+# in test_product_naming_cycle64.py called fake_run.run_once -> load_env, the
+# real tenant .env (store domain, token) stayed in os.environ for every later
+# module, and test_publishers' "credentials missing" test saw the real store.
+# Autouse module fixtures set up before a module's requested fixtures and tear
+# down after them, so this restores the environment around every module and
+# fails that module loudly (key names only) if a tenant .env key leaked.
+# ---------------------------------------------------------------------------
+
+def _tenant_env_key_names():
+    """The variable NAMES declared in any tenants/*/.env. Values are never
+    kept or shown."""
+    names = set()
+    for env_path in tenant_mod.TENANTS_DIR.glob("*/.env"):
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key = line.split("=", 1)[0].strip()
+            if key.startswith("export "):
+                key = key[len("export "):].strip()
+            names.add(key)
+    return names
+
+
+def _leaked_tenant_env_keys(baseline):
+    return sorted(k for k in _tenant_env_key_names() if os.environ.get(k) != baseline.get(k))
+
+
+def _restore_environ(saved):
+    os.environ.clear()
+    os.environ.update(saved)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _session_environ_guard():
+    baseline = dict(os.environ)
+    yield baseline
+    leaked = _leaked_tenant_env_keys(baseline)
+    _restore_environ(baseline)
+    assert not leaked, (
+        f"a session-scoped fixture left tenant .env keys {leaked} in os.environ "
+        "(names only). Restore os.environ in that fixture."
+    )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _module_environ_guard(_session_environ_guard):
+    saved = dict(os.environ)
+    yield
+    leaked = _leaked_tenant_env_keys(saved)
+    _restore_environ(saved)
+    assert not leaked, (
+        f"a module-scoped fixture in this module left tenant .env keys {leaked} "
+        "in os.environ (names only) -- something called Tenant.load_env outside "
+        "a test. The environment is restored; restore it in that fixture too."
+    )

@@ -3246,3 +3246,39 @@ docs/HEADLINES.md.
 - h06 ("Started Switching"), h08 ("Obsessed With") and h01 ("Most ... Don't
   Work") make soft popularity/comparison statements with no evidence gate,
   as the request specified.
+
+## Cycle 66 (env guard for module- and session-scoped fixtures, 2026-09-23; merged 2026-09-25)
+
+### Problem
+`tests/conftest.py::_restore_os_environ` (cycle 38) snapshots os.environ at
+function setup, which runs after module- and session-scoped fixtures. The
+cycle 64 module fixture `fake_run_dir` called `fake_run.run_once` ->
+`Tenant.load_env`, the real tenant .env stayed in os.environ for every later
+module, and `test_publishers.py::test_upload_assets_raises_credentials_missing_before_any_call`
+saw the real store domain when it ran after that module. d9847c3 patched that
+one fixture only.
+
+### Fix
+1. **Module guard.** New autouse module-scoped `_module_environ_guard`:
+   snapshot at module start (autouse fixtures of a scope set up before the
+   module's requested fixtures and tear down after them), restore at module
+   end, and fail that module if any key NAME declared in `tenants/*/.env`
+   changed. Only names are read and reported, never values.
+2. **Session guard.** New autouse session-scoped `_session_environ_guard`:
+   the same check and restore once at session end, for session-scoped
+   fixtures.
+3. **Why not make `Tenant.load_env` a no-op under pytest.** It hides the
+   real command path from the tests that exercise it (publish/run with and
+   without credentials), and a production branch on "am I under pytest" is
+   easy to defeat by accident. Restore-and-fail keeps the code path real and
+   makes the leak loud.
+4. **Tests.** `tests/test_env_guard.py` (2, pytester, in-process): a module
+   fixture that loads a .env no longer leaks into the next module; a leaked
+   tenant .env key fails the module that leaked it, by name, with no value
+   in the output. Both fail without the guard. `pytest_plugins = ["pytester"]`
+   added to `tests/conftest.py`. Full suite: 1822 passed (was 1820).
+
+### Open
+- The worktree has no tenant .env (it is gitignored), so the guard's key
+  list is empty there; the real-leak path was proven only through the
+  pytester probe key, not against the real .env.
