@@ -515,12 +515,18 @@ def test_max_tokens_for_word_range_falls_back_to_6000_with_no_word_range():
     assert max_tokens_for_word_range(None) == 6000
 
 
-def test_max_tokens_for_word_range_is_lower_than_the_old_flat_cap_for_every_real_cartridge():
-    for name in ("article", "listicle", "longform", "product-page"):
+def test_max_tokens_for_word_range_is_lower_than_the_old_flat_cap_for_every_ranged_cartridge():
+    # Cartridges with an "N-M words" rule keep a derived max_tokens under the
+    # old flat 6000. Listicle has no page-level word range (winner density);
+    # it falls back to 6000 via max_tokens_for_word_range(None).
+    for name in ("article", "longform", "product-page"):
         cartridge_md, _ = load_cartridge_prompt(REPO_ROOT / "cartridges" / name, TENANT)
         word_range = parse_word_range(cartridge_md)
         assert word_range is not None, f"{name} cartridge.md has no 'N-M words' rule"
         assert max_tokens_for_word_range(word_range) < 6000
+    listicle_md, _ = load_cartridge_prompt(REPO_ROOT / "cartridges" / "listicle", TENANT)
+    assert parse_word_range(listicle_md) is None
+    assert max_tokens_for_word_range(None) == 6000
 
 
 def test_write_page_sends_the_derived_max_tokens(tmp_path):
