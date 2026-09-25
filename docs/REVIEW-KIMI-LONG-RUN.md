@@ -236,3 +236,9 @@ make mirror                                              # pushes master and mai
 
 Do not merge until `pytest -q` and `ruff check .` are green **on the merge
 commit**, not only on the branch tip.
+
+## Status (2026-09-25)
+Both blockers are resolved on master: K1 -- no tenant product names in
+cartridges/ (tests/test_tenant.py::test_no_tenant_specific_words_in_the_engine_or_the_cartridges
+passes); K2 -- harness/budget.py reserves spend under an exclusive ledger lock
+at run start and reconciles at the end, so concurrent runs cannot bypass the cap.
