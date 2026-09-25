@@ -104,20 +104,22 @@ touching a word of copy. Without a flag the look comes from page.json's own `loo
 `cartridges.listicle.looks: [...]`. The resolved look is written to page.json and to
 state.json's `listicle` entry next to the style.
 
-Every look renders every section the schema provides, keeps the Advertisement label,
-byline, disclosure and Sources, holds a CTA above the fold in markup order, uses only
+Every look renders every section the schema provides, keeps the tenant's disclosure
+label (when `disclosure_label` is set), byline, disclosure and Sources, holds a CTA above the fold in markup order, uses only
 `--pk-*` tokens, calls `render_image_slot` for every image, and survives `harness
 shopify-body` and the review inliner. `tests/test_listicle_looks.py` asserts all of that
 plus the property the looks exist for: no two of them render the same set of section
 classes.
 
-**Page structure.** Header (Advertisement label, H1, one-line dek, hero image, the
-primary CTA, a trust line, byline) -> 5-7 numbered items, each with an H2, a 60-150 word
-body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
+**Page structure.** Header (the optional disclosure label, H1, one-line dek, hero image,
+the primary CTA, a trust line, byline) -> 5-7 numbered items, each with an H2, a short
+one-idea body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
 pull-quote band after item 3 -> "who this is for / who it is not for" -> the model
 picker -> a 5-7 question FAQ -> the closing block (3-bullet recap, CTA, warranty
 sentence, financing sentence, HSA/FSA line) -> disclosure and Sources -> a sticky bottom
-CTA bar. 900-1,400 words.
+CTA bar. No page-level word band and no item word range (cycle 72): the writer adapts
+the tenant's winner exemplar -- its component map, density and voice -- and never pads
+toward article length; the gate only fails an empty item body.
 
 **What the writer does not write.** The trust line, the pull-quote band, the model
 picker, the closing HSA/FSA line and the sticky bar's rating line are built by the
@@ -139,7 +141,7 @@ scrolled past (see `harness/simplicity.py`'s module docstring).
 **Gates** (`harness/listicle.py`, wired into `repair.check_page_gates`, so the writer
 repair loop can fix them). Each failure carries a stable key: `listicle:style`,
 `listicle:headline_formula`, `listicle:item_count`, `listicle:item_numbering:<i>`,
-`listicle:item_words:<i>`, `listicle:item_image:<i>`, `listicle:item_proof:<i>`,
+`listicle:item_words:<i>` (empty body only), `listicle:item_image:<i>`, `listicle:item_proof:<i>`,
 `listicle:hero`, `listicle:audience_fit[:<field>]`, `listicle:faq_count`,
 `listicle:faq_claims:<i>`, `listicle:recap`, `listicle:urgency:<phrase>`,
 `listicle:headline_slots`, `listicle:tested_no_fake_test`,
@@ -182,7 +184,8 @@ cp -r cartridges/product-page cartridges/<new-name>
 Edit the five pieces:
 
 - **`cartridge.md`** -- voice and structure rules in prose: word range ("N-M words," the
-  exact phrase `write.parse_word_range` looks for), section order, CTA rules pointing at
+  exact phrase `write.parse_word_range` looks for; optional -- listicle has none, so any
+  other length there is phrased "8 to 14 words" and can never parse as one), section order, CTA rules pointing at
   `schema.json`'s `allowed_cta_texts`.
 - **`schema.json`** -- the page.json shape the writer must produce, plus a top-level
   `allowed_cta_texts` list (use `{short_name}`/`{model_name}` placeholders, resolved per
@@ -206,7 +209,8 @@ Edit the five pieces:
 Exemplars are NOT part of a cartridge: they are one tenant's approved pages, and
 live in `tenants/<tenant>/exemplars/<cartridge>/` -- up to 2 reference `.md`/`.txt`
 files, trimmed to 700 words each before being sent to the writer
-(`harness/write.py`'s `load_exemplars`).
+(`harness/write.py`'s `load_exemplars`). The writer treats them as the adaptation source
+for voice and structure, never a claims source (cycle 72).
 
 No registration step exists: `harness/pipeline.py`'s `discover_cartridges()` finds any
 `cartridges/<name>/` directory with a `cartridge.md` automatically -- `--cartridges

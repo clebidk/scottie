@@ -3282,3 +3282,72 @@ one fixture only.
 - The worktree has no tenant .env (it is gitignored), so the guard's key
   list is empty there; the real-leak path was proven only through the
   pytester probe key, not against the real .env.
+
+## Cycle 72 (listicle: adapt the winner, no word floor -- merge of cursor/listicle-winner-rules-fdad, 2026-09-25)
+
+### Problem
+The last unmerged branch, `github/cursor/listicle-winner-rules-fdad` (1fbc1f9,
+Cursor agent with the owner), reframes the listicle around ADAPTING a proven
+winner and drops the page-level word floor. It was based 224 commits behind
+master, so its text predates cycles 41-71 (one "N Reasons" formula, 40-90 word
+bodies, a 600-1,100 band, the "Advertisement" label, "attributed to 'a
+customer'", "One customer told us ..."). Master still had a 900-1,400 page
+band and a 50-150 item band, both HARD gates (`find_word_range_violation`,
+`listicle.find_item_violations`), not soft warnings. Removing the page band
+alone would also have let the headline rule's "8-14 words" become the first
+"N-M words" match, so `parse_word_range` would have gated every listicle
+body at 8-14 words.
+
+### Fix
+A real `git merge` (history records the branch as merged). Every conflict
+kept master's current rules and put the branch's intent on top:
+1. **cartridge.md.** Purpose: build by adapting the tenant's listicle
+   exemplar (its shipped winner) -- keep its component map (hero / proof /
+   item rhythm / mid-page CTA / close), density and scannable voice; swap
+   brand, images, tone and claims; the eight-section Structure stays fixed.
+   Page band removed ("No page-level word minimum and no page-level word
+   band"); item bodies are "one idea, a few sentences, no minimum". Headline
+   now "8 to 14 words". A winner's unsourced trust line or number is a
+   pattern to remake with verified facts. Image slots follow the winner's
+   roles (hero / item / lifestyle) when possible. New "From exemplars (the
+   winner)" section. Version stays v0.2.0 (page shape unchanged).
+2. **harness/listicle.py.** `ITEM_WORD_RANGE` removed; the
+   `listicle:item_words:<i>` gate now fails an empty body only. Writer
+   lines say "short: one idea, a few sentences ... no word minimum -- never
+   pad".
+3. **harness/write.py.** Exemplar rule: "the adaptation source for voice and
+   structure, never a claims source"; keep the component map and density
+   inside the cartridge's own structure; never pad toward an exemplar's
+   length; a winner's unsourced trust line or number is a pattern to remake
+   with verified facts only.
+4. **rubric.md / schema.json.** Same rules; rubric item 9 is no longer a
+   word count; rubric item 12's stale "attributed to 'a customer'" now
+   points at cartridge.md's Attributed lines ("In the ad, she says ...").
+5. **Exemplar** `tenants/peak-saunas/exemplars/listicle/5-reasons-mini-sauna-live.md`:
+   header says "winner to adapt, never a claims source"; its trust line,
+   counts and outcome lines are patterns only. The stale "Advertisement
+   label" note is dropped.
+6. **docs/GENERATOR.md.** Listicle length and header label updated.
+
+Not taken from the branch: its v0.1-era cartridge/rubric/schema text (the
+single "N Reasons" formula, 40-90 bodies, "Advertisement" label, "a
+customer" attribution), which cycles 41-71 replaced. Other cartridges keep
+their bands (article 1000-1600, comparison 800-1200, longform 800-1400,
+product-page 200-360, quiz 400-700). With no range, listicle's max_tokens
+falls back to 6000 (was 4320).
+
+### Verify
+- New tests (tests/test_listicle.py, tests/test_write.py): no listicle
+  range from the raw or tenant-rendered cartridge.md; a ~350-word listicle
+  passes the length gate and every gate; the five other cartridges still
+  fail below and above their bands; the headline rule reads "8 to 14 words"
+  and does not parse as a range; item bodies of 8/40/49/200 words pass and
+  an empty body fails; writer lines carry no item word range; the system
+  prompt says "adaptation source" and "never a claims source".
+- Full suite: 2113 passed (was 2100).
+
+### Open
+- No hard upper bound on item or page length now. The prompt asks for "a
+  few sentences"; if real runs drift long, add a soft warning, not a gate.
+- Only one listicle exemplar exists for PEAK (the live 5-reasons page); a
+  "winner library" with more than one entry is not built.
