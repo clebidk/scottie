@@ -7,7 +7,6 @@ import json
 import pytest
 
 from harness import cli, listicle, pipeline
-from harness.repair import count_words
 from evals import fake_run
 from tests.support import REPO_ROOT, TENANT
 
@@ -66,7 +65,6 @@ def test_fake_run_renders_listicle_v2_in_every_style(tmp_path, style):
     assert [p.parent.name for p in pages] == ["listicle"]
     page = json.loads(pages[0].read_text())
     assert page["style"] == style
-    assert 900 <= count_words(page) <= 1400
     html = (run_dir / "listicle" / "index.html").read_text()
     # Cycle 51: the style picks the COPY, and the look picks the template
     # that renders it -- so this asserts the pairing and the sections every

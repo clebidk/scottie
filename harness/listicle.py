@@ -97,10 +97,10 @@ GENERIC_AUDIENCE_WORDS = frozenset({"people", "buyers", "shoppers", "customers",
 _N_IS_ITEM_COUNT = STYLES
 
 ITEM_COUNT_RANGE = (5, 7)
-# Cycle 43: lowered from 60 -- observed real runs stopping items at 53-57
-# words against the old floor, a gap too small to be a real content problem.
-# Ceiling unchanged.
-ITEM_WORD_RANGE = (50, 150)
+# Cycle 72: no item word range. Cycle 43 had lowered the floor from 60 to 50;
+# the owner's winner-adaptation rule (cartridge.md) drops it: an item body is
+# one idea, a few sentences, at the winner's density. The gate only fails an
+# empty body.
 FAQ_COUNT_RANGE = (5, 7)
 RECAP_BULLET_COUNT = 3
 AUDIENCE_LIST_RANGE = (2, 4)
@@ -344,13 +344,14 @@ def fix_headline_number(page, headline=None):
 # writer reads it rather than left for the gate to discover.
 def writer_rules_lines():
     lo, hi = ITEM_COUNT_RANGE
-    wlo, whi = ITEM_WORD_RANGE
     return [
         f"Every one of the {lo}-{hi} items carries its own "
         '"image": {"asset_id": "<id>"} using an id from facts_pack.assets, and "hero" '
         'carries one more: {"asset_id": "<id>"}. Every id on the page must be different '
         "from every other. Never leave an image out.",
-        f"Every item body is {wlo}-{whi} words -- count them, including the last item's.",
+        "Every item body is short: one idea, a few sentences, at the density of the winner "
+        "you are adapting. There is no word minimum -- never pad an item to make it longer, "
+        "and never leave a body empty.",
         'The page has exactly one "cta_url", at the top level. Never put a "cta_url" '
         "inside an item, the closing block, or anywhere else.",
         "Any line stating a number, a price, a measurement, a spec, or one of the trigger "
@@ -387,7 +388,6 @@ def writer_style_lines(style, headline=None):
     if style not in STYLES:
         return []
     lo, hi = ITEM_COUNT_RANGE
-    wlo, whi = ITEM_WORD_RANGE
     formula = HEADLINE_FORMULAS[style]
     lines = [
         f'This page\'s style is "{style}". Its headline must follow this formula exactly: '
@@ -430,7 +430,7 @@ def writer_style_lines(style, headline=None):
         f"Every numbered item is {(templated and headline.get('item_pattern')) or ITEM_PATTERNS[style]}. "
         "Item headings carry no numeral "
         "(the renderer draws the number) and no price.",
-        f"Write {lo}-{hi} items, each with a {wlo}-{whi} word body and a closing proof line "
+        f"Write {lo}-{hi} items, each with a short one-idea body and a closing proof line "
         "that either cites a verified claim_id or is an attributed customer statement.",
     ]
     if style == "tested":
@@ -675,7 +675,7 @@ def find_headline_slot_violations(page, tenant_name=None, product_names=None, st
 
 def find_item_violations(page):
     """5-7 numbered items; each numbered by position, with an image, a
-    50-150 word body, and a proof line that is either claim-backed or an
+    non-empty body (cycle 72: no word range), and a proof line that is either claim-backed or an
     attributed customer statement."""
     problems = []
     items = _items(page)
@@ -685,7 +685,6 @@ def find_item_violations(page):
             "$.reasons", "listicle:item_count",
             f"page has {len(items)} items; a listicle needs {lo}-{hi}",
         ))
-    wlo, whi = ITEM_WORD_RANGE
     for i, item in enumerate(items):
         path = f"$.reasons[{i}]"
         if not isinstance(item, dict):
@@ -696,11 +695,10 @@ def find_item_violations(page):
                 path, f"listicle:item_numbering:{i}",
                 f"item number is {item.get('number')!r}; it must be {i + 1}, its own position",
             ))
-        words = len((item.get("text") or "").split())
-        if not wlo <= words <= whi:
+        if not (item.get("text") or "").split():
             problems.append(_problem(
                 path, f"listicle:item_words:{i}",
-                f"item body is {words} words; each item body must be {wlo}-{whi}",
+                "item body is empty; each item needs a short body -- one idea, a few sentences",
             ))
         if not ((item.get("image") or {}).get("asset_id")):
             problems.append(_problem(

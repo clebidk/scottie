@@ -18,7 +18,7 @@
     },
     "headline": {
       "type": "string",
-      "description": "8-14 words, following THIS page's headline template exactly (the hard constraints quote it; unless they name another template from headlines.yaml, it is the style formula): reasons -> 'N Reasons <audience> Are Choosing <category>'; mistakes -> 'N Mistakes <audience> Make When Buying <category>'; questions -> 'N Questions <audience> Should Ask Before Buying <category>'; myths -> 'N <category> Myths <audience> Still Hear, and What the Evidence Says'; tested -> 'We Checked N <category> Claims <audience> Keep Hearing. Here Is What Held Up'. N is the number of entries in reasons in every style. Never contains a price. <audience> names the people the ad speaks to by their situation or goal (2-5 words), never a bare 'people' or 'buyers', never the company by name; <category> is the product category, never the company or a model name."
+      "description": "8 to 14 words, following THIS page's headline template exactly (the hard constraints quote it; unless they name another template from headlines.yaml, it is the style formula): reasons -> 'N Reasons <audience> Are Choosing <category>'; mistakes -> 'N Mistakes <audience> Make When Buying <category>'; questions -> 'N Questions <audience> Should Ask Before Buying <category>'; myths -> 'N <category> Myths <audience> Still Hear, and What the Evidence Says'; tested -> 'We Checked N <category> Claims <audience> Keep Hearing. Here Is What Held Up'. N is the number of entries in reasons in every style. Never contains a price. <audience> names the people the ad speaks to by their situation or goal (2-5 words), never a bare 'people' or 'buyers', never the company by name; <category> is the product category, never the company or a model name."
     },
     "dek": {
       "type": "string",
@@ -31,13 +31,13 @@
     },
     "reasons": {
       "type": "array",
-      "description": "5-7 numbered items, in order (the field is named 'reasons', not 'items' -- 'items' collides with Python dict's own .items method under Jinja's attribute-then-subscript lookup; it holds this style's items whatever the style calls them). Each entry: number, an H2 heading, a 50-150 word body, one image, and a closing proof line.",
+      "description": "5-7 numbered items, in order (the field is named 'reasons', not 'items' -- 'items' collides with Python dict's own .items method under Jinja's attribute-then-subscript lookup; it holds this style's items whatever the style calls them). Each entry: number, an H2 heading, a short one-idea body at the winner's density (a few sentences -- no word minimum, never padded), one image, and a closing proof line.",
       "items": {
         "type": "object",
         "properties": {
           "number": {"type": "integer", "description": "1-indexed position, matching the reading order (1, 2, 3, ...)."},
           "heading": {"type": "string", "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test."},
-          "text": {"type": "string", "description": "50-150 word body for this item."},
+          "text": {"type": "string", "description": "Short body for this item: one idea, a few sentences, matching the winner's density. No word minimum and no padding; never empty."},
           "claim_ids": {"type": "array", "description": "The BODY's own citations: every claim_id behind a number, price, spec or trigger word in text. The proof line's claim_ids cover the proof line only -- when the body states the same fact, cite it here too."},
           "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
           "proof": {

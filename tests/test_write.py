@@ -523,12 +523,31 @@ def test_max_tokens_for_word_range_falls_back_to_6000_with_no_word_range():
     assert max_tokens_for_word_range(None) == 6000
 
 
-def test_max_tokens_for_word_range_is_lower_than_the_old_flat_cap_for_every_real_cartridge():
-    for name in ("article", "listicle", "longform", "product-page"):
+def test_max_tokens_for_word_range_is_lower_than_the_old_flat_cap_for_every_ranged_cartridge():
+    # Cartridges with an "N-M words" rule keep a derived max_tokens under the
+    # old flat 6000. Listicle has no page-level word range (winner density);
+    # it falls back to 6000 via max_tokens_for_word_range(None).
+    for name in ("article", "comparison", "longform", "product-page", "quiz"):
         cartridge_md, _ = load_cartridge_prompt(REPO_ROOT / "cartridges" / name, TENANT)
         word_range = parse_word_range(cartridge_md)
         assert word_range is not None, f"{name} cartridge.md has no 'N-M words' rule"
         assert max_tokens_for_word_range(word_range) < 6000
+    listicle_md, _ = load_cartridge_prompt(REPO_ROOT / "cartridges" / "listicle", TENANT)
+    assert parse_word_range(listicle_md) is None
+    assert max_tokens_for_word_range(None) == 6000
+
+
+# Cycle 72 (merge of cursor/listicle-winner-rules): exemplars are what the
+# writer adapts -- component map, density, voice -- and never a source of
+# claims; a winner's unsourced trust line is a pattern, not a fact.
+def test_system_prompt_calls_exemplars_the_adaptation_source_never_a_claims_source():
+    for name in ("listicle", "article"):
+        cartridge_md, schema = load_cartridge_prompt(REPO_ROOT / "cartridges" / name, TENANT)
+        system = cached_system_prefix(cartridge_md, schema, TENANT)
+        assert "adaptation source for voice and structure, never a claims source" in system
+        assert "component map" in system
+        assert "unsourced trust line or number is a pattern to remake with verified facts only" in system
+        assert "use them only as a voice and structure reference" not in system
 
 
 def test_write_page_sends_the_derived_max_tokens(tmp_path):

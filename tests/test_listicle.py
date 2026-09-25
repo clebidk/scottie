@@ -164,7 +164,9 @@ def _listicle_page(style="reasons", n_items=5):
 def _gate(page, **kwargs):
     kwargs.setdefault("financing_lender", None)
     kwargs.setdefault("speaker_pov", "third_person")
-    kwargs.setdefault("word_range", (900, 1400))
+    # Cycle 72: listicle has no page-level word range -- this is what
+    # cartridge_write_constraints passes for it.
+    kwargs.setdefault("word_range", None)
     kwargs.setdefault("allowed_cta_texts", ALLOWED_CTA_TEXTS)
     kwargs.setdefault("ad_brief", AD_BRIEF)
     return check_page_gates(page, FACTS_PACK, "listicle", **kwargs)
@@ -184,9 +186,88 @@ def test_listicle_is_not_in_the_default_cartridge_pool():
     assert set(pool) == {"article", "product-page", "longform"}
 
 
-def test_word_range_parses_900_to_1400():
+# ---------------------------------------------------------------------------
+# Cycle 72 (merge of cursor/listicle-winner-rules): listicle adapts a proven
+# winner and has no page-level word range and no item word range. Every
+# other cartridge keeps its own "N-M words" gate.
+# ---------------------------------------------------------------------------
+
+OTHER_RANGED_CARTRIDGES = ("article", "comparison", "longform", "product-page", "quiz")
+
+
+def _listicle_constraints():
+    from harness.repair import cartridge_write_constraints
+
+    return cartridge_write_constraints("listicle", REPO_ROOT / "cartridges", FACTS_PACK, AD_BRIEF, TENANT)
+
+
+def _short_winner_page():
+    """A page at the live winner's density: about 350 words in all."""
+    page = _listicle_page(n_items=5)
+    for item in page["reasons"]:
+        item["text"] = _words(10)
+    for q in page["faq"]["questions"]:
+        q["answer"] = _words(8)
+    return page
+
+
+def test_listicle_has_no_page_level_word_range():
     cartridge_md = (CARTRIDGE_DIR / "cartridge.md").read_text()
-    assert parse_word_range(cartridge_md) == (900, 1400)
+    assert parse_word_range(cartridge_md) is None
+    assert "No page-level word minimum" in cartridge_md
+    # The tenant-rendered prompt the harness actually parses, too.
+    _schema, word_range, _ctas = _listicle_constraints()
+    assert word_range is None
+
+
+def test_a_350_word_listicle_passes_the_length_gate():
+    from harness.repair import find_word_range_violation
+
+    page = _short_winner_page()
+    assert 300 <= count_words(page) <= 400
+    _schema, word_range, _ctas = _listicle_constraints()
+    assert find_word_range_violation(page, word_range) == []
+    assert _gate(page, word_range=word_range, listicle_style="reasons") == []
+
+
+@pytest.mark.parametrize("name", OTHER_RANGED_CARTRIDGES)
+def test_other_cartridges_still_enforce_their_word_range(name):
+    from harness.repair import find_word_range_violation
+    from harness.write import load_cartridge_prompt
+
+    cartridge_md, _ = load_cartridge_prompt(REPO_ROOT / "cartridges" / name, TENANT)
+    word_range = parse_word_range(cartridge_md)
+    assert word_range is not None, f"{name} lost its 'N-M words' rule"
+    lo, hi = word_range
+    for n in (lo - 1, hi + 1):
+        page = {"body": {"text": _words(n)}}
+        assert count_words(page) == n
+        problems = find_word_range_violation(page, word_range)
+        assert [p["path"] for p in problems] == ["$.word_count"], (name, n)
+    assert find_word_range_violation({"body": {"text": _words(lo)}}, word_range) == []
+
+
+def test_headline_length_phrase_never_parses_as_a_word_range():
+    cartridge_md = (CARTRIDGE_DIR / "cartridge.md").read_text()
+    headline_rule = next(line for line in cartridge_md.splitlines() if line.startswith("- Headline:"))
+    assert "8 to 14 words" in headline_rule
+    assert parse_word_range(headline_rule) is None
+    # Why the wording matters: the old "8-14 words" is exactly the pattern
+    # the page-level gate reads, and would have become a (8, 14) body gate.
+    assert parse_word_range("Headline: 8-14 words") == (8, 14)
+    assert "8-14 words" not in cartridge_md
+
+
+def test_cartridge_md_frames_the_listicle_as_adapting_a_winner():
+    cartridge_md = (CARTRIDGE_DIR / "cartridge.md").read_text()
+    assert "ADAPTING a proven listicle" in cartridge_md
+    assert "component map" in cartridge_md
+    assert "never a claims source" in cartridge_md
+    assert "Do not pad toward article length" in cartridge_md
+    assert "hero / item / lifestyle" in cartridge_md
+    # Stale text from the pre-cycle-60 branch never comes back.
+    for stale in ("Advertisement", "One customer told us", '"a customer"', "40-90", "600-1,100", "900-1,400", "50-150"):
+        assert stale not in cartridge_md, stale
 
 
 def test_cartridge_md_declares_v0_2_0():
@@ -321,7 +402,6 @@ def test_check_page_gates_flags_a_headline_naming_the_tenant():
 def test_a_page_in_every_style_validates_against_the_schema_and_passes_the_gate(style):
     page = _listicle_page(style)
     assert validate_schema(page, SCHEMA) == []
-    assert 900 <= count_words(page) <= 1400
     assert _gate(page, listicle_style=style) == []
 
 
@@ -424,25 +504,20 @@ def test_item_numbering_must_match_position():
     assert "listicle:item_numbering:2" in keys
 
 
-def test_item_body_outside_fifty_to_one_hundred_fifty_words_fails():
+@pytest.mark.parametrize("n_words", [8, 40, 49, 200])
+def test_item_body_has_no_word_range(n_words):
+    # Cycle 72: no floor (cycle 43's 50) and no ceiling (150) -- one idea,
+    # a few sentences, at the winner's density.
     page = _listicle_page()
-    page["reasons"][0]["text"] = _words(40)
-    keys = {p["key"] for p in listicle.find_listicle_violations(page)}
-    assert "listicle:item_words:0" in keys
-
-
-def test_item_body_of_exactly_fifty_words_passes():
-    # Cycle 43: floor lowered from 60 to 50 -- observed real runs stopping
-    # items at 53-57 words against the old floor.
-    page = _listicle_page()
-    page["reasons"][0]["text"] = _words(50)
+    page["reasons"][0]["text"] = _words(n_words)
     keys = {p["key"] for p in listicle.find_listicle_violations(page)}
     assert "listicle:item_words:0" not in keys
 
 
-def test_item_body_of_forty_nine_words_still_fails():
+@pytest.mark.parametrize("text", ["", "   ", None])
+def test_an_empty_item_body_still_fails(text):
     page = _listicle_page()
-    page["reasons"][0]["text"] = _words(49)
+    page["reasons"][0]["text"] = text
     keys = {p["key"] for p in listicle.find_listicle_violations(page)}
     assert "listicle:item_words:0" in keys
 
@@ -652,7 +727,11 @@ def test_the_repair_loop_leaves_a_genuinely_different_nested_cta_url_for_the_mod
 def test_the_writer_is_told_the_rules_the_gate_measures():
     rules = " ".join(listicle.writer_rules_lines())
     assert "asset_id" in rules
-    assert "50-150 words" in rules
+    assert "no word minimum" in rules
+    assert "never pad" in rules
+    style_lines = " ".join(line for style in listicle.STYLES for line in listicle.writer_style_lines(style))
+    for text in (rules, style_lines):
+        assert not re.search(r"\d+\s*[-\u2013]\s*\d+ word body|body is \d+", text)
     assert "exactly one \"cta_url\"" in rules
     assert "claim_ids" in rules
 

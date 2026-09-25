@@ -1,12 +1,17 @@
 Reference excerpt: visible copy from the live, already-shipped listicle page
 (`reference/peak-listicle-lp/index.html`, "5 Reasons People Love The Peak Mini
 Sauna", `https://peaksaunas.com/pages/5-reasons-to-love-peak-saunas`). This is
-a voice and rhythm reference only -- match the plain, short-sentence,
-one-idea-per-item style; do not copy its numbers, claims, or product name
-into a new page unless the same fact also appears in this page's own
-facts_pack.verified_claims. Note that this live reference has no
-"Advertisement" label, byline, disclosure, or sources list -- your own page
-must have all four; the renderer adds them, you don't need to write them.
+a **winner to adapt**, never a claims source -- keep its component map
+(trust/hero rhythm, five short numbered reasons with one idea each, mid-page
+and closing CTA placement, closing band), its short density, and its plain
+voice. Rewrite for this ad and this brand: swap the product name for this
+run's own model (named as the global voice block says), the tone, and the
+image roles. Its numbers, trust line, customer counts and outcome lines are
+patterns to remake with verified facts only -- never copy one into a new page
+unless the same fact also appears in this page's own
+facts_pack.verified_claims. This live reference has no byline, disclosure,
+or sources list -- the renderer adds those to your page; you don't write
+them. Do not expand this into article-length copy.
 
 Trusted by 5,000+ Happy Customers
 

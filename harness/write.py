@@ -174,7 +174,7 @@ Outside a sentence that carries a claim_id, write numbers as words, not numerals
 
 A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "In the ad, she says the average unlimited membership is around $200 a month, so say $2,400 a year." The sentence must itself read as attributed, in one of the frames above -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
 
-If the user message includes "exemplars", use them only as a voice and structure reference. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} article -- match its tone and rigor, but never copy its numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
+If the user message includes "exemplars", they are the adaptation source for voice and structure, never a claims source. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} page (for listicle, a proven winner) -- keep its component map (hero, proof, item rhythm, mid-page CTA, close), its section density and its tone, inside this cartridge's own structure, and swap the brand, images (asset_ids from facts_pack), tone and claims to this page. Never pad toward an exemplar's length: length follows this cartridge's own rules. Never copy an exemplar's numbers, claims, trust lines, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims -- a winner's unsourced trust line or number is a pattern to remake with verified facts only.
 
 ## Guardrails
 {guardrails}
@@ -373,7 +373,7 @@ def resolve_allowed_cta_texts(schema, short_name, model_name=None, tenant=None, 
 # whole was the main driver of the ~36,800-token average article write.
 # Trimmed to the first 700 words: still enough for the model to pick up
 # voice/structure (the point of an exemplar per write_page's own guidance --
-# "use them only as a voice and structure reference"), at a fraction of the
+# "the adaptation source for voice and structure"), at a fraction of the
 # token cost. Never applied to a .json exemplar (a page.json-shaped object,
 # not prose) -- there are none in this repo today, and truncating structured
 # JSON by word count would just produce invalid JSON; the 2-exemplar cap
