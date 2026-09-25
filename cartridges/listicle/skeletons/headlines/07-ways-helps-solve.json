@@ -1,0 +1,46 @@
+{
+  "id": "ways-helps-solve",
+  "version": "1.0.0",
+  "n_suggested": 5,
+  "n_harness": 5,
+  "template": "5 Ways [PRODUCT] helps solve [PROBLEM], with / without [unique selling point]",
+  "formula": "ways_with_usp",
+  "slots": [
+    "PRODUCT",
+    "PROBLEM",
+    "unique selling point"
+  ],
+  "pairs_with_skeletons": [
+    "classic-n-reasons",
+    "hormozi-value-stack",
+    "day-in-the-life"
+  ],
+  "compliance": [],
+  "peak_saunas": {
+    "fill_hints": {
+      "BRAND": "Peak Saunas",
+      "Product": "home infrared sauna / Peak Mini / model short_name",
+      "PRODUCT": "Peak Mini / facts_pack.product.short_name",
+      "YOUR PRODUCT": "facts_pack.product.short_name",
+      "PRODUCT / SOLUTION": "home infrared + red light (verified framing)",
+      "SOLUTION": "home recovery heat / daily infrared practice",
+      "PROBLEM": "from ad angle \u2014 inconsistent recovery, poor sleep routine, spa friction (no medical promises)",
+      "COMMON PROBLEM": "same as PROBLEM, plain language",
+      "problem": "same as PROBLEM",
+      "AVATAR": "from ad \u2014 busy parents, apartment dwellers, athletes, people over N",
+      "NICHE AVATAR": "narrower avatar from ad",
+      "TARGET AGE": "only if ad names an age gate",
+      "DESIRE": "from ad promise \u2014 deeper recovery habit, not a disease claim",
+      "unique selling point": "red light included / standard outlet / crate shipping \u2014 verified only",
+      "Ingredients / Features": "for Peak: missing red light, membership lock-in, electrician requirement \u2014 not ingestible ingredients",
+      "Common Solution": "spa visits / gym heat / cheap single-band cabins",
+      "common solution": "spa visits / gym heat",
+      "common solutions": "spas, gyms, one-off memberships",
+      "common concern": "electrician install, huge footprint, upsells",
+      "AUTHORITY / DOCTOR": "ONLY a real approved Peak author/authority \u2014 otherwise skip this headline"
+    },
+    "example_fills": [
+      "5 Ways the Peak Mini Helps Solve Inconsistent Recovery, with Red Light Included"
+    ]
+  }
+}

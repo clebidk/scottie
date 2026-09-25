@@ -1,0 +1,120 @@
+{
+  "version": "1.0.0",
+  "purpose": "Best-performing pre-sell listicle headline skeletons (swipe). Fill placeholders from ad_brief + brand; pair with a page skeleton; never invent social proof or authority.",
+  "source": "17 Best-Performing Headlines for Pre-Sell Listicles (internal swipe)",
+  "placeholder_vocab": [
+    "AUTHORITY / DOCTOR",
+    "AVATAR",
+    "BRAND",
+    "COMMON PROBLEM",
+    "Common Solution",
+    "DESIRE",
+    "Ingredients / Features",
+    "NICHE AVATAR",
+    "PROBLEM",
+    "PRODUCT",
+    "PRODUCT / SOLUTION",
+    "Product",
+    "SOLUTION",
+    "TARGET AGE",
+    "YOUR PRODUCT",
+    "common concern",
+    "common solution",
+    "common solutions",
+    "problem",
+    "unique selling point"
+  ],
+  "harness_notes": [
+    "Listicle cartridge allows 5-7 reasons \u2014 if a template's N is outside that range, keep the formula and clamp N to 5-7.",
+    "Headline rule remains 8 to 14 words when possible; long swipe templates may run long \u2014 prefer the Peak fill (shortened) over the raw swipe length.",
+    "Forbidden harness words (game-changer, unlock, elevate, journey) and invented counts still apply after fill."
+  ],
+  "count": 17,
+  "headlines": [
+    {
+      "id": "most-dont-work",
+      "n": 5,
+      "file": "01-most-dont-work.json"
+    },
+    {
+      "id": "everyones-switching",
+      "n": 7,
+      "file": "02-everyones-switching.json"
+    },
+    {
+      "id": "every-avatar-needs",
+      "n": 11,
+      "file": "03-every-avatar-needs.json"
+    },
+    {
+      "id": "must-have-for-problem",
+      "n": 6,
+      "file": "04-must-have-for-problem.json"
+    },
+    {
+      "id": "going-viral",
+      "n": 4,
+      "file": "05-going-viral.json"
+    },
+    {
+      "id": "avatar-started-switching",
+      "n": 7,
+      "file": "06-avatar-started-switching.json"
+    },
+    {
+      "id": "ways-helps-solve",
+      "n": 5,
+      "file": "07-ways-helps-solve.json"
+    },
+    {
+      "id": "people-over-age",
+      "n": 6,
+      "file": "08-people-over-age.json"
+    },
+    {
+      "id": "social-proof-switched",
+      "n": 8,
+      "file": "09-social-proof-switched.json"
+    },
+    {
+      "id": "swore-they-couldnt",
+      "n": 5,
+      "file": "10-swore-they-couldnt.json"
+    },
+    {
+      "id": "concerning-in-common",
+      "n": 6,
+      "file": "11-concerning-in-common.json"
+    },
+    {
+      "id": "only-built-for-niche",
+      "n": 7,
+      "file": "12-only-built-for-niche.json"
+    },
+    {
+      "id": "removes-without-concern",
+      "n": 5,
+      "file": "13-removes-without-concern.json"
+    },
+    {
+      "id": "breakthrough-crushes",
+      "n": 10,
+      "file": "14-breakthrough-crushes.json"
+    },
+    {
+      "id": "authority-loves",
+      "n": 8,
+      "file": "15-authority-loves.json"
+    },
+    {
+      "id": "game-changer-for-avatar",
+      "n": 6,
+      "file": "16-game-changer-for-avatar.json"
+    },
+    {
+      "id": "still-problem-after-trying",
+      "n": 5,
+      "file": "17-still-problem-after-trying.json"
+    }
+  ]
+}
