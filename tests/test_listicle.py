@@ -60,14 +60,13 @@ def _item_text(n_words=48):
 
 
 def _make_items(n, with_claim=True):
-    # ~85 words per item -- comfortably inside cartridge.md's 40-90 word
-    # guideline and enough, across 5-7 items plus the proof row and closing
-    # block, to clear the 600-word floor for the word-range gate test below.
+    # ~48 words per item -- short, winner-density bodies (no page-level
+    # word floor for listicle; do not pad toward the old 600-word range).
     items = []
     for i in range(1, n + 1):
-        item = {"number": i, "heading": f"Reason number {i}", "text": _item_text(85), "image": {"asset_id": "asset-1"}}
+        item = {"number": i, "heading": f"Reason number {i}", "text": _item_text(48), "image": {"asset_id": "asset-1"}}
         if with_claim and i == n:
-            item["text"] = "Every unit comes with medical-grade red light therapy included standard. " + _item_text(75)
+            item["text"] = "Every unit comes with medical-grade red light therapy included standard. " + _item_text(40)
             item["claim_ids"] = ["gbrain-allowlist-red-light"]
         items.append(item)
     return items
@@ -110,9 +109,12 @@ def test_listicle_is_not_in_the_default_cartridge_pool():
     assert set(pool) == {"article", "product-page", "longform"}
 
 
-def test_word_range_parses_600_to_1100():
+def test_listicle_has_no_page_level_word_range():
+    # Listicle deliberately has no "N-M words" rule -- length follows the
+    # winner/library entry. Other cartridges may still declare a band.
     cartridge_md = (CARTRIDGE_DIR / "cartridge.md").read_text()
-    assert parse_word_range(cartridge_md) == (600, 1100)
+    assert parse_word_range(cartridge_md) is None
+    assert "No page-level word minimum" in cartridge_md
 
 
 def test_allowed_cta_texts_resolve_model_name_placeholder():
@@ -150,7 +152,26 @@ def test_check_page_gates_passes_for_a_well_formed_page():
     problems = check_page_gates(
         page, FACTS_PACK, "listicle",
         financing_lender=None, speaker_pov="third_person",
-        word_range=(600, 1100), allowed_cta_texts=["See the models", "Shop the Fuji", "Book a consult"],
+        word_range=None, allowed_cta_texts=["See the models", "Shop the Fuji", "Book a consult"],
+        ad_brief=AD_BRIEF,
+    )
+    assert problems == []
+
+
+def test_check_page_gates_passes_a_short_winner_density_page():
+    # A ~live-winner length page must PASS with no word-range floor.
+    page = _listicle_page(n_items=5)
+    for item in page["reasons"]:
+        item["text"] = _item_text(35)
+    page["reasons"][-1]["text"] = (
+        "Every unit comes with medical-grade red light therapy included standard. "
+        + _item_text(25)
+    )
+    page["reasons"][-1]["claim_ids"] = ["gbrain-allowlist-red-light"]
+    problems = check_page_gates(
+        page, FACTS_PACK, "listicle",
+        financing_lender=None, speaker_pov="third_person",
+        word_range=None, allowed_cta_texts=["See the models", "Shop the Fuji", "Book a consult"],
         ad_brief=AD_BRIEF,
     )
     assert problems == []
