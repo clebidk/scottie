@@ -1,0 +1,130 @@
+{
+  "id": "myth-bust",
+  "version": "1.0.0",
+  "name": "Myth vs fact listicle",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Education listicle / myth-busting pre-sell",
+      "url": "https://www.getlandra.com/blog/free-advertorial-and-listicle-templates"
+    }
+  ],
+  "tags": [
+    "myths",
+    "education",
+    "emf",
+    "objections",
+    "warm"
+  ],
+  "density": {
+    "approx_body_words": 300,
+    "item_count": 5,
+    "words_per_item_hint": "40-70"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Myths About Home Infrared Saunas"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "reasons",
+      "required": true,
+      "hint": "Each item: Myth \u2192 Fact (verified) \u2192 why it matters"
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "myth_electrician",
+        "heading_hint": "Myth: you always need an electrician",
+        "image_role": "item_1"
+      },
+      {
+        "number": 2,
+        "role": "myth_space",
+        "heading_hint": "Myth: home units eat a room",
+        "image_role": "item_3"
+      },
+      {
+        "number": 3,
+        "role": "myth_red_light_upsell",
+        "heading_hint": "Myth: red light is always an expensive add-on",
+        "image_role": "item_2"
+      },
+      {
+        "number": 4,
+        "role": "myth_emf_or_heat",
+        "heading_hint": "Myth about EMF/heat \u2014 only with verified claims",
+        "image_role": "item_4"
+      },
+      {
+        "number": 5,
+        "role": "myth_shipping",
+        "heading_hint": "Myth: shipping a sauna is a nightmare / fortune",
+        "image_role": "item_5"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "calm_corrective",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "EMF and medical myths need verified_claims \u2014 otherwise drop the myth.",
+      "No fear-mongering."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "myth",
+      "emf",
+      "objection",
+      "education"
+    ],
+    "default_model": "mini",
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Myth / fact pairs. Facts must be claim-backed. Short."
+}

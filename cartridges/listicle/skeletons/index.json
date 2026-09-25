@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "purpose": "Winner skeletons for one-shot listicle (and related) generation: adapt components to brand/colors/images/tone/voice \u2014 do not invent padded pages.",
+  "default_id": "classic-n-reasons",
+  "count": 10,
+  "skeletons": [
+    {
+      "id": "hormozi-value-stack",
+      "file": "01-hormozi-value-stack.json",
+      "group": "hormozi"
+    },
+    {
+      "id": "hormozi-mistakes",
+      "file": "02-hormozi-mistakes.json",
+      "group": "hormozi"
+    },
+    {
+      "id": "native-article-comments",
+      "file": "03-native-article-comments.json",
+      "group": "advertorial"
+    },
+    {
+      "id": "simplified-pdp",
+      "file": "04-simplified-pdp.json",
+      "group": "pdp"
+    },
+    {
+      "id": "classic-n-reasons",
+      "file": "05-classic-n-reasons.json",
+      "group": "classic"
+    },
+    {
+      "id": "hidden-costs",
+      "file": "06-hidden-costs.json",
+      "group": "classic"
+    },
+    {
+      "id": "switcher-reasons",
+      "file": "07-switcher-reasons.json",
+      "group": "classic"
+    },
+    {
+      "id": "myth-bust",
+      "file": "08-myth-bust.json",
+      "group": "classic"
+    },
+    {
+      "id": "buyers-checklist",
+      "file": "09-buyers-checklist.json",
+      "group": "classic"
+    },
+    {
+      "id": "day-in-the-life",
+      "file": "10-day-in-the-life.json",
+      "group": "classic"
+    }
+  ]
+}

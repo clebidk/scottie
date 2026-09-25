@@ -1,0 +1,47 @@
+{
+  "id": "everyones-switching",
+  "version": "1.0.0",
+  "n_suggested": 7,
+  "n_harness": 7,
+  "template": "7 Reasons Why Everyone's Switching to [BRAND] for [SOLUTION] in 2026",
+  "formula": "switcher_brand_year",
+  "slots": [
+    "BRAND",
+    "SOLUTION"
+  ],
+  "pairs_with_skeletons": [
+    "switcher-reasons",
+    "classic-n-reasons",
+    "hormozi-value-stack"
+  ],
+  "compliance": [
+    "Year is decorative \u2014 do not treat as a claim; prefer omitting a bare year or putting it only if policy allows."
+  ],
+  "peak_saunas": {
+    "fill_hints": {
+      "BRAND": "Peak Saunas",
+      "Product": "home infrared sauna / Peak Mini / model short_name",
+      "PRODUCT": "Peak Mini / facts_pack.product.short_name",
+      "YOUR PRODUCT": "facts_pack.product.short_name",
+      "PRODUCT / SOLUTION": "home infrared + red light (verified framing)",
+      "SOLUTION": "home recovery heat / daily infrared practice",
+      "PROBLEM": "from ad angle \u2014 inconsistent recovery, poor sleep routine, spa friction (no medical promises)",
+      "COMMON PROBLEM": "same as PROBLEM, plain language",
+      "problem": "same as PROBLEM",
+      "AVATAR": "from ad \u2014 busy parents, apartment dwellers, athletes, people over N",
+      "NICHE AVATAR": "narrower avatar from ad",
+      "TARGET AGE": "only if ad names an age gate",
+      "DESIRE": "from ad promise \u2014 deeper recovery habit, not a disease claim",
+      "unique selling point": "red light included / standard outlet / crate shipping \u2014 verified only",
+      "Ingredients / Features": "for Peak: missing red light, membership lock-in, electrician requirement \u2014 not ingestible ingredients",
+      "Common Solution": "spa visits / gym heat / cheap single-band cabins",
+      "common solution": "spa visits / gym heat",
+      "common solutions": "spas, gyms, one-off memberships",
+      "common concern": "electrician install, huge footprint, upsells",
+      "AUTHORITY / DOCTOR": "ONLY a real approved Peak author/authority \u2014 otherwise skip this headline"
+    },
+    "example_fills": [
+      "7 Reasons Why People Are Switching to Peak Saunas for Home Recovery"
+    ]
+  }
+}

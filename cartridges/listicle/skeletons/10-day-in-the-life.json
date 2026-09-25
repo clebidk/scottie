@@ -1,0 +1,131 @@
+{
+  "id": "day-in-the-life",
+  "version": "1.0.0",
+  "name": "Day-in-the-life routine listicle",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Routine / day-in-the-life numbered pre-sell",
+      "url": "https://www.subscribe.chewonthis.io/p/why-you-should-be-testing-advertorial-lps",
+      "note": "Narrative journey compressed into numbered daily beats."
+    }
+  ],
+  "tags": [
+    "routine",
+    "day-in-life",
+    "habit",
+    "warm",
+    "lifestyle"
+  ],
+  "density": {
+    "approx_body_words": 260,
+    "item_count": 5,
+    "words_per_item_hint": "35-60"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Moments in a {audience} Recovery Day (With a Home Sauna)"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "reasons",
+      "required": true
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "morning_preheat",
+        "heading_hint": "App preheat while coffee starts",
+        "image_role": "item_4"
+      },
+      {
+        "number": 2,
+        "role": "session",
+        "heading_hint": "Short heat session \u2014 no outcome promises",
+        "image_role": "lifestyle"
+      },
+      {
+        "number": 3,
+        "role": "red_light_block",
+        "heading_hint": "Red light as part of the same sit",
+        "image_role": "item_2"
+      },
+      {
+        "number": 4,
+        "role": "evening_downshift",
+        "heading_hint": "Evening wind-down use case",
+        "image_role": "item_3"
+      },
+      {
+        "number": 5,
+        "role": "why_it_sticks",
+        "heading_hint": "Why home access beats commuting \u2014 practical, not medical",
+        "image_role": "hero"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "lifestyle_diary",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "No sleep/recovery medical guarantees without verified studies.",
+      "Routine is illustrative, not a clinical protocol."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "routine",
+      "daily",
+      "habit",
+      "lifestyle",
+      "busy parents"
+    ],
+    "default_model": "mini",
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Five lived moments. Product features show up inside the day, not as a spec sheet. Short."
+}

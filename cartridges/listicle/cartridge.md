@@ -30,4 +30,8 @@ Hook and angle -> headline and dek. The ad's own list of features/objections/ben
 Specs, price, financing, warranty, verified studies, reviews summary, the asset library.
 
 ## From exemplars / winner library
-Exemplars are the adaptation source. Keep structure, section order, item density, and CTA placement pattern; rewrite copy into this brand's voice and this ad's angle; swap every image to an asset_id from facts_pack; replace every claim with verified_claims only. Never treat an exemplar as a claims source.
+Exemplars are a secondary voice reference. **Winner skeletons** in `cartridges/listicle/skeletons/` are the primary adaptation source for one-shot runs: keep structure, section order, item density, and CTA placement pattern; rewrite copy into this brand's voice and this ad's angle; swap every image to an asset_id from facts_pack; replace every claim with verified_claims only. Never treat an exemplar or skeleton as a claims source.
+
+Pass `--skeleton <id>` to pin a page map (e.g. `hormozi-value-stack`, `classic-n-reasons`) and `--headline <id>` to pin a pre-sell title swipe (e.g. `everyones-switching`, `most-dont-work`). When omitted, the harness picks both from ad angle tags (defaults: `classic-n-reasons` + `everyones-switching`). Peak fill hints live on each file under `peak_saunas`. See `cartridges/listicle/skeletons/README.md` and `.../headlines/`.
+
+Library groups: 2 Hormozi page maps, 1 native article+comments, 1 simplified PDP (`simplified-pdp` → product-page), 6 classic listicles, plus **17 headline swipe templates**.

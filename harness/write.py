@@ -134,7 +134,7 @@ Outside a sentence that carries a claim_id, write numbers as words, not numerals
 
 A number that comes only from the ad speaker's own statements (her own cost estimate, math, or hedge -- ad_brief.speaker_experience, e.g. "she put memberships at around $200 a month") is never something you can state as fact in the brand's own voice, and it never gets a claim_id (there isn't a verified claim for someone's personal estimate). It may ONLY appear inside a plain narrative paragraph, phrased explicitly as her own estimate and set "attributed_to_customer": true on that paragraph's own JSON node -- e.g. "One customer told us she put her studio memberships at around $200 a month, or about $2,400 a year." The sentence must itself read as attributed: say "customer", or "she"/"he"/"they" together with "told us"/"estimated"/"said" -- not just the attributed_to_customer flag with plain assertive prose. A number like this must NEVER appear in a heading, a proof/benefit bullet, a spec-table row, or an FAQ answer, marked attributed or not -- those are for verified facts only. A number NOT in the ad speaker's own words still needs an ordinary claim_id no matter where it appears, attributed_to_customer or not.
 
-If the user message includes "exemplars", use them as the adaptation source for voice and structure. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} page -- match its component map, section density, and tone. For listicle, prefer adapting the winner's rhythm over inventing long copy; there is no page-level word minimum unless this cartridge's own rules state an "N-M words" band (other cartridges may still have one). Never copy an exemplar's numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
+If the user message includes "skeleton", treat it as the winner component map to fill: keep its section order, item roles, density, and CTA placement; rewrite copy into this brand's voice and this ad's angle; map image_role hints to asset_ids from facts_pack; put only verified_claims in claim_ids. Do not invent a new layout. If the user message includes "headline_skeleton", fill that swipe template for the page headline: replace [PLACEHOLDERS] from ad_brief + brand; clamp reason count to the cartridge's 5-7; obey compliance notes on the headline (no invented social-proof counts, no fake doctors, no forbidden hype words). Prefer peak_saunas.example_fills when present and still accurate. If the user message also includes "exemplars", use them as secondary voice reference for the same skeleton. A JSON exemplar shows the page.json shape; a {{"reference_article": "..."}} exemplar is a real published {company} page -- match its component map, section density, and tone. For listicle, prefer adapting the winner's rhythm over inventing long copy; there is no page-level word minimum unless this cartridge's own rules state an "N-M words" band (other cartridges may still have one). Never copy an exemplar's or skeleton's numbers, claims, or competitor comparisons into this page unless the same fact also appears in this page's own facts_pack.verified_claims.
 
 ## Guardrails
 {guardrails}
@@ -437,10 +437,17 @@ def _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeate
 # per-ad, not stable across runs, and exemplars/revision_note are per-call by
 # design (fix cycle 12 item 1's exemplar-skip-on-repair, fix cycle 4's
 # per-attempt revision note).
-def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None):
+def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None, winner=None, skeleton=None):
     volatile_payload = {"ad_brief": ad_brief}
     if exemplars:
         volatile_payload["exemplars"] = exemplars
+    # Winner payload: page skeleton + optional headline swipe. Kept on repair
+    # attempts (unlike exemplars) -- small, and it is the structure / title
+    # formula to fill. `skeleton=` alone is accepted for older callers.
+    if winner:
+        volatile_payload.update(winner)
+    elif skeleton:
+        volatile_payload["skeleton"] = skeleton
     volatile_text = json.dumps(volatile_payload)
     if revision_note:
         volatile_text += "\n\n" + revision_note
@@ -471,9 +478,51 @@ def _content_len(content):
 # batches.create -- shared so a batched initial write is byte-for-byte the
 # same request a synchronous one would have made. Never carries a
 # revision_note -- attempt 1 never has one either way.
+def _resolve_skeleton_payload(cartridge_name, ad_brief, skeleton_id=None, skeleton=None,
+                              headline_id=None, headline=None):
+    """Compact {skeleton, headline} for listicle/product-page winner fills,
+    or None. Explicit objects win; else select by id / ad tags."""
+    if cartridge_name not in ("listicle", "product-page") and skeleton is None and headline is None:
+        return None
+    if cartridge_name not in ("listicle", "product-page"):
+        # Still allow an explicit override if a caller passed one.
+        if skeleton is None and headline is None:
+            return None
+    from . import skeletons as skeletons_mod
+    sk = skeleton
+    if sk is None and cartridge_name in ("listicle", "product-page"):
+        sk = skeletons_mod.skeleton_for_writer(
+            skeletons_mod.select_skeleton(
+                ad_brief, skeleton_id=skeleton_id, for_cartridge=cartridge_name,
+            )
+        )
+    elif sk is not None and "writer_brief" not in sk and sk.get("id"):
+        # Already compact or full — leave as-is
+        pass
+
+    hl = headline
+    if hl is None and cartridge_name == "listicle":
+        # Headlines are listicle pre-sell templates; skip for pure PDP fills.
+        sk_id = (sk or {}).get("id") or skeleton_id
+        hl = skeletons_mod.headline_for_writer(
+            skeletons_mod.select_headline(
+                ad_brief, headline_id=headline_id, skeleton_id=sk_id,
+            )
+        )
+    if sk is None and hl is None:
+        return None
+    payload = {}
+    if sk is not None:
+        payload["skeleton"] = sk
+    if hl is not None:
+        payload["headline_skeleton"] = hl
+    return payload
+
+
 def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, model,
                                  word_range=None, allowed_cta_texts=None, ad_not_repeated=None,
-                                 tenant=None):
+                                 tenant=None, skeleton_id=None, skeleton=None,
+                                 headline_id=None, headline=None):
     """(schema, kwargs) -- schema so the caller can validate_schema() the
     parsed response the same way write_page does; kwargs is ready to pass to
     client.messages.create(**kwargs) or wrap in a batch Request's params."""
@@ -483,7 +532,13 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name))
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
+    winner = _resolve_skeleton_payload(
+        cartridge_name, ad_brief, skeleton_id=skeleton_id, skeleton=skeleton,
+        headline_id=headline_id, headline=headline,
+    )
+    messages = [_build_initial_user_message(
+        ad_brief, facts_pack, exemplars, winner=winner,
+    )]
     kwargs = {
         "model": model,
         "max_tokens": max_tokens_for_word_range(word_range),
@@ -496,7 +551,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
-               tenant=None):
+               tenant=None, skeleton_id=None, skeleton=None, headline_id=None, headline=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -510,7 +565,11 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     item's own claim text and verified_fact (claims.gate_ad_brief_claims's
     return shape; verified_fact is None for a plain-unmatched claim -- there
     is no single fact to point to) are told to the writer as statements to
-    never repeat."""
+    never repeat.
+
+    skeleton_id / headline_id: optional winner page + headline swipe templates
+    for listicle / product-page one-shot fills. Unlike exemplars, the resolved
+    winner payload is kept on repair attempts."""
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
@@ -521,6 +580,12 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     # buys real budget headroom for the repair loop without changing what
     # the writer is told to fix.
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
+    # Winner skeletons/headlines stay on repair: small, and they are the
+    # structure / title formula to fill.
+    winner = _resolve_skeleton_payload(
+        cartridge_name, ad_brief, skeleton_id=skeleton_id, skeleton=skeleton,
+        headline_id=headline_id, headline=headline,
+    )
 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
@@ -533,7 +598,9 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
     stage = f"write.{cartridge_name}"
     last_error = None
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note)]
+    messages = [_build_initial_user_message(
+        ad_brief, facts_pack, exemplars, revision_note, winner=winner,
+    )]
     for attempt in range(2):
         budget.check()
         # Fix cycle 12 item 1: log an approximate prompt size (chars / 4, the
