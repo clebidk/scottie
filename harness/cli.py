@@ -496,11 +496,45 @@ def cmd_packet(args):
     return 0
 
 
+class PublishLocked(ShopifyCredentialsMissing):
+    """tenant.yaml `publish_locked: true`: nothing goes live on the store."""
+
+
+class LockedShopifyPublisher(ShopifyPublisher):
+    """Training wheels (owner decision 2026-10-05): with `publish_locked: true`
+    no generated page goes live. Hidden (unpublished) draft pages and asset
+    uploads still work, so reviewers can preview; publishing live, switching a
+    page live and creating redirects raise PublishLocked. A subclass of
+    ShopifyCredentialsMissing, so every publish path already prints it and
+    exits 1."""
+
+    MESSAGE = ("publishing is locked for this tenant (tenant.yaml publish_locked: true, "
+               "owner decision 2026-10-05): generated pages stay hidden drafts until the owner lifts it")
+
+    def publish(self, page, *, unpublished=True):
+        if not unpublished:
+            raise PublishLocked(self.MESSAGE)
+        return super().publish(page, unpublished=True)
+
+    def update_page(self, page_id, page, *, unpublished=True):
+        if not unpublished:
+            raise PublishLocked(self.MESSAGE)
+        return super().update_page(page_id, page, unpublished=True)
+
+    def create_redirect(self, path, target):
+        raise PublishLocked(self.MESSAGE)
+
+
 def _make_publisher(tenant, *, export_dir):
     """tenant.yaml's `publisher` key picks the adapter; `export` (the
-    default) needs no credentials at all."""
+    default) needs no credentials at all. `publish_locked: true` swaps in
+    LockedShopifyPublisher, the one gate every Shopify publish path (CLI,
+    review-site Publish button via the worker, A/B/C auto-publish) goes
+    through."""
     kind = tenant.get("publisher") or "export"
     if kind == "shopify":
+        if tenant.get("publish_locked") is True:
+            return LockedShopifyPublisher()
         return ShopifyPublisher()  # reads SHOPIFY_STORE/SHOPIFY_TOKEN from the tenant's .env
     return ExportPublisher(out_dir=export_dir)
 

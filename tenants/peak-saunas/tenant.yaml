@@ -246,7 +246,8 @@ abtest:
   min_views: 300
   beacon_url: https://listicle.peaksaunasteam.com/e
   # Cycle 69 (owner decision): tests go live as soon as their pages are built.
-  auto_publish: true
+  # 2026-10-05 (owner): off while training wheels are on -- see publish_locked.
+  auto_publish: false
 
 notifications:
   slack: false
@@ -255,6 +256,11 @@ notifications:
 # Cycle 68 (owner decision 2026-09-23): every new ad in PEAK's Meta ad
 # account is pulled into meta_inbox/ for an A/B/C landing-page test. Read
 # only (ads_read). META_ACCESS_TOKEN lives in .env; see docs/META-INGEST.md.
+# 2026-10-05 (owner decision, "training wheels"): ads may be pulled and pages
+# built for review, but no generated page goes live on the store until the
+# owner lifts this. Enforced in harness/cli.py LockedShopifyPublisher.
+publish_locked: true
+
 meta:
   ad_account_id: act_963439094733982
   graph_api_version: v24.0

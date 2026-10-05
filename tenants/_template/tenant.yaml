@@ -186,6 +186,11 @@ abtest:
   # with `harness abtest publish`.
   auto_publish: false
 
+# true: no generated page goes live on the store. Hidden draft pages and
+# asset uploads still work, so reviewers can preview; publishing live,
+# switching a page live and redirects fail with a clear message.
+publish_locked: false
+
 # Reviewer notifications sent on: a run reaching needs_review, an approve,
 # and a publish. Both channels are entirely optional and fail closed -- no
 # SLACK_WEBHOOK_URL / SMTP_* in .env just logs a skip, never blocks a run

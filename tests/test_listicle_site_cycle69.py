@@ -196,11 +196,12 @@ def test_ad_key_groups_names_and_source_files():
     assert ads.name_from_source_file("dir/product-features-v2.wav") == "product-features-v2"
 
 
-def test_auto_publish_setting_defaults_false_and_is_on_for_peak():
+def test_auto_publish_setting_defaults_false_and_is_off_for_peak():
+    # 2026-10-05 (owner, training wheels): PEAK's auto_publish is off again.
     from tests.test_abtest_cycle67 import ConfigTenant
     assert abtest.settings(ConfigTenant())["auto_publish"] is False
     assert abtest.settings(ConfigTenant({"auto_publish": True}))["auto_publish"] is True
-    assert abtest.settings(TENANT)["auto_publish"] is True
+    assert abtest.settings(TENANT)["auto_publish"] is False
     template = (REPO_ROOT / "tenants" / "_template" / "tenant.yaml").read_text()
     assert re.search(r"^\s+auto_publish: false\s*$", template, re.M)
 
@@ -498,6 +499,8 @@ def test_an_uploaded_image_is_served_as_the_type_its_bytes_say(client):
 
 
 def test_create_test_job_auto_publishes_and_shows_the_split_link(monkeypatch, client):
+    # auto publish is a per-tenant switch; PEAK has it off since 2026-10-05
+    monkeypatch.setitem(TENANT.config["abtest"], "auto_publish", True)
     runner = FakeRunner()
     monkeypatch.setattr(abtest, "default_runner", runner)
     _upload(client, name="Cold Plunge Myths")
