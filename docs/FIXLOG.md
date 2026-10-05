@@ -3888,14 +3888,24 @@ derivatives used to assign it and drop the image). Regression tests rebuild that
 and check build AND rerender (`tests/test_first_screen_cycle79.py`).
 
 ### Verify
-- Suite: 2307 passed (master 2360; the five-look test modules were rewritten for one look,
-  `tests/test_look_rhythm.py` removed). New `tests/test_first_screen_cycle79.py` (40).
+- Suite: 2305 passed, 0 failed (master: 2360; the five-look tests were rewritten for one
+  look and `tests/test_look_rhythm.py` was removed, so the count is lower). New
+  `tests/test_first_screen_cycle79.py` (39).
 - Previews (no writer call): all 30 runs of 2026-10-05 17:13-17:48 copied to `~/c79-preview/`
   and re-rendered -- listicle runs in story + display, plus face for the 3 video ads (7
   image-ad runs have no usable still); 2 runs had no page (STOPped). Screenshots
   (headless Chrome, 390x844 and 1440x900, plus full pages) in `~/asset-inbox/c79-shots/`.
 - Live smoke runs from the worktree (.env and meta_inbox symlinked, removed after):
-  see the table in the cycle report; all PASS on attempt 2. Spend $0.34 + $0.02 for stills.
+
+  | run | ad | hero | headline template | result | cost |
+  |---|---|---|---|---|---|
+  | 20261005-200242-...-65ji | Mini video | face | o1 `The apartment sauna she "could not be more excited" about` | PASS attempt 2 (repeat_number) | $0.135 |
+  | 20261005-200346-...-c3qb | athlete video | story | o2 `No gym membership. No shared machine. Still a real recovery routine.` | PASS attempt 2 (o2 beat 4 words, proof restates body) | $0.103 |
+  | 20261005-200447-...-62q7 | regret image | display | o3 `Still think logical research guarantees the right sauna choice?` | PASS attempt 2 ("She" in the dek with no quote) | $0.104 |
+
+  Stills $0.021 for 10 ads. Total cycle spend $0.36 (worktree ledger).
+- Headless Chrome screenshots sometimes caught a large hero image before it painted (a blank,
+  correctly sized box); the DOM showed it loaded and a retake showed it. Not a page defect.
 
 ### Open
 - A listicle run now pays one ~$0.003 vision call for the still.
@@ -3906,3 +3916,6 @@ and check build AND rerender (`tests/test_first_screen_cycle79.py`).
 - Old-mark photos still fill lower item slots (cycle 78 rule, kept per the correction).
 - Face/story on pre-cycle-79 pages use the first ad quote and the dek as the lede; only new
   runs carry an open-loop lede and headline.
+- Seen on smoke run 65ji: item 4's body and proof line quote the same ad sentence, and proof
+  lines end in "(PEAK product page, 2026)". Not gated today (quoted text is outside the
+  repeat-sentence check).
