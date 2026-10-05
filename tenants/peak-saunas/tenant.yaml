@@ -246,6 +246,20 @@ jev:
   enabled: true
   drafts: 2
   timeout_s: 60
+  # A later draft ships only when its Jev composite beats the first passing
+  # draft by at least this much; else the first passing draft ships.
+  min_margin: 0.02
+
+# Cycle 76: Message Batches API (half price) for builds nobody waits on:
+# A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta
+# ads) send every draft's first write in one batch. The review site's
+# regenerate / feedback and `harness revise` stay real time; `harness run`
+# batches only with --batch. timeout_s: how long a run waits for the batch
+# before it cancels it and writes in real time (the wait is not counted in
+# the run's 300 s wall-clock budget).
+batch_api:
+  non_interactive: true
+  timeout_s: 1800
 
 # Cycle 16 item 9 (Thursday queue item 3, "consult-CTA variant per config"). A
 # short form of the company name for a consult-mode CTA phrase.

@@ -21,7 +21,9 @@ tenant .env). It is never logged, printed or written to state.json.
 Tenant settings (tenant.yaml `jev:`): `enabled` (default false: one draft,
 exactly the pre-cycle-76 run), `drafts` (default 1, clamped to 1..MAX_DRAFTS;
 the environment variable HARNESS_JEV_DRAFTS overrides it, e.g. `=1` for one
-run with a single draft) and `timeout_s` (one Jev call, default 60).
+run with a single draft), `timeout_s` (one Jev call, default 60) and
+`min_margin` (default 0.02: how much a later draft must beat the first
+passing draft by to ship instead of it).
 
 The rubric is data: cartridges/listicle/jev-rubric.yaml, or the tenant's own
 tenants/<tenant>/jev-rubric.yaml when present.
@@ -43,6 +45,8 @@ KEY_ENV = "TYPESAFE_API_KEY"
 DRAFTS_ENV = "HARNESS_JEV_DRAFTS"
 RUBRIC_PATH = REPO_ROOT / "cartridges" / "listicle" / "jev-rubric.yaml"
 DEFAULT_TIMEOUT_S = 60
+# A later draft must beat the first passing draft by this much (harness/drafts.py).
+DEFAULT_MIN_MARGIN = 0.02
 MAX_DRAFTS = 3
 RETRY_STATUSES = (429, 529)
 RETRY_DELAYS_S = (1, 2, 4)
@@ -69,7 +73,11 @@ def settings(tenant):
         timeout_s = float(cfg.get("timeout_s", DEFAULT_TIMEOUT_S))
     except (TypeError, ValueError):
         timeout_s = DEFAULT_TIMEOUT_S
-    return {"enabled": enabled, "drafts": drafts, "timeout_s": timeout_s}
+    try:
+        min_margin = max(0.0, float(cfg.get("min_margin", DEFAULT_MIN_MARGIN)))
+    except (TypeError, ValueError):
+        min_margin = DEFAULT_MIN_MARGIN
+    return {"enabled": enabled, "drafts": drafts, "timeout_s": timeout_s, "min_margin": min_margin}
 
 
 def drafts_for_run(tenant, selected):

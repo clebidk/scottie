@@ -107,7 +107,7 @@ class FakeJev:
 @pytest.fixture
 def two_drafts(monkeypatch):
     monkeypatch.setenv("HARNESS_JEV_DRAFTS", "2")
-    monkeypatch.setattr(drafts, "STAGGER_S", 0)
+    monkeypatch.setattr(drafts, "CACHE_WAIT_S", 5)
     monkeypatch.setattr(jev, "api_key", lambda: "test-key")
 
 
@@ -226,8 +226,8 @@ def test_no_key_and_network_timeout_raise_jev_unavailable(monkeypatch):
 
 def test_settings_default_off_env_override_and_clamp(monkeypatch):
     monkeypatch.delenv("HARNESS_JEV_DRAFTS", raising=False)
-    assert jev.settings(TENANT) == {"enabled": True, "drafts": 2, "timeout_s": 60.0}
-    assert jev.settings(_TenantDouble()) == {"enabled": False, "drafts": 1, "timeout_s": 60}
+    assert jev.settings(TENANT) == {"enabled": True, "drafts": 2, "timeout_s": 60.0, "min_margin": 0.02}
+    assert jev.settings(_TenantDouble()) == {"enabled": False, "drafts": 1, "timeout_s": 60, "min_margin": 0.02}
     assert jev.drafts_for_run(TENANT, ["article"]) == 1
     assert jev.drafts_for_run(TENANT, ["listicle"]) == 2
     monkeypatch.setenv("HARNESS_JEV_DRAFTS", "1")
@@ -440,6 +440,8 @@ def test_abtest_builds_use_the_same_best_of_two_path(two_drafts, monkeypatch):
     client = RoutedClient({sk1: [_good_page()], sk2: [_other_good_page()]})
     monkeypatch.setattr(jev, "api_key", lambda: "")
     monkeypatch.setattr("harness.anthropic_client.make_client", lambda: client)
+    # real-time here; the batch path is tests/test_cost_cycle76.py's
+    monkeypatch.setattr("harness.batch.settings", lambda tenant: {"non_interactive": False, "timeout_s": 1})
     arm = abtest.parse_arm(f"listicle:{STYLE}", TENANT)
     # default_runner has no --headline-template; pin the run's template so the
     # canned page's headline fits both drafts.

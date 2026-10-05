@@ -29,9 +29,20 @@ Which draft ships:
     for draft 1 only, and only when no draft passed on attempt 1, so a
     best-of-N run never pays for a repair it does not need.
 
-Draft k starts (k - 1) * STAGGER_S seconds after draft 1, so it can read the
-prompt cache draft 1 writes (the system prefix and the facts pack are the
-same) instead of writing it a second time.
+Prompt cache: everything before the last cache breakpoint is the same for
+every draft (harness/write.py puts each draft's own headline and skeleton
+lines after it). Drafts 2..n start when draft 1's response starts streaming
+(its cache entry exists then; at most CACHE_WAIT_S), so they read the cache
+draft 1 wrote instead of writing their own copy.
+
+Message Batches (tenant.yaml `batch_api.non_interactive`, harness/batch.py):
+the first write of every draft goes in one batch at half price; each
+draft's page then runs the same gates and the same rules below.
+
+Minimum margin (`jev.min_margin`, default 0.02): a later draft ships only
+when its composite beats the first passing draft by at least this much --
+Jev's composite moves about 0.003 between identical calls, and two drafts a
+hair apart are a coin toss, so the first draft keeps the page stable.
 
 Recorded: the run log (every write line is tagged with its draft, e.g.
 "write.listicle[draft 2]", plus "drafts:" and "jev:" lines), state.json's
@@ -53,7 +64,8 @@ from . import skeletons
 from .budget import BudgetExceeded
 from .claims import ClaimsGateFailure
 
-STAGGER_S = 5
+# Drafts 2..n wait at most this long for draft 1's response to start.
+CACHE_WAIT_S = 45
 # Jev must answer inside the run's wall clock with this much to spare for
 # render and review.
 WALL_RESERVE_S = 30
@@ -125,12 +137,15 @@ def _first_failure_keys(attempts):
     return [str(item.get("key") or item.get("path") or item.get("issue")) for item in first][:12]
 
 
-def _write_all(state, kwargs, plan):
+def _write_all(state, kwargs, plan, initial=None):
     """Run write_and_gate_page for every draft at once. Returns one
-    {"page", "attempts", "fixes", "error"} per draft."""
+    {"page", "attempts", "fixes", "error"} per draft. `initial`: per draft,
+    (page, tokens) from a Message Batch, or None to write it here."""
     n = len(plan)
+    initial = list(initial or []) + [None] * n
     futures = []
     submitted = threading.Event()
+    cache_ready = threading.Event()
 
     def others_passed():
         submitted.wait()
@@ -138,17 +153,23 @@ def _write_all(state, kwargs, plan):
         return any(f.exception() is None for f in futures[1:])
 
     def task(k):
-        if k:
-            time.sleep(k * STAGGER_S)
-        return repair.write_and_gate_page(
-            **kwargs,
-            log=_DraftLog(state.log, k + 1),
-            listicle_headline=plan[k]["headline"],
-            listicle_skeleton=plan[k]["skeleton"],
-            # Draft 1 repairs only when no other draft passed attempt 1;
-            # drafts 2..n never repair.
-            on_first_failure=(lambda: not others_passed()) if k == 0 else (lambda: False),
-        )
+        page, tokens = initial[k] or (None, 0)
+        if k and page is None and not cache_ready.wait(CACHE_WAIT_S):
+            state.log.event(f"drafts[draft {k + 1}]", f"draft 1 had not started after {CACHE_WAIT_S}s; writing now")
+        try:
+            return repair.write_and_gate_page(
+                **{**kwargs, "initial_page": page, "initial_call_tokens": tokens},
+                on_write_started=cache_ready.set if k == 0 else None,
+                log=_DraftLog(state.log, k + 1),
+                listicle_headline=plan[k]["headline"],
+                listicle_skeleton=plan[k]["skeleton"],
+                # Draft 1 repairs only when no other draft passed attempt 1;
+                # drafts 2..n never repair.
+                on_first_failure=(lambda: not others_passed()) if k == 0 else (lambda: False),
+            )
+        finally:
+            if k == 0:
+                cache_ready.set()  # a batch page or an early error: nothing to wait for
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=n, thread_name_prefix="draft") as pool:
         for k in range(n):
@@ -194,18 +215,22 @@ def _score_drafts(state, passed, results):
         return {k: f.result() for k, f in futures.items()}
 
 
-def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_headline=None):
+def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_headline=None, plan=None,
+                        initial=None):
     """The listicle's (page, attempts, deterministic_fixes) -- the same
     return as repair.write_and_gate_page -- after writing n drafts and
     picking one. Sets state.listicle_headline / state.listicle_skeleton to the
     shipped draft's, so render_pages records them. Raises exactly what a
-    single-draft run raises when no draft can ship."""
+    single-draft run raises when no draft can ship. `plan`/`initial`: the
+    drafts' variants and their batch-written first pages (pipeline's batch
+    path); else the variants are made here and every draft is written here."""
     log = state.log
-    plan = variants(state, n, requested_skeleton=requested_skeleton, requested_headline=requested_headline)
+    plan = plan or variants(state, n, requested_skeleton=requested_skeleton, requested_headline=requested_headline)
     for k, v in enumerate(plan, 1):
         log.event("drafts", f"draft {k}: headline template {(v['headline'] or {}).get('id')}, "
-                            f"skeleton {(v['skeleton'] or {}).get('id')}")
-    results = _write_all(state, kwargs, plan)
+                            f"skeleton {(v['skeleton'] or {}).get('id')}"
+                            + (" (batch)" if initial and k <= len(initial) and initial[k - 1] else ""))
+    results = _write_all(state, kwargs, plan, initial)
 
     rows = []
     for k, r in enumerate(results):
@@ -270,13 +295,20 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
                 log.event("jev", f"draft {k + 1}: composite {res['composite']:.3f} overall "
                                  f"{res['overall'] if res['overall'] is not None else '-'} "
                                  + " ".join(f"{q}={v:.2f}" for q, v in res["scores"].items()))
-            winner = max(passed, key=lambda k: (scored[k]["composite"], -k))
-            runner_up = max((k for k in passed if k != winner), key=lambda k: (scored[k]["composite"], -k))
-            margin = scored[winner]["composite"] - scored[runner_up]["composite"]
-            record.update(status="scored", usage=usage,
+            min_margin = jev.settings(state.tenant)["min_margin"]
+            first = passed[0]
+            best = max(passed, key=lambda k: (scored[k]["composite"], -k))
+            if best != first and scored[best]["composite"] - scored[first]["composite"] >= min_margin:
+                winner, other, note = best, first, ""
+            else:
+                winner = first
+                other = max((k for k in passed if k != first), key=lambda k: (scored[k]["composite"], -k))
+                gap = scored[other]["composite"] - scored[first]["composite"]
+                note = (" (tie: first passing draft ships)" if gap == 0 else
+                        f" (gap {gap:.3f} < min_margin {min_margin}: first passing draft ships)" if gap > 0 else "")
+            record.update(status="scored", usage=usage, min_margin=min_margin,
                           reason=(f"draft {winner + 1} composite {scored[winner]['composite']:.3f} vs draft "
-                                  f"{runner_up + 1} {scored[runner_up]['composite']:.3f}"
-                                  + (" (tie: lower draft number ships)" if margin == 0 else "")))
+                                  f"{other + 1} {scored[other]['composite']:.3f}" + note))
             log.event("jev", f"usage input_tokens={usage['input_tokens']} output_tokens={usage['output_tokens']} "
                              f"(billed by TypeSafe, not in estimated_cost_usd)")
     if record["status"] == "jev_unavailable":

@@ -1403,7 +1403,8 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                          financing_lender, speaker_pov, ad_not_repeated=None, tenant=None,
                          repair_first_model=None, repair_next_model=None,
                          initial_page=None, initial_call_tokens=0, listicle_style=None,
-                         listicle_headline=None, listicle_skeleton=None, on_first_failure=None):
+                         listicle_headline=None, listicle_skeleton=None, on_first_failure=None,
+                         on_write_started=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -1434,7 +1435,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     arguments when attempt 1 fails the gates, before any repair. True: repair
     as usual. False: no repair -- raise ClaimsGateFailure at once with
     .discarded = True (another draft passed, or this is not the first
-    draft)."""
+    draft). on_write_started: passed to write_page as on_started."""
     tenant = tenant or tenant_mod.active()
     schema, word_range, allowed_cta_texts = cartridge_write_constraints(
         cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant
@@ -1546,6 +1547,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 listicle_skeleton=listicle_skeleton,
                 current_page=current_page,
                 patch_roots=patch_roots,
+                **({"on_started": on_write_started} if on_write_started is not None else {}),
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)

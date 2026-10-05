@@ -466,18 +466,51 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
 # Cycle 73: `skeleton` is the run's winner skeleton payload
 # (skeletons.for_writer); its lines say how to use it and that it never
 # outranks these constraints.
+# Cycle 76: include_draft=False leaves out the lines that differ between two
+# drafts of one run (the headline template's lines and the skeleton's) --
+# _listicle_draft_lines puts them after the last cache breakpoint instead.
 def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None, skeleton=None,
-                                    tenant=None):
+                                    tenant=None, include_draft=True):
     if cartridge_name != "listicle":
         return
     hard_constraints.extend(listicle.writer_rules_lines())
-    if style:
-        hard_constraints.extend(listicle.writer_style_lines(style, headline=headline))
-    hard_constraints.extend(skeletons.writer_lines(skeleton))
+    if include_draft:
+        hard_constraints.extend(_listicle_draft_lines(cartridge_name, style, headline, skeleton))
     # Cycle 74: the copy-quality rules harness/listicle_quality.py gates.
     hard_constraints.extend(listicle_quality.writer_lines(getattr(tenant, "display_name", None)))
     if style == "myths":
         hard_constraints.append(listicle_quality.myth_writer_line())
+
+
+def _listicle_draft_lines(cartridge_name, style, headline=None, skeleton=None):
+    """Cycle 76: the hard-constraint lines that are this draft's own -- the
+    style and headline template lines (they quote the template) and the
+    skeleton lines (they name it). Everything else in the system prompt is
+    the same for every draft of a run, so the prompt cache is shared."""
+    if cartridge_name != "listicle":
+        return []
+    lines = listicle.writer_style_lines(style, headline=headline) if style else []
+    return lines + skeletons.writer_lines(skeleton)
+
+
+# Cycle 76: the listicle writer never reads a URL except the product's own
+# (its cta_url): asset ids, claim ids and the product url are what it cites.
+# The asset urls, claim source urls and product image urls are cut from the
+# copy of the facts pack it is sent (about 2.5k tokens a run); the
+# renderer and every gate still read the full pack.
+def writer_facts_pack(cartridge_name, facts_pack):
+    if cartridge_name != "listicle" or not isinstance(facts_pack, dict):
+        return facts_pack
+    out = dict(facts_pack)
+    if isinstance(out.get("assets"), list):
+        out["assets"] = [{k: v for k, v in a.items() if k != "url"} if isinstance(a, dict) else a
+                         for a in out["assets"]]
+    if isinstance(out.get("verified_claims"), list):
+        out["verified_claims"] = [{k: v for k, v in c.items() if k != "source"} if isinstance(c, dict) else c
+                                  for c in out["verified_claims"]]
+    if isinstance(out.get("product"), dict):
+        out["product"] = {k: v for k, v in out["product"].items() if k != "image_urls"}
+    return out
 
 
 # Cycle 74: select, do not generate. A listicle writer gets the ad speaker's
@@ -641,9 +674,25 @@ def _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeate
 # per-ad, not stable across runs, and exemplars/revision_note are per-call by
 # design (fix cycle 12 item 1's exemplar-skip-on-repair, fix cycle 4's
 # per-attempt revision note).
+#
+# Cycle 76 (listicle, the one cartridge that writes several drafts): the
+# cached first block also carries what is the same on every draft and every
+# repair of one run -- ad_brief, ad_quotes and allowed_numbers. The second
+# block holds only what differs per draft or per attempt: exemplars (attempt
+# 1 only), the skeleton, the draft's own hard-constraint lines
+# (`draft_lines`), current_page, the revision note. So draft 2 of a run reads
+# draft 1's cache entry instead of writing its own. Every other cartridge
+# keeps ad_brief after the breakpoint, as before.
 def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None, skeleton=None,
-                                extras=None, current_page=None):
-    volatile_payload = {"ad_brief": ad_brief}
+                                extras=None, current_page=None, draft_lines=None, cartridge_name=None):
+    shared = {"facts_pack": writer_facts_pack(cartridge_name, facts_pack)}
+    volatile_payload = {}
+    if cartridge_name == "listicle":
+        shared["ad_brief"] = ad_brief
+        shared.update(extras or {})
+    else:
+        volatile_payload["ad_brief"] = ad_brief
+        volatile_payload.update(extras or {})
     if exemplars:
         volatile_payload["exemplars"] = exemplars
     # Cycle 73: the listicle's winner skeleton (harness/skeletons.py). Unlike
@@ -651,11 +700,12 @@ def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=N
     # item map the repaired page must still follow.
     if skeleton:
         volatile_payload["skeleton"] = skeleton
-    volatile_payload.update(extras or {})
     # Cycle 74: a patch repair (harness/pagepatch.py) edits this page.
     if current_page is not None:
         volatile_payload["current_page"] = current_page
     volatile_text = json.dumps(volatile_payload)
+    if draft_lines:
+        volatile_text += "\n\n## Hard constraints for this page\n" + "\n".join(f"- {c}" for c in draft_lines)
     if revision_note:
         volatile_text += "\n\n" + revision_note
     return {
@@ -663,7 +713,7 @@ def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=N
         "content": [
             {
                 "type": "text",
-                "text": json.dumps({"facts_pack": facts_pack}),
+                "text": json.dumps(shared),
                 "cache_control": {"type": "ephemeral"},
             },
             {"type": "text", "text": volatile_text},
@@ -703,13 +753,17 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
-                                    skeleton=skeleton, tenant=tenant)
+                                    skeleton=skeleton, tenant=tenant, include_draft=False)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, skeleton=skeleton,
-                                            extras=_listicle_payload(cartridge_name, ad_brief, facts_pack))]
+    messages = [_build_initial_user_message(
+        ad_brief, facts_pack, exemplars, skeleton=skeleton,
+        extras=_listicle_payload(cartridge_name, ad_brief, facts_pack),
+        draft_lines=_listicle_draft_lines(cartridge_name, listicle_style, listicle_headline, skeleton),
+        cartridge_name=cartridge_name,
+    )]
     kwargs = {
         "model": model,
         "max_tokens": max_tokens_for_word_range(word_range),
@@ -720,10 +774,33 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     return schema, kwargs
 
 
+def _create_message(client, on_started, **kwargs):
+    """client.messages.create(**kwargs), or -- when `on_started` is given and
+    the client can stream -- the same request streamed, with on_started()
+    called at message_start: the prompt has been read and its cache entry
+    written, so a second draft started then reads it (cycle 76). The final
+    message (content and usage) is the same either way. on_started is always
+    called, also when the call fails, so nobody waits on it forever."""
+    if on_started is None:
+        return client.messages.create(**kwargs)
+    try:
+        stream_fn = getattr(client.messages, "stream", None)
+        if stream_fn is None:
+            return client.messages.create(**kwargs)
+        with stream_fn(**kwargs) as stream:
+            for event in stream:
+                if getattr(event, "type", None) == "message_start":
+                    on_started()
+                    break
+            return stream.get_final_message()
+    finally:
+        on_started()
+
+
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
                tenant=None, listicle_style=None, listicle_headline=None, listicle_skeleton=None,
-               current_page=None, patch_roots=None):
+               current_page=None, patch_roots=None, on_started=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -747,7 +824,10 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     repair. The user message carries the current page, and the writer may
     answer with {"edits": [...]} limited to patch_roots; the edits are
     applied to a copy of current_page and the result is validated like a
-    full page. A full page in reply is still accepted."""
+    full page. A full page in reply is still accepted.
+
+    on_started (cycle 76, harness/drafts.py): called once the first call's
+    response has started (see _create_message)."""
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
@@ -766,7 +846,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
-                                    skeleton=skeleton, tenant=tenant)
+                                    skeleton=skeleton, tenant=tenant, include_draft=False)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
@@ -785,6 +865,8 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
         ad_brief, facts_pack, exemplars, revision_note, skeleton=skeleton,
         extras=_listicle_payload(cartridge_name, ad_brief, facts_pack),
         current_page=current_page,
+        draft_lines=_listicle_draft_lines(cartridge_name, listicle_style, listicle_headline, skeleton),
+        cartridge_name=cartridge_name,
     )]
     for attempt in range(2):
         budget.check()
@@ -798,7 +880,8 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
             stage,
             f"prompt size: ~{approx_prompt_chars // 4} tokens (estimate, {approx_prompt_chars} chars)",
         )
-        response = client.messages.create(
+        response = _create_message(
+            client, on_started,
             model=model,
             max_tokens=max_tokens,
             system=system,

@@ -215,9 +215,8 @@ def prepare_run(state):
     if "product-page" in selected:
         state.log.event("run", f"product-page look: {state.product_page_look}")
     # Cycle 76: best-of-N listicle drafts judged by Jev (tenant.yaml `jev`).
-    # --batch writes each cartridge's first page in one Message Batch, so it
-    # keeps one draft.
-    state.drafts = 1 if getattr(args, "batch", False) else jev.drafts_for_run(tenant, selected)
+    # With --batch, every draft's first write goes in the one Message Batch.
+    state.drafts = jev.drafts_for_run(tenant, selected)
     if state.drafts > 1:
         state.log.event("run", f"listicle drafts: {state.drafts} (best of {state.drafts}, judged by Jev)")
     state.claims_config = tenant.claims_config
@@ -405,13 +404,22 @@ def gate_ad_claims(state):
         state.log.event("run", f"URL contains a forbidden term: {url}")
 
 
-def _write_initial_pages_via_batch(state, write_model):
+def _write_initial_pages_via_batch(state, write_model, listicle_drafts=None):
     """Fix cycle 17 item 5: submits every selected cartridge's initial write
     as one Message Batch (50% off), polls, and returns
     {cartridge_name: (page, tokens_spent)} for every cartridge whose result
     parsed and validated. A cartridge that isn't in the returned dict falls
     through to write_pages' normal synchronous attempt 1 below -- exactly as
-    if --batch had never been passed for that one cartridge."""
+    if --batch had never been passed for that one cartridge.
+
+    Cycle 76: listicle drafts 2..n (`listicle_drafts`) ride in the same
+    batch, keyed "listicle-draft-<n>". The time spent waiting for the batch
+    is added to the run's wall-clock budget (the budget bounds the run's own
+    work, not the batch queue), and a batch that has not ended after the
+    tenant's batch_api.timeout_s is cancelled: every page is then written in
+    real time, as without --batch."""
+    import time as _time
+
     from . import batch as batch_mod
 
     requests, schemas = batch_mod.build_batch_requests(
@@ -425,10 +433,25 @@ def _write_initial_pages_via_batch(state, write_model):
         tenant=state.tenant,
         ad_not_repeated=state.ad_not_repeated,
         listicle_skeleton=state.listicle_skeleton,
+        listicle_drafts=listicle_drafts,
     )
     created = state.client.messages.batches.create(requests=requests)
-    state.log.event("write_pages", f"batch {created.id} submitted for {len(requests)} cartridge(s)")
-    batch_mod.poll_batch(state.client, created.id, log=state.log)
+    state.log.event("write_pages", f"batch {created.id} submitted for {len(requests)} request(s)")
+    started = _time.monotonic()
+    try:
+        batch_mod.poll_batch(state.client, created.id, log=state.log,
+                             timeout_s=batch_mod.settings(state.tenant)["timeout_s"])
+    except batch_mod.BatchTimeout as e:
+        state.log.event("write_pages", f"{e}; cancelled, writing every page in real time")
+        try:
+            state.client.messages.batches.cancel(created.id)
+        except Exception as cancel_error:  # the fallback does not depend on it
+            state.log.event("write_pages", f"batch cancel failed: {cancel_error}")
+        return {}
+    finally:
+        waited = _time.monotonic() - started
+        state.budget.wall_s += waited
+        state.log.event("write_pages", f"batch wait {waited:.0f}s (not counted in the wall-clock budget)")
     results = batch_mod.collect_batch_results(state.client, created.id, schemas)
 
     initial_pages = {}
@@ -489,13 +512,23 @@ def write_pages(state):
             f"({state.listicle_headline['headline_pattern']})",
         )
 
+    # Cycle 76: the listicle drafts' headline templates and skeletons, made
+    # before any write so a batch can carry every draft.
+    draft_plan = None
+    if "listicle" in state.selected and state.drafts > 1:
+        draft_plan = drafts_mod.variants(
+            state, state.drafts, requested_skeleton=requested_skeleton,
+            requested_headline=getattr(state.args, "headline_template", None),
+        )
+
     # Fix cycle 17 item 5: `harness run --batch` submits every selected
     # cartridge's initial write as one Message Batch before this loop runs,
     # instead of each cartridge making its own synchronous attempt-1 call
     # below. Repairs (attempt 2+) are unaffected either way -- each depends
     # on that cartridge's own gate result, so they stay synchronous.
     initial_pages = (
-        _write_initial_pages_via_batch(state, write_model) if getattr(state.args, "batch", False) else {}
+        _write_initial_pages_via_batch(state, write_model, listicle_drafts=(draft_plan or [])[1:])
+        if getattr(state.args, "batch", False) else {}
     )
 
     for cartridge_name in state.selected:
@@ -520,11 +553,13 @@ def write_pages(state):
             listicle_style=state.listicle_style,
         )
         try:
-            if cartridge_name == "listicle" and state.drafts > 1 and initial_page is None:
+            if cartridge_name == "listicle" and draft_plan:
                 # Cycle 76: best of N drafts (harness/drafts.py).
+                initial = [initial_pages.get("listicle")] + [
+                    initial_pages.get(f"listicle-draft-{k}") for k in range(2, state.drafts + 1)
+                ]
                 page, attempts, deterministic_fixes = drafts_mod.write_best_listicle(
-                    state, kwargs, state.drafts, requested_skeleton=requested_skeleton,
-                    requested_headline=getattr(state.args, "headline_template", None),
+                    state, kwargs, state.drafts, plan=draft_plan, initial=initial,
                 )
             else:
                 page, attempts, deterministic_fixes = repair.write_and_gate_page(

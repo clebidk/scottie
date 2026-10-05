@@ -282,12 +282,15 @@ def default_runner(tenant, input_path, arm, seed):
     """One `harness run --cartridges <c> [--style s] [--look l] --seed N`
     through the same pipeline stages cmd_run uses. Returns (exit code,
     run_dir or None)."""
+    from . import batch as batch_mod
     from . import config as harness_config
     from .anthropic_client import make_client
 
     args = argparse.Namespace(
         input=str(input_path), cartridges=arm.cartridge, seed=seed, style=arm.style, look=arm.look,
-        product=None, batch=False, tenant=tenant.name,
+        # Cycle 76: an A/B/C build is not interactive -- its first writes go
+        # through the Message Batches API when the tenant says so.
+        product=None, batch=batch_mod.settings(tenant)["non_interactive"], tenant=tenant.name,
         ffmpeg_bin=harness_config.FFMPEG_BIN, whisper_bin=harness_config.whisper_bin(),
         whisper_model=harness_config.whisper_model(),
     )
