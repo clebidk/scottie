@@ -143,8 +143,14 @@ def _items(n=5, with_proof=True):
 def _listicle_page(style="reasons", n_items=5):
     return {
         "style": style,
+        # cycle 79 first-screen fields
+        "eyebrow": "For busy parents",
         "headline": HEADLINES[style],
+        "accent_phrase": " ".join(HEADLINES[style].split()[-2:]),
+        "display_headline": "The switch, without the guesswork",
         "dek": "A quick look at what makes the switch worth it.",
+        "lede": "What do you check before a sauna comes home? The answers start below.",
+        "scroll_cue": "Start with the first one",
         "hero": {"asset_id": "asset-1"},
         "reasons": _items(n_items),
         "audience_fit": {
@@ -275,7 +281,7 @@ def test_other_cartridges_still_enforce_their_word_range(name):
 def test_headline_length_phrase_never_parses_as_a_word_range():
     cartridge_md = (CARTRIDGE_DIR / "cartridge.md").read_text()
     headline_rule = next(line for line in cartridge_md.splitlines() if line.startswith("- Headline:"))
-    assert "8 to 14 words" in headline_rule
+    assert "6 to 13 words" in headline_rule  # cycle 79: open-loop headlines
     assert parse_word_range(headline_rule) is None
     # Why the wording matters: the old "8-14 words" is exactly the pattern
     # the page-level gate reads, and would have become a (8, 14) body gate.
@@ -567,7 +573,9 @@ def test_an_attributed_customer_proof_line_is_allowed():
         "text": 'In the ad, she says: "The room was warm before the kettle had boiled."',
         "attributed_to_customer": True,
     }
-    brief = {**AD_BRIEF, "transcript_or_text": "The room was warm before the kettle had boiled."}
+    brief = {**AD_BRIEF, "transcript_or_text": "The room was warm before the kettle had boiled. "
+                                                "I can sit in it every single evening now."}
+    page["hero_quote_id"] = "q2"  # cycle 79: the first screen names another quote (each quote once)
     assert _gate(page, listicle_style="reasons", ad_brief=brief) == []
 
 
@@ -902,74 +910,60 @@ def test_render_omits_the_fetched_date_from_trust_line_and_sticky_bar(tmp_path):
             "claim_ids": ["reviews-live"],
         },
     }
-    html = _render(_listicle_page(), tmp_path, facts_pack=facts).read_text()
+    page = _listicle_page()
+    page["hero_style"] = "display"   # the stats strip shows the rating
+    html = _render(page, tmp_path, facts_pack=facts).read_text()
     assert "fetched" not in html.lower()
-    assert "Rated 4.6 out of 5 across 8,200 reviews on Judge.me." in html
+    assert "4.6 \u2605" in html and "8,200 reviews" in html
 
 
 def test_render_listicle_page_has_every_section_when_the_data_is_there(tmp_path):
+    # Cycle 79: one look ("open"); the cycle 41-55 band/sticky/micro-CTA
+    # assertions went with the five retired looks.
     page = _listicle_page("reasons")
+    page["hero_style"] = "story"
     html = _render(page, tmp_path, facts_pack=RICH_FACTS_PACK).read_text()
 
     assert "Advertisement" not in html          # cycle 55: no label for Peak
     assert "This page is published by PEAK" in html
     assert '"@type": "ItemList"' in html
-    assert 'class="pk-lp' in html
-    assert "IntersectionObserver" in html
-    # header: hero image, H1, dek, byline
-    assert 'class="lst-h1"' in html and 'class="lst-dek"' in html
-    assert 'data-lst-hero' in html
+    assert 'class="pk-lp adv-listicle look-open' in html
+    # header: H1 and the one-line byline
+    assert 'class="op-h1' in html and 'class="op-by"' in html
     # five items, each with its own proof line
-    assert html.count('class="lst-h2"') == 5
-    assert html.count('class="lst-proof"') == 5
+    assert html.count('class="op-num"') == 5
+    assert html.count('class="op-proof"') == 5
     # renderer-owned sections
-    assert "Rated 4.8 out of 5 across 1,200 reviews." in html
     assert "It was warm before the kettle boiled." in html
     assert "Model A" in html and "$7,950" in html
     assert "may be eligible for HSA/FSA purchase" in html
-    assert "Free shipping" in html
     # the fit block, FAQ and closing recap
-    assert "Who this is for, and who it is not for" in html
-    assert html.count('class="lst-faq-item"') == 5
-    assert html.count("<li>") >= 3
-    # one CTA text in five places: header, after items 2 and 4, closing, sticky
-    assert html.count(">See the models<") == 5
+    assert "Made for you if" in html and "Not for you if" in html
+    assert html.count('class="op-qa"') == 5
+    # one CTA text: after item 3 and in the closing band (plus the value
+    # stack when the facts pack verifies one)
+    assert html.count("See the models &rarr;<") >= 2
 
     page_json = json.loads((tmp_path / "listicle" / "page.json").read_text())
     assert page_json == page
 
 
-def test_render_omits_pull_quote_hsa_and_rating_when_the_facts_pack_has_none(tmp_path):
+def test_render_omits_pull_quote_and_hsa_when_the_facts_pack_has_none(tmp_path):
     html = _render(_listicle_page(), tmp_path).read_text()
     assert "HSA" not in html
-    assert 'class="lst-quote"' not in html
-    assert 'class="lst-sticky-proof"' not in html
-    assert 'class="lst-models"' not in html
-    # the CTA still renders in all five places; only the unverified lines go
-    assert html.count(">See the models<") == 5
-    # free shipping is verified here, so the trust line survives
-    assert 'class="lst-trust"' in html
-
-
-def test_render_omits_the_trust_line_entirely_when_nothing_is_verified(tmp_path):
-    facts = {**FACTS_PACK, "verified_claims": [FACTS_PACK["verified_claims"][0]]}
-    page = _listicle_page()
-    page["closing"]["recap"][2] = {"text": "The cabin goes where you have room."}
-    html = _render(page, tmp_path, facts_pack=facts).read_text()
-    assert 'class="lst-trust"' not in html
+    assert 'class="op-pull"' not in html
+    assert 'class="op-models"' not in html
+    assert html.count("See the models &rarr;<") >= 2
 
 
 def test_about_author_stays_out_of_the_header_and_moves_to_the_footer(tmp_path):
-    # Cycle 43: the long "About the author" paragraph used to render inside
-    # the header (above the fold, next to the compact byline). It now
-    # renders just above the disclosure/sources footer instead. This needs
-    # the real tenant's own brand/byline.html (which carries the
-    # about-author marker) -- _render's fake brand_dir falls back to a
-    # byline with no About section at all, so this test builds its own
-    # render_page call.
+    # Cycle 43 / 79: the "About the author" paragraph renders above the
+    # disclosure/sources footer; the header carries only the one-line byline.
+    page = _listicle_page()
+    page["hero_style"] = "story"
     html = render_page(
         cartridge_name="listicle",
-        page=_listicle_page(),
+        page=page,
         ad_brief=AD_BRIEF,
         facts_pack=FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges",
@@ -982,7 +976,7 @@ def test_about_author_stays_out_of_the_header_and_moves_to_the_footer(tmp_path):
         tenant=TENANT,
     ).read_text()
 
-    header_end = html.index('class="lst-main"')
+    header_end = html.index('class="op-c op-items"')
     footer_start = html.index('class="adv-footer"')
     header_html, footer_html = html[:header_end], html[footer_start:]
 
@@ -990,52 +984,17 @@ def test_about_author_stays_out_of_the_header_and_moves_to_the_footer(tmp_path):
     assert "About the author." not in header_html
     assert "About the author." in footer_html
     assert footer_html.index("About the author.") < footer_html.index("adv-disclosure")
-    # the compact byline (author/contributor/reviewer + dates) stays in the
-    # header, not duplicated into the footer
-    assert "Written by" in header_html
-    assert "Written by" not in footer_html
+    assert "Austin Laudenslager" in header_html and "min read" in header_html
 
 
 def test_about_author_is_absent_when_the_tenant_byline_carries_no_about_section(tmp_path):
-    # _render's brand_dir doesn't exist, so load_byline_html falls back to
-    # FALLBACK_BYLINE, which has no About section at all -- about_author_html
-    # must simply be empty, not an error.
     html = _render(_listicle_page(), tmp_path).read_text()
     assert "About the author" not in html
 
 
-def test_the_sticky_bar_is_inside_the_cartridge_wrapper_not_base_html(tmp_path):
-    html = _render(_listicle_page(), tmp_path).read_text()
-    assert 'class="lst-sticky"' in html
-    wrapper_start = html.index('class="pk-lp')
-    wrapper_end = html.index("</div>\n\n<script>")
-    assert wrapper_start < html.index('class="lst-sticky"') < wrapper_end
-    # base.html is untouched: the sticky bar is not in the shared template
-    assert "lst-sticky" not in (REPO_ROOT / "harness" / "templates" / "base.html").read_text()
-
-
-def test_the_sticky_bar_is_visible_without_javascript(tmp_path):
-    html = _render(_listicle_page(), tmp_path).read_text()
-    # no hidden class in the markup: the script adds it, so no-JS = visible
-    assert 'class="lst-sticky" data-lst-sticky' in html
-    assert "lst-sticky--hidden" in html  # the CSS rule and the script exist
-    assert "bar.classList.add('lst-sticky--hidden')" in html
-
-
-def test_micro_ctas_render_after_items_two_and_four(tmp_path):
-    html = _render(_listicle_page(), tmp_path).read_text()
-    assert html.count('class="lst-micro-cta"') == 2
-    first = html.index('class="lst-micro-cta"')
-    assert html.count('class="lst-h2"', 0, first) == 2
-
-
-def test_alternating_bands_render(tmp_path):
-    html = _render(_listicle_page(), tmp_path).read_text()
-    assert html.count('class="lst-item lst-item--soft"') == 2  # items 2 and 4 of 5
-    assert "lst-band--soft" in html
-
-
 def test_render_listicle_page_downloads_the_hero_and_every_item_image(tmp_path):
+    """Cycle 79: the hero is the product's cut-out (a local tenant file); the
+    five item images are downloaded."""
     downloaded = {}
     image_bytes = _make_image_bytes(600, 600)
 
@@ -1044,149 +1003,35 @@ def test_render_listicle_page_downloads_the_hero_and_every_item_image(tmp_path):
         return image_bytes
 
     html = _render(_listicle_page(), tmp_path, download_assets=True, fetch_url=fake_fetch_url).read_text()
-    assert downloaded == {f"https://cdn.shopify.com/fuji-{i}.png": 1 for i in range(1, 7)}
-    assert 'src="assets/asset-1-480.jpg"' in html
-    assert html.count('loading="lazy"') == 5
-    assert html.count('loading="eager"') == 1
-
-
-def test_shopify_body_export_keeps_the_sticky_bar_and_the_bands(tmp_path):
-    _render(_listicle_page(), tmp_path)
-    body, _manifest = build_shopify_body(tmp_path / "listicle")
-    assert 'class="lst-sticky"' in body
-    assert "lst-band--soft" in body
-    assert "lst-item--soft" in body
-    assert ".lst-sticky{position:fixed" in body
-    # the classed <header> band survives as a div (cycle 40), no bare chrome tags
-    assert '<div class="lst-measure pk-reveal"' in body
-    assert "<header" not in body and "</header>" not in body
-
-
-# ---------------------------------------------------------------------------
-# Cycle 45 (v0.3): two-column hero and items
-#
-# The source order IS the mobile order; desktop re-places the same nodes with
-# grid. These assert both halves of that, because either one alone is a
-# layout that only works at one width.
-# ---------------------------------------------------------------------------
-
-TEMPLATE_HTML = (CARTRIDGE_DIR / "looks" / "cards" / "template.html").read_text()
-
-
-def _css(text):
-    """The template's inline <style> with whitespace collapsed, so a rule can
-    be matched without depending on how it happens to be wrapped."""
-    block = re.search(r"<style>(.*?)</style>", text, re.DOTALL).group(1)
-    return re.sub(r"\s+", "", block)
-
-
-def test_hero_source_order_is_headline_then_image_then_cta(tmp_path):
-    """Mobile reads top to bottom, so the DOM must already be in the order a
-    phone needs: headline block, hero image, then the CTA. Desktop's
-    two-column arrangement is grid placement over these same three nodes."""
-    html = _render(_listicle_page(), tmp_path).read_text()
-    lede = html.index('class="lst-hero-lede"')
-    media = html.index('class="lst-hero-media lst-media"')
-    actions = html.index('class="lst-hero-actions"')
-    assert lede < media < actions
-    # the H1 is in the lede, the primary CTA is in the actions
-    assert lede < html.index('class="lst-h1"') < media
-    assert actions < html.index('class="lst-btn"')
-
-
-def test_hero_and_items_become_two_column_grids_on_desktop():
-    css = _css(TEMPLATE_HTML)
-    assert "@media(min-width:900px){" in css
-    assert ".lst-hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr)minmax(0,.95fr);" in css
-    # ~42% image / 58% text
-    assert ".lst-item-grid{display:grid;grid-template-columns:42%minmax(0,1fr);" in css
-
-
-def test_items_alternate_sides_with_the_same_class_that_alternates_the_band(tmp_path):
-    """One class drives both, so the flipped side and the soft band can never
-    drift out of step down the page."""
-    css = _css(TEMPLATE_HTML)
-    assert ".lst-item--soft .lst-item-media{grid-column:2}".replace(" ", "") in css
-    assert ".lst-item--soft .lst-item-copy{grid-column:1}".replace(" ", "") in css
-
-    html = _render(_listicle_page(), tmp_path).read_text()
-    sections = [s[: s.index(">")] for s in html.split("<section class=\"lst-item")[1:]]
-    # 5 items: plain, soft, plain, soft, plain
-    assert [("--soft" in s) for s in sections] == [False, True, False, True, False]
-    assert html.count('class="lst-item-grid') == 0  # grid class is combined with the measure
-    assert html.count('lst-measure--wide lst-item-grid') == 5
-
-
-def test_each_item_pairs_its_numeral_with_its_heading(tmp_path):
-    html = _render(_listicle_page(), tmp_path).read_text()
-    assert html.count('class="lst-item-head"') == 5
-    head = html[html.index('class="lst-item-head"'):]
-    # numeral first, heading second -- inline together on mobile, numeral
-    # above the heading on desktop, from the one block
-    assert head.index('class="lst-num"') < head.index('class="lst-h2"')
-    css = _css(TEMPLATE_HTML)
-    assert ".lst-item-head{display:flex;" in css  # mobile: inline with the H2
-    assert ".lst-item-head{display:block}" in css  # desktop: above it
-
-
-def test_two_column_bands_widen_but_single_column_bands_keep_the_measure(tmp_path):
-    css = _css(TEMPLATE_HTML)
-    assert "--pk-measure:700px;" in css and "--pk-measure-wide:1040px;" in css
-    assert ".lst-measure--wide{max-width:var(--pk-measure-wide)}" in css
-    # the text column inside a widened band is still capped
-    assert ".lst-hero-lede{grid-column:1;grid-row:1;align-self:end;max-width:68ch}" in css
-    assert ".lst-item-copy{grid-column:2;grid-row:1;max-width:68ch}" in css
-
-    html = _render(_listicle_page(), tmp_path).read_text()
-    # hero and items widen; the FAQ/model/closing bands do not
-    assert html.count('class="lst-measure lst-measure--wide') == 6  # 1 hero + 5 items
-    assert 'class="lst-measure pk-reveal"' in html
-
-
-def test_no_media_rule_pins_a_width_and_a_height_at_once(tmp_path):
-    """The cycle 45 squish in CSS form: `width:100%` together with a
-    `max-height` overrides the inline per-image aspect-ratio and distorts the
-    picture. The media slots use `width:auto` precisely so the max-heights
-    below can cap a tall image without stretching it."""
-    css = _css(TEMPLATE_HTML)
-    assert ".adv-listicle .lst-media .adv-img{width:auto;".replace(" ", "") in css
-    assert ".lst-hero-media .adv-img{max-height:300px}".replace(" ", "") in css
-    assert ".lst-item-media .adv-img{max-height:360px}".replace(" ", "") in css
-    assert ".lst-hero-media .adv-img{max-height:560px}".replace(" ", "") in css
-    assert ".lst-item-media .adv-img{max-height:420px}".replace(" ", "") in css
+    assert downloaded == {f"https://cdn.shopify.com/fuji-{i}.png": 1 for i in range(2, 7)}
+    page_json = json.loads((tmp_path / "listicle" / "page.json").read_text())
+    assert page_json["hero"]["asset_id"] == "asset-cutout-fuji"
+    assert html.count('loading="eager"') <= 3   # cycle 79: hero + the first two item images
 
 
 def test_rendered_images_carry_their_own_ratio_inline(tmp_path):
-    """render_image_slot writes the measured ratio as an inline style, which
-    is what survives a storefront theme's own `img` rules."""
+    """render_image_slot writes a ratio inline, which survives a storefront
+    theme's own `img` rules (item photos sit in a 4:3 frame in the open look)."""
     html = _render(
         _listicle_page(), tmp_path, download_assets=True,
         fetch_url=lambda url: _make_image_bytes(600, 900),
     ).read_text()
-    # 6 images (hero + 5 items), every one a 2:3 portrait
-    assert html.count('style="aspect-ratio:2 / 3"') == 6
-    # the retired fixed-ratio classes are gone from every rendered tag (they
-    # still get named in the explanatory comments, hence the tag-only scan)
+    assert html.count('style="aspect-ratio:4 / 3"') == 5
     tags = re.findall(r"<img [^>]*>", html)
-    assert tags and not any("adv-img--1x1" in tag or "adv-img--4x3" in tag for tag in tags)
+    assert tags and not any("adv-img--1x1" in tag for tag in tags)
 
 
-def test_two_column_css_and_inline_ratios_survive_shopify_export(tmp_path):
-    """harness/structure.css is loaded in the document head and the export
-    keeps only the body's style block, so every rule this layout needs has to
-    be in the cartridge's own <style> -- and the per-image ratio has to be
-    inline on the tag."""
+def test_open_look_css_and_inline_ratios_survive_shopify_export(tmp_path):
     _render(
         _listicle_page(), tmp_path, download_assets=True,
         fetch_url=lambda url: _make_image_bytes(600, 900),
     )
     body, _manifest = build_shopify_body(tmp_path / "listicle")
     css = re.sub(r"\s+", "", body[: body.index("</style>")])
-    assert ".lst-hero-grid{display:grid;" in css
-    assert ".lst-item-grid{display:grid;" in css
-    assert ".lst-measure--wide{max-width:var(--pk-measure-wide)}" in css
-    assert ".adv-listicle.adv-img{display:block;height:auto;" in css
-    assert body.count('style="aspect-ratio:2 / 3"') == 6
+    assert ".op-item{display:grid;" in css
+    assert ".op-proof{border-left:3pxsolidvar(--pk-red);" in css
+    assert body.count('style="aspect-ratio:4 / 3"') == 5
+    assert "<header" not in body and "</header>" not in body
 
 
 def test_rating_line_is_omitted_below_the_minimum_review_count():

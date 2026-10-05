@@ -684,6 +684,9 @@ def test_rerender_look_switches_the_product_page_without_touching_the_copy(run_d
     assert "look-pdp" not in html and 'class="adv-proof-bullets"' in html
     after = json.loads((run_dir / "product-page" / "page.json").read_text())
     assert after["look"] == "classic"
+    # cycle 79: the render puts the product cut-out in the hero image slot
+    assert after["hero"].pop("hero_image")["asset_id"] == "asset-cutout-fuji"
+    before["hero"].pop("hero_image", None)
     assert {k: v for k, v in after.items() if k != "look"} == before
     assert runstate.load_state(run_dir)["product-page"]["look"] == "classic"
 

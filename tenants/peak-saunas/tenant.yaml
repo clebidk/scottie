@@ -146,19 +146,23 @@ photo_library:
     - chromotherapy
     - speakers
     - roof-outdoor-weather
+  whole_unit_topics: [unit, size-in-room]
   topic_keywords:
     red-light-panel: [red light, red-light, red light therapy, red light panel, red light panels, led, leds, near infrared led, photobiomodulation, skin, collagen]
     control-panel: [control panel, controls, control, touchscreen, touch screen, app, wifi, wi-fi, phone, smart, timer, preheat, settings, dial, display]
     bench: [bench, seat, seating, sit, sitting, legroom, backrest, lie down, stretch out, roomy, spacious]
     heaters: [heater, heaters, heating panels, carbon, carbon panels, full spectrum, full-spectrum, far infrared, mid infrared, infrared heat, heats up, warm up, heat]
     glass-door: [glass, glass door, door, window, tempered glass, see through]
-    wood-grain: [wood, cedar, hemlock, red cedar, canadian, timber, grain, craftsmanship, built, build quality, materials]
+    wood-grain: [wood, cedar, hemlock, red cedar, canadian, timber, grain, craftsmanship, build quality, materials]
     size-in-room: [space, footprint, fits, fit, small space, apartment, spare room, corner, bedroom, bathroom, home gym, garage, basement, room, square feet, dimensions, size, compact, condo, closet, office]
-    outlet-plug: [outlet, plug, plugs, plug in, plug-in, 120v, 240v, electrician, wiring, standard outlet, household outlet, electrical, amp, power]
+    outlet-plug: [outlet, plug, plugs, plugged, plug in, plugged in, plug-in, 120v, 240v, electrician, wiring, standard outlet, household outlet, electrical, amp, power]
     assembly: [assembly, assemble, assembled, install, installation, setup, set up, delivery, delivered, arrives, unbox, unboxing, tools, minutes to build]
     chromotherapy: [chromotherapy, color light, colour light, mood light, mood lighting, ambient light, colored light]
     speakers: [speaker, speakers, bluetooth, music, podcast, audio, playlist, sound]
     roof-outdoor-weather: [outdoor, outdoors, backyard, yard, patio, deck, garden, rain, snow, weather, winter, roof, canopy, cold, all-season]
+    # Cycle 79 review: the whole cabin -- a slot about it shows the product
+    # cut-out (whole_unit_topics above), never a part close-up.
+    unit: [cabin, full cabin, whole cabin, unit, capacity, one person, two person, 1-person, 2-person, built for one, built for two, design, sized]
     "setting:outdoor": [outdoor, outdoors, backyard, yard, patio, deck, garden, lake, mountain, cabin outside]
     "setting:indoor": [indoor, inside, apartment, bedroom, bathroom, living room, basement, home gym, spare room, condo]
     "shot:interior": [inside, interior, cabin interior, inside the cabin]
@@ -307,12 +311,18 @@ shopify_publish:
 # Ads Manager, winner by CTA click-through (docs/ABTEST.md). The listicle
 # entries are the style:look pairs the renderer already uses.
 abtest:
+  # Cycle 79: listicle builds are <style>:<look>:<first-screen style>. One
+  # look ("open") since the owner approved the boxless design on 2026-10-05;
+  # the three first screens (face | story | display) are the new dimension.
+  # `harness abtest library --by hero` pools results per first screen.
   library:
-    - listicle:reasons:cards
-    - listicle:mistakes:editorial
-    - listicle:questions:scorecard
-    - listicle:myths:pillars
-    - listicle:tested:lander
+    - listicle:reasons:open:story
+    - listicle:mistakes:open:face
+    - listicle:questions:open:display
+    - listicle:myths:open:story
+    - listicle:tested:open:face
+    - listicle:reasons:open:display
+    - listicle:questions:open:face
     - comparison
     - quiz
   explore: 0.2
@@ -364,19 +374,48 @@ brand:
   font_stylesheet: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Poppins:wght@500;600&display=swap"
   # Read by harness/templates/base.html: data-pk-theme on the page wrapper,
   # so a cached storefront page shows which theme build it carries.
-  theme_marker: mono-2026-10-05
+  theme_marker: open-2026-10-05
   palette:
     basalt: "#161817"        # dark bands, footer, primary CTA
     ink: "#1A1A1A"           # body text
     red: "#702B34"           # CTA hover/pressed, badges (theme mostly #712B33)
-    stone: "#F0E5D3"         # accent panels only (spec boxes)
     white: "#FFFFFF"         # page ground
-    panel: "#F1F1F1"         # light panels
     muted: "#616161"         # secondary text
   fonts:
+    display_wide: Peak Grotesk Wide   # cycle 79, upper case, "display" first screen (theme CDN, base.css)
+    display_acid: Acid Grotesk        # cycle 79, approved alternative; TRIAL file -- confirm licence
     body: DM Sans            # 400/500, 16px, line-height 1.55
     headings: Poppins        # 600, sentence case, letter-spacing -.01em
   logo:
     on_light: brand/logo.svg          # PEAK wordmark, Basalt; the renderer's default
     rule: "Never the legacy green/cyan mountain 'Peak Saunas' mark."
   radius: 4  # boxes, cards, inputs; 999px only for pill CTAs (brand/base.css)
+
+# Cycle 79: the listicle's first screen (harness/first_screen.py). Three
+# approved styles -- face | story | display -- picked per run (--hero-style,
+# an A/B/C build, else seeded from the run seed); pin a subset with
+# cartridges.listicle.hero_styles: [story, display].
+first_screen:
+  # No photo of the author yet: the byline shows the PEAK mark. Set a path
+  # under this tenant folder (e.g. brand/austin.jpg) to show his photo.
+  author_photo: null
+  byline_mark: brand/byline-mark.png
+  byline_title: PEAK founder
+  byline_verified_tick: true
+  # The display style's headline face: wide (Peak Grotesk Wide, upper case)
+  # or acid (Acid Grotesk, sentence case). Both owner-approved 2026-10-05.
+  display_font: wide
+  # What the image-ad check (harness/ad_frames.py) looks for as the retired
+  # brand mark; an image ad that shows it is never put on the page.
+  retired_mark: 'a mountain line-drawing logo, or the words "Peak Saunas" used as a logo'
+  # Review fix (cycle 79): the ad speaker's pronoun is never guessed. Evidence
+  # is the ad-still vision check when it is unambiguous, or this per-ad
+  # override (Meta ad id or source file stem -> she|he). Otherwise every
+  # quote frame is "In the ad, the creator says, ...".
+  speaker_pronouns: {}
+
+# Cycle 79 (owner, "for now"): the product hero and every product-of-X image
+# the renderer owns use the cut-out of X. One manifest (model -> file), so a
+# new-mark set is one edit there or a new manifest path here.
+product_cutouts:
+  manifest: brand/cutouts/cutouts.json

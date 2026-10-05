@@ -2519,7 +2519,6 @@
         "shot": "detail",
         "features_visible": [
           "heaters",
-          "outlet-plug",
           "red-light-panel",
           "wood-grain"
         ],
@@ -2550,7 +2549,18 @@
         "rule": "drive folder everest not confirmed (vision unknown 0.75); agnostic: detail fits 4 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
-      }
+      },
+      "corrections": [
+        {
+          "field": "features_visible",
+          "removed": [
+            "outlet-plug"
+          ],
+          "by": "cycle 79 review (photo checked by eye)",
+          "at": "2026-10-05",
+          "why": "the photo shows a red light panel and an infrared heater; no outlet or plug is visible. The vision tag put it on the 'electrician' item of run 20261005-172955-meta-120258736871190746-cgkv."
+        }
+      ]
     },
     {
       "id": "asset-photo-c499570d7a6e",

@@ -4050,3 +4050,218 @@ passed.
 - Batch waits ranged 114-405 s today; A/B/C builds take that much longer.
 - Today's spend: prod ledger $6.29 + this worktree $2.21 (ledger
   tenants/peak-saunas/runs in ~/adv-c76) = $8.50 of the $10 cap.
+
+
+## Cycle 79 (approved boxless look, three first screens, ad stills, product cut-outs, 2026-10-05)
+
+Branch `cycle79/first-screen`, worktree `~/adv-c79`, from master e6426b9. Not merged,
+not pushed. Owner on the round 2/3 test builds (`~/asset-inbox/design-approved-2026-10-05/`):
+"way way better ... I like it ... take all of this and update repo and harness".
+Correction later the same day: the cut-outs to use in all generations are the owner's
+OLD-mark set (`cutouts-owner-oldlogo/`), not the theme's new-mark files.
+
+### Look (one look, boxless)
+- The five cycle 51 looks (editorial, cards, pillars, scorecard, lander) are retired into
+  one, `open` (`cartridges/listicle/looks/open/template.html`, prefix `op-`). What told the
+  five apart -- panels, bands, chips, accordions, sticky bars -- is what the owner asked to
+  remove, so no per-look difference was worth keeping; the A/B/C variety is now copy style x
+  first-screen style. A retired name (page.json, `--look`, an A/B/C entry, a skeleton's
+  `look`) resolves to `open` (`listicle.LOOK_ALIASES`, `looks.canonical`).
+- `open`: white page, centred headline with ONE accent phrase in red #702B34, one pill CTA
+  (Basalt, hover red), one-line byline, stats strip (value + 3px red bar + uppercase label),
+  items as red numeral + heading + body + red-bar proof line + 4px photo (alternating sides
+  on desktop), plain ✓/✕ fit lists on hairlines, a value stack, plain Q/A FAQ on hairlines,
+  ONE Basalt closing band with a white pill. No colour literal in the look.
+- Other cartridges, cheaply: `brand/base.css` sets `--ps-bg-muted` and the pill fill to
+  white (every grey panel reads as page ground), removes the stone token, makes `.byline`
+  and the trust items boxless, and forces a white `.adv-wrap`. `tokens.json`,
+  `tenant.yaml` palette, theme marker `open-2026-10-05`.
+- Fonts: Peak Grotesk Wide and Acid Grotesk (owner-approved) as `@font-face` in base.css with
+  ABSOLUTE URLs on the theme's Shopify CDN
+  (`https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/...`, both 200 with CORS
+  `*`). Chosen over uploading copies at publish: the review file and the storefront load the
+  same URL, nothing new to upload, and no `peaksaunas.com` host enters the export (the
+  internal-link test forbids it). Copies in `brand/fonts-display/` (not `brand/fonts/`, so
+  `_publish_brand_fonts` never re-uploads them). TODO (owner): the Acid Grotesk file is a
+  TRIAL -- confirm the commercial licence. Risk: the URL is tied to theme 64's assets.
+- CTA: `op-btn`/`op-link` added to `abtest.CTA_CLASSES` (the beacon counts them) and to
+  base.css's live-theme CTA layer.
+
+### First screens (`harness/first_screen.py`)
+- `hero_style: face | story | display`, a page dimension next to style and look; stamped on
+  page.json, recorded in state.json, an A/B/C variant records the one it rendered.
+  `harness run --hero-style`, `harness rerender --hero-style` (no model call); default
+  seeded from the run seed (`cartridges.listicle.hero_styles` pins a subset). `face` with no
+  usable still falls back to `story` (quotable speaker) or `display`, logged.
+- Renderer-owned: the one-line byline ("By Austin Laudenslager ✓, PEAK founder · Updated
+  <date> · N min read"; avatar = PEAK mark `brand/byline-mark.png` until
+  `first_screen.author_photo` is set), the stats strip and the value stack -- verified claims
+  only (rating only when `rating_line` shows it; `pdp-<model>-*` lines verbatim minus
+  warranty/price/financing wording; the price claim; the page's financing line). Their claim
+  ids join Sources. `value_stack`/`stats_strip` in page.json fail `renderer_owned`.
+- Writer fields (schema.json, cartridge.md, `first_screen.writer_lines`): `eyebrow`,
+  `headline`, `accent_phrase`, `dek`, `lede`, `scroll_cue`, `hero_quote_id` (an `ad_quotes`
+  id, cycle 74 mechanism), `speaker_pronoun`. A page from before cycle 79 renders with
+  fallbacks (eyebrow from the audience, lede = dek, the first ad quote, a cue by style).
+
+### A/B/C
+Arm = `listicle:<style>:<look>:<hero>`; default library and PEAK's: 7 listicle builds that
+put every style and every hero style in play, plus comparison and quiz. The Thompson sampler
+is unchanged (one arm, one build); `harness abtest library --by hero` pools CTR per first
+screen. Chosen over a separate sampled dimension because the sampler, the records and the
+results all key on the arm id already.
+
+### Ad stills (`harness/ad_frames.py`)
+Video: 8 ffmpeg frames (8-92% of the video), Pillow sharpness/exposure filter, ONE Haiku
+vision call on the 6 sharpest at 384 px (face / caption size / logo / sharp per frame + pick
++ face centre); a caption-free face frame wins; a captioned-throughout video accepts the
+caption. Image ad: one check -- rejected for the retired mark (`first_screen.retired_mark`),
+any other reported mark, any claim text, or no person. Saved as the run asset
+`<run>/ad-frame/` with provenance. Called from `pipeline.render_pages` for a listicle run
+(heuristic only on a FakeClient run). Measured on the 10 ads of 2026-10-05: $0.0011-0.0028
+per ad. All 7 image ads rejected (old mark / sale and review-count text; the regret still:
+old mark + "4.6 based on 3,8192 reviews"); the 3 videos give a face (the athlete video has
+burned-in captions on every face frame).
+
+### Cut-outs (`harness/cutouts.py`)
+`tenants/peak-saunas/brand/cutouts/` (11 owner files, RGBA, checked: 848-1490 px wide,
+transparent ground) + `cutouts.json` (model -> file), tenant key `product_cutouts.manifest`.
+Product hero of listicle/quiz/longform/product-page (pdp gallery leads with it), every
+comparison column and quiz card. Not the comparison hero (its columns are the cut-outs).
+Transparent pixels are now flattened onto white in `render.resize_asset_bytes` /
+`generate_image_variants` (they came out black).
+
+### Gates (all earlier gates unchanged)
+- New: `listicle:first_screen:*`, `listicle:quote_verbatim:<field>`,
+  `listicle:most_people:<path>` ("most people/buyers ..." asserted with no claim_id on the
+  node; a question passes), `listicle:headline_words` (open-loop templates 6-13).
+- Changed (owner): `listicle:meta_reference` allows she/he in the headline/dek when the ad
+  is first person and `hero_quote_id` names one of its `ad_quotes`.
+- Headlines: open-loop templates o1-o4 (quoted ad hook; "No X. No Y. Still Z."; audience
+  call-out question; "She wanted X. Her Y had Z.") in headlines.yaml, no count; the default
+  pick is among them (`headline_open_loop: false` restores cycle 70); o1/o4 need a quotable
+  speaker. No "N Questions ... Should Ask Before Buying ..." unless named.
+
+### Photo matching (the report on run ...-cgkv)
+Root cause: not a missing step. The matcher ran on the build (17:30) and the rerender
+(18:02) and wrote `.image-selection.json` both times (run log `photos` lines, file mtime
+18:02). The wrong pictures came from (1) a vision tag error -- 8401eb5859e7 (red light
+panel + heater) tagged `outlet-plug`, so it won the electrician item; corrected by hand in
+photo-library.json under `corrections` (kept on re-tag, `apply_corrections`); (2) the real
+cord photo 0d82c7db36be shows the old mark and the cycle 78 rule keeps it off item 1; (3)
+equal topic scores fell to `quality_rank`, which prefers a product-tagged photo -> the Mini
+front won the red light item; now `topic_share` (the photo that is mostly the topic) breaks
+the tie; (4) a slot with no topic got "the best photo of the product", often a close-up of
+an unrelated part (warranty -> plug); now a general photo (fewest features). Also: a library
+photo whose file is missing on this machine is no longer assigned (a worktree without the
+derivatives used to assign it and drop the image). Regression tests rebuild that run's pool
+and check build AND rerender (`tests/test_first_screen_cycle79.py`).
+
+### Verify
+- Suite: 2305 passed, 0 failed (master: 2360; the five-look tests were rewritten for one
+  look and `tests/test_look_rhythm.py` was removed, so the count is lower). New
+  `tests/test_first_screen_cycle79.py` (39).
+- Previews (no writer call): all 30 runs of 2026-10-05 17:13-17:48 copied to `~/c79-preview/`
+  and re-rendered -- listicle runs in story + display, plus face for the 3 video ads (7
+  image-ad runs have no usable still); 2 runs had no page (STOPped). Screenshots
+  (headless Chrome, 390x844 and 1440x900, plus full pages) in `~/asset-inbox/c79-shots/`.
+- Live smoke runs from the worktree (.env and meta_inbox symlinked, removed after):
+
+  | run | ad | hero | headline template | result | cost |
+  |---|---|---|---|---|---|
+  | 20261005-200242-...-65ji | Mini video | face | o1 `The apartment sauna she "could not be more excited" about` | PASS attempt 2 (repeat_number) | $0.135 |
+  | 20261005-200346-...-c3qb | athlete video | story | o2 `No gym membership. No shared machine. Still a real recovery routine.` | PASS attempt 2 (o2 beat 4 words, proof restates body) | $0.103 |
+  | 20261005-200447-...-62q7 | regret image | display | o3 `Still think logical research guarantees the right sauna choice?` | PASS attempt 2 ("She" in the dek with no quote) | $0.104 |
+
+  Stills $0.021 for 10 ads. Total cycle spend $0.36 (worktree ledger).
+- Headless Chrome screenshots sometimes caught a large hero image before it painted (a blank,
+  correctly sized box); the DOM showed it loaded and a retake showed it. Not a page defect.
+
+### Open
+- A listicle run now pays one ~$0.003 vision call for the still.
+- The theme names the ROUNDED black outdoor cabin "kilimanjaro" and the wide roofed one
+  "el-capitan"; the photo library tags photo bff59b51d7a3 ("black rounded outdoor sauna")
+  as el-capitan and 33bca4ec295f ("flat roof") as kilimanjaro -- possibly swapped. Not
+  changed; owner to confirm.
+- Old-mark photos still fill lower item slots (cycle 78 rule, kept per the correction).
+- Face/story on pre-cycle-79 pages use the first ad quote and the dek as the lede; only new
+  runs carry an open-loop lede and headline.
+- Seen on smoke run 65ji: item 4's body and proof line quote the same ad sentence, and proof
+  lines end in "(PEAK product page, 2026)". Not gated today (quoted text is outside the
+  repeat-sentence check).
+
+### Review fixes (coordinator review of the smoke screenshots, same day)
+1. **Wrong pronoun** (c3qb, a man, said "In the ad, she says"). The pronoun is never guessed:
+   the ad-still vision call reports `pronoun` she/he only when the presented gender is
+   unambiguous (else "unclear" -> none); tenant override `first_screen.speaker_pronouns`
+   (ad id or file stem). `first_screen.prepare_speaker` (now called by `pipeline.write_pages`
+   BEFORE the writer -- the still is made there, not at render) puts it on
+   `ad_brief.speaker_pronoun` ("unknown" without evidence). Gate
+   `listicle:speaker_pronoun:<path>`; with no evidence every frame is "In the ad, the creator
+   says," (accepted by every quote-frame regex); the renderer's caption and lede frame use the
+   evidence only ("From the creator's ad for PEAK" otherwise).
+2. **Invented backstory** (c3qb lede). Gate `listicle:speaker_narration:<path>`: no
+   she/he/her/his outside a verbatim quote in any prose field but the headline (the owner's
+   she/he allowance now covers the headline only), and no lede sentence that tells a past
+   without "you". Writer lines: the loop is about the reader or the product.
+3. **Display headline too long** (62q7). New writer field `display_headline` (3-8 words, at most
+   48 characters, gated); the display style sets it in the wide face, and a page with no short
+   line gets the heading face in sentence case. Slot descriptions and writer lines carry no
+   copyable example any more (the first re-run copied "No electrician. No spare room." into
+   unrelated ads; a test pins it).
+4. **Source notes** in proofs: gate `listicle:source_parenthetical:<path>` + render-time strip.
+5. **Duplicate quote** (65ji): gate `listicle:quote_repeat:<id>` (the hero quote counts); an
+   older page's hero quote is one its body does not use.
+6. **Off-topic photos** (65ji): whole-unit items (tenant `photo_library.whole_unit_topics`:
+   `unit`, `size-in-room`) show the cut-out (at most 3 uses with the hero; duplicate check
+   allows it; on an item it keeps its own ratio); a close-up only on an item whose HEADING names
+   its part (ranked on the heading's parts first: run ...-zpbm put a heater close-up on "Ready
+   the same day it's plugged in" because the body said "space heater"); no match -> no image.
+   "built" left the wood-grain keywords (it made "A full cabin
+   built for one" a wood item); "plugged" joined outlet-plug.
+7. **Blank gaps**: loading checks showed every image present -- headless capture timing. The
+   hero and first two item images now load eagerly; the screenshot script shoots a copy with
+   eager/sync images.
+8. **Value stack**: lines need 7-16 words, so "Medical-grade red light, where it works." and
+   "Clasp-together assembly." are dropped. Note: both are `pdp-mini-*` claims seeded from the live
+   product page into the run's facts pack (the cycle 46 PDP-claims path), not entries in
+   claims/verified.json.
+
+Tests: `tests/test_review_fixes_cycle79.py` (25 test functions), `tests/test_photo_library.py` updated (no
+image instead of an unrelated photo or a storefront image). Suite: 2336 passed.
+
+Re-check smoke runs (worktree ledger), all PASS:
+
+| run | ad | hero | pronoun | headline (template) | attempts | cost |
+|---|---|---|---|---|---|---|
+| 20261005-204626-...-lcsw | Mini video | face | she | o3, copied the slot example ("Training six days a week ...") -- fixed after | 2 | $0.133 |
+| 20261005-204722-...-ljg7 | athlete video | story | he | o2 "No electrician. No spa fees. Still real recovery." | 2 | $0.103 |
+| 20261005-204815-...-4bka | regret image | display | unknown | o2 (copied example) / display "No electrician. Still a real sauna." | 2 | $0.108 |
+| 20261005-205627-...-zpbm | Mini video | face | she | o4 "She Wanted Recovery Space. Her Apartment Had No Room To Spare." / display "A sauna that fits where you live" | 1 | $0.112 |
+
+Re-check spend $0.46 (cap $0.60). Open: zpbm's o4 desire "Recovery Space" is not her word
+(the slot asks for her quotes; not gated), and o4 renders in title case.
+
+### Review 2 fixes (same day)
+- **Title case** (zpbm "She Wanted Recovery Space. Her Apartment Had ..."): the o4 template
+  itself had capitalised words ("Wanted", "Had"), and the writer matched them. The template
+  is now lower case, and gate `listicle:headline_case` fails 2+ capitalised non-name words
+  after a sentence's first word in an open-loop headline or the display line. The count
+  formulas keep their title-case templates; they are used only when named.
+- **Speaker slots from her words**: gate `listicle:speaker_slot_words` -- a headline that
+  describes the speaker (she/he outside a quote) uses only her transcript words plus the
+  template's and the category's ("recovery space" fails on the Mini ad).
+- **Installation is a claim** (ljg7/4bka said "No electrician" on Fuji pages; the Fuji needs a
+  dedicated 120V/20A outlet): gate `listicle:install_claim` -- "no electrician/rewiring/
+  wiring/dedicated circuit", "standard/household outlet", "plugs into", "plug-and-play" need
+  a verified claim of the page's own model that says so (top-of-page fields) or one in the
+  node's own claim_ids (items, fit lines, FAQ). Questions pass. The c74 test fixture that
+  turned the Fuji's "120V/20A" into "standard" now says "dedicated".
+- **Display line message match**: gate `listicle:display_message_match` (4bka's display line
+  had dropped the regret hook).
+- Re-rendering the 4 smokes changes no copy, so their old lines remain (zpbm would now fail
+  headline_case + speaker_slot_words; 4bka install_claim + display_message_match; ljg7
+  install_claim; lcsw passes). Live check on the regret Fuji ad, run
+  20261005-212550-...-mt5a (display): PASS on attempt 3 ($0.145): "No guesswork. No regret.
+  Still a sauna that fits." / display "Avoid the common buying regret"; no installation claim.
+- Suite: 2344 passed.

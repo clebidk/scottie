@@ -62,7 +62,9 @@ _LISTICLE_HEADLINES = {
 # item (the repeated-sentence gate), each citing a policy claim every facts
 # pack carries.
 _LISTICLE_PROOFS = (
-    {"text": 'In the ad, he says, "I hated how confusing sauna shopping used to be."', "attributed_to_customer": True},
+    # cycle 79 review: no evidence of the speaker's pronoun in a text ad -> the neutral frame
+    {"text": 'In the ad, the creator says, "I hated how confusing sauna shopping used to be."',
+     "attributed_to_customer": True},
     {"text": "Every order ships free.", "claim_ids": ["shipping-policy"]},
     {"text": "Returns are accepted once the cabin is repacked in its original crate.", "claim_ids": ["returns-policy"]},
     {"text": "In-stock orders leave the warehouse within a few business days.", "claim_ids": ["shipping-policy"]},
@@ -85,12 +87,26 @@ def _filler_words(n, offset=0, tag=None):
     return re.sub(r"([.!?:])(\s|$)", rf" ({_TAG_WORDS[tag]})\1\2", text) + f" ({_TAG_WORDS[tag]})"
 
 
-def _listicle_page(style, headline=None):
-    return {
+def _display_line(brief):
+    """Cycle 79: the display line shares a word with the ad's hook (gate)."""
+    words = re.findall(r"[A-Za-z]{5,}", (brief or {}).get("hook") or "")
+    word = max(words, key=len).lower() if words else "sauna"
+    return f"The {word} part, made simple"
+
+
+def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
+    headline = headline or _LISTICLE_HEADLINES[style]
+    page = {
         "style": style,
-        "headline": headline or _LISTICLE_HEADLINES[style],
+        # Cycle 79: the first-screen fields.
+        "eyebrow": "For careful buyers",
+        "headline": headline,
+        "accent_phrase": " ".join(headline.rstrip(".").split()[-2:]),
+        "display_headline": display_line or "Check the cabin before it comes home",
         # Cycle 74: the dek carries the fixtures' hooks (message match).
         "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
+        "lede": "What should you check before a cabin like this comes home? The answers start below.",
+        "scroll_cue": "Start with the first check",
         "hero": {"asset_id": _LISTICLE_ASSET_IDS[0]},
         "reasons": [
             {
@@ -139,9 +155,12 @@ def _listicle_page(style, headline=None):
             "financing_line": {"text": "Financing is available through Bread Pay at checkout.", "claim_ids": []},
         },
     }
+    if hero_quote_id:
+        page["hero_quote_id"] = hero_quote_id
+    return page
 
 
-def _canned_page(cartridge, style=None, tenant=None, headline=None):
+def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None, display_line=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -159,7 +178,7 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None):
 
         return COMPARISON_PAGE
     if cartridge == "listicle":
-        return _listicle_page(style or listicle_mod.STYLES[0], headline)
+        return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
     return CANNED_PAGES[cartridge]
 
 
@@ -310,7 +329,14 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     responses = [json_response(brief)]
     if brief.get("claims_made"):
         responses.append(json_response({}))  # the semantic-match call only happens when claims exist
-    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline)) for c in selected]
+    # Cycle 79: the first screen names the ad quote it shows (when the ad has one).
+    from harness.claims import safe_quote_candidates
+
+    quotes = safe_quote_candidates(brief, None)
+    hero_quote_id = quotes[0]["id"] if quotes else None
+    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id,
+                                             _display_line(brief)))
+                  for c in selected]
     client = FakeClient(responses)
 
     args = argparse.Namespace(

@@ -166,3 +166,25 @@ From `tenants/peak-saunas/claims/verified.json` (140 claims, 2026-09-24):
 
 A `reasons` run picks from 11 templates (s-reasons, h01, h03, h04, h06, h07,
 h08, h10, h13, h14, h16); a `mistakes` run from 3 (s-mistakes, h11, h17).
+
+## Open-loop templates (cycle 79)
+
+Owner approval 2026-10-05 (round 3 first screens; GA4: the best paid page opens a loop and
+never gives the answer away). Four templates with no count, 6-13 words (`word_band`), for
+every style, marked `open_loop: true`. With no `--headline-template` and no pinned
+skeleton, the seeded pick is among them (tenant switch:
+`cartridges.listicle.headline_open_loop: false` restores the cycle 70 pick); the count
+formulas stay available by name.
+
+| id | alias | pattern |
+| --- | --- | --- |
+| o1 | quoted-ad-hook | `<lead> "<ad_hook>" <tail>` -- the speaker's own words, verbatim (needs a speaker) |
+| o2 | three-short-beats | `No <beat_a>. No <beat_b>. Still <beat_c>.` |
+| o3 | audience-call-out | `<callout>?` |
+| o4 | story-setup | `<She/He> Wanted <desire>. <Her/His> <place> Had <obstacle>.` (needs a speaker) |
+
+`needs_speaker`: eligible only when the ad has a quotable first-person speaker
+(`claims.safe_quote_candidates` not empty); the she/he is that speaker and the page must
+carry her verbatim quote (`hero_quote_id`). The first-screen fields and gates are in
+docs/GENERATOR.md.
+

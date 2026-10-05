@@ -64,7 +64,8 @@ def test_every_skeleton_validates_against_the_schema(skeleton_id):
     sk = skeletons.load_skeleton(skeleton_id)
     assert skeletons.validate(sk) == []
     assert sk["item_count"] == len(sk["items"])
-    assert sk["look"] in listicle.LOOKS
+    # cycle 79: the closest of the retired looks; it renders in "open"
+    assert listicle.canonical_look(sk["look"]) in listicle.LOOKS
     assert set(sk["styles"]) <= set(listicle.STYLES)
 
 
@@ -235,9 +236,16 @@ def test_every_headline_template_renders_for_the_peak_tenant(template_id):
     plan = _plan(template_id)
     text = headlines.example_headline(plan, 5)
     assert not re.search(r"[<>\[\]{}]", text), text
-    assert re.search(r"\b5\b", text)
+    if not plan.get("open_loop"):   # cycle 79: an open-loop template has no count
+        assert re.search(r"\b5\b", text)
     page = _page_for(plan)
-    problems = [p for p in _gate(page, listicle_headline=plan) if "headline" in p.get("key", "")]
+    brief = AD_BRIEF
+    if headlines.template(template_id).get("needs_speaker"):
+        # cycle 79: a speaker template needs the ad's own quotable speaker
+        brief = {**AD_BRIEF, "speaker_pov": "first_person",
+                 "transcript_or_text": "I could not be more excited about this sauna for my apartment."}
+        page["hero_quote_id"] = "q1"
+    problems = [p for p in _gate(page, listicle_headline=plan, ad_brief=brief) if "headline" in p.get("key", "")]
     assert problems == [], problems
 
 
@@ -357,7 +365,7 @@ def test_a_run_with_skeleton_puts_its_item_map_in_the_prompt_and_runs_every_gate
     page = json.loads(pages[0].read_text())
     # the skeleton set the style (no --style) and its look (no --look)
     assert page["style"] == "mistakes"
-    assert page["look"] == "editorial"
+    assert page["look"] == "open"   # cycle 79: the skeleton's look (editorial) is retired
     assert runstate.load_state(run_dir)["listicle"]["skeleton_id"] == "hormozi-mistakes"
     write_call = client.messages.calls[-1]
     user = block_text(write_call["messages"][0]["content"])

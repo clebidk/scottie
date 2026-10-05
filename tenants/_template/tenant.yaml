@@ -266,3 +266,29 @@ meta:
 brand: {}
 #   retired_names: ["CHANGE ME (former display name)"]
 #   retired_name_exceptions: ["CHANGE ME (a proper-name phrase to keep)"]
+
+# Cycle 79: the listicle's first screen (harness/first_screen.py): face (a
+# still from the ad + the speaker's verbatim quote), story (text-first
+# open-loop lede) or display (display face, product cut-out, stats). All
+# keys optional. author_photo / byline_mark: paths under this tenant folder
+# for the one-line byline's round picture (the photo wins; neither -> no
+# picture). display_font: wide | acid (brand/base.css --ps-display-wide /
+# --ps-display-acid). retired_mark: what the image-ad check treats as a
+# retired logo (an image ad that shows it is never put on the page).
+first_screen: {}
+#   author_photo: brand/author.jpg
+#   byline_mark: brand/byline-mark.png
+#   byline_title: "CHANGE ME (author title)"
+#   byline_verified_tick: true
+#   display_font: wide
+#   retired_mark: "CHANGE ME (description of a retired logo)"
+#   # the ad speaker's pronoun is never guessed: evidence is the ad-still
+#   # check (when unambiguous) or this per-ad override (ad id or file stem)
+#   speaker_pronouns: {"1234567890": she}
+
+# Cycle 79: product cut-outs, one per model (harness/cutouts.py). The
+# product hero and every per-model image the renderer owns use them.
+# Manifest: {"version": 1, "models": {"<model slug>": {"file": "...",
+# "old_logo": false}}}, files next to it. Leave out to use photos only.
+product_cutouts: {}
+#   manifest: brand/cutouts/cutouts.json

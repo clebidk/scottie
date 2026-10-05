@@ -324,24 +324,25 @@ def test_topic_matching_never_picks_another_models_red_light_photo(tenant):
     assert FUJI_RED["id"] in ids
 
 
-def test_no_topic_match_uses_the_best_photo_of_the_product_and_logs_it(tenant):
+def test_no_topic_match_renders_the_item_without_an_image_and_logs_it(tenant):
+    # Cycle 79 review: an item no photo matches gets no image, never an
+    # unrelated one (it used to get "the best photo of the product")
     _library(tenant, ALL)
     page = _listicle("A note on the warranty")
     result = pl.assign_page_images(page, _facts_pack(tenant), "listicle", tenant=tenant, allow_ai_renders=True)
-    pick = page["reasons"][0]["image"]["asset_id"]
-    assert pl.photos_by_id(pl.load_manifest(tenant))[pick]["tags"]["product"] == "fuji"
-    assert result["notes"] == ["no topic match for reasons[0].image"]
+    assert page["reasons"][0]["image"]["asset_id"] is None
+    assert result["notes"] == ["no matching photo for reasons[0].image: rendered without an image"]
 
 
-def test_storefront_images_are_the_fallback_once_the_library_runs_out(tenant):
+def test_an_item_with_no_matching_photo_left_gets_no_image(tenant):
+    # Cycle 79 review: the storefront images are no longer a content-slot
+    # fallback either -- an item with no matching photo renders without one
     _library(tenant, [FUJI_EXTERIOR, FUJI_RED])
     page = _listicle("Red light therapy", "Something else", "And another")
-    result = pl.assign_page_images(page, _facts_pack(tenant, extra_storefront=2), "listicle",
-                                   tenant=tenant, allow_ai_renders=True)
+    pl.assign_page_images(page, _facts_pack(tenant, extra_storefront=2), "listicle",
+                          tenant=tenant, allow_ai_renders=True)
     ids = [r["image"]["asset_id"] for r in page["reasons"]]
-    assert ids[0] == FUJI_RED["id"]
-    assert ids[1:] == [f"asset-{FUJI_HANDLE}-1", f"asset-{FUJI_HANDLE}-2"]
-    assert any("storefront fallback" in n for n in result["notes"])
+    assert ids == [FUJI_RED["id"], None, None]
 
 
 # ---------------------------------------------------------------------------

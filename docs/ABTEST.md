@@ -157,3 +157,16 @@ drops crawlers and link previewers (for example facebookexternalhit)
 silently. A repeat event from the same visitor is a no-op. The limit is 60
 events per minute per IP. Replies: 204 (stored, duplicate, or bot), 400,
 413, 429.
+
+## First-screen styles (cycle 79)
+
+A listicle build is `listicle:<style>:<look>:<hero>` -- the copy style, the look (one since
+cycle 79: `open`; a retired look name resolves to it) and the first-screen style (`face`,
+`story`, `display`; harness/first_screen.py). The default library (and PEAK's) pairs every
+copy style with a first screen so all three are in play; the Thompson sampler is unchanged
+(one arm = one build). Each listicle variant records the `hero_style` it actually rendered
+(face falls back to story/display when the ad has no usable still), and
+`harness abtest library --by hero` pools CTR per first-screen style across tests. An entry
+without the 4th part still works: the run seeds a hero style. The beacon counts clicks on
+the open look's `op-btn` / `op-link` (abtest.CTA_CLASSES).
+

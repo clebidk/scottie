@@ -72,7 +72,8 @@ def init_state(run_dir, *, pages, by="system", note="run started", dry_run=False
     return data
 
 
-def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_id=None, skeleton_id=None):
+def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_id=None, skeleton_id=None,
+                           hero_style=None):
     """Cycle 51: the style and the look this run's listicle page was built
     with, recorded together under state.json's "listicle" key. The style
     fixes the copy and is baked into page.json by the writer; the look only
@@ -91,6 +92,9 @@ def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_
         entry["headline_template_id"] = headline_template_id
     if skeleton_id:
         entry["skeleton_id"] = skeleton_id
+    # Cycle 79: the first-screen style (harness/first_screen.py).
+    if hero_style:
+        entry["hero_style"] = hero_style
     data["listicle"] = entry
     save_state(run_dir, data)
     return data

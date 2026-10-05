@@ -5,7 +5,11 @@ The generator must match the live storefront theme (docs/FIXLOG.md cycle
 -- the review document and the storefront export (`harness shopify-body`):
 
 - none of the retired colours (orange, cream, sage, cedar, green, cyan);
-- no Acid Grotesk;
+  cycle 79: nor the stone #F0E5D3 or the grey #F1F1F1 panels;
+- cycle 79: Acid Grotesk is approved (the display first screen) -- only
+  through its declared family, never as an uppercase heading rule;
+- cycle 79: the page background is white; no box (border or fill) on the
+  listicle's byline, trust/stats, proof lines or FAQ;
 - no gradient and no box-shadow other than `none`;
 - no `text-transform: uppercase` that reaches an h1/h2/h3;
 - exactly one <h1>;
@@ -23,9 +27,12 @@ from harness.render import render_page
 from tests.support import REPO_ROOT, TENANT
 
 BANNED_COLOURS = ("#F27046", "#F37047", "#EFE3D2", "#EFE8DA", "#C0C8C3", "#BFC6C1",
-                  "#16C47F", "#11BDFB", "#483215")
-MARKER = 'data-pk-theme="mono-2026-10-05"'
-LISTICLE_LOOKS = ("cards", "editorial", "lander", "pillars", "scorecard")
+                  "#16C47F", "#11BDFB", "#483215",
+                  # cycle 79: stone and the grey panels are retired too
+                  "#F0E5D3", "#F1F1F1", "#F2F2F2")
+MARKER = 'data-pk-theme="open-2026-10-05"'
+LISTICLE_LOOKS = ("open",)
+HERO_STYLES = ("face", "story", "display")
 
 _STYLE_RE = re.compile(r"<style\b[^>]*>(.*?)</style>", re.S | re.I)
 _HEADING_RE = re.compile(r"<(h[123])\b([^>]*)>", re.I)
@@ -37,9 +44,13 @@ _STYLE_ATTR_RE = re.compile(r'style="([^"]*)"')
 # Rendering every cartridge/look from the fixtures other tests already use
 # ---------------------------------------------------------------------------
 
-def _listicle(look, tmp_path):
+def _listicle(look, tmp_path, hero_style=None):
+    from tests.test_listicle import _listicle_page
     from tests.test_listicle_looks import _render
-    _render(look, tmp_path)
+    page = _listicle_page()
+    if hero_style:
+        page["hero_style"] = hero_style
+    _render(look, tmp_path, page=page)
     return tmp_path / "listicle"
 
 
@@ -74,7 +85,8 @@ def _plain(cartridge, tmp_path):
 
 
 PAGES = (
-    [pytest.param(lambda p, look=look: _listicle(look, p), id=f"listicle-{look}") for look in LISTICLE_LOOKS]
+    [pytest.param(lambda p, look=look, h=h: _listicle(look, p, h), id=f"listicle-{look}-{h}")
+     for look in LISTICLE_LOOKS for h in HERO_STYLES]
     + [
         pytest.param(_comparison, id="comparison"),
         pytest.param(_quiz, id="quiz"),
@@ -135,6 +147,10 @@ def _uppercase_heading_hits(doc):
     for sel, body in _rules(_css(doc)):
         if not re.search(r"text-transform\s*:\s*uppercase", body, re.I):
             continue
+        # Cycle 79: the owner-approved display headline is Peak Grotesk Wide
+        # in upper case -- allowed only together with that family.
+        if re.search(r"font-family\s*:\s*var\(--pk-display-wide\)", body):
+            continue
         if ".adv-case-upper" in sel and not wrapper_upper:
             continue
         last = re.split(r"[\s>+~]+", sel.strip())[-1]
@@ -150,8 +166,9 @@ def _lint(doc):
     problems = []
     upper = doc.upper()
     problems += [f"banned colour {c}" for c in BANNED_COLOURS if c in upper]
-    if "ACID GROTESK" in upper:
-        problems.append("Acid Grotesk")
+    for m in re.finditer(r"font-family\s*:\s*([^;}]*)", doc, re.I):
+        if "ACID GROTESK" in m.group(1).upper() and "PK ACID GROTESK" not in m.group(1).upper():
+            problems.append("Acid Grotesk outside its declared family")
     css = _css(doc)
     if re.search(r"gradient\s*\(", css, re.I) or re.search(r"gradient\s*\(", doc, re.I):
         problems.append("gradient")
@@ -210,3 +227,58 @@ def test_the_lint_catches_what_it_is_for():
     # gated on the wrapper class that this tenant no longer sets: inert
     gated = '<style>.adv-case-upper h1{text-transform:uppercase}</style><main class="adv-wrap"><h1>A</h1></main>'
     assert _uppercase_heading_hits(gated) == []
+
+
+# ---------------------------------------------------------------------------
+# Cycle 79: the boxless rules (owner-approved 2026-10-05)
+# ---------------------------------------------------------------------------
+
+# Classes the listicle's open look puts on the byline, the stats strip, the
+# proof lines and the FAQ -- none may be a box (fill or four-sided border).
+_BOXLESS_CLASSES = ("op-by", "op-stat", "op-stats", "op-proof", "op-qa", "op-faq", "op-lede", "op-said",
+                    "adv-byline", "byline")
+
+
+def _box_hits(doc):
+    hits = []
+    for sel, body in _rules(_css(doc)):
+        last = re.split(r"[\s>+~]+", sel.strip())[-1]
+        classes = set(re.findall(r"\.([\w-]+)", last))
+        if not classes & set(_BOXLESS_CLASSES):
+            continue
+        for m in re.finditer(r"(?<![-\w])(background(?:-color)?|border)\s*:\s*([^;}]+)", body):
+            prop, value = m.group(1), m.group(2).replace("!important", "").strip().lower()
+            if prop.startswith("background") and value not in ("transparent", "none", "var(--ps-bg)", "var(--pk-bg)"):
+                hits.append(f"{sel}: {prop}:{value}")
+            if prop == "border" and value not in ("0", "none"):
+                hits.append(f"{sel}: border:{value}")
+    return hits
+
+
+def _listicle_pages():
+    return [p for p in PAGES if str(p.id).startswith("listicle")]
+
+
+@pytest.mark.parametrize("make", _listicle_pages())
+def test_the_listicle_has_no_boxes_on_byline_stats_proof_or_faq(make, tmp_path):
+    cartridge_dir = make(tmp_path)
+    html = (cartridge_dir / "index.html").read_text()
+    export, _ = build_shopify_body(cartridge_dir)
+    assert _box_hits(html) == []
+    assert _box_hits(export) == []
+
+
+@pytest.mark.parametrize("make", PAGES)
+def test_every_page_has_a_white_ground(make, tmp_path):
+    cartridge_dir = make(tmp_path)
+    html = (cartridge_dir / "index.html").read_text()
+    assert "--ps-bg:#FFFFFF" in html.replace(" ", "")
+    assert "--ps-bg-muted:#FFFFFF" in html.replace(" ", "")
+    assert re.search(r"\.adv-wrap\{background:var\(--ps-bg\)!important\}", html.replace(" ", ""))
+
+
+def test_the_box_lint_catches_what_it_is_for():
+    bad = ('<style>.adv-listicle .op-proof{border:1px solid #000}'
+           '.adv-listicle .op-qa{background:#fafafa}.adv-listicle .op-proof{border-left:3px solid red}</style>')
+    hits = _box_hits(bad)
+    assert len(hits) == 2

@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "set": "owner-old-logo-2026-10-05",
+  "note": "Product cut-outs (transparent background) the owner sent on 2026-10-05: 'use these cutouts of the saunas WITH THE OLD LOGO in all generations for now'. Each file was matched to its model against the live theme's named pk-cutout-<model>.webp (0.84-1.00 similarity plus aspect ratio). The theme calls the ROUNDED black outdoor cabin 'kilimanjaro' and the wide roofed outdoor one 'el-capitan'. To switch to new-mark cut-outs, add the files here and point each model's `file` at them (one place), or set tenant.yaml product_cutouts.manifest to another manifest.",
+  "models": {
+    "crown": {
+      "file": "cutout-oldlogo-crown.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "denali": {
+      "file": "cutout-oldlogo-denali.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "el-capitan": {
+      "file": "cutout-oldlogo-el-capitan.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "everest": {
+      "file": "cutout-oldlogo-everest.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "fuji": {
+      "file": "cutout-oldlogo-fuji.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "kilimanjaro": {
+      "file": "cutout-oldlogo-kilimanjaro.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "matterhorn": {
+      "file": "cutout-oldlogo-matterhorn.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "mini": {
+      "file": "cutout-oldlogo-mini.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "patagonia": {
+      "file": "cutout-oldlogo-patagonia.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "rainier": {
+      "file": "cutout-oldlogo-rainier.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    },
+    "shasta": {
+      "file": "cutout-oldlogo-shasta.webp",
+      "old_logo": true,
+      "source": "owner, 2026-10-05 (asset-inbox/design-approved-2026-10-05/cutouts-owner-oldlogo)"
+    }
+  }
+}

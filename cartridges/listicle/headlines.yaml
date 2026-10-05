@@ -340,3 +340,60 @@ templates:
       problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "skipping sauna sessions")'}
       common_solution: {kind: common_solution, max_words: 5, description: 'the usual fixes, as CATEGORIES (e.g. "gym passes"), never a brand'}
     example: {problem: Skipping Sauna Sessions, common_solution: Gym Passes}
+
+  # -- cycle 79: open-loop first-screen headlines (owner approval 2026-10-05,
+  #    round 3). No count: the headline opens a loop the items close and never
+  #    gives the answer away. 6-13 words (word_band). `open_loop: true` makes
+  #    them the default pick for every style (headlines.resolve_plan); a
+  #    count formula above is used only when --headline-template names it.
+  #    `needs_speaker: true` = the ad must have a quotable first-person
+  #    speaker (claims.safe_quote_candidates); a she/he there refers to that
+  #    speaker, and the page carries her verbatim quote (hero_quote_id).
+  - id: o1
+    alias: quoted-ad-hook
+    open_loop: true
+    needs_speaker: true
+    word_band: [6, 13]
+    pattern: '<lead> "<ad_hook>" <tail>'
+    styles: [reasons, mistakes, questions, myths, tested]
+    slots:
+      lead: {kind: setup, max_words: 6, description: 'what the quote is about, from this ad (a few words that lead into her quote)'}
+      ad_hook: {kind: ad_hook, max_words: 9, description: 'the speaker''s own words from ad_quotes, word for word, inside the quotation marks'}
+      tail: {kind: setup, max_words: 4, description: 'the words that finish the sentence (may be one word)'}
+    example: {lead: The apartment sauna she, ad_hook: could not be more excited, tail: about}
+  - id: o2
+    alias: three-short-beats
+    open_loop: true
+    word_band: [6, 13]
+    pattern: "No <beat_a>. No <beat_b>. Still <beat_c>."
+    styles: [reasons, mistakes, questions, myths, tested]
+    slots:
+      beat_a: {kind: beat, max_words: 3, description: 'the first obstacle THIS ad names or answers, in its own words'}
+      beat_b: {kind: beat, max_words: 3, description: 'a second obstacle from this ad'}
+      beat_c: {kind: beat, max_words: 4, description: 'what the reader still gets, in this ad''s terms'}
+    example: {beat_a: gym fees, beat_b: waiting, beat_c: a real sauna}
+  - id: o3
+    alias: audience-call-out
+    open_loop: true
+    word_band: [6, 13]
+    pattern: "<callout>?"
+    styles: [reasons, mistakes, questions, myths, tested]
+    slots:
+      callout: {kind: callout, max_words: 12, description: 'a question to the people THIS ad speaks to, in their situation (ad_brief.audience / hook), that the items answer'}
+    example: {callout: Training six days a week and still recovering at the gym}
+  - id: o4
+    alias: story-setup
+    open_loop: true
+    needs_speaker: true
+    word_band: [6, 13]
+    # sentence case (cycle 79 review): a capitalised template word made the
+    # writer title-case the whole line
+    pattern: "<pronoun> wanted <desire>. <possessive> <place> had <obstacle>."
+    styles: [reasons, mistakes, questions, myths, tested]
+    slots:
+      pronoun: {kind: choice, options: [She, He]}
+      desire: {kind: desire, max_words: 4, description: 'what the speaker says she wanted, everyday words from her quotes'}
+      possessive: {kind: choice, options: [Her, His]}
+      place: {kind: place, max_words: 2, description: 'where it had to fit, as she names it'}
+      obstacle: {kind: problem, max_words: 4, description: 'what was in the way, as her quotes put it'}
+    example: {pronoun: She, desire: a real sauna, possessive: Her, place: apartment, obstacle: no spare room}

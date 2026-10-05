@@ -68,7 +68,8 @@ def test_every_cartridge_has_a_template():
     names = {p.parent.name for p in templates}
     assert {"article", "comparison", "listicle", "longform", "product-page", "quiz"} <= names
     # cycle 51: the listicle cartridge's five looks are templates too
-    assert {"editorial", "cards", "pillars", "scorecard", "lander"} <= names
+    # (cycle 79: one look, "open", replaced cycle 51's five)
+    assert {"open"} <= names
 
 
 def test_every_template_class_not_self_styled_has_a_structure_css_rule():

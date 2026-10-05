@@ -70,6 +70,7 @@ def _cite_all(page, plan):
 def _page_for(plan, headline=None, n_items=5):
     page = _listicle_page(plan["style"] if plan["style"] in listicle.STYLES else "reasons", n_items=n_items)
     page["headline"] = headline if headline is not None else headlines.example_headline(plan, n_items)
+    page["accent_phrase"] = " ".join(page["headline"].split()[-2:])  # cycle 79 first-screen field
     return _cite_all(page, plan)
 
 
@@ -98,7 +99,9 @@ def test_library_has_all_17_templates_plus_the_five_style_formulas():
     ids = set(headlines.template_ids())
     assert set(NEW_IDS) <= ids
     assert {f"s-{s}" for s in listicle.STYLES} <= ids
-    assert len(ids) == 22
+    # cycle 79: plus the four open-loop first-screen templates o1-o4
+    assert {"o1", "o2", "o3", "o4"} <= ids
+    assert len(ids) == 26
 
 
 def test_every_template_names_real_styles_slots_and_evidence_kinds():
@@ -476,7 +479,13 @@ def test_a_model_name_is_its_full_name_in_a_product_slot():
 # 9. selection: seeded, tenant include/exclude, weight hook
 # ---------------------------------------------------------------------------
 
-def test_selection_is_deterministic_from_the_seed_and_covers_the_eligible_set():
+OPEN_LOOP = {"o1", "o2", "o3", "o4"}
+
+
+def test_selection_is_deterministic_from_the_seed_and_covers_the_eligible_set(monkeypatch):
+    # cycle 79: the open-loop default narrows the pick; this pins the cycle 70
+    # behaviour with it switched off (tenant.yaml headline_open_loop: false)
+    monkeypatch.setattr(headlines, "open_loop_default", lambda tenant: False)
     fp = _facts(SPEC_CLAIM)
     eligible = headlines.eligible_templates("reasons", fp, tenant=TENANT)
     assert "s-reasons" in eligible and "h04" in eligible and "h09" not in eligible
@@ -489,14 +498,17 @@ def test_selection_is_deterministic_from_the_seed_and_covers_the_eligible_set():
 def test_questions_myths_and_tested_keep_their_own_formula():
     fp = _facts(*EVIDENCE_CLAIMS)
     for style in ("questions", "myths", "tested"):
-        assert headlines.eligible_templates(style, fp, tenant=TENANT) == [f"s-{style}"]
+        eligible = headlines.eligible_templates(style, fp, tenant=TENANT)
+        assert [t for t in eligible if t not in OPEN_LOOP] == [f"s-{style}"]
 
 
 def test_mistakes_style_gets_templates_11_and_17():
-    assert set(headlines.eligible_templates("mistakes", _facts(), tenant=TENANT)) == {"s-mistakes", "h11", "h17"}
+    assert set(headlines.eligible_templates("mistakes", _facts(), tenant=TENANT)) - OPEN_LOOP == {
+        "s-mistakes", "h11", "h17"}
 
 
-def test_weights_hook_steers_the_pick():
+def test_weights_hook_steers_the_pick(monkeypatch):
+    monkeypatch.setattr(headlines, "open_loop_default", lambda tenant: False)
     fp = _facts(SPEC_CLAIM)
     weights = {tid: 0.0 for tid in headlines.eligible_templates("reasons", fp, tenant=TENANT)}
     weights["h16"] = 1.0

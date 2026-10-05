@@ -44,10 +44,13 @@ LIBRARY_PATH = tenant_mod.REPO_ROOT / "cartridges" / "listicle" / "headlines.yam
 FIXED_KINDS = ("brand", "year", "count", "count_unit", "authority", "alternative")
 # Filled by the writer.
 FREE_KINDS = ("audience", "category", "product", "common_solution", "problem", "solution", "desire",
-              "usp", "concern", "features", "age", "niche", "choice")
+              "usp", "concern", "features", "age", "niche", "choice",
+              # cycle 79: the open-loop templates (o1-o4)
+              "setup", "ad_hook", "beat", "callout", "place")
 SLOT_KINDS = FIXED_KINDS + FREE_KINDS
 # Slots that must read as an everyday, non-medical situation.
-NON_MEDICAL_KINDS = ("problem", "solution", "desire", "usp", "concern", "features")
+NON_MEDICAL_KINDS = ("problem", "solution", "desire", "usp", "concern", "features",
+                     "setup", "beat", "callout", "place")
 ITEM_GATES = ("fear", "medical")
 
 _PLACEHOLDER_RE = re.compile(r"<([a-z_]+)>")
@@ -134,8 +137,17 @@ def validate_library(data):
                 raise HeadlineLibraryError(f"template {tid}: slot {name!r} has unknown kind {kind!r}")
             if kind == "choice" and not slot.get("options"):
                 raise HeadlineLibraryError(f"template {tid}: choice slot {name!r} needs options")
-        if len(_N_RE.findall(_PLACEHOLDER_RE.sub(" ", pattern))) != 1:
-            raise HeadlineLibraryError(f"template {tid}: the pattern must contain the count N exactly once")
+        # Cycle 79: an open-loop template has no count at all.
+        want_n = 0 if t.get("open_loop") else 1
+        if len(_N_RE.findall(_PLACEHOLDER_RE.sub(" ", pattern))) != want_n:
+            raise HeadlineLibraryError(
+                f"template {tid}: the pattern must contain the count N "
+                + ("not at all (open_loop)" if want_n == 0 else "exactly once")
+            )
+        band = t.get("word_band")
+        if band is not None and not (isinstance(band, list) and len(band) == 2
+                                     and all(isinstance(b, int) for b in band) and band[0] <= band[1]):
+            raise HeadlineLibraryError(f"template {tid}: word_band must be [min, max]")
         for kind in t.get("requires") or []:
             if kind not in evidence:
                 raise HeadlineLibraryError(f"template {tid}: requires unknown evidence kind {kind!r}")
@@ -292,12 +304,24 @@ def _brand(tenant):
     return getattr(tenant, "display_name", None) or tenant.get("name") or getattr(tenant, "name", "")
 
 
-def eligibility(template_id, style, facts_pack, tenant=None):
+def has_speaker(ad_brief, facts_pack=None):
+    """Cycle 79: the ad has a first-person speaker with at least one quote
+    the page may show word for word (claims.safe_quote_candidates)."""
+    from .claims import safe_quote_candidates
+
+    return bool(ad_brief) and bool(safe_quote_candidates(ad_brief, facts_pack or {}))
+
+
+def eligibility(template_id, style, facts_pack, tenant=None, ad_brief=None):
     """(True, why) when this template may head a `style` page with this
-    facts_pack's evidence, else (False, why not)."""
+    facts_pack's evidence, else (False, why not). Cycle 79: a template that
+    `needs_speaker` is refused when `ad_brief` is given and has no quotable
+    speaker (with no ad_brief -- a revise -- it is not checked)."""
     t = template(template_id)
     if style not in t["styles"]:
         return False, f"its items are {'/'.join(t['styles'])} items, not {style!r}"
+    if t.get("needs_speaker") and ad_brief is not None and not has_speaker(ad_brief, facts_pack):
+        return False, "needs a first-person speaker in the ad with a quote the page can show (ad_quotes is empty)"
     claims = (facts_pack or {}).get("verified_claims") or []
     found = []
     for kind in t.get("requires") or []:
@@ -316,14 +340,14 @@ def _tenant_setting(tenant):
     return tuple(cfg.get("include") or ()), tuple(cfg.get("exclude") or ())
 
 
-def eligible_templates(style, facts_pack, tenant=None):
+def eligible_templates(style, facts_pack, tenant=None, ad_brief=None):
     """The template ids a `style` run may pick from, in library order:
     eligible by style and evidence, then the tenant's include (a pin) and
     exclude lists. Never empty -- a filter that leaves nothing falls back to
     the style's own formula, the same "a pin that names nothing usable is
     ignored" rule as listicle.tenant_styles."""
     tenant = _tenant(tenant)
-    ids = [tid for tid in template_ids() if eligibility(tid, style, facts_pack, tenant)[0]]
+    ids = [tid for tid in template_ids() if eligibility(tid, style, facts_pack, tenant, ad_brief)[0]]
     include, exclude = _tenant_setting(tenant)
     if include:
         ids = [tid for tid in ids if tid in include]
@@ -331,8 +355,15 @@ def eligible_templates(style, facts_pack, tenant=None):
     return ids or [legacy_id(style)]
 
 
+def open_loop_default(tenant):
+    """tenant.yaml cartridges.listicle.headline_open_loop (default true):
+    with no pin, the seeded pick is among the open-loop templates (cycle 79)."""
+    value = tenant.get("cartridges.listicle.headline_open_loop") if tenant else None
+    return value is not False
+
+
 def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requested=None, weights=None,
-                 prefer=None):
+                 prefer=None, ad_brief=None):
     """The run's headline plan. `requested` (`harness run --headline-template`)
     wins over the tenant's include/exclude -- an operator's deliberate choice,
     like an explicit --style -- but never over the style or the evidence.
@@ -343,14 +374,19 @@ def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requeste
     ids; when none of them is eligible the pick is unchanged."""
     tenant = _tenant(tenant)
     if requested:
-        ok, why = eligibility(requested, style, facts_pack, tenant)
+        ok, why = eligibility(requested, style, facts_pack, tenant, ad_brief)
         if not ok:
             raise HeadlineTemplateError(f"headline template {requested!r} cannot head this {style} page: {why}")
         return build_plan(requested, style, facts_pack, tenant=tenant, today=today)
-    ids = eligible_templates(style, facts_pack, tenant)
-    if prefer:
-        preferred = {canonical_id(p) for p in prefer}
-        ids = [tid for tid in ids if tid in preferred] or ids
+    ids = eligible_templates(style, facts_pack, tenant, ad_brief)
+    preferred = {canonical_id(p) for p in prefer or ()}
+    narrowed = [tid for tid in ids if tid in preferred]
+    if narrowed:
+        ids = narrowed
+    elif open_loop_default(tenant):
+        # Cycle 79 (owner): no fixed "N Questions ... Should Ask Before
+        # Buying ..." formula by default -- the open-loop templates first.
+        ids = [tid for tid in ids if template(tid).get("open_loop")] or ids
     rng = random.Random(f"listicle-headline:{seed}:{style}")
     pick = None
     if weights:
@@ -453,6 +489,8 @@ def build_plan(template_id, style, facts_pack, tenant=None, today=None):
         "item_pattern": " ".join((t.get("item_pattern") or "").split()) or None,
         "item_gates": list(t.get("item_gates") or []),
         "allowed_headline_terms": list(t.get("allowed_headline_terms") or []),
+        "open_loop": bool(t.get("open_loop")),
+        "word_band": list(t.get("word_band") or []) or None,
         "brand": _brand(tenant),
         "full_names": full_names,
         "model_names": model_names,
@@ -503,8 +541,9 @@ def example_headline(plan, n):
     return render(plan, n, template(plan["id"]).get("example") or {})
 
 
-_PUNCT = {",": ",?", "(": r"\(?", ")": r"\)?", "'": "['’]", "’": "['’]", "-": r"[-\s]?", ".": r"\.?", ":": ":?"}
-_TOKEN_RE = re.compile(r"\s+|[^\s,()'’.:\-]+|[,()'’.:\-]")
+_PUNCT = {",": ",?", "(": r"\(?", ")": r"\)?", "'": "['’]", "’": "['’]", "-": r"[-\s]?", ".": r"\.?", ":": ":?",
+          '"': '["“”]', "“": '["“”]', "”": '["“”]'}
+_TOKEN_RE = re.compile(r"\s+|[^\s,()'’.:\-\"“”]+|[,()'’.:\-\"“”]")
 
 
 def _literal_re(text):
@@ -667,7 +706,7 @@ def find_headline_violations(page, plan):
             f'headline {headline!r} does not follow this run\'s headline template "{tid}": "{shape}" -- {detail}',
         ))
         parsed = loose
-    else:
+    elif parsed.get("n") is not None:
         stated, actual = int(parsed["n"]), len(_items(page))
         if stated != actual:
             problems.append(_problem(
@@ -677,6 +716,14 @@ def find_headline_violations(page, plan):
             ))
     if parsed:
         problems += _slot_problems(plan, parsed, medical_re, fear_re)
+    band = plan.get("word_band")
+    if band:
+        words = len(headline.split())
+        if not band[0] <= words <= band[1]:
+            problems.append(_problem(
+                "$.headline", "listicle:headline_words",
+                f"headline is {words} words; template \"{tid}\" wants {band[0]}-{band[1]}",
+            ))
     problems += _item_gate_problems(page, plan, _medical_re("medical_items"), fear_re)
     problems += _evidence_problems(page, plan)
     return problems
@@ -733,11 +780,17 @@ def _slot_problems(plan, parsed, medical_re, fear_re):
                 bad(name, f"uses {hit.group(0)!r} ({value!r}) -- an everyday, non-medical situation only: never a "
                           "disease, condition, symptom, cure, treat, heal or other health word",
                     key="listicle:headline_medical")
+        if kind == "ad_hook" and value != value.strip("\"“” "):
+            bad(name, f"is {value!r} -- the quotation marks belong to the template; put only her words inside")
         if kind == "niche":
             words = {w.rstrip("s") for w in re.findall(r"[a-z0-9]+", value.lower())} - _NICHE_STOPWORDS
             texts = plan.get("evidence_texts", {}).get("exclusivity", [])
             if not any(words <= {w.rstrip("s") for w in re.findall(r"[a-z0-9]+", t.lower())} for t in texts):
                 bad(name, f"is {value!r} -- it must be the niche a verified exclusivity claim names, in its words")
+    # Cycle 79 (o4): "She wanted ... Her ..." -- pronoun and possessive agree.
+    pronoun, possessive = (parsed.get("pronoun") or "").lower(), (parsed.get("possessive") or "").lower()
+    if pronoun and possessive and {"she": "her", "he": "his"}.get(pronoun) != possessive:
+        bad("possessive", f"is {parsed.get('possessive')!r} but <pronoun> is {parsed.get('pronoun')!r}; they must agree")
     return problems
 
 
@@ -806,6 +859,8 @@ def fix_headline_number(page, plan):
     """The headline with its leading count set to the item count, when that
     is all that is wrong with it (a spelled-out or stale N), else None --
     the template-plan twin of listicle.fix_headline_number."""
+    if plan.get("open_loop"):
+        return None  # cycle 79: no count to fix
     headline = page.get("headline") or ""
     count = len(_items(page))
     prefix = _N_RE.split(_SPLIT_RE.split(plan["pattern"])[0])[0]
@@ -836,6 +891,8 @@ _KIND_RULES = {
     "common_solution": "is a CATEGORY the reader uses or considers now -- never a competitor or brand name",
     "age": "is a plain age as two digits (e.g. 40) -- never tie a health claim to the age, in the headline or items",
     "niche": "is the niche the verified exclusivity claim names, in its own words",
+    "ad_hook": ("is the ad speaker's own words copied word for word from ONE ad_quotes entry (a run of it, "
+                "never reworded) -- the quotation marks around it are part of the template"),
 }
 _NON_MEDICAL_RULE = ("is everyday, non-medical wording -- never a disease, condition, symptom, cure, treat, heal "
                      "or other health word")
@@ -850,11 +907,20 @@ def writer_lines(plan):
     """The hard-constraint lines for a template plan (the style formula plans
     keep listicle.writer_style_lines' own)."""
     tid, style = plan["id"], plan["style"]
+    count_rule = ("there is no count in it" if plan.get("open_loop") else "write N as the item count")
     lines = [
         f'This page\'s style is "{style}" and its headline template is "{tid}". The headline must follow this '
-        f'template exactly: "{plan["headline_pattern"]}" -- write N as the item count and fill each <slot> as '
-        f'defined below; keep every other word as written. Set page.json\'s "style" field to "{style}".',
+        f'template exactly: "{plan["headline_pattern"]}" -- {count_rule} and fill each <slot> as '
+        f'defined below; keep every other word as written (sentence case is fine). '
+        f'Set page.json\'s "style" field to "{style}".',
     ]
+    if template(tid).get("needs_speaker"):
+        lines.append('"She"/"he" in this headline is the ad\'s own speaker: set "speaker_pronoun" to match and '
+                     '"hero_quote_id" to the ad_quotes entry the first screen shows.')
+    if plan.get("word_band"):
+        lo, hi = plan["word_band"]
+        lines.append(f"The headline is {lo}-{hi} words. It opens a loop the items close: never the answer, a "
+                     "spec, a price or a verdict.")
     for name, slot in plan["slots"].items():
         rule = _KIND_RULES.get(slot["kind"]) or (_NON_MEDICAL_RULE if slot["kind"] in NON_MEDICAL_KINDS else "")
         if slot["kind"] == "choice":
@@ -870,10 +936,13 @@ def writer_lines(plan):
             f"The template above already carries its fixed parts ({parts}) -- copy them exactly; never change, "
             "round or replace them."
         )
-    allowed_numbers = ["N"] + (["the year"] if "year" in plan["fixed"] else []) + \
+    allowed_numbers = ([] if plan.get("open_loop") else ["N"]) + (["the year"] if "year" in plan["fixed"] else []) + \
         (["the verified count"] if "count" in plan["fixed"] else []) + \
         (["the age"] if any(s["kind"] == "age" for s in plan["slots"].values()) else [])
-    lines.append(f"No other number may appear in the headline -- only {', '.join(allowed_numbers)}.")
+    if allowed_numbers:
+        lines.append(f"No other number may appear in the headline -- only {', '.join(allowed_numbers)}.")
+    else:
+        lines.append("No number may appear in the headline.")
     if "count" in plan["fixed"]:
         shown = f'{plan["fixed"]["count"]} {plan["fixed"].get("count_unit", "")}'.strip()
         lines.append(

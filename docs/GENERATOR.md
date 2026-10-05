@@ -78,41 +78,42 @@ rotates through all five. `tenant.yaml` may pin a subset with
 `cartridges.listicle.styles: [myths, tested]`; an explicit `--style` still wins over
 the pin, because that is an operator's deliberate choice.
 
-**Five looks (cycle 51).** The style picks the copy; the LOOK picks the template that
-lays it out. Each look is `cartridges/listicle/looks/<look>/template.html` with its own
-`<style>` block scoped under `.adv-listicle.look-<name>`; `cartridges/listicle/template.html`
-is a dispatcher that `{% extends %}` the resolved one, so `harness/render.py` stays generic.
+**One look, three first screens (cycle 79).** The owner approved one boxless design on
+2026-10-05 (`~/asset-inbox/design-approved-2026-10-05/`), so the five cycle 51 looks
+(editorial, cards, pillars, scorecard, lander) are retired into one, `open`
+(`cartridges/listicle/looks/open/template.html`): white page, a centred headline with ONE
+accent phrase in brand red, one pill CTA (Basalt, hover red), a one-line byline, numbered
+items (red numeral, heading, body, a proof line with a 3px red left bar, a 4px-radius photo,
+alternating sides on desktop), "Made for you if / Not for you if" as plain check lists, a
+value stack ("What comes with the PEAK <Model>" -- verified feature lines, the price, the
+financing line, the CTA), the FAQ as plain Q and A on hairlines, and ONE dark closing band. A
+page.json, flag or A/B/C entry that names a retired look renders in `open`
+(`listicle.LOOK_ALIASES`).
 
-| look | what it is |
+The first screen is its own dimension (`harness/first_screen.py`), stamped on page.json and
+state.json as `hero_style`:
+
+| hero style | what the first phone screen shows |
 | --- | --- |
-| `editorial` | publisher article: one 680px column, serif headline and 19px serif body, sponsored eyebrow, author row under the H1, numbered subheads with inline images, pull-quote proof callouts, link CTAs plus one button mid-page and one at the end, no sticky bar |
-| `cards` | the v0.3 DTC look, unchanged: two-column hero, alternating image/text cards on soft bands, big numerals, micro-CTAs, sticky bar |
-| `pillars` | image-led: full-width 3:2 bands, uppercase pillar label over the H2, narrow copy, badge proof lines, headline reversed out over the hero image, `<details>` FAQ, sticky proof bar |
-| `scorecard` | evidence look: trust row of verified facts, per-item "claim vs what the facts say" panels with evidence label chips, a summary table before the FAQ, no sticky bar |
-| `lander` | product lander: wide two-column hero with a dual CTA, items as a 2-up panel grid with 4:3 thumbs, check/cross fit columns, three model cards, `<details>` FAQ, dark closing band, sticky bar on phones only |
+| `face` | headline, one-line byline, a 4:5 still of the ad's creator (`harness/ad_frames.py`) with her verbatim quote as the caption ("In the ad she made for PEAK"), an open-loop line, a scroll cue |
+| `story` | eyebrow, headline, byline, then the lede: "In the ad, she says, "..."" next to a round crop of the still, the open-loop paragraph -- and item 01 starts on screen 1 |
+| `display` | headline in Peak Grotesk Wide upper case (or Acid Grotesk, `first_screen.display_font`), dek, the product cut-out, a stats strip (big value, red bar, small label; verified claims only), a scroll cue |
 
 ```
-.venv/bin/harness run <input> --cartridges listicle --look scorecard
-.venv/bin/harness rerender tenants/peak-saunas/out/<run-id> --page listicle --look pillars
+.venv/bin/harness run <input> --cartridges listicle --hero-style story
+.venv/bin/harness rerender tenants/peak-saunas/out/<run-id> --page listicle --hero-style display
 ```
 
-`harness rerender --look` switches a live page's layout with no model call and without
-touching a word of copy. Without a flag the look comes from page.json's own `look`, else
-`tenant.yaml`'s `cartridges.listicle.look_by_style`, else the default pairing
-(`reasons`->`cards`, `mistakes`->`editorial`, `questions`->`scorecard`, `myths`->`pillars`,
-`tested`->`lander`). `tenant.yaml` may pin the allowed set with
-`cartridges.listicle.looks: [...]`. The resolved look is written to page.json and to
-state.json's `listicle` entry next to the style.
+Without `--hero-style` the run seeds one from the run seed (tenant pin:
+`cartridges.listicle.hero_styles`). `face` needs a usable ad still; with none it falls back
+to `story` when the ad has a quotable speaker, else `display`, and the log says so. The writer
+fills one set of first-screen fields whatever the style -- `eyebrow`, `headline` (6-13
+words, from the ad's hook, never the answer), `accent_phrase` (a substring of the
+headline), `dek`, `lede` (opens the loop, no number), `scroll_cue`, `hero_quote_id` (an
+`ad_quotes` id) and `speaker_pronoun` -- so switching the style is a re-render, no model call.
 
-Every look renders every section the schema provides, keeps the tenant's disclosure
-label (when `disclosure_label` is set), byline, disclosure and Sources, holds a CTA above the fold in markup order, uses only
-`--pk-*` tokens, calls `render_image_slot` for every image, and survives `harness
-shopify-body` and the review inliner. `tests/test_listicle_looks.py` asserts all of that
-plus the property the looks exist for: no two of them render the same set of section
-classes.
-
-**Page structure.** Header (the optional disclosure label, H1, one-line dek, hero image,
-the primary CTA, a trust line, byline) -> 5-7 numbered items, each with an H2, a short
+**Page structure.** Header (the first screen above; the product hero is the model's cut-out,
+`harness/cutouts.py`) -> 5-7 numbered items, each with an H2, a short
 one-idea body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
 pull-quote band after item 3 -> "who this is for / who it is not for" -> the model
 picker -> a 5-7 question FAQ -> the closing block (3-bullet recap, CTA, warranty
@@ -156,6 +157,30 @@ deterministically to the tenant's display name), `listicle:meta_reference:<path>
 "the ad"/"the ad speaker" outside the quote frame; no "she"/"he" in the headline or dek),
 `listicle:myth_item:<i>` (myths style), `listicle:message_match` (headline + dek share a
 word with the ad's hook/angle/promise/objections).
+
+**First-screen gates** (cycle 79, `harness/first_screen.py`, same wiring):
+`listicle:first_screen:eyebrow|accent|lede|scroll_cue|hero_quote|pronoun` (the fields above;
+the accent phrase must be a substring of the headline; the lede carries no number, spec or
+trigger word; `hero_quote_id` must name an `ad_quotes` entry when the ad has one),
+`listicle:quote_verbatim:<field>` (quoted words in the headline, dek, lede or eyebrow are a
+contiguous run of the transcript), `listicle:most_people:<path>` (an assertion about what
+"most people/most buyers ..." do, with no claim_id on that node -- a question passes), and
+`listicle:headline_words` (an open-loop template's 6-13 word band). Gate change the owner
+accepted: "she"/"he" in the headline or dek passes `listicle:meta_reference` when the ad is
+first person and the page carries the speaker's verbatim quote (`hero_quote_id` set). Every
+earlier gate is unchanged.
+
+Review fixes (cycle 79, from the smoke runs): the speaker's pronoun comes from evidence only
+(`ad_brief.speaker_pronoun`, set before the writer by `first_screen.prepare_speaker` from the
+ad-still check when unambiguous, or `first_screen.speaker_pronouns` in tenant.yaml); otherwise
+every quote frame is "In the ad, the creator says," (`listicle:speaker_pronoun:<path>`). The
+page never narrates the speaker outside her verbatim quotes (`listicle:speaker_narration:<path>`:
+no she/he/her/his outside a quote, and no lede sentence that tells a past without "you"); the
+she/he allowance above now covers the headline only. `display_headline` (3-8 words, at most 48
+characters) is what the display style sets in the wide face; a longer line is set in the heading
+face. No source notes in the copy (`listicle:source_parenthetical:<path>`, also stripped at
+render). Each ad quote at most once on the page, the hero quote included
+(`listicle:quote_repeat:<id>`).
 
 **Repairs** (cycle 74). The writer gets `ad_quotes` (the ad speaker's own sentences,
 pre-filtered so each passes the claims gate) and `allowed_numbers` (every verified number

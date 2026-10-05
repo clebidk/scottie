@@ -1,8 +1,26 @@
 {
   "type": "object",
-  "allowed_cta_texts": ["See the models", "Shop the {model_name}", "Book a consult"],
-  "headline_word_band": [8, 14],
-  "required": ["style", "headline", "dek", "hero", "reasons", "audience_fit", "faq", "cta_text", "cta_url", "closing"],
+  "allowed_cta_texts": [
+    "See the models",
+    "Shop the {model_name}",
+    "Book a consult"
+  ],
+  "headline_word_band": [
+    6,
+    14
+  ],
+  "required": [
+    "style",
+    "headline",
+    "dek",
+    "hero",
+    "reasons",
+    "audience_fit",
+    "faq",
+    "cta_text",
+    "cta_url",
+    "closing"
+  ],
   "properties": {
     "style": {
       "type": "string",
@@ -16,18 +34,54 @@
       "type": "string",
       "description": "OPTIONAL, and set by the harness rather than written here: the id of the headline template this page was written to (cartridges/listicle/headlines.yaml). Leave it out."
     },
+    "eyebrow": {
+      "type": "string",
+      "description": "Cycle 79 first screen: 2-6 words above the headline naming who or what the page is for (\"Small-space saunas\", \"For people who train most days\"). No number."
+    },
     "headline": {
       "type": "string",
-      "description": "8 to 14 words, following THIS page's headline template exactly (the hard constraints quote it; unless they name another template from headlines.yaml, it is the style formula): reasons -> 'N Reasons <audience> Are Choosing <category>'; mistakes -> 'N Mistakes <audience> Make When Buying <category>'; questions -> 'N Questions <audience> Should Ask Before Buying <category>'; myths -> 'N <category> Myths <audience> Still Hear, and What the Evidence Says'; tested -> 'We Checked N <category> Claims <audience> Keep Hearing. Here Is What Held Up'. N is the number of entries in reasons in every style. Never contains a price. <audience> names the people the ad speaks to by their situation or goal (2-5 words), never a bare 'people' or 'buyers', never the company by name; <category> is the product category, never the company or a model name."
+      "description": "From the ad's own hook, 6-13 words, following THIS page's headline template exactly (the hard constraints quote it). It opens a loop the items close: never the answer, a spec, a price or a verdict. Quoted words inside it are the ad speaker's own, word for word from ad_quotes. A count template ('N Reasons ...', the style formulas) is used only when the hard constraints name one; N is then the number of entries in reasons. Never contains a price. <audience> names the people the ad speaks to by their situation or goal, never a bare 'people' or 'buyers', never the company by name; <category> is the product category, never the company or a model name."
+    },
+    "accent_phrase": {
+      "type": "string",
+      "description": "1-6 words copied EXACTLY from the headline (same case and punctuation): the phrase the page sets in the brand colour, usually the turn or the payoff."
+    },
+    "display_headline": {
+      "type": "string",
+      "description": "A punchy 3 to 8 word line, at most 48 characters, with the headline's promise; the display first screen sets it big in the wide face. No number."
     },
     "dek": {
       "type": "string",
       "description": "One-line subhead under the headline, one sentence."
     },
+    "lede": {
+      "type": "string",
+      "description": "1-3 short sentences that start the story on the first screen and open the loop the items close. No answer, no number, no spec."
+    },
+    "scroll_cue": {
+      "type": "string",
+      "description": "2-8 words under the first screen that say what comes next (\"5 things apartment buyers check first\", \"Question 1 of 6\")."
+    },
+    "hero_quote_id": {
+      "type": "string",
+      "description": "The id of the ONE ad_quotes entry the first screen shows as the ad speaker's own words. Leave it out only when ad_quotes is empty."
+    },
+    "speaker_pronoun": {
+      "type": "string",
+      "description": "OPTIONAL, set by the harness from evidence (ad_brief.speaker_pronoun). Leave it out."
+    },
+    "hero_style": {
+      "type": "string",
+      "description": "OPTIONAL, set by the renderer: face | story | display (the first-screen layout). Leave it out."
+    },
     "hero": {
       "type": "object",
       "description": "The header's hero image slot -- one asset_id from facts_pack.assets, a lifestyle or installation photo in preference to a product-on-white shot.",
-      "properties": {"asset_id": {"type": "string"}}
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        }
+      }
     },
     "reasons": {
       "type": "array",
@@ -35,18 +89,43 @@
       "items": {
         "type": "object",
         "properties": {
-          "number": {"type": "integer", "description": "1-indexed position, matching the reading order (1, 2, 3, ...)."},
-          "heading": {"type": "string", "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test."},
-          "text": {"type": "string", "description": "Short body for this item: one idea, a few sentences, matching the winner's density. No word minimum and no padding; never empty."},
-          "claim_ids": {"type": "array", "description": "The BODY's own citations: every claim_id behind a number, price, spec or trigger word in text. The proof line's claim_ids cover the proof line only -- when the body states the same fact, cite it here too."},
-          "image": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
+          "number": {
+            "type": "integer",
+            "description": "1-indexed position, matching the reading order (1, 2, 3, ...)."
+          },
+          "heading": {
+            "type": "string",
+            "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test."
+          },
+          "text": {
+            "type": "string",
+            "description": "Short body for this item: one idea, a few sentences, matching the winner's density. No word minimum and no padding; never empty."
+          },
+          "claim_ids": {
+            "type": "array",
+            "description": "The BODY's own citations: every claim_id behind a number, price, spec or trigger word in text. The proof line's claim_ids cover the proof line only -- when the body states the same fact, cite it here too."
+          },
+          "image": {
+            "type": "object",
+            "properties": {
+              "asset_id": {
+                "type": "string"
+              }
+            }
+          },
           "proof": {
             "type": "object",
             "description": "The item's closing proof line -- one short sentence that either cites a verified claim_id or is an attributed customer statement (attributed_to_customer: true, phrased as the customer's own words). An item with neither fails the gate.",
             "properties": {
-              "text": {"type": "string"},
-              "claim_ids": {"type": "array"},
-              "attributed_to_customer": {"type": "boolean"}
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              },
+              "attributed_to_customer": {
+                "type": "boolean"
+              }
             }
           }
         }
@@ -58,11 +137,31 @@
       "properties": {
         "for_you": {
           "type": "array",
-          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              }
+            }
+          }
         },
         "not_for_you": {
           "type": "array",
-          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              }
+            }
+          }
         }
       }
     },
@@ -75,9 +174,16 @@
           "items": {
             "type": "object",
             "properties": {
-              "question": {"type": "string"},
-              "answer": {"type": "string", "description": "2-4 sentences. Answer the question first, then the detail."},
-              "claim_ids": {"type": "array"}
+              "question": {
+                "type": "string"
+              },
+              "answer": {
+                "type": "string",
+                "description": "2-4 sentences. Answer the question first, then the detail."
+              },
+              "claim_ids": {
+                "type": "array"
+              }
             }
           }
         }
@@ -102,17 +208,41 @@
         "recap": {
           "type": "array",
           "description": "Exactly 3 bullets, each one line, recapping the page's three strongest points. A bullet stating a fact carries claim_ids.",
-          "items": {"type": "object", "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}}
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              }
+            }
+          }
         },
         "warranty_line": {
           "type": "object",
           "description": "Must be exactly the fixed warranty sentence -- see the global voice block.",
-          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
+          }
         },
         "financing_line": {
           "type": "object",
           "description": "text: must be exactly the allowed financing sentence given in the prompt's Financing rule, verbatim -- see the global voice block. Never a freeform monthly figure, APR, or lender name typed in directly here.",
-          "properties": {"text": {"type": "string"}, "claim_ids": {"type": "array"}}
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
+          }
         }
       }
     }

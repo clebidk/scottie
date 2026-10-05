@@ -211,6 +211,18 @@ def validate_tags(tags, *, features, models):
     return errs
 
 
+def apply_corrections(photo, tags):
+    """`tags` with the photo's recorded human corrections applied (cycle 79):
+    each {"field": "features_visible", "removed": [...], "added": [...]}."""
+    for c in photo.get("corrections") or []:
+        if not isinstance(c, dict) or c.get("field") != "features_visible":
+            continue
+        feats = [f for f in tags.get("features_visible") or [] if f not in set(c.get("removed") or [])]
+        feats += [f for f in c.get("added") or [] if f not in feats]
+        tags["features_visible"] = feats
+    return tags
+
+
 def validate_manifest(data, *, features, models):
     """Problems (strings) with a whole manifest; [] when valid. An untagged
     photo (tags null -- imported, not yet tagged) is valid; it is simply
@@ -742,6 +754,9 @@ def tag_photos(tenant, *, client, model, budget, log, refs, ids=None, force=Fals
         # a re-tag keeps it.
         if "old_logo_visible" in (photo.get("tags") or {}):
             tags["old_logo_visible"] = photo["tags"]["old_logo_visible"]
+        # Cycle 79: a person's correction of a feature tag (photo
+        # "corrections") is kept too.
+        tags = apply_corrections(photo, tags)
         photo["tags"] = tags
         photo["decision"] = {
             "vision_product": vision["product"], "vision_confidence": vision["confidence"],
@@ -950,6 +965,16 @@ def topic_score(photo, topics):
     return score, matched
 
 
+def topic_share(photo, topics):
+    """The share of the photo's own features that the slot asks for (1.0 for
+    a photo with no features listed): the tie-break between two photos that
+    both match -- the one that shows mostly the topic wins."""
+    feats = set(photo["tags"]["features_visible"])
+    if not feats:
+        return 1.0
+    return len(feats & set(topics)) / len(feats)
+
+
 def _library_slots(page, cartridge_name):
     """(path, node, context, is_hero, heading) for every image slot -- ground's own
     per-cartridge slot knowledge, plus every other asset_id node."""
@@ -997,8 +1022,23 @@ def page_model_slug(facts_pack):
     return product_name_slug((facts_pack.get("product") or {}).get("name") or "")
 
 
+DEFAULT_WHOLE_UNIT_TOPICS = ("unit", "size-in-room")
+CUTOUT_MAX_USES = 3   # the hero plus two items
+
+
+def whole_unit_topics_for(tenant):
+    """Topics that are about the whole cabin (tenant.yaml
+    photo_library.whole_unit_topics): a slot about one of them shows the
+    product's cut-out, never a part close-up (cycle 79 review)."""
+    return tuple((tenant.get("photo_library.whole_unit_topics") if tenant else None) or DEFAULT_WHOLE_UNIT_TOPICS)
+
+
+def _feature_topics(topics):
+    return {t for t in topics if not t.startswith(("shot:", "setting:"))}
+
+
 def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=frozenset(),
-                       allow_ai_renders, log=None):
+                       allow_ai_renders, log=None, keep_hero=False, cutout_id=None):
     """Render-time: rewrites every image slot's asset_id from the library.
     The hero gets the best clean exterior of the page's product; every
     other slot gets the unused photo whose tags best match its own text,
@@ -1006,13 +1046,32 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
     the best unused photo of the same product (logged "no topic match").
     Once the library has no unused photo left, the product's storefront
     images are the fallback. A no-op (returns None) when facts_pack offers
-    no library photo. Returns {"assignments": [...], "notes": [...]}."""
+    no library photo. Returns {"assignments": [...], "notes": [...]}.
+
+    Cycle 79: `keep_hero` leaves the hero slot as it is (the renderer has
+    put the product's cut-out there). A photo whose derivative is not on
+    this machine is never assigned (a checkout without the files used to
+    assign it and then drop the image at download). A content slot ranks
+    equal topic scores by how much of the photo is the topic (a close-up of
+    the one thing beats a wide shot that also shows it), and a slot with no
+    topic gets a general photo (fewest feature close-ups) rather than a
+    close-up of something the slot never mentions.
+
+    Cycle 79 review (run ...-65ji): a slot about the whole unit (cabin, size,
+    footprint, capacity -- whole_unit_topics_for) shows the product cut-out
+    (`cutout_id`; up to CUTOUT_MAX_USES on a page, the hero included); a part
+    close-up (shot "detail") only goes on a slot whose topics name one of
+    its parts; any other photo needs a feature or shot topic in common (a
+    shared indoor setting is not enough); and a slot nothing matches gets NO
+    image (its asset_id is set to None and the item renders without one)
+    rather than an unrelated photo."""
     allowed = {a["id"]: a for a in facts_pack.get("assets", [])}
     lib_ids = [a for a in allowed if a.startswith(ID_PREFIX)]
     if not lib_ids:
         return None
     manifest = photos_by_id(load_manifest(tenant, log=log))
-    pool = [manifest[i] for i in lib_ids if i in manifest and _usable(manifest[i])]
+    pool = [manifest[i] for i in lib_ids if i in manifest and _usable(manifest[i])
+            and local_file(tenant, manifest[i]).exists()]
     if not allow_ai_renders:
         pool = [p for p in pool if not p.get("ai_generated")]
     product = page_model_slug(facts_pack)
@@ -1054,6 +1113,9 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
     for path, node, _ctx, is_hero, _heading in slots:
         if not is_hero:
             continue
+        if keep_hero:
+            used.add(node.get("asset_id"))
+            continue
         own = [p for p in free(pool) if p["tags"]["product"] == product and not shows_old_logo(p)]
         exteriors = [p for p in own if p["tags"]["shot"] == "exterior"]
         if exteriors:
@@ -1068,34 +1130,65 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
     # 2. Content slots, most specific first. The first item image (the
     # first content slot in page order) is above the fold too: no photo
     # with the retired mark there.
+    whole_unit = set(whole_unit_topics_for(tenant))
+    cutout_uses = 1 if (keep_hero and cutout_id) else 0
     content = [(i, s) for i, s in enumerate(slots) if not s[3]]
     first_content_path = content[0][1][0] if content else None
     scored = []
     for order, (path, node, ctx, _h, heading) in content:
         topics = slot_topics_weighted(heading, ctx, keywords)
+        heading_feats = _feature_topics(slot_topics(heading, keywords))
         best = max((topic_score(p, topics)[0] for p in pool), default=0)
-        scored.append((-best, order, path, node, topics))
-    for _neg, order, path, node, topics in sorted(scored, key=lambda s: (s[0], s[1])):
-        candidates = free(pool)
+        scored.append((-best, order, path, node, topics, heading_feats))
+
+    # whole-unit topics go to the cut-out; with no cut-out a room photo may
+    # still show them
+    unit_only = whole_unit if cutout_id else set()
+
+    def matches(p, topics, wanted):
+        """`wanted`: the parts the slot is about -- its heading's when the
+        heading names any (a passing "your door" in the body is not a topic),
+        else the body's."""
+        score, matched = topic_score(p, topics)
+        if score <= 0:
+            return False
+        parts = (_feature_topics(matched) - unit_only) & wanted
+        if p["tags"]["shot"] == "detail":
+            return bool(parts)
+        return bool(parts or [m for m in matched if m.startswith("shot:")])
+
+    for _neg, order, path, node, topics, heading_feats in sorted(scored, key=lambda s: (s[0], s[1])):
+        feats = _feature_topics(topics)
+        unit_slot = (heading_feats and heading_feats <= whole_unit) or (not heading_feats and feats and feats <= whole_unit)
+        if unit_slot and cutout_id and cutout_uses < CUTOUT_MAX_USES:
+            take(path, node, cutout_id, f"whole unit ({','.join(sorted(feats))}): product cut-out")
+            used.discard(cutout_id)
+            cutout_uses += 1
+            continue
+        wanted = (heading_feats or feats) - unit_only
+        candidates = [p for p in free(pool) if matches(p, topics, wanted)]
         if path == first_content_path:
             candidates = [p for p in candidates if not shows_old_logo(p)]
-        if not candidates:
-            fallback(path, node, "content: library has no unused photo left")
-            continue
-        ranked = sorted(
-            candidates,
-            key=lambda p: (topic_score(p, topics)[0], quality_rank(p), p["tags"]["product"] == product, p["id"]),
-            reverse=True,
-        )
-        best = ranked[0]
-        score, matched = topic_score(best, topics)
-        if score > 0:
+        if candidates:
+            # rank on the slot's own parts first (run ...-zpbm: "Ready the same
+            # day it's plugged in" went to a heater close-up because the body
+            # said "space heater")
+            focus = {t: n for t, n in topics.items() if t in wanted} or topics
+            best = max(candidates, key=lambda p: (topic_score(p, focus)[0], topic_share(p, focus),
+                                                  topic_score(p, topics)[0], quality_rank(p),
+                                                  p["tags"]["product"] == product, p["id"]))
+            score, matched = topic_score(best, topics)
             take(path, node, best["id"], f"topic match {','.join(matched)} (score {score:g})")
-        else:
-            own = [p for p in candidates if p["tags"]["product"] == product] or candidates
-            pick = max(own, key=lambda p: (quality_rank(p), hero_rank(p)))
-            take(path, node, pick["id"], "no topic match")
-            notes.append(f"no topic match for {path}")
+            continue
+        if feats & whole_unit and cutout_id and cutout_uses < CUTOUT_MAX_USES:
+            take(path, node, cutout_id, "whole unit mentioned, no part photo: product cut-out")
+            used.discard(cutout_id)
+            cutout_uses += 1
+            continue
+        assignments.append({"path": path, "old_id": node.get("asset_id"), "new_id": None,
+                            "why": "no photo shows this item's topic: no image"})
+        node["asset_id"] = None
+        notes.append(f"no matching photo for {path}: rendered without an image")
     if log:
         for a in assignments:
             log.event("photos", f"image: {a['path']}: {a['old_id']} -> {a['new_id']} ({a['why']})")

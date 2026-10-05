@@ -29,18 +29,24 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from . import abevents, abstats, exits, listicle, looks, pipeline
+from . import abevents, abstats, exits, first_screen, listicle, looks, pipeline
 from .errors import HarnessError
 
-# The builds every tenant gets when tenant.yaml names none: the five listicle
-# styles in the look the renderer pairs each with (harness/listicle.py
-# LOOK_BY_STYLE), plus the comparison and quiz pages.
+# The builds every tenant gets when tenant.yaml names none. Cycle 79: the
+# listicle has one look ("open"), so a listicle build is its copy style plus
+# its FIRST-SCREEN style (harness/first_screen.py: face | story | display) --
+# "listicle:<style>:<look>:<hero>". Each style is paired with each hero style
+# once over the library (5 builds), so every hero style is in play and
+# `harness abtest library --by hero` can pool the results per hero style;
+# plus the comparison and quiz pages.
 DEFAULT_LIBRARY = (
-    "listicle:reasons:cards",
-    "listicle:mistakes:editorial",
-    "listicle:questions:scorecard",
-    "listicle:myths:pillars",
-    "listicle:tested:lander",
+    "listicle:reasons:open:story",
+    "listicle:mistakes:open:face",
+    "listicle:questions:open:display",
+    "listicle:myths:open:story",
+    "listicle:tested:open:face",
+    "listicle:reasons:open:display",
+    "listicle:questions:open:face",
     "comparison",
     "quiz",
 )
@@ -66,6 +72,8 @@ SEO_HIDDEN_METAFIELD = {"namespace": "seo", "key": "hidden", "value": 1, "type":
 CTA_CLASSES = (
     "lst-btn", "ed-btn", "ed-link-cta", "ed-model-link", "ld-btn", "ld-link", "pil-btn",
     "sc-btn", "cmp-btn", "cmp-link", "qz-btn", "qz-link", "adv-cta", "pp-btn",
+    # cycle 79: the listicle's open look
+    "op-btn", "op-link",
 )
 
 
@@ -83,12 +91,16 @@ class Arm:
     cartridge: str
     style: str = None
     look: str = None
+    hero_style: str = None
 
 
 def parse_arm(text, tenant=None):
-    """"cartridge", "cartridge:look" or "listicle:style[:look]" -> Arm. A
-    listicle entry with no look gets the tenant's own style -> look pairing,
-    so the id always names the build that actually renders."""
+    """"cartridge", "cartridge:look" or "listicle:style[:look[:hero]]" -> Arm.
+    A listicle entry with no look gets the tenant's own style -> look
+    pairing, so the id always names the build that actually renders; a
+    retired look name resolves to the look it renders in now (cycle 79).
+    Cycle 79: the optional 4th part is the first-screen style (face | story
+    | display); without it the run seeds one."""
     parts = [p.strip() for p in str(text).split(":")]
     cartridge, rest = parts[0], parts[1:]
     if cartridge not in pipeline.discover_cartridges():
@@ -99,10 +111,16 @@ def parse_arm(text, tenant=None):
                 f"abtest library entry {text!r}: a listicle build needs a style, one of {list(listicle.STYLES)}"
             )
         style = rest[0]
-        look = rest[1] if len(rest) > 1 else listicle.resolve_look(None, style=style, tenant=tenant)
-        if look not in listicle.LOOKS or len(rest) > 2:
+        look = listicle.canonical_look(rest[1]) if len(rest) > 1 else listicle.resolve_look(None, style=style,
+                                                                                            tenant=tenant)
+        if look not in listicle.LOOKS or len(rest) > 3:
             raise AbtestError(f"abtest library entry {text!r}: unknown listicle look")
-        return Arm(f"listicle:{style}:{look}", "listicle", style, look)
+        hero = rest[2] if len(rest) > 2 else None
+        if hero is not None and hero not in first_screen.HERO_STYLES:
+            raise AbtestError(f"abtest library entry {text!r}: unknown hero style {hero!r}, one of "
+                              f"{list(first_screen.HERO_STYLES)}")
+        arm_id = f"listicle:{style}:{look}" + (f":{hero}" if hero else "")
+        return Arm(arm_id, "listicle", style, look, hero)
     if len(rest) > 1 or (rest and rest[0] not in looks.cartridge_looks(cartridge)):
         raise AbtestError(f"abtest library entry {text!r}: {cartridge} has no such look")
     look = rest[0] if rest else None
@@ -155,7 +173,8 @@ def pooled_arm_stats(tenant, by="arm"):
             continue
         counts = abevents.counts(db, rec["test_id"])
         for v in rec.get("variants") or []:
-            group = v["arm"] if by == "arm" else v.get("headline_template_id")
+            group = {"arm": v["arm"], "headline": v.get("headline_template_id"),
+                     "hero": v.get("hero_style")}.get(by)
             if not group:
                 continue
             slot = stats.setdefault(group, {"views": 0, "clicks": 0, "tests": 0})
@@ -288,6 +307,7 @@ def default_runner(tenant, input_path, arm, seed):
 
     args = argparse.Namespace(
         input=str(input_path), cartridges=arm.cartridge, seed=seed, style=arm.style, look=arm.look,
+        hero_style=arm.hero_style,
         # Cycle 76: an A/B/C build is not interactive -- its first writes go
         # through the Message Batches API when the tenant says so.
         product=None, batch=batch_mod.settings(tenant)["non_interactive"], tenant=tenant.name,
@@ -304,6 +324,13 @@ def _headline_template_id(run_dir):
     headline_template_id), so results can be grouped by template."""
     try:
         return json.loads((Path(run_dir) / "listicle" / "page.json").read_text()).get("headline_template_id")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def _page_field(run_dir, field):
+    try:
+        return json.loads((Path(run_dir) / "listicle" / "page.json").read_text()).get(field)
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -329,6 +356,9 @@ def _build_variant(tenant, rec, variant, runner):
             variant.update(run_dir=str(run_dir), cartridge=arm.cartridge, status="built")
             if arm.cartridge == "listicle":
                 variant["headline_template_id"] = _headline_template_id(run_dir)
+                # Cycle 79: the first screen it actually rendered (face falls
+                # back when the ad has no usable still).
+                variant["hero_style"] = _page_field(run_dir, "hero_style")
             save_test(tenant, rec)
             return "built"
         tries.append(attempt)
