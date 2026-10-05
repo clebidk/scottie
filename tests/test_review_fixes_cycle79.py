@@ -386,3 +386,16 @@ def test_value_stack_lines_are_whole_statements():
     ]
     texts = [i["text"] for i in first_screen.value_stack(facts, _page("story"), TENANT)["items"]]
     assert texts == ["Free delivery, shipped in a custom protective crate"]
+
+
+def test_the_writer_never_sees_a_copyable_open_loop_example():
+    """Smoke runs copied slot examples verbatim into unrelated ads."""
+    from harness import headlines
+
+    seen = " ".join(first_screen.writer_lines())
+    for tid in ("o1", "o2", "o3", "o4"):
+        plan = headlines.build_plan(tid, "reasons", FACTS_PACK, TENANT)
+        seen += " ".join(headlines.writer_lines(plan))
+    for phrase in ("spare room", "electrician", "six days a week", "real sauna", "could not be more excited",
+                   "Recover at home"):
+        assert phrase.lower() not in seen.lower(), phrase
