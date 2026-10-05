@@ -1772,7 +1772,8 @@ def find_forbidden_visible_text(rendered_html, terms=None):
 # gate would reject on the page anyway: a number or a trigger word (needs a
 # claim_id even inside her words -- run 20261005-150831-product-features-v2-
 # dkvo STOPped on "medical grade" in a faithful quote), or a forbidden term
-# (EMF and the rest). What is left can be quoted word for word and pass.
+# (EMF and the rest), or locked warranty/financing wording. What is left can
+# be quoted word for word and pass.
 # ---------------------------------------------------------------------------
 
 def safe_quote_candidates(ad_brief, facts_pack=None, financing_lender=None):
@@ -1783,6 +1784,11 @@ def safe_quote_candidates(ad_brief, facts_pack=None, financing_lender=None):
         if re.search(r"[\d$%]", text) or vocab.TRIGGER_WORD_RE.search(text.lower()):
             continue
         if find_forbidden_terms({"text": text}, financing_lender=financing_lender, verified_claims=verified):
+            continue
+        # Warranty and financing wording is locked to one sentence each,
+        # quoted or not ("free lifetime warranty" in a product-features ad).
+        node = {"reasons": [{"proof": {"text": text, "attributed_to_customer": True}}]}
+        if find_warranty_violations(node, verified) or find_financing_violations(node, financing_lender):
             continue
         out.append({"id": f"q{len(out) + 1}", "text": text})
     return out

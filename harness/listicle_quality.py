@@ -269,12 +269,29 @@ _META_RE = re.compile(
 )
 
 
+# The headline and dek speak to the reader, who has not met the ad's speaker:
+# "She ordered the <model> because ..." (smoke run 20261005-162336-product-
+# features-v2-xkkd) narrates a stranger.
+_TOP_PRONOUN_RE = re.compile(r"\b(?:she|he|her|his|him)\b", re.IGNORECASE)
+_TOP_PATHS = ("$.headline", "$.dek")
+
+
 def find_meta_reference_violations(page):
     problems = []
     for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
         if not isinstance(node, str):
             continue
         rest = _ALLOWED_FRAME_RE.sub(" ", _QUOTED_SPAN_RE.sub(" ", node))
+        if path in _TOP_PATHS:
+            m = _TOP_PRONOUN_RE.search(_QUOTED_SPAN_RE.sub(" ", node))
+            if m:
+                problems.append(_problem(
+                    path, f"listicle:meta_reference:{path}",
+                    f'"{m.group(0)}" in the {path[2:]} narrates the ad\'s speaker, whom the reader has not '
+                    "met -- the headline and dek speak to the reader: state the ad's problem directly",
+                    text=node,
+                ))
+                continue
         m = _META_RE.search(rest)
         if m:
             problems.append(_problem(
@@ -389,7 +406,8 @@ def writer_lines(display_name=None):
         "\"<ad_quotes text>\" -- and nothing else in that sentence. If no ad_quotes entry fits the "
         "item, write no attributed line there.",
         "Never talk about the source in your own narration: no \"the ad\", \"the video\", \"the ad "
-        "speaker\", \"as she found\". The ad is named only in the quote frame above.",
+        "speaker\", \"as she found\". The ad is named only in the quote frame above. The headline and "
+        "dek speak to the reader -- never \"she\"/\"he\" about the ad's speaker there.",
         "The headline and dek carry the ad's own hook: the dek says the ad's problem in the ad's "
         "words (ad_brief.hook / angle), as one plain, literal sentence -- no invented figure of "
         "speech. Item 1 answers the ad's main point. The skeleton decides the item roles after "

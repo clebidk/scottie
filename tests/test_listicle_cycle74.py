@@ -232,6 +232,7 @@ def test_quote_candidates_drop_numbers_and_trigger_words():
     texts = [c["text"] for c in safe_quote_candidates(brief)]
     assert texts, "the product-features ad still has quotable sentences"
     assert not any("medical" in t.lower() for t in texts)
+    assert not any("lifetime warranty" in t.lower() for t in texts)
     assert not any(ch.isdigit() for t in texts for ch in t)
     assert "I'm really excited it has medical grade red light therapy." in quote_fidelity.quote_candidates(brief)
 
@@ -425,6 +426,16 @@ def test_narration_about_the_source_fails(text):
     assert listicle_quality.find_meta_reference_violations({"x": text})
 
 
+def test_a_dek_narrating_the_speaker_fails_and_a_dek_to_the_reader_passes():
+    # Smoke run 20261005-162336-product-features-v2-xkkd's dek.
+    bad = {"dek": "She ordered the Peak Mini because it fits a small footprint and plugs into a normal outlet, "
+                  "no electrician involved."}
+    assert _keys(listicle_quality.find_meta_reference_violations(bad)) == ["listicle:meta_reference:$.dek"]
+    good = {"dek": "A small footprint and a normal outlet: what to check before you rule out a home sauna.",
+            "reasons": [{"text": "In the ad, she says the outlet was the deciding detail."}]}
+    assert listicle_quality.find_meta_reference_violations(good) == []
+
+
 def test_real_myth_headings_pass_and_a_spec_or_product_heading_fails():
     data = _real("2sxl")
     page = data["page"]
@@ -512,6 +523,47 @@ def test_apply_edits_replaces_only_allowed_nodes():
             pagepatch.apply_edits(page, edits, ["$.reasons[0]"])
     with pytest.raises(pagepatch.PatchError, match="does not resolve"):
         pagepatch.apply_edits(page, [{"path": "$.reasons[2]", "value": {}}], ["$.reasons"])
+
+
+def test_an_edit_must_keep_the_type_of_the_node_it_replaces():
+    # Live smoke run 20261005-162640-hidden-costs-v2-3rtc: an object written
+    # onto an FAQ "answer" string passed the schema check and crashed the
+    # FAQ gate. Now the edit list is rejected, and write_page asks again.
+    page = {"faq": {"questions": [{"question": "q", "answer": "It plugs into a dedicated 120V / 20A outlet."}]}}
+    bad = [{"path": "$.faq.questions[0].answer",
+            "value": {"answer": "A standard outlet.", "claim_ids": ["spec-fuji-electrical-requirement"]}}]
+    with pytest.raises(pagepatch.PatchError, match="must be a string"):
+        pagepatch.apply_edits(page, bad, ["$.faq.questions[0]"])
+    good = [{"path": "$.faq.questions[0]",
+             "value": {"question": "q", "answer": "A standard outlet.", "claim_ids": ["x"]}}]
+    assert pagepatch.apply_edits(page, good, ["$.faq.questions[0]"])["faq"]["questions"][0]["claim_ids"] == ["x"]
+    # a key the node does not have yet may be added with any type
+    added = pagepatch.apply_edits(page, [{"path": "$.faq.questions[0].claim_ids", "value": ["x"]}],
+                                  ["$.faq.questions[0]"])
+    assert added["faq"]["questions"][0]["claim_ids"] == ["x"]
+
+
+def test_write_page_asks_again_after_a_mistyped_patch(tmp_path):
+    from harness.write import write_page
+
+    data = _real("2sxl")
+    page = data["page"]
+    bad = {"edits": [{"path": "$.faq.questions[1].answer", "value": {"answer": "x"}}]}
+    good = {"edits": [{"path": "$.faq.questions[1].answer", "value": "Confirm the outlet before you buy."}]}
+    client = FakeClient([json_response(bad), json_response(good)])
+    log = RunLog("c74", tmp_path / "run.log")
+    try:
+        out = write_page(
+            cartridge_name="listicle", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=data["ad_brief"],
+            facts_pack=data["facts_pack"], client=client, model="claude-sonnet-5", budget=Budget(), log=log,
+            tenant=TENANT, listicle_style="myths", revision_note="## REVISION REQUIRED",
+            current_page=page, patch_roots=["$.faq.questions[1]"],
+        )
+    finally:
+        log.close()
+    assert out["faq"]["questions"][1]["answer"] == "Confirm the outlet before you buy."
+    assert len(client.messages.calls) == 2
+    assert "must be a string" in client.messages.calls[1]["messages"][-1]["content"]
 
 
 def test_edit_root_is_the_flagged_fields_list_item():

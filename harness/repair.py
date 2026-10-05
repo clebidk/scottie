@@ -612,8 +612,9 @@ def build_patch_revision_note(attempt, failures, roots):
         '"<path>", "value": <the new value>}, ...]}. Each path is one of these, or a path inside one: '
         + ", ".join(roots)
         + ' (and "$.headline" or "$.dek" if they must change too). A value replaces the whole node at '
-        "that path: for an item give the full object (number, heading, text, image, proof, claim_ids), "
-        "for a line its full object or string.",
+        "that path and has the same type: a string for a text/answer path, an object for an item or a "
+        "line object (for an item: number, heading, text, image, proof, claim_ids). To change a line's "
+        'claim_ids, edit the object that holds them (e.g. "$.faq.questions[1]", not ".answer").',
         "A line that needs a claim_id: state only a number listed in allowed_numbers and put one of its "
         "claim_ids on that same line -- or rewrite the line without the number.",
         "An attributed line that failed: use one allowed frame plus one ad_quotes entry word for word in "

@@ -93,8 +93,30 @@ def apply_edits(page, edits, roots):
                 raise PatchError(f"path {path} does not resolve")
         elif not isinstance(node, dict):
             raise PatchError(f"path {path} does not resolve")
+        # A value keeps the type of the node it replaces: an object put on an
+        # "answer" string (live smoke run 20261005-162640-hidden-costs-v2-3rtc)
+        # passed the schema check and crashed the FAQ gate.
+        if (isinstance(last, int) or last in node) and _kind(node[last]) != _kind(edit["value"]):
+            raise PatchError(
+                f"path {path} holds a {_kind(node[last])}; its new value must be a {_kind(node[last])} too "
+                f"(got a {_kind(edit['value'])}) -- to change a line's claim_ids, edit the object that holds it"
+            )
         node[last] = edit["value"]
     return patched
+
+
+def _kind(value):
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, list):
+        return "list"
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    return "number"
 
 
 def is_edit_list(data):
