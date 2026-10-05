@@ -79,9 +79,21 @@ token it says so and makes no call. With an expired or wrong token it says
 | option | what it does |
 |---|---|
 | `--since 2026-09-23` | use this cutoff instead of `meta.ingest_since` (00:00 UTC on that date) |
+| `--ad-ids 1202...,1202...` | ingest exactly these ads, in this order, whatever their creation date (not with `--since`). One `GET <ad_id>` each; an ad of another account, an unknown id, or a status outside the ingest list is reported as not ingestable and written nowhere |
 | `--limit N` | ingest at most N ads this run |
 | `--refresh` | pull ads already in the inbox again (metadata and media) |
 | `--dry-run` | list what would be ingested; no download, no write |
+
+One test per creative (cycle 77): each item records `creative_key`
+(`video:<video_id>` or `image:<image_hash>` of the media it is built from).
+When an ad's key is already on another inbox item, the ad is recorded as
+`skipped` with `duplicate_of: <first ad id>` and no media download, so
+`abtest from-inbox` builds one test for the creative, not one per ad.
+
+A video ad's `creative.video_id` is often a Page copy that an ads_read
+token cannot read (#283). The pull then tries the ad's other video ids
+(object_story_spec, asset_feed_spec: the ad-account copy) and keeps the
+first it can read; the item fails only when none can be read.
 
 An ad already in the inbox is skipped, except one whose last pull failed
 (for example, a CDN error). That one is tried again on the next pull, so a

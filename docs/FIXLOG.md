@@ -3650,3 +3650,41 @@ The derivatives are not in git. After merge, run
 in the deploy checkout (re-import keeps the committed tags), or set
 `HARNESS_PHOTO_LIBRARY_DIR`. Without the files the library is simply not
 offered (facts_for checks each file exists) and pages render as before.
+
+## Cycle 77 (meta pull --ad-ids and one test per creative, 2026-10-05)
+
+### Problem
+The owner wants A/B/C previews for the ads that are running now, ranked by
+spend. `harness meta pull` could only take every ad created since a date
+(`--since`, `--limit`); it could not pick ads, and most of the running ads
+were created before `meta.ingest_since`. Separately, Meta often runs one
+creative (same video or image) in several ads; each ad became its own inbox
+item and so its own test.
+
+### Fix
+- `harness meta pull --ad-ids id1,id2,...`: ingests exactly those ads, in
+  that order, any creation date. One read-only `GET <ad_id>?fields=AD_FIELDS,
+  account_id` each. An unknown id, an ad of another ad account, or an
+  effective_status outside INGEST_STATUSES is logged as not ingestable and
+  written nowhere. Not combinable with `--since`. Existing-item, `--refresh`,
+  `--limit` and `--dry-run` rules are unchanged.
+- Each inbox item records `creative_key` (`video:<video_id>` /
+  `image:<image_hash>` of the media it is built from). An ad whose key is
+  already on another item is recorded `skipped` with `duplicate_of` and no
+  download, so `abtest from-inbox` builds one test per creative.
+- Found on the first live pull: every running video ad's `creative.video_id`
+  is a Page copy that the ads_read token cannot read (`GET <video_id>` ->
+  #283, needs pages_read_engagement), and the pull aborted on it. The same
+  video's ad-account copy (object_story_spec.video_data / asset_feed_spec)
+  can be read. Media is now resolved before download: of the kind
+  choose_media picks, the first candidate the token can read wins
+  (`resolve_media`); a per-object permission refusal is the new
+  `MetaPermissionError` (a MetaAuthError subclass) and fails only that item.
+  An invalid token (190/102) still stops the pull. A video ad never falls
+  back to a still. Because the key is the readable ad-account copy, two ads
+  that share an upload but have different Page copies group together
+  (seen live: 4 such pairs among the top 50 running video ads).
+
+Files: harness/meta_ingest.py, harness/cli.py (argument wiring),
+docs/META-INGEST.md. Tests: 11 new in tests/test_meta_ingest.py (fake Graph
+client, no socket).
