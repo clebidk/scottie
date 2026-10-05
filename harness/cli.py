@@ -1128,23 +1128,30 @@ def cmd_meta_check(args):
 
 
 def cmd_meta_pull(args):
-    """`harness meta pull [--since DATE] [--limit N] [--refresh] [--dry-run]`."""
+    """`harness meta pull [--since DATE | --ad-ids ID,ID,...] [--limit N]
+    [--refresh] [--dry-run]`."""
     tenant = tenant_mod.load_tenant(args.tenant)
     since = None
     if args.since:
         since = meta_ingest.parse_since(args.since, what="--since")
+    ad_ids = None
+    if args.ad_ids is not None:
+        if args.since:
+            raise meta_ingest.MetaConfigError("--ad-ids and --since do not go together")
+        ad_ids = meta_ingest.parse_ad_ids(args.ad_ids)
     cfg, client = _meta_setup(tenant)
     summary = meta_ingest.pull(
         client, meta_ingest.Inbox(tenant.meta_inbox_dir),
         account_id=cfg["ad_account_id"], since=since or cfg["ingest_since"],
-        limit=args.limit, refresh=args.refresh, dry_run=args.dry_run,
+        limit=args.limit, refresh=args.refresh, dry_run=args.dry_run, ad_ids=ad_ids,
     )
     if args.dry_run:
         print(f"dry run: {len(summary['would_ingest'])} would be ingested, "
               f"{len(summary['existing'])} already in the inbox. Nothing written.")
     else:
         print(f"{len(summary['ingested'])} ingested, {len(summary['failed'])} failed, "
-              f"{len(summary['skipped'])} skipped, {len(summary['existing'])} already in the inbox")
+              f"{len(summary['skipped'])} skipped, {len(summary['existing'])} already in the inbox"
+              + (f", {len(summary['refused'])} not ingestable" if summary["refused"] else ""))
     return exits.OK
 
 
@@ -1899,6 +1906,7 @@ def build_parser():
     p_meta_check.set_defaults(func=cmd_meta_check)
     p_meta_pull = meta_sub.add_parser("pull", help="download new ads into tenants/<t>/meta_inbox/")
     p_meta_pull.add_argument("--since", help="ISO date; default: tenant.yaml meta.ingest_since")
+    p_meta_pull.add_argument("--ad-ids", help="ingest exactly these ads (comma-separated ids), any creation date")
     p_meta_pull.add_argument("--limit", type=int, help="ingest at most N ads this run")
     p_meta_pull.add_argument("--refresh", action="store_true", help="pull ads already in the inbox again")
     p_meta_pull.add_argument("--dry-run", action="store_true", help="list what would be ingested; write nothing")

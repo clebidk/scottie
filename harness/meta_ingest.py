@@ -18,6 +18,7 @@ Graph calls used (all GET, on https://graph.facebook.com/<version>/):
     me?fields=id,name                                   (harness meta check)
     act_<id>?fields=name,account_status                 (harness meta check)
     act_<id>/ads?fields=AD_FIELDS&effective_status=[..]&updated_since=<ts>&limit=100
+    <ad_id>?fields=AD_FIELDS,account_id                 (pull --ad-ids, cycle 77)
     <video_id>?fields=source,length,title,picture
     act_<id>/adimages?hashes=[..]&fields=hash,url,width,height,name
 """
@@ -403,6 +404,40 @@ def list_new_ads(client, account_id, since):
     return [ad for _created, ad in sorted(ads, key=lambda pair: pair[0])]
 
 
+def parse_ad_ids(value):
+    """Cycle 77: "id1,id2,..." as a list of ad ids, in order, without
+    repeats. Raises MetaConfigError on an empty list or a non-numeric id."""
+    ids = [part.strip() for part in str(value or "").split(",") if part.strip()]
+    bad = [i for i in ids if not (i.isdigit() and i.isascii())]
+    if not ids or bad:
+        raise MetaConfigError(f"--ad-ids must be Meta ad ids separated by commas, got {value!r}")
+    return list(dict.fromkeys(ids))
+
+
+def get_ads(client, account_id, ad_ids):
+    """Cycle 77: the named ads, in the order given, whatever their creation
+    date (one GET each). Returns (ads, refused): an ad Meta does not return,
+    an ad of another ad account, or an ad whose effective_status is not in
+    INGEST_STATUSES goes in `refused` as (ad_id, reason)."""
+    ads, refused = [], []
+    for ad_id in ad_ids:
+        try:
+            raw = client.get(ad_id, {"fields": AD_FIELDS + ",account_id"})
+        except MetaAuthError:
+            raise
+        except MetaAPIError as e:
+            refused.append((ad_id, str(e)))
+            continue
+        owner = f"act_{raw.get('account_id') or '?'}"
+        if owner != account_id:
+            refused.append((ad_id, f"the ad is in ad account {owner}, not {account_id}"))
+        elif raw.get("effective_status") not in INGEST_STATUSES:
+            refused.append((ad_id, f"effective_status {raw.get('effective_status') or 'none'} is not ingested"))
+        else:
+            ads.append(raw)
+    return ads, refused
+
+
 def _first_text(items):
     for item in items or []:
         text = item.get("text") if isinstance(item, dict) else None
@@ -462,6 +497,19 @@ def choose_media(candidates):
         for c in candidates:
             if c["kind"] == kind:
                 return c
+    return None
+
+
+def creative_key(chosen):
+    """Cycle 77: "video:<video_id>" or "image:<image_hash>" for the media an
+    item is built from. Two ads with the same key show the same creative.
+    None when there is no media or the image has only a URL."""
+    if chosen is None:
+        return None
+    if chosen["kind"] == "video":
+        return f"video:{chosen['video_id']}"
+    if chosen.get("image_hash"):
+        return f"image:{chosen['image_hash']}"
     return None
 
 
@@ -580,6 +628,15 @@ class Inbox:
                 found.append({"ad_id": path.parent.name, "state": "?", "reason": "ad.json is not valid JSON"})
         return sorted(found, key=lambda i: (i.get("created_time") or "", i.get("ad_id") or ""))
 
+    def find_creative(self, key, *, exclude=None):
+        """Cycle 77: the item (not itself a duplicate) whose creative_key is
+        `key`, other than ad `exclude`; None if there is none."""
+        for item in self.items():
+            if (item.get("creative_key") == key and item.get("ad_id") != exclude
+                    and not item.get("duplicate_of")):
+                return item
+        return None
+
     def set_state(self, ad_id, state, reason=""):
         """Move an item along new -> queued -> building -> tested (or to
         failed / skipped), with a reason and a history entry."""
@@ -669,16 +726,25 @@ def ingest_one(client, inbox, account_id, raw, existing=None, *, max_bytes=MAX_M
     directory.mkdir(parents=True, exist_ok=True)
     item = dict(existing or {})
     for key in ("media_type", "media_source", "media_file", "media_bytes", "media_content_type",
-                "video", "image", "pull_error"):
+                "video", "image", "pull_error", "creative_key", "duplicate_of"):
         item.pop(key, None)
     item.update(norm)
     item["media_type"], item["media_file"] = "", ""
     item["pulled_at"] = _now()
 
     chosen = choose_media(norm["media_candidates"])
+    key = creative_key(chosen)
+    item["creative_key"] = key or ""
+    first = inbox.find_creative(key, exclude=ad_id) if key else None
     if chosen is None:
         state = "skipped"
         reason = f"creative has no video or image to build from (object_type={norm['object_type'] or 'none'})"
+    elif first is not None:
+        # Cycle 77: one test per creative. The first ad with this media
+        # keeps the test; this one is recorded as its duplicate.
+        item["duplicate_of"] = first["ad_id"]
+        state = "skipped"
+        reason = f"duplicate creative: same {key} as ad {first['ad_id']}, which gets the test"
     else:
         try:
             item.update(_resolve_and_download(client, account_id, directory, ad_id, chosen, max_bytes))
@@ -700,16 +766,26 @@ def ingest_one(client, inbox, account_id, raw, existing=None, *, max_bytes=MAX_M
 
 
 def pull(client, inbox, *, account_id, since, limit=None, refresh=False, dry_run=False,
-         max_bytes=MAX_MEDIA_BYTES, log=print):
-    """Ingest every ad created at or after `since` that is not in the inbox.
+         max_bytes=MAX_MEDIA_BYTES, log=print, ad_ids=None):
+    """Ingest every ad created at or after `since` that is not in the inbox,
+    or (cycle 77) with `ad_ids`, exactly those ads in that order, whatever
+    their creation date (`since` is then not used).
 
     An item already in the inbox is left alone, except one whose previous
     pull failed (retried) or with `refresh`. `limit` caps how many ads this
     call ingests. `dry_run` lists them and writes nothing."""
-    summary = {"listed": 0, "ingested": [], "existing": [], "failed": [], "skipped": [], "would_ingest": []}
-    ads = list_new_ads(client, account_id, since)
+    summary = {"listed": 0, "ingested": [], "existing": [], "failed": [], "skipped": [], "would_ingest": [],
+               "refused": []}
+    if ad_ids is not None:
+        ads, refused = get_ads(client, account_id, ad_ids)
+        log(f"{len(ads)} of {len(ad_ids)} named ad(s) can be ingested from {account_id}")
+        for ad_id, reason in refused:
+            summary["refused"].append(ad_id)
+            log(f"not ingested {ad_id}: {reason}")
+    else:
+        ads = list_new_ads(client, account_id, since)
+        log(f"{len(ads)} ad(s) in {account_id} created since {since.date().isoformat()}")
     summary["listed"] = len(ads)
-    log(f"{len(ads)} ad(s) in {account_id} created since {since.date().isoformat()}")
     done = 0
     for raw in ads:
         ad_id = str(raw.get("id") or "")

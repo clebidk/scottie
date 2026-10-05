@@ -758,3 +758,134 @@ def test_without_a_sidecar_the_brief_prompt_is_unchanged(tmp_path):
     call = client.messages.calls[0]
     assert "ad_copy" not in json.loads(call["messages"][0]["content"])
     assert call["system"] == ingest.AD_BRIEF_SYSTEM
+
+
+# ---------------------------------------------------------------------------
+# Cycle 77: pull --ad-ids (named ads, any creation date) and creative grouping
+# ---------------------------------------------------------------------------
+
+ACCOUNT_DIGITS = ACCOUNT[len("act_"):]
+
+
+def _single(page, ad_id, **changes):
+    """One ad as `GET <ad_id>?fields=...,account_id` returns it."""
+    return {**_ad(page, ad_id), "account_id": ACCOUNT_DIGITS, **changes}
+
+
+def ad_id_routes(*ads):
+    video = fixture("video.json")
+    routes = {f"/{V}/{ACCOUNT}/adimages": [(200, fixture("adimages.json"))]}
+    for ad in ads:
+        routes[f"/{V}/{ad['id']}"] = [(200, ad)]
+        vid = (ad.get("creative") or {}).get("video_id")
+        if vid:
+            routes[f"/{V}/{vid}"] = [(200, dict(video, id=vid))]
+    return routes
+
+
+def test_parse_ad_ids_keeps_order_and_drops_repeats():
+    assert meta_ingest.parse_ad_ids(" 3, 1,3,,2 ") == ["3", "1", "2"]
+    for bad in ("", " , ", "12,abc", "12;13", "١٢"):
+        with pytest.raises(meta_ingest.MetaConfigError, match="--ad-ids"):
+            meta_ingest.parse_ad_ids(bad)
+
+
+def test_pull_ad_ids_ingests_exactly_the_named_ads_whatever_their_creation_date(tmp_path):
+    old = _single("ads_page1.json", "120210000000000103")  # created before the cutoff
+    image = _single("ads_page1.json", "120210000000000102")
+    graph = FakeGraph(ad_id_routes(old, image))
+    summary, inbox, graph, _, messages = run_pull(
+        tmp_path, graph=graph, ad_ids=["120210000000000103", "120210000000000102"])
+    assert summary["ingested"] == ["120210000000000103", "120210000000000102"]
+    assert summary["refused"] == []
+    assert inbox.read("120210000000000103")["state"] == "new"
+    assert inbox.read("120210000000000103")["media_type"] == "video"
+    assert inbox.read("120210000000000102")["media_type"] == "image"
+    assert inbox.read("120210000000000101") is None  # not named
+    assert not any(c["url"].split("?")[0].endswith("/ads") for c in graph.calls)  # no listing
+    assert all(c["method"] == "GET" for c in graph.calls)
+    assert graph.query(0)["fields"][0].endswith(",account_id")
+    assert "2 of 2 named ad(s)" in messages[0]
+
+
+def test_pull_ad_ids_refuses_another_account_a_status_outside_the_list_and_an_unknown_id(tmp_path):
+    deleted = _single("ads_page2.json", "120210000000000106")
+    foreign = _single("ads_page1.json", "120210000000000101", account_id="111")
+    graph = FakeGraph(ad_id_routes(deleted, foreign))
+    graph.add(f"/{V}/120210000000000999", 400, {"error": {
+        "message": "Unsupported get request.", "type": "GraphMethodException", "code": 100,
+        "error_subcode": 33}})
+    summary, inbox, _, downloads, messages = run_pull(
+        tmp_path, graph=graph, ad_ids=["120210000000000106", "120210000000000101", "120210000000000999"])
+    assert summary["refused"] == ["120210000000000106", "120210000000000101", "120210000000000999"]
+    assert summary["ingested"] == [] and downloads.calls == []
+    assert inbox.items() == []
+    text = "\n".join(messages)
+    assert "effective_status DELETED" in text
+    assert "act_111" in text
+    assert "Unsupported get request" in text
+    assert TOKEN not in text
+
+
+def test_pull_ad_ids_leaves_an_item_already_in_the_inbox_alone(tmp_path):
+    ad = _single("ads_page1.json", "120210000000000101")
+    run_pull(tmp_path, graph=FakeGraph(ad_id_routes(ad)), ad_ids=["120210000000000101"])
+    summary, _, _, downloads, _ = run_pull(
+        tmp_path, graph=FakeGraph(ad_id_routes(ad)), ad_ids=["120210000000000101"])
+    assert summary["existing"] == ["120210000000000101"]
+    assert downloads.calls == []
+
+
+def test_an_item_records_its_creative_key(tmp_path):
+    _, inbox, _, _, _ = run_pull(tmp_path)
+    assert inbox.read("120210000000000101")["creative_key"] == "video:900000000000001"
+    assert inbox.read("120210000000000102")["creative_key"] == "image:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+    assert inbox.read("120210000000000107")["creative_key"] == ""  # no media
+
+
+def test_a_second_ad_with_the_same_creative_is_a_duplicate_not_a_new_test(tmp_path):
+    first = _single("ads_page1.json", "120210000000000101")
+    second = dict(first, id="120210000000000108", name="Hidden costs v3 - UGC - copy")
+    graph = FakeGraph(ad_id_routes(first, second))
+    summary, inbox, _, downloads, messages = run_pull(
+        tmp_path, graph=graph, ad_ids=["120210000000000101", "120210000000000108"])
+    assert summary["ingested"] == ["120210000000000101"]
+    assert summary["skipped"] == ["120210000000000108"]
+    dup = inbox.read("120210000000000108")
+    assert dup["state"] == "skipped"
+    assert dup["duplicate_of"] == "120210000000000101"
+    assert dup["creative_key"] == "video:900000000000001"
+    assert "duplicate creative" in dup["reason"] and "120210000000000101" in dup["reason"]
+    assert dup["media_file"] == ""
+    assert len(downloads.calls) == 1  # the media is downloaded once
+
+    from harness import abtest_inbox
+    assert [i["ad_id"] for i in abtest_inbox._pending(inbox, None)] == ["120210000000000101"]
+
+    # Refreshing the first ad keeps it the one that gets the test.
+    summary, inbox, _, _, _ = run_pull(
+        tmp_path, graph=FakeGraph(ad_id_routes(first, second)), refresh=True,
+        ad_ids=["120210000000000101", "120210000000000108"])
+    assert inbox.read("120210000000000101")["state"] == "new"
+    assert "duplicate_of" not in inbox.read("120210000000000101")
+    assert inbox.read("120210000000000108")["duplicate_of"] == "120210000000000101"
+
+
+def test_cli_meta_pull_ad_ids(no_real_env, monkeypatch, capsys):
+    monkeypatch.setenv("META_ACCESS_TOKEN", TOKEN)
+    graph = FakeGraph(ad_id_routes(_single("ads_page1.json", "120210000000000103")))
+    monkeypatch.setattr(meta_ingest, "make_client", lambda token, cfg: make_client(graph, default_downloads()))
+    assert cli.main(["meta", "pull", "--tenant", "peak-saunas", "--ad-ids", "120210000000000103"]) == 0
+    out = capsys.readouterr().out
+    assert "1 ingested" in out and TOKEN not in out
+    assert (TENANT.meta_inbox_dir / "120210000000000103" / "ad.json").exists()
+
+
+def test_cli_meta_pull_ad_ids_rejects_bad_ids_and_since_together(no_real_env, monkeypatch, capsys):
+    monkeypatch.setenv("META_ACCESS_TOKEN", TOKEN)
+    monkeypatch.setattr(meta_ingest, "make_client", lambda token, cfg: pytest.fail("no client"))
+    assert cli.main(["meta", "pull", "--tenant", "peak-saunas", "--ad-ids", "12,x"]) == 1
+    assert "--ad-ids" in capsys.readouterr().err
+    assert cli.main(["meta", "pull", "--tenant", "peak-saunas", "--ad-ids", "12",
+                     "--since", "2026-09-01"]) == 1
+    assert "do not go together" in capsys.readouterr().err
