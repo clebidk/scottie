@@ -173,6 +173,11 @@ the style and the evidence allow) and the next winner skeleton for the ad (the
 questions, myths and tested styles have one skeleton, so there only the headline
 differs); the style, look, facts pack, claims, ad quotes and assets are the same. A
 pinned `--headline-template` or `--skeleton` stays pinned in both drafts.
+- Real time with `jev.second_draft_below` (PEAK 0.70): draft 1 is written alone; draft 2
+  only when draft 1 fails a gate on attempt 1 or Jev scores it below 0.70 (no Jev:
+  draft 1 ships, draft 2 is not written). A batch always writes both. When the style
+  allows no other headline template or skeleton (questions, myths, tested), draft 2
+  gets the "objection-first" angle instead.
 - A draft that fails a gate never ships.
 - Both pass on attempt 1: TypeSafe's Jev model scores them with the rubric in
   `cartridges/listicle/jev-rubric.yaml` (tenant override: `tenants/<t>/jev-rubric.yaml`);
