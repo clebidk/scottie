@@ -13,7 +13,7 @@ import time
 
 from .errors import HarnessError
 
-from .jsonutil import extract_json
+from .jsonutil import extract_json_tolerant
 from .write import build_initial_write_request, validate_schema
 
 
@@ -106,7 +106,7 @@ def collect_batch_results(client, batch_id, schemas):
         usage = message.usage
         text = "".join(b.text for b in message.content if getattr(b, "type", None) == "text")
         try:
-            page = extract_json(text)
+            page, _fixes = extract_json_tolerant(text)
             errors = validate_schema(page, schemas[cartridge_name])
             if errors:
                 raise ValueError("; ".join(errors))

@@ -823,6 +823,30 @@ def find_urgency_violations(page, prefix="listicle"):
     return problems
 
 
+# Cycle 74: "session by session" is also how a studio bills -- "You currently
+# pay for a studio or membership session by session" (run 20261005-151011-
+# price-comparison-v2-lnp5, a STOP) asserts no test. The phrase is exempt in
+# a sentence that is about paying; "we noticed it session by session" still
+# fails.
+_PAYMENT_CADENCE_PHRASES = frozenset({"session by session"})
+_PAYMENT_WORD_RE = re.compile(
+    r"\b(?:pay|pays|paid|paying|bill|bills|billed|billing|charge|charges|charged|fee|fees|membership|"
+    r"memberships|price|priced|pricing|cost|costs|subscription|subscriptions)\b",
+    re.IGNORECASE,
+)
+_SENTENCE_BOUNDARY_RE = re.compile(r"[.!?](?:\s|$)")
+
+
+def _is_payment_cadence(phrase, text, match):
+    if phrase not in _PAYMENT_CADENCE_PHRASES:
+        return False
+    starts = [m.end() for m in _SENTENCE_BOUNDARY_RE.finditer(text, 0, match.start())]
+    start = starts[-1] if starts else 0
+    end_m = _SENTENCE_BOUNDARY_RE.search(text, match.end())
+    sentence = text[start:end_m.end() if end_m else len(text)]
+    return bool(_PAYMENT_WORD_RE.search(sentence))
+
+
 def find_fake_test_violations(page):
     """No writer-composed prose anywhere on the page asserts a physical
     test, trial, or usage period -- this harness reports a claims check
@@ -835,7 +859,7 @@ def find_fake_test_violations(page):
         if not isinstance(node, str):
             continue
         for phrase, pattern in _FAKE_TEST_RES:
-            if pattern.search(node):
+            if any(not _is_payment_cadence(phrase, node, m) for m in pattern.finditer(node)):
                 problems.append(_problem(
                     path, "listicle:tested_no_fake_test",
                     f"{phrase!r} asserts a physical test, trial, or usage period that never "

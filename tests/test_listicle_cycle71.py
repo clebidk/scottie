@@ -72,12 +72,16 @@ def test_real_mistakes_draft_item_bodies_take_the_claims_their_proof_cites():
 
 
 def test_item_body_number_the_proof_claims_do_not_state_stays_uncited():
-    # The gate is not loosened: the same real body ("120V/20A") with a proof
-    # that cites a claim not stating those numbers gets no claim_ids, and the
-    # failure is left for the writer.
+    # The gate is not loosened: a body number that NO verified claim states
+    # ("120V/25A") gets no claim_ids, and the failure is left for the writer.
+    # Cycle 74: with the real "120V/20A" the body is no longer left uncited --
+    # the claim that states it is found across the whole facts pack (see
+    # tests/test_listicle_cycle74.py); the proof's unrelated claim is still
+    # never borrowed.
     page, facts_pack = _load("mistakes")
     item = page["reasons"][2]
     item["proof"]["claim_ids"] = ["spec-fuji-cabin-material"]
+    item["text"] = item["text"].replace("20A", "25A").replace("20 A", "25 A")
     failures = [f for f in _uncited(page, facts_pack) if f["path"] == "$.reasons[2]"]
     assert len(failures) == 1
 
@@ -85,6 +89,23 @@ def test_item_body_number_the_proof_claims_do_not_state_stays_uncited():
 
     assert "claim_ids" not in item
     assert [f["path"] for f in _uncited(page, facts_pack) if f["path"] == "$.reasons[2]"] == ["$.reasons[2]"]
+
+
+def test_item_body_with_a_wrong_proof_claim_gets_the_claim_that_states_its_number():
+    # Cycle 74: the same real body ("120V/20A") with a proof citing an
+    # unrelated claim -- the deterministic pass now cites the verified claim
+    # that states 120V/20A, never the proof's cabin-material claim.
+    page, facts_pack = _load("mistakes")
+    item = page["reasons"][2]
+    item["proof"]["claim_ids"] = ["spec-fuji-cabin-material"]
+    failures = [f for f in _uncited(page, facts_pack) if f["path"] == "$.reasons[2]"]
+
+    _fix(page, failures, facts_pack)
+
+    assert item["claim_ids"] and "spec-fuji-cabin-material" not in item["claim_ids"]
+    texts = {c["id"]: c["text"] for c in facts_pack["verified_claims"]}
+    assert all("120" in texts[cid] and "20" in texts[cid].replace("120", "") for cid in item["claim_ids"])
+    assert [f for f in _uncited(page, facts_pack) if f["path"] == "$.reasons[2]"] == []
 
 
 def test_warranty_fix_in_an_item_body_keeps_the_rest_of_the_body():

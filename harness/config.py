@@ -16,13 +16,14 @@ DEFAULT_MODEL = "claude-sonnet-5"
 
 # Fix cycle 17 (model tiering): per-stage default model ids, overridable per
 # tenant via tenant.yaml's `models:` section (see Tenant.model_for). Initial
-# page writes stay on sonnet; a first repair tries the cheaper haiku model
-# before falling back to sonnet for a second repair; ingest's ad_brief/vision
+# page writes stay on sonnet; repairs stay on sonnet too (cycle 74: a first
+# repair on haiku re-wrote the prompt cache and often broke the JSON -- it
+# was claude-haiku-4-5 from cycle 17 to cycle 73); ingest's ad_brief/vision
 # calls and the claims semantic matcher are bounded extraction/classification
 # tasks that don't need sonnet's judgment.
 DEFAULT_MODELS = {
     "write": "claude-sonnet-5",
-    "repair_first": "claude-haiku-4-5",
+    "repair_first": "claude-sonnet-5",
     "repair_next": "claude-sonnet-5",
     "ingest": "claude-haiku-4-5",
     "matcher": "claude-haiku-4-5",

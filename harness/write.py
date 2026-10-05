@@ -11,9 +11,12 @@ from .anthropic_client import thinking_kwargs
 from .design_skills import LANDING_CARTRIDGES
 from .design_skills.design_md import design_reference_guidance_lines
 from .errors import WriterFailed
-from .jsonutil import extract_json
+from .claims import safe_quote_candidates
+from .jsonutil import extract_json_tolerant
 from . import comparison
 from . import listicle
+from . import listicle_quality
+from . import pagepatch
 from . import skeletons
 from . import quiz
 from . import pdp
@@ -463,13 +466,32 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
 # Cycle 73: `skeleton` is the run's winner skeleton payload
 # (skeletons.for_writer); its lines say how to use it and that it never
 # outranks these constraints.
-def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None, skeleton=None):
+def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None, skeleton=None,
+                                    tenant=None):
     if cartridge_name != "listicle":
         return
     hard_constraints.extend(listicle.writer_rules_lines())
     if style:
         hard_constraints.extend(listicle.writer_style_lines(style, headline=headline))
     hard_constraints.extend(skeletons.writer_lines(skeleton))
+    # Cycle 74: the copy-quality rules harness/listicle_quality.py gates.
+    hard_constraints.extend(listicle_quality.writer_lines(getattr(tenant, "display_name", None)))
+    if style == "myths":
+        hard_constraints.append(listicle_quality.myth_writer_line())
+
+
+# Cycle 74: select, do not generate. A listicle writer gets the ad speaker's
+# own sentences (ad_quotes, cut from the transcript and pre-filtered so each
+# one passes the claims gate) and every number the verified claims state, with
+# their ids (allowed_numbers). Both go in the user message's volatile block,
+# on attempt 1 and on every repair.
+def _listicle_payload(cartridge_name, ad_brief, facts_pack):
+    if cartridge_name != "listicle":
+        return {}
+    return {
+        "ad_quotes": safe_quote_candidates(ad_brief, facts_pack),
+        "allowed_numbers": listicle_quality.allowed_numbers(facts_pack),
+    }
 
 
 # Cycle 56: the comparison cartridge's per-run lines (the run's own three
@@ -619,7 +641,8 @@ def _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeate
 # per-ad, not stable across runs, and exemplars/revision_note are per-call by
 # design (fix cycle 12 item 1's exemplar-skip-on-repair, fix cycle 4's
 # per-attempt revision note).
-def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None, skeleton=None):
+def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None, skeleton=None,
+                                extras=None, current_page=None):
     volatile_payload = {"ad_brief": ad_brief}
     if exemplars:
         volatile_payload["exemplars"] = exemplars
@@ -628,6 +651,10 @@ def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=N
     # item map the repaired page must still follow.
     if skeleton:
         volatile_payload["skeleton"] = skeleton
+    volatile_payload.update(extras or {})
+    # Cycle 74: a patch repair (harness/pagepatch.py) edits this page.
+    if current_page is not None:
+        volatile_payload["current_page"] = current_page
     volatile_text = json.dumps(volatile_payload)
     if revision_note:
         volatile_text += "\n\n" + revision_note
@@ -676,12 +703,13 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
-                                    skeleton=skeleton)
+                                    skeleton=skeleton, tenant=tenant)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, skeleton=skeleton)]
+    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, skeleton=skeleton,
+                                            extras=_listicle_payload(cartridge_name, ad_brief, facts_pack))]
     kwargs = {
         "model": model,
         "max_tokens": max_tokens_for_word_range(word_range),
@@ -694,7 +722,8 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
-               tenant=None, listicle_style=None, listicle_headline=None, listicle_skeleton=None):
+               tenant=None, listicle_style=None, listicle_headline=None, listicle_skeleton=None,
+               current_page=None, patch_roots=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -712,7 +741,13 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
     listicle_skeleton (cycle 73): the run's winner skeleton payload
     (skeletons.for_writer), listicle only. Unlike exemplars it is kept on
-    repair attempts."""
+    repair attempts.
+
+    current_page/patch_roots (cycle 74, harness/pagepatch.py): a patch
+    repair. The user message carries the current page, and the writer may
+    answer with {"edits": [...]} limited to patch_roots; the edits are
+    applied to a copy of current_page and the result is validated like a
+    full page. A full page in reply is still accepted."""
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
@@ -731,7 +766,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
-                                    skeleton=skeleton)
+                                    skeleton=skeleton, tenant=tenant)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
@@ -745,7 +780,12 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
     stage = f"write.{cartridge_name}"
     last_error = None
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note, skeleton=skeleton)]
+    patching = current_page is not None
+    messages = [_build_initial_user_message(
+        ad_brief, facts_pack, exemplars, revision_note, skeleton=skeleton,
+        extras=_listicle_payload(cartridge_name, ad_brief, facts_pack),
+        current_page=current_page,
+    )]
     for attempt in range(2):
         budget.check()
         # Fix cycle 12 item 1: log an approximate prompt size (chars / 4, the
@@ -783,7 +823,14 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
         text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
         try:
-            page = extract_json(text)
+            data, fixes = extract_json_tolerant(text)
+            if fixes:
+                log.event(stage, f"tolerant parse on attempt {attempt + 1}: {', '.join(dict.fromkeys(fixes))}")
+            if patching and pagepatch.is_edit_list(data):
+                page = pagepatch.apply_edits(current_page, data["edits"], patch_roots or [])
+                log.event(stage, "patch: " + ", ".join(str(e.get("path")) for e in data["edits"]))
+            else:
+                page = data
             errors = validate_schema(page, schema)
             if errors:
                 raise ValueError("; ".join(errors))
@@ -804,8 +851,9 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
                     "role": "user",
                     "content": (
                         f"That response was not valid JSON matching the schema: {e}. Return ONLY a "
-                        "complete, corrected JSON object matching the schema -- no markdown fences, "
-                        "no commentary before or after."
+                        + ('corrected {"edits": [...]} object (only the allowed paths) -- '
+                           if patching else "complete, corrected JSON object matching the schema -- ")
+                        + "no markdown fences, no commentary before or after."
                     ),
                 },
             ]

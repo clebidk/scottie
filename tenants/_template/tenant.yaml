@@ -129,7 +129,11 @@ design_reference: []
 # claim matcher.
 models:
   write: claude-sonnet-5
-  repair_first: claude-haiku-4-5
+  # Cycle 74: was claude-haiku-4-5. A Haiku repair cannot read the Sonnet
+  # prompt cache (a fresh cache write every time) and returned invalid JSON
+  # on 5 of the 8 listicle STOPs of 2026-10-05; a Sonnet patch repair is
+  # cheaper than a Haiku full rewrite (docs/FIXLOG.md cycle 74).
+  repair_first: claude-sonnet-5
   repair_next: claude-sonnet-5
   ingest: claude-haiku-4-5
   matcher: claude-haiku-4-5
