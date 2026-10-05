@@ -7,7 +7,7 @@ to cite. Covers: the library loads and validates; every template renders from
 its slots; evidence gating (a count, growth, exclusivity or an endorsement
 only when verified.json holds one, never invented); the fear-word and
 medical-word gates; the category-not-competitor rule; the current-year slot;
-the "Game-Changer"/"Must-Have" headline exception; selection (seeded, tenant
+the "Must-Have" headline exception (cycle 73: no template carries "Game-Changer"); selection (seeded, tenant
 include/exclude, a weight hook); the gate and its repair message; and the
 template id recorded in page.json, state.json and the A/B/C test record.
 """
@@ -353,10 +353,10 @@ def test_ordinary_english_in_items_is_not_a_health_claim():
 
 def test_target_age_is_a_plain_age():
     plan = _plan("h08")
-    ok = _page_for(plan, headline="5 Reasons People Over 50 Are Obsessed With PEAK")
+    ok = _page_for(plan, headline="5 Reasons People Over 50 Are Choosing PEAK")
     assert headlines.find_headline_violations(ok, plan) == []
-    for bad in ("5 Reasons People Over Fifty-Something Are Obsessed With PEAK",
-                "5 Reasons People Over 5000 Are Obsessed With PEAK"):
+    for bad in ("5 Reasons People Over Fifty-Something Are Choosing PEAK",
+                "5 Reasons People Over 5000 Are Choosing PEAK"):
         page = _page_for(plan, headline=bad)
         assert any(p["key"] == "listicle:headline_slots" for p in headlines.find_headline_violations(page, plan))
 
@@ -368,7 +368,7 @@ def test_target_age_is_a_plain_age():
 @pytest.mark.parametrize("rival", ["Sunlighten Saunas", "Sun Home Saunas", "Sun Saunas"])
 def test_template_14_rejects_a_competitor_brand(rival):
     plan = _plan("h14")
-    page = _page_for(plan, headline=f"5 Reasons Why This Breakthrough Home Sauna Crushes {rival}")
+    page = _page_for(plan, headline=f"5 Reasons This Home Sauna Is a Better Fit Than {rival}")
     problems = headlines.find_headline_violations(page, plan)
     assert any(p["key"] == "listicle:headline_slots" and "competitor" in p["issue"] for p in problems), rival
 
@@ -376,7 +376,7 @@ def test_template_14_rejects_a_competitor_brand(rival):
 def test_template_14_accepts_a_category():
     plan = _plan("h14")
     for category in ("Gym Saunas", "Traditional Saunas", "Sauna Blankets"):
-        page = _page_for(plan, headline=f"5 Reasons Why This Breakthrough Home Sauna Crushes {category}")
+        page = _page_for(plan, headline=f"5 Reasons This Home Sauna Is a Better Fit Than {category}")
         assert headlines.find_headline_violations(page, plan) == [], category
 
 
@@ -407,14 +407,30 @@ def test_a_number_other_than_n_year_or_count_is_rejected():
 
 
 # ---------------------------------------------------------------------------
-# 8. "Game-Changer" / "Must-Have" in these templates' headlines only
+# 8. "Must-Have" in template 4's headline only; "Game-Changer" nowhere
 # ---------------------------------------------------------------------------
 
-def test_game_changer_passes_the_full_gate_in_template_16s_headline():
+def test_template_16_passes_the_full_gate_without_game_changer():
     plan = _plan("h16", facts_pack=FACTS_PACK)
     page = _page_for(plan)
-    assert "Game-Changer" in page["headline"]
+    assert "Big Improvement" in page["headline"]
     assert _gate(page, listicle_style="reasons", listicle_headline=plan) == []
+    assert not plan["allowed_headline_terms"]
+
+
+def test_game_changer_is_banned_in_template_16s_headline_too():
+    plan = _plan("h16", facts_pack=FACTS_PACK)
+    page = _page_for(plan)
+    page["headline"] = "5 Reasons Why A Home Infrared Sauna Is a Game-Changer for Busy Parents"
+    problems = _gate(page, listicle_style="reasons", listicle_headline=plan)
+    assert any(p.get("term") == "game-changer" and p["path"] == "$.headline" for p in problems)
+
+
+@pytest.mark.parametrize("word", ["game-changer", "game changer", "going viral", "breakthrough", "crushes",
+                                  "obsessed", "unlock", "elevate", "journey", "!"])
+def test_no_template_pattern_carries_a_hype_word(word):
+    for tid in headlines.template_ids():
+        assert word not in headlines.template(tid)["pattern"].lower(), tid
 
 
 def test_game_changer_is_still_banned_in_body_copy_under_template_16():
@@ -441,17 +457,17 @@ def test_must_have_passes_the_full_gate_in_template_4s_headline():
 def test_brand_slot_may_name_the_tenant_in_the_full_gate():
     plan = _plan("h08", facts_pack=FACTS_PACK)
     page = _page_for(plan)
-    assert page["headline"].endswith("With PEAK")
+    assert page["headline"].endswith("Choosing PEAK")
     assert _gate(page, listicle_style="reasons", listicle_headline=plan) == []
 
 
 def test_a_model_name_is_its_full_name_in_a_product_slot():
     plan = _plan("h16", facts_pack=FACTS_PACK)
-    ok = _page_for(plan, headline="5 Reasons Why the Peak Fuji Is a Game-Changer for Busy Parents")
+    ok = _page_for(plan, headline="5 Reasons Why the Peak Fuji Is a Big Improvement for Busy Parents")
     assert headlines.find_headline_violations(ok, plan) == []
-    bad = _page_for(plan, headline="5 Reasons Why Fuji Is a Game-Changer for Busy Parents")
+    bad = _page_for(plan, headline="5 Reasons Why Fuji Is a Big Improvement for Busy Parents")
     assert any(p["key"] == "listicle:headline_slots" for p in headlines.find_headline_violations(bad, plan))
-    brand_in_audience = _page_for(plan, headline="5 Reasons Why A Home Sauna Is a Game-Changer for PEAK Owners")
+    brand_in_audience = _page_for(plan, headline="5 Reasons Why A Home Sauna Is a Big Improvement for PEAK Owners")
     assert any(p["key"] == "listicle:headline_slots"
                for p in headlines.find_headline_violations(brand_in_audience, plan))
 
@@ -616,9 +632,9 @@ def test_every_slot_description_survives_yaml_whole():
             assert set(slot) <= {"kind", "max_words", "description", "options"}, (tid, slot)
 
 
-def test_writer_lines_for_template_16_allow_game_changer_in_the_headline_only():
-    text = " ".join(listicle.writer_style_lines("reasons", headline=_plan("h16")))
-    assert "Game-Changer" in text and "headline only" in text
+def test_writer_lines_for_template_4_allow_must_have_in_the_headline_only():
+    text = " ".join(listicle.writer_style_lines("reasons", headline=_plan("h04")))
+    assert "Must-Have" in text and "headline only" in text
 
 
 def test_writer_lines_for_template_11_ban_fear_words():

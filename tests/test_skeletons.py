@@ -26,12 +26,15 @@ FIXTURE = TENANT.fixtures_dir / "founder-warranty-demo.txt"
 
 BRANCH_HEADLINE_IDS = {
     "h01": "most-dont-work", "h02": "everyones-switching", "h03": "every-avatar-needs",
-    "h04": "must-have-for-problem", "h05": "going-viral", "h06": "avatar-started-switching",
+    "h04": "must-have-for-problem", "h05": "catching-on", "h06": "avatar-started-switching",
     "h07": "ways-helps-solve", "h08": "people-over-age", "h09": "social-proof-switched",
     "h10": "swore-they-couldnt", "h11": "concerning-in-common", "h12": "only-built-for-niche",
-    "h13": "removes-without-concern", "h14": "breakthrough-crushes", "h15": "authority-loves",
-    "h16": "game-changer-for-avatar", "h17": "still-problem-after-trying",
+    "h13": "removes-without-concern", "h14": "better-fit-than", "h15": "authority-loves",
+    "h16": "big-improvement-for-audience", "h17": "still-problem-after-trying",
 }
+# The branch ids of the three templates rewritten for the guardrails no longer
+# name a template (their wording is gone).
+RETIRED_BRANCH_IDS = ("going-viral", "breakthrough-crushes", "game-changer-for-avatar")
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +199,9 @@ def test_the_branch_swipe_ids_are_aliases_of_h01_to_h17():
         assert headlines.template(alias) is headlines.template(tid)
         assert headlines.canonical_id(alias) == tid
     assert sorted(BRANCH_HEADLINE_IDS) == NEW_IDS
+    for retired in RETIRED_BRANCH_IDS:
+        with pytest.raises(headlines.HeadlineTemplateError):
+            headlines.template(retired)
 
 
 def test_an_alias_cannot_shadow_an_id():

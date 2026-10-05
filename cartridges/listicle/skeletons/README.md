@@ -54,5 +54,5 @@ Tenant-specific fills live with the tenant, never here:
 - `NN-<id>.json` -- the skeletons.
 
 The 17 pre-sell headline swipes the source branch carried are the h01-h17
-templates in `../headlines.yaml` (each keeps its branch id as an `alias`);
-see docs/HEADLINES.md.
+templates in `../headlines.yaml` (each keeps its branch id as an `alias`,
+except h05/h14/h16, rewritten for the guardrails); see docs/HEADLINES.md.

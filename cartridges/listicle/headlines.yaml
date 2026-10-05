@@ -194,9 +194,11 @@ templates:
       product: {kind: product, max_words: 5, description: 'the category, singular (e.g. "a home infrared sauna"), or a model''s full name'}
       problem: {kind: problem, max_words: 5, description: 'a common, everyday, non-medical situation (e.g. "long winter evenings")'}
     example: {product: A Home Infrared Sauna, problem: Long Winter Evenings}
+  # Cycle 73: was "... Is Going Viral ..." -- hype; "Catching On" says the
+  # same thing and the verified growth claim still has to back it.
   - id: h05
-    alias: going-viral
-    pattern: "N Reasons This <product> Is Going Viral (and How It Works)"
+    alias: catching-on
+    pattern: "N Reasons This <product> Is Catching On (and How It Works)"
     styles: [reasons]
     requires: [growth]
     slots:
@@ -225,9 +227,11 @@ templates:
       with_without: {kind: choice, options: [With, Without]}
       usp: {kind: usp, max_words: 5, description: 'the unique selling point: with a verified feature, or without something the reader avoids (e.g. "leaving the house")'}
     example: {product: A Home Sauna, problem: Crowded Gym Schedules, with_without: Without, usp: Leaving the House}
+  # Cycle 73: was "... Are Obsessed With ..." -- an unverifiable popularity
+  # superlative. The age stays a plain audience marker, never an outcome.
   - id: h08
     alias: people-over-age
-    pattern: "N Reasons People Over <age> Are Obsessed With <brand>"
+    pattern: "N Reasons People Over <age> Are Choosing <brand>"
     styles: [reasons]
     item_gates: [medical]
     slots:
@@ -289,14 +293,17 @@ templates:
       problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "locker room moments")'}
       concern: {kind: concern, max_words: 4, description: 'the usual catch, non-medical (e.g. "a gym membership")'}
     example: {product: A Home Sauna, problem: Locker Room Moments, concern: a Gym Membership}
+  # Cycle 73: was "... This Breakthrough <product> Crushes ..." --
+  # "Breakthrough" is an unverifiable superlative and "Crushes" a hype
+  # comparison. A fit claim per item, each backed by a cited spec.
   - id: h14
-    alias: breakthrough-crushes
-    pattern: "N Reasons Why This Breakthrough <product> Crushes <common_solution>"
+    alias: better-fit-than
+    pattern: "N Reasons This <product> Is a Better Fit Than <common_solution>"
     styles: [reasons]
     requires: [feature]
     item_pattern: >-
-      one way this product beats the common solution named in the headline, stated as the benefit
-      and backed by the cited spec that proves it
+      one way this product fits the reader better than the common solution named in the headline,
+      stated as the benefit and backed by the cited spec that proves it
     slots:
       product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
       common_solution: {kind: common_solution, max_words: 4, description: 'a CATEGORY (e.g. "gym saunas", "traditional saunas", "sauna blankets"), never a competitor brand'}
@@ -311,11 +318,12 @@ templates:
       product: {kind: product, max_words: 4, description: 'the category or a model''s full name'}
       problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation'}
     example: {product: Home Infrared Saunas, problem: Busy Training Weeks}
+  # Cycle 73: was "... Is a Game-Changer for ..." -- a banned voice word
+  # (vocab.yaml hype_words); "Big Improvement" is vocab's own replacement.
   - id: h16
-    alias: game-changer-for-avatar
-    pattern: "N Reasons Why <product> Is a Game-Changer for <audience>"
+    alias: big-improvement-for-audience
+    pattern: "N Reasons Why <product> Is a Big Improvement for <audience>"
     styles: [reasons]
-    allowed_headline_terms: [game-changer, game changer]
     slots:
       product: {kind: product, max_words: 5, description: 'the category, singular, or a model''s full name'}
       audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}

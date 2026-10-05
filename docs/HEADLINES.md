@@ -66,8 +66,9 @@ style or the evidence.
   trigger word (medical, clinical, study, proven, ...).
 - An audience slot is never only "people", "buyers", "shoppers",
   "customers" or "everyone".
-- "Game-Changer" (h16) and "Must-Have" (h04) are allowed in that template's
-  headline only. The vocab.yaml hype ban stays for all other text.
+- "Must-Have" (h04) is allowed in that template's headline only. The
+  vocab.yaml hype ban stays for all other text, and for every headline: no
+  template carries "Game-Changer" or another hype word (cycle 73).
 
 ## The templates
 
@@ -77,19 +78,40 @@ style or the evidence.
 | h02 | N Reasons Why Everyone's Switching to \<brand\> for \<solution\> in \<year\> | reasons | growth claim, cited by an item | year = run year |
 | h03 | N Reasons Why Every \<audience\> Needs This \<product\> for \<problem\> | reasons | - | - |
 | h04 | N Reasons \<product\> Is a Must-Have for \<problem\> | reasons | - | "Must-Have" allowed |
-| h05 | N Reasons This \<product\> Is Going Viral (and How It Works) | reasons | growth claim, cited by an item | - |
+| h05 | N Reasons This \<product\> Is Catching On (and How It Works) | reasons | growth claim, cited by an item | - |
 | h06 | N Reasons \<audience\> Started Switching to \<product\> | reasons | - | - |
 | h07 | N Ways \<product\> Helps Solve \<problem\>, \<With/Without\> \<usp\> | reasons ("ways" items) | feature claim, cited by an item | no medical words in items |
-| h08 | N Reasons People Over \<age\> Are Obsessed With \<brand\> | reasons | - | age = two digits; no medical words in items |
+| h08 | N Reasons People Over \<age\> Are Choosing \<brand\> | reasons | - | age = two digits; no medical words in items |
 | h09 | N Reasons Why \<count\> \<count_unit\> Switched to This \<product\> | reasons | customer/order count claim, cited by an item | count = verified count rounded down |
 | h10 | N Reasons \<audience\> Who Swore They Couldn't \<desire\> Are Choosing \<brand\> | reasons | - | - |
 | h11 | N Concerning \<features\> in \<common_solution\>, and a \<Safe/Better\> Alternative | mistakes | "Safe" only with a safety claim, else "Better" | no fear or medical words in items |
 | h12 | N Reasons This Is the Only \<product\> Built for \<niche\> | reasons | exclusivity claim, cited by an item | niche = the claim's own niche |
 | h13 | N Ways \<product\> Removes Embarrassing \<problem\>, Without \<concern\> | reasons ("ways" items) | - | no medical words in items |
-| h14 | N Reasons Why This Breakthrough \<product\> Crushes \<common_solution\> | reasons | feature claim, cited by an item | category never a brand |
+| h14 | N Reasons This \<product\> Is a Better Fit Than \<common_solution\> | reasons | feature claim, cited by an item | category never a brand |
 | h15 | N Reasons Why \<authority\> Loves \<product\> for \<problem\> | reasons | named endorsement claim, cited by an item | authority = the claim's name |
-| h16 | N Reasons Why \<product\> Is a Game-Changer for \<audience\> | reasons | - | "Game-Changer" allowed |
+| h16 | N Reasons Why \<product\> Is a Big Improvement for \<audience\> | reasons | - | - |
 | h17 | N Reasons Why You're Still \<problem\>, Even After Trying \<common_solution\> | mistakes | - | no medical words in items |
+
+Cycle 73 rewrites (brand guardrails: no hype word, no unverifiable
+superlative in a template): h05 "Is Going Viral" -> "Is Catching On"; h08
+"Are Obsessed With" -> "Are Choosing"; h14 "This Breakthrough <product>
+Crushes" -> "This <product> Is a Better Fit Than"; h16 "Is a Game-Changer
+for" -> "Is a Big Improvement for" (vocab.yaml's own replacement). Ids and
+evidence rules are unchanged, so A/B/C results pooled under h05/h08/h14/h16
+before cycle 73 were measured on the old wording.
+
+## Aliases (cycle 73)
+
+Each h-template has an `alias`: the swipe id the merged
+`cursor/listicle-skeletons-fdad` branch used (h01 `most-dont-work`, h04
+`must-have-for-problem`, ...; the rewritten h05/h14/h16 have new aliases
+`catching-on`, `better-fit-than`, `big-improvement-for-audience`). An alias
+works wherever an id does: `harness run --headline-template must-have-for-problem`,
+or the same flag spelled `--headline`. page.json, state.json and the A/B/C
+results record the id. The swipe image the 17 templates came from is
+`docs/reference/listicle-headline-swipe-17.jpg` (reference only; nothing
+reads it). Listicle skeletons (cartridges/listicle/skeletons/) list the
+templates that pair with them.
 
 h09 note: the owner's pattern has `[Avatar]` after the count. The harness
 writes what the verified count counts ("12,000+ Customers"), because

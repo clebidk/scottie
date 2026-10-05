@@ -410,7 +410,7 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         problems += e.items
     # Cycle 70: a listicle is held to its headline template -- the run's plan,
     # else the one its page.json was stamped with (a revise) -- and that
-    # template's own headline words ("Game-Changer", "Must-Have") are allowed
+    # template's own headline words (h04's "Must-Have") are allowed
     # in its headline only; the ban stays everywhere else on the page.
     if cartridge_name == "listicle" and listicle_headline is None:
         listicle_headline = headlines.plan_for_page(page, facts_pack, tenant or tenant_mod.active())
