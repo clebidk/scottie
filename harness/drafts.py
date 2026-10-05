@@ -124,7 +124,10 @@ def variants(state, n, *, requested_skeleton=None, requested_headline=None):
     for k in range(2, n + 1):
         plan = state.listicle_headline
         if not requested_headline:
-            ids = headlines.eligible_templates(style, state.facts_pack, state.tenant)
+            # Cycle 79: the same pool draft 1 was picked from (the ad's
+            # speaker, the open-loop default), never a template draft 1
+            # could not have had.
+            ids = headlines.default_pool(style, state.facts_pack, state.tenant, ad_brief=state.ad_brief)
             pool = [t for t in ids if t not in used_headlines and (not prefer or t in prefer)]
             pool = pool or [t for t in ids if t not in used_headlines]
             if pool:

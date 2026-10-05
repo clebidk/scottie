@@ -27,7 +27,13 @@ _SKELETON_RE = re.compile(r'"skeleton": \{"id": "([^"]+)"')
 # ---------------------------------------------------------------------------
 
 def _good_page():
-    return fake_run._listicle_page(STYLE)
+    # cycle 79: the first-screen fields the fake run fills from the fixture's
+    # ad (its quote id and a display line sharing the ad's hook)
+    from harness.claims import safe_quote_candidates
+
+    brief = fake_run._brief_for(str(FIXTURE))
+    quotes = safe_quote_candidates(brief, None)
+    return fake_run._listicle_page(STYLE, None, quotes[0]["id"] if quotes else None, fake_run._display_line(brief))
 
 
 def _bad_page():
@@ -286,11 +292,14 @@ def test_a_style_with_one_template_and_one_skeleton_gets_another_angle_not_a_res
 
     state = _state_for_variants()
     state.listicle_style = "questions"
-    state.listicle_headline = headlines.resolve_plan("questions", state.facts_pack, TENANT, seed=7,
-                                                     today="2026-10-05")
+    state.listicle_headline = headlines.build_plan("s-questions", "questions", state.facts_pack, TENANT,
+                                                   today="2026-10-05")
     state.listicle_skeleton = skeletons.for_writer(skeletons.load_skeleton("buyers-checklist"), TENANT)
-    assert headlines.eligible_templates("questions", state.facts_pack, TENANT) == ["s-questions"]
-    v = drafts.variants(state, 2)
+    # cycle 79: a style with one template is now a tenant that pins one (the
+    # open-loop default otherwise gives every style four)
+    import unittest.mock as _mock
+    with _mock.patch.object(headlines, "default_pool", lambda *a, **k: ["s-questions"]):
+        v = drafts.variants(state, 2)
     assert v[1]["headline"]["id"] == v[0]["headline"]["id"] and v[1]["skeleton"]["id"] == "buyers-checklist"
     assert v[1]["skeleton"]["draft_angle"] == skeletons.DRAFT_ANGLE
     assert "draft_angle" not in v[0]["skeleton"]
@@ -501,3 +510,19 @@ def test_generation_page_shows_the_jev_table():
     assert "2000 in, 100 out" in html
     assert site._jev_card(state, "article") == ""
     assert site._jev_card({}, "listicle") == ""
+
+
+def test_every_draft_draws_its_headline_from_the_same_pool_as_draft_one():
+    """Cycle 79 x 76: drafts 2..n pick from headlines.default_pool -- the
+    open-loop templates the run itself picks from, and never a speaker
+    template for an ad with no quotable speaker -- not from every eligible
+    count formula."""
+    state = _state_for_variants()
+    pool = set(headlines.default_pool(STYLE, state.facts_pack, TENANT, ad_brief=state.ad_brief))
+    assert pool and all(headlines.template(t).get("open_loop") for t in pool)
+    for seed in range(8):
+        state = _state_for_variants(seed=seed)
+        for v in drafts.variants(state, 3):
+            assert v["headline"]["id"] in pool
+    brand = dict(state.ad_brief, speaker_pov="brand")
+    assert not {"o1", "o4"} & set(headlines.default_pool(STYLE, state.facts_pack, TENANT, ad_brief=brand))

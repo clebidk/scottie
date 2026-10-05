@@ -362,6 +362,25 @@ def open_loop_default(tenant):
     return value is not False
 
 
+def default_pool(style, facts_pack, tenant=None, *, ad_brief=None, prefer=None):
+    """The template ids a seeded pick chooses from: eligible for the style,
+    the evidence and (cycle 79) the ad's speaker; narrowed to `prefer` when
+    any of those is eligible, else to the open-loop templates (cycle 79
+    owner rule). Shared by resolve_plan (draft 1) and drafts.variants (the
+    best-of-N alternatives), so every draft draws from the same pool."""
+    tenant = _tenant(tenant)
+    ids = eligible_templates(style, facts_pack, tenant, ad_brief)
+    preferred = {canonical_id(p) for p in prefer or ()}
+    narrowed = [tid for tid in ids if tid in preferred]
+    if narrowed:
+        return narrowed
+    if open_loop_default(tenant):
+        # Cycle 79 (owner): no fixed "N Questions ... Should Ask Before
+        # Buying ..." formula by default -- the open-loop templates first.
+        return [tid for tid in ids if template(tid).get("open_loop")] or ids
+    return ids
+
+
 def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requested=None, weights=None,
                  prefer=None, ad_brief=None):
     """The run's headline plan. `requested` (`harness run --headline-template`)
@@ -378,15 +397,7 @@ def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requeste
         if not ok:
             raise HeadlineTemplateError(f"headline template {requested!r} cannot head this {style} page: {why}")
         return build_plan(requested, style, facts_pack, tenant=tenant, today=today)
-    ids = eligible_templates(style, facts_pack, tenant, ad_brief)
-    preferred = {canonical_id(p) for p in prefer or ()}
-    narrowed = [tid for tid in ids if tid in preferred]
-    if narrowed:
-        ids = narrowed
-    elif open_loop_default(tenant):
-        # Cycle 79 (owner): no fixed "N Questions ... Should Ask Before
-        # Buying ..." formula by default -- the open-loop templates first.
-        ids = [tid for tid in ids if template(tid).get("open_loop")] or ids
+    ids = default_pool(style, facts_pack, tenant, ad_brief=ad_brief, prefer=prefer)
     rng = random.Random(f"listicle-headline:{seed}:{style}")
     pick = None
     if weights:
