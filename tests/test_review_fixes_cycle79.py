@@ -419,3 +419,22 @@ def test_a_cutout_item_keeps_its_own_ratio(tmp_path, monkeypatch):
     item = html.split('class="op-item"')[1]
     assert "asset-cutout-fuji" in item
     assert "op-media--cut" in item and 'style="aspect-ratio:4 / 3"' not in item
+
+
+def test_the_heading_part_wins_over_a_body_mention(mini_tenant):
+    """Run ...-zpbm: "Ready the same day it's plugged in" with "space heater" in
+    the body went to a heater + cord close-up; the cord photo is the match."""
+    from tests.test_photo_library import FUJI_HANDLE
+
+    heater_cord = _photo(0xf96a, _tags(product="unknown", shot="detail", agnostic=True,
+                                       features=["heaters", "outlet-plug", "red-light-panel", "wood-grain"]))
+    _library(mini_tenant, MINI_POOL + [heater_cord])
+    page = {"headline": "x", "dek": "", "hero": {"asset_id": CUTOUT},
+            "reasons": [{"heading": "A full cabin built for one", "text": "", "image": {"asset_id": "x"}},
+                        {"heading": "Ready the same day it's plugged in",
+                         "text": "It runs on the same outlet as a space heater.", "image": {"asset_id": "x"}}]}
+    facts = {"product": {"name": "Fuji", "slug": FUJI_HANDLE},
+             "assets": [pl.facts_pack_asset(p) for p in MINI_POOL + [heater_cord]]}
+    pl.assign_page_images(page, facts, "listicle", tenant=mini_tenant, allow_ai_renders=True,
+                          keep_hero=True, cutout_id=CUTOUT)
+    assert page["reasons"][1]["image"]["asset_id"] == ID["0d82"]

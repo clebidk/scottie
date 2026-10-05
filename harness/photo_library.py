@@ -1170,8 +1170,13 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
         if path == first_content_path:
             candidates = [p for p in candidates if not shows_old_logo(p)]
         if candidates:
-            best = max(candidates, key=lambda p: (topic_score(p, topics)[0], topic_share(p, topics),
-                                                  quality_rank(p), p["tags"]["product"] == product, p["id"]))
+            # rank on the slot's own parts first (run ...-zpbm: "Ready the same
+            # day it's plugged in" went to a heater close-up because the body
+            # said "space heater")
+            focus = {t: n for t, n in topics.items() if t in wanted} or topics
+            best = max(candidates, key=lambda p: (topic_score(p, focus)[0], topic_share(p, focus),
+                                                  topic_score(p, topics)[0], quality_rank(p),
+                                                  p["tags"]["product"] == product, p["id"]))
             score, matched = topic_score(best, topics)
             take(path, node, best["id"], f"topic match {','.join(matched)} (score {score:g})")
             continue
