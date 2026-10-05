@@ -8,6 +8,7 @@ import argparse
 import copy
 import io
 import json
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -302,7 +303,7 @@ def test_an_image_ad_with_the_old_logo_and_a_review_count_is_rejected(tmp_path):
     assert rec["usable"] is False and "retired brand mark" in rec["rejected"]
     assert ad_frames.load(tmp_path / "run") is None
     assert "a mountain logo" in client.messages.calls[0]["system"]
-    answer["old_logo"] = False
+    answer["old_logo"], answer["logos"] = False, []
     rec = ad_frames.build_from_image(image, tmp_path / "run2", client=FakeClient([json_response(answer)]),
                                      budget=Budget(), log=_Log())
     assert rec["usable"] is False and "Trustpilot" in rec["rejected"]
@@ -563,3 +564,13 @@ def test_an_image_ad_with_any_reported_mark_is_rejected():
     check = {"person": True, "old_logo": False, "logos": ["Mountain line-drawing logo on sauna glass door"],
              "claim_text": [], "face_center": None}
     assert "brand mark" in ad_frames.image_rejection(check)
+
+
+def test_a_transparent_cutout_is_flattened_onto_white_not_black(tmp_path):
+    asset = cutouts.cutout_asset(TENANT, "fuji")
+    data = open(asset["local_path"], "rb").read()
+    data, ext = render_mod.resize_asset_bytes(data, ".webp")
+    info = render_mod.generate_image_variants(data, tmp_path, "asset-cutout-fuji")
+    with Image.open(tmp_path / Path(info["variants"][0]["jpg"]).name) as im:
+        assert im.getpixel((2, 2)) == (255, 255, 255) or min(im.getpixel((2, 2))) > 245
+    assert info["cutout"] is True

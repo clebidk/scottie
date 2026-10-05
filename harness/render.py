@@ -458,7 +458,7 @@ def resize_asset_bytes(data, ext, *, log=None, asset_id=None):
             new_bytes, new_ext = png_bytes, ".png"
 
     if new_bytes is None:
-        rgb_img = img.convert("RGB") if img.mode in ("RGBA", "P", "LA") else img
+        rgb_img = _flatten_on_white(img)
         buf = io.BytesIO()
         rgb_img.save(buf, format="JPEG", quality=ASSET_JPEG_QUALITY)
         new_bytes, new_ext = buf.getvalue(), ".jpg"
@@ -533,6 +533,16 @@ def detect_near_white_border(img, *, threshold=245, strip_px=8):
     return bool(means) and (sum(means) / len(means)) >= threshold
 
 
+def _flatten_on_white(img):
+    """RGB copy of `img`; transparent pixels become white."""
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        rgba = img.convert("RGBA")
+        bg = Image.new("RGB", rgba.size, (255, 255, 255))
+        bg.paste(rgba, mask=rgba.getchannel("A"))
+        return bg
+    return img.convert("RGB")
+
+
 def generate_image_variants(data, dest_dir, asset_id, *, widths=IMAGE_SRCSET_WIDTHS, quality=ASSET_JPEG_QUALITY, log=None):
     """From already-downscaled `data` (<=ASSET_MAX_LONG_EDGE px long edge),
     writes one JPEG (+ WebP, when this Pillow build supports it -- see
@@ -563,8 +573,10 @@ def generate_image_variants(data, dest_dir, asset_id, *, widths=IMAGE_SRCSET_WID
             log.event("render", f"asset {asset_id} could not be opened for variant generation ({e})")
         return {"variants": [], "width": None, "height": None, "cutout": None}
 
-    rgb = img.convert("RGB") if img.mode in ("RGBA", "P", "LA") else img.convert("RGB")
-    cutout = detect_near_white_border(img)
+    # Cycle 79: a transparent product cut-out is flattened onto WHITE (the
+    # page ground); a plain convert("RGB") turned its transparent pixels black.
+    rgb = _flatten_on_white(img)
+    cutout = detect_near_white_border(rgb)
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     webp_ok = _webp_supported()

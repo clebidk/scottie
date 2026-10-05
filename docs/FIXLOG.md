@@ -3781,3 +3781,128 @@ case headings, no orange.
 - The review site chrome (harness/site.py) still carries the cycle 52
   palette; it is owned by a parallel build and was not touched.
 
+
+## Cycle 79 (approved boxless look, three first screens, ad stills, product cut-outs, 2026-10-05)
+
+Branch `cycle79/first-screen`, worktree `~/adv-c79`, from master e6426b9. Not merged,
+not pushed. Owner on the round 2/3 test builds (`~/asset-inbox/design-approved-2026-10-05/`):
+"way way better ... I like it ... take all of this and update repo and harness".
+Correction later the same day: the cut-outs to use in all generations are the owner's
+OLD-mark set (`cutouts-owner-oldlogo/`), not the theme's new-mark files.
+
+### Look (one look, boxless)
+- The five cycle 51 looks (editorial, cards, pillars, scorecard, lander) are retired into
+  one, `open` (`cartridges/listicle/looks/open/template.html`, prefix `op-`). What told the
+  five apart -- panels, bands, chips, accordions, sticky bars -- is what the owner asked to
+  remove, so no per-look difference was worth keeping; the A/B/C variety is now copy style x
+  first-screen style. A retired name (page.json, `--look`, an A/B/C entry, a skeleton's
+  `look`) resolves to `open` (`listicle.LOOK_ALIASES`, `looks.canonical`).
+- `open`: white page, centred headline with ONE accent phrase in red #702B34, one pill CTA
+  (Basalt, hover red), one-line byline, stats strip (value + 3px red bar + uppercase label),
+  items as red numeral + heading + body + red-bar proof line + 4px photo (alternating sides
+  on desktop), plain ✓/✕ fit lists on hairlines, a value stack, plain Q/A FAQ on hairlines,
+  ONE Basalt closing band with a white pill. No colour literal in the look.
+- Other cartridges, cheaply: `brand/base.css` sets `--ps-bg-muted` and the pill fill to
+  white (every grey panel reads as page ground), removes the stone token, makes `.byline`
+  and the trust items boxless, and forces a white `.adv-wrap`. `tokens.json`,
+  `tenant.yaml` palette, theme marker `open-2026-10-05`.
+- Fonts: Peak Grotesk Wide and Acid Grotesk (owner-approved) as `@font-face` in base.css with
+  ABSOLUTE URLs on the theme's Shopify CDN
+  (`https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/...`, both 200 with CORS
+  `*`). Chosen over uploading copies at publish: the review file and the storefront load the
+  same URL, nothing new to upload, and no `peaksaunas.com` host enters the export (the
+  internal-link test forbids it). Copies in `brand/fonts-display/` (not `brand/fonts/`, so
+  `_publish_brand_fonts` never re-uploads them). TODO (owner): the Acid Grotesk file is a
+  TRIAL -- confirm the commercial licence. Risk: the URL is tied to theme 64's assets.
+- CTA: `op-btn`/`op-link` added to `abtest.CTA_CLASSES` (the beacon counts them) and to
+  base.css's live-theme CTA layer.
+
+### First screens (`harness/first_screen.py`)
+- `hero_style: face | story | display`, a page dimension next to style and look; stamped on
+  page.json, recorded in state.json, an A/B/C variant records the one it rendered.
+  `harness run --hero-style`, `harness rerender --hero-style` (no model call); default
+  seeded from the run seed (`cartridges.listicle.hero_styles` pins a subset). `face` with no
+  usable still falls back to `story` (quotable speaker) or `display`, logged.
+- Renderer-owned: the one-line byline ("By Austin Laudenslager ✓, PEAK founder · Updated
+  <date> · N min read"; avatar = PEAK mark `brand/byline-mark.png` until
+  `first_screen.author_photo` is set), the stats strip and the value stack -- verified claims
+  only (rating only when `rating_line` shows it; `pdp-<model>-*` lines verbatim minus
+  warranty/price/financing wording; the price claim; the page's financing line). Their claim
+  ids join Sources. `value_stack`/`stats_strip` in page.json fail `renderer_owned`.
+- Writer fields (schema.json, cartridge.md, `first_screen.writer_lines`): `eyebrow`,
+  `headline`, `accent_phrase`, `dek`, `lede`, `scroll_cue`, `hero_quote_id` (an `ad_quotes`
+  id, cycle 74 mechanism), `speaker_pronoun`. A page from before cycle 79 renders with
+  fallbacks (eyebrow from the audience, lede = dek, the first ad quote, a cue by style).
+
+### A/B/C
+Arm = `listicle:<style>:<look>:<hero>`; default library and PEAK's: 7 listicle builds that
+put every style and every hero style in play, plus comparison and quiz. The Thompson sampler
+is unchanged (one arm, one build); `harness abtest library --by hero` pools CTR per first
+screen. Chosen over a separate sampled dimension because the sampler, the records and the
+results all key on the arm id already.
+
+### Ad stills (`harness/ad_frames.py`)
+Video: 8 ffmpeg frames (8-92% of the video), Pillow sharpness/exposure filter, ONE Haiku
+vision call on the 6 sharpest at 384 px (face / caption size / logo / sharp per frame + pick
++ face centre); a caption-free face frame wins; a captioned-throughout video accepts the
+caption. Image ad: one check -- rejected for the retired mark (`first_screen.retired_mark`),
+any other reported mark, any claim text, or no person. Saved as the run asset
+`<run>/ad-frame/` with provenance. Called from `pipeline.render_pages` for a listicle run
+(heuristic only on a FakeClient run). Measured on the 10 ads of 2026-10-05: $0.0011-0.0028
+per ad. All 7 image ads rejected (old mark / sale and review-count text; the regret still:
+old mark + "4.6 based on 3,8192 reviews"); the 3 videos give a face (the athlete video has
+burned-in captions on every face frame).
+
+### Cut-outs (`harness/cutouts.py`)
+`tenants/peak-saunas/brand/cutouts/` (11 owner files, RGBA, checked: 848-1490 px wide,
+transparent ground) + `cutouts.json` (model -> file), tenant key `product_cutouts.manifest`.
+Product hero of listicle/quiz/longform/product-page (pdp gallery leads with it), every
+comparison column and quiz card. Not the comparison hero (its columns are the cut-outs).
+Transparent pixels are now flattened onto white in `render.resize_asset_bytes` /
+`generate_image_variants` (they came out black).
+
+### Gates (all earlier gates unchanged)
+- New: `listicle:first_screen:*`, `listicle:quote_verbatim:<field>`,
+  `listicle:most_people:<path>` ("most people/buyers ..." asserted with no claim_id on the
+  node; a question passes), `listicle:headline_words` (open-loop templates 6-13).
+- Changed (owner): `listicle:meta_reference` allows she/he in the headline/dek when the ad
+  is first person and `hero_quote_id` names one of its `ad_quotes`.
+- Headlines: open-loop templates o1-o4 (quoted ad hook; "No X. No Y. Still Z."; audience
+  call-out question; "She wanted X. Her Y had Z.") in headlines.yaml, no count; the default
+  pick is among them (`headline_open_loop: false` restores cycle 70); o1/o4 need a quotable
+  speaker. No "N Questions ... Should Ask Before Buying ..." unless named.
+
+### Photo matching (the report on run ...-cgkv)
+Root cause: not a missing step. The matcher ran on the build (17:30) and the rerender
+(18:02) and wrote `.image-selection.json` both times (run log `photos` lines, file mtime
+18:02). The wrong pictures came from (1) a vision tag error -- 8401eb5859e7 (red light
+panel + heater) tagged `outlet-plug`, so it won the electrician item; corrected by hand in
+photo-library.json under `corrections` (kept on re-tag, `apply_corrections`); (2) the real
+cord photo 0d82c7db36be shows the old mark and the cycle 78 rule keeps it off item 1; (3)
+equal topic scores fell to `quality_rank`, which prefers a product-tagged photo -> the Mini
+front won the red light item; now `topic_share` (the photo that is mostly the topic) breaks
+the tie; (4) a slot with no topic got "the best photo of the product", often a close-up of
+an unrelated part (warranty -> plug); now a general photo (fewest features). Also: a library
+photo whose file is missing on this machine is no longer assigned (a worktree without the
+derivatives used to assign it and drop the image). Regression tests rebuild that run's pool
+and check build AND rerender (`tests/test_first_screen_cycle79.py`).
+
+### Verify
+- Suite: 2307 passed (master 2360; the five-look test modules were rewritten for one look,
+  `tests/test_look_rhythm.py` removed). New `tests/test_first_screen_cycle79.py` (40).
+- Previews (no writer call): all 30 runs of 2026-10-05 17:13-17:48 copied to `~/c79-preview/`
+  and re-rendered -- listicle runs in story + display, plus face for the 3 video ads (7
+  image-ad runs have no usable still); 2 runs had no page (STOPped). Screenshots
+  (headless Chrome, 390x844 and 1440x900, plus full pages) in `~/asset-inbox/c79-shots/`.
+- Live smoke runs from the worktree (.env and meta_inbox symlinked, removed after):
+  see the table in the cycle report; all PASS on attempt 2. Spend $0.34 + $0.02 for stills.
+
+### Open
+- A listicle run now pays one ~$0.003 vision call for the still.
+- The theme names the ROUNDED black outdoor cabin "kilimanjaro" and the wide roofed one
+  "el-capitan"; the photo library tags photo bff59b51d7a3 ("black rounded outdoor sauna")
+  as el-capitan and 33bca4ec295f ("flat roof") as kilimanjaro -- possibly swapped. Not
+  changed; owner to confirm.
+- Old-mark photos still fill lower item slots (cycle 78 rule, kept per the correction).
+- Face/story on pre-cycle-79 pages use the first ad quote and the dek as the lede; only new
+  runs carry an open-loop lede and headline.
