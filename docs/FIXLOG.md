@@ -3919,3 +3919,55 @@ and check build AND rerender (`tests/test_first_screen_cycle79.py`).
 - Seen on smoke run 65ji: item 4's body and proof line quote the same ad sentence, and proof
   lines end in "(PEAK product page, 2026)". Not gated today (quoted text is outside the
   repeat-sentence check).
+
+### Review fixes (coordinator review of the smoke screenshots, same day)
+1. **Wrong pronoun** (c3qb, a man, said "In the ad, she says"). The pronoun is never guessed:
+   the ad-still vision call reports `pronoun` she/he only when the presented gender is
+   unambiguous (else "unclear" -> none); tenant override `first_screen.speaker_pronouns`
+   (ad id or file stem). `first_screen.prepare_speaker` (now called by `pipeline.write_pages`
+   BEFORE the writer -- the still is made there, not at render) puts it on
+   `ad_brief.speaker_pronoun` ("unknown" without evidence). Gate
+   `listicle:speaker_pronoun:<path>`; with no evidence every frame is "In the ad, the creator
+   says," (accepted by every quote-frame regex); the renderer's caption and lede frame use the
+   evidence only ("From the creator's ad for PEAK" otherwise).
+2. **Invented backstory** (c3qb lede). Gate `listicle:speaker_narration:<path>`: no
+   she/he/her/his outside a verbatim quote in any prose field but the headline (the owner's
+   she/he allowance now covers the headline only), and no lede sentence that tells a past
+   without "you". Writer lines: the loop is about the reader or the product.
+3. **Display headline too long** (62q7). New writer field `display_headline` (3-8 words, at most
+   48 characters, gated); the display style sets it in the wide face, and a page with no short
+   line gets the heading face in sentence case. Slot descriptions and writer lines carry no
+   copyable example any more (the first re-run copied "No electrician. No spare room." into
+   unrelated ads; a test pins it).
+4. **Source notes** in proofs: gate `listicle:source_parenthetical:<path>` + render-time strip.
+5. **Duplicate quote** (65ji): gate `listicle:quote_repeat:<id>` (the hero quote counts); an
+   older page's hero quote is one its body does not use.
+6. **Off-topic photos** (65ji): whole-unit items (tenant `photo_library.whole_unit_topics`:
+   `unit`, `size-in-room`) show the cut-out (at most 3 uses with the hero; duplicate check
+   allows it; on an item it keeps its own ratio); a close-up only on an item whose HEADING names
+   its part (ranked on the heading's parts first: run ...-zpbm put a heater close-up on "Ready
+   the same day it's plugged in" because the body said "space heater"); no match -> no image.
+   "built" left the wood-grain keywords (it made "A full cabin
+   built for one" a wood item); "plugged" joined outlet-plug.
+7. **Blank gaps**: loading checks showed every image present -- headless capture timing. The
+   hero and first two item images now load eagerly; the screenshot script shoots a copy with
+   eager/sync images.
+8. **Value stack**: lines need 7-16 words, so "Medical-grade red light, where it works." and
+   "Clasp-together assembly." are dropped. Note: both are `pdp-mini-*` claims seeded from the live
+   product page into the run's facts pack (the cycle 46 PDP-claims path), not entries in
+   claims/verified.json.
+
+Tests: `tests/test_review_fixes_cycle79.py` (25 test functions), `tests/test_photo_library.py` updated (no
+image instead of an unrelated photo or a storefront image). Suite: 2336 passed.
+
+Re-check smoke runs (worktree ledger), all PASS:
+
+| run | ad | hero | pronoun | headline (template) | attempts | cost |
+|---|---|---|---|---|---|---|
+| 20261005-204626-...-lcsw | Mini video | face | she | o3, copied the slot example ("Training six days a week ...") -- fixed after | 2 | $0.133 |
+| 20261005-204722-...-ljg7 | athlete video | story | he | o2 "No electrician. No spa fees. Still real recovery." | 2 | $0.103 |
+| 20261005-204815-...-4bka | regret image | display | unknown | o2 (copied example) / display "No electrician. Still a real sauna." | 2 | $0.108 |
+| 20261005-205627-...-zpbm | Mini video | face | she | o4 "She Wanted Recovery Space. Her Apartment Had No Room To Spare." / display "A sauna that fits where you live" | 1 | $0.112 |
+
+Re-check spend $0.46 (cap $0.60). Open: zpbm's o4 desire "Recovery Space" is not her word
+(the slot asks for her quotes; not gated), and o4 renders in title case.
