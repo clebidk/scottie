@@ -1,6 +1,7 @@
 """Per-run log at runs/<run-id>.log: timestamps, stage, model id, token usage per
 call, seed, cartridges chosen, gate result, budget totals, an estimated cost line.
 """
+import threading
 import time
 from pathlib import Path
 
@@ -13,6 +14,8 @@ class RunLog:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = open(self.path, "a")
+        # Cycle 76: two listicle drafts log from two threads.
+        self._lock = threading.RLock()
         self.total_input_tokens = 0
         self.total_output_tokens = 0
         self.total_cache_creation_input_tokens = 0
@@ -26,8 +29,9 @@ class RunLog:
 
     def _write(self, line):
         ts = time.strftime("%Y-%m-%dT%H:%M:%S")
-        self._fh.write(f"[{ts}] {line}\n")
-        self._fh.flush()
+        with self._lock:
+            self._fh.write(f"[{ts}] {line}\n")
+            self._fh.flush()
 
     def event(self, stage, message):
         self._write(f"{stage}: {message}")
@@ -40,6 +44,12 @@ class RunLog:
         no cache_control breakpoint). batch=True marks a call made through
         the Message Batches API (harness/cli.py's --batch flag), priced at
         pricing.BATCH_MULTIPLIER."""
+        with self._lock:
+            self._record_call(stage, model, input_tokens, output_tokens, cache_creation_input_tokens,
+                              cache_read_input_tokens, batch)
+
+    def _record_call(self, stage, model, input_tokens, output_tokens, cache_creation_input_tokens,
+                     cache_read_input_tokens, batch):
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
         self.total_cache_creation_input_tokens += cache_creation_input_tokens

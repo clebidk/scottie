@@ -465,6 +465,45 @@ def _publish_section(tenant, run_dir, page, status, superseded):
     return f'<div class="card"><h3>Publish</h3><p class="muted">The Shopify page {link} shows the current version.</p>{box}</div>'
 
 
+_JEV_COLUMNS = (("hook", "Hook"), ("specificity", "Specific"), ("proof", "Proof"), ("objections", "Objections"),
+                ("offer", "Offer"), ("flow", "Flow"), ("voice", "Voice"), ("message_match", "Ad match"),
+                ("overall", "Overall"))
+
+
+def _jev_card(state, page):
+    """Cycle 76: the listicle's drafts (harness/drafts.py) -- gate result,
+    Jev scores per dimension (0 = the rubric's lowest level, 1 = its
+    highest), composite, which draft shipped and why."""
+    record = state.get("jev") if page == "listicle" else None
+    if not record or not record.get("drafts"):
+        return ""
+
+    def num(value):
+        return "" if value is None else f"{float(value):.2f}"
+
+    head = "".join(f"<th>{e(label)}</th>" for _key, label in _JEV_COLUMNS)
+    rows = []
+    for d in record["drafts"]:
+        shipped = d.get("draft") == record.get("shipped")
+        scores = d.get("scores") or {}
+        cells = "".join(f"<td>{num(scores.get(key))}</td>" for key, _label in _JEV_COLUMNS)
+        rows.append(
+            f'<tr><td>{e(str(d.get("draft")))}{" <b>shipped</b>" if shipped else ""}</td>'
+            f'<td>{e(d.get("gate") or "")}</td><td>{e(d.get("headline_template_id") or "")}</td>'
+            f'<td>{e(d.get("skeleton_id") or "")}</td>{cells}<td><b>{num(d.get("composite"))}</b></td></tr>'
+        )
+    usage = record.get("usage") or {}
+    tokens = (f' Jev tokens: {int(usage.get("input_tokens") or 0)} in, {int(usage.get("output_tokens") or 0)} out.'
+              if usage else "")
+    return (
+        '<div class="card" style="margin-top:14px"><h3>Drafts (best of ' + e(str(len(record["drafts"]))) + ")</h3>"
+        f'<p class="muted">{e(record.get("reason") or "")}.{e(tokens)} Scores 0-1 from TypeSafe Jev; '
+        "the composite is the mean of every column except Overall.</p>"
+        '<div class="table-wrap"><table class="stats"><tr><th>Draft</th><th>Gate</th><th>Headline</th>'
+        f"<th>Skeleton</th>{head}<th>Composite</th></tr>" + "".join(rows) + "</table></div></div>"
+    )
+
+
 def render_generation(tenant, run_dir, state, page, *, error=None, status_code=200, text=""):
     run_id = run_dir.name
     status = _publish_status(tenant, run_dir, state, page)
@@ -507,6 +546,7 @@ def render_generation(tenant, run_dir, state, page, *, error=None, status_code=2
            f'Gate: {e(str(job["result"].get("gate", "")))}. Compare it with the old version below.</div>'
            if job and job["state"] == "done" and job.get("result") else "")
         + _version_frames(run_dir, page, superseded)
+        + _jev_card(state, page)
         + '<div class="frames" style="margin-top:14px"><div>'
         + form + _feedback_list(state, page)
         + "</div><div>"

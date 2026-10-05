@@ -212,6 +212,21 @@ def select(style, ad_brief=None, *, requested=None, tenant=None):
     return best or load_skeleton(default_for_style(style))
 
 
+def ranked(style, ad_brief=None, *, tenant=None):
+    """Cycle 76: every skeleton that fits `style`, in select()'s order of
+    preference -- best ad score first, ties by library order, and the style's
+    default first among those that score nothing. ranked(...)[0] is what
+    select() picks with no --skeleton; harness/drafts.py gives a second draft
+    the best one the first draft did not use."""
+    text = _haystack(ad_brief)
+    hints = tenant_hints(tenant)
+    default = default_for_style(style)
+    fits = [sk for sk in load_all() if style in sk["styles"]]
+    scored = [(_score(sk, text, hints.get(sk["id"]) or {}), i, sk) for i, sk in enumerate(fits)]
+    scored.sort(key=lambda t: (-t[0], t[0] == 0 and t[2]["id"] != default, t[1]))
+    return [sk for _score_value, _i, sk in scored]
+
+
 # ---------------------------------------------------------------------------
 # writer
 # ---------------------------------------------------------------------------

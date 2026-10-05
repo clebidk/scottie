@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 
 from . import budget as budget_mod
+from . import drafts as drafts_mod
+from . import jev
 from . import pagechecks
 from . import repair
 from . import review_md
@@ -113,6 +115,8 @@ class RunState:
         self.listicle_look = None
         self.listicle_headline = None
         self.listicle_skeleton = None
+        # Cycle 76: listicle drafts this run writes (harness/drafts.py).
+        self.drafts = 1
         self.claims_config = {}
         self.facts_source = None
         self.merged_products = {}
@@ -210,6 +214,12 @@ def prepare_run(state):
         state.log.event("run", f"listicle look: {state.listicle_look}")
     if "product-page" in selected:
         state.log.event("run", f"product-page look: {state.product_page_look}")
+    # Cycle 76: best-of-N listicle drafts judged by Jev (tenant.yaml `jev`).
+    # --batch writes each cartridge's first page in one Message Batch, so it
+    # keeps one draft.
+    state.drafts = 1 if getattr(args, "batch", False) else jev.drafts_for_run(tenant, selected)
+    if state.drafts > 1:
+        state.log.event("run", f"listicle drafts: {state.drafts} (best of {state.drafts}, judged by Jev)")
     state.claims_config = tenant.claims_config
     # R23: tenant.yaml and claims/config.json disagreeing on an overlapping
     # key is legal (config.json wins) but invisible without this line.
@@ -246,7 +256,8 @@ def prepare_run(state):
     # (K2: the old check-then-record-later design let two runs starting at
     # once both bypass the cap). Uncapped when the tenant sets no
     # budget.daily_usd -- the default.
-    budget_mod.reserve_spend(tenant, run_id=state.run_id, today_iso=state.today_iso, log=state.log)
+    budget_mod.reserve_spend(tenant, run_id=state.run_id, today_iso=state.today_iso, log=state.log,
+                             drafts=state.drafts)
 
 
 def refresh_prices(state):
@@ -490,28 +501,38 @@ def write_pages(state):
     for cartridge_name in state.selected:
         state.budget.check()
         initial_page, initial_call_tokens = initial_pages.get(cartridge_name, (None, 0))
+        kwargs = dict(
+            cartridge_name=cartridge_name,
+            cartridges_dir=CARTRIDGES_DIR,
+            ad_brief=state.ad_brief,
+            facts_pack=state.facts_pack,
+            client=state.client,
+            model=write_model,
+            repair_first_model=repair_first_model,
+            repair_next_model=repair_next_model,
+            budget=state.budget,
+            financing_lender=state.claims_config.get("financing_lender"),
+            speaker_pov=state.ad_brief.get("speaker_pov"),
+            ad_not_repeated=state.ad_not_repeated,
+            tenant=state.tenant,
+            initial_page=initial_page,
+            initial_call_tokens=initial_call_tokens,
+            listicle_style=state.listicle_style,
+        )
         try:
-            page, attempts, deterministic_fixes = repair.write_and_gate_page(
-                cartridge_name=cartridge_name,
-                cartridges_dir=CARTRIDGES_DIR,
-                ad_brief=state.ad_brief,
-                facts_pack=state.facts_pack,
-                client=state.client,
-                model=write_model,
-                repair_first_model=repair_first_model,
-                repair_next_model=repair_next_model,
-                budget=state.budget,
-                log=state.log,
-                financing_lender=state.claims_config.get("financing_lender"),
-                speaker_pov=state.ad_brief.get("speaker_pov"),
-                ad_not_repeated=state.ad_not_repeated,
-                tenant=state.tenant,
-                initial_page=initial_page,
-                initial_call_tokens=initial_call_tokens,
-                listicle_style=state.listicle_style,
-                listicle_headline=state.listicle_headline,
-                listicle_skeleton=state.listicle_skeleton,
-            )
+            if cartridge_name == "listicle" and state.drafts > 1 and initial_page is None:
+                # Cycle 76: best of N drafts (harness/drafts.py).
+                page, attempts, deterministic_fixes = drafts_mod.write_best_listicle(
+                    state, kwargs, state.drafts, requested_skeleton=requested_skeleton,
+                    requested_headline=getattr(state.args, "headline_template", None),
+                )
+            else:
+                page, attempts, deterministic_fixes = repair.write_and_gate_page(
+                    **kwargs,
+                    log=state.log,
+                    listicle_headline=state.listicle_headline,
+                    listicle_skeleton=state.listicle_skeleton,
+                )
         except ClaimsGateFailure as e:
             attempts = getattr(e, "attempts", [e.items])
             state.gate_log[cartridge_name] = {
@@ -648,7 +669,8 @@ class UnknownStage(Exception):
     pass
 
 
-def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None, gate_log=None, stage="run"):
+def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None, gate_log=None, stage="run",
+                     drafts=1):
     """The budget-STOP tail, shared by execute() and cli.cmd_ingest (review
     R20 -- cmd_ingest used to re-implement its own thinner version): log the
     event, record the spend into the tenant's daily ledger (phase 3), write
@@ -657,7 +679,8 @@ def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None
     log.event(stage, f"budget exceeded: {e}")
     if tenant is not None:
         budget_mod.record_spend(tenant, run_id=run_id, cost=log.cost_estimate(),
-                                today_iso=today_iso or datetime.date.today().isoformat(), log=log)
+                                today_iso=today_iso or datetime.date.today().isoformat(), log=log,
+                                drafts=drafts)
     log.budget_summary(budget.summary())
     review_md.log_run_result(log, "STOP", gate_log or {})
     log.close()
@@ -686,7 +709,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
                     state.cost = state.log.cost_estimate()
                     state.log.budget_summary(state.budget.summary())
                     budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
-                                            today_iso=state.today_iso, log=state.log)
+                                            today_iso=state.today_iso, log=state.log, drafts=state.drafts)
                 STAGES[name](state)
         except UnknownCartridge as e:
             print(str(e), file=sys.stderr)
@@ -698,7 +721,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
             state.log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
             state.log.event("run", str(e))
             budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
-                                    today_iso=state.today_iso, log=state.log)
+                                    today_iso=state.today_iso, log=state.log, drafts=state.drafts)
             state.log.budget_summary(state.budget.summary())
             review_md.log_run_result(state.log, "STOP", state.gate_log)
             print(
@@ -710,7 +733,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
             return 2
         except BudgetExceeded as e:
             abort_budget_run(state.log, state.budget, e, tenant=state.tenant, run_id=state.run_id,
-                             today_iso=state.today_iso, gate_log=state.gate_log)
+                             today_iso=state.today_iso, gate_log=state.gate_log, drafts=state.drafts)
             print(f"budget exceeded: {e}", file=sys.stderr)
             return 3
 
