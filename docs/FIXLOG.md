@@ -3650,3 +3650,138 @@ The derivatives are not in git. After merge, run
 in the deploy checkout (re-import keeps the committed tags), or set
 `HARNESS_PHOTO_LIBRARY_DIR`. Without the files the library is simply not
 offered (facts_for checks each file exists) and pages render as before.
+
+## Cycle 76 (best of two listicle drafts, judged by TypeSafe Jev, 2026-10-05)
+
+Branch `cycle76/jev-best-of-2`, worktree `~/adv-c76`, from master d048987.
+Not merged, not pushed. Owner approved "Jev in the loop".
+
+### Problem
+One listicle draft per run: the page that passes the gates first ships, good
+or flat. The owner validated a 9-question Jev rubric on 30 generated pages and
+8 reference listicles and asked for Jev to pick between two drafts.
+
+### Design
+1. **Two drafts, at once** (`harness/drafts.py`). `pipeline.write_pages` hands
+   the listicle to `drafts.write_best_listicle` when `tenant.yaml`
+   `jev.enabled` and `jev.drafts > 1` (PEAK: true, 2; the template and every
+   other tenant: false, 1 = the run as before). One thread per draft, each
+   running the unchanged `repair.write_and_gate_page`, so every gate runs on
+   each draft. Draft 2 starts 5 s after draft 1 (STAGGER_S) so it can read the
+   system-prefix cache. `Budget.record_call` and `RunLog` take a lock.
+2. **Draft 2 is a different attempt.** Same style, look, facts pack, claims,
+   ad quotes, assets and allowed numbers; a different headline template
+   (seeded pick, `listicle-headline:<seed>:<style>:draft2`, from
+   `headlines.eligible_templates` minus draft 1's) and the next skeleton in
+   `skeletons.ranked()` (select()'s order) that draft 1 did not use. Why
+   these two: the hook and the item map are what change the reader's
+   experience most, and neither changes what the gates check against. A
+   pinned `--headline-template` / `--skeleton` stays pinned. questions /
+   myths / tested have one skeleton each, so there only the headline differs.
+3. **Which draft ships.** Failing drafts never ship. Both pass attempt 1 ->
+   Jev scores both (one call each, concurrent), higher composite ships, tie ->
+   draft 1. One passes -> it ships, no Jev call. None passes -> draft 1 takes
+   the patch-repair loop exactly as today; draft 2 is dropped (new
+   `on_first_failure` hook in write_and_gate_page: draft 1 repairs only when
+   no other draft passed attempt 1; drafts 2+ never repair). A budget cap hit
+   by any draft stops the run (exit 3), as before.
+4. **Jev** (`harness/jev.py`, stdlib urllib, no new dependency). POST
+   `https://api.typesafe.ai/v1/systemone`, model `jev-latest`, 9 score
+   questions from `cartridges/listicle/jev-rubric.yaml` (verbatim; tenant
+   override `tenants/<t>/jev-rubric.yaml`). State: `page` = page.json as
+   reading-order text (headline, dek, items heading/body/proof, audience fit,
+   FAQ, closing, CTA; no ids/urls/claim ids), `ad` = {hook, promise, angle}.
+   Score normalised score/(levels-1); composite = mean of hook, specificity,
+   proof, objections, offer, flow, voice, message_match; overall recorded
+   separately. 429/529 retried (1, 2, 4 s) inside the wall budget. No key, any
+   other HTTP status, a network error/timeout (`jev.timeout_s`, default 60),
+   an unreadable answer, a bad rubric, or < 30 s wall clock left ->
+   JevUnavailable -> first passing draft ships, logged. Any other exception
+   in scoring is caught the same way.
+5. **Records.** Log: `write.listicle[draft N]` tags, `drafts:` lines (inputs,
+   gate result, shipped draft and reason), `jev:` lines (scores per draft,
+   token usage). state.json `jev`: per draft {headline_template_id,
+   skeleton_id, gate, attempts, failures, scores, raw, composite, overall},
+   shipped, reason, status (scored / single_pass / repaired /
+   jev_unavailable / none_passed / budget), usage. Passing drafts:
+   `<run>/drafts/listicle-draft-N.json`. `harness/site.py` generation page
+   (`/gen/<run>/listicle`): a "Drafts (best of 2)" table with gate, headline,
+   skeleton, the 9 scores, composite and the shipped mark.
+6. **Spend.** `reserve_spend(..., drafts=N)` reserves N x the estimate;
+   `record_spend` writes `"drafts": N` on the final line, and the median of
+   past runs is taken per draft, so history from 1- and 2-draft runs mixes
+   correctly. per_run_usd and the $0.60 default count as one draft.
+7. **Abtest.** `abtest.default_runner` builds through `pipeline.execute`, so
+   create / from-inbox builds get two drafts with no change.
+8. **Off switches.** `jev.enabled: false` or `drafts: 1`, or
+   `HARNESS_JEV_DRAFTS=1` for one run. `--batch` keeps one draft. The test
+   suite sets HARNESS_JEV_DRAFTS=1 and clears TYPESAFE_API_KEY in conftest
+   (canned responses are one page per cartridge; `python -m evals.fake_run`
+   imports conftest, so offline fake runs are one draft too).
+
+### Verify
+- `tests/test_jev_cycle76.py` (27): rubric is the 9 validated questions and
+  the composite excludes overall; page text has reading order and no ids or
+  urls; request body shape; normalisation and composite; 429/529 retry; HTTP
+  500 / not JSON / missing score / no key / urlopen timeout ->
+  JevUnavailable; settings, env override and clamp; draft 2 gets another
+  headline template and skeleton, reproducibly, and pins stay pinned;
+  `ranked()[0]` is what `select()` picks. Whole runs with a fake client that
+  answers each draft by its skeleton id and a fake Jev: both pass -> the
+  higher composite ships (page, state.json, skeleton, drafts/ files, log
+  tags, key never in the log or state); tie -> draft 1; draft 1 or draft 2
+  fails a gate -> the other ships, Jev not called, no repair; none pass ->
+  draft 1 repaired (REVISION REQUIRED), draft 2 not; none pass and repairs
+  fail -> exit 2, no page; no key / HTTP 500 / timeout -> exit 0, draft 1
+  ships, reason logged; drafts=1 -> one write call, no `jev` record, no
+  `[draft` tag, no `drafts` in the ledger; ledger reserves 2 x $0.60 and
+  records drafts=2; abtest.default_runner writes two drafts; the site table
+  renders and is empty for other pages. Mutations (pick the lower composite,
+  let draft 2 repair, drop the reservation scaling) fail 7 of these tests.
+- Full suite: 2325 passed (was 2298).
+- Live smoke runs from the worktree (`python -m harness.cli run
+  tenants/peak-saunas/fixtures/hidden-costs-v2.mov --cartridges listicle
+  --style reasons --seed 105`; tenant .env and the .mov symlinked read-only
+  from ~/advertorial and removed after; photo library via
+  HARNESS_PHOTO_LIBRARY_DIR):
+  | run | key | drafts | result | cost | wall |
+  |---|---|---|---|---|---|
+  | 20261005-171740-hidden-costs-v2-ykhk | hidden (`TYPESAFE_API_KEY=`) | d1 h14/hormozi-value-stack PASS, d2 h07/classic-n-reasons PASS | draft 1 shipped: "Jev unavailable (no TYPESAFE_API_KEY ...)" | $0.1381 | 53 s |
+  | 20261005-171904-hidden-costs-v2-z6v2 | present | d1 h14/classic-n-reasons: invalid JSON once (write_page's own retry), then FAIL listicle:proof_restates_body:3; d2 h07/hormozi-value-stack PASS | draft 2 shipped: "only draft 2 passed the gates"; no Jev call, no repair | $0.1761 | 62 s |
+  Run z6v2 never reached Jev, and a third full run would have passed the
+  $0.40 smoke cap. So the real API was proved on ykhk's two saved passing
+  drafts through the same `drafts._score_drafts` code (run files unchanged):
+  model jev-1.13.0, 0.3-0.4 s for both calls, 4,856 input + 252 output
+  tokens per pair; composites 0.745 / 0.754 (second call 0.744 / 0.757),
+  draft 2 wins; overall 0.565 / 0.548 (prefers draft 1). The real
+  `/gen/<run>/listicle` page, rendered with that record from a temp copy of
+  the run, returns 200 with the table.
+
+### Cost per run
+- Before: median $0.092 (11 single-draft listicle PASS runs on prod,
+  2026-10-05, $0.072-$0.130), wall about 46 s.
+- After: $0.138 (both pass, no repair) and $0.176 (one JSON retry). One
+  initial write is about $0.065-0.07: each draft writes its own ~12.3k-token
+  cache entry for the facts-pack block, because the draft's own
+  hard-constraint lines (headline/skeleton) come before it -- the stagger
+  cannot share it. So best of 2 adds about $0.045-0.07 per run, less when it
+  saves a repair (z6v2: draft 1 would have needed one).
+- Jev: about 2.4k input + 130 output tokens per draft scored (billed by
+  TypeSafe, not in estimated_cost_usd).
+
+### Open
+- Once the key is used on prod, read the `jev:` lines of the first runs:
+  status "scored" (not "jev_unavailable"), composites, and the margin. On
+  ykhk the two drafts were 0.01 apart and "overall" preferred the other
+  draft; if most margins are that small, the pick is close to a coin toss
+  and a minimum margin (keep draft 1 unless draft 2 wins by > x) may be
+  worth adding.
+- Jev scores move about +-0.003 between identical calls.
+- `abtest_inbox` (parallel build ~/adv-c77) pre-checks the cap with
+  `budget.reservation_estimate_usd(tenant)` (one draft). The real
+  reservation in prepare_run is 2 x; the pre-check may let a test start that
+  the reservation then refuses. Pass `drafts=jev.drafts_for_run(...)` there
+  after merge.
+- Whether a 5 s stagger lets draft 2 read a cold system-prefix cache is not
+  measured (both smoke runs found it warm).
+- `harness revise` (feedback -> regenerate) still writes one version.

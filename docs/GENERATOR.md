@@ -165,6 +165,35 @@ a full rewrite only when a failure has no field path. Before any repair the dete
 pass cites a line from the verified claim that states its numbers, snaps an unfaithful
 attributed line to the verbatim ad quote it paraphrased, and fixes the brand spelling.
 
+**Best of two drafts** (cycle 76, `harness/drafts.py`, `harness/jev.py`). With
+`tenant.yaml` `jev: {enabled: true, drafts: 2}` (PEAK's setting) every listicle run
+writes two drafts at once, and every gate above runs on each. Draft 2 is a different
+attempt, not a re-sample: another headline template (a seeded pick from the templates
+the style and the evidence allow) and the next winner skeleton for the ad (the
+questions, myths and tested styles have one skeleton, so there only the headline
+differs); the style, look, facts pack, claims, ad quotes and assets are the same. A
+pinned `--headline-template` or `--skeleton` stays pinned in both drafts.
+- A draft that fails a gate never ships.
+- Both pass on attempt 1: TypeSafe's Jev model scores them with the rubric in
+  `cartridges/listicle/jev-rubric.yaml` (tenant override: `tenants/<t>/jev-rubric.yaml`);
+  the higher composite (mean of hook, specificity, proof, objections, offer, flow,
+  voice, message_match, each 0-1) ships; a tie ships draft 1. "overall" is recorded,
+  not used.
+- One passes: it ships, no Jev call.
+- None passes: draft 1 takes the repair loop exactly as a one-draft run; draft 2 is
+  dropped. Repairs only happen when no draft passed on attempt 1.
+- No `TYPESAFE_API_KEY` in the tenant `.env`, an HTTP error, a timeout, or less than 30 s
+  of wall clock left: the first passing draft ships and the reason is logged. Jev
+  never fails or STOPs a run.
+
+The run log tags each write with its draft (`write.listicle[draft 2]`) and adds
+`drafts:` and `jev:` lines (scores, which draft shipped and why, Jev tokens -- billed by
+TypeSafe, not in `estimated_cost_usd`). state.json's `jev` entry holds the same record,
+passing drafts are kept as `<run>/drafts/listicle-draft-<n>.json`, and the listicle
+site's generation page shows the scores as a table. `HARNESS_JEV_DRAFTS=1` runs one
+draft; `--batch` always writes one draft. The daily spend reservation is multiplied by
+the draft count.
+
 **Design.** Each look ships its own scoped `<style>` block (this cartridge is the one
 exempt from `tests/test_css_coverage.py`'s structure.css rule). Shared across all five:
 17-18px body at 1.6 (19px serif in `editorial`), 36-44px H1, 24-28px H2, a 48-64px
