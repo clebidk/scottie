@@ -147,9 +147,18 @@ def test_digit_exempt_terms_carry_both_forms(prefixed_claims_dir):
 # 2. Headline case
 # ---------------------------------------------------------------------------
 
-def test_the_tenant_asks_for_uppercase_headlines():
-    assert TENANT.get("brand.headline_case") == "upper"
-    assert render_mod.wrap_class(TENANT) == "adv-wrap adv-case-upper"
+def test_the_tenant_sets_headlines_in_sentence_case():
+    """Cycle 78: the live theme sets headings in sentence case, so the
+    tenant turned the cycle 52 uppercase class off."""
+    assert TENANT.get("brand.headline_case") == "none"
+    assert render_mod.wrap_class(TENANT) == "adv-wrap"
+
+
+def test_a_tenant_that_asks_for_uppercase_gets_the_class():
+    class _Upper:
+        def get(self, key, default=None):
+            return "upper" if key == "brand.headline_case" else default
+    assert render_mod.wrap_class(_Upper()) == "adv-wrap adv-case-upper"
 
 
 def test_a_tenant_that_does_not_ask_for_it_keeps_the_plain_wrapper():
@@ -177,7 +186,7 @@ def test_headline_case_is_css_only_and_never_rewrites_the_copy(tmp_path):
         published="2026-09-22", updated="2026-09-22", tenant=TENANT, download_assets=False,
     )
     html = out.read_text()
-    assert 'class="adv-wrap adv-case-upper"' in html
+    assert 'class="adv-wrap"' in html
     assert page["headline"] in html            # the writer's own casing, verbatim
     assert page["headline"].upper() not in html
 
@@ -249,20 +258,20 @@ def test_the_structural_stylesheet_resolves_brand_tokens_for_shape_and_cta():
     assert "--adv-bg: #ffffff" in root
 
 
-def test_the_tenants_own_tokens_carry_the_finalized_palette():
+def test_the_tenants_own_tokens_carry_the_live_theme_palette():
+    """Cycle 78: the live storefront theme, not the retired cycle 52 palette."""
     css = (TENANT.brand_dir / "base.css").read_text()
     for token, value in [
-        ("--ps-accent", "#F27046"), ("--ps-on-accent", "#181918"),
-        ("--ps-bg", "#EFE3D2"), ("--ps-bg-muted", "#C0C8C3"),
-        ("--ps-ink-dark", "#181918"), ("--ps-on-dark", "#EFE3D2"),
-        ("--ps-editorial", "#702B33"), ("--ps-band", "#483215"),
-        ("--ps-star-on", "#181918"),
-        ("--ps-radius-card", "0px"), ("--ps-radius-btn", "0px"),
-        ("--ps-radius-pill", "0px"), ("--ps-radius-round", "0px"),
-        ("--ps-radius-box", "4px"),
+        ("--ps-accent", "#161817"), ("--ps-on-accent", "#FFFFFF"),
+        ("--ps-accent-hover", "#702B34"),
+        ("--ps-bg", "#FFFFFF"), ("--ps-bg-muted", "#F1F1F1"), ("--ps-stone", "#F0E5D3"),
+        ("--ps-ink-dark", "#161817"), ("--ps-on-dark", "#FFFFFF"),
+        ("--ps-text", "#1A1A1A"), ("--ps-editorial", "#702B34"),
+        ("--ps-radius-btn", "999px"), ("--ps-radius-box", "4px"),
     ]:
         assert f"{token}:{value}" in css.replace(" ", ""), token
-    assert "16C47F" not in css.upper()
+    for retired in ("16C47F", "F27046", "F37047", "EFE3D2", "C0C8C3", "483215"):
+        assert retired not in css.upper(), retired
 
 
 def test_the_boxes_shared_across_cartridges_also_resolve_to_the_box_token():
@@ -285,36 +294,37 @@ def test_the_boxes_shared_across_cartridges_also_resolve_to_the_box_token():
 # 4. The self-hosted webfont reaches the storefront export
 # ---------------------------------------------------------------------------
 
-def test_the_tenant_self_hosts_the_licensed_face_and_falls_back_for_the_other():
+def test_the_tenant_uses_the_theme_faces_and_emits_no_font_face():
+    """Cycle 78: DM Sans body, Poppins headings -- both loaded by the
+    storefront theme, and by a head <link> on the review page. Acid Grotesk
+    (an unlicensed trial) and the retired Epika face are gone."""
     css = (TENANT.brand_dir / "base.css").read_text()
-    assert "@font-face" in css
-    assert (TENANT.brand_dir / "fonts" / "Epika-Regular.woff2").exists()
-    # the unlicensed face is a fallback stack only -- no @font-face for it
-    assert "Acid Grotesk" in css
-    assert "Acid Grotesk license pending; fallback in use" in css
-    font_faces = re.findall(r"@font-face\s*\{[^}]*\}", css, re.DOTALL)
-    assert len(font_faces) == 1
-    assert "Acid" not in font_faces[0]
+    assert not re.search(r"@font-face\s*\{", css)
+    assert "Acid Grotesk" not in css and "Epika" not in css
+    assert '--ps-sans:"DM Sans"' in css
+    assert '--ps-heading:"Poppins"' in css
+    assert TENANT.get("brand.font_stylesheet").startswith("https://fonts.googleapis.com/")
 
 
-def test_the_export_carries_the_font_face_rules_the_document_head_owns(tmp_path):
-    """`harness shopify-body` keeps only what was inside <body>, so a brand's
-    @font-face lived in the head and never reached a published page."""
+def test_the_export_carries_no_font_face_and_no_font_link(tmp_path):
+    """The theme loads both faces site-wide; the head <link> is review-only
+    and never reaches `harness shopify-body`."""
     from harness.page_body import build_shopify_body, font_face_css
     from tests.test_listicle import AD_BRIEF, RICH_FACTS_PACK, _listicle_page
 
     page = _listicle_page()
     page["look"] = "editorial"
-    render_mod.render_page(
+    html = render_mod.render_page(
         cartridge_name="listicle", page=page, ad_brief=AD_BRIEF, facts_pack=RICH_FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,
         templates_dir=REPO_ROOT / "harness" / "templates", out_dir=tmp_path / "listicle",
         published="2026-09-22", updated="2026-09-22", tenant=TENANT, download_assets=False,
-    )
+    ).read_text()
+    assert TENANT.get("brand.font_stylesheet") in html.replace("&amp;", "&")
     body, _manifest = build_shopify_body(tmp_path / "listicle")
-    assert "@font-face" in body
-    assert "Epika-Regular.woff2" in body
-    assert font_face_css(TENANT) in body
+    assert font_face_css(TENANT) == ""
+    assert not re.search(r"@font-face\s*\{", body)
+    assert "fonts.googleapis.com" not in body
 
 
 def test_the_export_carries_the_box_radius_token_and_a_rounded_box(tmp_path):
@@ -343,10 +353,10 @@ def test_the_export_carries_the_box_radius_token_and_a_rounded_box(tmp_path):
 def test_publishing_rewrites_the_font_urls_to_the_cdn(tmp_path):
     """The relative brand/fonts/... url in the export would 404 on a
     storefront; the publisher swaps in the uploaded CDN url."""
-    from harness.page_body import font_face_css
     from harness.publishers import shopify as shopify_pub
 
-    exported = "<style>\n" + font_face_css(TENANT) + "\n</style>"
+    exported = ('<style>\n@font-face{font-family:"Epika";src:url("brand/fonts/Epika-Regular.woff2") format("woff2"),'
+                'url("brand/fonts/Epika-Regular.otf") format("opentype");}\n</style>')
     rewritten = shopify_pub.rewrite_font_face_urls(exported, {
         "Epika-Regular.woff2": "https://cdn.shopify.com/files/Epika-Regular.woff2",
         "Epika-Regular.otf": "https://cdn.shopify.com/files/Epika-Regular.otf",

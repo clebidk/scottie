@@ -3688,3 +3688,96 @@ item and so its own test.
 Files: harness/meta_ingest.py, harness/cli.py (argument wiring),
 docs/META-INGEST.md. Tests: 11 new in tests/test_meta_ingest.py (fake Graph
 client, no socket).
+
+
+## Cycle 78 (generator matches the live storefront theme, 2026-10-05)
+
+### Problem
+Pages still rendered the 2026-09-22 rebrand (cycle 52): orange `#F27046`
+CTA, cream `#EFE3D2` ground, sage `#C0C8C3` panels, cedar `#483215` rules,
+Acid Grotesk fallback in uppercase. The live site has retired that look
+(theme 182943580461 "mono", published), and the owner banned all orange on
+2026-09-28. Many library photos (cycle 75) show the old mountain + "Peak
+Saunas" mark on the sauna glass.
+
+### Changes
+1. **`tenants/peak-saunas/brand/base.css`**: new `--ps-*` tokens -- Basalt
+   `#161817` CTA fill and dark bands, ink `#1A1A1A`, brand red `#702B34`
+   (hover), white page, `#F1F1F1` panels, stone `#F0E5D3` (accent panels
+   only), muted `#616161`/`#6B6B6B`, hairline borders `rgba(22,24,23,.18)`,
+   radius 4px boxes / 999px pill CTAs, DM Sans body, Poppins headings. Every
+   look already resolves colours through these tokens, so the palette change
+   is central. A "live theme layer" at the end of the file sets, for every
+   cartridge: headings Poppins 600, sentence case, -.01em, H1 28-50px fluid;
+   one CTA system (Basalt pill 17px 44px, Poppins 600 16px, hover red; white
+   pill on dark bands; 1.5px ink outline secondary; 4px rectangular buy-box
+   CTA on pdp); no box-shadow / text-shadow; sticky bottom CTA bars hidden
+   and 90px bottom padding (the storefront's Peak Assist bar, sales popup and
+   Klaviyo sit there). These rules use `!important` and doubled classes: the
+   theme's `assets/pk-mono.css` uses `!important` on buttons and radii, and
+   the export scopes the selectors to `.adv-wrap.adv-wrap.adv-wrap
+   .lst-btn.lst-btn` (0,5,0) > `html.pk-mono .x .btn` (0,3,1).
+2. **`tenant.yaml` `brand:`**: `headline_case: none` (uppercase class off);
+   new `font_stylesheet` (Google Fonts DM Sans 400/500 + Poppins 500/600)
+   and `theme_marker: mono-2026-10-05`; palette/fonts/logo notes rewritten.
+3. **`harness/templates/base.html`**: a head `<link>` to `font_stylesheet`
+   when the tenant sets one (review/standalone page only -- the export keeps
+   only the body, and the theme loads both faces site-wide), and
+   `data-pk-theme="<theme_marker>"` on the page wrapper (survives into
+   `shopify-body.html`, so a cached storefront page shows its build).
+4. **Looks**: pillars hero overlay is a flat `rgba(22,24,23,.55)` scrim, not
+   a gradient. `font-weight:700/600` in the five listicle looks -> 500 (DM
+   Sans ships 400/500 on the storefront; 600+ was rendered as faux bold).
+5. **`brand/tokens.json`, `brand/NOTES.md`** rewritten to the live theme.
+   Removed (nothing read them): `base-legacy.css`, `tokens-legacy.json`,
+   `logo-on-dark.svg`, `logo-stone.svg`, `logo-stone.png` (cream wordmark),
+   `fonts/Epika-Regular.{otf,woff2}`, `fonts/cdn-manifest.json`. No
+   `@font-face` is emitted any more, so publish uploads no font.
+6. **Photos**: `photo-library.json` tags gain `old_logo_visible` (bool, set
+   by looking at all 66 derivatives; 35 true). `photo_library.py`: schema
+   accepts it; `assign_page_images` never puts a flagged photo in the hero or
+   the first item image; a re-tag keeps the flag. docs/IMAGES.md section 9.
+
+### Lint
+`tests/test_brand_lint_cycle78.py` renders every cartridge/look from the
+existing fixtures (listicle x5, comparison, quiz, product-page pdp and
+classic, article, longform) and checks the review page and the storefront
+export: none of `#F27046 #F37047 #EFE3D2 #EFE8DA #C0C8C3 #BFC6C1 #16C47F
+#11BDFB #483215`, no Acid Grotesk, no `gradient(`, no box-shadow except
+`none`, no uppercase rule that reaches an h1/h2/h3, exactly one `<h1>`, the
+`data-pk-theme` marker, and every export rule scoped to `.adv-wrap` (or
+page-scoped through `:has(.adv-wrap|.pk-lp)`). Run against master it fails
+22 of 22 page checks. Plus 4 photo tests. Suite: 2349 passed.
+
+### Re-render (no model call)
+`harness rerender <run-dir> --page <cartridge> [--look <look>]` re-renders
+an existing run from its own page.json + facts_pack.json through the new
+templates and CSS, rewrites `<cartridge>-review.html`, and refreshes
+`shopify-body.html` when the page already has one. Example, in the deploy
+checkout: `harness rerender tenants/peak-saunas/out/<run-id> --page listicle`.
+Outside the deploy checkout set `HARNESS_PHOTO_LIBRARY_DIR` to a folder that
+holds `peak-saunas/` (the derivatives), or library photos are dropped.
+
+### Verified
+Seven archived runs re-rendered under /tmp (one b2 listicle in all five
+looks, one comparison, one quiz) and screenshot in headless Chrome at 1440
+and 390: `~/asset-inbox/theme-c78/<page>-<width>.png`. DM Sans 400/500 and
+Poppins 600 load; white ground, `#F1F1F1` panels, Basalt pill CTAs, sentence
+case headings, no orange.
+
+### Not matched / open
+- No new-mark product cut-outs in the repo (`pk-cutout-<model>.webp` lives on
+  the theme). Every library exterior of Fuji is flagged, so the Fuji hero
+  falls back to storefront image 1 -- which also shows the old mark on the
+  glass. Fix: add the theme cut-outs as assets and prefer them for the hero.
+- No wave-icon mark in the repo, so dark bands have no 7-9% watermark and
+  there is no best-seller wave badge; no template renders a best-seller badge
+  or a savings pill today.
+- Dark bands sit inside each look's max-width (lander, pillars), not
+  full-bleed.
+- Writer copy in already-built runs still says "the Peak Saunas app"
+  (from claims); templates hard-code no "Peak Saunas", "Mont Blanc" or
+  "WiFi".
+- The review site chrome (harness/site.py) still carries the cycle 52
+  palette; it is owned by a parallel build and was not touched.
+

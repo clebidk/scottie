@@ -1,5 +1,9 @@
 # PEAK rebrand — applied (2026-09-22, cycle 52)
 
+> **Superseded 2026-10-05 (cycle 78).** The live storefront theme retired this
+> palette and type; pages now match the live theme. See `docs/FIXLOG.md`
+> cycle 78 and `brand/NOTES.md`. Kept as history.
+
 The finalized PEAK design system is now what this tenant renders. This is the
 record of what changed, what was checked and what is still open. The earlier
 `BRAND-IMPORT-REBRAND-2026-09-14.md` was a dry-run survey of the agency

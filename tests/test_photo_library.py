@@ -126,6 +126,7 @@ def test_manifest_schema_accepts_valid_tags_and_untagged_photos():
     ({"people": -1}, "people"),
     ({"description": ""}, "description"),
     ({"blurry": "no"}, "blurry"),
+    ({"old_logo_visible": "yes"}, "old_logo_visible"),
 ])
 def test_manifest_schema_rejects_bad_tags(change, expect):
     photo = dict(FUJI_EXTERIOR, tags=dict(FUJI_EXTERIOR["tags"], **change))
@@ -341,6 +342,47 @@ def test_storefront_images_are_the_fallback_once_the_library_runs_out(tenant):
     assert ids[0] == FUJI_RED["id"]
     assert ids[1:] == [f"asset-{FUJI_HANDLE}-1", f"asset-{FUJI_HANDLE}-2"]
     assert any("storefront fallback" in n for n in result["notes"])
+
+
+# ---------------------------------------------------------------------------
+# Cycle 78: photos that show the retired brand mark stay below the fold
+# ---------------------------------------------------------------------------
+
+def _old_logo(photo):
+    return dict(photo, tags=dict(photo["tags"], old_logo_visible=True))
+
+
+def test_the_hero_is_never_a_photo_that_shows_the_old_logo(tenant):
+    clean = _photo(11, _tags(shot="exterior", setting="studio", blurry=True))
+    _library(tenant, [_old_logo(FUJI_EXTERIOR), clean, FUJI_RED])
+    page = _listicle("Red light therapy")
+    pl.assign_page_images(page, _facts_pack(tenant), "listicle", tenant=tenant, allow_ai_renders=True)
+    # the flagged exterior ranks higher (sharp) but the clean one wins
+    assert page["hero"]["asset_id"] == clean["id"]
+
+
+def test_with_only_flagged_exteriors_the_hero_falls_back_to_the_storefront(tenant):
+    _library(tenant, [_old_logo(FUJI_EXTERIOR), FUJI_RED])
+    page = _listicle("Red light therapy")
+    result = pl.assign_page_images(page, _facts_pack(tenant), "listicle", tenant=tenant, allow_ai_renders=True)
+    assert page["hero"]["asset_id"] == f"asset-{FUJI_HANDLE}-1"
+    assert any("storefront fallback" in n for n in result["notes"])
+
+
+def test_the_first_item_image_never_shows_the_old_logo_but_a_later_one_may(tenant):
+    _library(tenant, [FUJI_EXTERIOR, _old_logo(FUJI_RED), FUJI_ROOM])
+    page = _listicle("Red light therapy", "Red light, again")
+    pl.assign_page_images(page, _facts_pack(tenant), "listicle", tenant=tenant, allow_ai_renders=True)
+    first, second = (r["image"]["asset_id"] for r in page["reasons"])
+    assert first != FUJI_RED["id"]
+    assert second == FUJI_RED["id"]
+
+
+def test_the_committed_library_flags_the_photos_that_show_the_old_logo():
+    photos = pl.photos_by_id(pl.load_manifest(TENANT))
+    for pid in ("asset-photo-84d9846da050", "asset-photo-ccdc91d82bd4"):
+        assert photos[pid]["tags"]["old_logo_visible"] is True
+    assert all(isinstance(p["tags"].get("old_logo_visible"), bool) for p in photos.values() if p.get("tags"))
 
 
 def test_assignment_is_a_no_op_without_library_photos(tenant):

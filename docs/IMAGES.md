@@ -419,6 +419,11 @@ point for a choice that keyword topics already make well.
 - Hero: the best clean exterior of X (`hero_rank`: exterior, real photo, not
   blurry/cluttered); none in the library -> the first storefront image; none
   -> the best library photo of X.
+- Cycle 78: a photo tagged `old_logo_visible: true` (the retired white
+  mountain + "Peak Saunas" mark on the glass, a control panel or a red light
+  panel -- set by a person, kept on re-tag) is never the hero and never the
+  first item image (the first content slot in page order). It may fill a
+  lower slot.
 - Every other slot: tenant.yaml `photo_library.topic_keywords` maps words in
   the slot's heading and text to topics (a feature, `shot:<shot>`,
   `setting:<setting>`); a heading hit counts 3 extra times. The unused photo
