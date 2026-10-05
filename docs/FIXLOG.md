@@ -3785,3 +3785,138 @@ or flat. The owner validated a 9-question Jev rubric on 30 generated pages and
 - Whether a 5 s stagger lets draft 2 read a cold system-prefix cache is not
   measured (both smoke runs found it warm).
 - `harness revise` (feedback -> regenerate) still writes one version.
+
+## Cycle 76 addendum (model cost per run under $0.10 with best of 2 on, 2026-10-05)
+
+Owner goal: median model cost per listicle generation under $0.10, best of 2
+on, no loss of quality. Measured before: single draft $0.092 median (b2,
+warm cache); best of 2 as first built $0.138-$0.176.
+
+### Where the money went (best of 2, run ykhk)
+Per draft: output ~2.5-2.8k tokens ($0.025-0.028; the writer already emits
+compact JSON -- counted with count_tokens, 2,783 vs 2,786 logged -- so there is
+nothing to win there), a 12.3k-token cache write ($0.031) and ~3.8k uncached
+input. Draft 2 wrote its own 12.4k-token cache entry: its headline-template
+and skeleton lines sat in system[1], before the facts-pack breakpoint.
+
+### Levers
+1. **One prompt cache for both drafts** (kept). write.py: the lines that
+   differ per draft (style/headline-template lines, skeleton lines) moved from
+   the system prompt to the user tail ("## Hard constraints for this page");
+   for the listicle the cached first user block also carries ad_brief,
+   ad_quotes and allowed_numbers (same on every draft and repair). Draft 2
+   starts at draft 1's `message_start` (write._create_message streams draft
+   1's first call; drafts.CACHE_WAIT_S = 45 s cap) instead of a fixed 5 s
+   stagger. Live: draft 2 `cache_creation_input_tokens=0`,
+   `cache_read_input_tokens` 22,979-23,193 in all 10 runs of the batch.
+   The JSON retries and the repair read the same prefix (cache_read 22,979-23,119 in
+   the batch). The ad-brief call (~950 tokens) is below the minimum cacheable
+   size; the claims matcher caches its system prompt, and its candidate list
+   is uncached on purpose (semantic_match.py: live price text) -- left as is
+   (~$0.005 on runs whose ad makes claims).
+2. **Message Batches for non-interactive builds** (kept). tenant.yaml
+   `batch_api: {non_interactive: true, timeout_s: 1800}` (PEAK);
+   `abtest.default_runner` (create, from-inbox, site uploads, Meta ads)
+   passes `batch` from it. `--batch` no longer forces one draft: every
+   draft's first write is one request in the batch (`listicle-draft-<n>`).
+   The batch wait is added to the run's wall budget; a batch past timeout_s is
+   cancelled and the drafts are written in real time. Review-site
+   regenerate/feedback and `harness revise` stay real time.
+3. **Token diet** (kept). The listicle writer's copy of the facts pack drops
+   asset urls, claim source urls and product image urls (write.writer_facts_pack;
+   render and gates keep the full pack): draft 1's cache write 12.3k -> 9.3k
+   tokens. Not done: output caps (FAQ etc.) -- output is half the cost but is
+   the page; no evidence a cap keeps quality.
+4. **Second draft only when needed** (kept, `jev.second_draft_below: 0.70`).
+   Real time: draft 1 alone; draft 2 is written only when draft 1 fails a gate
+   on attempt 1 (as its backup, before any repair) or Jev scores it below
+   0.70; Jev unavailable -> draft 1 ships, draft 2 not written. A batch always
+   writes both. Data (batch below): no run where draft 1 scored >= 0.70
+   shipped draft 2, so the rule ships the same 10 pages (mean composite
+   unchanged, 0.720) and skips draft 2 in 6 of 10 runs.
+5. **Minimum margin** (kept, `jev.min_margin: 0.02`). Draft 2 ships only when
+   it beats draft 1 by >= 0.02. Jev moves 0.003-0.007 between identical calls
+   (ykhk twice; in-run vs re-score of the same page); bmdd (0.013) and azxg
+   (0.017) would otherwise have shipped draft 2 on noise.
+6. **Draft angle** (fix found while measuring). questions, myths and tested
+   allow one headline template and one skeleton, so draft 2 was the same prompt
+   sampled again in 6 of 10 runs. When nothing else differs, draft 2 now gets
+   the "objection-first" angle line (skeletons.DRAFT_ANGLE_LINE: dek, headline
+   free slots and item order start from ad_brief.objections_raised).
+Not changed: the writer model (no measured batch says a cheaper model holds
+Jev and pass rate).
+
+### Live measurement (real time, key present, fixed 10-input set, ~/c76-batch.sh)
+Batch c76-best2-cache (levers 1, 3, 5; both drafts always; before lever 4):
+| run | ad / style | drafts | shipped | in-run composites d1/d2 | shipped (re-scored) | cost | d2 cache read |
+|---|---|---|---|---|---|---|---|
+| 175127-bmdd | hidden-costs reasons | PASS/PASS | 1 | 0.743 / 0.755 | 0.750 | $0.2157 (both drafts hit invalid JSON once) | 22,991 |
+| 175249-zchh | product-features mistakes | PASS/PASS | 1 | 0.749 / 0.716 | 0.752 | $0.1023 | 23,053 |
+| 175349-pwus | price-comparison questions | PASS/PASS | 2 | 0.634 / 0.673 | 0.681 | $0.1464 (d2 invalid JSON once) | 22,979 |
+| 175517-g7vy | founder myths | PASS/FAIL | 1 | - | 0.673 | $0.1005 | 23,179 |
+| 175555-zlda | hidden-costs tested | PASS/PASS | 1 | 0.768 / 0.764 | 0.768 | $0.0982 | 23,008 |
+| 175646-t5jy | product-features reasons | PASS/PASS | 1 | 0.731 / 0.703 | 0.726 | $0.1059 | 23,193 |
+| 175751-myrr | price-comparison mistakes | PASS/PASS | 1 | 0.727 / 0.650 | 0.726 | $0.1064 | 22,984 |
+| 175900-moho | founder questions | PASS/FAIL | 1 | - | 0.695 | $0.1075 | 23,115 |
+| 175946-qixo | hidden-costs myths | FAIL->repaired/FAIL | 1 | - | 0.706 | $0.1121 | 23,119 |
+| 180044-wcyo | product-features tested | PASS/FAIL | 1 | - | 0.727 | $0.1015 | 23,056 |
+10/10 PASS. Median $0.1061, mean $0.1197, median wall 59 s. Shipped pages,
+Jev re-scored with the same code as b2: composite 0.720 (b2 0.719 with this
+code; 0.710 as reported), voice 0.575 (0.560), flow 0.626 (0.613), overall
+0.559 (0.539), message_match 0.789 (0.808). Draft 2 shipped once (pwus).
+Simulated lever 4 on these logs (per-call cost; skip draft 2 when draft 1
+passed attempt 1 and scored >= 0.70): median $0.0866, mean $0.094, same
+shipped pages.
+
+Live checks of lever 4 (committed code): rde6 hidden-costs tested ->
+first_strong 0.768, draft 2 not written, $0.0935 (cold cache: the system
+prefix had expired, 23k-token write); azxg price-comparison questions -> d1
+0.668 < 0.70, d2 written (cache read 22,915) 0.685, gap 0.017 < 0.02 -> d1,
+$0.1044; jihm price-comparison questions -> first_strong 0.715, $0.0695.
+
+Batch API (`--batch`, first 3 inputs): 5eq3 $0.0669 (d1 shipped), brnp
+$0.1245 (both failed -> real-time repair of d1), pfgm $0.0684 (scored, gap
+0.011 -> d1). 3/3 PASS, median $0.0684, batch wait 114-156 s (outside the
+wall budget). Cache hits inside a batch are best effort: one request read the
+shared prefix in 2 of 3 batches, none in the third.
+
+### Result
+| | median cost/run | pass | mean composite |
+|---|---|---|---|
+| before (b2, one draft, warm cache) | $0.092 | 10/10 | 0.719 |
+| best of 2 as first built | $0.138-0.176 (2 runs) | 2/2 | - |
+| best of 2, shared cache + trim (real time) | $0.106 | 10/10 | 0.720 |
+| + second draft only when needed (real time) | $0.087 (simulated on the 10), $0.070-0.104 live | 3/3 live | 0.720 (same pages) |
+| A/B/C builds (Message Batches) | $0.068 | 3/3 | 0.714 (3 runs) |
+
+PEAK settings shipped (tenant.yaml): `jev: {enabled: true, drafts: 2,
+timeout_s: 60, min_margin: 0.02, second_draft_below: 0.70}`,
+`batch_api: {non_interactive: true, timeout_s: 1800}`, models unchanged
+(write/repair claude-sonnet-5, ingest/matcher claude-haiku-4-5).
+
+Tests: tests/test_cost_cycle76.py (18), one new test in test_jev_cycle76.py, updates in it and
+test_skeletons.py (the skeleton line moved to the user tail). Suite: 2344
+passed.
+
+### Open
+- Cold cache: a run that starts more than 5 minutes after the last listicle
+  call writes the 13.7k-token system prefix again (+$0.034; rde6). The
+  measured batches were back-to-back. A 1-hour cache TTL on the system prefix
+  would trade a 2x write for hits across an hour of sporadic builds -- not
+  measured, not done.
+- Invalid JSON ("Expecting ',' delimiter") cost a full re-write in 3 of 20
+  draft writes (bmdd +$0.11). write.py now logs the text near the error so a
+  lossless fix can be added to jsonutil.extract_json_tolerant.
+- Best of 2 moved the mean composite by +0.001 on this batch (draft 2 won
+  once, by 0.04). Its value is mostly as a backup when draft 1 fails; the
+  conditional rule keeps that.
+- Draft 1 passed on attempt 1 in 9 of 10 runs here vs about 2 of 10 in b2
+  (b2 needed patch repairs); not attributed to a single change.
+- The draft angle was exercised live once: 20261005-181845-founder-warranty-demo-w7yp
+  (myths, `--batch`, wait 405 s, $0.0726). Draft 2 named another audience and
+  opened its dek on the doubt, but item 1 kept the same topic; it scored 0.662
+  vs draft 1's 0.698, so draft 1 shipped. One run says nothing about whether
+  the angle helps; watch the `angle` column in state.json's jev record.
+- Batch waits ranged 114-405 s today; A/B/C builds take that much longer.
+- Today's spend: prod ledger $6.29 + this worktree $2.21 (ledger
+  tenants/peak-saunas/runs in ~/adv-c76) = $8.50 of the $10 cap.

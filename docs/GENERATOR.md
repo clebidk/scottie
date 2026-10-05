@@ -176,9 +176,9 @@ pinned `--headline-template` or `--skeleton` stays pinned in both drafts.
 - A draft that fails a gate never ships.
 - Both pass on attempt 1: TypeSafe's Jev model scores them with the rubric in
   `cartridges/listicle/jev-rubric.yaml` (tenant override: `tenants/<t>/jev-rubric.yaml`);
-  the higher composite (mean of hook, specificity, proof, objections, offer, flow,
-  voice, message_match, each 0-1) ships; a tie ships draft 1. "overall" is recorded,
-  not used.
+  composite = mean of hook, specificity, proof, objections, offer, flow, voice,
+  message_match, each 0-1. Draft 2 ships only when its composite beats draft 1's by at
+  least `jev.min_margin` (0.02); else draft 1 ships. "overall" is recorded, not used.
 - One passes: it ships, no Jev call.
 - None passes: draft 1 takes the repair loop exactly as a one-draft run; draft 2 is
   dropped. Repairs only happen when no draft passed on attempt 1.
@@ -191,8 +191,19 @@ The run log tags each write with its draft (`write.listicle[draft 2]`) and adds
 TypeSafe, not in `estimated_cost_usd`). state.json's `jev` entry holds the same record,
 passing drafts are kept as `<run>/drafts/listicle-draft-<n>.json`, and the listicle
 site's generation page shows the scores as a table. `HARNESS_JEV_DRAFTS=1` runs one
-draft; `--batch` always writes one draft. The daily spend reservation is multiplied by
-the draft count.
+draft. The daily spend reservation is multiplied by the draft count.
+
+**Cost.** Both drafts share one prompt cache: everything up to the last cache breakpoint
+(system prompt, the shared hard constraints, the facts pack, ad brief, ad quotes,
+allowed numbers) is byte-identical for every draft and every repair; each draft's own
+headline-template and skeleton lines ("Hard constraints for this page") come after it.
+Draft 2 starts when draft 1's response starts streaming (its cache entry exists then),
+so it reads that entry. The writer's copy of the facts pack leaves out asset URLs, claim
+source URLs and product image URLs. With `--batch`, and for every A/B/C build when
+`tenant.yaml` `batch_api.non_interactive` is true (PEAK), all drafts' first writes go in
+one Message Batch at half price; the batch wait is not counted in the 300 s wall clock,
+and a batch still open after `batch_api.timeout_s` (1800 s) is cancelled and the drafts
+are written in real time. The review site's regenerate/feedback stays real time.
 
 **Design.** Each look ships its own scoped `<style>` block (this cartridge is the one
 exempt from `tests/test_css_coverage.py`'s structure.css rule). Shared across all five:
