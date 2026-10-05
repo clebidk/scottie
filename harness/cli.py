@@ -22,6 +22,7 @@ from . import listicle
 from . import looks
 from . import meta_ingest
 from . import pipeline
+from . import photo_library
 from . import repair
 from . import runstate
 from . import skeletons
@@ -1317,6 +1318,63 @@ def cmd_images_describe(args):
 
 
 # ---------------------------------------------------------------------------
+# Cycle 75: harness photos import / tag / sheet (harness/photo_library.py)
+# ---------------------------------------------------------------------------
+
+def cmd_photos_import(args):
+    """Web-size derivatives + manifest entries for every image in a folder."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    counts = photo_library.import_folder(tenant, args.src)
+    print(f"added {counts['added']}, existing {counts['existing']}, duplicates {counts['duplicates']}, "
+          f"skipped {counts['skipped']} -> {photo_library.manifest_path(tenant)}")
+    return 0
+
+
+def cmd_photos_tag(args):
+    """Vision tags, one call per photo, costed against the tenant's daily cap."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    manifest = photo_library.load_manifest(tenant)
+    ids = set(args.id) if args.id else None
+    todo = [p for p in manifest.get("photos", [])
+            if (ids is not None and p["id"] in ids) or (ids is None and (args.force or args.redecide or not p.get("tags")))]
+    model = args.model or tenant.get("photo_library.tag_model") or photo_library.DEFAULT_TAG_MODEL
+    if args.dry_run or not todo:
+        print(f"would tag {len(todo)} photo(s) with {model}; no calls made")
+        return 0
+    run_id = f"{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}-photos-tag"
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    budget = Budget(wall_s=3600, tokens=5_000_000, calls=len(todo) + 5)
+    today_iso = datetime.date.today().isoformat()
+    try:
+        try:
+            budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today_iso, log=log)
+        except BudgetExceeded as e:
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+        refs = photo_library.build_reference_images(tenant, cache_dir=args.reference_cache)
+        tenant.load_env()
+        client = make_client()
+        result = photo_library.tag_photos(
+            tenant, client=client, model=model, budget=budget, log=log, refs=refs,
+            ids=ids, force=args.force or args.redecide, forbidden_terms=asset_describe.forbidden_terms_for(tenant),
+            reuse_vision=args.redecide,
+        )
+        cost = log.cost_estimate()
+        budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today_iso, log=log)
+        print(f"tagged {result['tagged']}, failed {result['failed']}, folder checks {result['verified']}, cost ${cost:.4f}")
+        return 0
+    finally:
+        log.close()
+
+
+def cmd_photos_sheet(args):
+    """A contact sheet (thumbnail, id, product tag) for a human check."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    print(photo_library.contact_sheet(tenant, args.out))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # harness claims add / list
 # ---------------------------------------------------------------------------
 
@@ -1597,6 +1655,26 @@ def build_parser():
     p_images_pool = images_sub.add_parser("pool", help="per-model total/reviewed/excluded/with-alt counts")
     _add_tenant_flag(p_images_pool)
     p_images_pool.set_defaults(func=cmd_images_pool)
+
+    p_photos = sub.add_parser("photos", help="the tenant photo library: import, vision tags, contact sheet")
+    photos_sub = p_photos.add_subparsers(dest="photos_command", required=True)
+    p_photos_import = photos_sub.add_parser("import", help="add every image in a folder to the library")
+    p_photos_import.add_argument("src", help="folder of original photos")
+    _add_tenant_flag(p_photos_import)
+    p_photos_import.set_defaults(func=cmd_photos_import)
+    p_photos_tag = photos_sub.add_parser("tag", help="vision-tag untagged photos (product, shot, features, ...)")
+    p_photos_tag.add_argument("--id", action="append", help="tag (or re-tag) only this photo id (repeatable)")
+    p_photos_tag.add_argument("--force", action="store_true", help="re-tag every photo")
+    p_photos_tag.add_argument("--redecide", action="store_true", help="re-apply the product rules to every photo from its stored pass-1 answer (folder checks only where needed)")
+    p_photos_tag.add_argument("--model", help="vision model (default tenant photo_library.tag_model)")
+    p_photos_tag.add_argument("--reference-cache", help="folder of cached storefront images (<asset id>-480.jpg)")
+    p_photos_tag.add_argument("--dry-run", action="store_true")
+    _add_tenant_flag(p_photos_tag)
+    p_photos_tag.set_defaults(func=cmd_photos_tag)
+    p_photos_sheet = photos_sub.add_parser("sheet", help="write a contact sheet JPEG of every photo and its tags")
+    p_photos_sheet.add_argument("out")
+    _add_tenant_flag(p_photos_sheet)
+    p_photos_sheet.set_defaults(func=cmd_photos_sheet)
 
     p_approve = sub.add_parser("approve", help="approve a run's page(s) for publish")
     p_approve.add_argument("run_dir")

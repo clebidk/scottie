@@ -18,6 +18,7 @@ import jinja2
 from markupsafe import Markup, escape
 from PIL import Image
 
+from . import photo_library
 from . import blocks
 from . import ground as ground_mod
 from . import ingest
@@ -613,7 +614,12 @@ def download_asset(asset, dest_dir, *, log=None, fetch_url=http_fetch_bytes, dri
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
-        if asset.get("drive_id"):
+        if asset.get("local_path"):
+            # Cycle 75: a photo-library derivative already on disk
+            # (harness/photo_library.py) -- no network.
+            data = Path(asset["local_path"]).read_bytes()
+            ext = Path(asset["local_path"]).suffix or ".jpg"
+        elif asset.get("drive_id"):
             tmp_dir = dest_dir / f"_tmp-{asset['id']}"
             tmp_path = drive_downloader(asset["drive_id"], tmp_dir)
             data = Path(tmp_path).read_bytes()
@@ -988,11 +994,23 @@ def render_page(
             page, facts_pack.get("assets", []), cartridge_name,
             allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids,
         )
+        # Cycle 75: when facts_pack offers photo-library photos, every image
+        # slot is re-picked from their tags (harness/photo_library.py): the
+        # hero is the product's best clean exterior, each other slot the
+        # unused photo that best shows what its own text talks about. The
+        # cycle 42 matcher below then has nothing left to do and is skipped.
+        library_result = photo_library.assign_page_images(
+            page, facts_pack, cartridge_name, tenant=tenant, exclude_ids=exclude_ids,
+            allow_ai_renders=allow_ai_renders, log=log,
+        )
+        if library_result is not None:
+            ground_mod.record_image_matches(run_dir, cartridge_name, library_result["assignments"])
+            final_used_ids = collect_asset_ids(page)
         # Cycle 42: deterministic paragraph-to-image matching, over whatever
         # enforce_slot_plan left in place -- a no-op for a tenant with no
         # reviewed (human or vision-drafted) alt text at all, see
         # ground.match_images_to_text's own docstring.
-        match_result = ground_mod.match_images_to_text(
+        match_result = {"matches": []} if library_result is not None else ground_mod.match_images_to_text(
             page, facts_pack.get("assets", []), cartridge_name=cartridge_name,
             exclude_ids=exclude_ids, allow_ai_renders=allow_ai_renders,
         )
@@ -1054,6 +1072,7 @@ def render_page(
             | ({promise_id} if promise_id else set()) | quiz_asset_ids
         )
         assets_dir = out_dir / "assets"
+        photo_library.attach_local_paths(assets_by_id, tenant)
         for asset_id in list(assets_by_id):
             if asset_id not in used_asset_ids:
                 continue
@@ -1213,6 +1232,9 @@ def render_page(
     # downloaded, so these run on every render.
     structural_hits += pagechecks.find_duplicate_asset_violations(page, cartridge_name)
     structural_hits += pagechecks.find_hero_requirement_violations(page, cartridge_name)
+    # Cycle 75: no image of a different product than the page's own, and no
+    # unidentified library photo as the hero (harness/photo_library.py).
+    structural_hits += photo_library.find_wrong_product_image_violations(page, facts_pack, cartridge_name, tenant=tenant)
     if comparison_context is not None:
         structural_hits += comparison_mod.find_table_violations(comparison_context, facts_pack)
     # Cycle 57: the quiz script is inline and self-contained, and the result

@@ -127,6 +127,45 @@ universal_claim_ids: [founder-ceo, warranty-terms, shipping-policy, returns-poli
 # Models the listicle asset pack (brand/assets-listicle-pack.json) covers.
 listicle_pack_models: [mini, matterhorn]
 
+# Cycle 75: the photo library (harness/photo_library.py, docs/IMAGES.md section 9).
+# features: the fixed vocabulary a vision tag's features_visible draws from.
+# topic_keywords: words/phrases in a slot's own text that ask for a topic --
+# a feature name, "shot:<shot>" or "setting:<setting>". A slot is given the
+# unused photo whose tags cover the most of its topics.
+photo_library:
+  features:
+    - red-light-panel
+    - control-panel
+    - bench
+    - heaters
+    - glass-door
+    - wood-grain
+    - size-in-room
+    - outlet-plug
+    - assembly
+    - chromotherapy
+    - speakers
+    - roof-outdoor-weather
+  topic_keywords:
+    red-light-panel: [red light, red-light, red light therapy, red light panel, red light panels, led, leds, near infrared led, photobiomodulation, skin, collagen]
+    control-panel: [control panel, controls, control, touchscreen, touch screen, app, wifi, wi-fi, phone, smart, timer, preheat, settings, dial, display]
+    bench: [bench, seat, seating, sit, sitting, legroom, backrest, lie down, stretch out, roomy, spacious]
+    heaters: [heater, heaters, heating panels, carbon, carbon panels, full spectrum, full-spectrum, far infrared, mid infrared, infrared heat, heats up, warm up, heat]
+    glass-door: [glass, glass door, door, window, tempered glass, see through]
+    wood-grain: [wood, cedar, hemlock, red cedar, canadian, timber, grain, craftsmanship, built, build quality, materials]
+    size-in-room: [space, footprint, fits, fit, small space, apartment, spare room, corner, bedroom, bathroom, home gym, garage, basement, room, square feet, dimensions, size, compact, condo, closet, office]
+    outlet-plug: [outlet, plug, plugs, plug in, plug-in, 120v, 240v, electrician, wiring, standard outlet, household outlet, electrical, amp, power]
+    assembly: [assembly, assemble, assembled, install, installation, setup, set up, delivery, delivered, arrives, unbox, unboxing, tools, minutes to build]
+    chromotherapy: [chromotherapy, color light, colour light, mood light, mood lighting, ambient light, colored light]
+    speakers: [speaker, speakers, bluetooth, music, podcast, audio, playlist, sound]
+    roof-outdoor-weather: [outdoor, outdoors, backyard, yard, patio, deck, garden, rain, snow, weather, winter, roof, canopy, cold, all-season]
+    "setting:outdoor": [outdoor, outdoors, backyard, yard, patio, deck, garden, lake, mountain, cabin outside]
+    "setting:indoor": [indoor, inside, apartment, bedroom, bathroom, living room, basement, home gym, spare room, condo]
+    "shot:interior": [inside, interior, cabin interior, inside the cabin]
+    "shot:people-in-use": [together, partner, couple, family, friends, session, sessions, routine, ritual, relax, unwind, sweat, recovery, sleep, stress, morning, evening, after work, after a workout]
+    "shot:lifestyle": [home, house, design, decor, looks, style, modern, beautiful, aesthetic, furniture]
+    "shot:exterior": [exterior, outside of the cabin, overall look, front view]
+
 warranty_claim_id: warranty-terms
 excluded_benefit_ids: [warranty-terms, shipping-policy, returns-policy]
 claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-, returns-, founder-]

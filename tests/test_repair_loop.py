@@ -826,7 +826,10 @@ def test_apply_deterministic_fixes_rewrites_the_other_direction_too():
     assert page["hero"]["asset_id"] == right_id
 
 
-def test_apply_deterministic_fixes_leaves_asset_id_alone_when_neither_prefix_is_in_the_manifest():
+def test_apply_deterministic_fixes_replaces_asset_id_when_neither_prefix_is_in_the_manifest():
+    # Cycle 75: no sibling prefix to rewrite to -> the best allowed, unused
+    # image replaces it (photo_library.replace_unknown_asset_id), never left
+    # for the gate to STOP the run on.
     unknown_id = f"asset-listicle-{_ASSET_TAIL}"
     page = {"hero": {"asset_id": unknown_id}}
     facts_pack = _asset_facts_pack("asset-drive-some-other-file")
@@ -835,8 +838,9 @@ def test_apply_deterministic_fixes_leaves_asset_id_alone_when_neither_prefix_is_
 
     fixed = apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
 
-    assert fixed == 0
-    assert page["hero"]["asset_id"] == unknown_id
+    assert fixed == 1
+    assert page["hero"]["asset_id"] == "asset-drive-some-other-file"
+    assert find_image_allowlist_violations(page, facts_pack) == []
 
 
 def test_apply_deterministic_fixes_leaves_asset_id_alone_when_both_siblings_are_in_the_manifest():
@@ -872,19 +876,19 @@ def test_apply_deterministic_fixes_leaves_asset_id_alone_when_it_is_already_vali
     assert page["hero"]["asset_id"] == valid_id
 
 
-def test_apply_deterministic_fixes_leaves_a_non_pool_asset_id_alone():
-    # Shopify-style id (asset-<slug>-<n>) never matches the drive/listicle
-    # prefix shape -- left alone, same as a truly unknown id.
-    shopify_id = "asset-fuji-1"
-    page = {"hero": {"asset_id": shopify_id}}
-    facts_pack = _asset_facts_pack("asset-drive-something-else")
+def test_apply_deterministic_fixes_replaces_a_guessed_shopify_asset_id():
+    # The 2026-10-05 STOP: the writer guessed "asset-<slug>-9" on a run whose
+    # manifest skipped 9. Cycle 75: replaced by an allowed image, logged.
+    shopify_id = "asset-fuji-9"
+    page = {"hero": {"asset_id": shopify_id}, "images": [{"asset_id": "asset-fuji-1"}]}
+    facts_pack = _asset_facts_pack("asset-fuji-1", "asset-fuji-2")
     failures = find_image_allowlist_violations(page, facts_pack)
     assert len(failures) == 1
 
     fixed = apply_deterministic_fixes(page, failures, set(), facts_pack=facts_pack)
 
-    assert fixed == 0
-    assert page["hero"]["asset_id"] == shopify_id
+    assert fixed == 1
+    assert page["hero"]["asset_id"] == "asset-fuji-2"  # never the id already on the page
 
 
 def test_apply_deterministic_fixes_asset_id_rewrite_is_skipped_without_a_facts_pack():
@@ -913,8 +917,11 @@ def test_gate_no_longer_fails_on_the_rewritten_page():
     assert find_image_allowlist_violations(page, facts_pack) == []
 
 
-def test_manifest_gate_still_fails_for_a_truly_unknown_asset_id():
-    page = {"hero": {"asset_id": "asset-drive-totally-unknown-file"}}
+def test_manifest_gate_still_fails_for_an_unknown_asset_id_with_no_free_replacement():
+    # Every allowed image is already on the page: nothing to swap in without
+    # a duplicate, so the gate still reports it (never silently shipped).
+    page = {"hero": {"asset_id": "asset-drive-totally-unknown-file"},
+            "images": [{"asset_id": f"asset-drive-{_ASSET_TAIL}"}]}
     facts_pack = _asset_facts_pack(f"asset-drive-{_ASSET_TAIL}")
     failures = find_image_allowlist_violations(page, facts_pack)
     assert len(failures) == 1

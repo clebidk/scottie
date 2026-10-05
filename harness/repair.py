@@ -18,6 +18,7 @@ import json
 import re
 from pathlib import Path
 
+from . import photo_library
 from . import comparison
 from . import headlines
 from . import listicle
@@ -1261,6 +1262,15 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None and cartridge_name is not None:
                     log.event(f"write.{cartridge_name}", f"fix: asset id prefix {old_id} -> {new_id}")
+                continue
+            # Cycle 75: any other unknown id (e.g. a guessed "...-9" the
+            # manifest skips) -> the best allowed, unused image for the slot.
+            result = photo_library.replace_unknown_asset_id(page, raw_path, facts_pack, tenant=tenant or tenant_mod.active())
+            if result:
+                old_id, new_id = result
+                fixed += 1
+                if log is not None and cartridge_name is not None:
+                    log.event(f"write.{cartridge_name}", f"fix: unknown asset id {old_id} -> {new_id} (not in manifest)")
             continue
 
         # Cycle 64: a product named with the brand in the wrong form ("ACME

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Protocol
 
 from . import asset_review
+from . import photo_library
 from . import quiz as quiz_mod
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
@@ -1292,7 +1293,25 @@ class LocalFactsSource:
                 self._load_listicle_pack_index(), name_slug, bool(config.get("allow_ai_renders")),
                 exclude_ids=exclude_ids,
             )
-        assets = shopify_assets + drive_assets + listicle_pack_assets  # Shopify images stay first, as hero (fix 8)
+        # Cycle 75: the tenant photo library (harness/photo_library.py). When
+        # it has a usable photo of this product, its photos of this product
+        # (plus a few model-agnostic ones) lead the pool; the storefront
+        # images stay as the fallback (and the pdp look's gallery); the older
+        # Drive indexes are dropped. Without one, the pool is as before,
+        # minus any Drive row that is a library photo (its library tags,
+        # not the old folder label, decide which pages it belongs on).
+        library_assets = photo_library.facts_pack_assets(
+            tenant_mod.active(), name_slug, allow_ai_renders=bool(config.get("allow_ai_renders")), log=log,
+        )
+        if library_assets:
+            drive_assets, listicle_pack_assets = [], []
+            if log is not None:
+                log.event("ground", f"photo library: {len(library_assets)} photo(s) offered for {name_slug}")
+        else:
+            in_library = photo_library.library_drive_ids(tenant_mod.active())
+            drive_assets = [a for a in drive_assets if a.get("drive_id") not in in_library]
+            listicle_pack_assets = [a for a in listicle_pack_assets if a.get("drive_id") not in in_library]
+        assets = library_assets + shopify_assets + drive_assets + listicle_pack_assets  # Shopify images first when no library photo, as hero (fix 8)
         assets = asset_review.apply_asset_review(assets, review, log=log)
 
         price_id = f"price-{name_slug}"
@@ -1434,7 +1453,10 @@ class LocalFactsSource:
             # allow_ai_renders itself, from tenant.claims_config, rather
             # than this pack carrying a second copy of it). Never removes
             # or reorders "assets" itself.
-            "image_slots": _lean_slot_plan(build_slot_plan(assets, allow_ai_renders=bool(config.get("allow_ai_renders")))),
+            "image_slots": (
+                {"hero_id": library_assets[0]["id"]} if library_assets
+                else _lean_slot_plan(build_slot_plan(assets, allow_ai_renders=bool(config.get("allow_ai_renders"))))
+            ),
         }
         if include_listicle or include_product_page:
             # Cycle 41: only a run whose selected cartridges include listicle
