@@ -60,7 +60,7 @@ like um uh oh yeah okay ok well actually sort mean
 # Words that frame WHO said something rather than WHAT was said. Dropped
 # from the content before scoring -- they are the attribution itself.
 _FRAME_WORDS = frozenset("""
-customer customers buyer buyers shopper shoppers owner owners person woman man one another ad video
+customer customers buyer buyers shopper shoppers owner owners person woman man one another ad video creator
 told tell tells telling said say says saying put puts way explained explains mentioned mentions noted
 notes described describes recalled recalls admitted admits estimated estimates wrote writes shared
 shares according quote quoted words own
@@ -406,7 +406,7 @@ def best_candidate(text, candidates, min_share=0.5):
 # she says," / "In the ad, Jane Doe says," / "As one shopper put
 # it,". Group 1 is the frame exactly as the writer wrote it.
 _FRAME_PREFIX_RE = re.compile(
-    r"^\s*(In the ad,\s+(?:she|he|they|[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})\s+(?:says|said)"
+    r"^\s*(In the ad,\s+(?:she|he|they|the creator|[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})\s+(?:says|said)"
     r"|As one shopper put it)\b[,:]?\s*",
 )
 

@@ -174,7 +174,9 @@ You see several numbered frames. For EACH frame report:
 
 Then pick the best frame for a portrait photo of the creator: face visible, sharp, natural expression, no large caption, no logo if possible. If no frame shows a face, set "best" to null. Give the face centre in the best frame as fractions of its width and height.
 
-Return ONLY JSON: {"frames": [{"index": 1, "face": true, "caption": "none", "logo": false, "sharp": true}, ...], "best": 1, "face_center": [0.5, 0.3], "reason": "<one short sentence>"}"""
+Also report "pronoun": "she" or "he" ONLY when the creator's presented gender is unambiguous across the frames; otherwise "unclear". Never guess.
+
+Return ONLY JSON: {"frames": [{"index": 1, "face": true, "caption": "none", "logo": false, "sharp": true}, ...], "best": 1, "face_center": [0.5, 0.3], "pronoun": "unclear", "reason": "<one short sentence>"}"""
 
 IMAGE_SYSTEM = """You check one still image ad for a home sauna company before it is shown on the company's landing page as a photo of the ad's creator.
 
@@ -183,9 +185,10 @@ Report:
 - old_logo: true when the image shows {retired_mark} (on the product, its glass, a panel, or as an overlay). Any other brand mark: report it under "logos";
 - logos: the brand marks you can see, as short descriptions ([] when none);
 - claim_text: every piece of on-image text that states a rating, a review count, a number of customers, a price, a percentage, a discount, an award, a health or medical outcome, or names a review site (copy it word for word; [] when none);
-- face_center: the face centre as fractions of width and height, or null.
+- face_center: the face centre as fractions of width and height, or null;
+- pronoun: "she" or "he" ONLY when the person's presented gender is unambiguous, else "unclear". Never guess.
 
-Return ONLY JSON: {{"person": true, "old_logo": false, "logos": [], "claim_text": [], "face_center": [0.5, 0.3]}}"""
+Return ONLY JSON: {{"person": true, "old_logo": false, "logos": [], "claim_text": [], "face_center": [0.5, 0.3], "pronoun": "unclear"}}"""
 DEFAULT_RETIRED_MARK = "the company's retired logo"
 
 
@@ -271,7 +274,13 @@ def parse_frames_response(text, count):
     best = data.get("best")
     best = best if isinstance(best, int) and best in frames else None
     return {"frames": frames, "best": best, "face_center": _center(data.get("face_center")),
-            "reason": str(data.get("reason") or "")[:200]}
+            "pronoun": _pronoun(data.get("pronoun")), "reason": str(data.get("reason") or "")[:200]}
+
+
+def _pronoun(value):
+    """'she' | 'he' | None -- anything else (unclear, missing) is None."""
+    value = str(value or "").strip().lower()
+    return value if value in ("she", "he") else None
 
 
 def choose(vision, ordered):
@@ -315,7 +324,7 @@ def parse_image_response(text):
     claims = [str(c) for c in (data.get("claim_text") or []) if str(c).strip()]
     return {"person": data.get("person") is True, "old_logo": data.get("old_logo") is True,
             "logos": [str(x) for x in (data.get("logos") or [])][:6], "claim_text": claims[:10],
-            "face_center": _center(data.get("face_center"))}
+            "face_center": _center(data.get("face_center")), "pronoun": _pronoun(data.get("pronoun"))}
 
 
 def image_rejection(check):
@@ -407,6 +416,8 @@ def build_from_video(video, run_dir, *, ffmpeg_bin, client=None, model=DEFAULT_V
             record["method"] = "vision"
             record["vision"] = {"frames": {str(k): v for k, v in vision["frames"].items()},
                                 "best": vision["best"], "reason": vision["reason"]}
+            # review fix 1: the speaker's pronoun, only when the check was unambiguous
+            record["speaker_pronoun"] = vision["pronoun"]
             chosen = choose(vision, shown)
             if chosen is None:
                 record["rejected"] = "no frame shows the creator's face clearly without a large caption"
@@ -448,6 +459,7 @@ def build_from_image(image, run_dir, *, client=None, model=DEFAULT_VISION_MODEL,
         check = None
         record["vision_error"] = str(e)[:200]
     record["check"] = check
+    record["speaker_pronoun"] = (check or {}).get("pronoun")
     why = image_rejection(check)
     if why:
         record["rejected"] = why

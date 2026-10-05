@@ -252,6 +252,9 @@ first_screen: {}
 #   byline_verified_tick: true
 #   display_font: wide
 #   retired_mark: "CHANGE ME (description of a retired logo)"
+#   # the ad speaker's pronoun is never guessed: evidence is the ad-still
+#   # check (when unambiguous) or this per-ad override (ad id or file stem)
+#   speaker_pronouns: {"1234567890": she}
 
 # Cycle 79: product cut-outs, one per model (harness/cutouts.py). The
 # product hero and every per-model image the renderer owns use them.

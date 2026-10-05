@@ -46,6 +46,10 @@
       "type": "string",
       "description": "1-6 words copied EXACTLY from the headline (same case and punctuation): the phrase the page sets in the brand colour, usually the turn or the payoff."
     },
+    "display_headline": {
+      "type": "string",
+      "description": "A punchy 3 to 8 word line, at most 48 characters, with the headline's promise; the display first screen sets it big in the wide face. No number."
+    },
     "dek": {
       "type": "string",
       "description": "One-line subhead under the headline, one sentence."
@@ -64,7 +68,7 @@
     },
     "speaker_pronoun": {
       "type": "string",
-      "description": "she | he | they -- the ad speaker, from the ad itself; they when unsure."
+      "description": "OPTIONAL, set by the harness from evidence (ad_brief.speaker_pronoun). Leave it out."
     },
     "hero_style": {
       "type": "string",

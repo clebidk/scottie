@@ -62,7 +62,9 @@ _LISTICLE_HEADLINES = {
 # item (the repeated-sentence gate), each citing a policy claim every facts
 # pack carries.
 _LISTICLE_PROOFS = (
-    {"text": 'In the ad, he says, "I hated how confusing sauna shopping used to be."', "attributed_to_customer": True},
+    # cycle 79 review: no evidence of the speaker's pronoun in a text ad -> the neutral frame
+    {"text": 'In the ad, the creator says, "I hated how confusing sauna shopping used to be."',
+     "attributed_to_customer": True},
     {"text": "Every order ships free.", "claim_ids": ["shipping-policy"]},
     {"text": "Returns are accepted once the cabin is repacked in its original crate.", "claim_ids": ["returns-policy"]},
     {"text": "In-stock orders leave the warehouse within a few business days.", "claim_ids": ["shipping-policy"]},
@@ -93,6 +95,7 @@ def _listicle_page(style, headline=None, hero_quote_id=None):
         "eyebrow": "For careful buyers",
         "headline": headline,
         "accent_phrase": " ".join(headline.rstrip(".").split()[-2:]),
+        "display_headline": "Check the cabin before it comes home",
         # Cycle 74: the dek carries the fixtures' hooks (message match).
         "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
         "lede": "What should you check before a cabin like this comes home? The answers start below.",

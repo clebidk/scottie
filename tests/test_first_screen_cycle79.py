@@ -114,7 +114,10 @@ def test_face_renders_the_ad_still_with_the_verbatim_quote(tmp_path):
     assert "assets/asset-adframe-" in html
     quote = first_screen.quote_candidates(SPEAKER_BRIEF, RICH_FACTS_PACK)[0]["text"]
     assert f"&ldquo;{quote}&rdquo;" in html.replace("“", "&ldquo;").replace("”", "&rdquo;")
-    assert "In the ad she made for PEAK" in html
+    # review fix 1: no evidence of the pronoun here (the still check gave none,
+    # the writer's "she" is not evidence) -> the neutral caption
+    assert "From the creator&#39;s ad for PEAK" in html or "From the creator's ad for PEAK" in html
+    assert "she made for" not in html
     assert "min read" in html and "&#10003;" in html            # one-line byline with the tick
     assert json.loads((run_dir / "listicle" / "page.json").read_text())["hero_style"] == "face"
 
@@ -124,7 +127,7 @@ def test_story_puts_the_quote_and_lede_on_the_first_screen(tmp_path):
     page = _page("story")
     html = _render(run_dir, page)
     head = html[html.index("op-hero--story"):html.index('class="op-c op-items"')]
-    assert "In the ad, she says," in head and page["lede"] in head and page["eyebrow"] in head
+    assert "In the ad, the creator says," in head and page["lede"] in head and page["eyebrow"] in head
     assert "asset-adframe-avatar" in head                         # the round crop
     assert head.index("op-h1") < head.index("op-by") < head.index("op-lede")
 
@@ -457,8 +460,9 @@ def test_the_red_light_item_gets_the_red_light_close_up_not_the_cabin_front(lib_
     assert got[0] not in (PLUG["id"], FRONT["id"])        # cycle 78: no old mark on the first item
     assert got[0] != RED_HEATER["id"]                     # the corrected tag no longer says outlet
     # a slot that names no topic gets a general photo, not a feature close-up
-    assert got[0] == PERSON["id"]
-    assert len(set(got)) == 5
+    # review fix 6: no usable photo shows an outlet (the cord photo has the old
+    # mark, kept off item 1) -> item 1 renders without an image
+    assert got[0] is None
 
 
 def test_a_photo_whose_file_is_missing_is_never_assigned(lib_tenant):

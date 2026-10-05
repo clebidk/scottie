@@ -453,6 +453,11 @@ def write_pages(state):
     # headline_templates.
     requested_skeleton = getattr(state.args, "skeleton", None)
     skeleton = None
+    # Cycle 79: the ad still and the speaker's pronoun (evidence only) before the writer.
+    if "listicle" in state.selected:
+        from . import first_screen
+
+        first_screen.prepare_speaker(state)
     if "listicle" in state.selected and state.listicle_skeleton is None:
         skeleton = skeletons.select(
             state.listicle_style, state.ad_brief, requested=requested_skeleton, tenant=state.tenant,

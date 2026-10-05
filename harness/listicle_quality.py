@@ -258,7 +258,7 @@ def fix_brand_spelling(text, regex, display_name):
 # the only place it may be named.
 _FRAME_VERBS = r"(?:says|said|puts\s+it|put\s+it|mentions|mentioned|describes|described|explains|explained)"
 _ALLOWED_FRAME_RE = re.compile(
-    r"\bIn the ad,?\s+(?:she|he|they|[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})\s+" + _FRAME_VERBS + r"\b"
+    r"\bIn the ad,?\s+(?:she|he|they|the creator|[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})\s+" + _FRAME_VERBS + r"\b"
     r"|\b" + _FRAME_VERBS + r"\s+in\s+the\s+ad\b",
     re.IGNORECASE,
 )
@@ -412,7 +412,7 @@ def writer_lines(display_name=None):
         "Numbers: state only a number listed in allowed_numbers (in the user message), with one of "
         "its claim_ids on that line. The ad speaker's own figures appear only inside her quoted words.",
         "Quotes: an attributed line (attributed_to_customer: true) is one allowed frame plus one "
-        "ad_quotes entry copied word for word in quotation marks -- e.g. In the ad, she says, "
+        "ad_quotes entry copied word for word in quotation marks -- e.g. In the ad, the creator says, "
         "\"<ad_quotes text>\" -- and nothing else in that sentence. If no ad_quotes entry fits the "
         "item, write no attributed line there.",
         "Never talk about the source in your own narration: no \"the ad\", \"the video\", \"the ad "

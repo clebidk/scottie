@@ -146,19 +146,23 @@ photo_library:
     - chromotherapy
     - speakers
     - roof-outdoor-weather
+  whole_unit_topics: [unit, size-in-room]
   topic_keywords:
     red-light-panel: [red light, red-light, red light therapy, red light panel, red light panels, led, leds, near infrared led, photobiomodulation, skin, collagen]
     control-panel: [control panel, controls, control, touchscreen, touch screen, app, wifi, wi-fi, phone, smart, timer, preheat, settings, dial, display]
     bench: [bench, seat, seating, sit, sitting, legroom, backrest, lie down, stretch out, roomy, spacious]
     heaters: [heater, heaters, heating panels, carbon, carbon panels, full spectrum, full-spectrum, far infrared, mid infrared, infrared heat, heats up, warm up, heat]
     glass-door: [glass, glass door, door, window, tempered glass, see through]
-    wood-grain: [wood, cedar, hemlock, red cedar, canadian, timber, grain, craftsmanship, built, build quality, materials]
+    wood-grain: [wood, cedar, hemlock, red cedar, canadian, timber, grain, craftsmanship, build quality, materials]
     size-in-room: [space, footprint, fits, fit, small space, apartment, spare room, corner, bedroom, bathroom, home gym, garage, basement, room, square feet, dimensions, size, compact, condo, closet, office]
-    outlet-plug: [outlet, plug, plugs, plug in, plug-in, 120v, 240v, electrician, wiring, standard outlet, household outlet, electrical, amp, power]
+    outlet-plug: [outlet, plug, plugs, plugged, plug in, plugged in, plug-in, 120v, 240v, electrician, wiring, standard outlet, household outlet, electrical, amp, power]
     assembly: [assembly, assemble, assembled, install, installation, setup, set up, delivery, delivered, arrives, unbox, unboxing, tools, minutes to build]
     chromotherapy: [chromotherapy, color light, colour light, mood light, mood lighting, ambient light, colored light]
     speakers: [speaker, speakers, bluetooth, music, podcast, audio, playlist, sound]
     roof-outdoor-weather: [outdoor, outdoors, backyard, yard, patio, deck, garden, rain, snow, weather, winter, roof, canopy, cold, all-season]
+    # Cycle 79 review: the whole cabin -- a slot about it shows the product
+    # cut-out (whole_unit_topics above), never a part close-up.
+    unit: [cabin, full cabin, whole cabin, unit, capacity, one person, two person, 1-person, 2-person, built for one, built for two, design, sized]
     "setting:outdoor": [outdoor, outdoors, backyard, yard, patio, deck, garden, lake, mountain, cabin outside]
     "setting:indoor": [indoor, inside, apartment, bedroom, bathroom, living room, basement, home gym, spare room, condo]
     "shot:interior": [inside, interior, cabin interior, inside the cabin]
@@ -374,6 +378,11 @@ first_screen:
   # What the image-ad check (harness/ad_frames.py) looks for as the retired
   # brand mark; an image ad that shows it is never put on the page.
   retired_mark: 'a mountain line-drawing logo, or the words "Peak Saunas" used as a logo'
+  # Review fix (cycle 79): the ad speaker's pronoun is never guessed. Evidence
+  # is the ad-still vision check when it is unambiguous, or this per-ad
+  # override (Meta ad id or source file stem -> she|he). Otherwise every
+  # quote frame is "In the ad, the creator says, ...".
+  speaker_pronouns: {}
 
 # Cycle 79 (owner, "for now"): the product hero and every product-of-X image
 # the renderer owns use the cut-out of X. One manifest (model -> file), so a

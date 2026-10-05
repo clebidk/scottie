@@ -207,7 +207,13 @@
   {% else %}
   <header class="op-hero op-hero--display op-narrow">
     {% if disclosure_label %}<p class="op-eyebrow">{{ disclosure_label }}</p>{% endif %}
-    <h1 class="op-h1 {{ 'op-display--acid' if fs.display_font == 'acid' else 'op-display--wide' }}">{{ fs.headline_html }}</h1>
+    {# review fix 3: the wide face only for a short line (<= 8 words, 48
+       characters); a longer headline is set in the heading face. #}
+    {% if fs.display_fits %}
+    <h1 class="op-h1 {{ 'op-display--acid' if fs.display_font == 'acid' else 'op-display--wide' }}">{{ fs.display_html }}</h1>
+    {% else %}
+    <h1 class="op-h1">{{ fs.headline_html }}</h1>
+    {% endif %}
     <p class="op-dek">{{ page.dek }}</p>
     {% if hero_asset %}<div class="op-cut">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
     {% if fs.stats %}
@@ -229,7 +235,7 @@
         {% if item.proof and item.proof.text %}<p class="op-proof">{{ item.proof.text }}</p>{% endif %}
       </div>
       {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-      {% if item_asset %}<div class="op-media">{{ render_image_slot(item_asset, frame="4x3", css_class=("" if item_asset.cutout else "op-cover")) }}</div>{% endif %}
+      {% if item_asset %}<div class="op-media">{{ render_image_slot(item_asset, frame="4x3", css_class=("" if item_asset.cutout else "op-cover"), eager=(loop.index <= 2)) }}</div>{% endif %}
     </section>
     {% if loop.index == 3 %}
     <div class="op-mid"><a class="op-btn" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a></div>

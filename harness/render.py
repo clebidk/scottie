@@ -729,7 +729,8 @@ def image_fit(asset, *, frame=None):
     return "contain" if is_cutout else "cover"
 
 
-def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None):
+def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None,
+                      eager=False):
     """The one function that builds an <img>/<picture> tag from an asset
     dict -- registered as a Jinja global in render_page's env (see below) so
     every cartridge template and every image-bearing block calls this
@@ -808,7 +809,9 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
         attrs += [f'srcset="{escape(jpg_srcset)}"', f'sizes="{escape(sizes)}"']
     if width and height:
         attrs += [f'width="{width}"', f'height="{height}"']
-    attrs.append('loading="eager"' if hero else 'loading="lazy"')
+    # Cycle 79: `eager` -- an early slot (the first item images) loads with the
+    # page instead of waiting for a scroll.
+    attrs.append('loading="eager"' if (hero or eager) else 'loading="lazy"')
     attrs.append('decoding="async"')
     if hero:
         attrs.append('fetchpriority="high"')
@@ -994,7 +997,9 @@ def render_page(
     # (written at the end), so a rerender reproduces it.
     first_screen = {}
     if cartridge_name == "listicle":
-        page = copy.deepcopy(page)
+        # review fix 4: no source notes in the rendered copy (a page from
+        # before the gate); Sources lists them.
+        page = first_screen_mod.strip_source_parentheticals(page)
         frame_record = ad_frames.load(run_dir)
         for frame_id, frame_asset in ad_frames.page_assets(run_dir).items():
             assets_by_id[frame_id] = dict(frame_asset)
@@ -1111,6 +1116,7 @@ def render_page(
         library_result = photo_library.assign_page_images(
             page, facts_pack, cartridge_name, tenant=tenant, exclude_ids=exclude_ids,
             allow_ai_renders=allow_ai_renders, log=log, keep_hero=hero_cutout is not None,
+            cutout_id=hero_cutout["id"] if hero_cutout else None,
         )
         if library_result is not None:
             ground_mod.record_image_matches(run_dir, cartridge_name, library_result["assignments"])

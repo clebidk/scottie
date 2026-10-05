@@ -147,6 +147,7 @@ def _listicle_page(style="reasons", n_items=5):
         "eyebrow": "For busy parents",
         "headline": HEADLINES[style],
         "accent_phrase": " ".join(HEADLINES[style].split()[-2:]),
+        "display_headline": "The switch, without the guesswork",
         "dek": "A quick look at what makes the switch worth it.",
         "lede": "What do you check before a sauna comes home? The answers start below.",
         "scroll_cue": "Start with the first one",
@@ -572,8 +573,9 @@ def test_an_attributed_customer_proof_line_is_allowed():
         "text": 'In the ad, she says: "The room was warm before the kettle had boiled."',
         "attributed_to_customer": True,
     }
-    brief = {**AD_BRIEF, "transcript_or_text": "The room was warm before the kettle had boiled."}
-    page["hero_quote_id"] = "q1"  # cycle 79: the first screen names the quote it shows
+    brief = {**AD_BRIEF, "transcript_or_text": "The room was warm before the kettle had boiled. "
+                                                "I can sit in it every single evening now."}
+    page["hero_quote_id"] = "q2"  # cycle 79: the first screen names another quote (each quote once)
     assert _gate(page, listicle_style="reasons", ad_brief=brief) == []
 
 
@@ -1004,7 +1006,7 @@ def test_render_listicle_page_downloads_the_hero_and_every_item_image(tmp_path):
     assert downloaded == {f"https://cdn.shopify.com/fuji-{i}.png": 1 for i in range(2, 7)}
     page_json = json.loads((tmp_path / "listicle" / "page.json").read_text())
     assert page_json["hero"]["asset_id"] == "asset-cutout-fuji"
-    assert html.count('loading="eager"') <= 1
+    assert html.count('loading="eager"') <= 3   # cycle 79: hero + the first two item images
 
 
 def test_rendered_images_carry_their_own_ratio_inline(tmp_path):
