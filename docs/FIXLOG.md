@@ -3351,3 +3351,124 @@ falls back to 6000 (was 4320).
   few sentences"; if real runs drift long, add a soft warning, not a gate.
 - Only one listicle exemplar exists for PEAK (the live 5-reasons page); a
   "winner library" with more than one entry is not built.
+
+## Cycle 73 (listicle winner skeletons -- merge of cursor/listicle-skeletons-fdad, 2026-10-05)
+
+### Problem
+`github/cursor/listicle-skeletons-fdad` (e270b73, Cursor agent with the
+owner, 2026-09-25) adds a "winner library" for one-shot listicles: 10 page
+skeletons, 17 pre-sell headline swipes (one JSON file each, plus the swipe
+image), and `--skeleton` / `--headline` flags with an auto-pick. It was based
+226 commits behind master, so it did not know about the five styles and looks
+(cycles 41/51), the headline template library (cycle 70 -- the same 17
+headlines, already in `headlines.yaml` as h01-h17), or cycle 72's "adapt the
+winner, no word floor". Taken as-is it would give two headline systems, a
+second payload that bypassed the style/look/template choice, Peak facts and
+model names inside `cartridges/`, an EMF myth slot, "Medical-grade" fills,
+the "Advertisement" label and word bands.
+
+### Fix
+A real `git merge` (5970d8d), then one follow-up (518a67a).
+1. **Conflicts.** cartridge.md, batch.py, pipeline.py, repair.py, write.py:
+   master's side kept in every hunk (listicle_style / listicle_headline, the
+   cycle 72 exemplar paragraph and "From exemplars (the winner)"); the
+   branch's skeleton_id/headline_id parameters and its `_resolve_skeleton_payload`
+   are replaced by one value, `listicle_skeleton`, threaded the same way as
+   listicle_headline (pipeline -> repair.write_and_gate_page -> write_page /
+   build_initial_write_request -> batch). cli.py merged clean; its two flags
+   were then reworked (item 3).
+2. **Headlines: one library.** The 17 JSON files, their index and README are
+   dropped. Each swipe id is now an `alias` of its h-template in
+   `headlines.yaml`; `headlines.canonical_id` resolves it, `template()` /
+   `build_plan` accept it, page.json/state.json/A/B/C still record the id.
+   `validate_library` rejects a malformed alias or one that shadows an id.
+3. **Flags.** `--headline` is the same argparse option as
+   `--headline-template` (dest `headline_template`) -- an alias, not a second
+   path. `--skeleton <id>` (choices from the index) is new on `harness run`
+   and `evals/fake_run.py`.
+4. **Skeletons.** `cartridges/listicle/skeletons/`: 9 tenant-neutral item
+   maps, schema v2. Each names its `styles`, the closest `look`, its paired
+   `headline_templates`, `sections` hints for hero/items/audience_fit/faq/
+   closing (the fixed 8-section Structure; a skeleton never adds a section),
+   5-7 `items` (role, heading_hint, image_role), voice, compliance, brief.
+   `harness/skeletons.py` loads, validates (a small checker driven by
+   skeleton.schema.json; no new dependency), selects and builds the writer
+   payload. Mapping: reasons -> classic-n-reasons (default),
+   hormozi-value-stack, native-article, switcher-reasons, day-in-the-life;
+   mistakes -> hormozi-mistakes (default), hidden-costs, native-article;
+   questions -> buyers-checklist; myths and tested -> myth-bust.
+5. **Selection.** `--skeleton` pins one: it sets the style when `--style` is
+   absent (must fit it when present), its look when `--look` is absent, and
+   narrows the seeded headline pick to its `headline_templates`
+   (`resolve_plan(prefer=...)`; no eligible match -> unchanged). Without it,
+   `write_pages` auto-picks among the skeletons of the run's style by ad-brief
+   word matches (tag 1, tenant angle_fit 2; ties by library order; no match
+   -> `default_by_style`); an auto-pick changes the items only, never the
+   look or the headline pick. The id is logged and recorded in state.json
+   (`listicle.skeleton_id`).
+6. **Writer, gates.** The payload (`skeletons.for_writer`: item map, hints,
+   tenant item hints) goes in the user message's volatile block as
+   "skeleton", kept on repair attempts; two hard-constraint lines say it is an
+   item map, never a claims source, never adds a section, and that every
+   other rule wins. `check_page_gates` is untouched: claims gate, proof
+   lines, quote fidelity, banned words run exactly as before.
+7. **Brand safety.** Peak fills moved to
+   `tenants/peak-saunas/listicle-library/skeletons.yaml` (angle_fit,
+   item_hints). Removed: "Peak"/model names, peaksaunas.com sources, the EMF
+   myth slot and "emf" tag, "Medical-grade red light", "recovery"/"sleep"
+   fills, `ad_label` ("Advertisement"), `words_per_item_hint` bands,
+   `length_band`, "Do not pad toward 600 words". Headline follow-up
+   (518a67a): h05 "Is Going Viral" -> "Is Catching On", h08 "Are Obsessed
+   With" -> "Are Choosing", h14 "This Breakthrough <product> Crushes" ->
+   "This <product> Is a Better Fit Than", h16 "Is a Game-Changer for" -> "Is
+   a Big Improvement for"; h16's `allowed_headline_terms` exception (cycle
+   70) is gone, so "game-changer" fails every headline. Their old branch
+   aliases are retired. No headline was dropped.
+8. **Dropped / rewritten skeletons.** `simplified-pdp` dropped: master's
+   product-page cartridge (`pdp` look, cycle 62) already is the stripped live
+   PDP, and the skeleton contradicts it (3 proof bullets vs 3-6 included
+   items, 2-4 paragraphs vs exactly 2, a 250-500 band vs 200-360, an ad
+   label); no listicle look renders it. `native-article-comments` ->
+   `native-article`: no look renders comments and writer-made comments are
+   invented testimonials, so the thread maps onto the renderer's pull-quote
+   band (verified review quotes) and the FAQ; the label is the tenant's
+   `disclosure_label`, the byline the tenant's authors.
+9. **source-swipe.jpg.** Nothing reads it: moved to
+   `docs/reference/listicle-headline-swipe-17.jpg`, out of `cartridges/`.
+
+### Verify
+- `tests/test_skeletons.py` (port of the branch's test file, 68 tests): the
+  index and default_by_style; every skeleton validates against
+  skeleton.schema.json and the checker rejects a broken one; paired headline
+  templates exist and fit; no EMF/fear/medical/hype word or "!" in skeletons
+  or tenant hints; no stale branch text; auto-pick returns a fitting skeleton
+  for each of the 5 styles and follows the ad angle and tenant angle_fit;
+  `--headline` and `--headline-template` resolve to the same template and
+  plan; every headline template renders for PEAK with no unresolved slot and
+  passes the headline gate; a pinned skeleton narrows the headline pick;
+  write_page sends the skeleton on attempt 1 and on repair, never to another
+  cartridge; a page with "EMF" fails every attempt with a skeleton present;
+  a fake run with `--skeleton hormozi-mistakes` puts every item role in the
+  writer prompt, runs the listicle gate (spy) with the run's style and
+  passes; a skeleton/style mismatch stops before any model call.
+- `tests/test_headlines_cycle70.py` follows the rewrites, plus tests that
+  no template pattern carries a hype word and that "game-changer" fails
+  h16's headline (120 -> 131).
+- `test_no_tenant_specific_words_in_the_engine_or_the_cartridges` passes.
+- Offline: `python -m evals.fake_run <founder fixture> --cartridges listicle
+  --skeleton day-in-the-life --headline swore-they-couldnt` -> exit 0;
+  state.json `{style: reasons, look: pillars, headline_template_id: h10,
+  skeleton_id: day-in-the-life}`; the page renders in the pillars look.
+- Full suite: 2192 passed (was 2113). No model or network call.
+
+### Open
+- Every listicle run now carries an auto-picked skeleton, so real-run
+  prompts change. Not yet measured on a live run.
+- `harness revise` does not re-send the skeleton (the page already has its
+  structure); state.json keeps the id if a later cycle wants it.
+- A/B/C results pooled under h05/h08/h14/h16 before this cycle were measured
+  on the old wording.
+- h01 ("Most ... Don't Work") and h06 ("Started Switching") still make soft
+  comparison/popularity statements with no evidence gate (cycle 70 Open).
+- The auto-pick is word matching on the ad brief; a semantic pick could
+  follow if real runs mis-pick.
