@@ -278,7 +278,9 @@ def test_write_page_sends_the_skeleton_and_keeps_it_on_repair(tmp_path):
         user = block_text(call["messages"][0]["content"])
         assert '"skeleton"' in user and '"hormozi-mistakes"' in user
         assert "top_objection" in user
-        assert 'adapts the winner skeleton "Mistakes that point to the fix"' in block_text(call["system"])
+        # Cycle 76: a draft's own lines follow the last cache breakpoint.
+        assert 'adapts the winner skeleton "Mistakes that point to the fix"' in user
+        assert "Mistakes that point to the fix" not in block_text(call["system"])
     assert '"exemplars"' not in block_text(repair_call["messages"][0]["content"])
 
 

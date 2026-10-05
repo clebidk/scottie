@@ -1,0 +1,86 @@
+# Cycle 76: the rubric TypeSafe's Jev model scores listicle drafts with
+# (harness/jev.py, harness/drafts.py). Validated by the owner on 30 generated
+# pages and 8 reference listicles before this cycle; the text is verbatim.
+# A tenant may replace it with tenants/<tenant>/jev-rubric.yaml (same shape).
+#
+# State sent with every question: `page` (the draft as reading-order text:
+# headline, dek, each item's heading/body/proof, the rest of the page, the
+# CTA) and `ad` ({hook, promise, angle} from the run's ad brief).
+# Each question is a "score" question; criteria run low to high (2-10 levels).
+# composite: the mean of these questions' 0-1 scores (score / (levels - 1));
+# the draft with the higher composite ships. "overall" is recorded on its own.
+model: jev-latest
+composite: [hook, specificity, proof, objections, offer, flow, voice, message_match]
+questions:
+  hook:
+    instructions: "How strongly do the `page` headline and the first lines make a cold reader, who just clicked a social ad, want to keep reading?"
+    criteria:
+      - "Generic or confusing: a label or a feature list; no reason to read on"
+      - "Clear topic but flat: says what the page is about, no tension, curiosity or specific promise"
+      - "Decent: names a real problem or desire, but wordy, clunky or predictable"
+      - "Strong: a specific promise or tension aimed at a recognisable reader, in plain words"
+      - "Exceptional: instantly specific and intriguing, the kind of hook winning direct-response listicles lead with"
+  specificity:
+    instructions: "How concrete is the `page` copy: specific facts, numbers, names, situations and details, versus vague generalities?"
+    criteria:
+      - "Almost all vague claims and adjectives (premium, amazing, high quality)"
+      - "Mostly vague, with a few specifics"
+      - "Mixed: about half of the items carry a concrete detail"
+      - "Mostly concrete: most items give a specific fact, number or real situation"
+      - "Dense with vivid, specific detail in every item; nothing generic"
+  proof:
+    instructions: "How well does the `page` prove what it says (measured facts, studies, reviews, customer words, guarantees, demonstrations) instead of only asserting it?"
+    criteria:
+      - "No proof; claims are only asserted"
+      - "Token proof: one weak or generic proof element"
+      - "Some items are backed, others only asserted"
+      - "Most claims are backed by a specific, credible proof element"
+      - "Every key claim is backed, with varied proof types (data, people, guarantee) placed right where the doubt arises"
+  objections:
+    instructions: "How well does the `page` find and answer the doubts a buyer of this product would really have before acting (price, fit, effort, risk, whether it works, trust in the seller)?"
+    criteria:
+      - "Ignores objections entirely"
+      - "Touches one objection in passing"
+      - "Answers a few objections, but the most important ones are missing or weak"
+      - "Answers the main objections clearly and credibly"
+      - "Anticipates nearly every serious doubt and resolves each with a specific answer or proof"
+  offer:
+    instructions: "How clearly does the `page` make the offer worth acting on now: what the reader gets, why it is worth the price, and what removes the risk (guarantee, warranty, trial, financing, bonuses)?"
+    criteria:
+      - "No offer: the reader cannot tell what they get or why act"
+      - "The product is named, but value and risk reversal are absent"
+      - "Some value or risk reversal appears, but scattered or unconvincing"
+      - "Clear offer with stated value and at least one strong risk reversal"
+      - "Irresistible, stacked offer: outcome, value versus price, and risk reversal all explicit, in the style of a Hormozi value stack"
+  flow:
+    instructions: "How easy is the `page` to skim and how well does each section pull the reader to the next and to the call to action?"
+    criteria:
+      - "Hard to follow: walls of text, no clear order"
+      - "Readable but repetitive or padded; the order feels arbitrary"
+      - "Skimmable sections, but momentum sags or items repeat each other"
+      - "Tight: one idea per section, short lines, builds toward the call to action"
+      - "Effortless: every section earns the next, rhythm and escalation of a top-performing listicle"
+  voice:
+    instructions: "How human and natural does the `page` copy sound?"
+    criteria:
+      - "Robotic or obviously machine-written: stiff, clunky, repetitive phrasing"
+      - "Generic marketing copy: buzzwords, filler, awkward sentences"
+      - "Mostly natural with some stiff or templated lines"
+      - "Natural and confident, like a good editor wrote it"
+      - "Distinctive, conversational and persuasive, like an elite direct-response copywriter"
+  overall:
+    instructions: "Compared with the best-performing direct-response listicle and advertorial pages used for paid social traffic, how well would the `page` convert a cold reader into a click on its call to action?"
+    criteria:
+      - "Far below: would not survive a test"
+      - "Below average for paid-traffic listicles"
+      - "Average: competent but forgettable"
+      - "Above average: would likely beat most competitors' pages"
+      - "Top tier: on par with the long-running winners in this format"
+  message_match:
+    instructions: "How well does the `page` continue the `ad` the reader just clicked: same promise, angle and words, so the reader feels they landed in the right place?"
+    criteria:
+      - "Unrelated to the ad"
+      - "Same product, but a different angle or promise"
+      - "Related angle, but the ad's main promise is weak or late on the page"
+      - "Clearly continues the ad's promise and angle from the headline on"
+      - "Seamless: the headline picks up the ad's exact hook and the page delivers on it"

@@ -96,6 +96,16 @@ def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_
     return data
 
 
+def record_jev(run_dir, record):
+    """Cycle 76: the listicle's best-of-N record (harness/drafts.py) under
+    state.json's "jev" key -- each draft's gate result and Jev scores, which
+    draft shipped and why, Jev token usage. Never holds a key."""
+    data = load_state(run_dir)
+    data["jev"] = record
+    save_state(run_dir, data)
+    return data
+
+
 def record_look(run_dir, cartridge, look):
     """Cycle 54: the look a non-listicle cartridge's page was rendered in,
     under state.json's "<cartridge>" key -- the same shape as the listicle's

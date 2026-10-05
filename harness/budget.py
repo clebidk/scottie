@@ -45,6 +45,7 @@ Both are fixed the same way real spend limits are: reserve first.
 import fcntl
 import json
 import statistics
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -106,6 +107,8 @@ class Budget:
         self._start = time.monotonic()
         self.tokens_used = 0
         self.calls_used = 0
+        # Cycle 76: two listicle drafts are written on two threads.
+        self._lock = threading.Lock()
 
     def check(self):
         """Raise BudgetExceeded if any cap has been passed. Call before each stage
@@ -125,8 +128,9 @@ class Budget:
             )
 
     def record_call(self, input_tokens, output_tokens):
-        self.calls_used += 1
-        self.tokens_used += input_tokens + output_tokens
+        with self._lock:
+            self.calls_used += 1
+            self.tokens_used += input_tokens + output_tokens
         self.check()
 
     def summary(self):
@@ -244,28 +248,39 @@ def daily_reserved(tenant, today_iso):
 def _recent_final_costs(tenant, limit=10):
     """The last `limit` finalized runs' recorded costs, oldest first, across
     every date in the ledger (not just today) -- used to estimate a fresh
-    reservation."""
-    costs = [float(e["cost_estimate"]) for e in _read_ledger_entries(tenant) if "cost_estimate" in e]
+    reservation. Cycle 76: per draft -- a run that wrote N listicle drafts
+    (its line's "drafts", 1 when absent) counts as cost / N."""
+    costs = [
+        float(e["cost_estimate"]) / max(1, int(e.get("drafts") or 1))
+        for e in _read_ledger_entries(tenant) if "cost_estimate" in e
+    ]
     return costs[-limit:]
 
 
-def reservation_estimate_usd(tenant):
+def reservation_estimate_usd(tenant, drafts=1):
     """Dollar amount reserved for one run before it starts: the tenant's own
     configured per-run cap if set (`budget.per_run_usd`, same claims/
     config.json-wins-over-tenant.yaml precedence as daily_usd), else the
     median of the last 10 finalized runs' recorded cost, else
-    DEFAULT_RESERVATION_USD for a tenant with no history yet."""
+    DEFAULT_RESERVATION_USD for a tenant with no history yet.
+
+    Cycle 76: times `drafts`, the listicle drafts this run writes
+    (harness/drafts.py). per_run_usd and the default are the cost of a
+    one-draft run; the history is already per draft (_recent_final_costs).
+    The ingest and matcher calls are not doubled by a second draft, so this
+    over-reserves a little, never under."""
+    drafts = max(1, int(drafts or 1))
     budget_cfg = tenant.claims_config.get("budget") or tenant.get("budget") or {}
     per_run = budget_cfg.get("per_run_usd")
     if per_run is not None:
-        return float(per_run)
+        return float(per_run) * drafts
     recent = _recent_final_costs(tenant)
     if recent:
-        return float(statistics.median(recent))
-    return DEFAULT_RESERVATION_USD
+        return float(statistics.median(recent)) * drafts
+    return DEFAULT_RESERVATION_USD * drafts
 
 
-def reserve_spend(tenant, *, run_id, today_iso, log=None):
+def reserve_spend(tenant, *, run_id, today_iso, log=None, drafts=1):
     """K2(a): reserve this run's estimated cost against the tenant's daily
     cap BEFORE any model call. Called once, from pipeline.prepare_run, in
     place of the old check-then-record-later check_daily_cap.
@@ -274,11 +289,12 @@ def reserve_spend(tenant, *, run_id, today_iso, log=None):
     finalized runs' actual cost, plus every not-yet-finalized reservation --
     plus this run's own reservation would exceed the cap. Raises
     LedgerWriteError when the ledger itself can't be written. Either way the
-    run stops here, before ingest/ground/write ever spend a token (K2(c))."""
+    run stops here, before ingest/ground/write ever spend a token (K2(c)).
+    `drafts` (cycle 76): the listicle drafts this run writes."""
     cap = daily_cap_usd(tenant)
     if cap is None:
         return
-    reservation = reservation_estimate_usd(tenant)
+    reservation = reservation_estimate_usd(tenant, drafts)
     with _locked_ledger(tenant):
         entries = [e for e in _read_ledger_entries(tenant) if e.get("date") == today_iso]
         finalized_total, reserved_total = _committed_and_reserved(entries)
@@ -294,7 +310,7 @@ def reserve_spend(tenant, *, run_id, today_iso, log=None):
         })
 
 
-def record_spend(tenant, *, run_id, cost, today_iso, log=None):
+def record_spend(tenant, *, run_id, cost, today_iso, log=None, drafts=1):
     """K2(b): append this run's actual estimated cost, reconciling its
     reserve_spend reservation (daily_spend/daily_reserved stop counting the
     reservation once this line exists). Called once per run, at the end --
@@ -306,11 +322,12 @@ def record_spend(tenant, *, run_id, cost, today_iso, log=None):
     review agreed with -- see the module docstring). The reservation this
     should have reconciled simply stays live until `harness spend reconcile`
     drops it once the run shows a final state and the reservation is stale."""
+    entry = {"date": today_iso, "run_id": run_id, "cost_estimate": round(float(cost), 4)}
+    if drafts and int(drafts) > 1:
+        entry["drafts"] = int(drafts)  # cycle 76: _recent_final_costs reads it
     try:
         with _locked_ledger(tenant):
-            _append_ledger_line(tenant, {
-                "date": today_iso, "run_id": run_id, "cost_estimate": round(float(cost), 4),
-            })
+            _append_ledger_line(tenant, entry)
     except (LedgerWriteError, TypeError, ValueError) as e:
         if log:
             log.event("run", f"spend ledger write failed (cap bookkeeping only): {e}")

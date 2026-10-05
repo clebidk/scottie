@@ -212,6 +212,21 @@ def select(style, ad_brief=None, *, requested=None, tenant=None):
     return best or load_skeleton(default_for_style(style))
 
 
+def ranked(style, ad_brief=None, *, tenant=None):
+    """Cycle 76: every skeleton that fits `style`, in select()'s order of
+    preference -- best ad score first, ties by library order, and the style's
+    default first among those that score nothing. ranked(...)[0] is what
+    select() picks with no --skeleton; harness/drafts.py gives a second draft
+    the best one the first draft did not use."""
+    text = _haystack(ad_brief)
+    hints = tenant_hints(tenant)
+    default = default_for_style(style)
+    fits = [sk for sk in load_all() if style in sk["styles"]]
+    scored = [(_score(sk, text, hints.get(sk["id"]) or {}), i, sk) for i, sk in enumerate(fits)]
+    scored.sort(key=lambda t: (-t[0], t[0] == 0 and t[2]["id"] != default, t[1]))
+    return [sk for _score_value, _i, sk in scored]
+
+
 # ---------------------------------------------------------------------------
 # writer
 # ---------------------------------------------------------------------------
@@ -245,4 +260,16 @@ def writer_lines(skeleton):
         "section, a label, a byline, comments or a trust row. Its hints and tenant_item_hints are "
         "angles, not facts -- every number, spec or outcome still needs a verified claim_id, and "
         "every other rule in these hard constraints wins over the skeleton.",
-    ]
+    ] + ([DRAFT_ANGLE_LINE] if skeleton.get("draft_angle") else [])
+
+
+# Cycle 76 (harness/drafts.py): a second draft whose style allows no other
+# headline template or skeleton gets this line, so it is a different attempt
+# at the page rather than the same prompt sampled again.
+DRAFT_ANGLE = "objection-first"
+DRAFT_ANGLE_LINE = (
+    "Draft angle (objection-first): this is a second, different attempt at this page. Open from the "
+    "reader's main doubt, not the product's promise: fill the headline's free slots and write the dek "
+    "from the ad brief's objections_raised (if it has none, from the problem in its hook), and order "
+    "the items so the first one answers that doubt. Same facts, same structure, same rules."
+)

@@ -22,6 +22,12 @@ pytest_plugins = ["pytester"]
 # suite (set before any test module builds a facts_pack at import time); the
 # photo-library tests build their own manifest and files under tmp_path.
 os.environ["HARNESS_PHOTO_LIBRARY_DIR"] = "/nonexistent/photo-library-off-in-tests"
+# Cycle 76: PEAK writes two listicle drafts per run (tenant.yaml jev.drafts).
+# The suite's canned FakeClient responses are one page per cartridge, so every
+# test runs one draft unless it sets HARNESS_JEV_DRAFTS itself
+# (tests/test_jev_cycle76.py). No test ever sees a real TypeSafe key.
+os.environ["HARNESS_JEV_DRAFTS"] = "1"
+os.environ.pop("TYPESAFE_API_KEY", None)
 
 
 class FakeUsage:

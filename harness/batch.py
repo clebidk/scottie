@@ -29,15 +29,34 @@ DEFAULT_TIMEOUT_S = 1200
 DEFAULT_POLL_INTERVAL_S = 10
 
 
+# Cycle 76: tenant.yaml `batch_api` -- whether non-interactive builds (A/B/C
+# builds: `harness abtest create` / `from-inbox`, site uploads, Meta ads)
+# write their first pages through the Message Batches API (half price), and
+# how long a run waits for a batch before it cancels it and writes in real
+# time. Interactive paths (the review site's regenerate / feedback, `harness
+# revise`) never batch; `harness run` batches only with --batch.
+def settings(tenant):
+    cfg = (tenant.get("batch_api") if tenant is not None else None) or {}
+    try:
+        timeout_s = float(cfg.get("timeout_s", DEFAULT_TIMEOUT_S))
+    except (TypeError, ValueError):
+        timeout_s = DEFAULT_TIMEOUT_S
+    return {"non_interactive": bool(cfg.get("non_interactive", False)), "timeout_s": timeout_s}
+
+
 def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pack, model, tenant,
                           ad_not_repeated=None, listicle_style=None, listicle_headline=None,
-                          listicle_skeleton=None):
+                          listicle_skeleton=None, listicle_drafts=None):
     """(requests, schemas_by_cartridge). requests is ready to pass to
     client.messages.batches.create(requests=requests); schemas_by_cartridge
     is needed to validate_schema() each result the same way write_page does.
     Each request is byte-for-byte the same request a synchronous attempt 1
     would send (write.build_initial_write_request) -- batching never changes
-    what's asked for, only how the call is billed and scheduled."""
+    what's asked for, only how the call is billed and scheduled.
+
+    listicle_drafts (cycle 76, harness/drafts.py): [{"headline", "skeleton"}]
+    for listicle drafts 2..n; each gets its own request, custom_id
+    "listicle-draft-<n>", with that draft's headline template and skeleton."""
     # Imported here, not at module load, so importing harness.batch never
     # requires the `anthropic` package to be installed (matches
     # anthropic_client.make_client's own lazy import).
@@ -52,22 +71,27 @@ def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pac
         _, word_range, allowed_cta_texts = cartridge_write_constraints(
             cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant
         )
-        schema, kwargs = build_initial_write_request(
-            cartridge_name=cartridge_name,
-            cartridges_dir=cartridges_dir,
-            ad_brief=ad_brief,
-            facts_pack=facts_pack,
-            model=model,
-            word_range=word_range,
-            allowed_cta_texts=allowed_cta_texts,
-            listicle_style=listicle_style,
-            listicle_headline=listicle_headline,
-            ad_not_repeated=ad_not_repeated,
-            tenant=tenant,
-            listicle_skeleton=listicle_skeleton,
-        )
-        schemas[cartridge_name] = schema
-        requests.append(Request(custom_id=cartridge_name, params=MessageCreateParamsNonStreaming(**kwargs)))
+        variants = [(cartridge_name, listicle_headline, listicle_skeleton)]
+        if cartridge_name == "listicle":
+            variants += [(f"listicle-draft-{k}", d["headline"], d["skeleton"])
+                         for k, d in enumerate(listicle_drafts or [], 2)]
+        for custom_id, headline, skeleton in variants:
+            schema, kwargs = build_initial_write_request(
+                cartridge_name=cartridge_name,
+                cartridges_dir=cartridges_dir,
+                ad_brief=ad_brief,
+                facts_pack=facts_pack,
+                model=model,
+                word_range=word_range,
+                allowed_cta_texts=allowed_cta_texts,
+                listicle_style=listicle_style,
+                listicle_headline=headline,
+                ad_not_repeated=ad_not_repeated,
+                tenant=tenant,
+                listicle_skeleton=skeleton,
+            )
+            schemas[custom_id] = schema
+            requests.append(Request(custom_id=custom_id, params=MessageCreateParamsNonStreaming(**kwargs)))
     return requests, schemas
 
 

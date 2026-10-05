@@ -72,6 +72,9 @@ TENANT_KEY_TYPES = {
     "design_reference": list,
     # Cycle 68
     "meta": dict,
+    # Cycle 76
+    "jev": dict,
+    "batch_api": dict,
     # Cycle 67
     "abtest": dict,
     # 2026-10-05 training wheels (harness/cli.py LockedShopifyPublisher)

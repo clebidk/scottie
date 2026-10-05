@@ -142,6 +142,36 @@ models:
   ingest: claude-haiku-4-5
   matcher: claude-haiku-4-5
 
+# Cycle 76: best-of-N listicle drafts (harness/drafts.py, harness/jev.py).
+# enabled: write `drafts` listicle drafts per run (1-3), run every gate on
+# each, and let TypeSafe's Jev model score the drafts that pass; the higher
+# composite ships. A failing draft never ships. No TYPESAFE_API_KEY in .env,
+# an HTTP error or a timeout: the first passing draft ships. false (or
+# drafts: 1): one draft, the run as before. HARNESS_JEV_DRAFTS in the
+# environment overrides drafts for one run. timeout_s: one Jev call.
+# A new tenant starts with one draft; set enabled: true and drafts: 2 to turn it on.
+jev:
+  enabled: false
+  drafts: 1
+  timeout_s: 60
+  # A later draft ships only when its Jev composite beats the first passing
+  # draft by at least this much; else the first passing draft ships.
+  min_margin: 0.02
+  # Real time only: write draft 2 only when draft 1 fails a gate or Jev scores
+  # it below this composite (a batch always writes both). Unset: always both.
+  # second_draft_below: 0.70
+
+# Cycle 76: Message Batches API (half price) for builds nobody waits on:
+# A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta
+# ads) send every draft's first write in one batch. The review site's
+# regenerate / feedback and `harness revise` stay real time; `harness run`
+# batches only with --batch. timeout_s: how long a run waits for the batch
+# before it cancels it and writes in real time (the wait is not counted in
+# the run's 300 s wall-clock budget).
+batch_api:
+  non_interactive: false
+  timeout_s: 1800
+
 # Cycle 16 item 9: consult-CTA variant. tenant_short_name is a short form of
 # the company name for a consult-mode CTA phrase, e.g. "Talk to {tenant_short_name}".
 # cta_mode: "buy" (leave every cartridge's own schema.json allowed_cta_texts
