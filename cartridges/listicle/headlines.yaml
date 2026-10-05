@@ -357,9 +357,9 @@ templates:
     pattern: '<lead> "<ad_hook>" <tail>'
     styles: [reasons, mistakes, questions, myths, tested]
     slots:
-      lead: {kind: setup, max_words: 6, description: 'what the quote is about, e.g. "The apartment sauna she"'}
+      lead: {kind: setup, max_words: 6, description: 'what the quote is about, from this ad (a few words that lead into her quote)'}
       ad_hook: {kind: ad_hook, max_words: 9, description: 'the speaker''s own words from ad_quotes, word for word, inside the quotation marks'}
-      tail: {kind: setup, max_words: 4, description: 'the words that finish the sentence, e.g. "about"'}
+      tail: {kind: setup, max_words: 4, description: 'the words that finish the sentence (may be one word)'}
     example: {lead: The Apartment Sauna She, ad_hook: could not be more excited, tail: About}
   - id: o2
     alias: three-short-beats
@@ -368,9 +368,9 @@ templates:
     pattern: "No <beat_a>. No <beat_b>. Still <beat_c>."
     styles: [reasons, mistakes, questions, myths, tested]
     slots:
-      beat_a: {kind: beat, max_words: 3, description: 'the first thing the reader expects to need, e.g. "electrician"'}
-      beat_b: {kind: beat, max_words: 3, description: 'the second, e.g. "spare room"'}
-      beat_c: {kind: beat, max_words: 4, description: 'what they still get, e.g. "a real sauna"'}
+      beat_a: {kind: beat, max_words: 3, description: 'the first obstacle THIS ad names or answers, in its own words'}
+      beat_b: {kind: beat, max_words: 3, description: 'a second obstacle from this ad'}
+      beat_c: {kind: beat, max_words: 4, description: 'what the reader still gets, in this ad''s terms'}
     example: {beat_a: electrician, beat_b: spare room, beat_c: a real sauna}
   - id: o3
     alias: audience-call-out
@@ -379,7 +379,7 @@ templates:
     pattern: "<callout>?"
     styles: [reasons, mistakes, questions, myths, tested]
     slots:
-      callout: {kind: callout, max_words: 12, description: 'a question to the people the ad speaks to, in their situation, that the items answer (e.g. "Training six days a week and still recovering at the gym")'}
+      callout: {kind: callout, max_words: 12, description: 'a question to the people THIS ad speaks to, in their situation (ad_brief.audience / hook), that the items answer'}
     example: {callout: Training six days a week and still recovering at the gym}
   - id: o4
     alias: story-setup
@@ -390,8 +390,8 @@ templates:
     styles: [reasons, mistakes, questions, myths, tested]
     slots:
       pronoun: {kind: choice, options: [She, He]}
-      desire: {kind: desire, max_words: 4, description: 'what the speaker wanted, everyday words (e.g. "a real sauna")'}
+      desire: {kind: desire, max_words: 4, description: 'what the speaker says she wanted, everyday words from her quotes'}
       possessive: {kind: choice, options: [Her, His]}
-      place: {kind: place, max_words: 2, description: 'where it had to fit (e.g. "apartment")'}
-      obstacle: {kind: problem, max_words: 4, description: 'what was in the way, everyday words (e.g. "no spare room")'}
+      place: {kind: place, max_words: 2, description: 'where it had to fit, as she names it'}
+      obstacle: {kind: problem, max_words: 4, description: 'what was in the way, as her quotes put it'}
     example: {pronoun: She, desire: a real sauna, possessive: Her, place: apartment, obstacle: no spare room}

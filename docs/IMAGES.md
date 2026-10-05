@@ -494,3 +494,15 @@ no topic got "the best photo of the product", often a feature close-up -- now a 
 photo (fewest features, people/lifestyle first). Also: a library photo whose derivative is
 missing on this machine is no longer assigned (a checkout without the files used to assign
 it and then drop the image at download).
+
+**Review fix (cycle 79, run 20261005-200242-...-65ji).** Item photos follow three rules
+(`assign_page_images`): an item about the whole unit (tenant.yaml
+`photo_library.whole_unit_topics`, PEAK: `unit` -- cabin, capacity, sized ... -- and
+`size-in-room`) shows the product cut-out (up to 3 uses on a page, the hero included; the
+duplicate-asset check allows the cut-out); a part close-up (shot `detail`) only goes on an item
+whose heading names that part (a body's passing "your door" is not a topic); any other photo
+needs a part or shot topic in common (a shared indoor setting is not enough). An item nothing
+matches renders WITHOUT an image (`asset_id: null`, logged), never an unrelated photo or a
+storefront image. Without a cut-out for the product, a whole-unit item may still take a room
+photo. The hero and the first two item images load eagerly.
+

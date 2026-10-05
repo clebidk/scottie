@@ -170,6 +170,18 @@ accepted: "she"/"he" in the headline or dek passes `listicle:meta_reference` whe
 first person and the page carries the speaker's verbatim quote (`hero_quote_id` set). Every
 earlier gate is unchanged.
 
+Review fixes (cycle 79, from the smoke runs): the speaker's pronoun comes from evidence only
+(`ad_brief.speaker_pronoun`, set before the writer by `first_screen.prepare_speaker` from the
+ad-still check when unambiguous, or `first_screen.speaker_pronouns` in tenant.yaml); otherwise
+every quote frame is "In the ad, the creator says," (`listicle:speaker_pronoun:<path>`). The
+page never narrates the speaker outside her verbatim quotes (`listicle:speaker_narration:<path>`:
+no she/he/her/his outside a quote, and no lede sentence that tells a past without "you"); the
+she/he allowance above now covers the headline only. `display_headline` (3-8 words, at most 48
+characters) is what the display style sets in the wide face; a longer line is set in the heading
+face. No source notes in the copy (`listicle:source_parenthetical:<path>`, also stripped at
+render). Each ad quote at most once on the page, the hero quote included
+(`listicle:quote_repeat:<id>`).
+
 **Repairs** (cycle 74). The writer gets `ad_quotes` (the ad speaker's own sentences,
 pre-filtered so each passes the claims gate) and `allowed_numbers` (every verified number
 with its claim ids). A listicle repair is a patch: the writer returns `{"edits": [{"path",

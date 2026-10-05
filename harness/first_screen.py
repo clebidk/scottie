@@ -780,9 +780,10 @@ def writer_lines():
         "(no spec, price or verdict in it). Follow this run's headline template.",
         '"accent_phrase": 1-6 words copied EXACTLY from the headline (same case and punctuation) -- the phrase '
         "the page sets in the brand colour, usually the turn or the payoff of the headline.",
-        '"display_headline": a punchy 3-8 word line, at most 48 characters, the same promise as the headline '
-        '("No electrician. No spare room.", "Train hard. Recover at home.") -- the display first screen sets it '
-        "big; no number.",
+        '"display_headline": a punchy 3-8 word line, at most 48 characters, with THIS ad\'s promise in its own '
+        "words -- the display first screen sets it big; no number.",
+        "Build the headline, display_headline, dek and lede from THIS ad (ad_brief.hook, angle, audience, "
+        "ad_quotes) -- never from an example phrase in these instructions or another ad's situation.",
         '"dek": one plain sentence under the headline that states the ad\'s problem in its own words, to the '
         "reader -- never a story about the speaker.",
         '"lede": 1-3 short sentences that open the loop the items close -- about the READER (you) or the product, '
