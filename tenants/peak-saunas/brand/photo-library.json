@@ -1,0 +1,3024 @@
+{
+  "version": 1,
+  "photos": [
+    {
+      "id": "asset-photo-021cd4e9a50a",
+      "file": "asset-photo-021cd4e9a50a.jpg",
+      "source_name": "9.25.2026 4x5.still00086625.png",
+      "drive_id": null,
+      "sha256": "021cd4e9a50a4c1cf38defc99511dfca5e20670a3c4aeaa793f9ff054741f143",
+      "width": 1280,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.95,
+        "model_agnostic": true,
+        "setting": "outdoor",
+        "shot": "people-in-use",
+        "features_visible": [],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "A shirtless person seen through glass with foliage reflections beside a red painted surface",
+        "blurry": true,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.95,
+        "vision_reason": "Only a person behind glass with reflections and a red surface fragment are visible, no identifiable cabin structure or model-specific features",
+        "vision_candidates": [],
+        "vision_agnostic": true,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:43+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-8675ac8868e7",
+      "file": "asset-photo-8675ac8868e7.jpg",
+      "source_name": "9.25.2026 4x5.still00086929.png",
+      "drive_id": null,
+      "sha256": "8675ac8868e748abe627a1949489c596ea93130b5b7ff6de99d8cb1a778ab303",
+      "width": 1280,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "red-light-panel"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Man lifting a dumbbell outdoors with a partially visible dark sauna cabin showing red lights in the background",
+        "blurry": true,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Only a sliver of dark cabin with red light strips is visible behind the person, not enough panel or cabin shape to distinguish models like el-capitan, patagonia, denali or matterhorn",
+        "vision_candidates": [
+          "denali",
+          "el-capitan",
+          "kilimanjaro",
+          "matterhorn",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['denali', 'el-capitan', 'kilimanjaro', 'matterhorn', 'patagonia'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:43+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-a194aff97cc2",
+      "file": "asset-photo-a194aff97cc2.jpg",
+      "source_name": "9.25.2026 4x5.still00087258.png",
+      "drive_id": null,
+      "sha256": "a194aff97cc21626d4d6f651eb8941fdbddb83ce500fff166aca852db65c349a",
+      "width": 1280,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "bench",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "A woman sits inside a pale wood sauna cabin interior, seen through a doorway",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "Pale wood interior with slatted backrest visible but no door shape, control panel, or red-light panel count visible to distinguish between similar indoor pale-wood models like shasta or everest",
+        "vision_candidates": [
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['everest', 'mini', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:43+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-5c59fe9d0d8c",
+      "file": "asset-photo-5c59fe9d0d8c.jpg",
+      "source_name": "9.25.2026 4x5.still00088561.png",
+      "drive_id": null,
+      "sha256": "5c59fe9d0d8c6ddfe1d8ff9d02cfdbb022bb1296cc72b547f6a1c77a96a7d6a0",
+      "width": 1280,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.97,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Close-up of a woman with eyes closed against blurred wooden slatted background, no cabin details visible",
+        "blurry": true,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.97,
+        "vision_reason": "Only a person's face/neck and blurred wood slats are visible, no cabin features distinguish any model",
+        "vision_candidates": [],
+        "vision_agnostic": true,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:43+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c44bb7f87fe9",
+      "file": "asset-photo-c44bb7f87fe9.jpg",
+      "source_name": "Denali in home (1).png",
+      "drive_id": null,
+      "sha256": "c44bb7f87fe9841d4f100e4dcc5a4348f6d73de4e364541a2d774a1c6f956772",
+      "width": 848,
+      "height": 1264,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.4,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Pale wood indoor sauna cabin with glass door and red light panel glowing inside, set against a glass-walled patio room",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "matterhorn",
+        "vision_confidence": 0.4,
+        "vision_reason": "Pale wood cabin with red-light panel above door and lower red panel resembles matterhorn/denali/shasta 3-person layout but wood tone looks lighter hemlock, making it ambiguous between denali and shasta",
+        "vision_candidates": [
+          "denali",
+          "matterhorn",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision matterhorn too unsure (0.4), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-3d800cfbdda2",
+      "file": "asset-photo-3d800cfbdda2.jpg",
+      "source_name": "Firefly_Gemini Flash_add this sauna naturally in a modern LA home. do not change any aspects of the sauna, 754539 (1).png",
+      "drive_id": null,
+      "sha256": "3d800cfbdda250d39b3933033839594861f6ef09b21649926bbec8a65716e4d4",
+      "width": 842,
+      "height": 1264,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.65,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "heaters",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Small pale-wood one-person sauna cabin with open door shown in a bright room beside glass doors and a plant",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "mini",
+        "vision_confidence": 0.65,
+        "vision_reason": "Single-person pale hemlock indoor cabin with slatted benches and exposed heater panel, matching mini's size and wood tone rather than the red-cedar rainier or black-panel shasta",
+        "vision_candidates": [
+          "mini"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision mini too unsure (0.65), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c912e5813c35",
+      "file": "asset-photo-c912e5813c35.jpg",
+      "source_name": "Firefly_Gemini Flash_double the gap above the sauna before the shelves start. not the depth of the shelves 425952 (1).png",
+      "drive_id": null,
+      "sha256": "c912e5813c35a1befc9b7907dbdb694402ea92a6cee09c57216c04f6715ab305",
+      "width": 848,
+      "height": 1264,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "control-panel",
+          "heaters",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Single-person pale wood sauna cabin built into a bathroom alcove with towels and a robe nearby",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "mini",
+        "vision_confidence": 0.6,
+        "vision_reason": "Narrow 1-person pale hemlock indoor cabin with no visible red light panel, matching mini's size and wood over rainier or shasta which show red lighting or darker accents",
+        "vision_candidates": [
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision mini too unsure (0.6), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-bb9046e6789a",
+      "file": "asset-photo-bb9046e6789a.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a gym with an openable wall or garage door wall in a modern LA home with 184273 (1).png",
+      "drive_id": null,
+      "sha256": "bb9046e6789a885d8661345d8f53692a0fb8cb46cea9a5ff68dc2636c4410c4e",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.55,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A two-person indoor sauna with cedar slats and a red light panel sits in a home gym near an open garage door",
+        "blurry": false,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "fuji",
+        "vision_confidence": 0.55,
+        "vision_reason": "2-person reddish cedar indoor cabin with single red light panel and black side panel, matching fuji over similarly sized everest which has pale hemlock wood",
+        "vision_candidates": [
+          "everest",
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision fuji too unsure (0.55), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-7bb26f7357bc",
+      "file": "asset-photo-7bb26f7357bc.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a gym with an openable wall or garage door wall in a modern LA home with 747685 (1).png",
+      "drive_id": null,
+      "sha256": "7bb26f7357bc1411c323644046a21372af134653247de7f143af5ccd5534d25d",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.45,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "red-light-panel",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A single-person indoor sauna cabin with slatted wood sides and red interior light stands in a home gym",
+        "blurry": false,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "rainier",
+        "vision_confidence": 0.45,
+        "vision_reason": "Single indoor cabin with reddish cedar tone, one visible red light panel, but could also be shasta (hemlock) given similar layout and ambiguous wood color in this lighting",
+        "vision_candidates": [
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision rainier too unsure (0.45), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-67d90df26070",
+      "file": "asset-photo-67d90df26070.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a home gym in a modern LA home with the sauna from the reference image n 182450 (1).png",
+      "drive_id": null,
+      "sha256": "67d90df26070e722cfccd262fc3045360fb63178199901c44fe5b3f57b9eb732",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.55,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "glass-door",
+          "red-light-panel",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Two-person indoor sauna cabin with glass door and red interior lighting set in a home gym room",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.55,
+        "vision_reason": "2-person pale hemlock indoor cabin with sliding glass door, red light panels and dark side panels matching everest, though fuji (cedar) is ruled out by pale wood tone and denali/matterhorn ruled out by size and door style",
+        "vision_candidates": [
+          "everest",
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.55), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-fab401f1e238",
+      "file": "asset-photo-fab401f1e238.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a master bathroom in a modern LA home with the sauna from the reference  142122 (1).png",
+      "drive_id": null,
+      "sha256": "fab401f1e23802a77b812c88d3995db219a5ed1db5327e0434deb91336acef42",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.55,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Pale wood indoor sauna cabin with glass door and red lighting, set into a modern bathroom alcove",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.55,
+        "vision_reason": "Pale hemlock wood, indoor 2-person cabin with glass door panels and multiple red light strips resembling everest, though fuji (cedar) and denali (3-person) were ruled out by wood tone and width",
+        "vision_candidates": [
+          "everest",
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.55), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-6650ae56b2e3",
+      "file": "asset-photo-6650ae56b2e3.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a master bathroom in a modern LA home with the sauna from the reference  547785 (2).png",
+      "drive_id": null,
+      "sha256": "6650ae56b2e3edd3cf54af32c95d47b40a7d2adecd067b1713700c56de01c88d",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.5,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "chromotherapy",
+          "glass-door",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A two-person pale wood sauna with sliding glass door and pink interior lighting stands in a modern bathroom beside a freestanding tub",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.5,
+        "vision_reason": "Pale hemlock wood, 2-person sliding glass door cabin with visible pink/red lighting matches everest, though fuji (cedar) and denali (freestanding) were ruled out by wood color and door style",
+        "vision_candidates": [
+          "everest",
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.5), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-60890018ef2f",
+      "file": "asset-photo-60890018ef2f.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 478112 (1) (1).png",
+      "drive_id": null,
+      "sha256": "60890018ef2f8337320412d766fe49033c2704d525b5bf3d3396e81bc9198478",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "fuji",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Two-person reddish cedar sauna cabin with glass door and red light strip in a styled indoor room",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "fuji",
+        "vision_confidence": 0.75,
+        "vision_reason": "2-person indoor cabin with reddish cedar wood, dark side panels, and single red light strip matches fuji, ruling out hemlock models and 1-person rainier",
+        "vision_candidates": [
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision only (no folder label)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-f0480186fb66",
+      "file": "asset-photo-f0480186fb66.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 478112 (3).png",
+      "drive_id": null,
+      "sha256": "f0480186fb6687158a92d71310a3ab6e0532209be4fc691f2039172465adddbd",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.65,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Pale wood 2-person indoor sauna cabin with glass door, red light panel, shown in a furnished room",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.65,
+        "vision_reason": "Pale hemlock wood, 2-person indoor cabin with sliding glass door and red light panel matches everest over similarly sized fuji which uses reddish cedar",
+        "vision_candidates": [
+          "everest"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.65), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c922da437415",
+      "file": "asset-photo-c922da437415.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 553647 (1).png",
+      "drive_id": null,
+      "sha256": "c922da437415b8cce843d59db12e3528399ee7cded3869b8eb823b2ccdcb6f58",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.68,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Two-person pale wood indoor sauna cabin with glass door and pink light panels in a rustic room setting",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.68,
+        "vision_reason": "Pale hemlock wood, 2-person indoor cabin with glass door and red/pink light panels matching everest, ruled out fuji (red cedar) and denali (different slat layout)",
+        "vision_candidates": [
+          "everest"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.68), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-70d222ce5276",
+      "file": "asset-photo-70d222ce5276.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate a straight on view this sauna from the reference image in a modern LA ho 987918 (1).png",
+      "drive_id": null,
+      "sha256": "70d222ce5276eab29f61ff0b1e188a57f0ca59f7f6d89d1d0e4b53900ba8cafb",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.65,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Pale wood two-person indoor sauna cabin with glass door, red light panel, and visible heater slats in a styled room",
+        "blurry": false,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.65,
+        "vision_reason": "Pale hemlock wood, 2-person indoor cabin with red light panel and sliding glass door, matching everest over fuji (which is reddish cedar) or denali (3-person, wider bench)",
+        "vision_candidates": [
+          "everest"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.65), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-70d13e16d952",
+      "file": "asset-photo-70d13e16d952.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate an open concept poolhouse in a modern LA home with the sauna from the re 142864 (1).png",
+      "drive_id": null,
+      "sha256": "70d13e16d95209af562a08a282b25568a9a37098c2e82c9ce7ca81baa7955128",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.55,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "glass-door",
+          "red-light-panel",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Pale wood indoor sauna cabin with glass door and red interior lighting built into a home nook beside a pool",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "everest",
+        "vision_confidence": 0.55,
+        "vision_reason": "Pale hemlock indoor 2-person cabin with sliding glass door and red light glow matches everest/fuji layout, pale wood favors everest over cedar-toned fuji",
+        "vision_candidates": [
+          "everest",
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision everest too unsure (0.55), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-5ef7e1341f06",
+      "file": "asset-photo-5ef7e1341f06.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate another version of this sauna in the large master bathroom of a modern L 521531 (1).png",
+      "drive_id": null,
+      "sha256": "5ef7e1341f060d6693934c932c0a2be76fd953206bc519001883678eacc80e19",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.65,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A single-person cedar sauna cabin with red light panel stands in a modern bathroom with city view",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "rainier",
+        "vision_confidence": 0.65,
+        "vision_reason": "Single narrow indoor cabin with reddish cedar wood, one red light panel, and black side paneling matches rainier more than hemlock-toned shasta or wider 2-person fuji",
+        "vision_candidates": [
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision rainier too unsure (0.65), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-ccdc91d82bd4",
+      "file": "asset-photo-ccdc91d82bd4.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate another version of this sauna in the large master bathroom of a modern L 578039 (1) (2).png",
+      "drive_id": null,
+      "sha256": "ccdc91d82bd447da87ddd732527d80d08c8dd052bf128f27c46150f4de45af50",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.65,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "glass-door",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a sauna glass door with logo and slatted wood side panel in an indoor room",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.65,
+        "vision_reason": "Glass door with logo and slatted wood panel visible but no red light panel, bench, or full cabin width/height shown to distinguish between similarly built indoor models like fuji, everest, rainier, shasta, denali, or matterhorn",
+        "vision_candidates": [
+          "denali",
+          "everest",
+          "fuji",
+          "matterhorn",
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['denali', 'everest', 'fuji', 'matterhorn', 'rainier', 'shasta']); agnostic: detail fits 6 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-9de2a31bb49d",
+      "file": "asset-photo-9de2a31bb49d.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate another version of this sauna in the large master bathroom of a modern L 578039 (3).png",
+      "drive_id": null,
+      "sha256": "9de2a31bb49d792acf2c4c76e2b81a62dab42e3b12d9fefd8371ea30132bda8b",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "rainier",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "red-light-panel",
+          "size-in-room",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A one-person cedar infrared sauna cabin with red interior light stands in a modern bathroom beside a city-view window",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "rainier",
+        "vision_confidence": 0.75,
+        "vision_reason": "Single-person indoor cabin with reddish cedar wood, dark side panel, one red light strip, matching rainier over shasta (hemlock) and mini (hemlock)",
+        "vision_candidates": [
+          "rainier"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision only (no folder label)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-4afc23fcafaf",
+      "file": "asset-photo-4afc23fcafaf.jpg",
+      "source_name": "Firefly_Gemini Flash_now generate this sauna in the large master bathroom of a modern LA home. similar vib 521531 (1).png",
+      "drive_id": null,
+      "sha256": "4afc23fcafafa5151784769c1de50a41405fe933f903fb38e954b6247b028980",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.62,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A one-person indoor sauna cabin with reddish wood and a red light panel stands in a modern bathroom",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "rainier",
+        "vision_confidence": 0.62,
+        "vision_reason": "Single narrow cabin with reddish cedar wood tone, one red light panel above door, and slatted single door matches rainier more than hemlock-toned shasta or mini",
+        "vision_candidates": [
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision rainier too unsure (0.62), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-28b8978e2940",
+      "file": "asset-photo-28b8978e2940.jpg",
+      "source_name": "Firefly_Gemini Flash_this is pretty good but remove the angle of the sauna going back to the wall 683722 (1).png",
+      "drive_id": null,
+      "sha256": "28b8978e29408667adaf5623987efc3d355eb406664fb534dc3be2dd913d1596",
+      "width": 1024,
+      "height": 1024,
+      "ai_generated": true,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A reddish cedar two-person indoor sauna cabin with glass door, red light bands, and heater panels in a room",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "fuji",
+        "vision_confidence": 0.6,
+        "vision_reason": "Reddish cedar wood, 2-person indoor cabin with slatted side panel and glass door with two red light bands, matching fuji over the paler-hemlock everest",
+        "vision_candidates": [
+          "fuji"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision fuji too unsure (0.6), no folder label",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-031c5f300b76",
+      "file": "asset-photo-031c5f300b76.jpg",
+      "source_name": "Office Views Still 003.jpg",
+      "drive_id": null,
+      "sha256": "031c5f300b76b988cab7eac364495e02559a42193283b4c93484b3664a59e8e0",
+      "width": 1600,
+      "height": 900,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "control-panel",
+          "red-light-panel"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Close-up of a hand adjusting a touchscreen control on a red-light therapy panel inside a sauna",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Close-up of a red-light panel with control touchscreen matches the standalone panel design shared across multiple models (e.g. kilimanjaro, patagonia, denali, el-capitan), so the specific cabin cannot be determined",
+        "vision_candidates": [
+          "denali",
+          "el-capitan",
+          "kilimanjaro",
+          "matterhorn",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['denali', 'el-capitan', 'kilimanjaro', 'matterhorn', 'patagonia']); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-84d9846da050",
+      "file": "asset-photo-84d9846da050.jpg",
+      "source_name": "Office Views Still 004.jpg",
+      "drive_id": null,
+      "sha256": "84d9846da050893a45efc31abae92f2f4f52ff967fe3ba814888089a63405fef",
+      "width": 1600,
+      "height": 900,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.85,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "chromotherapy"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a glowing red sauna interior with the Peak Saunas logo on glass and blurred wood slats",
+        "blurry": true,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.85,
+        "vision_reason": "Only a red-lit logo panel and blurred wood slats are visible, no cabin proportions or distinguishing features to match any model",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "el-capitan",
+          "everest",
+          "fuji",
+          "kilimanjaro",
+          "matterhorn",
+          "mini",
+          "patagonia",
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": true,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['crown', 'denali', 'el-capitan', 'everest', 'fuji', 'kilimanjaro', 'matterhorn', 'mini', 'patagonia', 'rainier', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-bff59b51d7a3",
+      "file": "asset-photo-bff59b51d7a3.jpg",
+      "source_name": "PWU - El Capitan - 7.png",
+      "drive_id": null,
+      "sha256": "bff59b51d7a3bd1fc1e091065de859863092d1c7831e5feb6cbb79a80582a6f2",
+      "width": 893,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "el-capitan",
+        "product_confidence": 0.82,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "lifestyle",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "roof-outdoor-weather",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "A black rounded outdoor sauna cabin with glass doors sits on a deck amid hills and lounge chairs",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "el-capitan",
+        "vision_confidence": 0.82,
+        "vision_reason": "Rounded black outdoor cabin with wide double glass doors, slatted side panels, hemlock interior and deck setting matches el-capitan's lifestyle reference, ruling out kilimanjaro and patagonia which have peaked roofs",
+        "vision_candidates": [
+          "el-capitan"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision only (no folder label)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c6bb125e0841",
+      "file": "asset-photo-c6bb125e0841.jpg",
+      "source_name": "PWU - Fuji - 8.png",
+      "drive_id": null,
+      "sha256": "c6bb125e0841434fa1c5ad53ad55a13cc37a2e7fb966889f57ebc2b70ec8c7df",
+      "width": 1200,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.55,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Person standing beside an indoor wood sauna cabin with glass door and pink interior lighting visible",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.55,
+        "vision_reason": "Indoor hemlock-toned cabin with glass door and pink/red light panels fits crown, shasta, everest, or mini but door/window layout and size are not clearly distinguishable from this angle",
+        "vision_candidates": [
+          "crown",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['crown', 'everest', 'mini', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-fd1409d2c41d",
+      "file": "asset-photo-fd1409d2c41d.jpg",
+      "source_name": "PWU - Kilimanjaro - 6.png",
+      "drive_id": null,
+      "sha256": "fd1409d2c41d877ca3b87b1eb118b89a5afecdca31fb32ae42f5b719022597a0",
+      "width": 1600,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "patagonia",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "exterior",
+        "features_visible": [
+          "glass-door",
+          "roof-outdoor-weather",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Outdoor sauna cabin with slatted wood panels and sloped roof on a deck surrounded by misty forest",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "patagonia",
+        "vision_confidence": 0.75,
+        "vision_reason": "Compact outdoor cabin with sloped roof, slatted side panels, and single-person-width glass door matches patagonia's 2-person outdoor design, ruling out el-capitan (wider, curved roof, dual panels) and kilimanjaro (larger 5-person size)",
+        "vision_candidates": [
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision only (no folder label)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-7f49a0eae69d",
+      "file": "asset-photo-7f49a0eae69d.jpg",
+      "source_name": "Photo Nov 22 2024, 3 45 25 AM.jpg",
+      "drive_id": null,
+      "sha256": "7f49a0eae69dfaea4e510d6e8fd79d9818368e77d1a76382460136de8ab1869d",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.95,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Close-up profile of a man's face bathed in red light inside a wood-toned sauna interior",
+        "blurry": true,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.95,
+        "vision_reason": "Close-up of a person's face lit by red light with blurred wood in background gives no visible cabin features to match a specific model",
+        "vision_candidates": [],
+        "vision_agnostic": true,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-56473b43aa06",
+      "file": "asset-photo-56473b43aa06.jpg",
+      "source_name": "Photo Nov 22 2024, 4 26 36 AM (1).jpg",
+      "drive_id": null,
+      "sha256": "56473b43aa06bda2913ecb3241d4516fab41f9128881773d3c85878106c67248",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "bench",
+          "speakers",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "A shirtless man sits inside a wood-paneled sauna cabin interior with visible speakers and slatted backrest",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Interior view shows pale wood slatted backrest and speakers but no visible red-light panel count, door glass layout, or exterior to distinguish between multiple similar indoor models like shasta, everest, mini, or crown",
+        "vision_candidates": [
+          "crown",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['crown', 'everest', 'mini', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-150174641dfc",
+      "file": "asset-photo-150174641dfc.jpg",
+      "source_name": "Photo Nov 22 2024, 4 32 28 AM (1).jpg",
+      "drive_id": null,
+      "sha256": "150174641dfcdd26bed7f88d4616fc7f6e49d16ffb0cd6508b41f5b27c7c0669",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "heaters",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Shirtless man sitting inside a pale wood sauna cabin near illuminated heater panels",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Pale wood interior with stacked heater panels is consistent with several hemlock-cabin models (e.g. crown, shasta, everest, denali) but no door, bench layout or red-light panel count is visible to narrow further",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['crown', 'denali', 'everest', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-e472431db8dd",
+      "file": "asset-photo-e472431db8dd.jpg",
+      "source_name": "Photo Nov 22 2024, 4 45 43 AM.jpg",
+      "drive_id": null,
+      "sha256": "e472431db8ddd984ac48c6b41c6eb0a5447ae0cd26300ae2caf782fbd4d4b6e2",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "heaters",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Man with towel around neck sits inside a pale wood sauna cabin near glowing heater panels",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Only pale hemlock wood and glowing heater panels are visible with no door, red light panel, or full cabin shape to distinguish between multiple indoor hemlock models",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['crown', 'denali', 'everest', 'mini', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-fcacb6205f93",
+      "file": "asset-photo-fcacb6205f93.jpg",
+      "source_name": "Photo Nov 22 2024, 4 46 14 AM (1).jpg",
+      "drive_id": null,
+      "sha256": "fcacb6205f937de32f1fb3b07cb0bd3a55f99fa8027ba20dab8bee92ba74d0af",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.95,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "people-in-use",
+        "features_visible": [],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Shirtless man with a towel around his neck standing in a wood-paneled sauna interior",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.95,
+        "vision_reason": "Only a generic wood wall, warm ambient lighting and a person with a towel are visible, no cabin features distinguish any model",
+        "vision_candidates": [],
+        "vision_agnostic": true,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-6208486de592",
+      "file": "asset-photo-6208486de592.jpg",
+      "source_name": "Sauna Still 02.jpg",
+      "drive_id": null,
+      "sha256": "6208486de59247ea0f4a5e04a8f179deac8e73bf394891c6e70da5c2a4666005",
+      "width": 1600,
+      "height": 900,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.85,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "control-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 1,
+        "description": "Close-up of a finger pressing a digital control panel showing temperature and time on a dark wood panel",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.85,
+        "vision_reason": "Generic digital control panel with temp/time display is a common part shared across many models, no distinguishing cabin shape, wood tone, or red light layout visible",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "el-capitan",
+          "everest",
+          "fuji",
+          "kilimanjaro",
+          "matterhorn",
+          "mini",
+          "patagonia",
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": true,
+        "folder_model": null,
+        "verify": null,
+        "rule": "vision: cannot identify (candidates ['crown', 'denali', 'el-capitan', 'everest', 'fuji', 'kilimanjaro', 'matterhorn', 'mini', 'patagonia', 'rainier', 'shasta'])",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-e068291f154d",
+      "file": "asset-photo-e068291f154d.jpg",
+      "source_name": "asset-drive-11wuzdCeEvnKGi6U8Pm5al-nSX0XDHWVN__MG_0340.JPG",
+      "drive_id": "11wuzdCeEvnKGi6U8Pm5al-nSX0XDHWVN",
+      "sha256": "e068291f154d5b5cf7c05d6f97c2f0d26e5de11e4c694f446d919b3b4e732d1f",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "patagonia",
+        "product_confidence": 0.7,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "detail",
+        "features_visible": [
+          "roof-outdoor-weather"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a black slatted outdoor sauna roofline and corner with greenish window tint",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "Outdoor cabin roofline and slatted black siding match outdoor models (kilimanjaro, patagonia, el-capitan) but no door count, size cues, or red light panel visible to distinguish them",
+        "vision_candidates": [
+          "el-capitan",
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "patagonia",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.65,
+          "reason": "The outdoor slatted black roofline and overhang closely match patagonia's exterior design among the outdoor models."
+        },
+        "rule": "vision narrowed to ['el-capitan', 'kilimanjaro', 'patagonia']; drive folder picked patagonia",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-ff0e06a0da3a",
+      "file": "asset-photo-ff0e06a0da3a.jpg",
+      "source_name": "asset-drive-12oz88cJxBxFkv951Uqw7bTiblyyPIbNK__MG_1251.JPG",
+      "drive_id": "12oz88cJxBxFkv951Uqw7bTiblyyPIbNK",
+      "sha256": "ff0e06a0da3a9d7435bb88b43e1e1202ee54329273ff486158fbc777b64e5cc8",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "studio",
+        "shot": "detail",
+        "features_visible": [
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a red-light panel unit mounted beside pale wood slatted bench inside a sauna cabin",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Close-up of a red-light panel unit with pale wood slats is common to several 1-2 person models (shasta, everest, mini, fuji, rainier) so the exact model can't be confirmed",
+        "vision_candidates": [
+          "everest",
+          "fuji",
+          "mini",
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "mini",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "The close-up shows only a red light panel unit and bench slats, not enough cabin context to confirm size, wood type, or door layout matching the mini model."
+        },
+        "rule": "drive folder mini not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-d315c1cf1e0e",
+      "file": "asset-photo-d315c1cf1e0e.jpg",
+      "source_name": "asset-drive-18j0I5kD01dAgn0kPsY4K0EPBhW5L7QAv___MG_4170.JPG",
+      "drive_id": "18j0I5kD01dAgn0kPsY4K0EPBhW5L7QAv",
+      "sha256": "d315c1cf1e0e69ab11f22e34af9f8b9906376626beaac2236462aaebd159de03",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "interior",
+        "features_visible": [
+          "bench",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close interior view of sauna bench, slatted wood walls, and a vertical red-light heater panel",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "Interior view shows pale wood, a single vertical red-light heater panel, and bench but no door/cabin size reference to distinguish between multiple indoor models like shasta, everest, crown or rainier",
+        "vision_candidates": [
+          "crown",
+          "everest",
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "rainier",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.4,
+          "reason": "Interior close-up shows light wood and a red panel consistent with rainier, but no door/size/person-count details are visible to confirm it's not another similar indoor model."
+        },
+        "rule": "drive folder rainier not confirmed (vision unknown 0.6)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-258c439743a2",
+      "file": "asset-photo-258c439743a2.jpg",
+      "source_name": "asset-drive-1C6hiO2EkpKPPKd7Fz2tJngdm_qy0rUoJ___MG_3029.JPG",
+      "drive_id": "1C6hiO2EkpKPPKd7Fz2tJngdm_qy0rUoJ",
+      "sha256": "258c439743a2c4ab2f3289090e753dd78cde88513e3bcf46c216ef6578ffe461",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "interior",
+        "features_visible": [
+          "bench",
+          "chromotherapy",
+          "heaters",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Interior corner view of pale wood sauna cabin showing bench, heater panels, and green accent lighting",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "Pale hemlock interior with bench and heater panels visible but no door, glass layout, or overall cabin size shown to distinguish between multiple hemlock indoor models",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "everest",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.4,
+          "reason": "Interior wood and heater details are consistent with hemlock indoor models but no door, size, or overall layout is visible to confirm it's specifically the everest."
+        },
+        "rule": "drive folder everest not confirmed (vision unknown 0.6)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:44+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-5d152b2f0e2b",
+      "file": "asset-photo-5d152b2f0e2b.jpg",
+      "source_name": "asset-drive-1E13Rzs7AiQczZWBkV0g_BK6URtHsJ4lX__09-1.JPG",
+      "drive_id": "1E13Rzs7AiQczZWBkV0g_BK6URtHsJ4lX",
+      "sha256": "5d152b2f0e2b32639b64a33bd4f0712ad9238f2bf4a2ed3f0b97a9187066889a",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "control-panel",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a wooden door handle and glass panel with a control panel and red lights visible inside",
+        "blurry": true,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Close-up of a pale wood door handle and control panel edge shows no distinguishing cabin shape, size, or panel count to match a specific model among several pale-hemlock options like crown, mini, shasta, everest, or denali",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "mini",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "Close-up of door handle and panel shows light wood and red light but lacks enough context to confirm size or model distinctly."
+        },
+        "rule": "drive folder mini not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-b3e871fd00ee",
+      "file": "asset-photo-b3e871fd00ee.jpg",
+      "source_name": "asset-drive-1Eu7VhLaQCSvnCJJ4hvGdLBPJu_ZeGTZC__MG_4029.JPG",
+      "drive_id": "1Eu7VhLaQCSvnCJJ4hvGdLBPJu_ZeGTZC",
+      "sha256": "b3e871fd00ee4e24503f0fe073599d6bc6d85ff5bd3b84befa2b99ab3a49fd6e",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "fuji",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "bench",
+          "chromotherapy",
+          "glass-door",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Cedar-toned sauna cabin with glass door, purple interior mood lighting, and slatted side panel on white background",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "fuji",
+        "vision_confidence": 0.55,
+        "vision_reason": "Reddish cedar wood, indoor cabin with single glass door and slatted side panel, similar proportions to fuji though matterhorn (3-person) also uses cedar with comparable layout",
+        "vision_candidates": [
+          "fuji",
+          "matterhorn"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "fuji",
+        "verify": null,
+        "rule": "vision and drive folder agree",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-e5f569ef9f5e",
+      "file": "asset-photo-e5f569ef9f5e.jpg",
+      "source_name": "asset-drive-1FYCbReXveSzJxIpNGxNWrMP_X6xbXP7f__MG_1250.JPG",
+      "drive_id": "1FYCbReXveSzJxIpNGxNWrMP_X6xbXP7f",
+      "sha256": "e5f569ef9f5ee8bdba82648896641dc23c16de2480e14a991f11895e70a5ca88",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "detail",
+        "features_visible": [
+          "red-light-panel"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a black red-light panel with rows of LEDs mounted beside a wooden cabin wall",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "This red-light panel design appears identical across multiple models (denali, kilimanjaro, patagonia), so the cabin model cannot be determined from this detail alone",
+        "vision_candidates": [
+          "denali",
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "mini",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.4,
+          "reason": "The photo shows only a close-up of a red light panel unit, with no cabin features visible to confirm it matches the mini model specifically."
+        },
+        "rule": "drive folder mini not confirmed (vision unknown 0.75)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-f5be6fb70b97",
+      "file": "asset-photo-f5be6fb70b97.jpg",
+      "source_name": "asset-drive-1FyQ3csmGL65o4SuEZwGDtFWf-T8rFgET___MG_3019.JPG",
+      "drive_id": "1FyQ3csmGL65o4SuEZwGDtFWf-T8rFgET",
+      "sha256": "f5be6fb70b975db2ce1fa24bc0f66053eacfda9555ca5e736996ac6d90a529fa",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "everest",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Pale wood indoor sauna cabin with glass door, black trim panels, and visible red interior lighting on a white background",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "denali",
+        "vision_confidence": 0.55,
+        "vision_reason": "Pale hemlock wood, wide 2-3 person indoor cabin with black side trim and interior red light glow visible through glass door, similar to denali/everest but wider bench suggests 3-person; ruled out crown (no red light) and fuji/rainier/matterhorn (cedar tone)",
+        "vision_candidates": [
+          "denali",
+          "everest"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "everest",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.75,
+          "reason": "Indoor hemlock cabin with red light panels and door/window layout closely matches the everest reference images."
+        },
+        "rule": "drive folder everest confirmed by vision check (pass 1 said denali (0.55))",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-f84edc365df9",
+      "file": "asset-photo-f84edc365df9.jpg",
+      "source_name": "asset-drive-1KOtldOz15DcZ7BMXjug108IW5fzgXGJp___MG_3064.JPG",
+      "drive_id": "1KOtldOz15DcZ7BMXjug108IW5fzgXGJp",
+      "sha256": "f84edc365df9994430555bdaffb43bdb1bd48153d40c829f3ffc7660f9e82091",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "control-panel",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a black red-light therapy panel with digital control screen mounted on pale wood sauna frame",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "This close-up of an unlit red-light panel with control screen matches the standalone panel accessory shown identically across multiple models (kilimanjaro, patagonia, denali), so the specific cabin cannot be determined",
+        "vision_candidates": [
+          "denali",
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "everest",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "The close-up shows only a red light panel control unit with light wood, which matches many models and doesn't reveal enough distinguishing cabin features."
+        },
+        "rule": "drive folder everest not confirmed (vision unknown 0.6)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-2c0df387291e",
+      "file": "asset-photo-2c0df387291e.jpg",
+      "source_name": "asset-drive-1MYA323HlHo3qv4XAvnk6PkNSHkjalMQF__MG_0348.JPG",
+      "drive_id": "1MYA323HlHo3qv4XAvnk6PkNSHkjalMQF",
+      "sha256": "2c0df387291e8e914e1f126754e8c281543d5bf3faf2dd8aedf0a0f951060969",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "studio",
+        "shot": "detail",
+        "features_visible": [
+          "glass-door",
+          "red-light-panel"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a metal red-light panel with a control knob, red switch, and glass door edge",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Close-up of a red-light panel, switch and door handle with no cabin shape, wood tone, or size visible to distinguish among models that use similar red-light panel designs (e.g. el-capitan, kilimanjaro, matterhorn, denali)",
+        "vision_candidates": [
+          "denali",
+          "el-capitan",
+          "kilimanjaro",
+          "matterhorn"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "patagonia",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "Extreme close-up of a door handle and light panel doesn't show enough cabin context to confirm the model."
+        },
+        "rule": "drive folder patagonia not confirmed (vision unknown 0.75); agnostic: detail fits 4 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c65010644b97",
+      "file": "asset-photo-c65010644b97.jpg",
+      "source_name": "asset-drive-1OjMpDgUd0Ay1B7VqY4HC11aH1JsV3rKN___MG_3261.JPG",
+      "drive_id": "1OjMpDgUd0Ay1B7VqY4HC11aH1JsV3rKN",
+      "sha256": "c65010644b97e579abe18b565dfa041fd273ab519956ab235afb451cbc395f74",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.65,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "interior",
+        "features_visible": [
+          "bench",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Interior corner view of a pale wood sauna cabin showing bench, slatted backrest and a red-light heater panel",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.65,
+        "vision_reason": "Pale wood interior with bench and single red-light heater panel is consistent with several indoor hemlock models (shasta, everest, crown) and view is too narrow to confirm size",
+        "vision_candidates": [
+          "crown",
+          "everest",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "matterhorn",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.65,
+          "reason": "The reddish cedar-toned wood, bench layout, and visible red light panel are consistent with the matterhorn's indoor cedar cabin design."
+        },
+        "rule": "drive folder matterhorn not confirmed (vision unknown 0.65)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-976c5691a4d3",
+      "file": "asset-photo-976c5691a4d3.jpg",
+      "source_name": "asset-drive-1QVjuYpxyYGj9WnelYH1936I7H2LMJ-AB___MG_4234.JPG",
+      "drive_id": "1QVjuYpxyYGj9WnelYH1936I7H2LMJ-AB",
+      "sha256": "976c5691a4d33f935bb6806f1f44a3c5276892c2df5cbc02bd034666af892ebd",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "rainier",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Single-person indoor cedar sauna cabin with glass door, red interior lighting, and wooden slat side panel",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "rainier",
+        "vision_confidence": 0.65,
+        "vision_reason": "Single-person indoor cabin with reddish cedar wood, one red light panel, and single door matches rainier closer than hemlock-toned shasta/mini",
+        "vision_candidates": [
+          "rainier"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "rainier",
+        "verify": null,
+        "rule": "vision and drive folder agree",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-0d82c7db36be",
+      "file": "asset-photo-0d82c7db36be.jpg",
+      "source_name": "asset-drive-1_BoNMEDPQBZ0Y067l3W_oJjuuBIMGBHz__MG_1255.JPG",
+      "drive_id": "1_BoNMEDPQBZ0Y067l3W_oJjuuBIMGBHz",
+      "sha256": "0d82c7db36bed56e65b0873e3c640181a12e4d614a6e3a4c97f5868935e2f49f",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.9,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "outlet-plug",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a red-light panel's back housing with cord, mounted on a slatted wood sauna wall",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.9,
+        "vision_reason": "Close-up of a red-light panel's rear housing and wood slat wall gives no cabin shape, size, or wood tone evidence to match a specific model",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "el-capitan",
+          "everest",
+          "fuji",
+          "kilimanjaro",
+          "matterhorn",
+          "mini",
+          "patagonia",
+          "rainier",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "mini",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.2,
+          "reason": "Only a close-up of the red light panel's back and surrounding wood slats is visible, not enough to confirm cabin size or layout matches the mini model."
+        },
+        "rule": "drive folder mini not confirmed (vision unknown 0.9); agnostic: detail fits 11 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-a4d7705e9649",
+      "file": "asset-photo-a4d7705e9649.jpg",
+      "source_name": "asset-drive-1_b96NgBIcxE0JrXdITpyg-ksSPQXNO5x___MG_3050.JPG",
+      "drive_id": "1_b96NgBIcxE0JrXdITpyg-ksSPQXNO5x",
+      "sha256": "a4d7705e96499ae89ec6b09b63191a7f615bec3f246c581b395aa204e19f8e05",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.95,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "speakers",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a built-in speaker mounted in a pale wood sauna wall panel",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.95,
+        "vision_reason": "Close-up of a speaker on pale wood panelling gives no cabin shape, door, or light panel detail to distinguish between any of the pale-wood models",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "everest",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "The photo only shows a speaker on light wood paneling, with no distinguishing cabin features visible to confirm or rule out the everest model."
+        },
+        "rule": "drive folder everest not confirmed (vision unknown 0.95); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-d279fcf9a2ba",
+      "file": "asset-photo-d279fcf9a2ba.jpg",
+      "source_name": "asset-drive-1d8g6IdLVfxb-Gkzj6shHgpuIhHP1M3FH__MG_1266.JPG",
+      "drive_id": "1d8g6IdLVfxb-Gkzj6shHgpuIhHP1M3FH",
+      "sha256": "d279fcf9a2ba857b06e09b16f98bc5f1a23e73051eb4b9ef9288de76b078c125",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "mini",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "interior",
+        "features_visible": [
+          "bench",
+          "control-panel",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Interior view of a small pale wood sauna cabin with red light panel, control box, bench, and heater",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "mini",
+        "vision_confidence": 0.75,
+        "vision_reason": "Small 1-person pale hemlock cabin with a single red light panel at the top, matching mini over rainier (cedar) and shasta (hemlock but different control panel placement)",
+        "vision_candidates": [
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "mini",
+        "verify": null,
+        "rule": "vision and drive folder agree",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-f96ac9043d8d",
+      "file": "asset-photo-f96ac9043d8d.jpg",
+      "source_name": "asset-drive-1drzziMLaHXDdc2SKhXjzkxd-oq6UyvvH__MG_4000.JPG",
+      "drive_id": "1drzziMLaHXDdc2SKhXjzkxd-oq6UyvvH",
+      "sha256": "f96ac9043d8d251cd50744a0e594c5e09dd79335a79d6741dd9d2b63c8776a4d",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.55,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "heaters",
+          "outlet-plug",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a red-light panel and infrared heater mounted on pale wood sauna wall with a power cord visible",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.55,
+        "vision_reason": "Pale wood interior with a red-light panel and heater matches multiple hemlock models such as shasta, everest, crown, mini, or denali, with no cabin size or door visible to narrow it down",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "fuji",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.65,
+          "reason": "Red cedar wood tone with red light panel and heater grille matches fuji's indoor cedar interior style."
+        },
+        "rule": "drive folder fuji not confirmed (vision unknown 0.55); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-703538563f23",
+      "file": "asset-photo-703538563f23.jpg",
+      "source_name": "asset-drive-1dux2yGlVRK4DOAx-_sF5hJ1BrNiOzMOp__MG_0782.JPG",
+      "drive_id": "1dux2yGlVRK4DOAx-_sF5hJ1BrNiOzMOp",
+      "sha256": "703538563f238402ff45af896ee9786c3b3b450d7d98ba81482be780490617af",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "bench",
+          "chromotherapy",
+          "heaters",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a pale wood sauna bench corner with red heater panels and blue under-bench lighting",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Pale hemlock bench corner with red heater panels and blue accent lighting is visible but no door, cabin size, or overall shape to distinguish between multiple hemlock multi-person models like crown, denali, or everest",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "el-capitan",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "Close-up interior shot lacks enough context (size, indoor/outdoor, door layout) to confirm it matches the el-capitan model."
+        },
+        "rule": "drive folder el-capitan not confirmed (vision unknown 0.75)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-33bca4ec295f",
+      "file": "asset-photo-33bca4ec295f.jpg",
+      "source_name": "asset-drive-1fDtdoqvZbMkeVBFWhfHKUNWrks4rowsb__Peak-Sauna-Edits-28.jpg",
+      "drive_id": "1fDtdoqvZbMkeVBFWhfHKUNWrks4rowsb",
+      "sha256": "33bca4ec295f05eea69c8b07086f21edbf582cc13c40f4a3eb3b5d70c0e9e2e0",
+      "width": 1600,
+      "height": 1065,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "kilimanjaro",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "exterior",
+        "features_visible": [
+          "chromotherapy",
+          "glass-door",
+          "red-light-panel",
+          "roof-outdoor-weather"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Outdoor black sauna cabin with flat roof, slatted side panels, glass door showing red and blue interior lighting",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "patagonia",
+        "vision_confidence": 0.55,
+        "vision_reason": "Outdoor cabin with flat canopy roof, black slatted side panels, single red light panel visible through glass door, matching patagonia more closely than the larger kilimanjaro or el-capitan cabins",
+        "vision_candidates": [
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.75,
+          "reason": "Outdoor sauna with flat overhanging roof, dark slatted sides, and single red light panel matches kilimanjaro's design most closely."
+        },
+        "rule": "drive folder kilimanjaro confirmed by vision check (pass 1 said patagonia (0.55))",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-04eb0e32f6bc",
+      "file": "asset-photo-04eb0e32f6bc.jpg",
+      "source_name": "asset-drive-1fNeXaYvCvQOPGkhAN4tBP9CIaPcZi8iQ__MG_0493.JPG",
+      "drive_id": "1fNeXaYvCvQOPGkhAN4tBP9CIaPcZi8iQ",
+      "sha256": "04eb0e32f6bc0a786dbae25fd5a8136af531c9cf120b4a9aac41cc9fd20bcc36",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "patagonia",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "roof-outdoor-weather"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Black outdoor sauna cabin with roof canopy, glass door, and red-lit interior on a plain white background",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "patagonia",
+        "vision_confidence": 0.75,
+        "vision_reason": "Outdoor cabin with roof canopy, narrow 2-person width, single red light panel glowing inside, matching patagonia over kilimanjaro's larger 5-person size",
+        "vision_candidates": [
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "patagonia",
+        "verify": null,
+        "rule": "vision and drive folder agree",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-0b2c59baccb2",
+      "file": "asset-photo-0b2c59baccb2.jpg",
+      "source_name": "asset-drive-1gPVZ7LMskXGVlKmrU1gPqSHgGwFyQxu5__MG_0342.JPG",
+      "drive_id": "1gPVZ7LMskXGVlKmrU1gPqSHgGwFyQxu5",
+      "sha256": "0b2c59baccb2a18b0ee6f6d8eba510e098f5caec840d2c8e655b8f4ba6d60d9a",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "glass-door",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of black slatted sauna side panels with glass inserts and wood interior visible behind",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Close-up of black slatted side panels and glass is a generic exterior detail shared by several outdoor/indoor models (e.g. kilimanjaro, patagonia, el-capitan, matterhorn, denali), so the specific model cannot be determined",
+        "vision_candidates": [
+          "denali",
+          "el-capitan",
+          "kilimanjaro",
+          "matterhorn",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "patagonia",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "The close-up shows only slatted dark panels and glass with no visible interior, wood tone, roofline, or red light panel to confirm the model."
+        },
+        "rule": "drive folder patagonia not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-35a7feea7aa5",
+      "file": "asset-photo-35a7feea7aa5.jpg",
+      "source_name": "asset-drive-1gVHHRiGm_MeNOaKcDyKmg8XtYYoMvAOx___MG_3092.JPG",
+      "drive_id": "1gVHHRiGm_MeNOaKcDyKmg8XtYYoMvAOx",
+      "sha256": "35a7feea7aa5df2f08a712c6a13e1c8742cc005c6ff77ea23a7e8233f4113f29",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.0,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Front view of a reddish wood 2-person indoor sauna cabin with glass door and slatted side panel on white background",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.55,
+        "vision_reason": "Reddish cedar-toned 2-person indoor cabin with glass door and side vent panel, but no visible red light panel or clear match to fuji's layout, so candidates remain ambiguous",
+        "vision_candidates": [
+          "fuji",
+          "matterhorn"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "rainier",
+        "verify": {
+          "verdict": "mismatch",
+          "confidence": 0.75,
+          "reason": "This looks like a 2-person red cedar indoor cabin with no visible red light panel, unlike the 1-person rainier model."
+        },
+        "rule": "drive folder rainier rejected by vision check: This looks like a 2-person red cedar indoor cabin with no visible red light panel, unlike the 1-person rainier model.",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-8401eb5859e7",
+      "file": "asset-photo-8401eb5859e7.jpg",
+      "source_name": "asset-drive-1i3LsHwGGoKvKRDV9I_Sm82uCzMQvkzXJ___MG_3041.JPG",
+      "drive_id": "1i3LsHwGGoKvKRDV9I_Sm82uCzMQvkzXJ",
+      "sha256": "8401eb5859e7e6e4622a4984551959fb0e60dd417b78eb8a39616c9743ed356d",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "heaters",
+          "outlet-plug",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up inside a pale wood sauna cabin showing a red-light panel and an infrared heater mounted on the wall",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Pale hemlock interior with a red-light panel and heater matches several hemlock models (e.g. everest, crown, shasta, mini) with no distinguishing size or door cues visible",
+        "vision_candidates": [
+          "crown",
+          "everest",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "everest",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.4,
+          "reason": "Light wood interior with red light panel is consistent with hemlock models like everest, but insufficient view of cabin layout or capacity to confirm the specific model."
+        },
+        "rule": "drive folder everest not confirmed (vision unknown 0.75); agnostic: detail fits 4 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c499570d7a6e",
+      "file": "asset-photo-c499570d7a6e.jpg",
+      "source_name": "asset-drive-1iUUnunoUhihotyoyMshs_ZZE-ewa15RS__Peak-Sauna-Edits-19.jpg",
+      "drive_id": "1iUUnunoUhihotyoyMshs_ZZE-ewa15RS",
+      "sha256": "c499570d7a6ed471fb831bc86663f3b772938331b06ef41f0ec58996542b2bb4",
+      "width": 1600,
+      "height": 1065,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.0,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "assembly",
+          "glass-door"
+        ],
+        "has_text_overlay": false,
+        "people": 2,
+        "description": "Two workers assembling a black outdoor sauna cabin with slatted panels on a residential deck",
+        "blurry": false,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "patagonia",
+        "vision_confidence": 0.5,
+        "vision_reason": "Outdoor black cabin with slatted side panels and single-person-width glass door resembles patagonia, though no roof/canopy is visible and cabin appears narrower than kilimanjaro or el-capitan",
+        "vision_candidates": [
+          "el-capitan",
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "mismatch",
+          "confidence": 0.75,
+          "reason": "This outdoor cabin is small and narrow like a 2-person unit with no visible roof overhang, matching patagonia rather than the larger 5-person kilimanjaro."
+        },
+        "rule": "drive folder kilimanjaro rejected by vision check: This outdoor cabin is small and narrow like a 2-person unit with no visible roof overhang, matching patagonia rather than the larger 5-person kiliman",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-c63844ef5fc6",
+      "file": "asset-photo-c63844ef5fc6.jpg",
+      "source_name": "asset-drive-1iwKo7v8XVdgHnYKrENxUUoG_ZUeq38JC__Peak-Sauna-Edits-10 (1).jpg",
+      "drive_id": "1iwKo7v8XVdgHnYKrENxUUoG_ZUeq38JC",
+      "sha256": "c63844ef5fc667a987d7363243ad6b5bc412a7f9c83ae397b2c3b2925d05c536",
+      "width": 1065,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.0,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "assembly",
+          "glass-door"
+        ],
+        "has_text_overlay": false,
+        "people": 2,
+        "description": "Two men carry a large pale wood sauna wall panel with slatted vents and windows across an outdoor patio",
+        "blurry": false,
+        "cluttered": true
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.65,
+        "vision_reason": "A pale wood panel with slatted vents and small windows is being carried outdoors, but no full cabin or red-light layout is visible to distinguish between pale-wood indoor or outdoor models",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "fuji",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "mismatch",
+          "confidence": 0.75,
+          "reason": "The panel shown is light-colored hemlock wood being installed outdoors, but it lacks the dark exterior cladding and roof overhang characteristic of kilimanjaro, resembling a smaller lighter-wood model instead."
+        },
+        "rule": "drive folder kilimanjaro rejected by vision check: The panel shown is light-colored hemlock wood being installed outdoors, but it lacks the dark exterior cladding and roof overhang characteristic of k",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-48cb70df36a2",
+      "file": "asset-photo-48cb70df36a2.jpg",
+      "source_name": "asset-drive-1oLQKONKmcFyMDloXnr-z32LMrF17chkx__Peak-Sauna-Edits-29.jpg",
+      "drive_id": "1oLQKONKmcFyMDloXnr-z32LMrF17chkx",
+      "sha256": "48cb70df36a2568783b91d17bb5844ee0b6f9171ea0f301f3a604e5b8fed54e4",
+      "width": 1600,
+      "height": 1065,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.0,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "exterior",
+        "features_visible": [
+          "chromotherapy",
+          "control-panel",
+          "glass-door",
+          "roof-outdoor-weather"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Black outdoor sauna cabin with peaked roof, slatted siding, glass door, and green interior lighting on a stone patio",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "patagonia",
+        "vision_confidence": 0.55,
+        "vision_reason": "Outdoor black-slatted single-door cabin with peaked roof matches patagonia's 2-person outdoor design, though lighting shown is green not red and could suggest kilimanjaro at a different angle",
+        "vision_candidates": [
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "mismatch",
+          "confidence": 0.75,
+          "reason": "The photo shows a small single-door outdoor cabin consistent with a 2-person patagonia-style unit, not the larger 5-person kilimanjaro design."
+        },
+        "rule": "drive folder kilimanjaro rejected by vision check: The photo shows a small single-door outdoor cabin consistent with a 2-person patagonia-style unit, not the larger 5-person kilimanjaro design.",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-b10cab04076d",
+      "file": "asset-photo-b10cab04076d.jpg",
+      "source_name": "asset-drive-1qMk-ucbSsNev_ilB6vcAHXXKaMkoArwF__MG_0829.JPG",
+      "drive_id": "1qMk-ucbSsNev_ilB6vcAHXXKaMkoArwF",
+      "sha256": "b10cab04076dcc8fe3b3d0353bf983972a506e3ee316a899d01992acbb2bf6f8",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": true,
+        "setting": "indoor",
+        "shot": "detail",
+        "features_visible": [
+          "heaters"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a black perforated heater panel mounted in a pale wood sauna interior corner",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "Close-up of a heater panel with pale wood slats matches hemlock models like matterhorn/denali/fuji/everest/rainier but no cabin-level distinguishing features are visible",
+        "vision_candidates": [
+          "denali",
+          "everest",
+          "fuji",
+          "matterhorn",
+          "rainier"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "el-capitan",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.6,
+          "reason": "The perforated metal heating panel and light wood slatted bench match el-capitan's distinctive panel style seen in its reference images."
+        },
+        "rule": "drive folder el-capitan not confirmed (vision unknown 0.6); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-6f0f6c085dc2",
+      "file": "asset-photo-6f0f6c085dc2.jpg",
+      "source_name": "asset-drive-1qTHbvNIOIjeOL7sRQ9YPHhgCkODQ-NyI__MG_0770.JPG",
+      "drive_id": "1qTHbvNIOIjeOL7sRQ9YPHhgCkODQ-NyI",
+      "sha256": "6f0f6c085dc2076d0590e3b5ca0b982924d7ebcb2903c85abcd17f0f61d62f45",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "el-capitan",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Black-framed multi-person sauna cabin with open glass door and red interior lighting shown against white background",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "el-capitan",
+        "vision_confidence": 0.75,
+        "vision_reason": "Rounded black exterior frame, wide multi-person cabin with two side heater columns and glass door matching el-capitan outdoor styling, ruled out kilimanjaro/patagonia due to wider bench layout and door style",
+        "vision_candidates": [
+          "el-capitan"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "el-capitan",
+        "verify": null,
+        "rule": "vision and drive folder agree",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:45+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-998198990bf4",
+      "file": "asset-photo-998198990bf4.jpg",
+      "source_name": "asset-drive-1qmnD5uXqGYnpW4txYpF9N91C173N3MGj___MG_3300.JPG",
+      "drive_id": "1qmnD5uXqGYnpW4txYpF9N91C173N3MGj",
+      "sha256": "998198990bf4a0a0c7666f6f0218b438ba92d7a13242a191f63e089d343a9ddb",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "matterhorn",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "exterior",
+        "features_visible": [
+          "bench",
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Large wood-and-black sauna cabin with glass door, red interior lighting, and two side red-light panels on white background",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "el-capitan",
+        "vision_confidence": 0.75,
+        "vision_reason": "Wide 4-person indoor-style cabin with red cedar door trim, dual red-light panels on either side, matching el-capitan's 2-panel layout and size, ruling out smaller 2/3-person models like matterhorn or denali",
+        "vision_candidates": [
+          "el-capitan"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "matterhorn",
+        "verify": {
+          "verdict": "match",
+          "confidence": 0.85,
+          "reason": "The indoor 3-person cedar cabin with dark trim, glass door, and red light panels matches the matterhorn reference images closely."
+        },
+        "rule": "drive folder matterhorn confirmed by vision check (pass 1 said el-capitan (0.75))",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:46+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-6ded452fc84e",
+      "file": "asset-photo-6ded452fc84e.jpg",
+      "source_name": "asset-drive-1sFTR1EYsRWuSUthlb4hBm_g8vjOL6pTI___MG_3224.JPG",
+      "drive_id": "1sFTR1EYsRWuSUthlb4hBm_g8vjOL6pTI",
+      "sha256": "6ded452fc84eadd088d590e528543d7d7195f18a0a9eccb91db564bec8277418",
+      "width": 1600,
+      "height": 1067,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.85,
+        "model_agnostic": false,
+        "setting": "studio",
+        "shot": "detail",
+        "features_visible": [],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a black textured exterior panel with a metal latch beside reddish wood trim",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.85,
+        "vision_reason": "close-up of a black textured siding panel and latch hardware against reddish wood trim, a detail too generic to match a specific outdoor model among el-capitan, patagonia, or kilimanjaro",
+        "vision_candidates": [
+          "el-capitan",
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "matterhorn",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "Close-up of a latch and black paneling with wood edge gives no view of cabin layout to confirm it matches matterhorn specifically."
+        },
+        "rule": "drive folder matterhorn not confirmed (vision unknown 0.85)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:46+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-bcf3510b6579",
+      "file": "asset-photo-bcf3510b6579.jpg",
+      "source_name": "asset-drive-1uYqgXF2j6Dt7tfUPDe68rPIMP1sVA61L__Peak-Sauna-Edits-9.jpg",
+      "drive_id": "1uYqgXF2j6Dt7tfUPDe68rPIMP1sVA61L",
+      "sha256": "bcf3510b6579d03c703c5ae068163a129a2894e739963f66526fe8c3b005300c",
+      "width": 1600,
+      "height": 1065,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "assembly",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 2,
+        "description": "Two men carry an unassembled pale wood sauna panel with slatted vents outdoors near a fence",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Unassembled pale hemlock panel wall with slatted vents being carried outdoors gives no door/window/red-light layout to match against any specific model's references",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest",
+          "fuji",
+          "mini",
+          "shasta"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "This shows an unassembled light-colored wood panel outdoors, not matching the dark-wood finished kilimanjaro exterior shown in reference images, but too little of the finished cabin is visible to be certain."
+        },
+        "rule": "drive folder kilimanjaro not confirmed (vision unknown 0.75)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:46+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-67d1d7e4ebd6",
+      "file": "asset-photo-67d1d7e4ebd6.jpg",
+      "source_name": "asset-drive-1us7aQNeRGbSUo8buw3j9cm6NrwVlqGKe__Peak-Sauna-Edits-26.jpg",
+      "drive_id": "1us7aQNeRGbSUo8buw3j9cm6NrwVlqGKe",
+      "sha256": "67d1d7e4ebd63a20b21d1168f708ff187add445454740e1cd4b7f6f12242cb52",
+      "width": 1600,
+      "height": 1065,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.0,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "exterior",
+        "features_visible": [
+          "glass-door",
+          "heaters",
+          "red-light-panel",
+          "roof-outdoor-weather"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Outdoor sauna cabin with slatted black panels, canopy roof, and glowing pink-red light visible through glass door",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "patagonia",
+        "vision_confidence": 0.65,
+        "vision_reason": "Single-door outdoor cabin with slatted black side panels, flat canopy roof and one red light panel, matching patagonia's 2-person outdoor build (kilimanjaro ruled out as too large/5-person, el-capitan ruled out for having 2 red light panels)",
+        "vision_candidates": [
+          "kilimanjaro",
+          "patagonia"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "mismatch",
+          "confidence": 0.75,
+          "reason": "The photo shows a small single-door outdoor cabin matching patagonia's 2-person size and shape, not the larger 5-person kilimanjaro with wider multi-panel facade."
+        },
+        "rule": "drive folder kilimanjaro rejected by vision check: The photo shows a small single-door outdoor cabin matching patagonia's 2-person size and shape, not the larger 5-person kilimanjaro with wider multi-",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:46+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-6043a197d883",
+      "file": "asset-photo-6043a197d883.jpg",
+      "source_name": "asset-drive-1vPQAZ_qw5WpF-tijwvGV8_BXhqIT5fms___MG_3254.JPG",
+      "drive_id": "1vPQAZ_qw5WpF-tijwvGV8_BXhqIT5fms",
+      "sha256": "6043a197d883c278f7f3bdc5bf00633ff66d8fbbd88efb81c5c13c58f1ea76c3",
+      "width": 1067,
+      "height": 1600,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.75,
+        "model_agnostic": true,
+        "setting": "studio",
+        "shot": "detail",
+        "features_visible": [
+          "glass-door",
+          "red-light-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 0,
+        "description": "Close-up of a wooden door handle on a glass sauna door with red light panels visible inside",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.75,
+        "vision_reason": "Close-up of a glass door handle with red light panels visible behind, but no cabin shape, size, or wood tone context to distinguish between multiple red-cedar or hemlock models",
+        "vision_candidates": [
+          "denali",
+          "el-capitan",
+          "everest",
+          "fuji",
+          "matterhorn"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "matterhorn",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "Only a close-up of a door handle and some red panels is visible, with no distinguishing cabin features to confirm the model."
+        },
+        "rule": "drive folder matterhorn not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:46+00:00"
+      }
+    },
+    {
+      "id": "asset-photo-88d15e87e667",
+      "file": "asset-photo-88d15e87e667.jpg",
+      "source_name": "asset-drive-1xIUw_elguysXaDDSrGO9USB_7UY7xSPV__Peak-Sauna-Edits-13.jpg",
+      "drive_id": "1xIUw_elguysXaDDSrGO9USB_7UY7xSPV",
+      "sha256": "88d15e87e667144f19cf644fb76c5f8a0d1bf80cb165833c950eb4b2d8ba887b",
+      "width": 1600,
+      "height": 1065,
+      "ai_generated": false,
+      "excluded": false,
+      "tags": {
+        "product": "unknown",
+        "product_confidence": 0.6,
+        "model_agnostic": false,
+        "setting": "outdoor",
+        "shot": "people-in-use",
+        "features_visible": [
+          "control-panel",
+          "wood-grain"
+        ],
+        "has_text_overlay": false,
+        "people": 2,
+        "description": "Two people reviewing paperwork beside a partially assembled pale wood sauna panel with a control pad outside a house",
+        "blurry": false,
+        "cluttered": false
+      },
+      "decision": {
+        "vision_product": "unknown",
+        "vision_confidence": 0.6,
+        "vision_reason": "Pale hemlock-toned slatted panel with control panel is visible but no full cabin shape, roof, or red light panel distinguishes between similar indoor multi-person hemlock models like crown, everest, or denali",
+        "vision_candidates": [
+          "crown",
+          "denali",
+          "everest"
+        ],
+        "vision_agnostic": false,
+        "folder_model": "kilimanjaro",
+        "verify": {
+          "verdict": "cannot-tell",
+          "confidence": 0.3,
+          "reason": "The photo shows only a small light-wood indoor-installation-looking panel with control pad, not enough to confirm size, outdoor roofline, or red light panel count matching kilimanjaro."
+        },
+        "rule": "drive folder kilimanjaro not confirmed (vision unknown 0.6)",
+        "model": "claude-sonnet-5",
+        "at": "2026-10-05T16:28:46+00:00"
+      }
+    }
+  ],
+  "source": "/home/deploy/asset-inbox/drive-2026-10-05"
+}
