@@ -360,7 +360,7 @@ templates:
       lead: {kind: setup, max_words: 6, description: 'what the quote is about, from this ad (a few words that lead into her quote)'}
       ad_hook: {kind: ad_hook, max_words: 9, description: 'the speaker''s own words from ad_quotes, word for word, inside the quotation marks'}
       tail: {kind: setup, max_words: 4, description: 'the words that finish the sentence (may be one word)'}
-    example: {lead: The Apartment Sauna She, ad_hook: could not be more excited, tail: About}
+    example: {lead: The apartment sauna she, ad_hook: could not be more excited, tail: about}
   - id: o2
     alias: three-short-beats
     open_loop: true
@@ -371,7 +371,7 @@ templates:
       beat_a: {kind: beat, max_words: 3, description: 'the first obstacle THIS ad names or answers, in its own words'}
       beat_b: {kind: beat, max_words: 3, description: 'a second obstacle from this ad'}
       beat_c: {kind: beat, max_words: 4, description: 'what the reader still gets, in this ad''s terms'}
-    example: {beat_a: electrician, beat_b: spare room, beat_c: a real sauna}
+    example: {beat_a: gym fees, beat_b: waiting, beat_c: a real sauna}
   - id: o3
     alias: audience-call-out
     open_loop: true
@@ -386,7 +386,9 @@ templates:
     open_loop: true
     needs_speaker: true
     word_band: [6, 13]
-    pattern: "<pronoun> Wanted <desire>. <possessive> <place> Had <obstacle>."
+    # sentence case (cycle 79 review): a capitalised template word made the
+    # writer title-case the whole line
+    pattern: "<pronoun> wanted <desire>. <possessive> <place> had <obstacle>."
     styles: [reasons, mistakes, questions, myths, tested]
     slots:
       pronoun: {kind: choice, options: [She, He]}

@@ -585,11 +585,11 @@ def test_a_listicle_repair_is_a_patch_of_the_flagged_item_only(tmp_path):
     good["reasons"][4]["text"] = ("Some brands ask for a name and a phone number before they show anything. "
                                   "Here the information is on the page.")
     for entry in good["audience_fit"]["for_you"] + good["audience_fit"]["not_for_you"]:
-        entry["text"] = entry["text"].replace("120V/20A", "standard")
+        entry["text"] = entry["text"].replace("120V/20A", "dedicated")  # cycle 79: never "standard" for this model
     good["faq"]["questions"][1]["answer"] = "Confirm the outlet near your install spot before you buy."
     good["faq"]["questions"][1]["claim_ids"] = []
     # cycle 79 first-screen fields
-    good.update(eyebrow="For careful buyers", display_headline="Myths, checked against the specs", accent_phrase=" ".join(good["headline"].split()[-2:]),
+    good.update(eyebrow="For careful buyers", display_headline="The price, right where you can find it", accent_phrase=" ".join(good["headline"].split()[-2:]),
                 lede="What would you want to know before you buy?", scroll_cue="Start with the first myth",
                 hero_quote_id="q1")
     bad = copy.deepcopy(good)

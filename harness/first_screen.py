@@ -575,7 +575,162 @@ def find_first_screen_violations(page, ad_brief=None, facts_pack=None):
     problems += find_speaker_narration_violations(page)
     problems += find_quote_repeat_violations(page, ad_brief, facts_pack)
     problems += find_source_parenthetical_violations(page)
+    problems += find_headline_case_violations(page, facts_pack)
+    problems += find_speaker_slot_word_violations(page, ad_brief, facts_pack)
+    problems += find_install_claim_violations(page, facts_pack)
+    problems += find_display_message_match_violations(page, ad_brief, facts_pack)
     return problems
+
+
+# ---------------------------------------------------------------------------
+# Cycle 79 second review: sentence case, speaker slots from her words,
+# installation wording as a claim, the display line carries the ad's hook
+# ---------------------------------------------------------------------------
+
+_CAP_WORD_RE = re.compile(r"\b[A-Z][a-z][\w'’-]*")
+
+
+def _proper_words(facts_pack):
+    """Words that may be capitalised mid-sentence: the brand, model and
+    product names on this run, and "I"."""
+    words = {"I"}
+    product = (facts_pack or {}).get("product") or {}
+    for value in [product.get("name"), product.get("short_name")] + list((facts_pack or {}).get("digit_exempt_terms") or []):
+        for w in re.findall(r"[A-Za-z][\w'’-]*", str(value or "")):
+            words.add(w)
+    try:
+        words.add(tenant_mod.active().display_name)
+    except Exception:
+        pass
+    return words
+
+
+def find_headline_case_violations(page, facts_pack=None):
+    """Headlines are sentence case (only the display style uppercases, in
+    CSS). Two or more capitalised words after a sentence's first word, that
+    are not names, fail."""
+    allowed = _proper_words(facts_pack)
+    problems = []
+    for field in ("headline", "display_headline"):
+        value = (page or {}).get(field)
+        if not isinstance(value, str):
+            continue
+        # the cycle 41/70 count formulas ("5 Reasons ... Are Choosing ...") are
+        # title-case templates, used only when an operator names one
+        if field == "headline" and re.search(r"\d", value):
+            continue
+        caps = []
+        for sentence in re.split(r"(?<=[.?!])\s+", _QUOTED_RE.sub(" ", value).strip()):
+            words = _CAP_WORD_RE.findall(sentence)
+            first = re.match(r"\W*([A-Za-z][\w'’-]*)", sentence)
+            caps += [w for w in words if w not in allowed and not (first and w == first.group(1))]
+        if len(caps) >= 2:
+            problems.append(_problem(f"$.{field}", f"listicle:headline_case:$.{field}",
+                                     f"{field} is in title case ({', '.join(caps[:4])} ...) -- write it in sentence "
+                                     "case: capitals only for a sentence's first word and names", text=value))
+    return problems
+
+
+_SPEAKER_WORD_RE = re.compile(r"\b(?:she|he|her|his)\b", re.IGNORECASE)
+def find_speaker_slot_word_violations(page, ad_brief, facts_pack=None):
+    """A headline that describes the speaker (she/he outside a quote: the
+    o1/o4 story templates) uses her transcript words only -- "She wanted
+    recovery space" when she never said "recovery" fails. The template's
+    own words, the category ("sauna") and names are free."""
+    from .listicle_quality import _GENERIC_MATCH_STEMS
+    from .quote_fidelity import _content_stems
+
+    headline = (page or {}).get("headline")
+    if not isinstance(headline, str) or not ad_brief:
+        return []
+    unquoted = _QUOTED_RE.sub(" ", headline)
+    if not _SPEAKER_WORD_RE.search(unquoted):
+        return []
+    said = set(_content_stems(ad_brief.get("transcript_or_text") or ""))
+    free = set(_content_stems("wanted want had have apartment home room space sauna saunas the a an")) \
+        | _GENERIC_MATCH_STEMS | set(_content_stems(" ".join(_proper_words(facts_pack))))
+    extra = [w for w in _content_stems(unquoted) if w not in said and w not in free]
+    if not extra:
+        return []
+    return [_problem("$.headline", "listicle:speaker_slot_words",
+                     f"the headline tells the speaker's story with words she never said ({', '.join(extra[:4])}) -- "
+                     "use her own transcript words in it, or a template that does not describe her",
+                     text=headline)]
+
+
+# Installation ease is a claim: a model that needs a dedicated 20A outlet
+# never gets "no electrician"; only a model whose own verified claim says so.
+INSTALL_EASE_RE = re.compile(
+    r"\b(?:no|without|never|skip(?:ping)?)\b[^.?!]{0,30}?\b(?:electrician|rewir\w*|wiring|dedicated circuit|new circuit)\b"
+    r"|\b(?:standard|household|regular|normal|existing|ordinary)\s+(?:wall\s+)?(?:\d+V\s+)?(?:household\s+)?outlet\b"
+    r"|\boutlet you already have\b|\bwall you already have\b|\bplugs?\s+(?:right\s+)?(?:in|into)\b|\bplug(?:ged)?\s+(?:it\s+)?in\b"
+    r"|\bplug[- ]and[- ]play\b",
+    re.IGNORECASE)
+_EASE_SUPPORT_RE = re.compile(r"no electrician|plugs? into a standard|standard outlet\s*--|plug-and-play", re.IGNORECASE)
+_TOP_FIELDS = ("headline", "dek", "display_headline", "eyebrow", "lede", "scroll_cue", "accent_phrase")
+
+
+def _model_claims(facts_pack):
+    slug = _slug(facts_pack)
+    return [c for c in (facts_pack or {}).get("verified_claims", [])
+            if slug and (f"-{slug}-" in c.get("id", "") or c.get("id", "").endswith(f"-{slug}"))]
+
+
+def find_install_claim_violations(page, facts_pack):
+    """Fix (cycle 79 second review): "no electrician", "plugs into a
+    standard outlet", "no dedicated circuit" ... are claims. Top-of-page
+    fields need a verified claim of THIS page's model that says so; an item,
+    proof, fit line or FAQ answer needs one in its own claim_ids. Questions
+    pass ("Does it need an electrician?")."""
+    claims = {c["id"]: c for c in (facts_pack or {}).get("verified_claims", [])}
+    model_ok = any(_EASE_SUPPORT_RE.search(c.get("text") or "") for c in _model_claims(facts_pack))
+    problems = []
+
+    def check(path, text, supported):
+        for sentence in _SENTENCE_RE.findall(_QUOTED_RE.sub(" ", text or "")):
+            if sentence.strip().endswith("?"):
+                continue
+            m = INSTALL_EASE_RE.search(sentence)
+            if m and not supported:
+                problems.append(_problem(path, f"listicle:install_claim:{path}",
+                                         f'"{m.group(0)}" says installation is easy, and no verified claim of this '
+                                         "page's model says so -- state the model's real electrical requirement "
+                                         "with its claim_id, or leave installation out", text=text))
+                return
+
+    for field in _TOP_FIELDS:
+        if isinstance((page or {}).get(field), str):
+            check(f"$.{field}", page[field], model_ok)
+    for path, node in walk_page(page or {}):
+        if not isinstance(node, dict) or path == "$":
+            continue
+        ids = list(node.get("claim_ids") or [])
+        if isinstance(node.get("proof"), dict):
+            ids += list(node["proof"].get("claim_ids") or [])
+        supported = any(_EASE_SUPPORT_RE.search((claims.get(i) or {}).get("text") or "") for i in ids)
+        for key in ("heading", "text", "answer"):
+            if isinstance(node.get(key), str):
+                check(f"{path}.{key}", node[key], supported)
+    return problems
+
+
+def find_display_message_match_violations(page, ad_brief, facts_pack=None):
+    """The display line carries the ad's own hook too (listicle_quality's
+    message-match rule): one content word in common with the hook, angle,
+    promise or objections, when the ad gives any."""
+    from .listicle_quality import ad_hook_stems
+    from .quote_fidelity import _content_stems
+
+    line = (page or {}).get("display_headline")
+    if not isinstance(line, str) or not line.strip() or not ad_brief:
+        return []
+    wanted = ad_hook_stems(ad_brief, set(_content_stems(" ".join(_proper_words(facts_pack)))))
+    if not wanted or set(_content_stems(line)) & wanted:
+        return []
+    return [_problem("$.display_headline", "listicle:display_message_match",
+                     f"display_headline {line!r} shares no word with the ad's hook "
+                     f"({(ad_brief.get('hook') or '')[:80]!r}) -- say the ad's own promise in a few words",
+                     text=line)]
 
 
 # ---------------------------------------------------------------------------
@@ -784,6 +939,12 @@ def writer_lines():
         "words -- the display first screen sets it big; no number.",
         "Build the headline, display_headline, dek and lede from THIS ad (ad_brief.hook, angle, audience, "
         "ad_quotes) -- never from an example phrase in these instructions or another ad's situation.",
+        "Headlines are sentence case: a capital only on a sentence's first word and on names. A headline that "
+        "describes the speaker (she/he) uses only words from her transcript.",
+        "Installation is a claim: \"no electrician\", \"no rewiring\", \"plugs into a standard outlet\", \"no "
+        "dedicated circuit\" may appear only when a verified claim of THIS page's model says so (in an item, cite "
+        "it); a model that needs a dedicated outlet never gets them -- state its real requirement instead.",
+        "The display_headline shares at least one word with the ad's hook, angle or promise.",
         '"dek": one plain sentence under the headline that states the ad\'s problem in its own words, to the '
         "reader -- never a story about the speaker.",
         '"lede": 1-3 short sentences that open the loop the items close -- about the READER (you) or the product, '

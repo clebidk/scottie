@@ -87,7 +87,14 @@ def _filler_words(n, offset=0, tag=None):
     return re.sub(r"([.!?:])(\s|$)", rf" ({_TAG_WORDS[tag]})\1\2", text) + f" ({_TAG_WORDS[tag]})"
 
 
-def _listicle_page(style, headline=None, hero_quote_id=None):
+def _display_line(brief):
+    """Cycle 79: the display line shares a word with the ad's hook (gate)."""
+    words = re.findall(r"[A-Za-z]{5,}", (brief or {}).get("hook") or "")
+    word = max(words, key=len).lower() if words else "sauna"
+    return f"The {word} part, made simple"
+
+
+def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
     headline = headline or _LISTICLE_HEADLINES[style]
     page = {
         "style": style,
@@ -95,7 +102,7 @@ def _listicle_page(style, headline=None, hero_quote_id=None):
         "eyebrow": "For careful buyers",
         "headline": headline,
         "accent_phrase": " ".join(headline.rstrip(".").split()[-2:]),
-        "display_headline": "Check the cabin before it comes home",
+        "display_headline": display_line or "Check the cabin before it comes home",
         # Cycle 74: the dek carries the fixtures' hooks (message match).
         "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
         "lede": "What should you check before a cabin like this comes home? The answers start below.",
@@ -153,7 +160,7 @@ def _listicle_page(style, headline=None, hero_quote_id=None):
     return page
 
 
-def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None):
+def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None, display_line=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -171,7 +178,7 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_i
 
         return COMPARISON_PAGE
     if cartridge == "listicle":
-        return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id)
+        return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
     return CANNED_PAGES[cartridge]
 
 
@@ -327,7 +334,8 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
 
     quotes = safe_quote_candidates(brief, None)
     hero_quote_id = quotes[0]["id"] if quotes else None
-    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id))
+    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id,
+                                             _display_line(brief)))
                   for c in selected]
     client = FakeClient(responses)
 

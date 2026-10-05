@@ -396,7 +396,7 @@ def test_the_writer_never_sees_a_copyable_open_loop_example():
     for tid in ("o1", "o2", "o3", "o4"):
         plan = headlines.build_plan(tid, "reasons", FACTS_PACK, TENANT)
         seen += " ".join(headlines.writer_lines(plan))
-    for phrase in ("spare room", "electrician", "six days a week", "real sauna", "could not be more excited",
+    for phrase in ("spare room", "no electrician.", "six days a week", "real sauna", "could not be more excited",
                    "Recover at home"):
         assert phrase.lower() not in seen.lower(), phrase
 
@@ -438,3 +438,93 @@ def test_the_heading_part_wins_over_a_body_mention(mini_tenant):
     pl.assign_page_images(page, facts, "listicle", tenant=mini_tenant, allow_ai_renders=True,
                           keep_hero=True, cutout_id=CUTOUT)
     assert page["reasons"][1]["image"]["asset_id"] == ID["0d82"]
+
+
+
+# ---------------------------------------------------------------------------
+# Second review: sentence case, speaker slot words, installation claims,
+# the display line's message match (runs ...-zpbm, ...-ljg7, ...-4bka)
+# ---------------------------------------------------------------------------
+
+ZPBM = "She Wanted Recovery Space. Her Apartment Had No Room To Spare."
+MINI_TRANSCRIPT = ("I just ordered the Peak Sauna Mini and I could not be more excited. I've been looking at a bunch "
+                   "of different saunas and this one really stuck out to me because it's small footprint so it's "
+                   "easy to fit into my apartment. It plugs right into a normal outlet so no need to")
+MINI_FACTS = dict(copy.deepcopy(FACTS_PACK), product={"name": "Mini", "slug": "peak-saunas-mini"},
+                  verified_claims=[{"id": "spec-mini-electrical", "category": "spec",
+                                    "text": "Mini electrical: 120V/15A, standard outlet -- no electrician needed. "
+                                            "Wattage ~1500W."}])
+FUJI_FACTS = dict(copy.deepcopy(FACTS_PACK), product={"name": "Fuji", "slug": "peak-saunas-fuji"},
+                  verified_claims=[
+                      {"id": "spec-fuji-electrical-requirement", "category": "spec",
+                       "text": "Fuji -- Electrical requirement: 120V / 20A outlet."},
+                      {"id": "gbrain-fuji-power", "category": "spec",
+                       "text": "Fuji electrical: 120V/20A, dedicated outlet required — a standard 15A outlet is NOT "
+                               "sufficient. Wattage ~2050W."},
+                      {"id": "pdp-fuji-electrical", "category": "spec", "text": "Runs on a dedicated 120V / 20A outlet."}])
+
+
+def test_the_o4_template_is_sentence_case_and_title_case_fails():
+    from harness import headlines
+
+    assert "wanted" in headlines.template("o4")["pattern"] and "had" in headlines.template("o4")["pattern"]
+    page = _page("story")
+    page["headline"] = ZPBM
+    assert "listicle:headline_case:$.headline" in _keys(first_screen.find_headline_case_violations(page, MINI_FACTS))
+    page["headline"] = "She wanted a sauna that fits. Her apartment had no room to spare."
+    assert first_screen.find_headline_case_violations(page, MINI_FACTS) == []
+    page["headline"] = "The Peak Mini fits where you live"      # a name may be capitalised
+    assert first_screen.find_headline_case_violations(page, MINI_FACTS) == []
+
+
+def test_a_speaker_headline_uses_her_words_only():
+    brief = dict(SPEAKER_BRIEF, transcript_or_text=MINI_TRANSCRIPT)
+    page = _page("story")
+    page["headline"] = "She wanted recovery space. Her apartment had no room to spare."
+    keys = _keys(first_screen.find_speaker_slot_word_violations(page, brief, MINI_FACTS))
+    assert keys == {"listicle:speaker_slot_words"}          # "recovery", "spare" are not hers
+    page["headline"] = "She wanted a small footprint. Her apartment had no space."
+    assert first_screen.find_speaker_slot_word_violations(page, brief, MINI_FACTS) == []
+    page["headline"] = "No electrician. Still a real sauna."   # not about the speaker: not checked here
+    assert first_screen.find_speaker_slot_word_violations(page, brief, MINI_FACTS) == []
+
+
+@pytest.mark.parametrize("field,text", [
+    ("headline", "No electrician. No spa fees. Still real recovery."),          # ljg7
+    ("display_headline", "No electrician. Still a real sauna."),               # 4bka
+    ("lede", "It plugs into the outlet you already have."),
+    ("dek", "No rewiring, no dedicated circuit, just a sauna."),
+])
+def test_install_ease_on_the_fuji_fails_and_on_the_mini_passes(field, text):
+    page = _page("story")
+    page[field] = text
+    assert f"listicle:install_claim:$.{field}" in _keys(first_screen.find_install_claim_violations(page, FUJI_FACTS))
+    assert first_screen.find_install_claim_violations(page, MINI_FACTS) == []
+
+
+def test_an_item_needs_the_claim_in_its_own_claim_ids():
+    page = _page("story")
+    page["reasons"][0]["text"] = "No electrician visit: it plugs into a standard outlet."
+    page["reasons"][0]["claim_ids"] = []
+    page["reasons"][0]["proof"] = {"text": "It runs on 120V.", "claim_ids": []}
+    assert _keys(first_screen.find_install_claim_violations(page, MINI_FACTS))
+    page["reasons"][0]["claim_ids"] = ["spec-mini-electrical"]
+    assert first_screen.find_install_claim_violations(page, MINI_FACTS) == []
+    page["reasons"][0]["claim_ids"] = ["pdp-fuji-electrical"]
+    assert _keys(first_screen.find_install_claim_violations(page, FUJI_FACTS))
+    # a question, and the Fuji's real requirement, pass
+    page["reasons"][0]["text"] = "Does it need an electrician? It runs on a dedicated 120V / 20A outlet."
+    assert first_screen.find_install_claim_violations(page, FUJI_FACTS) == []
+
+
+def test_the_4bka_display_line_must_carry_the_ads_hook():
+    regret = dict(SPEAKER_BRIEF, hook="My #1 regret in life was buying this Sauna. Read my story...",
+                  angle="Warn potential sauna buyers about the hidden pitfalls of sauna research and purchase.",
+                  promise="A checklist that would have saved months of frustration when buying a sauna",
+                  objections_raised=[])
+    page = _page("display")
+    page["display_headline"] = "No electrician. Still a real sauna."
+    assert _keys(first_screen.find_display_message_match_violations(page, regret, FUJI_FACTS)) == {
+        "listicle:display_message_match"}
+    page["display_headline"] = "The sauna regret nobody warns you about"
+    assert first_screen.find_display_message_match_violations(page, regret, FUJI_FACTS) == []
