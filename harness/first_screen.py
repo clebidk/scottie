@@ -8,13 +8,13 @@ style and the look:
 
   face     a still from the ad video (the creator, harness/ad_frames.py),
            4:5, with the speaker's verbatim quote as its caption ("In the ad
-           she made for PEAK"); headline above, one-line byline.
+           she made for <tenant>"); headline above, one-line byline.
   story    text first: eyebrow, headline, byline, then a lede that starts on
            screen 1 -- the speaker's verbatim quote next to a small round crop
            of the ad still, an open-loop paragraph -- then item 01.
-  display  a wide display face (Peak Grotesk Wide, upper case; or Acid
-           Grotesk), accent phrase in red, dek, the product cut-out, the stats
-           strip, a scroll cue.
+  display  a wide display face (the tenant's display_wide font, upper
+           case; or display_acid), accent phrase in red, dek, the product
+           cut-out, the stats strip, a scroll cue.
 
 The style is LAYOUT, not copy: the writer writes one set of first-screen
 fields (eyebrow, headline, accent_phrase, dek, lede, scroll_cue,
@@ -577,6 +577,7 @@ def prepare(state):
                 client=None if dry else state.client,
                 model=state.tenant.get("models.vision") or ad_frames.DEFAULT_VISION_MODEL,
                 budget=state.budget, log=state.log,
+                retired_mark=state.tenant.get("first_screen.retired_mark"),
             )
     quote = hero_quote(page, state.ad_brief, state.facts_pack)
     style, note = resolve_hero_style(

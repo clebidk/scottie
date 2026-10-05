@@ -25,7 +25,7 @@ Video ad:
 Image ad: the ad image itself, ONLY when the vision check finds a person,
 no retired brand mark and no claim text the page cannot verify (a rating,
 a review count, a price, a percentage). The 2026-10-05 "regret" still shows
-the old mountain mark and "Trustpilot 4.6 based on 3,892 reviews": rejected,
+the retired mark and a third-party review count: rejected,
 and the record keeps the reason.
 Text ad, or nothing usable: no frame. The first screen then falls back
 (harness/first_screen.py: face -> story without a face, or display).
@@ -149,6 +149,8 @@ def frame_scores(path):
         grey = im.convert("L")
         grey.thumbnail((320, 320))
         edges = grey.filter(ImageFilter.FIND_EDGES)
+        w, h = edges.size
+        edges = edges.crop((2, 2, max(w - 2, 3), max(h - 2, 3)))  # the filter's own border is not detail
         return {"sharpness": round(ImageStat.Stat(edges).stddev[0], 2),
                 "brightness": round(ImageStat.Stat(grey).mean[0], 1)}
 
@@ -178,12 +180,13 @@ IMAGE_SYSTEM = """You check one still image ad for a home sauna company before i
 
 Report:
 - person: true when a real person's face is clearly visible;
-- old_logo: true when the image shows a mountain line-drawing logo or the words "Peak Saunas" as a logo (on the product, its glass, a panel, or as an overlay). Any other brand mark: report it under "logos";
+- old_logo: true when the image shows {retired_mark} (on the product, its glass, a panel, or as an overlay). Any other brand mark: report it under "logos";
 - logos: the brand marks you can see, as short descriptions ([] when none);
 - claim_text: every piece of on-image text that states a rating, a review count, a number of customers, a price, a percentage, a discount, an award, a health or medical outcome, or names a review site (copy it word for word; [] when none);
 - face_center: the face centre as fractions of width and height, or null.
 
-Return ONLY JSON: {"person": true, "old_logo": false, "logos": [], "claim_text": [], "face_center": [0.5, 0.3]}"""
+Return ONLY JSON: {{"person": true, "old_logo": false, "logos": [], "claim_text": [], "face_center": [0.5, 0.3]}}"""
+DEFAULT_RETIRED_MARK = "the company's retired logo"
 
 
 def _b64(data):
@@ -410,7 +413,7 @@ def build_from_video(video, run_dir, *, ffmpeg_bin, client=None, model=DEFAULT_V
 
 
 def build_from_image(image, run_dir, *, client=None, model=DEFAULT_VISION_MODEL, budget=None, log=None,
-                     source=None):
+                     source=None, retired_mark=None):
     out_dir = frame_dir(run_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     record = {"version": 1, "usable": False, "source": source or {"file": Path(image).name, "kind": "image"},
@@ -422,7 +425,8 @@ def build_from_image(image, run_dir, *, client=None, model=DEFAULT_VISION_MODEL,
     content = [_b64(small_jpeg(image, edge=768)),
                {"type": "text", "text": "Return the JSON object described in your instructions."}]
     try:
-        text, usage = _call(client, model, IMAGE_SYSTEM, content, budget, log)
+        system = IMAGE_SYSTEM.format(retired_mark=retired_mark or DEFAULT_RETIRED_MARK)
+        text, usage = _call(client, model, system, content, budget, log)
         record["cost_usd"] = _cost(model, usage)
         check = parse_image_response(text)
     except Exception as e:
@@ -449,10 +453,13 @@ def build_for_input(path, run_dir, **kwargs):
     path = Path(path)
     ext = path.suffix.lower()
     if ext in VIDEO_EXT:
+        kwargs.pop("retired_mark", None)
         return build_from_video(path, run_dir, **kwargs)
     kwargs.pop("ffmpeg_bin", None)
     kwargs.pop("run", None)
+    retired_mark = kwargs.pop("retired_mark", None)
     if ext in IMAGE_EXT:
+        kwargs["retired_mark"] = retired_mark
         return build_from_image(path, run_dir, **kwargs)
     out_dir = frame_dir(run_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

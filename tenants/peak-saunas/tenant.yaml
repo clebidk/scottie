@@ -371,6 +371,9 @@ first_screen:
   # The display style's headline face: wide (Peak Grotesk Wide, upper case)
   # or acid (Acid Grotesk, sentence case). Both owner-approved 2026-10-05.
   display_font: wide
+  # What the image-ad check (harness/ad_frames.py) looks for as the retired
+  # brand mark; an image ad that shows it is never put on the page.
+  retired_mark: 'a mountain line-drawing logo, or the words "Peak Saunas" used as a logo'
 
 # Cycle 79 (owner, "for now"): the product hero and every product-of-X image
 # the renderer owns use the cut-out of X. One manifest (model -> file), so a

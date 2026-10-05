@@ -379,9 +379,10 @@ def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requeste
             raise HeadlineTemplateError(f"headline template {requested!r} cannot head this {style} page: {why}")
         return build_plan(requested, style, facts_pack, tenant=tenant, today=today)
     ids = eligible_templates(style, facts_pack, tenant, ad_brief)
-    if prefer:
-        preferred = {canonical_id(p) for p in prefer}
-        ids = [tid for tid in ids if tid in preferred] or ids
+    preferred = {canonical_id(p) for p in prefer or ()}
+    narrowed = [tid for tid in ids if tid in preferred]
+    if narrowed:
+        ids = narrowed
     elif open_loop_default(tenant):
         # Cycle 79 (owner): no fixed "N Questions ... Should Ask Before
         # Buying ..." formula by default -- the open-loop templates first.

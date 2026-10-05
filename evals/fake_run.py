@@ -85,12 +85,18 @@ def _filler_words(n, offset=0, tag=None):
     return re.sub(r"([.!?:])(\s|$)", rf" ({_TAG_WORDS[tag]})\1\2", text) + f" ({_TAG_WORDS[tag]})"
 
 
-def _listicle_page(style, headline=None):
-    return {
+def _listicle_page(style, headline=None, hero_quote_id=None):
+    headline = headline or _LISTICLE_HEADLINES[style]
+    page = {
         "style": style,
-        "headline": headline or _LISTICLE_HEADLINES[style],
+        # Cycle 79: the first-screen fields.
+        "eyebrow": "For careful buyers",
+        "headline": headline,
+        "accent_phrase": " ".join(headline.rstrip(".").split()[-2:]),
         # Cycle 74: the dek carries the fixtures' hooks (message match).
         "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
+        "lede": "What should you check before a cabin like this comes home? The answers start below.",
+        "scroll_cue": "Start with the first check",
         "hero": {"asset_id": _LISTICLE_ASSET_IDS[0]},
         "reasons": [
             {
@@ -139,9 +145,12 @@ def _listicle_page(style, headline=None):
             "financing_line": {"text": "Financing is available through Bread Pay at checkout.", "claim_ids": []},
         },
     }
+    if hero_quote_id:
+        page["hero_quote_id"] = hero_quote_id
+    return page
 
 
-def _canned_page(cartridge, style=None, tenant=None, headline=None):
+def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -159,7 +168,7 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None):
 
         return COMPARISON_PAGE
     if cartridge == "listicle":
-        return _listicle_page(style or listicle_mod.STYLES[0], headline)
+        return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id)
     return CANNED_PAGES[cartridge]
 
 
@@ -310,7 +319,13 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     responses = [json_response(brief)]
     if brief.get("claims_made"):
         responses.append(json_response({}))  # the semantic-match call only happens when claims exist
-    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline)) for c in selected]
+    # Cycle 79: the first screen names the ad quote it shows (when the ad has one).
+    from harness.claims import safe_quote_candidates
+
+    quotes = safe_quote_candidates(brief, None)
+    hero_quote_id = quotes[0]["id"] if quotes else None
+    responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id))
+                  for c in selected]
     client = FakeClient(responses)
 
     args = argparse.Namespace(
