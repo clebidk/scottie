@@ -106,6 +106,7 @@
 .adv-listicle.look-open .op-proof{border-left:3px solid var(--pk-red);padding:2px 0 2px 12px;font-weight:500;color:var(--pk-ink)}
 .adv-listicle.look-open .op-media .adv-img{width:100%;border-radius:var(--pk-radius)}
 .adv-listicle.look-open .op-media .op-cover{object-fit:cover}
+.adv-listicle.look-open .op-media--cut .adv-img{width:auto;max-width:100%;max-height:360px;margin:0 auto}
 /* pull quote: a red bar, no box */
 .adv-listicle.look-open .op-pull{border-top:1px solid var(--pk-line);padding:36px 0}
 .adv-listicle.look-open .op-pull blockquote{margin:0;border-left:3px solid var(--pk-red);padding:2px 0 2px 16px;font:500 22px/1.35 var(--pk-heading);color:var(--pk-ink)}
@@ -235,7 +236,8 @@
         {% if item.proof and item.proof.text %}<p class="op-proof">{{ item.proof.text }}</p>{% endif %}
       </div>
       {% set item_asset = assets.get(item.image.asset_id) if item.image else None %}
-      {% if item_asset %}<div class="op-media">{{ render_image_slot(item_asset, frame="4x3", css_class=("" if item_asset.cutout else "op-cover"), eager=(loop.index <= 2)) }}</div>{% endif %}
+      {# a product cut-out keeps its own (tall) ratio, capped in height; a photo fills a 4:3 frame #}
+      {% if item_asset %}<div class="op-media{{ ' op-media--cut' if item_asset.kind == 'cutout' else '' }}">{{ render_image_slot(item_asset, frame=(None if item_asset.kind == 'cutout' else "4x3"), css_class=("" if item_asset.cutout else "op-cover"), eager=(loop.index <= 2)) }}</div>{% endif %}
     </section>
     {% if loop.index == 3 %}
     <div class="op-mid"><a class="op-btn" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a></div>

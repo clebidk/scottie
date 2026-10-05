@@ -399,3 +399,23 @@ def test_the_writer_never_sees_a_copyable_open_loop_example():
     for phrase in ("spare room", "electrician", "six days a week", "real sauna", "could not be more excited",
                    "Recover at home"):
         assert phrase.lower() not in seen.lower(), phrase
+
+
+def test_a_cutout_item_keeps_its_own_ratio(tmp_path, monkeypatch):
+    # the photo assignment puts the cut-out on a whole-unit item (tested
+    # above); the generic slot-plan backstop is skipped here
+    monkeypatch.setattr(render_mod.ground_mod, "enforce_slot_plan",
+                        lambda page, *a, **k: render_mod.collect_asset_ids(page))
+    run_dir = _run_dir(tmp_path)
+    page = _page("story")
+    page["reasons"][0]["image"] = {"asset_id": "asset-cutout-fuji"}
+    html = render_mod.render_page(
+        cartridge_name="listicle", page=page, ad_brief=SPEAKER_BRIEF, facts_pack=RICH_FACTS_PACK,
+        cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,
+        templates_dir=REPO_ROOT / "harness" / "templates", out_dir=run_dir / "listicle",
+        published="2026-10-05", updated="2026-10-05", tenant=TENANT, download_assets=True,
+        fetch_url=lambda url: _make_image_bytes(600, 450),
+    ).read_text()
+    item = html.split('class="op-item"')[1]
+    assert "asset-cutout-fuji" in item
+    assert "op-media--cut" in item and 'style="aspect-ratio:4 / 3"' not in item
