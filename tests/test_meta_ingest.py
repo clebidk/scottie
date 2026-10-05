@@ -871,6 +871,68 @@ def test_a_second_ad_with_the_same_creative_is_a_duplicate_not_a_new_test(tmp_pa
     assert inbox.read("120210000000000108")["duplicate_of"] == "120210000000000101"
 
 
+PERMISSION_283 = {"error": {
+    "message": "(#283) This endpoint requires the 'pages_read_engagement' permission",
+    "type": "OAuthException", "code": 283}}
+
+
+def _with_story_video(ad, video_id, **changes):
+    ad = json.loads(json.dumps(ad))
+    ad["creative"]["object_story_spec"] = {"video_data": {"video_id": video_id}}
+    ad.update(changes)
+    return ad
+
+
+def _video_ok(video_id):
+    return [(200, dict(fixture("video.json"), id=video_id))]
+
+
+def test_a_page_video_the_token_cannot_read_falls_back_to_the_ad_account_copy(tmp_path):
+    ad = _with_story_video(_single("ads_page1.json", "120210000000000101"), "900000000000009")
+    routes = ad_id_routes(ad)
+    routes[f"/{V}/900000000000001"] = [(400, PERMISSION_283)]
+    routes[f"/{V}/900000000000009"] = _video_ok("900000000000009")
+    summary, inbox, _, _, _ = run_pull(tmp_path, graph=FakeGraph(routes), ad_ids=["120210000000000101"])
+    assert summary["ingested"] == ["120210000000000101"]
+    item = inbox.read("120210000000000101")
+    assert item["state"] == "new"
+    assert item["video"]["id"] == "900000000000009"
+    assert item["media_source"] == "object_story_spec.video_data"
+    assert item["creative_key"] == "video:900000000000009"
+
+
+def test_when_no_video_of_an_ad_can_be_read_the_item_fails_and_the_pull_goes_on(tmp_path):
+    ad = _with_story_video(_single("ads_page1.json", "120210000000000101"), "900000000000009")
+    image = _single("ads_page1.json", "120210000000000102")
+    routes = ad_id_routes(ad, image)
+    routes[f"/{V}/900000000000001"] = [(400, PERMISSION_283)]
+    routes[f"/{V}/900000000000009"] = [(400, PERMISSION_283)]
+    summary, inbox, _, _, _ = run_pull(
+        tmp_path, graph=FakeGraph(routes), ad_ids=["120210000000000101", "120210000000000102"])
+    assert summary["failed"] == ["120210000000000101"]
+    assert summary["ingested"] == ["120210000000000102"]
+    item = inbox.read("120210000000000101")
+    assert item["state"] == "failed"
+    assert "no video of this ad can be read" in item["reason"] and "#283" in item["reason"]
+    assert item["media_type"] == ""  # no fallback to a still image
+    assert TOKEN not in item["reason"]
+
+
+def test_two_ads_with_page_copies_of_one_video_are_one_creative(tmp_path):
+    first = _with_story_video(_single("ads_page1.json", "120210000000000101"), "900000000000009")
+    second = _with_story_video(first, "900000000000009", id="120210000000000108")
+    second["creative"]["video_id"] = "900000000000008"
+    routes = ad_id_routes(first, second)
+    for page_copy in ("900000000000001", "900000000000008"):
+        routes[f"/{V}/{page_copy}"] = [(400, PERMISSION_283)]
+    routes[f"/{V}/900000000000009"] = _video_ok("900000000000009")
+    summary, inbox, _, downloads, _ = run_pull(
+        tmp_path, graph=FakeGraph(routes), ad_ids=["120210000000000101", "120210000000000108"])
+    assert summary["ingested"] == ["120210000000000101"]
+    assert inbox.read("120210000000000108")["duplicate_of"] == "120210000000000101"
+    assert len(downloads.calls) == 1
+
+
 def test_cli_meta_pull_ad_ids(no_real_env, monkeypatch, capsys):
     monkeypatch.setenv("META_ACCESS_TOKEN", TOKEN)
     graph = FakeGraph(ad_id_routes(_single("ads_page1.json", "120210000000000103")))

@@ -3669,10 +3669,22 @@ item and so its own test.
   written nowhere. Not combinable with `--since`. Existing-item, `--refresh`,
   `--limit` and `--dry-run` rules are unchanged.
 - Each inbox item records `creative_key` (`video:<video_id>` /
-  `image:<image_hash>` of the chosen media). An ad whose key is already on
-  another item is recorded `skipped` with `duplicate_of` and no download, so
-  `abtest from-inbox` builds one test per creative.
+  `image:<image_hash>` of the media it is built from). An ad whose key is
+  already on another item is recorded `skipped` with `duplicate_of` and no
+  download, so `abtest from-inbox` builds one test per creative.
+- Found on the first live pull: every running video ad's `creative.video_id`
+  is a Page copy that the ads_read token cannot read (`GET <video_id>` ->
+  #283, needs pages_read_engagement), and the pull aborted on it. The same
+  video's ad-account copy (object_story_spec.video_data / asset_feed_spec)
+  can be read. Media is now resolved before download: of the kind
+  choose_media picks, the first candidate the token can read wins
+  (`resolve_media`); a per-object permission refusal is the new
+  `MetaPermissionError` (a MetaAuthError subclass) and fails only that item.
+  An invalid token (190/102) still stops the pull. A video ad never falls
+  back to a still. Because the key is the readable ad-account copy, two ads
+  that share an upload but have different Page copies group together
+  (seen live: 4 such pairs among the top 50 running video ads).
 
 Files: harness/meta_ingest.py, harness/cli.py (argument wiring),
-docs/META-INGEST.md. Tests: 8 new in tests/test_meta_ingest.py (fake Graph
+docs/META-INGEST.md. Tests: 11 new in tests/test_meta_ingest.py (fake Graph
 client, no socket).

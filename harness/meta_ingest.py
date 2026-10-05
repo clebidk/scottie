@@ -106,6 +106,11 @@ class MetaAuthError(MetaError):
     """Meta refused the token: invalid, expired, or missing ads_read."""
 
 
+class MetaPermissionError(MetaAuthError):
+    """Cycle 77: Meta refused one object for lack of a permission (codes 10,
+    200-299) -- the token works, but not for this node."""
+
+
 class MetaAPIError(MetaError):
     """Any other Graph API failure, after retries where retrying applies."""
 
@@ -293,7 +298,7 @@ class GraphClient:
                     f"system-user token with ads_read and put it in the tenant's .env; see {DOCS}."
                 )
             if code in PERMISSION_CODES:
-                raise MetaAuthError(
+                raise MetaPermissionError(
                     f"Meta refused {where}: the token has no permission for it ({detail}). The "
                     f"system user needs ads_read and access to the ad account; see {DOCS}."
                 )
@@ -677,9 +682,8 @@ def _record(item, state, reason):
 # Pull
 # ---------------------------------------------------------------------------
 
-def _resolve_and_download(client, account_id, directory, ad_id, chosen, max_bytes):
-    """Download the chosen media into `directory`. Returns the ad.json media
-    fields."""
+def _resolve(client, account_id, chosen):
+    """(download URL, ad.json media fields) for one media candidate."""
     fields = {"media_type": chosen["kind"], "media_source": chosen["source"]}
     if chosen["kind"] == "video":
         video = client.get(chosen["video_id"], {"fields": VIDEO_FIELDS})
@@ -707,13 +711,43 @@ def _resolve_and_download(client, account_id, directory, ad_id, chosen, max_byte
                 }
         if not url:
             raise MediaRejected(f"image {chosen.get('image_hash')} has no URL in the Graph response")
+    return url, fields
+
+
+def resolve_media(client, account_id, candidates):
+    """(candidate, URL, media fields) for the media an item is built from:
+    the kind choose_media picks (video before image), and of that kind the
+    first candidate the token can read. Cycle 77: Meta gives a video ad's
+    creative.video_id as a Page copy that an ads_read token often cannot
+    read (#283, pages_read_engagement); the same video's ad-account copy in
+    object_story_spec / asset_feed_spec can be read, so it is tried next.
+    Raises MediaRejected when no candidate of that kind can be read."""
+    first = choose_media(candidates)
+    errors = []
+    for chosen in candidates:
+        if chosen["kind"] != first["kind"]:
+            continue
+        try:
+            url, fields = _resolve(client, account_id, chosen)
+        except (MetaPermissionError, MediaRejected) as e:
+            errors.append(client.redact(str(e)))
+            continue
+        return chosen, url, fields
+    if len(errors) == 1:
+        raise MediaRejected(errors[0])
+    raise MediaRejected(f"no {first['kind']} of this ad can be read: " + " | ".join(errors))
+
+
+def _download(client, directory, ad_id, chosen, url, fields, max_bytes):
+    """Download the resolved media into `directory`. Returns the ad.json
+    media fields."""
     stem = directory / f"meta-{ad_id}"
     part_name = stem.with_suffix(".download")
     _, size, content_type = client.download(url, part_name, kind=chosen["kind"], max_bytes=max_bytes)
     final = stem.with_suffix(MEDIA_TYPES[chosen["kind"]][content_type])
     os.replace(part_name, final)
-    fields.update({"media_file": final.name, "media_bytes": size, "media_content_type": content_type})
-    return fields
+    return dict(fields, media_file=final.name, media_bytes=size, media_content_type=content_type)
+
 
 
 def ingest_one(client, inbox, account_id, raw, existing=None, *, max_bytes=MAX_MEDIA_BYTES):
@@ -732,23 +766,25 @@ def ingest_one(client, inbox, account_id, raw, existing=None, *, max_bytes=MAX_M
     item["media_type"], item["media_file"] = "", ""
     item["pulled_at"] = _now()
 
-    chosen = choose_media(norm["media_candidates"])
-    key = creative_key(chosen)
-    item["creative_key"] = key or ""
-    first = inbox.find_creative(key, exclude=ad_id) if key else None
-    if chosen is None:
+    item["creative_key"] = ""
+    if choose_media(norm["media_candidates"]) is None:
         state = "skipped"
         reason = f"creative has no video or image to build from (object_type={norm['object_type'] or 'none'})"
-    elif first is not None:
-        # Cycle 77: one test per creative. The first ad with this media
-        # keeps the test; this one is recorded as its duplicate.
-        item["duplicate_of"] = first["ad_id"]
-        state = "skipped"
-        reason = f"duplicate creative: same {key} as ad {first['ad_id']}, which gets the test"
     else:
         try:
-            item.update(_resolve_and_download(client, account_id, directory, ad_id, chosen, max_bytes))
-            state, reason = "new", ""
+            chosen, url, fields = resolve_media(client, account_id, norm["media_candidates"])
+            key = creative_key(chosen)
+            item["creative_key"] = key or ""
+            first = inbox.find_creative(key, exclude=ad_id) if key else None
+            if first is not None:
+                # Cycle 77: one test per creative. The first ad with this
+                # media keeps the test; this one is recorded as its duplicate.
+                item["duplicate_of"] = first["ad_id"]
+                state = "skipped"
+                reason = f"duplicate creative: same {key} as ad {first['ad_id']}, which gets the test"
+            else:
+                item.update(_download(client, directory, ad_id, chosen, url, fields, max_bytes))
+                state, reason = "new", ""
         except MetaAuthError:
             raise
         except (MediaRejected, MetaAPIError) as e:

@@ -90,6 +90,11 @@ When an ad's key is already on another inbox item, the ad is recorded as
 `skipped` with `duplicate_of: <first ad id>` and no media download, so
 `abtest from-inbox` builds one test for the creative, not one per ad.
 
+A video ad's `creative.video_id` is often a Page copy that an ads_read
+token cannot read (#283). The pull then tries the ad's other video ids
+(object_story_spec, asset_feed_spec: the ad-account copy) and keeps the
+first it can read; the item fails only when none can be read.
+
 An ad already in the inbox is skipped, except one whose last pull failed
 (for example, a CDN error). That one is tried again on the next pull, so a
 cron run heals itself. Exit code 0 when the pull ran, even when an item
