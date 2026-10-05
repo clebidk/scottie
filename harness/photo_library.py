@@ -211,6 +211,18 @@ def validate_tags(tags, *, features, models):
     return errs
 
 
+def apply_corrections(photo, tags):
+    """`tags` with the photo's recorded human corrections applied (cycle 79):
+    each {"field": "features_visible", "removed": [...], "added": [...]}."""
+    for c in photo.get("corrections") or []:
+        if not isinstance(c, dict) or c.get("field") != "features_visible":
+            continue
+        feats = [f for f in tags.get("features_visible") or [] if f not in set(c.get("removed") or [])]
+        feats += [f for f in c.get("added") or [] if f not in feats]
+        tags["features_visible"] = feats
+    return tags
+
+
 def validate_manifest(data, *, features, models):
     """Problems (strings) with a whole manifest; [] when valid. An untagged
     photo (tags null -- imported, not yet tagged) is valid; it is simply
@@ -742,6 +754,9 @@ def tag_photos(tenant, *, client, model, budget, log, refs, ids=None, force=Fals
         # a re-tag keeps it.
         if "old_logo_visible" in (photo.get("tags") or {}):
             tags["old_logo_visible"] = photo["tags"]["old_logo_visible"]
+        # Cycle 79: a person's correction of a feature tag (photo
+        # "corrections") is kept too.
+        tags = apply_corrections(photo, tags)
         photo["tags"] = tags
         photo["decision"] = {
             "vision_product": vision["product"], "vision_confidence": vision["confidence"],
@@ -950,6 +965,16 @@ def topic_score(photo, topics):
     return score, matched
 
 
+def topic_share(photo, topics):
+    """The share of the photo's own features that the slot asks for (1.0 for
+    a photo with no features listed): the tie-break between two photos that
+    both match -- the one that shows mostly the topic wins."""
+    feats = set(photo["tags"]["features_visible"])
+    if not feats:
+        return 1.0
+    return len(feats & set(topics)) / len(feats)
+
+
 def _library_slots(page, cartridge_name):
     """(path, node, context, is_hero, heading) for every image slot -- ground's own
     per-cartridge slot knowledge, plus every other asset_id node."""
@@ -998,7 +1023,7 @@ def page_model_slug(facts_pack):
 
 
 def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=frozenset(),
-                       allow_ai_renders, log=None):
+                       allow_ai_renders, log=None, keep_hero=False):
     """Render-time: rewrites every image slot's asset_id from the library.
     The hero gets the best clean exterior of the page's product; every
     other slot gets the unused photo whose tags best match its own text,
@@ -1006,13 +1031,23 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
     the best unused photo of the same product (logged "no topic match").
     Once the library has no unused photo left, the product's storefront
     images are the fallback. A no-op (returns None) when facts_pack offers
-    no library photo. Returns {"assignments": [...], "notes": [...]}."""
+    no library photo. Returns {"assignments": [...], "notes": [...]}.
+
+    Cycle 79: `keep_hero` leaves the hero slot as it is (the renderer has
+    put the product's cut-out there). A photo whose derivative is not on
+    this machine is never assigned (a checkout without the files used to
+    assign it and then drop the image at download). A content slot ranks
+    equal topic scores by how much of the photo is the topic (a close-up of
+    the one thing beats a wide shot that also shows it), and a slot with no
+    topic gets a general photo (fewest feature close-ups) rather than a
+    close-up of something the slot never mentions."""
     allowed = {a["id"]: a for a in facts_pack.get("assets", [])}
     lib_ids = [a for a in allowed if a.startswith(ID_PREFIX)]
     if not lib_ids:
         return None
     manifest = photos_by_id(load_manifest(tenant, log=log))
-    pool = [manifest[i] for i in lib_ids if i in manifest and _usable(manifest[i])]
+    pool = [manifest[i] for i in lib_ids if i in manifest and _usable(manifest[i])
+            and local_file(tenant, manifest[i]).exists()]
     if not allow_ai_renders:
         pool = [p for p in pool if not p.get("ai_generated")]
     product = page_model_slug(facts_pack)
@@ -1054,6 +1089,9 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
     for path, node, _ctx, is_hero, _heading in slots:
         if not is_hero:
             continue
+        if keep_hero:
+            used.add(node.get("asset_id"))
+            continue
         own = [p for p in free(pool) if p["tags"]["product"] == product and not shows_old_logo(p)]
         exteriors = [p for p in own if p["tags"]["shot"] == "exterior"]
         if exteriors:
@@ -1084,7 +1122,8 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
             continue
         ranked = sorted(
             candidates,
-            key=lambda p: (topic_score(p, topics)[0], quality_rank(p), p["tags"]["product"] == product, p["id"]),
+            key=lambda p: (topic_score(p, topics)[0], topic_share(p, topics), quality_rank(p),
+                           p["tags"]["product"] == product, p["id"]),
             reverse=True,
         )
         best = ranked[0]
@@ -1092,8 +1131,13 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
         if score > 0:
             take(path, node, best["id"], f"topic match {','.join(matched)} (score {score:g})")
         else:
-            own = [p for p in candidates if p["tags"]["product"] == product] or candidates
-            pick = max(own, key=lambda p: (quality_rank(p), hero_rank(p)))
+            # Cycle 79: a general photo (people in use, lifestyle, an
+            # exterior; fewest feature close-ups) -- a close-up of a part the
+            # slot never mentions reads as a wrong match (the warranty item
+            # that showed the power cord, 20261005-172955-...-cgkv).
+            pick = max(candidates, key=lambda p: (
+                -len(p["tags"]["features_visible"]), p["tags"]["shot"] != "detail",
+                quality_rank(p), p["tags"]["product"] == product, hero_rank(p)))
             take(path, node, pick["id"], "no topic match")
             notes.append(f"no topic match for {path}")
     if log:

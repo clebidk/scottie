@@ -6,17 +6,33 @@
    Grotesk uppercase headlines) is retired; the owner banned all orange on
    2026-09-28. Spec: docs/FIXLOG.md cycle 78.
 
-   Palette: basalt #161817 (dark bands, primary CTA), ink #1A1A1A (text),
-   brand red #702B34 (hover/pressed, badges), stone #F0E5D3 (accent panels
-   only), white page, light panels #F1F1F1, muted text #616161/#6B6B6B,
-   hairlines rgba(22,24,23,.12-.25). No orange, green, cyan, cream or sage;
-   no gradients, glows or shadows.
+   Cycle 79 (2026-10-05, owner-approved round 2/3 design): BOXLESS. White
+   background everywhere -- the stone accent panels and the light grey
+   panels are retired (--ps-bg-muted is now white, so every panel a
+   template still draws reads as page ground); sections separate by white
+   space and one hairline; proof lines and stats carry a 3px brand-red left
+   bar instead of a box; the one filled block is the Basalt closing band.
+   Any remaining box: 4px radius.
+
+   Palette: basalt #161817 (dark band, primary CTA), ink #1A1A1A (text),
+   brand red #702B34 (accent phrase, numerals, proof bars, CTA hover), white
+   page, muted text #616161/#6B6B6B, hairlines rgba(22,24,23,.14). No
+   orange, green, cyan, cream, stone, sage or grey panels; no gradients,
+   glows or shadows.
 
    Type: body DM Sans 400/500, headings Poppins 600 in sentence case. Both
    are loaded site-wide by the storefront theme; the review/standalone page
    loads them from Google Fonts (tenant.yaml brand.font_stylesheet, a
    <link> in the document head that the storefront export never carries).
-   No font-face rule here: no other face is used.
+   Cycle 79: the two DISPLAY faces the owner approved for the "display"
+   first screen -- Peak Grotesk Wide (upper case) and Acid Grotesk -- are
+   declared below with ABSOLUTE https URLs on the live theme's CDN (the
+   theme serves both, CORS *). A page body has no Liquid, and a relative
+   path would 404 on the storefront and in the review file; the export
+   carries these rules verbatim (harness/page_body.py font_face_css). Copies
+   of the files are in brand/fonts-display/ (not brand/fonts/, so publish
+   never re-uploads them). TODO (owner): the Acid Grotesk file is labelled
+   TRIAL -- confirm PEAK holds a commercial licence before wide use.
 
    The "live theme layer" at the end of this file uses !important on
    purpose. The storefront theme's assets/pk-mono.css (html.pk-mono) sets
@@ -32,6 +48,11 @@
    page HEAD and harness/page_body.py reads the document by locating those
    tags.) */
 
+@font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;
+  src:url("https://peaksaunas.com/cdn/shop/t/64/assets/pk-peak-grotesk-wide.woff2") format("woff2");}
+@font-face{font-family:"PK Acid Grotesk";font-style:normal;font-weight:400;font-display:swap;
+  src:url("https://peaksaunas.com/cdn/shop/t/64/assets/pk-acid-grotesk-trial.otf") format("opentype");}
+
 :root{
   /* ---- palette, by role ---- */
   --ps-accent:#161817;         /* basalt: primary CTA fill (no orange anywhere) */
@@ -43,9 +64,9 @@
   --ps-muted:#616161;
   --ps-muted-alt:#6B6B6B;
   --ps-bg:#FFFFFF;             /* white page */
-  --ps-bg-muted:#F1F1F1;       /* light panels */
-  --ps-stone:#F0E5D3;          /* accent panels only (spec boxes) */
+  --ps-bg-muted:#FFFFFF;       /* cycle 79: no grey panels -- white everywhere */
   --ps-border:rgba(22,24,23,.18);
+  --ps-hairline:rgba(22,24,23,.14); /* section rules, list rows */
   --ps-ink-dark:#161817;       /* basalt: dark bands, footer */
   --ps-on-dark:#FFFFFF;
   --ps-editorial:#702B34;      /* brand red: item numerals, editorial accents */
@@ -53,7 +74,7 @@
   --ps-red:#702B34;
   --ps-star-on:#161817;
   --ps-star-off:rgba(22,24,23,.2);
-  --ps-pill-bg:#F1F1F1;        /* best-seller badge / savings pill */
+  --ps-pill-bg:#FFFFFF;        /* best-seller badge / savings pill (cycle 79: no grey fill) */
   --ps-pill-text:#712B33;
   --ps-pill-border:rgba(113,43,51,.35);
   --ps-focus:#702B34;
@@ -67,6 +88,9 @@
   --ps-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --ps-heading:"Poppins","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --ps-serif:var(--ps-heading); /* no serif in the live theme: "display" moments use Poppins */
+  /* cycle 79: the approved display faces (the "display" first screen) */
+  --ps-display-wide:"Peak Grotesk Wide","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --ps-display-acid:"PK Acid Grotesk","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --ps-eyebrow-size:12px;
   --ps-eyebrow-spacing:.2em;
   --ps-eyebrow-color:#6B6B6B;
@@ -165,15 +189,15 @@ table{
 th{background:var(--ps-bg-muted);color:var(--ps-text-strong);padding:10px 12px;font-weight:500;text-align:left;font-size:15px}
 td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
 
-/* Cards: light panel, no shadow, 4px. */
+/* Cards (cycle 79): no panel -- white ground, a hairline, 4px. */
 .card{
-  background:var(--ps-bg-muted);
-  border:none;
+  background:var(--ps-bg);
+  border:1px solid var(--ps-hairline);
   border-radius:var(--ps-radius-card);
   padding:20px 24px;
 }
 
-/* Badges: the best-seller treatment -- red text on #F1F1F1, red hairline. */
+/* Badges: the best-seller treatment -- red text on white, red hairline. */
 .badge,.financing-pill{
   display:inline-flex;
   align-items:center;
@@ -206,11 +230,12 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
   line-height:20px;
 }
 
+/* Cycle 79: the byline is a line of text, never a box. */
 .byline{
   background:var(--ps-bg);
-  border:1px solid var(--ps-border);
-  border-radius:var(--ps-radius-card);
-  padding:16px 20px 12px;
+  border:0;
+  border-radius:0;
+  padding:0;
   margin:0 0 26px;
   font-size:16px;
   line-height:1.55;
@@ -323,6 +348,13 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
 .adv-wrap .lst-sticky,.adv-wrap .ld-sticky,.adv-wrap .pil-sticky,.adv-wrap .sc-sticky,.adv-wrap .ed-sticky,
 .adv-wrap .cmp-sticky,.adv-wrap .pp-sticky,.adv-wrap .qz-sticky,.adv-wrap .bk-sticky-cta-bar,.adv-wrap .adv-sticky-cta{display:none!important}
 .adv-wrap .adv-footer{padding-bottom:90px!important}
+
+/* Cycle 79 boxless layer: white page, no panel behind the byline, trust
+   line, proof lines or FAQ in any cartridge (the listicle's own look draws
+   none; these catch the other cartridges' older boxes). */
+.adv-wrap{background:var(--ps-bg)!important}
+.adv-wrap .byline,.adv-wrap .adv-byline,.adv-wrap .adv-trust,.adv-wrap .adv-trust-item,
+.adv-wrap .cmp-trust,.adv-wrap .qz-trust,.adv-wrap .pp-trust{background:transparent!important;border:0!important;box-shadow:none!important}
 
 /* Inputs: 4px, at least 16px text (no iOS zoom). */
 .adv-wrap input,.adv-wrap select,.adv-wrap textarea{border-radius:4px;font-size:16px}

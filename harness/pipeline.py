@@ -471,6 +471,7 @@ def write_pages(state):
             state.listicle_style, state.facts_pack, state.tenant, seed=state.seed, today=state.today_iso,
             requested=getattr(state.args, "headline_template", None),
             prefer=skeleton["headline_templates"] if (skeleton and requested_skeleton) else None,
+            ad_brief=state.ad_brief,  # cycle 79: speaker-quote templates need a quotable speaker
         )
         state.log.event(
             "run",
@@ -553,6 +554,12 @@ def render_pages(state):
 
         state.pages["product-page"]["look"] = state.product_page_look
         runstate.record_look(state.run_dir, "product-page", state.product_page_look)
+
+    # Cycle 79: the listicle's ad still and first-screen style.
+    if "listicle" in state.pages:
+        from . import first_screen
+
+        first_screen.prepare(state)
 
     for cartridge_name, page in state.pages.items():
         index_path = render_page(

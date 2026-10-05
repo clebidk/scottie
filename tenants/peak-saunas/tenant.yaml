@@ -277,12 +277,18 @@ shopify_publish:
 # Ads Manager, winner by CTA click-through (docs/ABTEST.md). The listicle
 # entries are the style:look pairs the renderer already uses.
 abtest:
+  # Cycle 79: listicle builds are <style>:<look>:<first-screen style>. One
+  # look ("open") since the owner approved the boxless design on 2026-10-05;
+  # the three first screens (face | story | display) are the new dimension.
+  # `harness abtest library --by hero` pools results per first screen.
   library:
-    - listicle:reasons:cards
-    - listicle:mistakes:editorial
-    - listicle:questions:scorecard
-    - listicle:myths:pillars
-    - listicle:tested:lander
+    - listicle:reasons:open:story
+    - listicle:mistakes:open:face
+    - listicle:questions:open:display
+    - listicle:myths:open:story
+    - listicle:tested:open:face
+    - listicle:reasons:open:display
+    - listicle:questions:open:face
     - comparison
     - quiz
   explore: 0.2
@@ -334,19 +340,40 @@ brand:
   font_stylesheet: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Poppins:wght@500;600&display=swap"
   # Read by harness/templates/base.html: data-pk-theme on the page wrapper,
   # so a cached storefront page shows which theme build it carries.
-  theme_marker: mono-2026-10-05
+  theme_marker: open-2026-10-05
   palette:
     basalt: "#161817"        # dark bands, footer, primary CTA
     ink: "#1A1A1A"           # body text
     red: "#702B34"           # CTA hover/pressed, badges (theme mostly #712B33)
-    stone: "#F0E5D3"         # accent panels only (spec boxes)
     white: "#FFFFFF"         # page ground
-    panel: "#F1F1F1"         # light panels
     muted: "#616161"         # secondary text
   fonts:
+    display_wide: Peak Grotesk Wide   # cycle 79, upper case, "display" first screen (theme CDN, base.css)
+    display_acid: Acid Grotesk        # cycle 79, approved alternative; TRIAL file -- confirm licence
     body: DM Sans            # 400/500, 16px, line-height 1.55
     headings: Poppins        # 600, sentence case, letter-spacing -.01em
   logo:
     on_light: brand/logo.svg          # PEAK wordmark, Basalt; the renderer's default
     rule: "Never the legacy green/cyan mountain 'Peak Saunas' mark."
   radius: 4  # boxes, cards, inputs; 999px only for pill CTAs (brand/base.css)
+
+# Cycle 79: the listicle's first screen (harness/first_screen.py). Three
+# approved styles -- face | story | display -- picked per run (--hero-style,
+# an A/B/C build, else seeded from the run seed); pin a subset with
+# cartridges.listicle.hero_styles: [story, display].
+first_screen:
+  # No photo of the author yet: the byline shows the PEAK mark. Set a path
+  # under this tenant folder (e.g. brand/austin.jpg) to show his photo.
+  author_photo: null
+  byline_mark: brand/byline-mark.png
+  byline_title: PEAK founder
+  byline_verified_tick: true
+  # The display style's headline face: wide (Peak Grotesk Wide, upper case)
+  # or acid (Acid Grotesk, sentence case). Both owner-approved 2026-10-05.
+  display_font: wide
+
+# Cycle 79 (owner, "for now"): the product hero and every product-of-X image
+# the renderer owns use the cut-out of X. One manifest (model -> file), so a
+# new-mark set is one edit there or a new manifest path here.
+product_cutouts:
+  manifest: brand/cutouts/cutouts.json

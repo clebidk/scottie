@@ -32,6 +32,7 @@ from . import workflows
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from . import doctor as doctor_mod
+from . import first_screen
 from . import evals as evals_mod
 from . import exits
 from . import config as harness_config
@@ -293,7 +294,7 @@ def cmd_rerender(args):
     # not a copy change -- there is still no model call in this path -- so it
     # is recorded on page.json (render_page writes the page back out at the
     # end) and in state.json next to the style.
-    requested_look = getattr(args, "look", None)
+    requested_look = looks.canonical(cartridge_name, getattr(args, "look", None))
     if requested_look:
         if not looks.has_looks(cartridge_name):
             print(f"--look applies to a cartridge with looks ({', '.join(looks.CARTRIDGE_LOOKS)}), "
@@ -306,6 +307,14 @@ def cmd_rerender(args):
         page["look"] = looks.resolve_look(cartridge_name, requested_look, tenant=tenant)
     ad_brief_json = run_dir / "ad_brief.json"
     ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
+    # Cycle 79: `--hero-style` switches the listicle's first screen (harness/
+    # first_screen.py) -- a layout choice like --look, no model call.
+    requested_hero = getattr(args, "hero_style", None)
+    if requested_hero:
+        if cartridge_name != "listicle":
+            print(f"--hero-style applies to the listicle page, not {cartridge_name}", file=sys.stderr)
+            return 1
+        page["hero_style"] = requested_hero
 
     published = updated = (
         runstate.run_started_date(run_dir) or datetime.date.today().isoformat()
@@ -342,6 +351,10 @@ def cmd_rerender(args):
         print(f"Wrote {shopify_body_path}")
         print(f"Wrote {assets_manifest_path}")
 
+    if cartridge_name == "listicle":
+        rendered_hero = json.loads(page_json.read_text()).get("hero_style")
+        if rendered_hero:
+            runstate.record_listicle_choice(run_dir, hero_style=rendered_hero)
     if requested_look:
         if cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, look=page["look"])
@@ -1000,6 +1013,17 @@ def cmd_abtest_library(args):
         if not stats:
             print("(no listicle variant with a headline template in a live or finished test yet)")
         return exits.OK
+    if getattr(args, "by", "build") == "hero":
+        # Cycle 79: pooled results per first-screen style.
+        stats = abtest.pooled_arm_stats(tenant, by="hero")
+        print(f"{tenant.name} listicle first-screen styles (pooled over live + finished tests)")
+        print(f"{'hero':10s} {'tests':>5s} {'views':>7s} {'CTA':>6s} {'CTR':>7s}")
+        for hero, s in sorted(stats.items()):
+            ctr = f"{s['clicks'] / s['views']:.1%}" if s["views"] else "-"
+            print(f"{hero:10s} {s['tests']:>5d} {s['views']:>7d} {s['clicks']:>6d} {ctr:>7s}")
+        if not stats:
+            print("(no listicle variant with a hero style in a live or finished test yet)")
+        return exits.OK
     stats = abtest.pooled_arm_stats(tenant)
     weights = abtest.selection_weights(tenant, stats=stats)
     cfg = abtest.settings(tenant)
@@ -1584,6 +1608,12 @@ def build_parser():
              "adapts); sets the style when --style is not given, and the look when --look is not. "
              "Default: picked from the skeletons that fit the style, by the ad's angle",
     )
+    p_run.add_argument(
+        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES),
+        help="listicle first screen: face (a still from the ad + the speaker's words), story (text-first "
+             "open-loop lede) or display (wide display headline, product cut-out, stats). Default: seeded; "
+             "face falls back to story/display when the ad has no usable still",
+    )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)
     p_run.add_argument(
@@ -1619,6 +1649,10 @@ def build_parser():
         "--look", choices=list(looks.all_looks()), default=None,
         help="re-render the page in a different look of its own cartridge (listicle or "
              "product-page); the copy is untouched",
+    )
+    p_rerender.add_argument(
+        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES), default=None,
+        help="re-render the listicle's first screen in another style (face|story|display); copy untouched",
     )
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)
@@ -1788,8 +1822,9 @@ def build_parser():
     p_ab_inbox.set_defaults(func=cmd_abtest_from_inbox)
     p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")
     _add_tenant_flag(p_ab_library)
-    p_ab_library.add_argument("--by", choices=["build", "headline"], default="build",
-                              help="group results by build (default) or by listicle headline template")
+    p_ab_library.add_argument("--by", choices=["build", "headline", "hero"], default="build",
+                              help="group results by build (default), listicle headline template, or "
+                                   "listicle first-screen style")
     p_ab_library.set_defaults(func=cmd_abtest_library)
 
     p_digest = sub.add_parser("digest", help="reviewer-backlog and score digests")

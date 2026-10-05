@@ -147,6 +147,8 @@ _FAKE_TEST_RES = tuple(
 RENDERER_OWNED_KEYS = (
     "proof_row", "trust_line", "pull_quote", "model_picker", "models",
     "hsa_line", "sticky_cta", "rating_line",
+    # cycle 79: the first screen's stats strip and the value stack
+    "value_stack", "stats_strip",
 )
 
 # facts_pack.verified_claims text that makes a claim usable as the HSA/FSA
@@ -213,21 +215,30 @@ def resolve_style(requested=None, *, seed=0, tenant=None):
 # reads correctly in any look.
 # ---------------------------------------------------------------------------
 
-LOOKS = ("editorial", "cards", "pillars", "scorecard", "lander")
+LOOKS = ("open",)
 
-# The default pairing when nothing names a look. Each style is paired with the
-# look whose reference lander it reads most like: a mistakes list reads as a
-# publisher article, a questions list as an evidence check, a myths list as
-# image-led pillars, a claims check as a product lander.
-LOOK_BY_STYLE = {
-    "reasons": "cards",
-    "mistakes": "editorial",
-    "questions": "scorecard",
-    "myths": "pillars",
-    "tested": "lander",
-}
+# Cycle 79: the five cycle 51 looks (editorial, cards, pillars, scorecard,
+# lander) are retired into ONE boxless look, `open` -- the design the owner
+# approved on 2026-10-05 (white page, centred hero with one accent phrase, a
+# single pill CTA, a one-line byline, the stats strip, items with a red-bar
+# proof line, plain check lists, a value stack, a plain Q/A FAQ and one dark
+# closing band). What used to tell the looks apart -- boxes, bands, panels,
+# chips, accordions -- is exactly what the owner asked to remove, so none of
+# their differences survives; the A/B/C variety now comes from the copy style
+# and the first-screen style (harness/first_screen.py). A page.json, a CLI
+# flag or an A/B/C library entry that names a retired look still resolves,
+# to `open`.
+RETIRED_LOOKS = ("editorial", "cards", "pillars", "scorecard", "lander")
+LOOK_ALIASES = {look: "open" for look in RETIRED_LOOKS}
 
-DEFAULT_LOOK = "cards"
+LOOK_BY_STYLE = {style: "open" for style in ("reasons", "mistakes", "questions", "myths", "tested")}
+
+DEFAULT_LOOK = "open"
+
+
+def canonical_look(look):
+    """`look` itself, or the look a retired name now renders in."""
+    return LOOK_ALIASES.get(look, look)
 
 
 def tenant_looks(tenant=None):
@@ -237,7 +248,7 @@ def tenant_looks(tenant=None):
     tenant_styles above."""
     tenant = tenant or tenant_mod.active()
     pinned = tenant.get("cartridges.listicle.looks") or ()
-    chosen = tuple(look for look in pinned if look in LOOKS)
+    chosen = tuple(dict.fromkeys(canonical_look(look) for look in pinned if canonical_look(look) in LOOKS))
     return chosen or LOOKS
 
 
@@ -250,7 +261,7 @@ def tenant_look_by_style(tenant=None):
     pinned = tenant.get("cartridges.listicle.look_by_style") or {}
     if not isinstance(pinned, dict):
         return {}
-    return {s: look for s, look in pinned.items() if s in STYLES and look in LOOKS}
+    return {s: canonical_look(look) for s, look in pinned.items() if s in STYLES and canonical_look(look) in LOOKS}
 
 
 def resolve_look(requested=None, *, style=None, tenant=None):
@@ -264,9 +275,9 @@ def resolve_look(requested=None, *, style=None, tenant=None):
     outside the tenant's allowed looks falls back to the first allowed one,
     so a tenant that pins two looks still only ever renders those two."""
     if requested:
-        if requested not in LOOKS:
+        if canonical_look(requested) not in LOOKS:
             raise ValueError(f"unknown listicle look {requested!r}; choose one of {list(LOOKS)}")
-        return requested
+        return canonical_look(requested)
     allowed = tenant_looks(tenant)
     paired = tenant_look_by_style(tenant).get(style) or LOOK_BY_STYLE.get(style)
     if paired in allowed:
@@ -373,7 +384,13 @@ def writer_rules_lines():
         "\"we measured\" anywhere on the page, in any style -- this harness reports a claims "
         "check against verified specs and published facts, never a physical test, trial, or "
         "usage period.",
-    ]
+    ] + _first_screen_lines()
+
+
+def _first_screen_lines():
+    from . import first_screen
+
+    return first_screen.writer_lines()
 
 
 def writer_style_lines(style, headline=None):
@@ -423,10 +440,13 @@ def writer_style_lines(style, headline=None):
             '<category> is the product category (e.g. "home infrared saunas") -- never the '
             "tenant's name and never a model name."
         )
+    if not (templated and headline.get("open_loop")):
+        lines.append(
+            "Write N as a numeral (5, not \"five\"). N is the number of entries you actually put "
+            "in \"reasons\" -- count them before you answer, and if you add or drop an item while "
+            "revising, change the headline's number to match."
+        )
     lines += [
-        "Write N as a numeral (5, not \"five\"). N is the number of entries you actually put "
-        "in \"reasons\" -- count them before you answer, and if you add or drop an item while "
-        "revising, change the headline's number to match.",
         f"Every numbered item is {(templated and headline.get('item_pattern')) or ITEM_PATTERNS[style]}. "
         "Item headings carry no numeral "
         "(the renderer draws the number) and no price.",

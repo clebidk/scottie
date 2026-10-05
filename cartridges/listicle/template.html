@@ -20,4 +20,4 @@
    path harness/render.py loads for every cartridge -- dispatching here keeps
    the renderer generic instead of teaching it about one cartridge's
    sub-templates. #}
-{% extends "looks/" ~ (look or "cards") ~ "/template.html" %}
+{% extends "looks/" ~ (look or "open") ~ "/template.html" %}

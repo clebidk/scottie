@@ -276,13 +276,16 @@ _TOP_PRONOUN_RE = re.compile(r"\b(?:she|he|her|his|him)\b", re.IGNORECASE)
 _TOP_PATHS = ("$.headline", "$.dek")
 
 
-def find_meta_reference_violations(page):
+def find_meta_reference_violations(page, allow_speaker_pronoun=False):
+    """`allow_speaker_pronoun` (cycle 79 gate change, owner): "she"/"he" in
+    the headline or dek refers to the attributed ad speaker when the page
+    carries that speaker's verbatim quote (first_screen.pronoun_allowed)."""
     problems = []
     for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
         if not isinstance(node, str):
             continue
         rest = _ALLOWED_FRAME_RE.sub(" ", _QUOTED_SPAN_RE.sub(" ", node))
-        if path in _TOP_PATHS:
+        if path in _TOP_PATHS and not allow_speaker_pronoun:
             m = _TOP_PRONOUN_RE.search(_QUOTED_SPAN_RE.sub(" ", node))
             if m:
                 problems.append(_problem(
@@ -382,7 +385,14 @@ def find_quality_violations(page, *, style=None, ad_brief=None, facts_pack=None,
     problems += find_brand_spelling_violations(
         page, brand_regex, display_name, frozenset(t.strip() for t in verified_texts if t)
     )
-    problems += find_meta_reference_violations(page)
+    from . import first_screen
+
+    problems += find_meta_reference_violations(
+        page, allow_speaker_pronoun=first_screen.pronoun_allowed(page, ad_brief, facts_pack),
+    )
+    # Cycle 79: the first-screen fields (eyebrow, accent phrase, lede, scroll
+    # cue, hero quote), verbatim quoted words at the top, no "most people".
+    problems += first_screen.find_first_screen_violations(page, ad_brief, facts_pack)
     problems += find_myth_item_violations(page, style or page.get("style"), verified_texts,
                                           [display_name, *name_words])
     if ad_brief:
@@ -407,7 +417,8 @@ def writer_lines(display_name=None):
         "item, write no attributed line there.",
         "Never talk about the source in your own narration: no \"the ad\", \"the video\", \"the ad "
         "speaker\", \"as she found\". The ad is named only in the quote frame above. The headline and "
-        "dek speak to the reader -- never \"she\"/\"he\" about the ad's speaker there.",
+        "dek speak to the reader; \"she\"/\"he\" there is allowed only for the ad's speaker, when "
+        "hero_quote_id is set (see First screen).",
         "The headline and dek carry the ad's own hook: the dek says the ad's problem in the ad's "
         "words (ad_brief.hook / angle), as one plain, literal sentence -- no invented figure of "
         "speech. Item 1 answers the ad's main point. The skeleton decides the item roles after "

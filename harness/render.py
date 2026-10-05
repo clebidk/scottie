@@ -19,7 +19,10 @@ from markupsafe import Markup, escape
 from PIL import Image
 
 from . import photo_library
+from . import ad_frames
 from . import blocks
+from . import cutouts as cutouts_mod
+from . import first_screen as first_screen_mod
 from . import ground as ground_mod
 from . import ingest
 from . import comparison as comparison_mod
@@ -344,6 +347,8 @@ _ASSET_KIND_ALT_SUFFIXES = {
     "photo_install": "installation photo",
     "still_video": "photo",
     "ai_render": "product photo",
+    # Cycle 79: the owner's product cut-outs (harness/cutouts.py).
+    "cutout": "product photo",
 }
 
 
@@ -688,7 +693,7 @@ def aspect_ratio_css(width, height):
 # both are slots where every image must share one box or the grid steps. A
 # slot that does not need a uniform box asks for no frame and keeps the
 # image's own measured ratio.
-IMAGE_FRAMES = {"4x3": (4, 3), "3x2": (3, 2), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9)}
+IMAGE_FRAMES = {"4x3": (4, 3), "3x2": (3, 2), "1x1": (1, 1), "3x4": (3, 4), "16x9": (16, 9), "4x5": (4, 5)}
 
 
 def image_fit(asset, *, frame=None):
@@ -706,7 +711,8 @@ def image_fit(asset, *, frame=None):
         return None
     is_cutout = bool(asset.get("cutout"))
     if frame in IMAGE_FRAMES:
-        lifestyle = asset.get("kind") in ("lifestyle", "installation")
+        # Cycle 79: a still from the ad video fills its frame like a photo.
+        lifestyle = asset.get("kind") in ("lifestyle", "installation", "ad-frame")
         return "cover" if (lifestyle and not is_cutout) else "contain"
     return "contain" if is_cutout else "cover"
 
@@ -849,6 +855,54 @@ def find_tenant_logo(brand_dir):
     return None
 
 
+_PRODUCT_HERO_PATHS = {
+    "listicle": ("hero",),
+    "comparison": ("hero",),
+    "quiz": ("hero",),
+    "longform": ("hero", "hero_image"),
+    "product-page": ("hero", "hero_image"),
+}
+
+
+def _apply_hero_cutout(page, cartridge_name, facts_pack, tenant, assets_by_id):
+    """Cycle 79: puts the product's cut-out (harness/cutouts.py) in this
+    cartridge's product hero slot and in `assets_by_id`. Returns the cut-out
+    asset, or None when the cartridge has no product hero or the tenant no
+    cut-out for this product (the page is then unchanged)."""
+    path = _PRODUCT_HERO_PATHS.get(cartridge_name)
+    if not path:
+        return None
+    asset = cutouts_mod.cutout_for_product(tenant, facts_pack.get("product"))
+    if asset is None:
+        return None
+    node = page
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.setdefault(key, {}) if key == path[-1] else node.get(key)
+    if not isinstance(node, dict):
+        return None
+    node["asset_id"] = asset["id"]
+    product = facts_pack.get("product") or {}
+    full = tenant.product_names(product)["full_name"] or product.get("name")
+    assets_by_id[asset["id"]] = dict(asset, alt=asset_alt(asset, full, tenant=tenant))
+    return asset
+
+
+def _copy_brand_file(tenant, rel_path, out_dir, stem):
+    """Copies a tenant file (path relative to the tenant root) into
+    out_dir/assets as <stem><suffix>; returns its page-relative url or None."""
+    if not rel_path:
+        return None
+    src = Path(tenant.root) / str(rel_path)
+    if not src.is_file():
+        return None
+    dest = Path(out_dir) / "assets" / f"{stem}{src.suffix.lower()}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(src.read_bytes())
+    return f"assets/{dest.name}"
+
+
 def render_page(
     *,
     cartridge_name,
@@ -895,6 +949,14 @@ def render_page(
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = out_dir.parent
+
+    # Cycle 79 (owner rule "for now"): every product-of-X image the renderer
+    # owns -- a comparison column, a quiz result card -- is X's cut-out
+    # (harness/cutouts.py). Real renders only: a dry run keeps its facts_pack
+    # byte for byte (docs/IMAGES.md "Dry runs").
+    if download_assets:
+        facts_pack = cutouts_mod.with_model_cutouts(facts_pack, tenant)
 
     product = facts_pack.get("product", {})
     # Cycle 64: every name this page shows for its product comes from one
@@ -912,6 +974,36 @@ def render_page(
         # model-invented alt can describe something that isn't in the image.
         asset["alt"] = asset_alt(asset, full_name, tenant=tenant)
     used_claim_ids = collect_claim_ids(page)
+    # Cycle 79: the listicle's first screen (harness/first_screen.py) -- the
+    # hero style this page renders in, the ad still for face/story, the
+    # stats strip and the value stack. The style is stamped on page.json
+    # (written at the end), so a rerender reproduces it.
+    first_screen = {}
+    if cartridge_name == "listicle":
+        page = copy.deepcopy(page)
+        frame_record = ad_frames.load(run_dir)
+        for frame_id, frame_asset in ad_frames.page_assets(run_dir).items():
+            assets_by_id[frame_id] = dict(frame_asset)
+        quote = first_screen_mod.hero_quote(page, ad_brief, facts_pack)
+        requested_style = page.get("hero_style")
+        try:
+            hero_style, note = first_screen_mod.resolve_hero_style(
+                requested_style, seed=run_dir.name, tenant=tenant,
+                frame=frame_record is not None, quote=quote is not None,
+            )
+        except ValueError as e:
+            hero_style, note = first_screen_mod.resolve_hero_style(
+                None, seed=run_dir.name, tenant=tenant, frame=frame_record is not None, quote=quote is not None,
+            )
+            note = str(e)
+        if note and log:
+            log.event("render", f"hero style: {note}")
+        page["hero_style"] = hero_style
+        first_screen = first_screen_mod.render_context(
+            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=hero_style,
+            frame=frame_record, updated=updated,
+        )
+        used_claim_ids |= first_screen["claim_ids"]
     # Cycle 56: the comparison cartridge's renderer-owned sections (the model
     # table and its column images, trust/rating lines, fixed warranty and
     # financing sentences) come from facts_pack alone. Their claim ids join
@@ -987,13 +1079,16 @@ def render_page(
         # across many render_page calls; either would otherwise leak one
         # render's asset substitution into the next).
         page = copy.deepcopy(page)
-        run_dir = out_dir.parent
         allow_ai_renders = bool(tenant.claims_config.get("allow_ai_renders"))
         exclude_ids = ground_mod.all_used_asset_ids(run_dir, exclude_cartridge=cartridge_name)
         final_used_ids = ground_mod.enforce_slot_plan(
             page, facts_pack.get("assets", []), cartridge_name,
             allow_ai_renders=allow_ai_renders, exclude_ids=exclude_ids,
         )
+        # Cycle 79 (owner rule "for now"): the product hero is the product's
+        # cut-out. Set before the library assignment so no photo is spent
+        # on the hero, and again after the matchers below.
+        hero_cutout = _apply_hero_cutout(page, cartridge_name, facts_pack, tenant, assets_by_id)
         # Cycle 75: when facts_pack offers photo-library photos, every image
         # slot is re-picked from their tags (harness/photo_library.py): the
         # hero is the product's best clean exterior, each other slot the
@@ -1001,7 +1096,7 @@ def render_page(
         # cycle 42 matcher below then has nothing left to do and is skipped.
         library_result = photo_library.assign_page_images(
             page, facts_pack, cartridge_name, tenant=tenant, exclude_ids=exclude_ids,
-            allow_ai_renders=allow_ai_renders, log=log,
+            allow_ai_renders=allow_ai_renders, log=log, keep_hero=hero_cutout is not None,
         )
         if library_result is not None:
             ground_mod.record_image_matches(run_dir, cartridge_name, library_result["assignments"])
@@ -1024,6 +1119,9 @@ def render_page(
                         f"image match: {m['path']}: {m['old_id']} -> {m['new_id']} "
                         f"(score={m['score']}, tokens={','.join(m['matched_tokens'])})",
                     )
+        if hero_cutout is not None:
+            _apply_hero_cutout(page, cartridge_name, facts_pack, tenant, assets_by_id)
+            final_used_ids = collect_asset_ids(page)
         ground_mod.record_used_asset_ids(run_dir, cartridge_name, final_used_ids)
 
     # Cycle 51: the cartridge's LOOK -- which template under
@@ -1060,6 +1158,11 @@ def render_page(
         pdp_ai = bool(tenant.claims_config.get("allow_ai_renders"))
         gallery_ids = pdp_mod.gallery_asset_ids(page, facts_pack, allow_ai_renders=pdp_ai)
         promise_id = pdp_mod.promise_asset_id(page, facts_pack, gallery_ids, allow_ai_renders=pdp_ai)
+        # Cycle 79: the gallery leads with the product's cut-out (owner rule).
+        hero_node = ground_mod.hero_container(page, cartridge_name)
+        hero_id = (hero_node or {}).get("asset_id")
+        if cutouts_mod.is_cutout_id(hero_id) and hero_id in assets_by_id:
+            gallery_ids = ([hero_id] + [g for g in gallery_ids if g != hero_id])[: pdp_mod.GALLERY_MAX]
 
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
@@ -1070,6 +1173,7 @@ def render_page(
         used_asset_ids = (
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
             | ({promise_id} if promise_id else set()) | quiz_asset_ids
+            | {a for a in assets_by_id if a.startswith(ad_frames.FRAME_ID)}
         )
         assets_dir = out_dir / "assets"
         photo_library.attach_local_paths(assets_by_id, tenant)
@@ -1142,6 +1246,15 @@ def render_page(
         except Exception:  # svg or unreadable: leave unsized
             logo_w = logo_h = None
 
+    # Cycle 79: the first screen's one-line byline avatar -- the author's
+    # photo when the tenant sets first_screen.author_photo, else the brand
+    # mark (first_screen.byline_mark). Copied in like the logo.
+    if first_screen:
+        first_screen["byline"]["avatar_url"] = _copy_brand_file(
+            tenant, first_screen["byline"].get("photo") or tenant.get("first_screen.byline_mark"), out_dir,
+            "byline-avatar",
+        )
+
     template = env.get_template("template.html")
     html = template.render(
         page=page,
@@ -1163,6 +1276,7 @@ def render_page(
         cartridge=cartridge_name,
         cartridge_data=cartridge_data,
         look=look,
+        first_screen=first_screen,
         micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
         tenant_name=tenant.display_name,

@@ -37,6 +37,14 @@ DEFAULT_LOOKS = {
 }
 
 
+def canonical(cartridge_name, look):
+    """Cycle 79: a retired listicle look name ("cards", "lander", ...) is the
+    look it now renders in ("open"); every other value is itself."""
+    if cartridge_name == "listicle" and look:
+        return listicle.canonical_look(look)
+    return look
+
+
 def cartridge_looks(cartridge_name):
     """This cartridge's looks, or () for a cartridge that has none."""
     return tuple(CARTRIDGE_LOOKS.get(cartridge_name, ()))
@@ -50,7 +58,9 @@ def all_looks():
     """Every look of every cartridge, each once, in declaration order -- the
     `--look` flag's argparse choices."""
     seen = []
-    for looks in CARTRIDGE_LOOKS.values():
+    # Cycle 79: the retired listicle look names stay valid flag values (they
+    # resolve to "open"), so an old command line or A/B/C entry still works.
+    for looks in list(CARTRIDGE_LOOKS.values()) + [listicle.RETIRED_LOOKS]:
         for look in looks:
             if look not in seen:
                 seen.append(look)
@@ -97,4 +107,5 @@ def requested_for(cartridge_name, requested):
     cartridge falls back to its own default). `harness run --cartridges
     listicle,product-page --look pdp` sets the product page's look and
     leaves the listicle on its style pairing."""
+    requested = canonical(cartridge_name, requested)
     return requested if requested and requested in cartridge_looks(cartridge_name) else None

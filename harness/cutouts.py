@@ -94,3 +94,36 @@ def cutout_for_product(tenant, product):
     option row, a quiz card): matched by product_name_slug(name)."""
     name = (product or {}).get("name") or ""
     return cutout_asset(tenant, product_name_slug(name)) if name else None
+
+
+def _model_slug(row, known):
+    """A comparison column / quiz card row's model slug: its own `slug` when
+    that names a cut-out (quiz rows), else product_name_slug of its name."""
+    slug = str(row.get("slug") or "")
+    if slug in known:
+        return slug
+    for key in ("name", "model_name"):
+        candidate = product_name_slug(row.get(key) or "")
+        if candidate in known:
+            return candidate
+    return None
+
+
+def with_model_cutouts(facts_pack, tenant):
+    """A copy of facts_pack whose comparison columns and quiz result cards
+    show each model's cut-out instead of its first storefront image (owner
+    rule, cycle 79). Rows whose model has no cut-out keep their image."""
+    import copy
+
+    models = load_manifest(tenant)["models"]
+    if not models or not facts_pack:
+        return facts_pack
+    fp = copy.deepcopy(facts_pack)
+    for block in ("comparison", "quiz"):
+        for row in ((fp.get(block) or {}).get("models") or []):
+            if not isinstance(row, dict):
+                continue
+            asset = cutout_asset(tenant, _model_slug(row, models))
+            if asset is not None:
+                row["image"] = asset
+    return fp

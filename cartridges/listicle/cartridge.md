@@ -22,40 +22,17 @@ Headline templates (cycle 70): a run may instead name one of the headline templa
 
 `tested` reports a claims check -- verified facts and published specifications checked against claims people repeat about the category -- never a physical test, trial, or usage period; nobody ran one. `listicle:tested_no_fake_test` fails the headline, dek, any item heading/body, `audience_fit`, an FAQ answer, or the closing recap in ANY style (not only `tested`) if it asserts first-person testing or usage: "we tested", "our test", "we used", "we ran", "weeks of use", "weeks of testing", "session by session", "in our testing", "hands-on", "we measured".
 
-## Look
-The style fixes the COPY. A second, independent dimension -- the LOOK -- fixes the LAYOUT: which template under `cartridges/listicle/looks/<look>/template.html` renders that copy. All five consume the same page.json and the same renderer-built sections; `cartridges/listicle/template.html` is a dispatcher that extends the resolved one.
+## Look and first screen (cycle 79)
+One look, `open` -- the boxless design the owner approved on 2026-10-05 (it replaced the five cycle 51 looks; a page.json naming one of them renders in `open`). White page, a centred headline with ONE accent phrase in the brand colour, one pill CTA, a one-line byline, numbered items with a red-bar proof line and a photo, plain check lists, a value stack, a plain Q and A FAQ and one dark closing band. The look is never written by the writer.
 
-| look | reference shape | what makes it look different |
-| --- | --- | --- |
-| editorial | publisher advertorial | one 680px column, serif display face and 19px serif body, an eyebrow carrying the tenant's `disclosure_label` (none when unset), author row under the H1, numbered subheads with inline full-width images, proof lines as pull-quote callouts, CTAs as links with one solid button mid-page and one at the end, plain Q/A FAQ, no sticky bar |
-| cards | DTC listicle | two-column hero, alternating image/text cards on soft bands, big numerals, micro-CTAs after items 2 and 4, sticky bottom bar |
-| pillars | image-led band lander | every item a full-width band with a 3:2 edge-to-edge image (a product cut-out instead gets a two-column band, image on a panel 40% / copy 60%, and a cut-out hero a split hero), an uppercase pillar label over the H2, narrow copy under the picture, proof lines as badges, hero headline reversed out over the image, `<details>` FAQ, horizontal model cards, sticky proof bar |
-| scorecard | evidence buyer's guide | a trust row of bordered verified facts, every item a bordered "claim vs what the facts say" panel with a check line and an evidence label chip, a summary table before the FAQ, a closing CTA band carrying the warranty sentence, no sticky bar |
-| lander | product lander | wide 1100px two-column hero with eyebrow, dual CTA (button + ghost link, same url) and trust line, items as a 2-up grid of panels with a 4:3 thumbnail and a numeral chip, check/cross audience-fit columns, three model cards, `<details>` FAQ, dark closing band, sticky bar on phones only |
-
-The look is never written by the writer. It resolves in `harness/listicle.py`'s `resolve_look`: `harness run --look` / `harness rerender --look` when an operator gave one, else page.json's own recorded `look`, else `tenant.yaml`'s `cartridges.listicle.look_by_style`, else the default pairing -- reasons->cards, mistakes->editorial, questions->scorecard, myths->pillars, tested->lander. `tenant.yaml` may also pin the allowed set with `cartridges.listicle.looks: [...]`.
-
-Each look scopes its own `<style>` block under `.adv-listicle.look-<name>` and owns a class prefix nothing else uses (`ed-`, `lst-`, `pil-`, `sc-`, `ld-`), so two looks can never collide; `tests/test_listicle_looks.py` asserts the prefixes stay disjoint and that no two looks render the same set of section classes. The `cards` look keeps its original `.lst-*` rules unprefixed, since that namespace was already its alone and re-writing 130 working selectors would be churn.
-
-## Rhythm (cycle 55)
-One vertical scale for every look, as `--pk-*` tokens on each look's root so no look names a spacing number twice:
-
-| token | desktop | phone (<=600px) | what it spaces |
-| --- | --- | --- | --- |
-| `--pk-gap` | 40px | 32px | a section's top and bottom padding; FAQ 40/40 |
-| `--pk-item-gap` | 32px | 32px | items inside a list (editorial items, scorecard panels, the lander grid, micro-CTA rows) |
-| `--pk-hero-top` | 32px | 32px | the hero's top padding (its bottom is `--pk-gap`, so hero 32/40) |
-| `--pk-close-gap` | 48px | 48px | the closing band, top and bottom |
-| `--pk-panel-pad` / `--pk-panel-img` | 24px / 420px | 24px / 300px | the panel a product cut-out sits on, and the tallest the image may be |
-
-Sections have no margin between them: adjacent bands touch and alternating grounds do the separating. Where two sections share one ground (editorial throughout; the scorecard and lander middles; two plain pillars sections in a row) only one side carries the gap, so the space between them is one `--pk-gap`, never two.
-
-Image framing follows `harness/render.py`'s `image_fit`: a product cut-out (the white-border detector) is always contained, whole and centred, on a panel of the muted ground (`--ps-bg-muted`) -- never a full-bleed cover band and never behind an overlay. Only an image that fills its frame keeps a cover treatment (pillars' 3:2 band, capped at 480px; its overlay hero, capped at 560px).
-
-A top-level section should stay under 700px at a 1280px viewport unless it carries 3+ images or 1,200+ characters.
+The FIRST SCREEN has three styles, chosen by the run (`--hero-style`, an A/B/C build, else seeded) and never by the writer: `face` (a still of the ad's own creator with her verbatim quote as the caption), `story` (text first: eyebrow, headline, byline, then the lede with her verbatim quote and a small round photo, then item 01) and `display` (a wide display headline, the product cut-out, a stats strip). Every style renders the same fields, so write all of them every time:
+- `eyebrow` (2 to 6 words, who or what this is for), `headline` (from the ad's own hook, 6 to 13 words, never the answer), `accent_phrase` (1 to 6 words copied exactly from the headline), `dek` (one plain sentence), `lede` (1 to 3 short sentences that open the loop the items close -- no number, no spec), `scroll_cue` (2 to 8 words that say what comes next), `hero_quote_id` (the ad_quotes entry the first screen shows; left out only when ad_quotes is empty) and `speaker_pronoun` (she, he or they).
+- Open the loop, never close it up front: no spec, price, verdict or "the short answer" in the headline, dek or lede. The items give the answers.
+- Quoted words at the top of the page are the speaker's own, word for word from ad_quotes. "She"/"he" in the headline or dek means the ad's speaker and is allowed only when hero_quote_id is set.
+- Never assert what "most people" or "most buyers" do or think: no verified claim says so. Ask it as a question, or leave it out.
 
 ## Structure (in order)
-1. Header: the tenant's optional disclosure label (`disclosure_label` in tenant.yaml; nothing renders when it is unset), H1 headline, one-line dek, hero image (`hero.asset_id`), the primary CTA button, a trust line under it, and the byline.
+1. Header (the first screen, see above): the tenant's optional disclosure label (`disclosure_label` in tenant.yaml; nothing renders when it is unset), eyebrow, H1 headline with its accent phrase, dek or lede, the byline, and the first-screen picture -- the renderer puts the product's cut-out in `hero.asset_id`'s slot. Still write `hero.asset_id` (any asset id from facts_pack.assets).
 2. 5-7 numbered items (`reasons`). Each: number, an H2 heading (<=10 words, no numeral), a short body (one idea, a few sentences -- the winner's density, no word minimum), one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
 3. A pull-quote band after item 3, when this run's facts pack carries a customer quote.
 4. "Who this is for / who it is not for" (`audience_fit`): two lists of 2-4 one-line entries.
@@ -64,14 +41,14 @@ A top-level section should stay under 700px at a 1280px viewport unless it carri
 7. Closing block: an optional short headline, a 3-bullet `recap`, the CTA, the fixed warranty sentence, the allowed financing sentence, and (only when this run's facts pack verifies it) an HSA/FSA line.
 8. Disclosure and Sources, same as every other cartridge, plus a sticky bottom CTA bar.
 
-Every look renders all eight, in its own arrangement -- a look may move a section or change how it is drawn, never drop one. Where this list names a placement (a micro-CTA after items 2 and 4, a sticky bar), that is the `cards` look's own; see the Look table above for what each of the others does instead.
+The `open` look renders all eight. It draws one mid-page CTA after item 3 and no sticky bar (the storefront owns the bottom edge), and adds a value stack ("What comes with the <model>") built from verified claims only.
 
-Sections 3, 5, the header's trust line, the HSA/FSA line and the sticky bar's rating line are built by the RENDERER from facts_pack -- you never write them, and a page.json that carries `trust_line`, `pull_quote`, `model_picker`, `models`, `hsa_line` or `proof_row` fails the gate. They are omitted entirely when the facts pack does not verify them; that is the design, not a gap to fill in prose.
+Sections 3, 5, the header's trust line and stats strip, the value stack, the HSA/FSA line and the sticky bar's rating line are built by the RENDERER from facts_pack -- you never write them, and a page.json that carries `trust_line`, `pull_quote`, `model_picker`, `models`, `hsa_line`, `proof_row`, `value_stack` or `stats_strip` fails the gate. They are omitted entirely when the facts pack does not verify them; that is the design, not a gap to fill in prose.
 
 ## Rules
 - No page-level word minimum and no page-level word band for this cartridge. Never pad to reach a length: length follows the winner you are adapting -- short, scannable items, not article depth. (Other cartridges keep their own bands.)
 - Items: N between 5 and 7. Every item's `number` matches its 1-indexed position. Every item body is short: one idea, a few sentences, no minimum -- never an empty body, never padding.
-- Headline: this run's headline template (the style's formula unless the hard constraints name another), 8 to 14 words, with N written as a numeral (5, not "five"). N is the number of entries you actually put in `reasons`, in every style -- count them before you answer, and if a revision adds or drops an item, change the headline's number in the same edit. Never contains a price. `<audience>` names the people the ad speaks to (2 to 5 words, by situation or goal), never a bare "people"/"buyers"; `<category>` is the product category, never the company by name in the headline (a template's own `<brand>` slot is the one place it may appear).
+- Headline: this run's headline template, quoted in the hard constraints (cycle 79: an open-loop template with no count, 6 to 13 words, unless the hard constraints name a count formula). With a count template, N is written as a numeral (5, not "five") and is the number of entries you actually put in `reasons` -- count them before you answer, and if a revision adds or drops an item, change the headline's number in the same edit. Never contains a price. `<audience>` names the people the ad speaks to (2 to 5 words, by situation or goal), never a bare "people"/"buyers"; `<category>` is the product category, never the company by name in the headline (a template's own `<brand>` slot is the one place it may appear).
 - One CTA text and one `cta_url` for the whole page. The renderer draws that one CTA in five places (header, after item 2, after item 4, closing block, sticky bar) with the same text and url every time -- that is one offer repeated, not five offers. Never write a second `cta_url` anywhere in page.json. CTA text must be one of the allowed options in schema.json's `allowed_cta_texts`.
 - Proof inside every item: each item's `proof` line either carries a claim_id or is an attributed customer statement (`attributed_to_customer: true`, the ad speaker's own words, and the sentence itself must read as attributed -- "In the ad, she says ...").
 - Attributed lines (`attributed_to_customer: true`): only the ad speaker's own words from ad_brief.transcript_or_text -- prefer a direct quote in quotation marks, word for word; a paraphrase adds nothing she did not say (no "almost", "finally", "gave up", "never", "best", "only", no outcome she did not state). Frame it "In the ad, she says ..." or "As one shopper put it, ..." -- never "told us", and never "customer"/"buyer"/"owner" unless the tenant marks its ad speaker as a verified customer (see the global voice block). The gate checks every attributed line against the transcript.
