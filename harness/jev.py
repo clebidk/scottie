@@ -23,7 +23,10 @@ exactly the pre-cycle-76 run), `drafts` (default 1, clamped to 1..MAX_DRAFTS;
 the environment variable HARNESS_JEV_DRAFTS overrides it, e.g. `=1` for one
 run with a single draft), `timeout_s` (one Jev call, default 60) and
 `min_margin` (default 0.02: how much a later draft must beat the first
-passing draft by to ship instead of it).
+passing draft by to ship instead of it) and `second_draft_below` (default
+unset: every draft is written; a number: in real time a later draft is
+written only when the drafts so far fail or score below it --
+harness/drafts.py).
 
 The rubric is data: cartridges/listicle/jev-rubric.yaml, or the tenant's own
 tenants/<tenant>/jev-rubric.yaml when present.
@@ -77,7 +80,13 @@ def settings(tenant):
         min_margin = max(0.0, float(cfg.get("min_margin", DEFAULT_MIN_MARGIN)))
     except (TypeError, ValueError):
         min_margin = DEFAULT_MIN_MARGIN
-    return {"enabled": enabled, "drafts": drafts, "timeout_s": timeout_s, "min_margin": min_margin}
+    second = cfg.get("second_draft_below")
+    try:
+        second = None if second is None else float(second)
+    except (TypeError, ValueError):
+        second = None
+    return {"enabled": enabled, "drafts": drafts, "timeout_s": timeout_s, "min_margin": min_margin,
+            "second_draft_below": second}
 
 
 def drafts_for_run(tenant, selected):

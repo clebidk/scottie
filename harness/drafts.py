@@ -39,6 +39,16 @@ Message Batches (tenant.yaml `batch_api.non_interactive`, harness/batch.py):
 the first write of every draft goes in one batch at half price; each
 draft's page then runs the same gates and the same rules below.
 
+Second draft only when needed (`jev.second_draft_below`, e.g. 0.70; unset =
+always write every draft). In real time, draft 1 is written alone first.
+Draft 2 is written only when draft 1 fails a gate on attempt 1 (before any
+repair, as the backup), or passes but Jev scores it below the threshold.
+Jev unavailable: draft 1 ships and draft 2 is not written (it could only
+ship draft 1 anyway). A batch writes every draft (both at half price).
+Measured on the fixed 10-input batch (docs/FIXLOG.md cycle 76): no run where
+draft 1 scored >= 0.70 shipped draft 2, so the rule ships the same pages for
+about 40% less model spend.
+
 Minimum margin (`jev.min_margin`, default 0.02): a later draft ships only
 when its composite beats the first passing draft by at least this much --
 Jev's composite moves about 0.003 between identical calls, and two drafts a
@@ -137,6 +147,61 @@ def _first_failure_keys(attempts):
     return [str(item.get("key") or item.get("path") or item.get("issue")) for item in first][:12]
 
 
+def _write_one(state, kwargs, plan, k, on_first_failure):
+    try:
+        page, attempts, fixes = repair.write_and_gate_page(
+            **{**kwargs, "initial_page": None, "initial_call_tokens": 0},
+            log=_DraftLog(state.log, k + 1),
+            listicle_headline=plan[k]["headline"],
+            listicle_skeleton=plan[k]["skeleton"],
+            on_first_failure=on_first_failure,
+        )
+        return {"page": page, "attempts": attempts, "fixes": fixes, "error": None}
+    except Exception as err:
+        return {"page": None, "attempts": getattr(err, "attempts", None),
+                "fixes": getattr(err, "deterministic_fixes", None), "error": err}
+
+
+def _write_conditional(state, kwargs, plan, threshold):
+    """Real-time drafts, one after the other, each only when needed (see the
+    module docstring). Returns (results, {draft index: jev result} already
+    scored, a note on why later drafts were not written or None)."""
+    n = len(plan)
+    results = [None] * n
+    scored = {}
+    note = None
+
+    def later_drafts_pass():
+        # Draft 1 failed attempt 1: write the others as its backup first;
+        # draft 1 repairs only when none of them passes.
+        for k in range(1, n):
+            results[k] = _write_one(state, kwargs, plan, k, lambda: False)
+            if results[k]["error"] is None or isinstance(results[k]["error"], BudgetExceeded):
+                return True
+        return False
+
+    results[0] = _write_one(state, kwargs, plan, 0, lambda: not later_drafts_pass())
+    k = 0
+    while results[0]["error"] is None and k + 1 < n and results[k + 1] is None:
+        todo = [i for i in range(k + 1) if results[i]["error"] is None and i not in scored]
+        try:
+            scored.update(_score_drafts(state, todo, results) if todo else {})
+        except Exception as e:  # JevUnavailable or anything else: never fail a run over the judge
+            note = f"Jev unavailable ({e}); draft {k + 2} not written"
+            break
+        best = max(scored, key=lambda i: (scored[i]["composite"], -i))
+        if scored[best]["composite"] >= threshold:
+            note = (f"draft {best + 1} composite {scored[best]['composite']:.3f} >= second_draft_below "
+                    f"{threshold}: draft {k + 2} not written")
+            break
+        results[k + 1] = _write_one(state, kwargs, plan, k + 1, lambda: False)
+        k += 1
+    for i in range(n):
+        if results[i] is None:
+            results[i] = {"page": None, "attempts": None, "fixes": None, "error": None, "skipped": True}
+    return results, scored, note
+
+
 def _write_all(state, kwargs, plan, initial=None):
     """Run write_and_gate_page for every draft at once. Returns one
     {"page", "attempts", "fixes", "error"} per draft. `initial`: per draft,
@@ -230,11 +295,19 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
         log.event("drafts", f"draft {k}: headline template {(v['headline'] or {}).get('id')}, "
                             f"skeleton {(v['skeleton'] or {}).get('id')}"
                             + (" (batch)" if initial and k <= len(initial) and initial[k - 1] else ""))
-    results = _write_all(state, kwargs, plan, initial)
+    threshold = jev.settings(state.tenant)["second_draft_below"]
+    prescored, skip_note = {}, None
+    if threshold is not None and not any(initial or []):
+        results, prescored, skip_note = _write_conditional(state, kwargs, plan, threshold)
+    else:
+        results = _write_all(state, kwargs, plan, initial)
+    state.drafts_written = sum(1 for r in results if not r.get("skipped"))
 
     rows = []
     for k, r in enumerate(results):
-        if r["error"] is None:
+        if r.get("skipped"):
+            gate = "SKIPPED"
+        elif r["error"] is None:
             gate = "PASS"
         elif isinstance(r["error"], ClaimsGateFailure):
             gate = "FAIL"
@@ -260,7 +333,7 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
         record.update(status="budget", reason=str(over))
         _save(state, record)
         raise over
-    passed = [k for k, r in enumerate(results) if r["error"] is None]
+    passed = [k for k, r in enumerate(results) if r["error"] is None and not r.get("skipped")]
     if not passed:
         # Draft 1 went through the repair loop and still failed (or raised):
         # exactly the single-draft STOP.
@@ -269,8 +342,11 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
         raise results[0]["error"]
 
     winner = passed[0]
+    scored = dict(prescored)
     if len(passed) == 1:
-        if results[winner]["attempts"] and len(results[winner]["attempts"]) > 1:
+        if skip_note:
+            record.update(status="first_strong" if scored else "jev_unavailable", reason=skip_note)
+        elif results[winner]["attempts"] and len(results[winner]["attempts"]) > 1:
             record.update(status="repaired",
                           reason=f"no draft passed on attempt 1; draft 1 passed after "
                                  f"{len(results[winner]['attempts']) - 1} repair(s)")
@@ -278,7 +354,8 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
             record.update(status="single_pass", reason=f"only draft {winner + 1} passed the gates")
     else:
         try:
-            scored = _score_drafts(state, passed, results)
+            todo = [k for k in passed if k not in scored]
+            scored.update(_score_drafts(state, todo, results) if todo else {})
         except jev.JevUnavailable as e:
             record.update(status="jev_unavailable",
                           reason=f"Jev unavailable ({e}); first passing draft {winner + 1} ships")
@@ -286,15 +363,6 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
             record.update(status="jev_unavailable",
                           reason=f"Jev error ({type(e).__name__}: {e}); first passing draft {winner + 1} ships")
         else:
-            usage = {"input_tokens": 0, "output_tokens": 0}
-            for k, res in scored.items():
-                rows[k].update(scores=res["scores"], raw=res["raw"], composite=res["composite"],
-                               overall=res["overall"], jev_model=res["model"])
-                for u in usage:
-                    usage[u] += res["usage"][u]
-                log.event("jev", f"draft {k + 1}: composite {res['composite']:.3f} overall "
-                                 f"{res['overall'] if res['overall'] is not None else '-'} "
-                                 + " ".join(f"{q}={v:.2f}" for q, v in res["scores"].items()))
             min_margin = jev.settings(state.tenant)["min_margin"]
             first = passed[0]
             best = max(passed, key=lambda k: (scored[k]["composite"], -k))
@@ -306,11 +374,22 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
                 gap = scored[other]["composite"] - scored[first]["composite"]
                 note = (" (tie: first passing draft ships)" if gap == 0 else
                         f" (gap {gap:.3f} < min_margin {min_margin}: first passing draft ships)" if gap > 0 else "")
-            record.update(status="scored", usage=usage, min_margin=min_margin,
+            record.update(status="scored", min_margin=min_margin,
                           reason=(f"draft {winner + 1} composite {scored[winner]['composite']:.3f} vs draft "
                                   f"{other + 1} {scored[other]['composite']:.3f}" + note))
-            log.event("jev", f"usage input_tokens={usage['input_tokens']} output_tokens={usage['output_tokens']} "
-                             f"(billed by TypeSafe, not in estimated_cost_usd)")
+    if scored:
+        usage = {"input_tokens": 0, "output_tokens": 0}
+        for k, res in sorted(scored.items()):
+            rows[k].update(scores=res["scores"], raw=res["raw"], composite=res["composite"],
+                           overall=res["overall"], jev_model=res["model"])
+            for u in usage:
+                usage[u] += res["usage"][u]
+            log.event("jev", f"draft {k + 1}: composite {res['composite']:.3f} overall "
+                             f"{res['overall'] if res['overall'] is not None else '-'} "
+                             + " ".join(f"{q}={v:.2f}" for q, v in res["scores"].items()))
+        record["usage"] = usage
+        log.event("jev", f"usage input_tokens={usage['input_tokens']} output_tokens={usage['output_tokens']} "
+                         f"(billed by TypeSafe, not in estimated_cost_usd)")
     if record["status"] == "jev_unavailable":
         log.event("jev", record["reason"])
 

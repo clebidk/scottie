@@ -920,7 +920,11 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
             return page
         except Exception as e:
             last_error = e
-            log.event(stage, f"invalid page.json on attempt {attempt + 1}: {e}")
+            # Cycle 76: where the JSON broke, so a recurring pattern can get a
+            # lossless fix in jsonutil.extract_json_tolerant (page copy only).
+            doc, pos = getattr(e, "doc", None), getattr(e, "pos", None)
+            near = f" near {doc[max(0, pos - 60):pos + 40]!r}" if isinstance(doc, str) and isinstance(pos, int) else ""
+            log.event(stage, f"invalid page.json on attempt {attempt + 1}: {e}{near}")
             # Fix cycle 6 verification: this retry used to resend the exact
             # same messages, blindly re-rolling with no reason to behave
             # differently -- caught live when a response came back empty

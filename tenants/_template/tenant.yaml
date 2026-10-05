@@ -157,6 +157,9 @@ jev:
   # A later draft ships only when its Jev composite beats the first passing
   # draft by at least this much; else the first passing draft ships.
   min_margin: 0.02
+  # Real time only: write draft 2 only when draft 1 fails a gate or Jev scores
+  # it below this composite (a batch always writes both). Unset: always both.
+  # second_draft_below: 0.70
 
 # Cycle 76: Message Batches API (half price) for builds nobody waits on:
 # A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta

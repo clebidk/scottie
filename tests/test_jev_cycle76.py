@@ -106,9 +106,13 @@ class FakeJev:
 
 @pytest.fixture
 def two_drafts(monkeypatch):
+    """Two drafts written at once (no second_draft_below): the batch path's
+    and any tenant's without the setting."""
     monkeypatch.setenv("HARNESS_JEV_DRAFTS", "2")
     monkeypatch.setattr(drafts, "CACHE_WAIT_S", 5)
     monkeypatch.setattr(jev, "api_key", lambda: "test-key")
+    real_settings = jev.settings
+    monkeypatch.setattr(jev, "settings", lambda tenant: {**real_settings(tenant), "second_draft_below": None})
 
 
 def _run(client, *, seed=42, headline_template=PINNED_HEADLINE):
@@ -226,8 +230,10 @@ def test_no_key_and_network_timeout_raise_jev_unavailable(monkeypatch):
 
 def test_settings_default_off_env_override_and_clamp(monkeypatch):
     monkeypatch.delenv("HARNESS_JEV_DRAFTS", raising=False)
-    assert jev.settings(TENANT) == {"enabled": True, "drafts": 2, "timeout_s": 60.0, "min_margin": 0.02}
-    assert jev.settings(_TenantDouble()) == {"enabled": False, "drafts": 1, "timeout_s": 60, "min_margin": 0.02}
+    assert jev.settings(TENANT) == {"enabled": True, "drafts": 2, "timeout_s": 60.0, "min_margin": 0.02,
+                                    "second_draft_below": 0.70}
+    assert jev.settings(_TenantDouble()) == {"enabled": False, "drafts": 1, "timeout_s": 60, "min_margin": 0.02,
+                                             "second_draft_below": None}
     assert jev.drafts_for_run(TENANT, ["article"]) == 1
     assert jev.drafts_for_run(TENANT, ["listicle"]) == 2
     monkeypatch.setenv("HARNESS_JEV_DRAFTS", "1")

@@ -298,3 +298,99 @@ def test_abtest_builds_batch_when_the_tenant_says_non_interactive(monkeypatch):
     monkeypatch.setattr(batch_mod, "settings", lambda tenant: {"non_interactive": False, "timeout_s": 1})
     abtest.default_runner(TENANT, str(FIXTURE), arm, 1)
     assert seen["batch"] is False
+
+
+# ---------------------------------------------------------------------------
+# second draft only when needed (PEAK: jev.second_draft_below 0.70)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def conditional(monkeypatch):
+    monkeypatch.setenv("HARNESS_JEV_DRAFTS", "2")
+    monkeypatch.setattr(jev, "api_key", lambda: "test-key")
+    assert jev.settings(TENANT)["second_draft_below"] == 0.70
+
+
+def _by_draft(level1, level2):
+    second = _other_good_page()["audience_fit"]["for_you"][0]["text"]
+    return lambda text: level2 if text.split("Who this is for:\n- ", 1)[1].startswith(second) else level1
+
+
+def test_a_strong_first_draft_ships_and_draft_two_is_never_written(conditional, monkeypatch):
+    sk1, sk2 = _skeleton_ids()
+    client = RoutedClient({sk1: [_good_page()], sk2: [_other_good_page()]})
+    fake = FakeJev(scores=_by_draft(3, 4))  # 0.75 >= 0.70
+    monkeypatch.setattr(jev, "_http_post", fake)
+    rc, run_dir = _run(client)
+    assert rc == 0
+    assert len(client.writes_for(sk1)) == 1 and client.writes_for(sk2) == []
+    assert len(fake.bodies) == 1
+    record = _jev_record(run_dir)
+    assert record["status"] == "first_strong" and record["shipped"] == 1
+    assert [d["gate"] for d in record["drafts"]] == ["PASS", "SKIPPED"]
+    assert record["drafts"][0]["composite"] == 0.75 and record["usage"]["input_tokens"] == 1000
+    assert "draft 2 not written" in record["reason"]
+    from harness import budget
+    ledger = [json.loads(x) for x in budget.spend_ledger_path(TENANT).read_text().splitlines()]
+    mine = [e for e in ledger if e["run_id"] == run_dir.name]
+    assert mine[0]["reserved_usd"] == pytest.approx(budget.DEFAULT_RESERVATION_USD * 2)  # reserved for both
+    assert "drafts" not in mine[-1]  # one draft written
+
+
+def test_a_weak_first_draft_gets_a_second_and_the_better_one_ships(conditional, monkeypatch):
+    sk1, sk2 = _skeleton_ids()
+    client = RoutedClient({sk1: [_good_page()], sk2: [_other_good_page()]})
+    fake = FakeJev(scores=_by_draft(2, 4))  # 0.5 < 0.70, then 1.0
+    monkeypatch.setattr(jev, "_http_post", fake)
+    rc, run_dir = _run(client)
+    assert rc == 0
+    assert len(client.writes_for(sk1)) == 1 and len(client.writes_for(sk2)) == 1
+    assert len(fake.bodies) == 2  # draft 1 is not scored twice
+    record = _jev_record(run_dir)
+    assert record["status"] == "scored" and record["shipped"] == 2
+    assert record["usage"]["input_tokens"] == 2000
+
+
+def test_a_failing_first_draft_gets_draft_two_before_any_repair(conditional, monkeypatch):
+    sk1, sk2 = _skeleton_ids()
+    client = RoutedClient({sk1: [_bad_page()], sk2: [_other_good_page()]})
+    fake = FakeJev()
+    monkeypatch.setattr(jev, "_http_post", fake)
+    rc, run_dir = _run(client)
+    assert rc == 0
+    assert len(client.writes_for(sk1)) == 1 and len(client.writes_for(sk2)) == 1
+    assert fake.bodies == []
+    record = _jev_record(run_dir)
+    assert record["shipped"] == 2 and record["status"] == "single_pass"
+
+
+def test_both_failing_falls_back_to_draft_one_repair(conditional, monkeypatch):
+    sk1, sk2 = _skeleton_ids()
+    client = RoutedClient({sk1: [_bad_page(), _good_page()], sk2: [_bad_page()]})
+    monkeypatch.setattr(jev, "_http_post", FakeJev())
+    rc, run_dir = _run(client)
+    assert rc == 0
+    assert len(client.writes_for(sk1)) == 2 and len(client.writes_for(sk2)) == 1
+    assert _jev_record(run_dir)["status"] == "repaired"
+
+
+def test_no_key_ships_draft_one_without_writing_draft_two(conditional, monkeypatch):
+    sk1, sk2 = _skeleton_ids()
+    client = RoutedClient({sk1: [_good_page()], sk2: [_other_good_page()]})
+    monkeypatch.setattr(jev, "api_key", lambda: "")
+    rc, run_dir = _run(client)
+    assert rc == 0
+    assert client.writes_for(sk2) == []
+    record = _jev_record(run_dir)
+    assert record["status"] == "jev_unavailable" and record["shipped"] == 1
+    assert "TYPESAFE_API_KEY" in record["reason"] and "draft 2 not written" in record["reason"]
+
+
+def test_a_batch_still_writes_both_drafts_with_the_threshold_on(conditional, monkeypatch):
+    sk1, sk2 = _skeleton_ids()
+    client = BatchClient({sk1: [_good_page()], sk2: [_other_good_page()]})
+    monkeypatch.setattr(jev, "_http_post", FakeJev(scores=_by_draft(4, 4)))
+    rc, run_dir = _run_batch(client)
+    assert rc == 0
+    assert len(client.batches.requests) == 2
+    assert [d["gate"] for d in _jev_record(run_dir)["drafts"]] == ["PASS", "PASS"]

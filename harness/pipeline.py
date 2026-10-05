@@ -721,6 +721,12 @@ def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None
     log.close()
 
 
+def _drafts_spent(state):
+    """Cycle 76: listicle drafts this run actually wrote, for the spend
+    ledger's per-draft history (the reservation is for every draft)."""
+    return getattr(state, "drafts_written", None) or state.drafts
+
+
 def execute(state, stage_names=DEFAULT_STAGES):
     """Run the named stages in order. Returns the process exit code.
 
@@ -744,7 +750,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
                     state.cost = state.log.cost_estimate()
                     state.log.budget_summary(state.budget.summary())
                     budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
-                                            today_iso=state.today_iso, log=state.log, drafts=state.drafts)
+                                            today_iso=state.today_iso, log=state.log, drafts=_drafts_spent(state))
                 STAGES[name](state)
         except UnknownCartridge as e:
             print(str(e), file=sys.stderr)
@@ -756,7 +762,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
             state.log.gate_result("STOP", f"stage={e.stage} unmatched={len(e.items)}")
             state.log.event("run", str(e))
             budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.log.cost_estimate(),
-                                    today_iso=state.today_iso, log=state.log, drafts=state.drafts)
+                                    today_iso=state.today_iso, log=state.log, drafts=_drafts_spent(state))
             state.log.budget_summary(state.budget.summary())
             review_md.log_run_result(state.log, "STOP", state.gate_log)
             print(
@@ -768,7 +774,7 @@ def execute(state, stage_names=DEFAULT_STAGES):
             return 2
         except BudgetExceeded as e:
             abort_budget_run(state.log, state.budget, e, tenant=state.tenant, run_id=state.run_id,
-                             today_iso=state.today_iso, gate_log=state.gate_log, drafts=state.drafts)
+                             today_iso=state.today_iso, gate_log=state.gate_log, drafts=_drafts_spent(state))
             print(f"budget exceeded: {e}", file=sys.stderr)
             return 3
 
