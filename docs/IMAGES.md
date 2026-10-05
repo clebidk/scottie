@@ -339,3 +339,107 @@ product-page}.page.json` *were* deliberately re-captured this cycle -- not becau
 changed, but because those two fixtures are run with `download_assets=True`, the same as a
 real `harness run`, and their committed `page.json` had a real duplicate baked in that
 `enforce_slot_plan` now correctly fixes. See the commit that re-captured them.)
+
+## 9. The photo library (cycle 75)
+
+`harness/photo_library.py`. One folder of the owner's own photos, imported once,
+vision-tagged once, then used for every image slot on a page about a model it
+has photos of.
+
+**Files.** `tenants/<t>/brand/photo-library.json` is the manifest (in git; the
+tags are reviewable data). `tenants/<t>/photo-library/<id>.jpg` are the web
+derivatives (gitignored): EXIF orientation applied, every metadata block
+dropped, long edge at most 1600 px, JPEG quality 80. `HARNESS_PHOTO_LIBRARY_DIR`
+moves the derivatives elsewhere (`<dir>/<tenant>/`); the test suite points it at
+an empty folder so a checkout with or without the files runs the same tests.
+
+**Ids.** `asset-photo-<first 12 hex of sha256(original bytes)>` -- stable across
+re-imports, and a byte-identical second copy is imported once.
+
+**Commands.**
+
+```
+harness photos import <folder> --tenant <t>     # derivatives + manifest rows (tags kept on re-import)
+harness photos tag --tenant <t> [--id ID]... [--force | --redecide] [--dry-run]
+harness photos sheet <out.jpg> --tenant <t>     # contact sheet: thumbnail, id, product tag, shot
+```
+
+`tag` reserves against the tenant's daily cap like every other model stage.
+Model: `photo_library.tag_model` in tenant.yaml, default `claude-sonnet-5`.
+
+**Tags** (`validate_manifest` is the schema; an invalid manifest is ignored
+with a logged warning, never a failed run): `product` (a model slug or
+`unknown`), `product_confidence`, `model_agnostic`, `setting`
+(indoor/outdoor/studio), `shot` (exterior/interior/detail/lifestyle/
+people-in-use/ad-still-with-text), `features_visible` (from tenant.yaml
+`photo_library.features`), `has_text_overlay`, `people` (count), `description`,
+`blurry`, `cluttered`. `ai_generated` is per photo, from the file name only
+(an image-generator export says so) -- it is provenance, never the model.
+
+**How the model is decided** (`decide_product`; every photo's `decision`
+records the inputs and the rule that fired). Never from the file name.
+
+1. Pass 1: one vision call per photo with a strip of each model's storefront
+   images (1, 2, 4, 5) and a spec line (capacity, indoor/outdoor, wood,
+   red light panels) -- `product`, `confidence`, `candidates`.
+2. Folder label: the model of the Drive folder the owner filed the photo in
+   (`brand/assets.json` / the listicle pack, by Drive id), when it came from
+   that library.
+3. Folder check: only when pass 1 did not already agree with the folder --
+   a second call, "is this photo consistent with model X?"
+   (`match`/`mismatch`/`cannot-tell`).
+
+| Inputs | Product |
+|---|---|
+| folder X, pass 1 X (>= 0.5) | X |
+| folder X, check `match` (>= 0.7), pass 1 not >= 0.8 sure of another model | X |
+| folder X, pass 1 unknown with X among 1-3 candidates | X |
+| no folder, pass 1 X (>= 0.7) | X |
+| anything else | unknown |
+
+`model_agnostic` (no product, safe on any page): pass 1 saw no cabin at all,
+or a close-up (`detail`) that pass 1 says fits 4 or more models.
+
+**What a page about model X is offered** (`ground.facts_for`): the usable
+library photos tagged X (hero candidate first) plus up to 8 model-agnostic
+photos (most features covered) -- never an agnostic photo whose pass-1
+candidates leave X out, one showing a red light panel on a model without
+one, or an outdoor roof on an indoor model. Never a photo with a text
+overlay. The storefront images stay in the pool as the fallback (and the
+`pdp` gallery's source); `brand/assets.json` and the listicle pack are dropped
+for X. When the library has no usable photo of X the pool is exactly as before
+cycle 75, minus any Drive row that is a library photo.
+
+**Which photo goes in which slot** (`assign_page_images`, from
+`render.render_page` right after `enforce_slot_plan`; the cycle 42 matcher is
+skipped when it runs). Deterministic, no model call: tags plus the slot's own
+text are enough, and a per-page model call would add cost and a new failure
+point for a choice that keyword topics already make well.
+
+- Hero: the best clean exterior of X (`hero_rank`: exterior, real photo, not
+  blurry/cluttered); none in the library -> the first storefront image; none
+  -> the best library photo of X.
+- Every other slot: tenant.yaml `photo_library.topic_keywords` maps words in
+  the slot's heading and text to topics (a feature, `shot:<shot>`,
+  `setting:<setting>`); a heading hit counts 3 extra times. The unused photo
+  with the highest topic score wins; slots with the strongest match choose
+  first. Score 0 -> the best unused photo of X, logged `no topic match for
+  <slot>`. No unused library photo left -> the next storefront image, logged.
+  A photo never repeats on a page; ids another cartridge of the run used are
+  avoided when anything else is left.
+- Every decision is logged (`photos` events) and written to
+  `<run>/.image-selection.json` under `matches`.
+
+**Gate** (`find_wrong_product_image_violations`, in `render_page`'s
+structural hits, every render): a page fails if any image is a library photo
+tagged another model or another product's storefront image
+(`asset-<other handle>-N`), or if its hero is a library photo tagged
+`unknown`.
+
+**Unknown asset id** (the 2026-10-05 STOP: the writer guessed `...-mini-...-9`;
+the manifest skips ids an `asset-review.json` exclusion removed). The repair
+loop's deterministic pass (`repair.apply_deterministic_fixes`, after the
+cycle 50 prefix fix) now calls `replace_unknown_asset_id`: the best allowed,
+unused image for that slot (topic-matched when the library is in play), logged
+`fix: unknown asset id A -> B`. Only when every allowed image is already on the
+page does the gate still fail.

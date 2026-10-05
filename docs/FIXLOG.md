@@ -3472,3 +3472,66 @@ A real `git merge` (5970d8d), then one follow-up (518a67a).
   comparison/popularity statements with no evidence gate (cycle 70 Open).
 - The auto-pick is word matching on the ad brief; a semantic pick could
   follow if real runs mis-pick.
+
+## Cycle 75 (photo library: the owner's 67 photos, tagged, matched to each item, 2026-10-05)
+
+### Problem
+The owner sent one Drive folder of photos "to use in generations" and asked
+that the unit in each photo match what the listicle item talks about. The
+harness had no notion of what a photo shows beyond a Drive folder label and a
+`kind`; an item about red light could get any photo of any shot, and nothing
+stopped a photo of a different model reaching a page. Separately, run
+20261005-150455 STOPped: the writer used `asset-peak-saunas-mini-...-9`, which
+the run's manifest skipped (9 and 11 are excluded in asset-review.json), and
+the gate failed it three times.
+
+### Fix
+1. **Library** (`harness/photo_library.py`, `harness photos import|tag|sheet`).
+   66 photos imported from `~/asset-inbox/drive-2026-10-05/` (67 files, one
+   byte-identical duplicate) to `tenants/peak-saunas/photo-library/`
+   (gitignored, 13 MB) with the manifest `brand/photo-library.json` in git.
+   Derivatives: EXIF orientation applied then stripped, 1600 px long edge,
+   JPEG q80. Ids `asset-photo-<sha256[:12]>`.
+2. **Tags.** One Sonnet vision call per photo against a reference strip of
+   every model's storefront images + spec line, plus a second "is this model
+   X?" call for the 28 photos whose Drive folder label pass 1 did not confirm.
+   Rules in docs/IMAGES.md section 9. Two prompt fixes after spot checks:
+   "assembly" is a feature, not a shot; a studio front view seen through the
+   glass door is `exterior`. Bug found on the way: the Drive-id parse took one
+   underscore too many on `___MG_` names, hiding the folder label of 12
+   photos. Tagging spend $1.13 (172 calls).
+3. **Selection** (`ground.facts_for`): library photos of the product + up to 8
+   model-agnostic ones lead the pool; old Drive indexes dropped for that
+   product; storefront images kept as fallback. Products with no library
+   photo keep the old pool. facts_pack stays under the 4k budget (Fuji 3,761;
+   largest Matterhorn 3,932 -- little headroom left).
+4. **Matching** (`assign_page_images`, render time, no model call): hero =
+   best clean exterior; each slot = unused photo whose tags best match its
+   heading/text keywords (tenant.yaml `photo_library.topic_keywords`); no
+   match -> best photo of the product, logged.
+5. **Gate**: wrong-product image or an `unknown` library hero fails render.
+6. **Unknown asset id**: replaced deterministically by the best allowed,
+   unused image before the gate re-runs, logged. Hook into the repair path is
+   one branch in `repair.apply_deterministic_fixes` (owned by the parallel
+   writer/repair build; nothing else there changed). Four tests in
+   test_repair_loop.py / test_pagechecks.py that pinned "unknown id is left
+   for the gate" now pin the replacement.
+
+### Result
+Product tags: Patagonia 3, El Capitan 2, Fuji 2, Rainier 2, Everest 1,
+Kilimanjaro 1, Matterhorn 1, Mini 1; unknown 53 (18 of them model-agnostic
+close-ups/people shots). No library photo of Denali, Shasta or Crown: those
+keep their storefront + Drive pool. Mini's one photo is tagged `interior`
+(it is a studio front view), so a Mini hero still falls back to storefront
+image 1. Re-rendering two real 2026-10-05 listicles (Fuji, Mini) with the new
+pool: every image of the page's own product or agnostic, red light /
+outlet / phone-control items on matching photos, gate passes.
+Contact sheet for the owner: `~/asset-inbox/drive-2026-10-05-contact-sheet.jpg`.
+Tests: 46 new (tests/test_photo_library.py); suite 2238 passed.
+
+### Deploy note
+The derivatives are not in git. After merge, run
+`harness photos import ~/asset-inbox/drive-2026-10-05 --tenant peak-saunas`
+in the deploy checkout (re-import keeps the committed tags), or set
+`HARNESS_PHOTO_LIBRARY_DIR`. Without the files the library is simply not
+offered (facts_for checks each file exists) and pages render as before.
