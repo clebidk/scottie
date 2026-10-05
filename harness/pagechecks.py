@@ -167,6 +167,10 @@ def find_duplicate_asset_violations(page, cartridge_name=None):
     problems = []
     skip_keys = _DUPLICATE_ASSET_SKIP_KEYS.get(cartridge_name, ())
     for path, _key, asset_id in _walk_keyed_strings(page, ("asset_id",), skip_keys=skip_keys):
+        # Cycle 79 (review): the product cut-out may stand for the whole unit
+        # in more than one slot (photo_library.assign_page_images caps it).
+        if asset_id.startswith("asset-cutout-"):
+            continue
         if asset_id in seen:
             problems.append({
                 "path": path,
