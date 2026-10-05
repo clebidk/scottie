@@ -206,6 +206,8 @@ def validate_tags(tags, *, features, models):
     desc = tags.get("description")
     if not isinstance(desc, str) or not desc.strip():
         errs.append("description must be a non-empty string")
+    if "old_logo_visible" in tags and not isinstance(tags["old_logo_visible"], bool):
+        errs.append("old_logo_visible must be a bool")
     return errs
 
 
@@ -736,6 +738,10 @@ def tag_photos(tenant, *, client, model, budget, log, refs, ids=None, force=Fals
         tags["model_agnostic"] = derive_agnostic(tags, vision)
         if tags["model_agnostic"] and not vision.get("agnostic"):
             rule += f"; agnostic: {tags['shot']} fits {len(vision.get('candidates') or [])} models"
+        # Cycle 78: old_logo_visible is a human decision, not a model tag --
+        # a re-tag keeps it.
+        if "old_logo_visible" in (photo.get("tags") or {}):
+            tags["old_logo_visible"] = photo["tags"]["old_logo_visible"]
         photo["tags"] = tags
         photo["decision"] = {
             "vision_product": vision["product"], "vision_confidence": vision["confidence"],
@@ -758,6 +764,15 @@ def _usable(photo):
     tags = photo.get("tags")
     return bool(tags) and not photo.get("excluded") and not tags["has_text_overlay"] \
         and tags["shot"] != "ad-still-with-text"
+
+
+def shows_old_logo(photo):
+    """Cycle 78: the photo shows the retired brand mark (the old logo on
+    the glass, a control panel or a red light panel). Set by
+    a person looking at the photo (tags.old_logo_visible). Such a photo may
+    fill a lower slot but never the hero or the first item image -- above
+    the fold the page must show the current brand."""
+    return bool((photo.get("tags") or {}).get("old_logo_visible"))
 
 
 def photos_for_product(manifest, model_slug, *, tenant=None, require_file=True, feature_ok=None):
@@ -1034,11 +1049,12 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
             notes.append(f"{path}: no unused image left; kept {node.get('asset_id')}")
             used.add(node.get("asset_id"))
 
-    # 1. Hero: best clean exterior of the product itself (never unknown).
+    # 1. Hero: best clean exterior of the product itself (never unknown,
+    # never a photo that shows the retired mark).
     for path, node, _ctx, is_hero, _heading in slots:
         if not is_hero:
             continue
-        own = [p for p in free(pool) if p["tags"]["product"] == product]
+        own = [p for p in free(pool) if p["tags"]["product"] == product and not shows_old_logo(p)]
         exteriors = [p for p in own if p["tags"]["shot"] == "exterior"]
         if exteriors:
             take(path, node, max(exteriors, key=hero_rank)["id"], "hero: best exterior")
@@ -1049,8 +1065,11 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
         else:
             fallback(path, node, "hero")
 
-    # 2. Content slots, most specific first.
+    # 2. Content slots, most specific first. The first item image (the
+    # first content slot in page order) is above the fold too: no photo
+    # with the retired mark there.
     content = [(i, s) for i, s in enumerate(slots) if not s[3]]
+    first_content_path = content[0][1][0] if content else None
     scored = []
     for order, (path, node, ctx, _h, heading) in content:
         topics = slot_topics_weighted(heading, ctx, keywords)
@@ -1058,6 +1077,8 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
         scored.append((-best, order, path, node, topics))
     for _neg, order, path, node, topics in sorted(scored, key=lambda s: (s[0], s[1])):
         candidates = free(pool)
+        if path == first_content_path:
+            candidates = [p for p in candidates if not shows_old_logo(p)]
         if not candidates:
             fallback(path, node, "content: library has no unused photo left")
             continue
