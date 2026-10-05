@@ -310,12 +310,13 @@ meta:
   ingest_since: "2026-09-23"
   token_env: META_ACCESS_TOKEN
 
-# Cycle 52: the finalized PEAK design system, applied 2026-09-22. The values
-# the engine actually reads are brand/tokens.json and brand/base.css; this
-# section is the short, readable statement of the same decisions, and
-# headline_case is read by the renderer (see harness/render.py). Source:
-# PEAK design system 2026 (gbrain projects/peak-saunas/design-system-2026).
-# See tenants/peak-saunas/docs/REBRAND-APPLIED-2026-09-22.md.
+# Cycle 78 (2026-10-05): the generator matches the LIVE storefront theme
+# ("mono", theme 182943580461). The 2026-09-22 rebrand palette (stone,
+# fossil dust, cedar, solar-flare orange, Acid Grotesk uppercase) is retired;
+# the owner banned all orange on 2026-09-28. The values the engine reads are
+# brand/base.css (tokens + the live theme layer) and the keys below that say
+# "read by"; the rest is the short, readable statement of the same decisions.
+# See docs/FIXLOG.md cycle 78.
 brand:
   name: PEAK
   legal_entity: Peak Wellness USA LLC   # unchanged; used only where a legal line is rendered
@@ -324,29 +325,28 @@ brand:
   # a quoted claim source (a policy title, "the Peak Saunas app").
   retired_names: ["Peak Saunas"]
   retired_name_exceptions: ["Peak Saunas app"]
-  # headlines render UPPERCASE via CSS text-transform -- never by rewriting
-  # the writer's copy. "none" leaves headline case exactly as written.
-  headline_case: upper
+  # Read by harness/render.py. The live theme sets headings in sentence
+  # case, so the uppercase class is off ("none" leaves the copy as written).
+  headline_case: none
+  # Read by harness/templates/base.html: a <link> in the document head, so
+  # the review/standalone page loads the theme's faces. The storefront export
+  # keeps only the body (the theme loads both faces site-wide).
+  font_stylesheet: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Poppins:wght@500;600&display=swap"
+  # Read by harness/templates/base.html: data-pk-theme on the page wrapper,
+  # so a cached storefront page shows which theme build it carries.
+  theme_marker: mono-2026-10-05
   palette:
-    basalt: "#181918"        # primary dark: text on light, dark grounds, logo on light
-    stone: "#EFE3D2"         # primary light ground; text and logo on dark
-    fossil-dust: "#C0C8C3"   # secondary light ground: panels and cards
-    red: "#702B33"           # editorial colour blocks, headline panels
-    cedar: "#483215"         # thin accent bands, rules
-    solar-flare: "#F27046"   # accent: CTAs and highlights, sparingly
+    basalt: "#161817"        # dark bands, footer, primary CTA
+    ink: "#1A1A1A"           # body text
+    red: "#702B34"           # CTA hover/pressed, badges (theme mostly #712B33)
+    stone: "#F0E5D3"         # accent panels only (spec boxes)
+    white: "#FFFFFF"         # page ground
+    panel: "#F1F1F1"         # light panels
+    muted: "#616161"         # secondary text
   fonts:
-    main: Acid Grotesk
-    main_fallback: '"Acid Grotesk", "Schibsted Grotesk", "Inter", Helvetica, Arial, sans-serif'
-    secondary: Epika
-    secondary_fallback: '"Epika", "Instrument Serif", "Playfair Display", Georgia, serif'
-    self_hosted: [brand/fonts/Epika-Regular.woff2, brand/fonts/Epika-Regular.otf]
-  license_note: "Acid Grotesk license pending; fallback in use. Epika is licensed and self-hosted."
+    body: DM Sans            # 400/500, 16px, line-height 1.55
+    headings: Poppins        # 600, sentence case, letter-spacing -.01em
   logo:
-    on_light: brand/logo.svg          # Basalt wordmark; the renderer's default
-    on_dark: brand/logo-on-dark.svg   # Stone wordmark
-    raster: [brand/logo-basalt.png, brand/logo-stone.png]
-    rule: "Basalt on light grounds, Stone on dark. Never a Stone or White logo on Solar Flare."
-  radius: 4  # cycle 63, owner decision 2026-09-22: 4px on boxes on every page
-             # type (brand/tokens.json shape.radius_note). Not read by the
-             # renderer -- the actual value lives in brand/base.css's
-             # --ps-radius-box and each cartridge's own template.html.
+    on_light: brand/logo.svg          # PEAK wordmark, Basalt; the renderer's default
+    rule: "Never the legacy green/cyan mountain 'Peak Saunas' mark."
+  radius: 4  # boxes, cards, inputs; 999px only for pill CTAs (brand/base.css)

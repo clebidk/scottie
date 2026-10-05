@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}{{ tenant_name }}{% endblock %}</title>
+{% set font_stylesheet = tenant.get("brand.font_stylesheet") if tenant else None %}
+{% if font_stylesheet %}<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{{ font_stylesheet }}">{% endif %}
 <style>{{ structure_css | safe }}</style>
 {% if tenant_css %}<style>{{ tenant_css | safe }}</style>{% endif %}
 {% if json_ld %}
@@ -11,7 +14,8 @@
 {% endif %}
 </head>
 <body>
-<main class="{{ wrap_class }}">
+{% set theme_marker = tenant.get("brand.theme_marker") if tenant else None %}
+<main class="{{ wrap_class }}"{% if theme_marker %} data-pk-theme="{{ theme_marker }}"{% endif %}>
 {% block content %}{% endblock %}
 
 <footer class="adv-footer">
