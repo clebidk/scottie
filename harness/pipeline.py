@@ -26,6 +26,7 @@ from .ground import LocalFactsSource
 from .ingest import download_drive_file, run_ingest
 from .log import RunLog
 from . import headlines
+from . import skeletons
 from . import listicle
 from . import looks
 from .pdp_claims import save_pdp_claims_cache, seed_pdp_claims
@@ -111,6 +112,7 @@ class RunState:
         self.listicle_style = None
         self.listicle_look = None
         self.listicle_headline = None
+        self.listicle_skeleton = None
         self.claims_config = {}
         self.facts_source = None
         self.merged_products = {}
@@ -165,9 +167,15 @@ def prepare_run(state):
     # seed so a batch of runs rotates through every style the tenant
     # allows (harness/listicle.py). Resolved even when listicle is not
     # selected; nothing reads it then.
-    state.listicle_style = listicle.resolve_style(
-        getattr(args, "style", None), seed=state.seed, tenant=tenant
-    )
+    # Cycle 73: an explicit --skeleton must exist and fit the style; with no
+    # --style it sets the style (its first one). Checked here, before any
+    # model call; an auto-picked skeleton waits for the ad brief
+    # (write_pages).
+    requested_skeleton = getattr(args, "skeleton", None) if "listicle" in selected else None
+    requested_style = getattr(args, "style", None)
+    if requested_skeleton:
+        requested_style = skeletons.style_for(requested_skeleton, requested_style)
+    state.listicle_style = listicle.resolve_style(requested_style, seed=state.seed, tenant=tenant)
     # Cycle 70: an explicit --headline-template must exist and fit the style
     # before any model call; its evidence is checked in write_pages, once the
     # facts pack exists.
@@ -187,9 +195,11 @@ def prepare_run(state):
     # own, so `--look pdp` sets the product page and leaves a listicle on
     # its style pairing.
     requested_look = getattr(args, "look", None)
-    state.listicle_look = listicle.resolve_look(
-        looks.requested_for("listicle", requested_look), style=state.listicle_style, tenant=tenant
-    )
+    # Cycle 73: a pinned skeleton names its closest look; --look still wins.
+    listicle_look = looks.requested_for("listicle", requested_look)
+    if requested_skeleton and not listicle_look:
+        listicle_look = skeletons.load_skeleton(requested_skeleton)["look"]
+    state.listicle_look = listicle.resolve_look(listicle_look, style=state.listicle_style, tenant=tenant)
     state.product_page_look = looks.resolve_look(
         "product-page", looks.requested_for("product-page", requested_look), tenant=tenant
     )
@@ -403,6 +413,7 @@ def _write_initial_pages_via_batch(state, write_model):
         model=write_model,
         tenant=state.tenant,
         ad_not_repeated=state.ad_not_repeated,
+        listicle_skeleton=state.listicle_skeleton,
     )
     created = state.client.messages.batches.create(requests=requests)
     state.log.event("write_pages", f"batch {created.id} submitted for {len(requests)} cartridge(s)")
@@ -436,6 +447,21 @@ def write_pages(state):
     repair_first_model = state.tenant.model_for("repair_first")
     repair_next_model = state.tenant.model_for("repair_next")
 
+    # Cycle 73: the winner skeleton -- --skeleton when given, else a pick
+    # from the skeletons that fit the style, scored against the ad brief.
+    # A pinned one also narrows the seeded headline pick to its own
+    # headline_templates.
+    requested_skeleton = getattr(state.args, "skeleton", None)
+    skeleton = None
+    if "listicle" in state.selected and state.listicle_skeleton is None:
+        skeleton = skeletons.select(
+            state.listicle_style, state.ad_brief, requested=requested_skeleton, tenant=state.tenant,
+        )
+        state.listicle_skeleton = skeletons.for_writer(skeleton, state.tenant)
+        state.log.event(
+            "run",
+            f"listicle skeleton: {skeleton['id']} ({'--skeleton' if requested_skeleton else 'auto-pick'})",
+        )
     # Cycle 70: the listicle's headline template (harness/headlines.py),
     # picked here because the facts pack's evidence decides which templates
     # are eligible: --headline-template when given, else a pick from the run
@@ -444,6 +470,7 @@ def write_pages(state):
         state.listicle_headline = headlines.resolve_plan(
             state.listicle_style, state.facts_pack, state.tenant, seed=state.seed, today=state.today_iso,
             requested=getattr(state.args, "headline_template", None),
+            prefer=skeleton["headline_templates"] if (skeleton and requested_skeleton) else None,
         )
         state.log.event(
             "run",
@@ -483,6 +510,7 @@ def write_pages(state):
                 initial_call_tokens=initial_call_tokens,
                 listicle_style=state.listicle_style,
                 listicle_headline=state.listicle_headline,
+                listicle_skeleton=state.listicle_skeleton,
             )
         except ClaimsGateFailure as e:
             attempts = getattr(e, "attempts", [e.items])
@@ -517,6 +545,7 @@ def render_pages(state):
         runstate.record_listicle_choice(
             state.run_dir, style=state.listicle_style, look=state.listicle_look,
             headline_template_id=template_id,
+            skeleton_id=(state.listicle_skeleton or {}).get("id"),
         )
     # Cycle 54: the product page's look, stamped and recorded the same way.
     if "product-page" in state.pages and getattr(state, "product_page_look", None):

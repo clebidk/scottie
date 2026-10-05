@@ -25,6 +25,7 @@ from harness import cli
 from harness import headlines
 from harness import listicle as listicle_mod
 from harness import pipeline
+from harness import skeletons
 from harness import tenant as tenant_mod
 from harness.prices import build_live_price_claims
 from tests.conftest import FakeClient, json_response
@@ -249,7 +250,7 @@ def _newest_run_dir(base_dir, pattern):
 
 
 def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
-             style=None, headline_template=None):
+             style=None, headline_template=None, skeleton=None):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
     None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
     (the 200-generation dry run)."""
@@ -266,8 +267,10 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     # the same seed.
     resolved_style = None
     if "listicle" in selected:
+        # Cycle 73: a pinned skeleton sets the style when --style does not.
         resolved_style = listicle_mod.resolve_style(
-            style, seed=seed, tenant=tenant_mod.load_tenant(tenant, require=True)
+            skeletons.style_for(skeleton, style) if skeleton else style,
+            seed=seed, tenant=tenant_mod.load_tenant(tenant, require=True),
         )
     # Cycle 70: the canned headline has to be the one the run's headline
     # template asks for, so a fake run pins the template -- the style's own
@@ -296,6 +299,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
         seed=seed,
         style=style,
         headline_template=headline_template,
+        skeleton=skeleton,
         product=product,
         ffmpeg_bin="/usr/bin/ffmpeg",
         whisper_bin="/nonexistent/whisper-cli",
@@ -324,6 +328,8 @@ def main(argv=None):
                         help="listicle style; default: deterministic from --seed")
     parser.add_argument("--headline-template", default=None,
                         help="listicle headline template id; default: the style's own formula")
+    parser.add_argument("--skeleton", choices=skeletons.skeleton_ids(), default=None,
+                        help="listicle winner skeleton id; default: picked from the ad's angle")
     parser.add_argument("--product", default=None)
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
@@ -331,7 +337,7 @@ def main(argv=None):
 
     exit_code, run_dir, pages = run_once(
         ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
-        style=ns.style, headline_template=ns.headline_template,
+        style=ns.style, headline_template=ns.headline_template, skeleton=ns.skeleton,
     )
     if exit_code != 0:
         return exit_code

@@ -72,14 +72,15 @@ def init_state(run_dir, *, pages, by="system", note="run started", dry_run=False
     return data
 
 
-def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_id=None):
+def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_id=None, skeleton_id=None):
     """Cycle 51: the style and the look this run's listicle page was built
     with, recorded together under state.json's "listicle" key. The style
     fixes the copy and is baked into page.json by the writer; the look only
     picks a template, so `harness rerender --look` can change it afterwards
     -- which is exactly why the resolved value has to be written down rather
     than re-derived later from a flag nobody kept. Cycle 70: the headline
-    template id (harness/headlines.py) too."""
+    template id (harness/headlines.py) too. Cycle 73: the winner skeleton id
+    (harness/skeletons.py)."""
     data = load_state(run_dir)
     entry = dict(data.get("listicle") or {})
     if style:
@@ -88,6 +89,8 @@ def record_listicle_choice(run_dir, *, style=None, look=None, headline_template_
         entry["look"] = look
     if headline_template_id:
         entry["headline_template_id"] = headline_template_id
+    if skeleton_id:
+        entry["skeleton_id"] = skeleton_id
     data["listicle"] = entry
     save_state(run_dir, data)
     return data

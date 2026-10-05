@@ -1,0 +1,71 @@
+{
+  "id": "hidden-costs",
+  "version": "2.0.0",
+  "name": "Hidden costs of the usual option",
+  "styles": [
+    "mistakes"
+  ],
+  "look": "editorial",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Cost-of-inaction (status-quo tax) listicle"
+    }
+  ],
+  "tags": [
+    "hidden costs",
+    "cost",
+    "price",
+    "membership",
+    "fees",
+    "money",
+    "roi"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Dek: the usual option costs more than its sticker price.",
+    "items": "Each item is one cost of the usual option the reader overlooks.",
+    "faq": "Answer the cost questions with verified prices only.",
+    "closing": "End on the product as the clear alternative, with verified price, delivery and warranty facts."
+  },
+  "items": [
+    {
+      "role": "recurring_fees",
+      "heading_hint": "Recurring fees that add up -- an ad speaker's own estimate only as an attributed line",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "time_cost",
+      "heading_hint": "Travel, waiting and schedule limits",
+      "image_role": "item"
+    },
+    {
+      "role": "paying_twice",
+      "heading_hint": "Paying again for extras sold separately",
+      "image_role": "item"
+    },
+    {
+      "role": "false_savings",
+      "heading_hint": "Cheap options that cost more later (install, terms)",
+      "image_role": "install"
+    },
+    {
+      "role": "clear_alternative",
+      "heading_hint": "The product as the one-time alternative, with verified facts",
+      "image_role": "product"
+    }
+  ],
+  "headline_templates": [
+    "s-mistakes",
+    "h11",
+    "h17"
+  ],
+  "voice": "Plain math, second person, short sentences; no scare framing.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "An ad speaker's cost estimate is an attributed line only, never a heading, bullet or FAQ answer.",
+    "No savings figure or payback period unless a verified claim states it."
+  ],
+  "writer_brief": "Number the costs the usual option hides. Keep the math honest and attributed. End on the verified alternative, not a savings calculator."
+}

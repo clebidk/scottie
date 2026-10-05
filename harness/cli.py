@@ -24,6 +24,7 @@ from . import meta_ingest
 from . import pipeline
 from . import repair
 from . import runstate
+from . import skeletons
 from . import page_body as shopify_body_mod
 from . import tenant as tenant_mod
 from . import workflows
@@ -1473,9 +1474,16 @@ def build_parser():
              "rotates through every style the tenant allows",
     )
     p_run.add_argument(
-        "--headline-template",
-        help="listicle headline template id from cartridges/listicle/headlines.yaml (e.g. h04, s-reasons); "
-             "default: a pick from the run seed among the templates the style and the evidence allow",
+        "--headline-template", "--headline", dest="headline_template",
+        help="listicle headline template id or alias from cartridges/listicle/headlines.yaml (e.g. h04, "
+             "s-reasons, must-have-for-problem); --headline is the same flag. Default: a pick from the run "
+             "seed among the templates the style and the evidence allow",
+    )
+    p_run.add_argument(
+        "--skeleton", choices=skeletons.skeleton_ids(),
+        help="listicle winner skeleton from cartridges/listicle/skeletons/ (the item map the writer "
+             "adapts); sets the style when --style is not given, and the look when --look is not. "
+             "Default: picked from the skeletons that fit the style, by the ad's angle",
     )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)

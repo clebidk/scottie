@@ -1,0 +1,73 @@
+{
+  "id": "switcher-reasons",
+  "version": "2.0.0",
+  "name": "Why people switch",
+  "styles": [
+    "reasons"
+  ],
+  "look": "cards",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Audience-in-headline switcher listicle"
+    }
+  ],
+  "tags": [
+    "switch",
+    "switching",
+    "switched",
+    "owners",
+    "instead of",
+    "comparison",
+    "vs"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Dek: what the reader leaves behind and what they get instead.",
+    "items": "Each item is one reason people move from the usual option to this one -- not a feature dump.",
+    "audience_fit": "Who should not switch, named honestly.",
+    "closing": "Recap three reasons to switch."
+  },
+  "items": [
+    {
+      "role": "access",
+      "heading_hint": "Use it when it suits you, not on someone else's schedule",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "all_in_one",
+      "heading_hint": "More of what they want in one product",
+      "image_role": "item"
+    },
+    {
+      "role": "privacy_and_control",
+      "heading_hint": "Your space, your settings",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "setup_reality",
+      "heading_hint": "Setup and space, as the verified facts state them",
+      "image_role": "install"
+    },
+    {
+      "role": "ownership",
+      "heading_hint": "Owning it versus paying per use -- careful with numbers",
+      "image_role": "product"
+    }
+  ],
+  "headline_templates": [
+    "s-reasons",
+    "h02",
+    "h06",
+    "h09",
+    "h10"
+  ],
+  "voice": "Peer to peer, second person, short sentences.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "Never name or criticise a competitor brand.",
+    "A switcher's words are the ad speaker's own, attributed; never an invented customer."
+  ],
+  "writer_brief": "Reasons people switch, written as reasons, not specs. Plain voice, verified claims only."
+}

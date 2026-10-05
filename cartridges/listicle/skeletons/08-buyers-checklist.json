@@ -1,0 +1,72 @@
+{
+  "id": "buyers-checklist",
+  "version": "2.0.0",
+  "name": "Before you buy checklist",
+  "styles": [
+    "questions"
+  ],
+  "look": "scorecard",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Checklist listicle (evaluation criteria pre-sell)"
+    }
+  ],
+  "tags": [
+    "checklist",
+    "buyers guide",
+    "how to choose",
+    "before you buy",
+    "compare",
+    "questions"
+  ],
+  "item_count": 6,
+  "sections": {
+    "hero": "Dek: what to check before buying anything in this category.",
+    "items": "Each item is a question to ask a seller; the body teaches why it matters, and the product's answer carries a claim_id.",
+    "faq": "Questions the checklist did not cover.",
+    "closing": "Recap the three checks that matter most."
+  },
+  "items": [
+    {
+      "role": "core_spec",
+      "heading_hint": "What the core specification actually includes",
+      "image_role": "item"
+    },
+    {
+      "role": "included_or_extra",
+      "heading_hint": "Which features are included and which cost extra",
+      "image_role": "item"
+    },
+    {
+      "role": "power_and_install",
+      "heading_hint": "What power and installation it needs",
+      "image_role": "install"
+    },
+    {
+      "role": "footprint",
+      "heading_hint": "How much space it needs",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "warranty_terms",
+      "heading_hint": "What the warranty covers, part by part",
+      "image_role": "item"
+    },
+    {
+      "role": "delivery_and_returns",
+      "heading_hint": "How it ships and what happens if it arrives damaged",
+      "image_role": "item"
+    }
+  ],
+  "headline_templates": [
+    "s-questions"
+  ],
+  "voice": "Helpful advisor, second person, short sentences.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "Never invent an industry standard or a pass mark."
+  ],
+  "writer_brief": "A checklist, not a brochure. Each question teaches; the product's answer is verified facts only."
+}

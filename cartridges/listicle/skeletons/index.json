@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "purpose": "Winner skeletons for the listicle cartridge: item maps the writer adapts inside the cartridge's fixed Structure, never a claims source.",
+  "default_by_style": {
+    "reasons": "classic-n-reasons",
+    "mistakes": "hormozi-mistakes",
+    "questions": "buyers-checklist",
+    "myths": "myth-bust",
+    "tested": "myth-bust"
+  },
+  "skeletons": [
+    {
+      "id": "hormozi-value-stack",
+      "file": "01-hormozi-value-stack.json"
+    },
+    {
+      "id": "hormozi-mistakes",
+      "file": "02-hormozi-mistakes.json"
+    },
+    {
+      "id": "native-article",
+      "file": "03-native-article.json"
+    },
+    {
+      "id": "classic-n-reasons",
+      "file": "04-classic-n-reasons.json"
+    },
+    {
+      "id": "hidden-costs",
+      "file": "05-hidden-costs.json"
+    },
+    {
+      "id": "switcher-reasons",
+      "file": "06-switcher-reasons.json"
+    },
+    {
+      "id": "myth-bust",
+      "file": "07-myth-bust.json"
+    },
+    {
+      "id": "buyers-checklist",
+      "file": "08-buyers-checklist.json"
+    },
+    {
+      "id": "day-in-the-life",
+      "file": "09-day-in-the-life.json"
+    }
+  ]
+}

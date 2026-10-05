@@ -1165,7 +1165,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                          financing_lender, speaker_pov, ad_not_repeated=None, tenant=None,
                          repair_first_model=None, repair_next_model=None,
                          initial_page=None, initial_call_tokens=0, listicle_style=None,
-                         listicle_headline=None):
+                         listicle_headline=None, listicle_skeleton=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -1294,6 +1294,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 tenant=tenant,
                 listicle_style=listicle_style,
                 listicle_headline=listicle_headline,
+                listicle_skeleton=listicle_skeleton,
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)

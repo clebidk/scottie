@@ -5,6 +5,11 @@
 # cite + the tenant's include/exclude), tells the writer the chosen one, and
 # gates the headline against it. docs/HEADLINES.md is the readable version.
 #
+# `alias` (cycle 73): a second name for the template, accepted wherever an id
+# is (`--headline-template` / `--headline`). h01-h17 keep the swipe ids the
+# merged cursor/listicle-skeletons-fdad branch gave them. Plans, page.json and
+# the A/B/C results always record the id, never the alias.
+#
 # Pattern syntax: "N" is the item count (always a numeral, always the number
 # of entries in page.json's "reasons"). <slot> is a named slot, defined under
 # the template's `slots`. Every other word is kept exactly (case, curly or
@@ -149,6 +154,7 @@ templates:
 
   # -- the 17 pre-sell listicle templates (owner request 2026-09-24) ---------
   - id: h01
+    alias: most-dont-work
     pattern: "N Reasons Why Most <product_category> Don't Work for <problem> (and How <brand> Is Different)"
     styles: [reasons]
     requires: [feature]
@@ -161,6 +167,7 @@ templates:
       brand: {kind: brand}
     example: {product_category: Gym Saunas, problem: Busy Schedules}
   - id: h02
+    alias: everyones-switching
     pattern: "N Reasons Why Everyone's Switching to <brand> for <solution> in <year>"
     styles: [reasons]
     requires: [growth]
@@ -170,6 +177,7 @@ templates:
       year: {kind: year}
     example: {solution: Home Heat Sessions}
   - id: h03
+    alias: every-avatar-needs
     pattern: "N Reasons Why Every <audience> Needs This <product> for <problem>"
     styles: [reasons]
     slots:
@@ -178,6 +186,7 @@ templates:
       problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation (e.g. "cold winter evenings")'}
     example: {audience: Apartment Dweller, product: Compact Home Sauna, problem: Cold Winter Evenings}
   - id: h04
+    alias: must-have-for-problem
     pattern: "N Reasons <product> Is a Must-Have for <problem>"
     styles: [reasons]
     allowed_headline_terms: [must-have, must have]
@@ -186,6 +195,7 @@ templates:
       problem: {kind: problem, max_words: 5, description: 'a common, everyday, non-medical situation (e.g. "long winter evenings")'}
     example: {product: A Home Infrared Sauna, problem: Long Winter Evenings}
   - id: h05
+    alias: going-viral
     pattern: "N Reasons This <product> Is Going Viral (and How It Works)"
     styles: [reasons]
     requires: [growth]
@@ -193,6 +203,7 @@ templates:
       product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
     example: {product: Home Infrared Sauna}
   - id: h06
+    alias: avatar-started-switching
     pattern: "N Reasons <audience> Started Switching to <product>"
     styles: [reasons]
     slots:
@@ -200,6 +211,7 @@ templates:
       product: {kind: product, max_words: 5, description: 'the product or solution: the category (e.g. "home infrared saunas") or a model''s full name'}
     example: {audience: Busy Parents, product: Home Infrared Saunas}
   - id: h07
+    alias: ways-helps-solve
     pattern: "N Ways <product> Helps Solve <problem>, <with_without> <usp>"
     styles: [reasons]
     requires: [feature]
@@ -214,6 +226,7 @@ templates:
       usp: {kind: usp, max_words: 5, description: 'the unique selling point: with a verified feature, or without something the reader avoids (e.g. "leaving the house")'}
     example: {product: A Home Sauna, problem: Crowded Gym Schedules, with_without: Without, usp: Leaving the House}
   - id: h08
+    alias: people-over-age
     pattern: "N Reasons People Over <age> Are Obsessed With <brand>"
     styles: [reasons]
     item_gates: [medical]
@@ -222,6 +235,7 @@ templates:
       brand: {kind: brand}
     example: {age: "40"}
   - id: h09
+    alias: social-proof-switched
     pattern: "N Reasons Why <count> <count_unit> Switched to This <product>"
     styles: [reasons]
     requires: [customer_count]
@@ -231,6 +245,7 @@ templates:
       product: {kind: product, max_words: 4, description: 'the category, singular, or a model''s full name'}
     example: {product: Home Sauna}
   - id: h10
+    alias: swore-they-couldnt
     pattern: "N Reasons <audience> Who Swore They Couldn't <desire> Are Choosing <brand>"
     styles: [reasons]
     slots:
@@ -239,6 +254,7 @@ templates:
       brand: {kind: brand}
     example: {audience: Apartment Dwellers, desire: Fit a Sauna at Home}
   - id: h11
+    alias: concerning-in-common
     pattern: "N Concerning <features> in <common_solution>, and a <alternative> Alternative"
     styles: [mistakes]
     item_pattern: >-
@@ -252,6 +268,7 @@ templates:
       alternative: {kind: alternative}
     example: {features: Hidden Costs, common_solution: Gym Sauna Memberships}
   - id: h12
+    alias: only-built-for-niche
     pattern: "N Reasons This Is the Only <product> Built for <niche>"
     styles: [reasons]
     requires: [exclusivity]
@@ -260,6 +277,7 @@ templates:
       niche: {kind: niche, max_words: 5, description: 'the niche the verified exclusivity claim names, in its words'}
     example: {product: Home Sauna, niche: Small Apartments}
   - id: h13
+    alias: removes-without-concern
     pattern: "N Ways <product> Removes Embarrassing <problem>, Without <concern>"
     styles: [reasons]
     item_pattern: >-
@@ -272,6 +290,7 @@ templates:
       concern: {kind: concern, max_words: 4, description: 'the usual catch, non-medical (e.g. "a gym membership")'}
     example: {product: A Home Sauna, problem: Locker Room Moments, concern: a Gym Membership}
   - id: h14
+    alias: breakthrough-crushes
     pattern: "N Reasons Why This Breakthrough <product> Crushes <common_solution>"
     styles: [reasons]
     requires: [feature]
@@ -283,6 +302,7 @@ templates:
       common_solution: {kind: common_solution, max_words: 4, description: 'a CATEGORY (e.g. "gym saunas", "traditional saunas", "sauna blankets"), never a competitor brand'}
     example: {product: Home Sauna, common_solution: Gym Saunas}
   - id: h15
+    alias: authority-loves
     pattern: "N Reasons Why <authority> Loves <product> for <problem>"
     styles: [reasons]
     requires: [endorsement]
@@ -292,6 +312,7 @@ templates:
       problem: {kind: problem, max_words: 5, description: 'an everyday, non-medical situation'}
     example: {product: Home Infrared Saunas, problem: Busy Training Weeks}
   - id: h16
+    alias: game-changer-for-avatar
     pattern: "N Reasons Why <product> Is a Game-Changer for <audience>"
     styles: [reasons]
     allowed_headline_terms: [game-changer, game changer]
@@ -300,6 +321,7 @@ templates:
       audience: {kind: audience, max_words: 5, description: 'people by situation or goal'}
     example: {product: A Home Infrared Sauna, audience: Busy Parents}
   - id: h17
+    alias: still-problem-after-trying
     pattern: "N Reasons Why You're Still <problem>, Even After Trying <common_solution>"
     styles: [mistakes]
     item_pattern: >-

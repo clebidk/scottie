@@ -1,0 +1,79 @@
+{
+  "id": "classic-n-reasons",
+  "version": "2.0.0",
+  "name": "Classic N reasons",
+  "styles": [
+    "reasons"
+  ],
+  "look": "cards",
+  "sources": [
+    {
+      "kind": "tenant_winner",
+      "name": "The tenant's live reasons listicle (its listicle exemplar)"
+    },
+    {
+      "kind": "pattern",
+      "name": "High-converting reasons listicle structure",
+      "url": "https://www.getlandra.com/blog/listicle-landing-page-examples-that-convert"
+    },
+    {
+      "kind": "pattern",
+      "name": "$100M-brand listicle anatomy",
+      "url": "https://www.bloggersideas.com/100m-brands-write-high-converting-listicles/"
+    }
+  ],
+  "tags": [
+    "reasons",
+    "features",
+    "product features",
+    "why choose",
+    "benefits"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Dek: one plain line on what the product changes for this reader.",
+    "items": "Five reasons, each one feature stated as the benefit it buys the reader, with a proof line.",
+    "closing": "Recap three reasons; one CTA phrase throughout."
+  },
+  "items": [
+    {
+      "role": "easy_setup",
+      "heading_hint": "How simply it sets up (power, assembly)",
+      "image_role": "install"
+    },
+    {
+      "role": "included_feature",
+      "heading_hint": "A feature that comes standard",
+      "image_role": "item"
+    },
+    {
+      "role": "fits_the_space",
+      "heading_hint": "How it fits the reader's space",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "everyday_control",
+      "heading_hint": "How the reader runs it day to day",
+      "image_role": "item"
+    },
+    {
+      "role": "delivery_and_support",
+      "heading_hint": "How it arrives and what backs it",
+      "image_role": "item"
+    }
+  ],
+  "headline_templates": [
+    "s-reasons",
+    "h03",
+    "h04",
+    "h06",
+    "h16"
+  ],
+  "voice": "Plain, warm, second person, short sentences.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "The winner's trust line and customer count are patterns only: never copied unless verified."
+  ],
+  "writer_brief": "Follow the tenant's winner: five short reasons, one feature each, stated as a benefit, each with a proof line. Do not pad."
+}

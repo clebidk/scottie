@@ -1,0 +1,77 @@
+{
+  "id": "hormozi-value-stack",
+  "version": "2.0.0",
+  "name": "Value stack (what you get)",
+  "styles": [
+    "reasons"
+  ],
+  "look": "lander",
+  "look_note": "The stack reads best as the lander look's 2-up grid of panels; the branch's separate proof row is the renderer's trust line.",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Alex Hormozi, $100M Offers: value equation and Grand Slam offer stack"
+    }
+  ],
+  "tags": [
+    "value",
+    "offer",
+    "what you get",
+    "included",
+    "features",
+    "bundle"
+  ],
+  "item_count": 6,
+  "sections": {
+    "hero": "Dek: the outcome the ad promises, with less effort or time -- no number unless verified.",
+    "items": "Each item is one concrete part of the offer the reader gets, not a vague benefit.",
+    "faq": "Answer what is and is not included, and what costs extra.",
+    "closing": "Recap the stack in three bullets; the fixed warranty and financing sentences follow."
+  },
+  "items": [
+    {
+      "role": "core_product",
+      "heading_hint": "The core product that delivers the main outcome",
+      "image_role": "product"
+    },
+    {
+      "role": "built_in_extra",
+      "heading_hint": "A built-in part other options sell separately",
+      "image_role": "item"
+    },
+    {
+      "role": "speed_to_use",
+      "heading_hint": "How fast it is ready to use (setup, power, preheat)",
+      "image_role": "item"
+    },
+    {
+      "role": "effort_reducer",
+      "heading_hint": "What it asks of the reader day to day (space, assembly, use)",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "included_extra",
+      "heading_hint": "An extra that comes in the box -- only when verified",
+      "image_role": "item"
+    },
+    {
+      "role": "support_and_terms",
+      "heading_hint": "Delivery, warranty and support terms that come with it",
+      "image_role": "item"
+    }
+  ],
+  "headline_templates": [
+    "s-reasons",
+    "h04",
+    "h07",
+    "h14"
+  ],
+  "voice": "Direct and concrete, second person, short sentences; name the part, not the feeling.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "No invented dollar value on any part of the stack.",
+    "No urgency or scarcity."
+  ],
+  "writer_brief": "Adapt the stack to the ad's angle: each item is one concrete part of what the reader gets, backed by a verified claim. Keep it short."
+}

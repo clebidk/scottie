@@ -93,3 +93,6 @@ Specs, price, financing, warranty, verified studies, reviews summary, the asset 
 
 ## From exemplars (the winner)
 Exemplars are the adaptation source, never a claims source. Keep the winner's section order, item density and CTA placement pattern as far as the Structure above allows; rewrite its copy into this brand's voice and this ad's angle; swap every image to an asset_id from facts_pack; replace every claim with facts_pack.verified_claims only. Its product name, numbers, trust lines and customer counts never carry over on their own.
+
+## Winner skeleton (cycle 73)
+Each run also adapts one winner skeleton from `cartridges/listicle/skeletons/` (README there): the item map of a proven listicle -- each numbered item's role and heading angle, plus hints for the hero, items, audience_fit, FAQ and closing -- sent in the user message under "skeleton", with the tenant's own item hints when it has some. Write the numbered items in its order with those roles, in this run's style and headline template, inside the Structure above. A skeleton never adds a section, a label, a byline, comments or a trust row, and its hints are angles, never facts: every number, spec or outcome still needs a verified claim_id. Every rule on this page wins over the skeleton.

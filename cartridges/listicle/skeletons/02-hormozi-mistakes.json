@@ -1,0 +1,73 @@
+{
+  "id": "hormozi-mistakes",
+  "version": "2.0.0",
+  "name": "Mistakes that point to the fix",
+  "styles": [
+    "mistakes"
+  ],
+  "look": "editorial",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Hormozi problem, consequence, solution stack"
+    },
+    {
+      "kind": "pattern",
+      "name": "Objection-first listicle (lead with the category's top objection)"
+    }
+  ],
+  "tags": [
+    "mistakes",
+    "mistake",
+    "problem",
+    "objection",
+    "regret",
+    "wrong"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Dek: name what the reader misses out on by repeating these mistakes.",
+    "items": "Each item: the mistake, what it costs the reader, then what the product does instead -- three short beats.",
+    "audience_fit": "Not-for-you names real limits, so the fix never reads as a hard sell.",
+    "closing": "Recap the three biggest mistakes; the product appears as the fix, not a slogan."
+  },
+  "items": [
+    {
+      "role": "top_objection",
+      "heading_hint": "The category's biggest objection, framed as a mistake",
+      "image_role": "item"
+    },
+    {
+      "role": "access_mistake",
+      "heading_hint": "Relying on access you do not control (schedules, travel)",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "wrong_choice",
+      "heading_hint": "Picking an option that lacks something the reader needs",
+      "image_role": "item"
+    },
+    {
+      "role": "setup_assumption",
+      "heading_hint": "Assuming setup is harder than the verified facts say",
+      "image_role": "install"
+    },
+    {
+      "role": "terms_skipped",
+      "heading_hint": "Comparing on price alone and skipping warranty and delivery terms",
+      "image_role": "item"
+    }
+  ],
+  "headline_templates": [
+    "s-mistakes",
+    "h17",
+    "h11"
+  ],
+  "voice": "Candid coach, second person, short sentences; no blame, no fear.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "Never name or criticise a competitor brand; a mistake is about a category or a habit."
+  ],
+  "writer_brief": "Each item is a mistake, its cost and the fix. The product enters as the fix inside an item, never as a slogan. Verified claims only."
+}

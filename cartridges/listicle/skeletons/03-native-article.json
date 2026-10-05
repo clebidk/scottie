@@ -1,0 +1,74 @@
+{
+  "id": "native-article",
+  "version": "2.0.0",
+  "name": "Native article",
+  "styles": [
+    "reasons",
+    "mistakes"
+  ],
+  "look": "editorial",
+  "look_note": "The source map ends in a reader comment thread. No look renders comments, and writer-made comments would be invented testimonials, so the thread maps onto the renderer's pull-quote band (verified review quotes only) and the FAQ; the advertisement label is the tenant's disclosure_label and the byline comes from the tenant's authors.",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "DTC native advertorial: editorial frame, beats that earn the product turn"
+    }
+  ],
+  "tags": [
+    "story",
+    "native",
+    "article",
+    "discovery",
+    "cold",
+    "routine change"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Editorial-style headline and dek; the dek opens on the reader's problem, not the product.",
+    "items": "Numbered article beats that earn the product turn by item 4.",
+    "faq": "The questions a skeptical reader would post as comments, answered from verified facts.",
+    "closing": "Restate the problem and the turn in three bullets."
+  },
+  "items": [
+    {
+      "role": "problem_scene",
+      "heading_hint": "A familiar everyday scene where the problem shows up",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "failed_status_quo",
+      "heading_hint": "Why the usual fix does not stick",
+      "image_role": "item"
+    },
+    {
+      "role": "what_has_to_be_true",
+      "heading_hint": "What a real fix needs to do, in plain words",
+      "image_role": "item"
+    },
+    {
+      "role": "product_turn",
+      "heading_hint": "The product turn, with a verified fact",
+      "image_role": "product"
+    },
+    {
+      "role": "daily_use",
+      "heading_hint": "What everyday use looks like -- no outcome promises",
+      "image_role": "lifestyle"
+    }
+  ],
+  "headline_templates": [
+    "s-reasons",
+    "h01",
+    "h13",
+    "s-mistakes",
+    "h17"
+  ],
+  "voice": "Editorial, plain and calm; third or second person; never the author's own first-person story.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "Never invent a publication, a reporter, an expert, a reader comment or a reviewer name.",
+    "A quote is the ad speaker's own words, framed as attributed, or a verified review the renderer places."
+  ],
+  "writer_brief": "A short native article in numbered beats: problem, why the usual fix fails, what a fix needs, the product turn, everyday use. No comments section -- answer objections in the FAQ."
+}

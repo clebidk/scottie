@@ -14,6 +14,7 @@ from .errors import WriterFailed
 from .jsonutil import extract_json
 from . import comparison
 from . import listicle
+from . import skeletons
 from . import quiz
 from . import pdp
 from . import tenant as tenant_mod
@@ -459,12 +460,16 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
 # no style resolved (the gate still rejects a page with no valid style).
 # Cycle 70: `headline` is the run's headline template plan (harness/
 # headlines.py) -- the template, its slots and the claim_ids to cite.
-def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None):
+# Cycle 73: `skeleton` is the run's winner skeleton payload
+# (skeletons.for_writer); its lines say how to use it and that it never
+# outranks these constraints.
+def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None, skeleton=None):
     if cartridge_name != "listicle":
         return
     hard_constraints.extend(listicle.writer_rules_lines())
     if style:
         hard_constraints.extend(listicle.writer_style_lines(style, headline=headline))
+    hard_constraints.extend(skeletons.writer_lines(skeleton))
 
 
 # Cycle 56: the comparison cartridge's per-run lines (the run's own three
@@ -614,10 +619,15 @@ def _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeate
 # per-ad, not stable across runs, and exemplars/revision_note are per-call by
 # design (fix cycle 12 item 1's exemplar-skip-on-repair, fix cycle 4's
 # per-attempt revision note).
-def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None):
+def _build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note=None, skeleton=None):
     volatile_payload = {"ad_brief": ad_brief}
     if exemplars:
         volatile_payload["exemplars"] = exemplars
+    # Cycle 73: the listicle's winner skeleton (harness/skeletons.py). Unlike
+    # exemplars it stays on repair attempts -- it is small, and it is the
+    # item map the repaired page must still follow.
+    if skeleton:
+        volatile_payload["skeleton"] = skeleton
     volatile_text = json.dumps(volatile_payload)
     if revision_note:
         volatile_text += "\n\n" + revision_note
@@ -650,7 +660,8 @@ def _content_len(content):
 # revision_note -- attempt 1 never has one either way.
 def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, model,
                                  word_range=None, allowed_cta_texts=None, ad_not_repeated=None,
-                                 tenant=None, listicle_style=None, listicle_headline=None):
+                                 tenant=None, listicle_style=None, listicle_headline=None,
+                                 listicle_skeleton=None):
     """(schema, kwargs) -- schema so the caller can validate_schema() the
     parsed response the same way write_page does; kwargs is ready to pass to
     client.messages.create(**kwargs) or wrap in a batch Request's params."""
@@ -660,15 +671,17 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name))
     if cartridge_name == "article":
         exemplars = filter_exemplars_for_warmup(exemplars, tenant)
+    skeleton = listicle_skeleton if cartridge_name == "listicle" else None
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
-    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline)
+    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
+                                    skeleton=skeleton)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars)]
+    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, skeleton=skeleton)]
     kwargs = {
         "model": model,
         "max_tokens": max_tokens_for_word_range(word_range),
@@ -681,7 +694,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
 
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
-               tenant=None, listicle_style=None, listicle_headline=None):
+               tenant=None, listicle_style=None, listicle_headline=None, listicle_skeleton=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -695,7 +708,11 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     item's own claim text and verified_fact (claims.gate_ad_brief_claims's
     return shape; verified_fact is None for a plain-unmatched claim -- there
     is no single fact to point to) are told to the writer as statements to
-    never repeat."""
+    never repeat.
+
+    listicle_skeleton (cycle 73): the run's winner skeleton payload
+    (skeletons.for_writer), listicle only. Unlike exemplars it is kept on
+    repair attempts."""
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     cartridge_md, schema = load_cartridge_prompt(cartridge_dir, tenant)
@@ -708,11 +725,13 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     exemplars = load_exemplars(tenant.exemplars_dir(cartridge_name)) if not revision_note else []
     if cartridge_name == "article" and exemplars:
         exemplars = filter_exemplars_for_warmup(exemplars, tenant)
+    skeleton = listicle_skeleton if cartridge_name == "listicle" else None
 
     hard_constraints = _build_hard_constraints(word_range, allowed_cta_texts)
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
-    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline)
+    _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
+                                    skeleton=skeleton)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
@@ -726,7 +745,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
 
     stage = f"write.{cartridge_name}"
     last_error = None
-    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note)]
+    messages = [_build_initial_user_message(ad_brief, facts_pack, exemplars, revision_note, skeleton=skeleton)]
     for attempt in range(2):
         budget.check()
         # Fix cycle 12 item 1: log an approximate prompt size (chars / 4, the

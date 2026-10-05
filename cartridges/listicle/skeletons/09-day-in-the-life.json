@@ -1,0 +1,69 @@
+{
+  "id": "day-in-the-life",
+  "version": "2.0.0",
+  "name": "A day with it",
+  "styles": [
+    "reasons"
+  ],
+  "look": "pillars",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Routine (day-in-the-life) numbered pre-sell"
+    }
+  ],
+  "tags": [
+    "routine",
+    "daily",
+    "habit",
+    "lifestyle",
+    "day in the life",
+    "busy"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Dek: what an ordinary day looks like with the product at home.",
+    "items": "Each item is one moment in the day where a feature shows up -- not a spec sheet.",
+    "closing": "Recap why home access is easier to keep up."
+  },
+  "items": [
+    {
+      "role": "morning_start",
+      "heading_hint": "Getting it ready while the morning starts",
+      "image_role": "item"
+    },
+    {
+      "role": "short_session",
+      "heading_hint": "A short session that fits the day -- no outcome promises",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "included_feature",
+      "heading_hint": "A feature used in the same sitting",
+      "image_role": "item"
+    },
+    {
+      "role": "evening_wind_down",
+      "heading_hint": "An evening use that fits around family or work",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "why_it_sticks",
+      "heading_hint": "Why having it at home makes it easier to keep up",
+      "image_role": "product"
+    }
+  ],
+  "headline_templates": [
+    "s-reasons",
+    "h03",
+    "h10",
+    "h13"
+  ],
+  "voice": "Lifestyle diary in second person, short sentences; illustrative, never a protocol.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "The routine is illustrative, never a recommended protocol or a usage period someone ran."
+  ],
+  "writer_brief": "Five moments in one day. Features show up inside the day, never as a spec sheet. Short."
+}

@@ -1,0 +1,72 @@
+{
+  "id": "myth-bust",
+  "version": "2.0.0",
+  "name": "Myth and fact",
+  "styles": [
+    "myths",
+    "tested"
+  ],
+  "look": "pillars",
+  "look_note": "A tested run that pins this skeleton keeps the pillars look unless --look names another.",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Education listicle (myth-busting pre-sell)"
+    }
+  ],
+  "tags": [
+    "myth",
+    "myths",
+    "misconception",
+    "objection",
+    "education",
+    "claims",
+    "true or false"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Dek: the beliefs that stop readers, checked against the facts.",
+    "items": "Each item: the myth or claim as people say it, then what the verified facts say, then why it matters.",
+    "faq": "Any belief with no verified fact to answer it goes nowhere -- drop it, never guess.",
+    "closing": "Recap three facts that held up."
+  },
+  "items": [
+    {
+      "role": "install_myth",
+      "heading_hint": "A belief about installation or power",
+      "image_role": "install"
+    },
+    {
+      "role": "space_myth",
+      "heading_hint": "A belief about how much room it takes",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "extras_myth",
+      "heading_hint": "A belief that a key feature always costs extra",
+      "image_role": "item"
+    },
+    {
+      "role": "running_cost_myth",
+      "heading_hint": "A belief about running or upkeep cost -- only with a verified claim",
+      "image_role": "item"
+    },
+    {
+      "role": "delivery_myth",
+      "heading_hint": "A belief about delivery or returns",
+      "image_role": "item"
+    }
+  ],
+  "headline_templates": [
+    "s-myths",
+    "s-tested"
+  ],
+  "voice": "Calm and corrective, second person; never mocks the reader.",
+  "compliance": [
+    "Every number, price, spec or outcome needs a verified claim_id; a hint is never a fact.",
+    "No health or outcome promise for the product; a health statement cites the study and its population.",
+    "A myth with no verified fact to answer it is dropped, not answered from general knowledge.",
+    "No fear or safety framing."
+  ],
+  "writer_brief": "Myth or claim, then the verified fact. Facts must carry claim_ids. Short."
+}

@@ -1,0 +1,82 @@
+# Cycle 73: Peak's fill hints for the winner skeletons in
+# cartridges/listicle/skeletons/ (harness/skeletons.py reads this file).
+#
+#   angle_fit  -- extra words that point an ad at this skeleton when the run
+#                 auto-picks one (each match counts double a skeleton tag).
+#   item_hints -- Peak angles for the skeleton's items, sent to the writer as
+#                 "tenant_item_hints". They are angles, NEVER facts: every
+#                 number, spec or outcome still needs a verified claim_id, and
+#                 a hint with no verified claim behind it is dropped.
+#
+# Rules for this file: no EMF wording, no health or outcome promise, no
+# competitor name, no customer count, no hype word (vocab.yaml).
+
+hormozi-value-stack:
+  angle_fit: [whats included, red light, full spectrum]
+  item_hints:
+    - The full-spectrum infrared cabin itself
+    - Red light that comes standard, when the model's claim says so
+    - Standard-outlet power, only when the model's electrical claim says so
+    - How the cabin fits the room (cite the dimensions claim)
+    - App controls and preheat
+    - Shipping and warranty as the last part of the stack
+
+hormozi-mistakes:
+  angle_fit: [spa, gym, unused membership, inconsistent]
+  item_hints:
+    - Seeing sauna time as an occasional spa trip
+    - Paying for memberships that go unused
+    - Buying heat without red light, then paying for it separately (verified framing only)
+    - Assuming a home unit needs custom electrical work (only what the electrical claim says)
+    - Comparing on price alone and skipping warranty and shipping terms
+
+native-article:
+  angle_fit: [i tried, diary, routine]
+
+classic-n-reasons:
+  angle_fit: [product features, compact, small space]
+  item_hints:
+    - Plug and play, only when the model's electrical claim says so
+    - Red light included, when the model's claim says so
+    - Fits a small room (cite the dimensions claim)
+    - Smart app controls
+    - Free shipping and the warranty, when verified
+
+hidden-costs:
+  angle_fit: [spa, gym, membership, day pass]
+  item_hints:
+    - Spa or gym membership fees (an ad speaker's estimate only as an attributed line)
+    - Travel and waiting time for a shared sauna
+    - Paying again for red light sessions elsewhere
+    - Cheap units that need an electrician or carry a short warranty
+    - A home sauna with verified shipping and warranty terms
+
+switcher-reasons:
+  angle_fit: [spa, gym, vs spa]
+
+myth-bust:
+  angle_fit: [installation, outlet, too big]
+  item_hints:
+    - Myth that every home sauna needs an electrician (only what the electrical claim says)
+    - Myth that a home sauna takes over a room
+    - Myth that red light is always an expensive add-on
+    - Myth that shipping a sauna is a hassle
+
+buyers-checklist:
+  angle_fit: [how to choose, which sauna]
+  item_hints:
+    - Full-spectrum or single-band infrared
+    - Whether red light is included
+    - Outlet and amperage needs
+    - Room footprint
+    - Warranty terms by component
+    - Shipping, crate and damage policy
+
+day-in-the-life:
+  angle_fit: [busy parents, morning, evening]
+  item_hints:
+    - App preheat while the coffee starts
+    - A short session before work
+    - Red light in the same sitting
+    - An evening session after the kids are in bed
+    - Why home access is easier to keep up than a drive to the gym

@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartridges/listicle/skeletons/skeleton.schema.json",
+  "title": "ListicleSkeleton",
+  "description": "A winner skeleton: the item map of a proven listicle, adapted by the writer inside the listicle cartridge's fixed eight-section Structure. Never a claims source. Tenant-neutral: tenant fill hints live in tenants/<tenant>/listicle-library/skeletons.yaml.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "name",
+    "styles",
+    "look",
+    "sources",
+    "tags",
+    "item_count",
+    "sections",
+    "items",
+    "headline_templates",
+    "voice",
+    "compliance",
+    "writer_brief"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "styles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "reasons",
+          "mistakes",
+          "questions",
+          "myths",
+          "tested"
+        ]
+      }
+    },
+    "look": {
+      "type": "string",
+      "enum": [
+        "editorial",
+        "cards",
+        "pillars",
+        "scorecard",
+        "lander"
+      ]
+    },
+    "look_note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "name"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tenant_winner",
+              "pattern",
+              "swipe"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://"
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "item_count": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 7
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hero",
+        "items",
+        "closing"
+      ],
+      "properties": {
+        "hero": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience_fit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "faq": {
+          "type": "string",
+          "minLength": 1
+        },
+        "closing": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "heading_hint",
+          "image_role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"
+          },
+          "heading_hint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "image_role": {
+            "type": "string",
+            "enum": [
+              "item",
+              "lifestyle",
+              "product",
+              "install"
+            ]
+          }
+        }
+      }
+    },
+    "headline_templates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "voice": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compliance": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "writer_brief": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -5,7 +5,9 @@ templates plus the five cycle 41 style formulas (ids s-<style>), each with the
 styles it fits, its named slots, and the evidence a page must be able to cite
 before the template may be used. This module is everything that reads it:
 
-  - load_library / validate_library: the file, checked on load;
+  - load_library / validate_library: the file, checked on load; a
+    template's optional `alias` (cycle 73: the 17 swipe ids of the merged
+    cursor/listicle-skeletons-fdad branch) names the same template;
   - eligibility / eligible_templates: which templates one run may use -- the
     run's style, the evidence in its facts_pack (a customer count, growth, an
     exclusivity claim or a named endorsement only when a verified claim holds
@@ -52,6 +54,7 @@ _PLACEHOLDER_RE = re.compile(r"<([a-z_]+)>")
 _SPLIT_RE = re.compile(r"(<[a-z_]+>)")
 _N_RE = re.compile(r"(?<![A-Za-z])N(?![A-Za-z])")
 _SLOT_KEYS = frozenset({"kind", "max_words", "description", "options"})
+_ALIAS_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _NICHE_STOPWORDS = frozenset({"the", "a", "an", "for", "of", "and", "with", "in", "to", "on"})
 
 
@@ -89,6 +92,7 @@ def validate_library(data):
     if not isinstance(templates, list) or not templates:
         raise HeadlineLibraryError("headline library needs a non-empty `templates` list")
     seen, legacy = set(), {}
+    ids = {(t or {}).get("id") for t in templates}
     for t in templates:
         tid = (t or {}).get("id")
         if not tid:
@@ -96,6 +100,13 @@ def validate_library(data):
         if tid in seen:
             raise HeadlineLibraryError(f"duplicate template id {tid!r}")
         seen.add(tid)
+        alias = t.get("alias")
+        if alias is not None:
+            if not isinstance(alias, str) or not _ALIAS_RE.match(alias):
+                raise HeadlineLibraryError(f"template {tid}: alias must be kebab-case, got {alias!r}")
+            if alias in ids or alias in seen:
+                raise HeadlineLibraryError(f"template {tid}: alias {alias!r} is already a template id or alias")
+            seen.add(alias)
         pattern = t.get("pattern")
         if not isinstance(pattern, str) or not pattern.strip():
             raise HeadlineLibraryError(f"template {tid}: no pattern")
@@ -151,6 +162,7 @@ def _load(path_str):
     validate_library(data)
     return {
         "templates": {t["id"]: t for t in data["templates"]},
+        "aliases": {t["alias"]: t["id"] for t in data["templates"] if t.get("alias")},
         "order": [t["id"] for t in data["templates"]],
         "evidence": data.get("evidence") or {},
         "word_lists": data.get("word_lists") or {},
@@ -171,8 +183,14 @@ def template_ids():
     return list(load_library()["order"])
 
 
+def canonical_id(template_id):
+    """The template id `template_id` names: itself, or the id whose `alias`
+    it is (cycle 73). Unknown names come back unchanged."""
+    return load_library()["aliases"].get(template_id, template_id)
+
+
 def template(template_id):
-    t = load_library()["templates"].get(template_id)
+    t = load_library()["templates"].get(canonical_id(template_id))
     if t is None:
         raise HeadlineTemplateError(f"unknown headline template {template_id!r}; choose one of {template_ids()}")
     return t
@@ -313,13 +331,16 @@ def eligible_templates(style, facts_pack, tenant=None):
     return ids or [legacy_id(style)]
 
 
-def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requested=None, weights=None):
+def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requested=None, weights=None,
+                 prefer=None):
     """The run's headline plan. `requested` (`harness run --headline-template`)
     wins over the tenant's include/exclude -- an operator's deliberate choice,
     like an explicit --style -- but never over the style or the evidence.
     Otherwise a pick from eligible_templates, seeded from the run seed.
     `weights` ({template_id: weight}, default 1.0 each) is the hook the A/B/C
-    results can use to favour templates that win."""
+    results can use to favour templates that win. `prefer` (cycle 73: a
+    pinned skeleton's headline_templates) narrows the pick to those eligible
+    ids; when none of them is eligible the pick is unchanged."""
     tenant = _tenant(tenant)
     if requested:
         ok, why = eligibility(requested, style, facts_pack, tenant)
@@ -327,6 +348,9 @@ def resolve_plan(style, facts_pack, tenant=None, *, seed=0, today=None, requeste
             raise HeadlineTemplateError(f"headline template {requested!r} cannot head this {style} page: {why}")
         return build_plan(requested, style, facts_pack, tenant=tenant, today=today)
     ids = eligible_templates(style, facts_pack, tenant)
+    if prefer:
+        preferred = {canonical_id(p) for p in prefer}
+        ids = [tid for tid in ids if tid in preferred] or ids
     rng = random.Random(f"listicle-headline:{seed}:{style}")
     pick = None
     if weights:
@@ -374,6 +398,7 @@ def build_plan(template_id, style, facts_pack, tenant=None, today=None):
     """The plan for one template on one page (see the module docstring).
     Raises HeadlineTemplateError when the template is not eligible."""
     tenant = _tenant(tenant)
+    template_id = canonical_id(template_id)
     ok, why = eligibility(template_id, style, facts_pack, tenant)
     if not ok:
         raise HeadlineTemplateError(f"headline template {template_id!r} cannot head this {style} page: {why}")
