@@ -48,6 +48,10 @@
   font-size:17px;
   line-height:1.6;
 }
+.adv-listicle.look-open.pk-lp{display:block}
+.adv-listicle.look-open .op-hero--face,.adv-listicle.look-open .op-hero--story{text-align:left}
+.adv-listicle.look-open .op-faq{padding-left:0;padding-right:0}
+.adv-listicle.look-open .op-about{margin-top:0}
 .adv-listicle.look-open .op-c{max-width:1100px;margin:0 auto;padding:0 20px}
 .adv-listicle.look-open .op-narrow{max-width:760px;margin:0 auto;padding:0 20px}
 .adv-listicle.look-open .op-eyebrow{font:500 12px/1.2 var(--pk-sans);letter-spacing:.22em;text-transform:uppercase;color:var(--pk-muted);margin:0}
@@ -58,20 +62,20 @@
 .adv-listicle.look-open .op-dek{font-size:18px;color:var(--pk-body);margin:12px 0 0;text-wrap:pretty}
 /* the one-line byline */
 .adv-listicle.look-open .op-by{display:flex;align-items:center;gap:10px;font-size:13.5px;line-height:1.4;color:var(--pk-muted);margin:16px 0 0}
-.adv-listicle.look-open .op-by img{width:34px;height:34px;border-radius:50%;object-fit:contain;flex:0 0 auto}
+.adv-listicle.look-open .op-by img{width:34px;height:34px;border-radius:var(--ps-radius-round,50%);object-fit:contain;flex:0 0 auto}
 .adv-listicle.look-open .op-by b{font-weight:500;color:var(--pk-body)}
 .adv-listicle.look-open .op-by a{color:inherit;text-decoration:none}
-.adv-listicle.look-open .op-tick{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--pk-red);color:var(--pk-on-dark);font:600 9px/14px var(--pk-heading);text-align:center;margin-left:4px;vertical-align:1px}
+.adv-listicle.look-open .op-tick{display:inline-block;width:14px;height:14px;border-radius:var(--ps-radius-round,50%);background:var(--pk-red);color:var(--pk-on-dark);font:600 9px/14px var(--pk-heading);text-align:center;margin-left:4px;vertical-align:1px}
 /* face: the still from the ad, 4:5, its caption the speaker's own words */
 .adv-listicle.look-open .op-face{margin:18px -20px 0}
-.adv-listicle.look-open .op-face .adv-img{width:100%;object-fit:cover;object-position:var(--op-pos,50% 30%);border-radius:0}
+.adv-listicle.look-open .op-face .adv-img{width:100%;object-fit:cover;object-position:var(--op-pos,50% 30%)}
 .adv-listicle.look-open .op-face figcaption{padding:12px 20px 0;color:var(--pk-ink);font:500 17px/1.35 var(--pk-heading)}
 .adv-listicle.look-open .op-face figcaption small{display:block;font:400 12.5px var(--pk-sans);color:var(--pk-muted);margin-top:4px}
 /* story: the lede starts on screen one */
 .adv-listicle.look-open .op-lede p{margin:16px 0 0;font-size:18px}
 .adv-listicle.look-open .op-said{display:flex;gap:12px;align-items:flex-start}
 .adv-listicle.look-open .op-said .op-avatar,.adv-listicle.look-open .op-said picture{flex:0 0 auto}
-.adv-listicle.look-open .op-said .adv-img{width:52px;height:52px;border-radius:50%;object-fit:cover;margin-top:4px}
+.adv-listicle.look-open .op-said .adv-img{width:52px;height:52px;border-radius:var(--ps-radius-round,50%);object-fit:cover;margin-top:4px}
 .adv-listicle.look-open .op-quote{margin:18px 0 0;font:500 20px/1.35 var(--pk-heading);color:var(--pk-ink);text-wrap:pretty}
 /* display: wide face, cut-out, stats */
 .adv-listicle.look-open .op-hero--display{text-align:center}
@@ -87,7 +91,7 @@
 .adv-listicle.look-open .op-cue{margin:20px 0 0;font:500 14px var(--pk-sans);color:var(--pk-muted)}
 .adv-listicle.look-open .op-cue b{color:var(--pk-red)}
 /* the CTA: one pill */
-.adv-listicle.look-open .op-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:999px;padding:17px 44px;min-height:52px;font:600 16px var(--pk-heading);text-decoration:none}
+.adv-listicle.look-open .op-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:var(--ps-radius-btn,999px);padding:17px 44px;min-height:52px;font:600 16px var(--pk-heading);text-decoration:none}
 .adv-listicle.look-open .op-btn:hover{background:var(--pk-red)}
 .adv-listicle.look-open .op-mid{text-align:center;padding:8px 0 40px}
 /* items: number, heading, body, red-bar proof line, photo */
@@ -139,6 +143,7 @@
 .adv-listicle.look-open .op-close .op-btn{background:var(--pk-on-dark);color:var(--pk-dark)}
 .adv-listicle.look-open .op-close .op-btn:hover{background:var(--pk-red);color:var(--pk-on-dark)}
 .adv-listicle.look-open .op-close .op-fine{color:var(--pk-on-dark);opacity:.72;margin:16px 0 0}
+.adv-case-upper .adv-listicle.look-open .op-h1,.adv-case-upper .adv-listicle.look-open .op-h2{text-transform:uppercase}
 @media (min-width:900px){
   .adv-listicle.look-open .op-hero{padding-top:64px}
   .adv-listicle.look-open .op-h1{font-size:56px}
@@ -157,11 +162,11 @@
   .adv-listicle.look-open .op-models{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 32px}
 }
 </style>
-<div class="pk-lp adv-listicle look-open hero-{{ fs.hero_style }}">
+<div class="pk-lp adv-listicle look-open" data-hero-style="{{ fs.hero_style }}">
 
   {% macro byline_line() %}
   <div class="op-by">
-    {% if fs.byline.avatar_url %}<img class="adv-brand-logo" src="{{ fs.byline.avatar_url }}" alt="{{ tenant_name }}" width="34" height="34">{% endif %}
+    {% if fs.byline.avatar_url %}<img class="adv-brand-logo" src="{{ fs.byline.avatar_url }}" alt="{{ fs.byline.avatar_alt }}" width="34" height="34">{% endif %}
     <div>By <b>{% if fs.byline.url %}<a href="{{ fs.byline.url }}">{{ fs.byline.name }}</a>{% else %}{{ fs.byline.name }}{% endif %}</b>{% if fs.byline.verified %}<span class="op-tick" aria-label="verified">&#10003;</span>{% endif %}{% if fs.byline.title %}, {{ fs.byline.title }}{% endif %} &middot; Updated {{ fs.byline.updated }} &middot; {{ fs.byline.minutes }} min read</div>
   </div>
   {% endmacro %}
@@ -198,7 +203,7 @@
   {% else %}
   <header class="op-hero op-hero--display op-narrow">
     {% if disclosure_label %}<p class="op-eyebrow">{{ disclosure_label }}</p>{% endif %}
-    <h1 class="op-h1 op-display--{{ fs.display_font }}">{{ fs.headline_html }}</h1>
+    <h1 class="op-h1 {{ 'op-display--acid' if fs.display_font == 'acid' else 'op-display--wide' }}">{{ fs.headline_html }}</h1>
     <p class="op-dek">{{ page.dek }}</p>
     {% if hero_asset %}<div class="op-cut">{{ render_image_slot(hero_asset, hero=True) }}</div>{% endif %}
     {% if fs.stats %}

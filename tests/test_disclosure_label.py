@@ -98,11 +98,14 @@ def test_the_label_renders_once_when_a_tenant_sets_it(tmp_path, label, cartridge
     assert body.count(">Paid Partnership<") == 1
 
 
-def test_editorial_and_lander_show_the_label_in_their_own_eyebrow(tmp_path, label):
+def test_the_open_look_shows_the_label_in_its_own_eyebrow(tmp_path, label):
+    # cycle 79: one listicle look, every first-screen style carries the label
     label("Sponsored")
-    for look, cls in (("editorial", "ed-eyebrow"), ("lander", "ld-eyebrow")):
-        html = _render(tmp_path / look, "listicle", _listicle_page(), RICH_FACTS_PACK, look)
-        assert f'<p class="{cls}">Sponsored</p>' in html
+    for hero in ("face", "story", "display"):
+        page = _listicle_page()
+        page["hero_style"] = hero
+        html = _render(tmp_path / hero, "listicle", page, RICH_FACTS_PACK, "open")
+        assert '<p class="op-eyebrow">Sponsored</p>' in html
         assert "adv-badge" not in html.split("<body>", 1)[1]
 
 

@@ -588,6 +588,10 @@ def test_a_listicle_repair_is_a_patch_of_the_flagged_item_only(tmp_path):
         entry["text"] = entry["text"].replace("120V/20A", "standard")
     good["faq"]["questions"][1]["answer"] = "Confirm the outlet near your install spot before you buy."
     good["faq"]["questions"][1]["claim_ids"] = []
+    # cycle 79 first-screen fields
+    good.update(eyebrow="For careful buyers", accent_phrase=" ".join(good["headline"].split()[-2:]),
+                lede="What would you want to know before you buy?", scroll_cue="Start with the first myth",
+                hero_quote_id="q1")
     bad = copy.deepcopy(good)
     bad["reasons"][4]["text"] = "As the ad speaker found, some brands hide everything. " + good["reasons"][4]["text"]
 

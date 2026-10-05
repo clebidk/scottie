@@ -178,7 +178,7 @@ def test_headline_case_is_css_only_and_never_rewrites_the_copy(tmp_path):
     headline the writer actually wrote."""
     from tests.test_listicle import AD_BRIEF, RICH_FACTS_PACK, _listicle_page
     page = _listicle_page()
-    page["look"] = "cards"
+    page["look"] = "open"
     out = render_mod.render_page(
         cartridge_name="listicle", page=page, ad_brief=AD_BRIEF, facts_pack=RICH_FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,
@@ -195,13 +195,16 @@ def test_headline_case_is_css_only_and_never_rewrites_the_copy(tmp_path):
 # 3. Brand tokens reach the shapes and the on-accent colour
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("look", ["cards", "editorial", "lander", "pillars", "scorecard"])
+# Cycle 79: the five looks are retired into one ("open"), which names no
+# colour literal at all (tests/test_listicle_looks.py).
+@pytest.mark.parametrize("look", ["open"])
 def test_no_look_hardcodes_the_colour_of_text_on_the_accent(look):
     css = _STYLE_RE.search((LOOKS_DIR / look / "template.html").read_text()).group(1)
-    assert "--pk-on-accent:var(--ps-on-accent,#fff)" in css.replace(" ", "")
+    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b", css)
+    assert "--pk-on-dark:var(--ps-on-dark" in css.replace(" ", "")
 
 
-@pytest.mark.parametrize("look", ["cards", "editorial", "lander", "pillars", "scorecard"])
+@pytest.mark.parametrize("look", ["open"])
 def test_every_radius_in_a_look_resolves_a_brand_token(look):
     """A brand with square corners sets one token; no look may pin a number
     that the brand cannot reach."""
@@ -210,7 +213,7 @@ def test_every_radius_in_a_look_resolves_a_brand_token(look):
     assert hardcoded == [], f"{look}: {hardcoded}"
 
 
-@pytest.mark.parametrize("look", ["cards", "editorial", "lander", "pillars", "scorecard"])
+@pytest.mark.parametrize("look", ["open"])
 def test_every_look_points_its_box_radius_at_the_box_token(look):
     """Cycle 63 (owner override, 2026-09-22): listicle boxes are 4px, not
     square, so each look's --pk-radius(-sm/-md) vars must resolve through
@@ -264,13 +267,15 @@ def test_the_tenants_own_tokens_carry_the_live_theme_palette():
     for token, value in [
         ("--ps-accent", "#161817"), ("--ps-on-accent", "#FFFFFF"),
         ("--ps-accent-hover", "#702B34"),
-        ("--ps-bg", "#FFFFFF"), ("--ps-bg-muted", "#F1F1F1"), ("--ps-stone", "#F0E5D3"),
+        # cycle 79: no grey panels, no stone -- white everywhere
+        ("--ps-bg", "#FFFFFF"), ("--ps-bg-muted", "#FFFFFF"),
         ("--ps-ink-dark", "#161817"), ("--ps-on-dark", "#FFFFFF"),
         ("--ps-text", "#1A1A1A"), ("--ps-editorial", "#702B34"),
         ("--ps-radius-btn", "999px"), ("--ps-radius-box", "4px"),
     ]:
         assert f"{token}:{value}" in css.replace(" ", ""), token
-    for retired in ("16C47F", "F27046", "F37047", "EFE3D2", "C0C8C3", "483215"):
+    assert "--ps-stone" not in css
+    for retired in ("16C47F", "F27046", "F37047", "EFE3D2", "C0C8C3", "483215", "F0E5D3", "F1F1F1"):
         assert retired not in css.upper(), retired
 
 
@@ -294,26 +299,33 @@ def test_the_boxes_shared_across_cartridges_also_resolve_to_the_box_token():
 # 4. The self-hosted webfont reaches the storefront export
 # ---------------------------------------------------------------------------
 
-def test_the_tenant_uses_the_theme_faces_and_emits_no_font_face():
+def test_the_tenant_uses_the_theme_faces_and_only_the_approved_display_faces():
     """Cycle 78: DM Sans body, Poppins headings -- both loaded by the
-    storefront theme, and by a head <link> on the review page. Acid Grotesk
-    (an unlicensed trial) and the retired Epika face are gone."""
+    storefront theme, and by a head <link> on the review page. Cycle 79: the
+    owner approved two display faces for the "display" first screen; they
+    are the only @font-face rules, each an absolute https URL on the theme's
+    CDN (a page body has no Liquid; a relative path would 404)."""
     css = (TENANT.brand_dir / "base.css").read_text()
-    assert not re.search(r"@font-face\s*\{", css)
-    assert "Acid Grotesk" not in css and "Epika" not in css
+    faces = re.findall(r"@font-face\s*\{[^}]*\}", css)
+    assert len(faces) == 2
+    assert all(re.search(r'src:url\("https://cdn\.shopify\.com/[^"]+"\)', f) for f in faces)
+    families = sorted(re.search(r'font-family:"([^"]+)"', f).group(1) for f in faces)
+    assert families == ["PK Acid Grotesk", "Peak Grotesk Wide"]
+    assert "Epika" not in css
     assert '--ps-sans:"DM Sans"' in css
     assert '--ps-heading:"Poppins"' in css
     assert TENANT.get("brand.font_stylesheet").startswith("https://fonts.googleapis.com/")
 
 
-def test_the_export_carries_no_font_face_and_no_font_link(tmp_path):
-    """The theme loads both faces site-wide; the head <link> is review-only
-    and never reaches `harness shopify-body`."""
+def test_the_export_carries_only_the_display_font_faces_and_no_font_link(tmp_path):
+    """The theme loads DM Sans and Poppins site-wide; the head <link> is
+    review-only and never reaches `harness shopify-body`. Cycle 79: the two
+    display @font-face rules travel in the export with absolute URLs."""
     from harness.page_body import build_shopify_body, font_face_css
     from tests.test_listicle import AD_BRIEF, RICH_FACTS_PACK, _listicle_page
 
     page = _listicle_page()
-    page["look"] = "editorial"
+    page["look"] = "open"
     html = render_mod.render_page(
         cartridge_name="listicle", page=page, ad_brief=AD_BRIEF, facts_pack=RICH_FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,
@@ -322,8 +334,9 @@ def test_the_export_carries_no_font_face_and_no_font_link(tmp_path):
     ).read_text()
     assert TENANT.get("brand.font_stylesheet") in html.replace("&amp;", "&")
     body, _manifest = build_shopify_body(tmp_path / "listicle")
-    assert font_face_css(TENANT) == ""
-    assert not re.search(r"@font-face\s*\{", body)
+    assert font_face_css(TENANT).count("@font-face") == 2
+    assert body.count("@font-face") == 2
+    assert "https://cdn.shopify.com/s/files/" in body
     assert "fonts.googleapis.com" not in body
 
 
@@ -337,7 +350,7 @@ def test_the_export_carries_the_box_radius_token_and_a_rounded_box(tmp_path):
     from tests.test_listicle import AD_BRIEF, RICH_FACTS_PACK, _listicle_page
 
     page = _listicle_page()
-    page["look"] = "cards"
+    page["look"] = "open"
     render_mod.render_page(
         cartridge_name="listicle", page=page, ad_brief=AD_BRIEF, facts_pack=RICH_FACTS_PACK,
         cartridges_dir=REPO_ROOT / "cartridges", brand_dir=TENANT.brand_dir,

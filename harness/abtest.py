@@ -72,6 +72,8 @@ SEO_HIDDEN_METAFIELD = {"namespace": "seo", "key": "hidden", "value": 1, "type":
 CTA_CLASSES = (
     "lst-btn", "ed-btn", "ed-link-cta", "ed-model-link", "ld-btn", "ld-link", "pil-btn",
     "sc-btn", "cmp-btn", "cmp-link", "qz-btn", "qz-link", "adv-cta", "pp-btn",
+    # cycle 79: the listicle's open look
+    "op-btn", "op-link",
 )
 
 

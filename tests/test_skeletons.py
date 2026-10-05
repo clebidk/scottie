@@ -239,7 +239,13 @@ def test_every_headline_template_renders_for_the_peak_tenant(template_id):
     if not plan.get("open_loop"):   # cycle 79: an open-loop template has no count
         assert re.search(r"\b5\b", text)
     page = _page_for(plan)
-    problems = [p for p in _gate(page, listicle_headline=plan) if "headline" in p.get("key", "")]
+    brief = AD_BRIEF
+    if headlines.template(template_id).get("needs_speaker"):
+        # cycle 79: a speaker template needs the ad's own quotable speaker
+        brief = {**AD_BRIEF, "speaker_pov": "first_person",
+                 "transcript_or_text": "I could not be more excited about this sauna for my apartment."}
+        page["hero_quote_id"] = "q1"
+    problems = [p for p in _gate(page, listicle_headline=plan, ad_brief=brief) if "headline" in p.get("key", "")]
     assert problems == [], problems
 
 

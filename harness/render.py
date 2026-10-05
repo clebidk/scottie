@@ -855,9 +855,11 @@ def find_tenant_logo(brand_dir):
     return None
 
 
+# The comparison page is left out on purpose: its three model columns are
+# already the three cut-outs (cutouts.with_model_cutouts), and the featured
+# column would lose its picture if the hero repeated it.
 _PRODUCT_HERO_PATHS = {
     "listicle": ("hero",),
-    "comparison": ("hero",),
     "quiz": ("hero",),
     "longform": ("hero", "hero_image"),
     "product-page": ("hero", "hero_image"),
@@ -1250,10 +1252,11 @@ def render_page(
     # photo when the tenant sets first_screen.author_photo, else the brand
     # mark (first_screen.byline_mark). Copied in like the logo.
     if first_screen:
+        photo = first_screen["byline"].get("photo")
         first_screen["byline"]["avatar_url"] = _copy_brand_file(
-            tenant, first_screen["byline"].get("photo") or tenant.get("first_screen.byline_mark"), out_dir,
-            "byline-avatar",
+            tenant, photo or tenant.get("first_screen.byline_mark"), out_dir, "byline-avatar",
         )
+        first_screen["byline"]["avatar_alt"] = first_screen["byline"]["name"] if photo else f"{tenant.display_name} logo"
 
     template = env.get_template("template.html")
     html = template.render(

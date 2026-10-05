@@ -317,7 +317,7 @@ def test_render_page_downloads_used_assets_and_rewrites_urls(tmp_path):
     assert (out_dir / "assets" / f"{FUJI_MANIFEST_ASSET_ID}-480.jpg").exists()
 
 
-def test_render_page_skips_asset_that_downloads_as_html(tmp_path):
+def test_render_page_skips_asset_that_downloads_as_html(tmp_path, monkeypatch):
     """fix 8: a download that looks like an HTML page (e.g. a broken link) is
     skipped with a warning, not written as a broken image."""
 
@@ -331,6 +331,9 @@ def test_render_page_skips_asset_that_downloads_as_html(tmp_path):
     def fake_fetch_url(url):
         return b"<!doctype html><html>not an image</html>"
 
+    # cycle 79: no product cut-out here -- this is about a failed download
+    from harness import render as render_mod
+    monkeypatch.setattr(render_mod.cutouts_mod, "cutout_for_product", lambda tenant, product: None)
     log = FakeLog()
     out_dir = tmp_path / "product-page"
     index_path = render_page(

@@ -202,20 +202,23 @@ def test_shopify_body_preserves_ad_label_byline_disclosure_and_sources(tmp_path,
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     html, _ = build_shopify_body(out_dir)
-    assert '<span class="adv-badge">Advertisement</span>' in html
+    assert '<p class="op-eyebrow">Advertisement</p>' in html   # cycle 79: the open look's eyebrow
     assert "This page is published by PEAK" in html
     assert "Sources" in html
 
 
 def test_shopify_body_moves_the_motion_script_to_the_very_end(tmp_path):
+    # cycle 79: the open look has no motion script; extract_motion_script is
+    # exercised directly so the reordering keeps its test
+    from harness.page_body import extract_motion_script
+    body, script = extract_motion_script('<div>a</div><script>IntersectionObserver</script><p>Sources</p>')
+    assert script == "<script>IntersectionObserver</script>"
+    assert "<script" not in body and "Sources" in body
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     html, _ = build_shopify_body(out_dir)
-    assert "IntersectionObserver" in html
-    assert html.rstrip().endswith("</script>")
-    # the disclosure/Sources content (originally rendered before the script,
-    # inside base.html's <footer>) now comes before it in the reordered output.
-    assert html.index("Sources") < html.rindex("<script")
+    assert "<script" not in html
+    assert html.rstrip().endswith("</div>")
 
 
 def test_shopify_body_relativizes_internal_links(tmp_path):
@@ -254,12 +257,17 @@ def test_assets_manifest_lists_each_image_once_with_a_cdn_filename(tmp_path):
     # is narrower than every configured srcset width, so
     # generate_image_variants emits just one size) -- 6 images x 2 formats =
     # 12 manifest entries, one per distinct local_path, each listed once.
-    assert len(manifest) == 12
+    # cycle 79: the hero is the product cut-out (several widths) and the
+    # byline carries the brand mark; the five item images are as before
+    extra = [e for e in manifest if e["local_path"].startswith(("assets/asset-cutout-", "assets/byline-avatar"))]
+    assert any(e["local_path"].startswith("assets/asset-cutout-fuji-") for e in extra)
+    manifest = [e for e in manifest if e not in extra]
+    assert len(manifest) == 10
     by_path = {e["local_path"]: e for e in manifest}
-    assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(1, 7) for ext in ("jpg", "webp")}
-    entry = by_path["assets/asset-1-300.jpg"]
+    assert set(by_path) == {f"assets/asset-{i}-300.{ext}" for i in range(2, 7) for ext in ("jpg", "webp")}
+    entry = by_path["assets/asset-2-300.jpg"]
     assert entry["alt"] == "Peak Fuji – lifestyle photo"
-    assert entry["cdn_filename"].startswith("pk-listicle-01-")
+    assert entry["cdn_filename"].startswith("pk-listicle-")
     assert entry["cdn_filename"].endswith(".jpg")
 
 
@@ -267,8 +275,9 @@ def test_assets_manifest_is_valid_json_on_disk(tmp_path):
     out_dir = tmp_path / "listicle"
     _render_listicle(out_dir)
     _, manifest_path = write_shopify_body(out_dir)
-    on_disk = json.loads(manifest_path.read_text())
-    expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(1, 7) for ext in ("jpg", "webp")}
+    on_disk = [e for e in json.loads(manifest_path.read_text())
+               if not e["local_path"].startswith(("assets/asset-cutout-", "assets/byline-avatar"))]
+    expected_paths = {f"assets/asset-{i}-300.{ext}" for i in range(2, 7) for ext in ("jpg", "webp")}
     assert {e["local_path"] for e in on_disk} == expected_paths
     assert all(e["alt"] == "Peak Fuji – lifestyle photo" for e in on_disk)
     # every cdn_filename is distinct and carries the format's own extension

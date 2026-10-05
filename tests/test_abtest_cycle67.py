@@ -120,22 +120,22 @@ def _insert(db, test_id, key, event, n, start=0):
 # 1. library + arm selection
 # ---------------------------------------------------------------------------
 
-def test_default_library_is_the_seven_builds_with_the_real_style_look_pairing():
+def test_default_library_pairs_each_style_with_a_first_screen_style():
+    # Cycle 79: one listicle look ("open"); the builds differ by copy style
+    # and first-screen style (face | story | display).
     arms = abtest.library(ConfigTenant())
-    assert [a.id for a in arms] == [
-        "listicle:reasons:cards", "listicle:mistakes:editorial", "listicle:questions:scorecard",
-        "listicle:myths:pillars", "listicle:tested:lander", "comparison", "quiz",
-    ]
-    from harness import listicle
-    for arm in arms[:5]:
-        assert listicle.LOOK_BY_STYLE[arm.style] == arm.look
+    assert [a.id for a in arms] == list(abtest.DEFAULT_LIBRARY)
+    listicle_arms = [a for a in arms if a.cartridge == "listicle"]
+    assert {a.look for a in listicle_arms} == {"open"}
+    assert {a.style for a in listicle_arms} == {"reasons", "mistakes", "questions", "myths", "tested"}
+    assert {a.hero_style for a in listicle_arms} == {"face", "story", "display"}
 
 
 def test_library_comes_from_tenant_config():
     tenant = ConfigTenant({"library": ["quiz", "listicle:myths", "comparison"]})
     ids = [a.id for a in abtest.library(tenant)]
     # a style with no look gets the tenant's own style -> look pairing
-    assert ids == ["quiz", "listicle:myths:pillars", "comparison"]
+    assert ids == ["quiz", "listicle:myths:open", "comparison"]
     assert set(abtest.choose_arms(tenant, 3, random.Random(1), stats={})) == set(ids)
 
 
@@ -184,13 +184,13 @@ def test_thompson_favors_a_clearly_better_arm():
 def test_explore_rate_replaces_the_choice_with_uniform_random():
     tenant = ConfigTenant({"explore": 0.2})
     stats = {a: {"views": 5000, "clicks": 50, "tests": 3} for a in abtest.DEFAULT_LIBRARY}
-    best = {"quiz", "comparison", "listicle:myths:pillars"}
+    best = {"quiz", "comparison", "listicle:myths:open:story"}
     for arm in best:
         stats[arm] = {"views": 5000, "clicks": 900, "tests": 3}
     n = 3000
     off_best = sum(set(abtest.choose_arms(tenant, 3, random.Random(s), stats=stats)) != best for s in range(n))
-    # explore fires 20% of the time; a uniform draw still lands on the best 3 in 1 of C(7,3)=35
-    expected = 0.2 * (1 - 1 / 35)
+    # explore fires 20% of the time; a uniform draw still lands on the best 3 in 1 of C(9,3)=84
+    expected = 0.2 * (1 - 1 / 84)
     assert abs(off_best / n - expected) < 0.03
     cold = ConfigTenant({"explore": 0.0})
     assert all(set(abtest.choose_arms(cold, 3, random.Random(s), stats=stats)) == best for s in range(200))

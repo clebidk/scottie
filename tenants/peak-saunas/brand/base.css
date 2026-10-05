@@ -49,9 +49,9 @@
    tags.) */
 
 @font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/shop/t/64/assets/pk-peak-grotesk-wide.woff2") format("woff2");}
+  src:url("https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/pk-peak-grotesk-wide.woff2") format("woff2");}
 @font-face{font-family:"PK Acid Grotesk";font-style:normal;font-weight:400;font-display:swap;
-  src:url("https://peaksaunas.com/cdn/shop/t/64/assets/pk-acid-grotesk-trial.otf") format("opentype");}
+  src:url("https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/pk-acid-grotesk-trial.otf") format("opentype");}
 
 :root{
   /* ---- palette, by role ---- */
@@ -279,7 +279,7 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
    hover brand red. */
 .adv-wrap .adv-cta.adv-cta,.adv-wrap .lst-btn.lst-btn,.adv-wrap .ed-btn.ed-btn,.adv-wrap .ld-btn.ld-btn,
 .adv-wrap .pil-btn.pil-btn,.adv-wrap .sc-btn.sc-btn,.adv-wrap .cmp-btn.cmp-btn,.adv-wrap .qz-btn.qz-btn,
-.adv-wrap .pp-btn.pp-btn,.adv-wrap .bk-closing-offer__button.bk-closing-offer__button,
+.adv-wrap .pp-btn.pp-btn,.adv-wrap .op-btn.op-btn,.adv-wrap .bk-closing-offer__button.bk-closing-offer__button,
 .adv-wrap .bk-hero-editorial__button.bk-hero-editorial__button,.adv-wrap .bk-hero-fullbleed__button.bk-hero-fullbleed__button,
 .adv-wrap .bk-hero-split__button.bk-hero-split__button,.adv-wrap .bk-verdict-box__button.bk-verdict-box__button,
 .adv-wrap .bk-sticky-cta-bar__button.bk-sticky-cta-bar__button{
@@ -301,7 +301,7 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
 }
 .adv-wrap .adv-cta.adv-cta:hover,.adv-wrap .lst-btn.lst-btn:hover,.adv-wrap .ed-btn.ed-btn:hover,.adv-wrap .ld-btn.ld-btn:hover,
 .adv-wrap .pil-btn.pil-btn:hover,.adv-wrap .sc-btn.sc-btn:hover,.adv-wrap .cmp-btn.cmp-btn:hover,.adv-wrap .qz-btn.qz-btn:hover,
-.adv-wrap .pp-btn.pp-btn:hover{
+.adv-wrap .pp-btn.pp-btn:hover,.adv-wrap .op-btn.op-btn:hover{
   background:var(--ps-accent-hover)!important;
   border-color:var(--ps-accent-hover)!important;
   color:#FFFFFF!important;
@@ -327,12 +327,13 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
 }
 
 /* CTA on a dark band or photo: white pill, Basalt text; hover red. */
-.adv-wrap .ld-btn--light.ld-btn--light,.adv-wrap .ld-close .ld-btn.ld-btn,.adv-wrap .qz-close .qz-btn.qz-btn{
+.adv-wrap .ld-btn--light.ld-btn--light,.adv-wrap .ld-close .ld-btn.ld-btn,.adv-wrap .qz-close .qz-btn.qz-btn,
+.adv-wrap .op-close .op-btn.op-btn{
   background:#FFFFFF!important;
   color:var(--ps-ink-dark)!important;
   border-color:#FFFFFF!important;
 }
-.adv-wrap .ld-btn--light.ld-btn--light:hover,.adv-wrap .ld-close .ld-btn.ld-btn:hover,.adv-wrap .qz-close .qz-btn.qz-btn:hover:hover{
+.adv-wrap .ld-btn--light.ld-btn--light:hover,.adv-wrap .ld-close .ld-btn.ld-btn:hover,.adv-wrap .op-close .op-btn.op-btn:hover,.adv-wrap .qz-close .qz-btn.qz-btn:hover:hover{
   background:var(--ps-accent-hover)!important;
   border-color:var(--ps-accent-hover)!important;
   color:#FFFFFF!important;

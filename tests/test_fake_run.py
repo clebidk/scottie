@@ -75,9 +75,10 @@ def test_fake_run_renders_listicle_v2_in_every_style(tmp_path, style):
     # the one CTA text, repeated wherever this look places it, and never a
     # second one
     assert html.count("See the models") >= 2
-    assert "Who this is for, and who it is not for" in html
-    # the model picker comes from facts_pack.model_options, not the writer
-    assert "Which model fits" in html
+    assert "Made for you if" in html and "Not for you if" in html   # cycle 79 open look
+    # the model rows come from facts_pack.model_options, not the writer
+    assert "Compare the models" in html
+    assert page["hero_style"] in ("face", "story", "display")
     assert "model_options" not in page
 
 

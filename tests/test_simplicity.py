@@ -33,7 +33,7 @@ def test_headline_word_band_reads_article_schema():
 
 
 def test_headline_word_band_reads_listicle_schema():
-    assert headline_word_band("listicle") == (8, 14)
+    assert headline_word_band("listicle") == (6, 14)  # cycle 79: open-loop headlines, 6-13 words
 
 
 def test_headline_word_band_reads_longform_schema():
