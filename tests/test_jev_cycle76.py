@@ -281,6 +281,26 @@ def test_a_pinned_headline_template_or_skeleton_stays_pinned_in_draft_two():
     assert v[1]["skeleton"]["id"] == v[0]["skeleton"]["id"]
 
 
+def test_a_style_with_one_template_and_one_skeleton_gets_another_angle_not_a_resample():
+    from harness import write
+
+    state = _state_for_variants()
+    state.listicle_style = "questions"
+    state.listicle_headline = headlines.resolve_plan("questions", state.facts_pack, TENANT, seed=7,
+                                                     today="2026-10-05")
+    state.listicle_skeleton = skeletons.for_writer(skeletons.load_skeleton("buyers-checklist"), TENANT)
+    assert headlines.eligible_templates("questions", state.facts_pack, TENANT) == ["s-questions"]
+    v = drafts.variants(state, 2)
+    assert v[1]["headline"]["id"] == v[0]["headline"]["id"] and v[1]["skeleton"]["id"] == "buyers-checklist"
+    assert v[1]["skeleton"]["draft_angle"] == skeletons.DRAFT_ANGLE
+    assert "draft_angle" not in v[0]["skeleton"]
+    lines2 = write._listicle_draft_lines("listicle", "questions", v[1]["headline"], v[1]["skeleton"])
+    lines1 = write._listicle_draft_lines("listicle", "questions", v[0]["headline"], v[0]["skeleton"])
+    assert skeletons.DRAFT_ANGLE_LINE in lines2 and skeletons.DRAFT_ANGLE_LINE not in lines1
+    # a style with other templates and skeletons keeps those as the difference
+    assert "draft_angle" not in drafts.variants(_state_for_variants(), 2)[1]["skeleton"]
+
+
 def test_ranked_starts_with_what_select_picks():
     brief = fake_run._brief_for(str(FIXTURE))
     for style in listicle.STYLES:

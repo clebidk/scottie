@@ -11,8 +11,11 @@ the same style, look, facts pack, verified claims, ad quotes and assets, but
     draft used (a pinned --headline-template stays pinned), and
   - another winner skeleton (item map): the next one in skeletons.ranked()
     for this ad that no earlier draft used (a pinned --skeleton stays
-    pinned; the questions, myths and tested styles have one skeleton each, so
-    there only the headline differs).
+    pinned), and
+  - when neither can differ (the questions, myths and tested styles allow
+    one headline template and one skeleton each), the "objection-first"
+    draft angle (skeletons.DRAFT_ANGLE_LINE): the dek, the headline's free
+    slots and item order start from the reader's main doubt.
 The hook and the item map are what change the reader's experience most, and
 they change nothing the gates check against, so every draft faces the same
 gates with the same inputs.
@@ -134,6 +137,11 @@ def variants(state, n, *, requested_skeleton=None, requested_headline=None):
         if nxt is not None:
             skeleton = skeletons.for_writer(nxt, state.tenant)
         used_skeletons.add((skeleton or {}).get("id"))
+        if (plan or {}).get("id") == (out[0]["headline"] or {}).get("id") and \
+                (skeleton or {}).get("id") == (out[0]["skeleton"] or {}).get("id") and skeleton:
+            # Nothing else differs (one template and one skeleton for the
+            # style, or both pinned): another angle on the same page.
+            skeleton = {**skeleton, "draft_angle": skeletons.DRAFT_ANGLE}
         out.append({"headline": plan, "skeleton": skeleton})
     return out
 
@@ -294,6 +302,7 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
     for k, v in enumerate(plan, 1):
         log.event("drafts", f"draft {k}: headline template {(v['headline'] or {}).get('id')}, "
                             f"skeleton {(v['skeleton'] or {}).get('id')}"
+                            + (f", angle {v['skeleton']['draft_angle']}" if (v["skeleton"] or {}).get("draft_angle") else "")
                             + (" (batch)" if initial and k <= len(initial) and initial[k - 1] else ""))
     threshold = jev.settings(state.tenant)["second_draft_below"]
     prescored, skip_note = {}, None
@@ -317,6 +326,7 @@ def write_best_listicle(state, kwargs, n, *, requested_skeleton=None, requested_
             "draft": k + 1,
             "headline_template_id": (plan[k]["headline"] or {}).get("id"),
             "skeleton_id": (plan[k]["skeleton"] or {}).get("id"),
+            **({"angle": plan[k]["skeleton"]["draft_angle"]} if (plan[k]["skeleton"] or {}).get("draft_angle") else {}),
             "gate": gate,
             "attempts": len(r["attempts"] or []),
             "failures": _first_failure_keys(r["attempts"]),
