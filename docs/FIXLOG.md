@@ -3971,3 +3971,27 @@ Re-check smoke runs (worktree ledger), all PASS:
 
 Re-check spend $0.46 (cap $0.60). Open: zpbm's o4 desire "Recovery Space" is not her word
 (the slot asks for her quotes; not gated), and o4 renders in title case.
+
+### Review 2 fixes (same day)
+- **Title case** (zpbm "She Wanted Recovery Space. Her Apartment Had ..."): the o4 template
+  itself had capitalised words ("Wanted", "Had"), and the writer matched them. The template
+  is now lower case, and gate `listicle:headline_case` fails 2+ capitalised non-name words
+  after a sentence's first word in an open-loop headline or the display line. The count
+  formulas keep their title-case templates; they are used only when named.
+- **Speaker slots from her words**: gate `listicle:speaker_slot_words` -- a headline that
+  describes the speaker (she/he outside a quote) uses only her transcript words plus the
+  template's and the category's ("recovery space" fails on the Mini ad).
+- **Installation is a claim** (ljg7/4bka said "No electrician" on Fuji pages; the Fuji needs a
+  dedicated 120V/20A outlet): gate `listicle:install_claim` -- "no electrician/rewiring/
+  wiring/dedicated circuit", "standard/household outlet", "plugs into", "plug-and-play" need
+  a verified claim of the page's own model that says so (top-of-page fields) or one in the
+  node's own claim_ids (items, fit lines, FAQ). Questions pass. The c74 test fixture that
+  turned the Fuji's "120V/20A" into "standard" now says "dedicated".
+- **Display line message match**: gate `listicle:display_message_match` (4bka's display line
+  had dropped the regret hook).
+- Re-rendering the 4 smokes changes no copy, so their old lines remain (zpbm would now fail
+  headline_case + speaker_slot_words; 4bka install_claim + display_message_match; ljg7
+  install_claim; lcsw passes). Live check on the regret Fuji ad, run
+  20261005-212550-...-mt5a (display): PASS on attempt 3 ($0.145): "No guesswork. No regret.
+  Still a sauna that fits." / display "Avoid the common buying regret"; no installation claim.
+- Suite: 2344 passed.
