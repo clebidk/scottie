@@ -547,3 +547,19 @@ def test_the_runner_passes_the_hero_style_to_the_run(monkeypatch, tmp_path):
     monkeypatch.setattr("harness.anthropic_client.make_client", lambda: object())
     abtest.default_runner(TENANT, tmp_path / "ad.mp4", abtest.parse_arm("listicle:myths:open:face", TENANT), 3)
     assert seen["args"].hero_style == "face"
+
+
+def test_a_captioned_throughout_video_still_gets_a_face_frame():
+    vision = {"frames": {1: {"face": False, "caption": "large", "logo": True, "sharp": True},
+                         2: {"face": True, "caption": "large", "logo": False, "sharp": True},
+                         3: {"face": True, "caption": "large", "logo": False, "sharp": True}},
+              "best": 3, "face_center": None, "reason": ""}
+    assert ad_frames.choose(vision, [1, 2, 3]) == 3
+    vision["frames"][2]["caption"] = "small"
+    assert ad_frames.choose(vision, [1, 2, 3]) == 2      # a caption-free face wins when there is one
+
+
+def test_an_image_ad_with_any_reported_mark_is_rejected():
+    check = {"person": True, "old_logo": False, "logos": ["Mountain line-drawing logo on sauna glass door"],
+             "claim_text": [], "face_center": None}
+    assert "brand mark" in ad_frames.image_rejection(check)

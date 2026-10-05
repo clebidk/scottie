@@ -278,13 +278,16 @@ def choose(vision, ordered):
     """The index (1-based into `ordered`) to use, by the vision answer: its
     own pick when that frame has a face and no large caption; else the first
     frame (sharpest first) that has a face, no large caption and no logo;
-    else one with a face and no large caption. None when no frame shows a
-    face."""
+    else one with a face and no large caption. When EVERY face frame carries
+    a large burned-in caption (a captioned-throughout video -- the athlete
+    ad of 2026-10-05), the caption is not avoidable: the vision pick (or the
+    first face frame) with no logo. None when no frame shows a face."""
     frames = vision["frames"]
 
-    def ok(i, *, logo_ok):
+    def ok(i, *, logo_ok, caption_ok=False):
         f = frames.get(i)
-        return bool(f and f["face"] and f["caption"] != "large" and f["sharp"] and (logo_ok or not f["logo"]))
+        return bool(f and f["face"] and f["sharp"] and (caption_ok or f["caption"] != "large")
+                    and (logo_ok or not f["logo"]))
 
     if vision["best"] and ok(vision["best"], logo_ok=True):
         return vision["best"]
@@ -292,6 +295,11 @@ def choose(vision, ordered):
         for i in range(1, len(ordered) + 1):
             if ok(i, logo_ok=logo_ok):
                 return i
+    if vision["best"] and ok(vision["best"], logo_ok=False, caption_ok=True):
+        return vision["best"]
+    for i in range(1, len(ordered) + 1):
+        if ok(i, logo_ok=False, caption_ok=True):
+            return i
     return None
 
 
@@ -316,6 +324,11 @@ def image_rejection(check):
         return "the vision check gave no usable answer"
     if check["old_logo"]:
         return "shows the retired brand mark"
+    if check["logos"]:
+        # The model answered old_logo false but still saw a mark (seen live:
+        # "Mountain line-drawing logo on sauna glass door"); an image ad with
+        # any mark is not worth the risk.
+        return "shows a brand mark: " + "; ".join(check["logos"][:3])
     if check["claim_text"]:
         return "carries claim text the page cannot verify: " + "; ".join(check["claim_text"][:3])
     if not check["person"]:

@@ -448,3 +448,49 @@ cycle 50 prefix fix) now calls `replace_unknown_asset_id`: the best allowed,
 unused image for that slot (topic-matched when the library is in play), logged
 `fix: unknown asset id A -> B`. Only when every allowed image is already on the
 page does the gate still fail.
+
+## 10. Product cut-outs, ad stills and the matching fix (cycle 79)
+
+**Cut-outs** (`harness/cutouts.py`). Owner rule, 2026-10-05, "for now": every generation
+shows the page's model as the owner's product cut-out. The 11 files (transparent WebP, one
+per model, the old mark on them is accepted for now) are in
+`tenants/peak-saunas/brand/cutouts/`, listed in `cutouts.json` (model slug -> file); tenant
+setting `product_cutouts.manifest` points at it, so a new-mark set is one edit. The renderer
+(real renders only, `download_assets=True`) puts the cut-out of X in:
+the product hero of listicle, quiz, longform and product-page (`render._apply_hero_cutout`;
+the `pdp` gallery leads with it), every comparison column and every quiz result card
+(`cutouts.with_model_cutouts`). Not the comparison page hero: its three columns already
+are the three cut-outs and the featured column would lose its picture. The asset id is
+`asset-cutout-<slug>`, kind `cutout` (alt "<model> – product photo"), read from disk.
+The cycle 78 rule for library PHOTOS stays: a photo tagged `old_logo_visible` is never the
+hero (the cut-out is) and never the first item image; it may fill a lower slot.
+
+**Ad stills** (`harness/ad_frames.py`, run asset `<run>/ad-frame/`). For the `face` and
+`story` first screens. Video ad: ffmpeg cuts 8 frames between 8% and 92% of the video;
+Pillow drops the blurry and badly exposed ones (edge variance, mean grey); ONE vision call
+(`models.vision`, default Haiku) sees the 6 sharpest at 384 px and returns per frame: face,
+caption none/small/large, logo, sharp, plus its pick and the face centre. The pick is used
+when it has a face and no large caption; else the sharpest face frame without one; when
+every face frame has a large burned-in caption (a captioned-throughout video), the caption
+is accepted. No face anywhere -> no still. Image ad: used only when the vision check finds a
+person, no retired mark (`first_screen.retired_mark`), no other mark, and no claim text
+(rating, review count, price, %, discount, award, outcome, review site). Saved:
+`frame.jpg` (long edge 1600), `avatar.jpg` (square crop round the face), `ad-frame.json`
+(source, every candidate's scores, the vision answer, method, model, cost). Measured on the
+10 ads of 2026-10-05: $0.0011-0.0028 per ad, $0.017 for all 10.
+
+**Matching fix** (`assign_page_images`). The cycle 79 report on run
+20261005-172955-meta-120258736871190746-cgkv ("electrician" item on the red light panel,
+"red light" item on the Mini front, warranty item on the plug) was not a missing step: the
+matcher ran on the build (17:30) and on the rerender (18:02) and wrote `.image-selection.json`
+both times (the run log has the `photos` lines). The causes were in the data and the
+ranking: (1) photo 8401eb5859e7 (red light panel + heater) was vision-tagged `outlet-plug`,
+so it won the electrician item -- corrected by a person in `photo-library.json`
+(`corrections`, kept on re-tag); (2) the real cord photo 0d82c7db36be shows the old mark, so
+the cycle 78 rule keeps it off item 1; (3) equal topic scores fell to `quality_rank`, which
+prefers a photo tagged with the product -- now the photo whose own features are mostly the
+topic wins (`topic_share`), so the red light item gets the panel close-up; (4) a slot with
+no topic got "the best photo of the product", often a feature close-up -- now a general
+photo (fewest features, people/lifestyle first). Also: a library photo whose derivative is
+missing on this machine is no longer assigned (a checkout without the files used to assign
+it and then drop the image at download).
