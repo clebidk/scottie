@@ -74,9 +74,9 @@ def test_image_allowlist_failure_flows_through_check_page_gates():
 
 
 def test_repair_loop_fixes_an_unknown_asset_id(tmp_path):
-    """The bait page fails attempt 1; the fake client's second (good) page is
-    the repair -- proving this check is wired where the repair loop can
-    handle it, per the phase-2 registration."""
+    """The bait page's unknown id is caught by the gate on attempt 1 and
+    replaced by the deterministic pass (cycle 75) with an allowed image --
+    no repair call, nothing unknown shipped."""
     bad = dict(ARTICLE_PAGE, images=[{"asset_id": "bogus"}])
     client = FakeClient([json_response(bad), json_response(ARTICLE_PAGE)])
     log = RunLog("test-run", tmp_path / "run.log")
@@ -95,9 +95,12 @@ def test_repair_loop_fixes_an_unknown_asset_id(tmp_path):
         )
     finally:
         log.close()
-    assert page == ARTICLE_PAGE
-    assert len(client.messages.calls) == 2
-    assert any("bogus" in item["issue"] for item in attempts[0])
+    allowed = {a["id"] for a in FACTS_PACK["assets"]}
+    assert page["images"][0]["asset_id"] in allowed
+    assert len(client.messages.calls) == 1
+    assert attempts == [[]]
+    assert _fixes == [1]
+    assert "unknown asset id bogus" in (tmp_path / "run.log").read_text()
 
 
 # ---------------------------------------------------------------------------

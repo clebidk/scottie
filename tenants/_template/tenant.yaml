@@ -76,6 +76,10 @@ pdp_facts: {}              # fact-name -> list of literal phrases to look for in
 benefit_allowlist_ids: []       # product-benefit claims every page may cite
 universal_claim_ids: []         # claims every product's facts_pack always carries
 listicle_pack_models: []        # models a listicle asset pack covers, if any
+photo_library:                  # the tenant photo library (harness/photo_library.py); optional
+  features: []                  # features_visible vocabulary; empty = the engine's default list
+  topic_keywords: {}            # topic -> words in a slot's text that ask for it
+  tag_model: ""                 # vision model for `harness photos tag`; empty = engine default
 warranty_claim_id: ""
 excluded_benefit_ids: []
 claim_id_prefixes: [spec-, price-, pdp-, reviews-]

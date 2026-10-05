@@ -17,6 +17,12 @@ from tests.support import TENANT
 
 pytest_plugins = ["pytester"]
 
+# Cycle 75: the photo library's web derivatives are gitignored, so a checkout
+# may or may not have them. Point the library at an empty folder for the whole
+# suite (set before any test module builds a facts_pack at import time); the
+# photo-library tests build their own manifest and files under tmp_path.
+os.environ["HARNESS_PHOTO_LIBRARY_DIR"] = "/nonexistent/photo-library-off-in-tests"
+
 
 class FakeUsage:
     def __init__(self, input_tokens=10, output_tokens=10, *,

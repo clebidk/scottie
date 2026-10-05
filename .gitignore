@@ -27,6 +27,10 @@ tenants/*/meta_inbox/
 # gets committed, not the raw source files.
 tenants/*/brand/incoming/
 
+# Cycle 75: photo-library web derivatives (rebuilt by harness photos import;
+# the manifest with tags, brand/photo-library.json, IS committed).
+tenants/*/photo-library/
+
 # Legacy top-level run dirs (pre-restructure); kept ignored so an old
 # working copy does not suddenly show them as untracked.
 out/
