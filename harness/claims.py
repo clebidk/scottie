@@ -1578,8 +1578,25 @@ def known_claim_id_prefixes():
     return tuple(prefixes) or _FALLBACK_CLAIM_ID_PREFIXES
 
 
+# Cycle 74: a two-part token whose second part makes an ordinary English
+# compound ("founder-led", "warranty-backed", "price-conscious") is prose, not
+# an id, when it is not itself one of this run's ids -- run
+# 20261005-151146-founder-warranty-demo-y6pz STOPped on "A founder-led brand"
+# (prefix "founder-" from the tenant's claim_id_prefixes; the real id is
+# "founder-ceo"). An exact id, and any other prefix match, still counts.
+_ENGLISH_COMPOUND_TAILS = frozenset({
+    "led", "owned", "run", "backed", "based", "made", "built", "friendly", "free", "conscious",
+    "sensitive", "focused", "driven", "minded", "related", "first", "level", "wide", "specific",
+})
+
+
 def _looks_like_claim_id(token, valid_claim_ids):
-    return token in valid_claim_ids or token.startswith(known_claim_id_prefixes())
+    if token in valid_claim_ids:
+        return True
+    if not token.startswith(known_claim_id_prefixes()):
+        return False
+    parts = token.split("-")
+    return not (len(parts) == 2 and parts[1] in _ENGLISH_COMPOUND_TAILS)
 
 
 def find_leaked_claim_ids(page_json, valid_claim_ids):
@@ -1747,3 +1764,31 @@ def find_forbidden_visible_text(rendered_html, terms=None):
         if term in text:
             hits.append({"term": term, "issue": f"forbidden term {term!r} found in visible text"})
     return hits
+
+
+# ---------------------------------------------------------------------------
+# Cycle 74: the quotes the writer may attribute to the ad speaker -- her own
+# transcript sentences (quote_fidelity.quote_candidates), minus any that this
+# gate would reject on the page anyway: a number or a trigger word (needs a
+# claim_id even inside her words -- run 20261005-150831-product-features-v2-
+# dkvo STOPped on "medical grade" in a faithful quote), or a forbidden term
+# (EMF and the rest), or locked warranty/financing wording. What is left can
+# be quoted word for word and pass.
+# ---------------------------------------------------------------------------
+
+def safe_quote_candidates(ad_brief, facts_pack=None, financing_lender=None):
+    """[{"id": "q1", "text": ...}, ...] -- see the block comment above."""
+    verified = (facts_pack or {}).get("verified_claims")
+    out = []
+    for text in quote_fidelity.quote_candidates(ad_brief):
+        if re.search(r"[\d$%]", text) or vocab.TRIGGER_WORD_RE.search(text.lower()):
+            continue
+        if find_forbidden_terms({"text": text}, financing_lender=financing_lender, verified_claims=verified):
+            continue
+        # Warranty and financing wording is locked to one sentence each,
+        # quoted or not ("free lifetime warranty" in a product-features ad).
+        node = {"reasons": [{"proof": {"text": text, "attributed_to_customer": True}}]}
+        if find_warranty_violations(node, verified) or find_financing_violations(node, financing_lender):
+            continue
+        out.append({"id": f"q{len(out) + 1}", "text": text})
+    return out

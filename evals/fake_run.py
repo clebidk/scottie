@@ -17,6 +17,7 @@ import argparse
 import contextlib
 import datetime
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -56,29 +57,48 @@ _LISTICLE_HEADLINES = {
 }
 
 
-def _filler_words(n, offset=0):
+# Cycle 65: the fake-run listicle tests use the founder fixture -- an
+# attributed line must be his own words. Cycle 74: one distinct proof line per
+# item (the repeated-sentence gate), each citing a policy claim every facts
+# pack carries.
+_LISTICLE_PROOFS = (
+    {"text": 'In the ad, he says, "I hated how confusing sauna shopping used to be."', "attributed_to_customer": True},
+    {"text": "Every order ships free.", "claim_ids": ["shipping-policy"]},
+    {"text": "Returns are accepted once the cabin is repacked in its original crate.", "claim_ids": ["returns-policy"]},
+    {"text": "In-stock orders leave the warehouse within a few business days.", "claim_ids": ["shipping-policy"]},
+    {"text": "Shipping is free whatever the model.", "claim_ids": ["shipping-policy"]},
+)
+
+
+_TAG_WORDS = ("alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet",
+              "kilo", "lima", "mike", "november")
+
+
+def _filler_words(n, offset=0, tag=None):
+    """Cycle 74: `tag` marks every sentence of this field as its own, so the
+    overlapping filler windows never repeat a sentence across fields (the
+    repeated-sentence gate)."""
     stream = " ".join(_FILLER_SENTENCES * 4).split()
-    return " ".join(stream[offset:offset + n])
+    text = " ".join(stream[offset:offset + n])
+    if tag is None:
+        return text
+    return re.sub(r"([.!?:])(\s|$)", rf" ({_TAG_WORDS[tag]})\1\2", text) + f" ({_TAG_WORDS[tag]})"
 
 
 def _listicle_page(style, headline=None):
     return {
         "style": style,
         "headline": headline or _LISTICLE_HEADLINES[style],
-        "dek": "A plain look at what actually holds up once the box arrives.",
+        # Cycle 74: the dek carries the fixtures' hooks (message match).
+        "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
         "hero": {"asset_id": _LISTICLE_ASSET_IDS[0]},
         "reasons": [
             {
                 "number": i,
                 "heading": f"What a careful buyer checks first, part {i}",
-                "text": _filler_words(130, offset=i * 17),
+                "text": _filler_words(130, offset=i * 17, tag=i),
                 "image": {"asset_id": _LISTICLE_ASSET_IDS[i]},
-                "proof": {
-                    # Cycle 65: the fake-run listicle tests use the founder
-                    # fixture -- an attributed line must be his own words.
-                    "text": 'In the ad, he says: "I hated how confusing sauna shopping used to be."',
-                    "attributed_to_customer": True,
-                },
+                "proof": _LISTICLE_PROOFS[i - 1],
             }
             for i in range(1, 6)
         ],
@@ -98,7 +118,7 @@ def _listicle_page(style, headline=None):
             "questions": [
                 {
                     "question": f"A question a careful buyer asks before ordering, part {i}?",
-                    "answer": _filler_words(40, offset=i * 29),
+                    "answer": _filler_words(40, offset=i * 29, tag=7 + i),
                 }
                 for i in range(1, 6)
             ]

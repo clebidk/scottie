@@ -147,6 +147,24 @@ repair loop can fix them). Each failure carries a stable key: `listicle:style`,
 `listicle:headline_slots`, `listicle:tested_no_fake_test`,
 `listicle:renderer_owned:<key>`.
 
+**Copy-quality gates** (cycle 74, `harness/listicle_quality.py`, same wiring):
+`listicle:item_repeats:<i>` (heading, body and proof are three different lines),
+`listicle:proof_restates_body:<i>` (at least 80% of the proof's content words already in
+the body), `listicle:repeat_number:<n>:<k>` (a number in more than 3 fields across items,
+audience fit and FAQ), `listicle:repeat_sentence:<path>`, `brand_spelling:<path>` (fixed
+deterministically to the tenant's display name), `listicle:meta_reference:<path>` (no
+"the ad"/"the ad speaker" outside the quote frame; no "she"/"he" in the headline or dek),
+`listicle:myth_item:<i>` (myths style), `listicle:message_match` (headline + dek share a
+word with the ad's hook/angle/promise/objections).
+
+**Repairs** (cycle 74). The writer gets `ad_quotes` (the ad speaker's own sentences,
+pre-filtered so each passes the claims gate) and `allowed_numbers` (every verified number
+with its claim ids). A listicle repair is a patch: the writer returns `{"edits": [{"path",
+"value"}]}` for the flagged fields only (`harness/pagepatch.py`), on the writer model;
+a full rewrite only when a failure has no field path. Before any repair the deterministic
+pass cites a line from the verified claim that states its numbers, snaps an unfaithful
+attributed line to the verbatim ad quote it paraphrased, and fixes the brand spelling.
+
 **Design.** Each look ships its own scoped `<style>` block (this cartridge is the one
 exempt from `tests/test_css_coverage.py`'s structure.css rule). Shared across all five:
 17-18px body at 1.6 (19px serif in `editorial`), 36-44px H1, 24-28px H2, a 48-64px

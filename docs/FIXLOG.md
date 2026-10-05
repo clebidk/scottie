@@ -3472,3 +3472,118 @@ A real `git merge` (5970d8d), then one follow-up (518a67a).
   comparison/popularity statements with no evidence gate (cycle 70 Open).
 - The auto-pick is word matching on the ad brief; a semantic pick could
   follow if real runs mis-pick.
+
+## Cycle 74 (listicle pass rate and copy quality, 2026-10-05)
+
+Branch `cycle74/listicle-quality`, worktree `~/adv-c74`, from master d27ed4a.
+Not merged, not pushed.
+
+### Problem
+20 listicle runs on 10 ad/style/seed inputs (`~/batches/b0-baseline.tsv`,
+`b1-skeletons.tsv`): 12 PASS, 8 STOP. An external judge rated voice (~0.5),
+flow (~0.56) and overall (~0.54) weakest; proof and message-match fell after
+cycle 73's skeletons. The passing page 20261005-151302-hidden-costs-v2-2sxl
+showed the faults: item 6 heading = body = proof (the warranty sentence),
+proof lines that restate their body, "120V/20A" in six fields, "PEAK" and
+"Peak" on one page, "As the ad speaker found", a myths item that is not a
+myth.
+
+### Stop causes and what changed
+| # | cause (real run) | change |
+|---|---|---|
+| 1 | number with no claim_id (tfzx: "plugs into a standard 120V/15A household outlet"; 31 of the 43 older STOPs) | `repair._cite_from_verified_claims`: a line with no claim_ids gets the verified claim(s) that state every one of its numbers and trigger words AND share a content word with it (greedy set cover). Body, proof, audience fit, recap, FAQ answer. A number no claim states stays uncited (the ubo4 "$200 per month, or $2,400 a year" line still fails). The writer also gets `allowed_numbers` (every verified number with its ids). |
+| 2 | quote fidelity 0.50 / 0.30 (k4ze, k3ee) | `quote_fidelity.quote_candidates` + `claims.safe_quote_candidates`: the speaker's own transcript sentences, filtered so each passes the gate (no number, trigger word, forbidden term, warranty or financing wording), go to the writer as `ad_quotes` with ids. An unfaithful attributed line with an allowed frame snaps to the one candidate it was quoting (k4ze -> `As one shopper put it, "I had all the information laid out right there."`); a line that matches no single candidate (k3ee) is left for the writer. |
+| 3 | "medical" in a faithful quote (dkvo) | Not a false positive -- attribution never excuses a trigger word, and the test keeps it failing. The quote can no longer be offered: candidates with a trigger word are filtered out. |
+| 4 | "session by session" (lnp5: "pay for a studio ... session by session") | False positive. The phrase is exempt only in a sentence about paying (pay/fee/membership/price/cost ...); "We noticed the heat build session by session" still fails. |
+| 5 | "claim id leaked into copy: founder-led" (y6pz) | False positive: "founder-" is a configured prefix, the id is "founder-ceo". A two-part prefix match whose second part makes an English compound (led, owned, backed, based, free, conscious ...) is prose; an exact id and any other prefix match still fail, page.json and visible text alike. |
+| 6 | invalid page.json on Haiku repairs (dkvo, k4ze, k3ee, spyo; spyo exited on two in a row) | `jsonutil.extract_json_tolerant` (write.py, batch.py): deletes a trailing comma; escapes an ad quote's own quotation mark inside a string (the "Expecting ',' delimiter" case and, on Python 3.13, the "Expecting property name" case `... costs", which ...`). Lossless; schema and every gate still run. Repairs moved to `claude-sonnet-5` (`repair_first` in config.py, both tenant.yaml files): a Haiku repair cannot read the Sonnet prompt cache (a fresh ~9.5k-token cache write each time). |
+| 7 | asset id not in the manifest (ubo4) | Left to the asset build (~/adv-c75). Only note: a patch repair for that failure may replace the flagged item's `image.asset_id`, exactly as the old full rewrite did; no asset selection code changed. |
+
+Also: the warranty fix never rewrites a `heading`/`headline`/`question`/`title`
+into the fixed sentence (the 2sxl item 6 fallback); the writer rewrites it.
+
+### Patch repairs (`harness/pagepatch.py`)
+A listicle repair now edits only the flagged fields: the user message carries
+`current_page`, the writer returns `{"edits": [{"path", "value"}]}`, each path
+inside an edit root (the flagged field's list item, e.g. `$.reasons[2]`, plus
+`$.headline`/`$.dek`). An edit may not add or drop a list item, replace the
+page, or change a node's type (live smoke run 3rtc wrote an object onto an FAQ
+`answer` string and crashed the FAQ gate -- now a PatchError, and write_page
+asks again). A full page in reply is still accepted; a failure with no field
+path falls back to the old full rewrite. Before this cycle the last full
+rewrite broke a field that had passed in 5 of the 8 STOPs.
+
+### Copy-quality gates (`harness/listicle_quality.py`, listicle only)
+- `listicle:item_repeats:<i>` -- heading, body, proof are three lines.
+- `listicle:proof_restates_body:<i>` -- >= 80% of the proof's content words
+  (brand/product words out, >= 4 words) already in the body. On the 65 old
+  pages: 67 of ~290 proofs; scores 0.83-1.00 read as restatements (e.g.
+  "The cabin includes two built-in Bluetooth speakers." / "Two Bluetooth
+  speakers are built into the cabin ..."), so the cut is 0.8.
+- `listicle:repeat_number:<n>:<k>` -- a number in more than 3 fields across
+  item bodies/proofs, audience fit and FAQ (recap excluded);
+  `listicle:repeat_sentence:<path>` -- a sentence of 5+ words in two fields
+  (fixed warranty/financing sentences excluded).
+- `brand_spelling:<path>` -- the product-name brand word on its own ("Peak")
+  when the display name is the same word in another case ("PEAK"); model
+  names, retired names and exceptions ("... Saunas app") and verbatim verified
+  claims are left alone. Fixed deterministically.
+- `listicle:meta_reference:<path>` -- "the ad", "the video", "the ad
+  speaker" outside the quote frames ("In the ad, she says ...", "... she says
+  in the ad"); "she"/"he" in the headline or dek (smoke run xkkd's dek "She
+  ordered the Peak Mini ...").
+- `listicle:myth_item:<i>` -- on a myths page a heading that names the brand
+  or a model, or is >= 80% a verified claim / the warranty sentence.
+- `listicle:message_match` -- the headline + dek share no content word with
+  the ad's hook/angle/promise/objections (category words out). Weak by
+  design; flagged 7 of 65 old pages, all generic deks.
+Writer rules for each (`listicle_quality.writer_lines`, plus the brand
+spelling from the tenant and a myths line), and cartridge.md's Rules.
+On the 65 old pages, 48 would fail at least one of these (not counting the
+auto-fixed brand spelling): proof restates 37, repeat number 20.
+
+### Verify
+- `tests/test_listicle_cycle74.py` (52), fixture
+  `tests/fixtures/listicle_c74/real_runs.json` (the real failing texts, the
+  2sxl page, briefs and facts packs). Each stop cause has its real text and
+  a true-positive test. Updated: `tests/test_listicle.py` and
+  `evals/fake_run.py` fixtures (one filler sentence in every field, the same
+  proof line on every item -- now distinct per field), and
+  `test_listicle_cycle71.py` (the body with a wrong proof claim now gets the
+  claim that states 120V/20A; the "stays uncited" case uses 120V/25A, which
+  no claim states). Suite: 2245 passed (was 2192).
+- Live smoke runs from the worktree (`python -m harness.cli run`, 3 calls):
+  | run | input | result | cost |
+  |---|---|---|---|
+  | 20261005-162336-product-features-v2-xkkd | product-features mistakes 102 (b1: STOP) | PASS attempt 1 | $0.110 (cold cache) |
+  | 20261005-162640-hidden-costs-v2-3rtc | hidden-costs myths 109 | crashed after a 130-token patch (object on an FAQ answer; fixed in 3059003) | ~$0.09 (from the log; no cost line) |
+  | 20261005-162926-hidden-costs-v2-sgr7 | hidden-costs myths 109 | PASS attempt 1 | $0.042 |
+  sgr7 against 2sxl (same input): real myths only, no repeated item lines, no
+  standalone "Peak", no narration about the ad, dek "You shouldn't have to
+  hand over your name and phone number just to find out how much something
+  costs.", numbers in the proof lines, 120V/20A in 3 fields.
+
+### Cost per run
+- Attempt 1: about +950 uncached input tokens (ad_quotes, allowed_numbers,
+  rules) = about +$0.002.
+- A repair: Haiku full rewrite was ~$0.023 (cache write + ~1,800 output
+  tokens); a Sonnet patch is ~$0.01-0.02 (cache read + 130-700 output
+  tokens; observed 130). A third-attempt Sonnet full rewrite was ~$0.04.
+- Editor pass: not added. It would be one more ~3,000-token full rewrite
+  (~$0.04, ~25 s) per passing run, and 3 live runs cannot show whether it
+  helps; the gates above target the faults that were seen.
+
+### Open
+- Pass rate is not measured: 2 of 2 completed smoke runs passed on attempt 1,
+  and the patch path ran live once (then crashed on the type bug, now fixed
+  and tested). Re-run the 10-input batch from this branch before merging.
+- The new gates fail 48 of 65 old pages; the writer rules should prevent most
+  of that (both smoke pages passed them first time), but a page that needs
+  patches on several gates at once is a new STOP risk to watch.
+- An attributed quote can still land on an unrelated item (sgr7 item 4: a
+  quote about information under a shipping body). Not gated.
+- message_match is a one-shared-word check; clunky headlines (h13 "7 Ways
+  ... Helps Solve Hidden Online Pricing ...") are not gated.
+- `_ENGLISH_COMPOUND_TAILS` is a fixed word list.
+- The worktree had no tenant `.env` or ad videos; for the smoke runs they
+  were symlinked read-only from ~/advertorial and removed afterwards.

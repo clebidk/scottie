@@ -327,3 +327,102 @@ def find_unfaithful_attribution(page_json, ad_brief, ad_speaker_verified=False):
                 "text": text,
             })
     return hits
+
+
+# ---------------------------------------------------------------------------
+# Cycle 74: quote candidates. Select, do not generate: the writer is handed
+# the speaker's own sentences, cut from the transcript by code, and an
+# attributed line quotes one of them word for word. Two of the eight listicle
+# STOPs of 2026-10-05 were attributed lines the writer paraphrased (match 0.30
+# and 0.50); a verbatim candidate scores 1.00 by construction.
+# ---------------------------------------------------------------------------
+
+QUOTE_MIN_WORDS = 4
+QUOTE_MAX_WORDS = 30
+# Spoken filler at the start of a transcript sentence ("I mean, ...", "Like
+# that's ...") -- cut so the quote reads as a sentence. Every word kept is a
+# contiguous run of the transcript, so the cut quote still scores 1.00.
+_LEADING_FILLER_RE = re.compile(
+    r"^(?:(?:and|so|but|like|um|uh|oh|well|i mean|okay|ok|yeah)\b[,\s]*)+", re.IGNORECASE
+)
+_CLAUSE_SPLIT_RE = re.compile(r"(?<=,)\s+")
+
+
+def _clean_quote(text):
+    text = _LEADING_FILLER_RE.sub("", text.strip()).strip().strip('"“”').strip()
+    return text[:1].upper() + text[1:] if text else text
+
+
+def quote_candidates(ad_brief):
+    """The ad speaker's own sentences from ad_brief.transcript_or_text, each
+    QUOTE_MIN_WORDS..QUOTE_MAX_WORDS words (a longer sentence is cut at its
+    commas), with at least two content words, deduplicated, in transcript
+    order. [] for a brand-voice ad or an ad with no transcript. Safety
+    filtering (numbers, trigger words, forbidden terms) is the caller's --
+    claims.safe_quote_candidates."""
+    if not ad_brief or ad_brief.get("speaker_pov") in ("brand", "none"):
+        return []
+    transcript = ad_brief.get("transcript_or_text")
+    if not isinstance(transcript, str) or not transcript.strip():
+        return []
+    out = []
+    seen = set()
+    for sentence in _SENTENCE_SPLIT_RE.split(transcript.strip()):
+        pieces = [sentence]
+        if len(sentence.split()) > QUOTE_MAX_WORDS:
+            pieces = _CLAUSE_SPLIT_RE.split(sentence)
+        for piece in pieces:
+            quote = _clean_quote(piece).rstrip(",;:")
+            n = len(quote.split())
+            if not (QUOTE_MIN_WORDS <= n <= QUOTE_MAX_WORDS) or len(set(_content_stems(quote))) < 2:
+                continue
+            if quote.lower() in seen:
+                continue
+            seen.add(quote.lower())
+            out.append(quote)
+    return out
+
+
+def best_candidate(text, candidates, min_share=0.5):
+    """The candidate quote `text` was trying to say, or None: the one
+    holding the largest share of `text`'s content words (frame words
+    dropped), when that share is at least `min_share` and no other candidate
+    ties it."""
+    wanted = set(_content_stems(text, drop_frame=True))
+    if not wanted:
+        return None
+    scored = sorted(
+        ((len(wanted & set(_content_stems(c))) / len(wanted), c) for c in candidates),
+        key=lambda pair: pair[0], reverse=True,
+    )
+    if not scored or scored[0][0] < min_share:
+        return None
+    if len(scored) > 1 and scored[1][0] == scored[0][0]:
+        return None
+    return scored[0][1]
+
+
+# An owner-approved frame at the start of an attributed line: "In the ad,
+# she says," / "In the ad, Jane Doe says," / "As one shopper put
+# it,". Group 1 is the frame exactly as the writer wrote it.
+_FRAME_PREFIX_RE = re.compile(
+    r"^\s*(In the ad,\s+(?:she|he|they|[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})\s+(?:says|said)"
+    r"|As one shopper put it)\b[,:]?\s*",
+)
+
+
+def snap_to_candidate(text, candidates):
+    """`text` rewritten as its own frame plus the verbatim candidate it was
+    paraphrasing -- '<frame>, "<candidate>"' -- or None when the line does
+    not open with an allowed frame or no single candidate matches it."""
+    m = _FRAME_PREFIX_RE.match(text or "")
+    if not m:
+        return None
+    rest = text[m.end():]
+    # A line with a quoted span was trying to quote: match the quote itself,
+    # not the narration around it.
+    spans = quoted_spans(rest)
+    candidate = best_candidate(max(spans, key=len) if spans else rest, candidates)
+    if candidate is None:
+        return None
+    return f'{m.group(1)}, "{candidate}"'

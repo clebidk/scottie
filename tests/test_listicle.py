@@ -68,8 +68,11 @@ FACTS_PACK = {
     ],
 }
 
+# Cycle 74: a hook with real words -- listicle_quality's message-match gate
+# needs the headline or dek to carry one of them ("switch" in the dek).
 AD_BRIEF = {
-    "hook": "hook", "promise": "promise", "angle": "angle", "claims_made": [], "speaker_experience": [],
+    "hook": "Thinking about the switch to a home sauna?", "promise": "promise", "angle": "angle",
+    "claims_made": [], "speaker_experience": [],
     "features_shown": [], "objections_raised": [], "cta": "See the models", "tone": "candid",
     "speaker_pov": "third_person", "source_file": "ad.txt", "input_type": "text", "transcript_or_text": "text",
 }
@@ -83,9 +86,30 @@ _FILLER = (
 )
 
 
-def _words(n):
-    words = (_FILLER + " ") * ((n // len(_FILLER.split())) + 1)
+_TAGS = {i: w for i, w in enumerate((
+    "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima",
+    "mike", "november", "oscar", "papa"), 1)}
+
+
+def _words(n, tag=None):
+    """n filler words. Cycle 74: `tag` makes every sentence of this field its
+    own (the repeated-sentence gate fails one sentence used in two fields)."""
+    filler = _FILLER.replace("a shopper", f"a shopper ({_TAGS[tag]})") if tag else _FILLER
+    words = (filler + " ") * ((n // len(filler.split())) + 1)
     return " ".join(words.split()[:n])
+
+
+# Cycle 74: one distinct proof line per item -- the same line on every item
+# is what the repeated-sentence gate exists to stop.
+_PROOF_LINES = (
+    "Every unit ships with medical-grade red light therapy included as standard.",
+    "Red light therapy comes in the box on this model, medical-grade, at no extra charge.",
+    "Shipping is free on every order, whatever the model.",
+    "The medical-grade red light panel is part of the standard build.",
+    "Every order ships free, with no freight line at checkout.",
+    "Medical-grade red light therapy is standard here, not an upgrade.",
+    "There is no shipping charge on any order.",
+)
 
 
 HEADLINES = {
@@ -103,13 +127,14 @@ def _items(n=5, with_proof=True):
         item = {
             "number": i,
             "heading": f"A plain heading number {i}",
-            "text": _words(120),
+            "text": _words(120, tag=i),
             "image": {"asset_id": f"asset-{i + 1}"},
         }
         if with_proof:
+            proof = _PROOF_LINES[(i - 1) % len(_PROOF_LINES)]
             item["proof"] = {
-                "text": "Every unit ships with medical-grade red light therapy included as standard.",
-                "claim_ids": ["gbrain-allowlist-red-light"],
+                "text": proof,
+                "claim_ids": ["gbrain-allowlist-red-light" if "red light" in proof else "shipping-policy"],
             }
         items.append(item)
     return items
@@ -138,7 +163,7 @@ def _listicle_page(style="reasons", n_items=5):
             "questions": [
                 {
                     "question": f"A question a buyer actually asks, number {i}?",
-                    "answer": _words(35),
+                    "answer": _words(35, tag=8 + i),
                 }
                 for i in range(1, 6)
             ]
@@ -205,9 +230,9 @@ def _short_winner_page():
     """A page at the live winner's density: about 350 words in all."""
     page = _listicle_page(n_items=5)
     for item in page["reasons"]:
-        item["text"] = _words(10)
-    for q in page["faq"]["questions"]:
-        q["answer"] = _words(8)
+        item["text"] = _words(10, tag=item["number"])
+    for i, q in enumerate(page["faq"]["questions"], 1):
+        q["answer"] = _words(8, tag=8 + i)
     return page
 
 

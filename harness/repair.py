@@ -21,7 +21,10 @@ from pathlib import Path
 from . import comparison
 from . import headlines
 from . import listicle
+from . import listicle_quality
 from . import pagechecks
+from . import pagepatch
+from . import quote_fidelity
 from . import quiz
 from . import pdp
 from . import simplicity
@@ -35,6 +38,7 @@ from .claims import (
     _extract_numbers,
     _strip_digit_exempt_tokens,
     default_warmup_window_words,
+    safe_quote_candidates,
     find_warmup_violations,
     gate_page_json,
     strip_leaked_claim_ids,
@@ -383,6 +387,28 @@ def _fix_product_name_violation(page, path, tenant, facts_pack, log=None, cartri
     return True
 
 
+def _brand_spelling_regex(facts_pack, tenant):
+    """Cycle 74: listicle_quality.brand_spelling_regex for this tenant -- the
+    brand word in front of {model} in product_name_format, used on its own,
+    when the display name is the same word in another case ("Acme" vs
+    "ACME"). A retired name or exception phrase that starts with the brand
+    word ("Acme Saunas", "Acme Saunas app") is left to the retired-name
+    check."""
+    fmt = tenant.get("product_name_format") or ""
+    if "{model}" not in fmt:
+        return None
+    brand_word = fmt.split("{model}")[0].strip()
+    protected = [
+        phrase[len(brand_word):].strip()
+        for phrase in (tenant.get("brand.retired_names") or []) + (tenant.get("brand.retired_name_exceptions") or [])
+        if isinstance(phrase, str) and phrase.startswith(brand_word + " ")
+    ]
+    models = [f[0] for f in _product_name_forms(facts_pack, tenant)]
+    return listicle_quality.brand_spelling_regex(
+        brand_word, getattr(tenant, "display_name", None), models, sorted(protected, key=len, reverse=True)
+    )
+
+
 def resolve_warmup_window(tenant, schema_default=None):
     """tenant.yaml's cartridges.article.warmup_window_words override, else
     the caller's own schema_default (write_and_gate_page already has
@@ -465,6 +491,15 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
         )
+        # Cycle 74: copy quality -- repeated lines and numbers, a proof line
+        # that restates its body, one brand spelling, no narration about the
+        # ad, myths that are myths, the ad's hook at the top of the page.
+        forms = _product_name_forms(facts_pack, tenant)
+        problems += listicle_quality.find_quality_violations(
+            page, style=listicle_style, ad_brief=ad_brief, facts_pack=facts_pack,
+            brand_regex=_brand_spelling_regex(facts_pack, tenant), display_name=tenant.display_name,
+            name_words=[w for f in forms for w in (f[0], f[1])], financing_lender=financing_lender,
+        )
     # Cycle 56: the comparison cartridge's own structural checks (axis and
     # headline formula, alternatives allowlist and their digit-free rule,
     # one best-for/who-for line per model, FAQ, recap, extra rows, images,
@@ -538,6 +573,61 @@ def build_revision_note(attempt, failures):
             '"(source name, year)" citation.'
         )
         lines.append("")
+    lines += [_format_gate_failure(item) for item in failures]
+    lines.append("")
+    lines.append(
+        "Fix all of these. Do not introduce any new violation. Before answering, re-read the "
+        "forbidden word list and remove every occurrence."
+    )
+    return "\n".join(lines)
+
+
+def _patch_roots(failures, page):
+    """Cycle 74: the edit roots (pagepatch.edit_root) of every failure, or
+    None when any failure has no field path or points at a field the page
+    does not have -- that repair stays a full rewrite."""
+    roots = []
+    for item in failures:
+        path = item.get("path")
+        if not isinstance(path, str) or not path.startswith("$."):
+            return None
+        root = pagepatch.edit_root(path)
+        if not pagepatch.resolves(page, root):
+            return None
+        roots.append(root)
+    return list(dict.fromkeys(roots)) or None
+
+
+def build_patch_revision_note(attempt, failures, roots):
+    """The REVISION REQUIRED block for a patch repair: the page is in
+    current_page, only the flagged fields change, and the answer is an edit
+    list (harness/pagepatch.py)."""
+    lines = [
+        f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS}) -- patch the flagged fields only",
+        vocab.forbidden_words_block(),
+        "",
+        "Your page.json is in current_page. It failed the gate checks below. Change only what these "
+        "failures need and keep every other word, claim_id, number and quote as it is.",
+        'Answer with ONLY this JSON object -- no markdown fences, no other keys: {"edits": [{"path": '
+        '"<path>", "value": <the new value>}, ...]}. Each path is one of these, or a path inside one: '
+        + ", ".join(roots)
+        + ' (and "$.headline" or "$.dek" if they must change too). A value replaces the whole node at '
+        "that path and has the same type: a string for a text/answer path, an object for an item or a "
+        "line object (for an item: number, heading, text, image, proof, claim_ids). To change a line's "
+        'claim_ids, edit the object that holds them (e.g. "$.faq.questions[1]", not ".answer").',
+        "A line that needs a claim_id: state only a number listed in allowed_numbers and put one of its "
+        "claim_ids on that same line -- or rewrite the line without the number.",
+        "An attributed line that failed: use one allowed frame plus one ad_quotes entry word for word in "
+        'quotation marks (In the ad, she says, "...") -- or drop attributed_to_customer and cite a '
+        "verified claim instead.",
+        "",
+    ]
+    if any("claim id leaked into copy" in f["issue"] for f in failures):
+        lines += [
+            "A claim id printed as text: delete it from that sentence; the id belongs only in "
+            "claim_ids.",
+            "",
+        ]
     lines += [_format_gate_failure(item) for item in failures]
     lines.append("")
     lines.append(
@@ -780,6 +870,9 @@ def _is_warranty_spec_label(label):
     return "warrant" in stripped
 
 
+_WARRANTY_FIX_SKIP_KEYS = frozenset({"heading", "headline", "question", "title"})
+
+
 def _fix_warranty_violation(page, path, valid_claim_ids):
     """Replaces a warranty-wording gate failure at `path` with the fixed
     sentence (claim_ids attached on the sibling field), or, if `path` is a
@@ -801,6 +894,12 @@ def _fix_warranty_violation(page, path, valid_claim_ids):
     except (KeyError, IndexError, TypeError):
         return False
     if not isinstance(node, dict) or not isinstance(node.get(key), str):
+        return False
+    # Cycle 74: a heading, headline or FAQ question is a title, not a
+    # sentence -- the fixed warranty sentence there shipped as item 6's
+    # heading, body and proof at once (run 20261005-151302-hidden-costs-v2-
+    # 2sxl). The writer rewrites it.
+    if key in _WARRANTY_FIX_SKIP_KEYS:
         return False
 
     if key == "value" and _is_warranty_spec_label(node.get("label")):
@@ -978,8 +1077,100 @@ def _cite_listicle_item_body_from_proof(page, path, facts_pack):
     return item["claim_ids"]
 
 
+# ---------------------------------------------------------------------------
+# Cycle 74: the same idea over every verified claim, for any listicle line.
+# The cycle 71 helper above only looks at the item's own proof claims. 31 of
+# the 43 STOPs of 2026-09-22/23 and the 2026-10-05 STOP 20261005-153109-
+# product-features-v2-tfzx ("The <brand> <model> plugs into a standard 120V/15A
+# household outlet" -- its proof cited another claim) were a line stating a
+# number that a verified claim in the facts pack states word for word, with
+# no claim_ids. Each claim chosen must state at least one of the line's
+# numbers or trigger words AND share a content word with the line, so a
+# number is never given an unrelated claim ("7" from a shipping window for a
+# 7-year warranty line). Stricter than the gate, which accepts any valid id.
+# A number no verified claim states stays uncited and goes to the writer.
+# ---------------------------------------------------------------------------
+_FAQ_ANSWER_PATH_RE = re.compile(r"^(\$\.faq\.questions\[\d+\])\.answer$")
+
+
+def _claim_text_target(page, path):
+    """(node, field) for the line a missing-claim_id failure at `path`
+    points at: a FAQ answer's question object and "answer", else the node
+    holding "text"."""
+    m = _FAQ_ANSWER_PATH_RE.match(path or "")
+    node_path, field = (m.group(1), "answer") if m else (
+        (path[: -len(".text")], "text") if (path or "").endswith(".text") else (path, "text")
+    )
+    try:
+        node = _get_at_path(page, node_path)
+    except (KeyError, IndexError, TypeError):
+        return None, None
+    if not isinstance(node, dict) or not isinstance(node.get(field), str):
+        return None, None
+    return node, field
+
+
+def _relevant_stems(text, exempt):
+    return {w for w in quote_fidelity._content_stems(text) if not any(ch.isdigit() for ch in w)} - exempt
+
+
+def _cite_from_verified_claims(page, path, facts_pack, tenant=None):
+    node, field = _claim_text_target(page, path)
+    if node is None or facts_pack is None or node.get("claim_ids"):
+        return None
+    exempt_terms = facts_pack.get("digit_exempt_terms")
+    unquoted = _QUOTED_SPAN_RE.sub(" ", node[field])
+    needed = {("n", n) for n in _extract_numbers(_strip_digit_exempt_tokens(unquoted, exempt_terms))}
+    needed |= {("w", m.group(0)) for m in vocab.TRIGGER_WORD_RE.finditer(unquoted.lower())}
+    if not needed:
+        return None
+    name_stems = set(quote_fidelity._content_stems(" ".join(exempt_terms or [])))
+    line_stems = _relevant_stems(node[field], name_stems)
+    options = []
+    for claim in facts_pack.get("verified_claims", []):
+        text = claim.get("text") or ""
+        states = {("n", n) for n in _extract_numbers(_strip_digit_exempt_tokens(text, exempt_terms))}
+        states |= {("w", w) for kind, w in needed if kind == "w" and w in text.lower()}
+        overlap = len(line_stems & _relevant_stems(text, name_stems))
+        if states & needed and overlap:
+            options.append((claim["id"], states & needed, overlap))
+    chosen, uncovered = [], set(needed)
+    while uncovered:
+        best = max(options, key=lambda o: (len(o[1] & uncovered), o[2]), default=None)
+        if best is None or not best[1] & uncovered:
+            return None
+        chosen.append(best[0])
+        uncovered -= best[1]
+        options.remove(best)
+    node["claim_ids"] = chosen
+    return chosen
+
+
+def _snap_attributed_quote(page, path, ad_brief, facts_pack):
+    """Cycle 74: an attributed line that failed quote fidelity, rewritten as
+    its own frame plus the one verbatim ad quote (safe_quote_candidates) it
+    was trying to say. None, page untouched, when the line has no allowed
+    frame or no single candidate matches it -- the writer then gets the
+    candidate list."""
+    if ad_brief is None:
+        return None
+    try:
+        node = _get_at_path(page, path)
+    except (KeyError, IndexError, TypeError):
+        return None
+    if not isinstance(node, dict) or node.get("attributed_to_customer") is not True:
+        return None
+    candidates = [c["text"] for c in safe_quote_candidates(ad_brief, facts_pack)]
+    snapped = quote_fidelity.snap_to_candidate(node.get("text") or "", candidates)
+    if not snapped or snapped == node.get("text"):
+        return None
+    node["text"] = snapped
+    return snapped
+
+
 def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
-                               financing_lender=None, facts_pack=None, tenant=None, listicle_headline=None):
+                               financing_lender=None, facts_pack=None, tenant=None, listicle_headline=None,
+                               ad_brief=None):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
     claim id leaked into a parenthetical, a trigger word with a safe
@@ -1086,13 +1277,50 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
             continue
 
-        if cartridge_name == "listicle" and "text needs at least one claim_id" in issue:
-            cited = _cite_listicle_item_body_from_proof(page, raw_path, facts_pack)
+        if cartridge_name == "listicle" and (
+            "text needs at least one claim_id" in issue or "FAQ answer needs at least one claim_id" in issue
+        ):
+            cited = None
+            if "text needs at least one claim_id" in issue:
+                cited = _cite_listicle_item_body_from_proof(page, raw_path, facts_pack)
+                if cited and log is not None:
+                    log.event(f"write.{cartridge_name}", f"fix: {raw_path} cites its proof's claims {cited}")
+            if not cited:
+                # Cycle 74: any verified claim that states the line's numbers.
+                cited = _cite_from_verified_claims(page, raw_path, facts_pack, tenant)
+                if cited and log is not None:
+                    log.event(f"write.{cartridge_name}", f"fix: {raw_path} cites the claims that state it {cited}")
             if cited:
                 fixed += 1
-                if log is not None:
-                    log.event(f"write.{cartridge_name}", f"fix: {raw_path} cites its proof's claims {cited}")
                 continue
+            if "FAQ answer needs at least one claim_id" in issue:
+                continue
+
+        # Cycle 74: an unfaithful attributed line -> the verbatim ad quote it
+        # was paraphrasing, under the writer's own frame.
+        if cartridge_name == "listicle" and (item.get("key") or "").startswith("quote_fidelity:"):
+            snapped = _snap_attributed_quote(page, raw_path, ad_brief, facts_pack)
+            if snapped:
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", f"fix: {raw_path} quotes the ad verbatim: {snapped!r}")
+            continue
+
+        # Cycle 74: one brand spelling -- "Acme" on its own -> "ACME".
+        if tenant is not None and (item.get("key") or "").startswith("brand_spelling:"):
+            regex = _brand_spelling_regex(facts_pack, tenant)
+            try:
+                current = _get_at_path(page, raw_path)
+            except (KeyError, IndexError, TypeError):
+                continue
+            if isinstance(current, str):
+                new_text = listicle_quality.fix_brand_spelling(current, regex, tenant.display_name)
+                if new_text != current:
+                    _set_at_path(page, raw_path, new_text)
+                    fixed += 1
+                    if log is not None:
+                        log.event(f"write.{cartridge_name}", f"fix: brand spelling at {raw_path}")
+            continue
 
         if term in _hype_synonyms() or term == "!":
             path = raw_path
@@ -1212,6 +1440,11 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         )
 
     revision_note = None
+    # Cycle 74: a listicle repair is a patch of the flagged fields
+    # (harness/pagepatch.py) whenever every open failure points at a field
+    # that exists; else a full rewrite, as before.
+    current_page = None
+    patch_roots = None
     attempts = []
     deterministic_fix_counts = []
     # Fix cycle 6 item 3: every failure seen so far in this cartridge,
@@ -1295,6 +1528,8 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 listicle_style=listicle_style,
                 listicle_headline=listicle_headline,
                 listicle_skeleton=listicle_skeleton,
+                current_page=current_page,
+                patch_roots=patch_roots,
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)
@@ -1303,7 +1538,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             apply_deterministic_fixes(
                 page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
                 financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
-                listicle_headline=listicle_headline,
+                listicle_headline=listicle_headline, ad_brief=ad_brief,
             )
             if problems else 0
         )
@@ -1328,7 +1563,13 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             err.attempts = attempts
             err.deterministic_fixes = deterministic_fix_counts
             raise err
-        revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()))
+        patch_roots = _patch_roots(problems, page) if cartridge_name == "listicle" else None
+        if patch_roots:
+            current_page = page
+            revision_note = build_patch_revision_note(attempt, problems, patch_roots)
+        else:
+            current_page = None
+            revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()))
 
 
 # ---------------------------------------------------------------------------
