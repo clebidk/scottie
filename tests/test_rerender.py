@@ -110,12 +110,34 @@ def test_rerender_leaves_the_approval_state_alone(run_dir):
 
 def test_rerender_keeps_the_runs_own_dates(run_dir):
     """A page that has been live for weeks must not be re-dated to today by a
-    layout fix."""
-    assert runstate.run_started_date(run_dir) is not None
+    layout fix.
+
+    Cycle 80: the run here started weeks ago (it used to start "now", so the
+    run's date and today's were the same string and re-dating could not
+    fail). Since cycle 79 the listicle shows its date only in the first
+    screen's byline ("Updated Sep 19, 2026"), which the face and story first
+    screens have and the display one does not; the listicle's JSON-LD is an
+    ItemList with no dates. With no hero_style on page.json this run id seeds
+    display (and face, with no ad still and no quotable speaker in this
+    fixture, falls back to display), so the test pins story."""
+    import datetime
+
+    from harness import first_screen
+
+    data = runstate.load_state(run_dir)
+    for entry in data["history"]:
+        entry["at"] = "2026-09-19T03:12:54"
+    runstate.save_state(run_dir, data)
+    page = json.loads((run_dir / "listicle" / "page.json").read_text())
+    page["hero_style"] = "story"
+    (run_dir / "listicle" / "page.json").write_text(json.dumps(page))
+
     started = runstate.run_started_date(run_dir)
+    assert started == "2026-09-19"
     cli.cmd_rerender(_args(run_dir))
     html = (run_dir / "listicle" / "index.html").read_text()
-    assert started in html
+    assert f"Updated {first_screen.display_date(started)}" in html
+    assert first_screen.display_date(datetime.date.today().isoformat()) not in html
 
 
 def test_rerender_refreshes_an_existing_shopify_body_only(run_dir):
