@@ -733,15 +733,15 @@ class ShopifyPublisher(Publisher):
         `harness publish --update` ignores `--handle` (handle changes are
         out of scope for cycle 40), and PUT doesn't need it to identify the
         page anyway. Returns the same shape `publish` does: {"id", "url",
-        "admin_url", "handle"}."""
-        payload = {
-            "page": {
-                "id": page_id,
-                "title": page["title"],
-                "body_html": page["body_html"],
-                "published": not unpublished,
-            }
-        }
+        "admin_url", "handle"}.
+
+        Cycle 80: a `page` with no title/body_html sends only `published`
+        (harness/postlive.py's unpublish: hide the page, keep its body)."""
+        payload = {"page": {"id": page_id}}
+        for key in ("title", "body_html"):
+            if key in page:
+                payload["page"][key] = page[key]
+        payload["page"]["published"] = not unpublished
         status, data = self._request("PUT", f"pages/{page_id}.json", payload)
         if status not in (200, 201) or "page" not in data:
             raise PublishFailed(f"page update failed: status={status} body={data}")
@@ -754,6 +754,16 @@ class ShopifyPublisher(Publisher):
             "admin_url": f"https://{self.store}/admin/pages/{updated['id']}",
             "handle": handle,
         }
+
+    def find_page_by_handle(self, handle):
+        """Cycle 80: the page (published or hidden) that has `handle`, or
+        None. Read only. harness/postlive.py asks before it creates a page,
+        because Shopify answers a taken handle with "<handle>-1"."""
+        query = urllib.parse.urlencode({"handle": handle, "fields": "id,handle,published_at"})
+        status, data = self._request("GET", f"pages.json?{query}")
+        if status != 200 or "pages" not in data:
+            raise PublishFailed(f"page lookup failed: status={status} body={data}")
+        return next((p for p in data["pages"] if p.get("handle") == handle), None)
 
     # Cycle 67: read-only order lookup for A/B/C test attribution
     # (harness/abtest.py attribute_orders). Needs the read_orders scope.

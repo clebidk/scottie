@@ -22,6 +22,11 @@ Job types and handlers (each reuses the CLI's own code path):
                    then `harness abtest publish` when abtest.auto_publish)
   publish_page     approve + packet ship + `harness publish --update`
   replace_variant  the same, for a live A/B/C variant, then its stats reset
+  post_live        cycle 80: approve + packet ship + live publish at lp-<slug>,
+                   unlinked (no ad, no test, no redirect) -- harness/postlive.py
+                   (= `harness post-live`)
+  update_live      re-publish the current version over that live page
+  unpublish_live   set that page back to hidden
 """
 import argparse
 import contextlib
@@ -39,7 +44,9 @@ from . import exits
 from .errors import HarnessError
 
 STATES = ("queued", "running", "done", "failed")
-JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant")
+JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
+             "unpublish_live")
+POST_LIVE_ACTIONS = {"post_live": "post", "update_live": "update", "unpublish_live": "unpublish"}
 
 
 class JobError(HarnessError):
@@ -348,11 +355,32 @@ def handle_replace_variant(tenant, payload):
             "archived_key": replacement["archived_key"]}
 
 
+def handle_post_live(tenant, payload, *, job_type="post_live"):
+    """Cycle 80: one of the three unlinked-live actions (harness/postlive.py)
+    for the reviewer who pressed the button."""
+    from . import postlive
+
+    run_dir = _run_dir(tenant, payload["run_id"])
+    action = POST_LIVE_ACTIONS[job_type]
+    try:
+        record = postlive.post_live(tenant, run_dir, payload["page"], by=payload["by"], action=action,
+                                    handle=payload.get("handle"))
+    except HarnessError as e:
+        raise JobFailed(str(e)) from e
+    audit(tenant, by=payload["by"], action=f"{job_type}_done", target=f"run:{run_dir.name}/{payload['page']}",
+          detail={"url": record.get("url"), "handle": record.get("handle"), "live": record.get("live")})
+    return {"url": record.get("url"), "handle": record.get("handle"), "live": record.get("live"),
+            "unlinked": True}
+
+
 HANDLERS = {
     "regenerate": handle_regenerate,
     "create_test": handle_create_test,
     "publish_page": handle_publish_page,
     "replace_variant": handle_replace_variant,
+    "post_live": handle_post_live,
+    "update_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="update_live"),
+    "unpublish_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="unpublish_live"),
 }
 
 

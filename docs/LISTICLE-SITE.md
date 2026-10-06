@@ -25,13 +25,29 @@ browser --> Caddy (listicle.peaksaunasteam.com) --> harness serve 127.0.0.1:4870
 
 | URL | What it shows |
 |---|---|
-| `/` | Every ad, newest first, 20 for each page, with a search by ad name. For each ad: status, created date, the 3 variants (thumbnail, build name, views, CTA clicks, CTR, P(best) when the test is live or finished), the split link with a Copy button, and today's model spend against the daily cap. |
-| `/gen/<run>/<page>` | One generation: the review render (desktop or mobile width), the versions, the feedback form, the status of the regenerate job, and the old version next to the new one. Also the **Publish new version** or **Replace live variant** button. |
+| `/` | Every ad, newest first, 20 for each page. Filters **All / Needs review / Live** (with counts) and a search by ad name. For each ad: its thumbnail (the image ad, or the ad still of a video ad), name, source, inbox state, created date, and its generations as phone-shaped cards (a scaled live preview, hero style, headline, style, headline template, Jev composite, gate, status chip Draft / Approved / Live / Hidden, the live URL with a Copy button, A/B/C numbers for a test, and **Post live**). Also the split link with a Copy button and today's model spend against the daily cap. |
+| `/gen/<run>/<page>` | One generation: phone / desktop preview (old version next to the new one after feedback), the Status card (live URL, **Post live**, **Update live page**, **Unpublish**, **Publish new version** or **Replace live variant**, the latest publish job), the feedback form, the details (ad, style, hero, headline template, skeleton, look, Jev composite, gate, cost, run id, created), the Jev drafts table, the versions and the history. |
+| `/gen/<run>/<page>/post-live`, `/update-live`, `/unpublish` | Cycle 80: the confirm step (a dialog on the page, or this page without JS) and the POST that queues the job. |
+| `/run/<run>/ad-frame` | Cycle 80: a thumbnail of the run's ad still (`ad-frame/frame.jpg`). |
 | `/upload` | The upload form. |
 | `/jobs`, `/job/<id>` | The job queue and one job (state, reason, result, split link). |
 | `/audit` | Who did what, and when. |
 | `/runs` | The old run list (it was at `/` before cycle 69). |
 | `/e` | The A/B/C beacon receiver (cycle 67). The only route without a login. |
+
+### Look (cycle 80)
+
+`harness/site_ui.py` holds the shell (top bar with the tenant logo from
+`brand/logo-basalt.svg`, navigation, a running-jobs badge), the stylesheet and
+the small script (copy, phone / desktop preview, the post-live dialog, the
+slug check). White ground, Basalt `#161817` ink, text `#1A1A1A`, muted
+`#6B6B6B`, hairlines `rgba(22,24,23,.12)`, red `#702B34` only for live and
+attention states; DM Sans for the UI and Poppins for headings (Google Fonts);
+4px radius on cards and inputs, pill buttons. No build step. On a phone the
+navigation scrolls sideways, the generation cards scroll sideways in each ad,
+the dialog is a bottom sheet, and tables become stacked rows. The older
+reviewer pages (`/runs`, `/run/<id>`, `/images`) use the same shell. 404 and
+500 errors and a wrong form token get a styled page.
 
 ### Ads and their names
 
@@ -64,12 +80,60 @@ that are not letters or digits counts as one space, so "Hidden Costs V2" and
 ### Publish new version (a page that is not in a test)
 
 The button shows only when the page has a Shopify page from an earlier
-`harness publish` and was regenerated after that publish. A confirm page
+`harness publish` and was regenerated after that publish. Cycle 80: for a live
+page that no test or redirect points at, the site shows **Update live page**
+instead (see below), because the publish lock refuses this job for a live page. A confirm page
 comes first. The `publish_page` job then does: approve (as the logged-in
 reviewer), packet stamp `ship`, and `harness publish --update`. The page
 stays live, or stays a draft, as it was (read from the run history; if the
 history does not say, the site refuses and you publish from the command
 line).
+
+### Post live (unlinked) -- cycle 80
+
+Owner, 2026-10-06: "have a button on each ad to do what we just did, post to a
+live link, but not link it to any ad yet". **Post live** on a generation card
+or on the generation page opens a dialog with the proposed address
+`<site_host>/pages/lp-<topic>-<model>` (from the display line or headline and
+the product; `-2`, `-3` when taken). You can edit the slug. It must start with
+`lp-`, use only lower-case letters, digits and single hyphens (80 characters at
+most), and not use a word of the tenant's `emf_terms`; the site also refuses a
+handle that another generation or a queued post already uses.
+
+The `post_live` job (harness/postlive.py, also `harness post-live <run> --page
+<page> --handle lp-x --by <email>`) does what was done by hand for the five
+runs of 2026-10-06:
+
+1. checks that the reviewer is in `tenant.yaml` `reviewers`, and that the page
+   is not an A/B/C variant and has no redirect;
+2. `approve` as that reviewer and packet stamp `ship`;
+3. asks Shopify whether a page (live or hidden) already has the handle
+   (`GET pages.json?handle=`) -- Shopify would otherwise create `<handle>-1`;
+4. publishes LIVE at that handle, with no redirect, no SEO-hidden metafield,
+   no beacon and no split page;
+5. records `published_pages[page]` with `unlinked: true`, `live: true`, `by`,
+   `at`, `handle`, `url`, `page_id`.
+
+A page that is a hidden draft on Shopify already (for example after
+**Unpublish**) is switched live in place at its own handle.
+
+**Update live page** (`update_live` job): approve + stamp + `harness publish
+--update --live` of the same page id; the record keeps the first poster and
+adds `updated_by` / `updated_at`. **Unpublish** (`unpublish_live` job): a PUT
+of only `published: false` to the page id (the body stays); the record gets
+`live: false`, `unpublished_by` / `unpublished_at`, and the history a
+`live=False unpublished` line. Both have a confirm step and show only for a
+live page that no test or redirect points at -- that includes the five pages
+published by hand on 2026-10-06.
+
+**The lock stays on.** `publish_locked: true` still makes every Shopify path
+use `LockedShopifyPublisher`: A/B/C publish and split pages, auto publish, the
+**Publish new version** job of a live page, redirects and a plain `harness
+publish --live` are all refused. The one exception is
+`LockedShopifyPublisher(unlinked_live=True)`, which only `cmd_publish` builds,
+and only when harness/postlive.py calls it (`harness publish` has no flag for
+it). With that flag a live create needs an explicit handle, a live update needs
+a page id the run owns, and `create_redirect` is still refused.
 
 ### Replace live variant (a page that is a variant of a live A/B/C test)
 

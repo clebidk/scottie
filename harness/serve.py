@@ -211,38 +211,9 @@ def _scores_for_run(tenant, run_dir):
 # markdown), html.escape on every value that came from disk/reviewer input.
 # ---------------------------------------------------------------------------
 
-PAGE_CSS = """
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:1100px;margin:0 auto;padding:24px;
-  color:#1a1a1a;background:#fff;line-height:1.5}
-h1{font-size:1.4rem} h2{font-size:1.15rem;margin-top:2em;border-bottom:1px solid #ddd;padding-bottom:.3em}
-table{border-collapse:collapse;width:100%;margin:1em 0}
-th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:.92rem;vertical-align:top}
-th{background:#f4f4f4}
-a{color:#0b5fff}
-.state-needs_review{color:#a66a00} .state-approved{color:#0a7a28} .state-rejected{color:#b00020}
-.state-generated{color:#888} .state-published{color:#0a7a28} .state-changes_requested{color:#a66a00}
-.page-block{border:1px solid #ddd;border-radius:6px;padding:16px;margin:1.2em 0}
-.page-block iframe{width:1200px;max-width:100%;height:700px;border:1px solid #ccc;display:block}
-.page-block iframe.mobile{width:390px}
-.toggle-btn{margin:.5em 0;padding:4px 10px;cursor:pointer}
-form.feedback label{display:inline-block;min-width:70px}
-form.feedback select{margin-right:14px}
-textarea{width:100%;box-sizing:border-box;min-height:90px;font-family:inherit}
-.help{color:#666;font-size:.85rem}
-.actions button{margin-right:8px;padding:6px 14px;cursor:pointer}
-.history{font-size:.85rem;color:#444}
-.source-ad{background:#fafafa;border:1px solid #ddd;padding:12px;border-radius:6px;white-space:pre-wrap}
-.image-grid{display:flex;flex-wrap:wrap;gap:12px}
-.image-card{border:1px solid #ddd;border-radius:6px;padding:8px;width:220px;font-size:.85rem}
-.image-card img{width:100%;height:150px;object-fit:contain;background:#f4f4f4;display:block}
-.image-card.excluded{opacity:.45}
-.image-card .asset-id{font-family:monospace;font-size:.75rem;color:#666;word-break:break-all}
-.image-card .excluded-tag{color:#b00020;font-weight:bold}
-.image-card textarea{min-height:50px}
-.image-card select,.image-card input[type=text]{width:100%;box-sizing:border-box;margin:2px 0}
-.pool-counts{color:#666}
-"""
-
+# Cycle 80: these pages share the listicle site's shell and stylesheet
+# (harness/site_ui.py). A page shown inside an iframe (a placeholder for a
+# page not rendered yet) gets no top bar.
 TOGGLE_JS = """
 function pkToggleWidth(id, mode) {
   var frame = document.getElementById(id);
@@ -251,12 +222,18 @@ function pkToggleWidth(id, mode) {
 }
 """
 
+_BARE_CSS = ("body{font:15px/1.55 system-ui,-apple-system,'Segoe UI',sans-serif;color:#6B6B6B;background:#fff;"
+             "margin:0;padding:48px 24px;text-align:center}")
 
-def _page_shell(title, body):
+
+def _page_shell(title, body, *, chrome=True):
+    if chrome:
+        from . import site_ui
+
+        return site_ui.shell(title, f'<div class="legacy">{body}</div><script>{TOGGLE_JS}</script>')
     return (
         f"<!doctype html><html><head><meta charset=\"utf-8\">"
-        f"<title>{html.escape(title)}</title><style>{PAGE_CSS}</style>"
-        f"<script>{TOGGLE_JS}</script></head><body>{body}</body></html>"
+        f"<title>{html.escape(title)}</title><style>{_BARE_CSS}</style></head><body>{body}</body></html>"
     )
 
 
@@ -284,12 +261,12 @@ def _render_run_list(tenant, runs, *, show_test=False, hidden_count=0):
     else:
         toggle = ""
     body = (
-        f"<h1>{html.escape(tenant.display_name)} -- runs</h1>"
-        f"<p><a href=\"{url_for('ads_home')}\">Ads</a> | <a href=\"{url_for('image_library')}\">Image library</a></p>"
+        f"<div class=\"page-head\"><div><h1>{html.escape(tenant.display_name)} runs</h1>"
+        "<p class=\"sub\">Every run of the harness, newest first. The reviewer page scores and approves.</p></div></div>"
         + toggle
-        + "<table><thead><tr><th>Run</th><th>State</th><th>Ad</th><th>Product</th>"
+        + "<div class=\"table-wrap\"><table><thead><tr><th>Run</th><th>State</th><th>Ad</th><th>Product</th>"
         "<th>Cartridges</th><th>Cost</th><th>Gate</th><th>Not repeated</th><th>Reviewer actions</th>"
-        "</tr></thead><tbody>" + ("".join(rows) or "<tr><td colspan=9>No runs yet.</td></tr>") + "</tbody></table>"
+        "</tr></thead><tbody>" + ("".join(rows) or "<tr><td colspan=9>No runs yet.</td></tr>") + "</tbody></table></div>"
     )
     return _page_shell(f"{tenant.display_name} runs", body)
 
@@ -376,7 +353,7 @@ def _render_run_detail(tenant, run_dir):
     )
 
     body = (
-        f"<p><a href=\"{url_for('run_list')}\">&laquo; all runs</a></p>"
+        f"<a class=\"crumb\" href=\"{url_for('run_list')}\">&lsaquo; All runs</a>"
         f"<h1>{html.escape(run_dir.name)}</h1>"
         f"<p>State: <span class=\"state-{html.escape(state.get('state') or '')}\">{html.escape(state.get('state') or '')}</span></p>"
         f"<h2>Source ad</h2>{_render_source_ad(tenant, run_dir.name, ad_brief)}"
@@ -466,9 +443,10 @@ def _render_image_library(tenant):
             f"<td>{len(pool)}</td><td>{reviewed}</td><td>{excluded}</td></tr>"
         )
     body = (
-        f"<h1>{html.escape(tenant.display_name)} -- image library</h1>"
-        "<table><thead><tr><th>Product</th><th>Total</th><th>Reviewed</th><th>Excluded</th></tr></thead>"
-        "<tbody>" + ("".join(rows) or "<tr><td colspan=4>No active products.</td></tr>") + "</tbody></table>"
+        f"<div class=\"page-head\"><div><h1>{html.escape(tenant.display_name)} image library</h1>"
+        "<p class=\"sub\">Every image a product page could use. Write alt text or exclude one.</p></div></div>"
+        "<div class=\"table-wrap\"><table><thead><tr><th>Product</th><th>Total</th><th>Reviewed</th><th>Excluded</th></tr>"
+        "</thead><tbody>" + ("".join(rows) or "<tr><td colspan=4>No active products.</td></tr>") + "</tbody></table></div>"
     )
     return _page_shell(f"{tenant.display_name} image library", body)
 
@@ -519,11 +497,11 @@ def _render_image_library_product(tenant, product_slug, *, page, source_filter, 
     ids_field = html.escape(",".join(a["id"] for a in page_assets))
     cards = "".join(_image_card(a, overrides.get(a["id"])) for a in page_assets)
 
-    filters = " ".join(
+    filters = "".join(
         f"<a href=\"{url_for('image_library_product', product_slug=product_slug, source=s)}\">{s}</a>"
         for s in ("all", "shopify", "drive", "listicle")
     )
-    pager = " ".join(
+    pager = "".join(
         f"<a href=\"{url_for('image_library_product', product_slug=product_slug, page=p, source=source_filter)}\">{p}</a>"
         for p in range(1, page_count + 1)
     )
@@ -531,9 +509,10 @@ def _render_image_library_product(tenant, product_slug, *, page, source_filter, 
     action_url = url_for("image_library_save", product_slug=product_slug, page=page, source=source_filter)
     submit = "<button type=\"submit\">Save this page</button>"
     body = (
-        f"<h1>{html.escape(product['name'])} -- images</h1>"
+        f"<a class=\"crumb\" href=\"{url_for('image_library')}\">&lsaquo; Image library</a>"
+        f"<h1>{html.escape(product['name'])} images</h1>"
         f"<p class=\"pool-counts\">{total} image(s) in this view (page {page} of {page_count})</p>"
-        f"<p>{filters}</p><p>{pager}</p>"
+        f"<div class=\"linkrow\">{filters}</div><div class=\"linkrow\">{pager}</div>"
         + saved_note
         + f"<form method=\"post\" action=\"{action_url}\">"
         f"<input type=\"hidden\" name=\"ids\" value=\"{ids_field}\">"
@@ -888,7 +867,7 @@ def build_app(tenant):
                 path = build_review_for_page(run_dir, safe_page)
         if path is None:
             return Response(
-                _page_shell("Not rendered yet", "<p>Page not rendered yet.</p>"),
+                _page_shell("Not rendered yet", "<p>Page not rendered yet.</p>", chrome=False),
                 mimetype="text/html",
             )
         return send_file(path, mimetype="text/html")

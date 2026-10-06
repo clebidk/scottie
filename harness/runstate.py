@@ -387,6 +387,54 @@ def published_page_record(run_dir, page):
     return (data.get("published_pages") or {}).get(page)
 
 
+def record_unlinked(run_dir, *, page, by, action, previous=None):
+    """Cycle 80 (harness/postlive.py): marks `page`'s published record as an
+    unlinked page -- live on its own handle, no A/B/C test, no redirect -- and
+    who did what. mark_published replaces the record on every publish, so the
+    first poster (`by`, `at`) is carried over from `previous` on an update or
+    an unpublish."""
+    data = load_state(run_dir)
+    pages = data.setdefault("published_pages", {})
+    record = dict(pages.get(page) or {})
+    if not record:
+        raise KeyError(f"page {page!r} of this run has no published record")
+    previous = previous or {}
+    now = _now()
+    record["unlinked"] = True
+    if action == "post" or not previous.get("by"):
+        record["by"], record["at"] = by, now
+    else:
+        record["by"], record["at"] = previous["by"], previous.get("at") or record.get("at")
+    for key in ("updated_by", "updated_at"):
+        if previous.get(key):
+            record[key] = previous[key]
+    if action == "update":
+        record["updated_by"], record["updated_at"] = by, now
+    if action == "unpublish":
+        record["live"] = False
+        record["unpublished_by"], record["unpublished_at"] = by, now
+    else:
+        record["live"] = True
+        record.pop("unpublished_by", None)
+        record.pop("unpublished_at", None)
+    pages[page] = record
+    save_state(run_dir, data)
+    return record
+
+
+def record_unpublished(run_dir, *, page, by, note=""):
+    """Cycle 80: the Shopify page of `page` was set back to hidden. The page
+    still exists on Shopify (a draft), so its state stays "published"; the
+    history entry carries `live=False`, which is what the listicle site reads."""
+    data = load_state(run_dir)
+    record = (data.get("published_pages") or {}).get(page) or {}
+    data["history"].append({"state": "published", "by": by, "at": _now(),
+                            "note": f"url={record.get('url')} live=False unpublished page={page}"
+                                    + (f"; {note}" if note else "")})
+    save_state(run_dir, data)
+    return data
+
+
 def record_abtest(run_dir, *, page, test_id, key):
     """Cycle 67: marks `page` as variant `key` of A/B/C test `test_id`.
     harness/page_body.py reads this at export time and adds the tracking

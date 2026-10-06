@@ -425,7 +425,9 @@ def test_publish_updates_the_existing_live_page_after_confirm(monkeypatch, clien
     _feedback(client, run_dir, page, "Tighter copy")
     jobs.run_one(TENANT)
     body = client.get(f"/gen/{run_dir.name}/{page}", headers=_auth()).get_data(as_text=True)
-    assert "Publish new version" in body and "Replace live variant" not in body
+    # cycle 80: a live page no test or redirect points at is offered "Update live page"
+    # (the narrow post-live path); the publish route below still works the same way.
+    assert "Update live page" in body and "Replace live variant" not in body
 
     calls_before = len(transport.calls)
     assert client.post(f"/gen/{run_dir.name}/{page}/publish", data={"csrf": _csrf()},
@@ -761,5 +763,6 @@ def test_pages_fit_a_phone(monkeypatch, client):
     _single_run(monkeypatch)
     body = client.get("/", headers=_auth()).get_data(as_text=True)
     assert 'name="viewport" content="width=device-width, initial-scale=1"' in body
-    for token in ("#181918", "#EFE3D2", "#F27046", "#C0C8C3"):
+    # cycle 80: the PEAK brand system the pages use (harness/site_ui.py)
+    for token in ("#161817", "#1A1A1A", "#6B6B6B", "rgba(22,24,23,.12)", "#702B34", "DM Sans", "Poppins"):
         assert token in body

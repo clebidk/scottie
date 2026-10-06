@@ -4265,3 +4265,110 @@ Re-check spend $0.46 (cap $0.60). Open: zpbm's o4 desire "Recovery Space" is not
   20261005-212550-...-mt5a (display): PASS on attempt 3 ($0.145): "No guesswork. No regret.
   Still a sauna that fits." / display "Avoid the common buying regret"; no installation claim.
 - Suite: 2344 passed.
+
+## Cycle 80 (review site redesign + "Post live (unlinked)", 2026-10-06)
+
+Branch `cycle80/review-site`, worktree `~/adv-c80`, from master 69bf82a. Not merged,
+not pushed, not deployed. Owner: "we need to completely modernize and update the
+listicle.peaksaunasteam page to actually look good" and "have a button on each ad to do
+what we just did, post to a live link, but not link it to any ad yet". No model call;
+$0 spent.
+
+### Look (`harness/site_ui.py`, new)
+- One shell, stylesheet and script for every screen: the listicle site (home, generation,
+  upload, jobs, job, audit, confirm pages, 404/500, wrong form token) and the older
+  reviewer pages (`/runs`, `/run/<id>`, `/images`, `/images/<product>`; serve.py's
+  `_page_shell` now wraps them; a placeholder shown inside an iframe gets no top bar).
+- Brand system of the pages: white ground, Basalt #161817, text #1A1A1A, muted #6B6B6B,
+  hairlines rgba(22,24,23,.12), red #702B34 only for live / attention; DM Sans (UI) and
+  Poppins (headings) from Google Fonts; 4px radius on cards and inputs, 999px only on
+  pill buttons; no gradients; a soft shadow only on a hovered generation card.
+- Top bar: the tenant logo (path data of `brand/logo-basalt.svg`, viewBox cropped in the
+  browser), navigation with a queued/running jobs badge, the reviewer.
+- Home: counts (ads, generations, live), filters All / Needs review / Live with counts,
+  search, one card per ad (image ad or the run's ad still via new `/run/<id>/ad-frame`,
+  name, source, inbox state, created) and its generations as phone-shaped cards: a lazy,
+  sandboxed, scaled iframe of the review render over the hero thumbnail, hero style,
+  headline, style, headline template, Jev composite, gate, status chip (Draft / Approved /
+  Live / Hidden / Rejected), the live URL with Copy, A/B/C numbers, Open and Post live.
+- Generation page: phone / desktop toggle (remembered; old version next to the new one
+  after feedback), Status card (live URL, who posted, actions, latest publish job),
+  feedback form, details (ad, page, style, hero, headline template, skeleton, look, Jev
+  composite, gate, cost from REVIEW.md, run id, created), Jev drafts table with score
+  bars, feedback so far, versions and history timeline. The ad name of a Meta run now
+  comes from its inbox item ("PA | Morgan | ..." instead of "meta-1202...").
+- Phone: the navigation and each ad's generation cards scroll sideways, the status card
+  comes before the preview, dialogs are bottom sheets, tables become stacked rows.
+- Two cycle 69 tests changed with the look: the brand-token test checks the new tokens,
+  and a live page with no test or redirect now shows **Update live page** where it showed
+  **Publish new version** (the `/publish` route itself is unchanged).
+
+### Post live (unlinked) (`harness/postlive.py`, new)
+- One button per generation card and on the generation page. A dialog shows the proposed
+  address `lp-<topic>-<model>` (up to 3 content words of the display line / headline /
+  ad hook + the product name; `-2`, `-3` when used), editable; checked in the browser,
+  again in the request (prefix `lp-`, Shopify handle characters, 80 max, no word of the
+  tenant's `emf_terms`, not used by another run or a queued post) and in the job (Shopify
+  `GET pages.json?handle=` -- a live or hidden page with the handle fails the job before
+  anything is created, because Shopify would answer with `<handle>-1`).
+- Job `post_live` = what was done by hand for the 5 runs: reviewer check (tenant
+  `reviewers`), `approve` as the reviewer, packet `ship`, `cmd_publish` live at the
+  handle with no `--redirect-from`, no SEO-hidden metafield, no test, no beacon. A hidden
+  page the run already owns goes live in place. State: `published_pages[page]` gets
+  `unlinked: true`, `live`, `by`, `at`, `handle`, `url` (`runstate.record_unlinked`).
+- `update_live` (`--update` of the same page id, live; keeps the first poster, adds
+  `updated_by/at`) and `unpublish_live` (PUT of only `published: false`; `live: false`,
+  `unpublished_by/at`, history `live=False unpublished`), each behind a confirm page, only
+  for a live page no test or redirect points at -- that includes the 5 pages published by
+  hand today (their `published_pages` + history make them Live with their URLs).
+- CLI: `harness post-live <run> --page listicle --handle lp-x --by <email> [--update |
+  --unpublish]`.
+- **Lock scope.** `publish_locked: true` is unchanged and `tenant.yaml` is not touched.
+  `LockedShopifyPublisher(unlinked_live=True)` is the one exception: live create only with
+  an explicit handle, live update of a page id; `create_redirect` always refused.
+  `_make_publisher(..., unlinked_live=True)` is called only from `cmd_publish` when its
+  namespace carries `unlinked_live`, which only postlive.py sets; `harness publish` has no
+  flag for it, and `cmd_publish` refuses it without `--live`, with a redirect, or with no
+  handle on a create. A/B/C publish, auto publish, `publish_page` for a live page and plain
+  `harness publish --live` stay refused.
+- `ShopifyPublisher.find_page_by_handle` (read only) and `update_page` sends only the keys
+  it is given (unpublish keeps the body).
+
+### Favicon (owner addition, same day)
+- The review site only: `harness/static/site/` (favicon.ico 16/32/48, favicon-32.png,
+  apple-touch-icon.png, icon-192.png, icon-512.png from `~/asset-inbox/site-favicon/`),
+  routes `/favicon.ico`, `/site-static/<name>` (5 names only) and `/site.webmanifest`
+  (name "<display_name> Listicles", theme_color #161817), linked from the shell. Behind
+  the same login as every page. No template, generated page or Shopify export links them
+  (tested).
+
+### Verify
+- `tests/test_post_live_cycle80.py` (36 tests: lock still blocks plain `--live`, abtest
+  publish, auto publish, redirects, a handle-less unlinked create; the post-live job over
+  the REAL `_make_publisher`/lock and a fake store -- handle, `published: true`, no
+  redirect, no metafield, state and audit; update and unpublish and post again; handle
+  rules, suggestion, uniqueness locally and on Shopify; reviewer check; test variants
+  refused; login + form token on the new routes; CLI; hand-published pages show Live;
+  details sidebar; styled 404; ad still; inbox ad name; favicon served and linked;
+  never on generated pages or the export).
+- Full suite: 2426 passed, 1 failed: `tests/test_rerender.py::test_rerender_keeps_the_runs_own_dates`
+  fails on master 69bf82a too (checked with this branch's changes stashed): the run's
+  start date "2026-10-06" is not in the re-rendered page. Cause not looked at here.
+- Preview on the server: copies of master and this branch with a COPY of the tenant data
+  (the 5 runs, inbox without videos, logs, jobs db) in `~/c80-preview/`, served on
+  127.0.0.1:4890 (new) and 4891 (master) with a throwaway REVIEW_PASSWORD and a WSGI
+  wrapper that adds the login header (preview script only, not in the repo). Two
+  preview-only draft copies of real runs (`...-dmo1`, `...-dmo2`) show the dialog and a
+  post-live job run against a fake store (nothing sent to Shopify). Headless Chromium
+  screenshots at 390 and 1440: `~/asset-inbox/site-c80/` (before: `before/`); favicon
+  responses in `favicon-served.txt`. Servers stopped.
+
+### Open
+- The home page loads one ~1 MB review render per visible generation card (lazy). Fine
+  for tens of generations; a stored screenshot per run would be lighter at hundreds.
+- 7-day ad spend is not shown: the Meta pull records no spend (no insights call).
+- Fonts come from Google Fonts (the site falls back to the system font without them).
+- Posted pages are not SEO-hidden (same as the manual posts); say if they should be.
+- The favicon and manifest need the login like every page, so a browser that fetches the
+  icon without credentials gets 401.
+- Operator: merge, restart `harness-review@peak-saunas` and `harness-worker@peak-saunas`.

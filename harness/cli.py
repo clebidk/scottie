@@ -525,30 +525,40 @@ class LockedShopifyPublisher(ShopifyPublisher):
     MESSAGE = ("publishing is locked for this tenant (tenant.yaml publish_locked: true, "
                "owner decision 2026-10-05): generated pages stay hidden drafts until the owner lifts it")
 
+    def __init__(self, *args, unlinked_live=False, **kwargs):
+        """Cycle 80: `unlinked_live=True` is the ONE exception to the lock,
+        and only harness/postlive.py asks for it (the listicle site's "Post
+        live" button and `harness post-live`): a live create with an explicit
+        handle, or a live update of a page id the run already owns. Never a
+        redirect. Every other caller gets the plain lock."""
+        super().__init__(*args, **kwargs)
+        self.unlinked_live = bool(unlinked_live)
+
     def publish(self, page, *, unpublished=True):
-        if not unpublished:
+        if not unpublished and not (self.unlinked_live and page.get("handle")):
             raise PublishLocked(self.MESSAGE)
-        return super().publish(page, unpublished=True)
+        return super().publish(page, unpublished=unpublished)
 
     def update_page(self, page_id, page, *, unpublished=True):
-        if not unpublished:
+        if not unpublished and not self.unlinked_live:
             raise PublishLocked(self.MESSAGE)
-        return super().update_page(page_id, page, unpublished=True)
+        return super().update_page(page_id, page, unpublished=unpublished)
 
     def create_redirect(self, path, target):
         raise PublishLocked(self.MESSAGE)
 
 
-def _make_publisher(tenant, *, export_dir):
+def _make_publisher(tenant, *, export_dir, unlinked_live=False):
     """tenant.yaml's `publisher` key picks the adapter; `export` (the
     default) needs no credentials at all. `publish_locked: true` swaps in
     LockedShopifyPublisher, the one gate every Shopify publish path (CLI,
     review-site Publish button via the worker, A/B/C auto-publish) goes
-    through."""
+    through. `unlinked_live` (cycle 80) is passed only by cmd_publish for
+    harness/postlive.py; see LockedShopifyPublisher.__init__."""
     kind = tenant.get("publisher") or "export"
     if kind == "shopify":
         if tenant.get("publish_locked") is True:
-            return LockedShopifyPublisher()
+            return LockedShopifyPublisher(unlinked_live=unlinked_live)
         return ShopifyPublisher()  # reads SHOPIFY_STORE/SHOPIFY_TOKEN from the tenant's .env
     return ExportPublisher(out_dir=export_dir)
 
@@ -645,7 +655,15 @@ def cmd_publish(args):
         )
         handle = None
 
+    # Cycle 80: harness/postlive.py's unlinked live page -- live, an explicit
+    # handle (or --update of the page this run owns), never a redirect. No
+    # `harness publish` flag sets this; `harness post-live` does.
+    unlinked = bool(getattr(args, "unlinked_live", False))
     redirect_from = getattr(args, "redirect_from", None)
+    if unlinked and (not args.live or redirect_from or (not update and not handle) or args.dry_run):
+        print("an unlinked live publish is live, has an explicit --handle (or --update) and no redirect",
+              file=sys.stderr)
+        return 1
     if redirect_from and not args.live:
         print("--redirect-from requires --live", file=sys.stderr)
         return 1
@@ -698,10 +716,25 @@ def cmd_publish(args):
             return 1
         page_id = published_record["page_id"]
 
-    publisher = _make_publisher(tenant, export_dir=export_dir)
-    if update and not isinstance(publisher, ShopifyPublisher):
-        print("--update is only supported for the shopify publisher", file=sys.stderr)
+    if unlinked:
+        publisher = _make_publisher(tenant, export_dir=export_dir, unlinked_live=True)
+    else:
+        publisher = _make_publisher(tenant, export_dir=export_dir)
+    if (update or unlinked) and not isinstance(publisher, ShopifyPublisher):
+        print(f"--{'update' if update else 'unlinked live'} is only supported for the shopify publisher",
+              file=sys.stderr)
         return 1
+    if unlinked and not update:
+        # Shopify answers a taken handle with "<handle>-1", silently. Ask first.
+        try:
+            taken = publisher.find_page_by_handle(handle)
+        except (ShopifyCredentialsMissing, HarnessError) as e:
+            print(f"could not check the handle {handle!r}: {e}", file=sys.stderr)
+            return 1
+        if taken:
+            print(f"the handle {handle!r} is already used by Shopify page {taken.get('id')}; pick another",
+                  file=sys.stderr)
+            return 1
     manifest_with_bytes = _read_asset_manifest_bytes(cartridge_dir, assets_manifest)
 
     try:
@@ -754,8 +787,11 @@ def cmd_publish(args):
     if redirect_target is not None:
         note += f" redirect_from={redirect_from} redirect_target={redirect_target}"
 
+    if unlinked and handle and result.get("handle") != handle:
+        print(f"warning: Shopify gave the page the handle {result.get('handle')!r}, not {handle!r}",
+              file=sys.stderr)
     runstate.mark_published(
-        run_dir, page=args.page, by="operator",
+        run_dir, page=args.page, by=(getattr(args, "by", None) or "operator") if unlinked else "operator",
         note=note,
         page_id=result.get("id"), handle=result.get("handle"), url=result.get("url"),
     )
@@ -769,6 +805,26 @@ def cmd_publish(args):
         print(f"Cache verification: {hits}/{pulls} pulls returned the new body.")
 
     return 0
+
+
+def cmd_post_live(args):
+    """`harness post-live <run-dir> --page <cartridge> --by <email> --handle
+    lp-<slug> [--update | --unpublish] [--note ...]` (cycle 80,
+    harness/postlive.py): approve + stamp ship + publish LIVE at that handle,
+    with no redirect and no A/B/C test, while tenant.yaml publish_locked stays
+    on. `--update` re-publishes the current version over the live page;
+    `--unpublish` hides it again. The listicle site's "Post live" button runs
+    the same code in the worker."""
+    from . import postlive
+
+    tenant = _resolve_tenant_for_run(args)
+    action = "update" if args.update else "unpublish" if args.unpublish else "post"
+    record = postlive.post_live(tenant, Path(args.run_dir), args.page, by=args.by, action=action,
+                                handle=args.handle, note=args.note or "")
+    state = "live" if record.get("live") else "hidden"
+    print(f"{action}: {args.page} of {Path(args.run_dir).name} is {state} at {record.get('url')} "
+          f"(unlinked: no ad, no test, no redirect)")
+    return exits.OK
 
 
 def cmd_digest_needs_review(args):
@@ -1776,6 +1832,19 @@ def build_parser():
     )
     _add_tenant_flag(p_publish)
     p_publish.set_defaults(func=cmd_publish)
+
+    p_post_live = sub.add_parser(
+        "post-live", help="publish one page LIVE on its own handle: no ad, no A/B/C test, no redirect (cycle 80)")
+    p_post_live.add_argument("run_dir")
+    p_post_live.add_argument("--page", required=True, help="cartridge name, e.g. listicle")
+    p_post_live.add_argument("--by", required=True, help="reviewer email; must match a tenant.yaml reviewers entry")
+    p_post_live.add_argument("--handle", help="the new page's handle, lp-<slug> (required for a first post)")
+    p_post_live_mode = p_post_live.add_mutually_exclusive_group()
+    p_post_live_mode.add_argument("--update", action="store_true", help="re-publish the current version over the live page")
+    p_post_live_mode.add_argument("--unpublish", action="store_true", help="set the live page back to hidden")
+    p_post_live.add_argument("--note")
+    _add_tenant_flag(p_post_live)
+    p_post_live.set_defaults(func=cmd_post_live)
 
     p_ab = sub.add_parser("abtest", help="A/B/C tests: three builds per ad behind one split link (docs/ABTEST.md)")
     ab_sub = p_ab.add_subparsers(dest="abtest_command", required=True)
