@@ -580,11 +580,9 @@ def render_home(tenant):
         f'<div class="actions"><a class="btn" href="{url_for("upload_ad")}">{icon("upload")}Upload an ad</a></div></div>'
         + statline
         + f'<div class="toolbar"><nav class="seg" aria-label="Filter">{seg}</nav>'
-        f'<form method="get" action="{url_for("ads_home")}" class="search" role="search">'
-        + (f'<input type="hidden" name="f" value="{e(f)}">' if f != "all" else "")
-        + f'<div class="field">{icon("search")}<input type="search" name="q" value="{e(q)}" '
-        'placeholder="Search by ad name" aria-label="Search by ad name"></div>'
-        '<button class="btn ghost" type="submit">Search</button></form></div>'
+        + (f'<span class="small muted">Results for &ldquo;{e(q)}&rdquo; &middot; <a href="{link(q=None, page=None)}">'
+           "clear</a></span>" if q else "")
+        + "</div>"
         + ('<div class="ads">' + "".join(_ad_card(tenant, ad, i) for i, ad in enumerate(shown)) + "</div>"
            if shown else "")
         + ("" if shown else f'<div class="empty">{e(empty)}</div>')

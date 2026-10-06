@@ -37,17 +37,33 @@ browser --> Caddy (listicle.peaksaunasteam.com) --> harness serve 127.0.0.1:4870
 
 ### Look (cycle 80)
 
-`harness/site_ui.py` holds the shell (top bar with the tenant logo from
-`brand/logo-basalt.svg`, navigation, a running-jobs badge), the stylesheet and
-the small script (copy, phone / desktop preview, the post-live dialog, the
-slug check). White ground, Basalt `#161817` ink, text `#1A1A1A`, muted
-`#6B6B6B`, hairlines `rgba(22,24,23,.12)`, red `#702B34` only for live and
-attention states; DM Sans for the UI and Poppins for headings (Google Fonts);
-4px radius on cards and inputs, pill buttons. No build step. On a phone the
-navigation scrolls sideways, the generation cards scroll sideways in each ad,
-the dialog is a bottom sheet, and tables become stacked rows. The older
-reviewer pages (`/runs`, `/run/<id>`, `/images`) use the same shell. 404 and
-500 errors and a wrong form token get a styled page.
+`harness/site_ui.py` holds the shell, the stylesheet and the small script
+(copy, phone / desktop preview, the post-live dialog, the slug check, Cmd/Ctrl+K
+to the search). Owner direction 2026-10-06: the team dashboard's layout
+(peaksaunasteam.com) in the brand's official palette, with no dark sidebar and
+no Solar Flare:
+
+- a left sidebar in Fossil Dust `#C0C8C3` with Basalt `#181918` text: the
+  logo (`brand/logo-basalt.svg`), "Listicles workspace", nav groups Review
+  (Ads, Upload an ad), Queue (Jobs with a running-jobs badge, Audit log) and
+  Library (Runs, Images); the active row is Stone `#EFE3D2`; the reviewer at
+  the bottom;
+- a top bar with a search pill (ads by name; keeps the home filter) and the
+  reviewer's name and email;
+- Stone `#EFE3D2` ground, cards `#F7F1E8`, Cedar-tinted hairlines, 8px radius,
+  flat surfaces, Basalt primary buttons, Red `#702B33` only for live and
+  attention chips;
+- Acid Grotesk (the webfont the generator loads from the theme CDN) with a
+  Helvetica Neue fallback, Geist Mono (Google Fonts) for numbers and labels.
+
+On a phone (900px and less) the sidebar becomes a top row with the logo and a
+sideways-scrolling row of nav pills; the generation cards scroll sideways in
+each ad, the dialog is a bottom sheet, tables become stacked rows. From 1100px
+the home page puts two ad cards side by side. The older reviewer pages
+(`/runs`, `/run/<id>`, `/images`) use the same shell. 404 and 500 errors and a
+wrong form token get a styled page. The site's own icon (Stone wave mark on
+Fossil Dust, `harness/static/site/`) is served at `/favicon.ico`,
+`/site-static/<name>` and `/site.webmanifest`; generated pages never link it.
 
 ### Ads and their names
 

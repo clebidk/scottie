@@ -541,3 +541,41 @@ def test_jev_score_is_the_shipped_drafts_composite(client):
     assert "not scored (only one draft passed, after repairs, so Jev was not asked)" in body
     body = client.get(f"/gen/{scored.name}/{PAGE}", headers=_auth()).get_data(as_text=True)
     assert "<dt>Jev composite</dt><dd>0.81</dd>" in body
+
+
+def test_dashboard_layout_in_the_official_palette(client):
+    """Owner, 2026-10-06: the team dashboard's layout (grouped left sidebar,
+    top bar with a search pill, flat 8px cards), recoloured with the official
+    palette: Fossil Dust sidebar with Basalt text and a Stone active row,
+    Stone main ground, no dark sidebar and no Solar Flare / coral."""
+    import re
+
+    body = client.get("/", headers=_auth()).get_data(as_text=True)
+    css = site.site_ui.CSS
+    root = re.search(r":root\{([^}]*)\}", css).group(1)
+    assert "--side:#C0C8C3" in root and "--side-ink:#181918" in root and "--side-active:#EFE3D2" in root
+    assert "--bg:#EFE3D2" in root and "--card:#F7F1E8" in root and "--red:#702B33" in root and "--r:8px" in root
+    for banned in ("#F27046", "#EF6E46", "#1B1B1B", "coral"):
+        assert banned.lower() not in body.lower(), banned
+    assert re.search(r"\.side\{[^}]*background:var\(--side\)", css)
+    assert re.search(r"body\{[^}]*background:var\(--bg\)", css)
+    assert '<aside class="side">' in body and '<div class="topbar">' in body
+    for section in ("Review", "Queue", "Library"):
+        assert f'<div class="navsec">{section}</div>' in body
+    assert '<a href="/" class="on" aria-current="page">' in body  # the active row
+    assert 'class="qsearch"' in body and 'name="q"' in body and "&#8984;K" in body
+    assert site.site_ui.ACID_GROTESK_URL in body and "Geist+Mono" in body
+    # the top-bar search keeps the home filter
+    live = client.get("/?f=live&q=x", headers=_auth()).get_data(as_text=True)
+    assert '<input type="hidden" name="f" value="live">' in live and 'value="x"' in live
+
+
+def test_sidebar_collapses_to_a_top_row_on_phones():
+    import re
+
+    css = site.site_ui.CSS
+    block = css[css.index("@media (max-width:900px){"):]
+    block = block[:block.index("\n}\n")]
+    assert ".app{grid-template-columns:minmax(0,1fr)}" in block
+    assert re.search(r"\.side\{[^}]*flex-direction:row", block) and ".navsec," in block
+    assert re.search(r"\.navs\{[^}]*overflow-x:auto", block)

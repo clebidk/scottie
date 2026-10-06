@@ -4372,3 +4372,33 @@ $0 spent.
 - The favicon and manifest need the login like every page, so a browser that fetches the
   icon without credentials gets 401.
 - Operator: merge, restart `harness-review@peak-saunas` and `harness-worker@peak-saunas`.
+
+### Owner review fixes and the dashboard look (same day, after "ship these changes live")
+1. Desktop home: from 1100px the ad cards sit in a two-column grid; the phone layout is
+   unchanged.
+2. Cards and the generation title show the headline readers see: `display_headline` for a
+   display first screen, else the page headline. The page <title> is a secondary line
+   ("Page title: ...") on the generation page when it differs.
+3. Jev on cards: the site already read the shipped draft's composite from state.json
+   `jev.drafts`. The dash on the five live runs is correct -- their `jev.status` is
+   `repaired` (only draft 1 passed, after repairs; Jev was not asked; usage null; no `jev`
+   line in their run logs), and no run on the server has a recorded composite. The dash now
+   carries the reason (tooltip, and in the details); a row with scores but no composite
+   gets the mean of its scores except Overall.
+4. `tests/test_rerender.py::test_rerender_keeps_the_runs_own_dates`: not date-dependent. The
+   fixture page has no hero_style; its run id seeds the display first screen (face falls
+   back to display with no still and no quotable speaker), and since cycle 79 only the
+   face/story byline carries the date; the listicle JSON-LD is an ItemList with no dates.
+   The run also started "now", so it could not tell the run's date from today. The test now
+   starts the run on 2026-09-19, pins story, and checks "Updated Sep 19, 2026" and that
+   today's date is absent. Product note, not changed: a display page shows no date at all,
+   yet its about-the-author text says corrections are "date-stamped in the Updated line
+   above".
+5. Owner: "match style of peaksaunasteam.com for UI but have it be stone and grey from our
+   official colors". The shell is now the dashboard's layout (Fossil Dust sidebar with
+   grouped nav and a Stone active row, top bar with a search pill and Cmd/Ctrl+K, Stone
+   ground, `#F7F1E8` cards, 8px radius, flat), Acid Grotesk + Geist Mono, no Solar Flare,
+   no dark sidebar (tested). The home page's own search moved into the top bar.
+6. Favicon v2: Stone wave mark on Fossil Dust (`~/asset-inbox/site-favicon-v2/`), same
+   names and routes.
+
