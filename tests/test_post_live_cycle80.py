@@ -484,3 +484,25 @@ def test_desktop_home_lays_ad_cards_out_in_two_columns(client):
     assert rule and "grid-template-columns:repeat(2,minmax(0,1fr))" in rule.group(1)
     # the phone layout is unchanged: no column rule outside that media query
     assert ".ads{" not in css.replace(rule.group(0), "")
+
+
+def test_cards_and_the_generation_title_show_the_headline_readers_see(client):
+    import re
+
+    display_run = _run("cold-mornings.mov")
+    (display_run / PAGE / "page.json").write_text(json.dumps({
+        "headline": "Is a home sauna actually realistic once it gets cold out?",
+        "display_headline": "A warm fix for cold mornings", "hero_style": "display"}))
+    face_run = _run("small-space.mov")  # hero face: the page headline is what readers see
+    home = client.get("/", headers=_auth()).get_data(as_text=True)
+    titles = re.findall(r'class="gen-title" href="[^"]+">([^<]+)</a>', home)
+    assert "A warm fix for cold mornings" in titles
+    assert "She wanted a sauna. Her apartment had a small footprint." in titles
+    assert "Is a home sauna actually realistic once it gets cold out?" not in titles
+
+    body = client.get(f"/gen/{display_run.name}/{PAGE}", headers=_auth()).get_data(as_text=True)
+    assert '<h1 class="gv-title">A warm fix for cold mornings</h1>' in body
+    assert "Page title: Is a home sauna actually realistic once it gets cold out?" in body
+    body = client.get(f"/gen/{face_run.name}/{PAGE}", headers=_auth()).get_data(as_text=True)
+    assert '<h1 class="gv-title">She wanted a sauna. Her apartment had a small footprint.</h1>' in body
+    assert "Page title:" not in body

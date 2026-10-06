@@ -258,14 +258,21 @@ def _gen_info(tenant, run_id, page, *, test=None, variant=None, taken=None):
     else:
         gate = ""
     rendered = (run_dir / page / "index.html").exists()
+    # The headline readers see: a display first screen sets display_headline;
+    # face and story set the page headline (which is also the page <title>).
+    hero = choice.get("hero_style") or page_json.get("hero_style") or ""
+    headline = page_json.get("headline") or ""
+    display = page_json.get("display_headline") or ""
+    title = display if hero == "display" and display else headline
     can_post = (rendered and not in_test and not st["redirected"] and page_state != "rejected"
                 and (not record or (st["live"] is False and record.get("page_id"))))
     info = {
         "run_id": run_id, "page": page, "run_dir": run_dir, "state": state, "page_state": page_state,
         "status": status, "label": label, "record": record, "live": st["live"], "unlinked": st["unlinked"] and not in_test,
         "in_test": in_test, "variant": variant, "test": test,
-        "headline": page_json.get("headline") or "", "display_headline": page_json.get("display_headline") or "",
-        "hero": choice.get("hero_style") or page_json.get("hero_style") or "",
+        "headline": headline, "display_headline": display, "title": title,
+        "seo_title": headline if headline and headline != title else "",
+        "hero": hero,
         "style": choice.get("style") or page_json.get("style") or "",
         "look": choice.get("look") or page_json.get("look") or "",
         "template": choice.get("headline_template_id") or page_json.get("headline_template_id") or "",
@@ -342,7 +349,7 @@ def _post_live_form(tenant, info, *, dialog_id=None, error=None, value=None):
         'locked.</span></li>'
         f'<li>{icon("check")}<span>You can update it or hide it again from this site</span></li></ul>'
     )
-    title = info["display_headline"] or info["headline"] or info["page"]
+    title = info["title"] or info["page"]
     form = (
         f'<form method="post" action="{info["post_url"]}">{_csrf_field()}<input type="hidden" name="confirm" value="yes">'
         f'<div class="dlg-h"><div><h2 id="{key}-t">Post live</h2><p>{e(title)}</p></div>'
@@ -386,7 +393,7 @@ def _gen_card(tenant, ad, v, info, *, dom_id):
     hero = HERO_LABELS.get(info["hero"], info["hero"].capitalize() if info["hero"] else "")
     corner = "".join(x for x in (chip(f"Variant {v['key']}", "solid") if v.get("key") else "",
                                  chip(hero) if hero else "") if x)
-    title = info["headline"] or v.get("arm") or info["page"]
+    title = info["title"] or v.get("arm") or info["page"]
     parts = [
         f'<div class="gen{" is-live" if info["status"] == "live" else ""}">',
         f'<a class="shot" href="{info["gen_url"]}" tabindex="-1" aria-hidden="true">',
@@ -789,7 +796,10 @@ def render_generation(tenant, run_dir, state, page, *, error=None, status_code=2
         f'<a class="crumb" href="{url_for("ads_home", q=name)}">{icon("back")}{e(name)}</a>'
         f'<div class="page-head"><div><p class="eyebrow">{e(arm or page)}'
         f'{(" &middot; look " + e(info["look"])) if info["look"] else ""} &middot; run {e(run_id)}</p>'
-        f'<h1 class="gv-title">{e(info["headline"] or page)}</h1>'
+        f'<h1 class="gv-title">{e(info["title"] or page)}</h1>'
+        + (f'<p class="sub muted small" style="margin:6px 0 0">Page title: {e(info["seo_title"])}</p>'
+           if info["seo_title"] else "")
+        +
         f'<div class="chips" style="margin-top:12px">{_status_chips(info)}'
         + (chip(f"{hero} first screen") if hero else "") + chip(state["pages"][page])
         + "</div></div></div>"
