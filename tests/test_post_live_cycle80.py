@@ -465,3 +465,22 @@ def test_generated_pages_and_the_shopify_export_never_get_the_site_icon(monkeypa
     assert not any(m in body_html for m in _ICON_MARKERS)
     review = client.get(f"/run/{run_dir.name}/review/{PAGE}", headers=_auth()).get_data(as_text=True)
     assert not any(m in review for m in _ICON_MARKERS)
+
+
+# ---------------------------------------------------------------------------
+# 6. owner review fixes (2026-10-06)
+# ---------------------------------------------------------------------------
+
+def test_desktop_home_lays_ad_cards_out_in_two_columns(client):
+    import re
+
+    _run()
+    _run("second-ad.mov")
+    body = client.get("/", headers=_auth()).get_data(as_text=True)
+    m = re.search(r'<div class="ads">(.*)</div><div class="pager">', body, re.S)
+    assert m and m.group(1).count('<article class="ad"') == 2
+    css = site.site_ui.CSS
+    rule = re.search(r"@media \(min-width:1100px\)\{\.ads\{([^}]*)\}", css)
+    assert rule and "grid-template-columns:repeat(2,minmax(0,1fr))" in rule.group(1)
+    # the phone layout is unchanged: no column rule outside that media query
+    assert ".ads{" not in css.replace(rule.group(0), "")

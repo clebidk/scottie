@@ -551,7 +551,8 @@ def render_home(tenant):
         + f'<div class="field">{icon("search")}<input type="search" name="q" value="{e(q)}" '
         'placeholder="Search by ad name" aria-label="Search by ad name"></div>'
         '<button class="btn ghost" type="submit">Search</button></form></div>'
-        + "".join(_ad_card(tenant, ad, i) for i, ad in enumerate(shown))
+        + ('<div class="ads">' + "".join(_ad_card(tenant, ad, i) for i, ad in enumerate(shown)) + "</div>"
+           if shown else "")
         + ("" if shown else f'<div class="empty">{e(empty)}</div>')
         + pager
     )

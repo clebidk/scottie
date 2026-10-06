@@ -209,6 +209,9 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 .ad-split{margin-top:14px;max-width:560px}
 .gens{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:16px;margin-top:18px}
 .more{margin:14px 0 0;font-size:.82rem;color:var(--muted)}
+/* desktop: two ad cards side by side (the phone keeps one column) */
+@media (min-width:1100px){.ads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+  .ads > .ad{margin:0}}
 
 /* generation card */
 .gen{border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;background:#fff;min-width:0;
