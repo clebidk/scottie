@@ -506,3 +506,38 @@ def test_cards_and_the_generation_title_show_the_headline_readers_see(client):
     body = client.get(f"/gen/{face_run.name}/{PAGE}", headers=_auth()).get_data(as_text=True)
     assert '<h1 class="gv-title">She wanted a sauna. Her apartment had a small footprint.</h1>' in body
     assert "Page title:" not in body
+
+
+def _jev_record(run_dir, record):
+    data = runstate.load_state(run_dir)
+    data["jev"] = record
+    runstate.save_state(run_dir, data)
+
+
+def test_jev_score_is_the_shipped_drafts_composite(client):
+    scored = _run("scored.mov")
+    _jev_record(scored, {"shipped": 2, "status": "scored", "reason": "draft 2 composite 0.812 vs draft 1 0.640",
+                         "drafts": [{"draft": 1, "gate": "PASS", "composite": 0.64, "scores": {"hook": 0.6}},
+                                    {"draft": 2, "gate": "PASS", "composite": 0.8125, "scores": {"hook": 0.9}}]})
+    skipped = _run("first-strong.mov")  # draft 2 skipped: draft 1 scored above second_draft_below
+    _jev_record(skipped, {"shipped": 1, "status": "first_strong", "reason": "draft 1 composite 0.910 >= ...",
+                          "drafts": [{"draft": 1, "gate": "PASS", "composite": 0.91, "scores": {"hook": 1.0}},
+                                     {"draft": 2, "gate": "SKIPPED"}]})
+    scores_only = _run("scores-only.mov")
+    _jev_record(scores_only, {"shipped": 1, "status": "scored", "drafts": [
+        {"draft": 1, "gate": "PASS", "scores": {"hook": 0.5, "proof": 1.0, "overall": 0.0}}]})
+    repaired = _run("repaired.mov")  # what the five live runs of 2026-10-05 recorded
+    _jev_record(repaired, {"shipped": 1, "status": "repaired", "usage": None,
+                           "reason": "no draft passed on attempt 1; draft 1 passed after 2 repair(s)",
+                           "drafts": [{"draft": 1, "gate": "PASS", "attempts": 3},
+                                      {"draft": 2, "gate": "FAIL", "attempts": 1}]})
+    home = client.get("/", headers=_auth()).get_data(as_text=True)
+    assert "Jev <b>0.81</b>" in home      # the shipped draft (2), not draft 1
+    assert "Jev <b>0.64</b>" not in home
+    assert "Jev <b>0.91</b>" in home
+    assert "Jev <b>0.75</b>" in home      # mean of the scores except Overall
+    assert 'title="Not scored: only one draft passed, after repairs, so Jev was not asked">Jev <b>&mdash;</b>' in home
+    body = client.get(f"/gen/{repaired.name}/{PAGE}", headers=_auth()).get_data(as_text=True)
+    assert "not scored (only one draft passed, after repairs, so Jev was not asked)" in body
+    body = client.get(f"/gen/{scored.name}/{PAGE}", headers=_auth()).get_data(as_text=True)
+    assert "<dt>Jev composite</dt><dd>0.81</dd>" in body

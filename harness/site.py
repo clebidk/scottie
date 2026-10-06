@@ -219,6 +219,30 @@ def _first_at(state):
     return ""
 
 
+def _jev_composite(shipped):
+    """The shipped draft's Jev composite (harness/drafts.py records it on the
+    draft's row whenever Jev scored it, also on a batch run or when draft 2
+    was skipped). A row with scores but no composite (none recorded so far)
+    gets the mean of its scores except Overall, as the drafts table says.
+    None when Jev never scored the shipped draft."""
+    if not shipped:
+        return None
+    if shipped.get("composite") is not None:
+        return float(shipped["composite"])
+    scores = [float(v) for k, v in (shipped.get("scores") or {}).items() if k != "overall" and v is not None]
+    return round(sum(scores) / len(scores), 4) if scores else None
+
+
+def _jev_note(jev):
+    if not jev:
+        return "no best-of-N record for this run"
+    reasons = {"repaired": "only one draft passed, after repairs, so Jev was not asked",
+               "single_pass": "only one draft passed, so Jev was not asked",
+               "jev_unavailable": "Jev was unavailable", "none_passed": "no draft passed",
+               "budget": "the budget cap stopped the drafts"}
+    return reasons.get(jev.get("status"), jev.get("reason") or "not scored")
+
+
 def _gen_info(tenant, run_id, page, *, test=None, variant=None, taken=None):
     """Everything a generation card or the generation page shows, read from
     the run directory. Never raises for a half-written run."""
@@ -277,7 +301,7 @@ def _gen_info(tenant, run_id, page, *, test=None, variant=None, taken=None):
         "look": choice.get("look") or page_json.get("look") or "",
         "template": choice.get("headline_template_id") or page_json.get("headline_template_id") or "",
         "skeleton": choice.get("skeleton_id") or "",
-        "jev": shipped.get("composite") if shipped else None, "jev_record": jev, "gate": gate,
+        "jev": _jev_composite(shipped), "jev_note": _jev_note(jev), "jev_record": jev, "gate": gate,
         "created": _first_at(state), "rendered": rendered, "can_post": bool(can_post),
         "gen_url": url_for("generation", run_id=run_id, page=page),
         "review_url": url_for("page_review", run_id=run_id, page=page),
@@ -372,7 +396,10 @@ def _facts(info):
     if info["template"]:
         bits.append(f'<span>Headline <b>{e(info["template"])}</b></span>')
     jev = info["jev"]
-    bits.append(f'<span>Jev <b>{e(f"{float(jev):.2f}") if jev is not None else "&mdash;"}</b></span>')
+    if jev is not None:
+        bits.append(f'<span title="TypeSafe Jev composite of the shipped draft">Jev <b>{float(jev):.2f}</b></span>')
+    else:
+        bits.append(f'<span title="Not scored: {e(info["jev_note"])}">Jev <b>&mdash;</b></span>')
     if info["look"] and info["look"] != "open":
         bits.append(f'<span>Look <b>{e(info["look"])}</b></span>')
     return '<div class="facts">' + "".join(bits) + "</div>"
@@ -764,7 +791,8 @@ def _details_card(tenant, run_dir, info, name):
         ("Headline", f'<code>{e(info["template"])}</code>' if info["template"] else "-"),
         ("Skeleton", e(info["skeleton"] or "-")),
         ("Look", e(info["look"] or "-")),
-        ("Jev composite", e(f"{float(jev):.2f}") if jev is not None else '<span class="muted">not scored</span>'),
+        ("Jev composite", e(f"{float(jev):.2f}") if jev is not None
+         else f'<span class="muted">not scored ({e(info["jev_note"])})</span>'),
         ("Gate", chip(info["gate"], "pass" if info["gate"] == "PASS" else "fail") if info["gate"] else "-"),
         ("Cost", e(f"${cost:.4f}") if cost is not None else "-"),
         ("Run", f'<code>{e(run_dir.name)}</code>'),
