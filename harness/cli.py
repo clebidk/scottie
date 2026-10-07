@@ -923,7 +923,8 @@ def _abtest_tenant(args):
 
 def _print_build_result(rc, rec):
     for v in rec["variants"]:
-        print(f"  {v['key']}  {v['arm']:32s} {v.get('run_dir') or '(not built)'}")
+        where = v.get("url") or "(not resolved)" if abtest.is_external(v) else v.get("run_dir") or "(not built)"
+        print(f"  {v['key']}  {v['arm']:32s} {where}")
     for failed in rec.get("failed_arms") or []:
         print(f"  (variant {failed['key']}: {failed['arm']} failed {failed['attempts']} attempts; replaced)")
     if rc == exits.BUDGET:
@@ -951,7 +952,7 @@ def cmd_abtest_create(args):
         source = {"kind": "meta", **data}
     rc, rec = abtest.create_test(
         tenant, input_path=args.input, name=args.name, source=source, seed=args.seed,
-        runner=abtest.default_runner,
+        runner=abtest.default_runner, plan=args.destinations,
     )
     print(f"A/B/C test {rec['test_id']} ({rec['status']}):")
     return _print_build_result(rc, rec)
@@ -990,8 +991,14 @@ def cmd_abtest_publish(args):
         print(f"{args.by!r} is not a listed reviewer for tenant {tenant.name!r}", file=sys.stderr)
         return exits.USAGE
     live = not args.draft
+    unresolved = [v["key"] for v in rec["variants"] if abtest.is_external(v) and not v.get("url")]
+    if unresolved:
+        print(f"test {test_id}: external arm(s) {', '.join(unresolved)} have no destination URL", file=sys.stderr)
+        return exits.USAGE
 
     for v in rec["variants"]:
+        if abtest.is_external(v):  # cycle 88: nothing to publish; the split page sends visitors there
+            continue
         run_dir, page = Path(v["run_dir"]), v["cartridge"]
         runstate.record_abtest(run_dir, page=page, test_id=test_id, key=v["key"])
         runstate.approve(run_dir, tenant, by=args.by, pages=[page], note=f"abtest {test_id} variant {v['key']}")
@@ -1013,11 +1020,14 @@ def cmd_abtest_publish(args):
 
     variant_paths = {}
     for v in rec["variants"]:
+        if abtest.is_external(v):
+            variant_paths[v["key"]] = abtest.split_path(tenant, v["url"])
+            continue
         url = (v.get("shopify") or {}).get("url") or ""
         variant_paths[v["key"]] = urllib.parse.urlparse(url).path or f"/pages/{abtest.variant_handle(test_id, v['key'])}"
     payload = {
         "title": rec["name"],
-        "body_html": abtest.split_body(test_id, variant_paths),
+        "body_html": abtest.split_body(test_id, variant_paths, beacon_url=abtest.settings(tenant)["beacon_url"]),
         "storefront_host": tenant.get("site_host"),
         "handle": abtest.split_handle(test_id),
         "metafields": [dict(abtest.SEO_HIDDEN_METAFIELD)],
@@ -1050,11 +1060,18 @@ def cmd_abtest_status(args):
         if rec.get("reason"):
             print(f"  reason: {rec['reason']}")
         print(f"  source: {json.dumps(rec.get('source'))}  input: {rec.get('input')}")
+        print(f"  destinations: {abtest.destinations_label(rec)}")
         for v in rec["variants"]:
+            if abtest.is_external(v):
+                print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {v.get('url') or '-'}")
+                print(f"     no beacon: {abtest.NO_BEACON_NOTE}={abtest.utm_content(rec['test_id'], v['key'])}")
+                continue
             url = (v.get("shopify") or {}).get("url") or "-"
             print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {url}")
             print(f"     run: {v.get('run_dir') or '-'}")
         print(f"  split: {(rec.get('split') or {}).get('url') or '-'}")
+        if rec.get("status") == "finished" and not rec.get("winner"):
+            print("  winner: none (finished with --force; no two generated pages to compare)")
         if rec.get("winner"):
             w = rec["winner"]
             print(f"  winner: {w['key']} {w['arm']} (P(best) {w['p_best']:.3f}{', forced' if w.get('forced') else ''})")
@@ -1102,6 +1119,10 @@ def cmd_abtest_orders(args):
         print(f"orders unavailable: {why}", file=sys.stderr)
         return exits.USAGE
     for v in rec["variants"]:
+        if abtest.is_external(v):
+            print(f"{v['key']}  {v['arm']:32s} orders    -  revenue           -  ({abtest.NO_BEACON_NOTE}="
+                  f"{abtest.utm_content(rec['test_id'], v['key'])})")
+            continue
         o = orders[v["key"]]
         print(f"{v['key']}  {v['arm']:32s} orders {o['orders']:>4}  revenue {o['revenue']:>11}")
     return exits.OK
@@ -1117,6 +1138,10 @@ def cmd_abtest_finish(args):
             print(f"orders unavailable ({why}); finishing on CTA click-through alone", file=sys.stderr)
     rec = abtest.finish(tenant, rec, force=args.force, orders=orders)
     w = rec["winner"]
+    if w is None:
+        print(f"Test {rec['test_id']} finished with no winner: it has no two generated pages to compare "
+              f"(external arms: {abtest.NO_BEACON_NOTE}).")
+        return exits.OK
     print(f"Test {rec['test_id']} finished. Winner: {w['key']} {w['arm']} "
           f"(CTR {w['ctr']:.1%}, P(best) {w['p_best']:.3f}{', forced' if w['forced'] else ''})")
     return exits.OK
@@ -1168,6 +1193,7 @@ def cmd_abtest_from_inbox(args):
     from . import abtest_inbox, jobs
 
     tenant = _abtest_tenant(args)
+    abtest.parse_plan(args.destinations)  # refuse a bad value before any build
     by = args.by or abtest_inbox.default_by(tenant)
     if abtest.settings(tenant)["auto_publish"] and runstate.find_reviewer(tenant, by) is None:
         print(f"{by!r} is not a listed reviewer for tenant {tenant.name!r}; pass --by <reviewer email>",
@@ -1175,7 +1201,7 @@ def cmd_abtest_from_inbox(args):
         return exits.USAGE
     try:
         with jobs.build_lock(tenant, blocking=False):
-            summary = abtest_inbox.from_inbox(tenant, by=by, limit=args.limit)
+            summary = abtest_inbox.from_inbox(tenant, by=by, limit=args.limit, plan=args.destinations)
     except jobs.JobError as e:
         print(f"{e}; from-inbox skipped this run", file=sys.stderr)
         return exits.OK
@@ -1941,6 +1967,9 @@ def build_parser():
     p_ab_create.add_argument("--name", required=True, help="the ad's name; the test id is a slug of it")
     p_ab_create.add_argument("--source-json", help="JSON object of the ad's Meta fields (ad id, name, ...)")
     p_ab_create.add_argument("--seed", type=int, help="seeds build choice and run seeds; default random")
+    p_ab_create.add_argument("--destinations", default=None, metavar="PLAN",
+                             help=f"cycle 88: one of {', '.join(abtest.PLANS)} (default generated), or a JSON "
+                                  "list of arms ({\"kind\": \"external\", \"target\": \"url\", \"url\": ...})")
     _add_tenant_flag(p_ab_create)
     p_ab_create.set_defaults(func=cmd_abtest_create)
     p_ab_resume = ab_sub.add_parser("resume", help="build the variants a queued test is still missing")
@@ -1975,6 +2004,9 @@ def build_parser():
     p_ab_inbox = ab_sub.add_parser("from-inbox", help="build (and auto publish) a test for each new inbox item")
     p_ab_inbox.add_argument("--limit", type=int, help="work on at most N inbox items this run")
     p_ab_inbox.add_argument("--by", help="reviewer email recorded on auto publishes; default: the primary reviewer")
+    p_ab_inbox.add_argument("--destinations", default=None, metavar="PLAN",
+                            help=f"cycle 88: plan for items that name none (an upload's own choice wins); one of "
+                                 f"{', '.join(abtest.PLANS)}; default generated")
     _add_tenant_flag(p_ab_inbox)
     p_ab_inbox.set_defaults(func=cmd_abtest_from_inbox)
     p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")

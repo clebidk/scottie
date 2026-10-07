@@ -4812,3 +4812,76 @@ nothing let an A/B/C test compare it against `open`.
   the icon row (no model call, so no copy for them).
 - `harness revise` does not re-stamp `look` on the page it writes (all cartridges, before this
   cycle too); a revised page keeps its look only if the writer echoes the field.
+
+## Cycle 88 (PDP / home page as A/B/C arms or sole destination, 2026-10-07)
+Branch `cycle88/control-arms` from origin/master 95d62ed (cycles 80-85).
+
+### Problem
+Every A/B/C test had three generated pages. There was no control arm: the team could not
+compare a generated page with the product's own page (PDP) or the store home page, and could
+not send an ad only to the PDP or the home page while the split link still counted the click.
+
+### Change
+- harness/abtest.py: destination PLANS (`generated`, `gen2-pdp`, `gen2-home`, `gen1-pdp-home`,
+  `pdp-only`, `home-only`), `parse_plan` / `validate_plan` (a preset, or a JSON list of arms
+  `{"kind": "external", "target": "pdp"|"home"|"url", "url": ...}`; allowed: 3 generated,
+  2 generated + 1 external, 1 generated + PDP + home, one external arm alone). An external
+  variant in the record: `kind`, `target`, `arm: external:<target>`, `url`.
+- PDP = `facts_pack.product.url` of the first built variant (what its CTA links to); with no
+  generated arm, `default_brief_runner` (`harness ingest`: one model call, spend recorded) and
+  the `claims/products.json` pick. An ad that names no product refuses the PDP arm with
+  ground's own words "product not named in ad" and fails the test (after one build, not three).
+  Home = `site_url` + `/`. A runner/brief error fails the test instead of leaving it building.
+- Split script: redirects to an external arm like to a generated one (store URLs as paths,
+  `?`/`&` join for a URL with a query). For ALL arms it now sets `utm_content=<test>_<key>`
+  (an incoming `utm_content` is replaced) and, only when missing, `utm_source=meta`,
+  `utm_medium=paid`, `utm_campaign=<test>`; before there was no UTM of its own. With
+  `beacon_url` it sends `{e: "assign"}` (same `pk_vid` id and cookie as the variant beacon).
+- harness/abevents.py: event `assign` (same receiver, validation, bot filter, 60/min per-IP
+  limit, one row per visitor and arm); `counts()` adds `assigns` only for keys that have them.
+- Results (`abtest.results` / `format_results`; abstats.py itself is unchanged): an
+  `assigned` column; external rows show `-` for views, CTA, CTR, P(best), orders, revenue, plus
+  "measure in GA4/Shopify by utm_content=<test>_<key>". P(best) only across two or more
+  generated arms. `finish` refuses with fewer than two; `--force` finishes with no winner.
+  External arms stay out of `pooled_arm_stats` (Thompson sampling).
+- CLI: `abtest create --destinations`, `abtest from-inbox --destinations` (an inbox item's own
+  `destinations` wins); `publish` skips external arms and builds the split from their URLs;
+  `status` / `orders` / `finish` print the external arms.
+- Site: "Destinations" select on the upload form (stored on the inbox item, audited), with
+  copy that the choice is for a new test only and that the harness never edits the ad in Meta
+  (said once). Test card: "Destinations: A = generated, B = generated, C = PDP (fixed when the
+  test was created)" and an external card (destination link, Assigned, the utm_content note).
+  Generation page: "Test destinations: A = this page, ...". Only shown for a test with an
+  external arm.
+
+### Verify
+- `tests/test_control_arms_cycle88.py` (46): presets and JSON plans, 12 refused shapes; home,
+  PDP from the facts pack and from the product map, the "product not named in ad" refusal,
+  `split_path`; builds for every preset (runner and brief-runner call counts), refusal after
+  one build, brief budget stop then resume, brief error, `default_brief_runner` wiring (fake
+  ingest and client) incl. its budget stop; CLI create; publish with PDP and home-only (Shopify
+  POSTs); the split script under node (external arm, assign ping, UTMs kept/added/replaced,
+  returning visitor, URL with a query, no ping without a beacon URL); assign events at `/e`
+  (dedupe, non-live test, unknown key, shared rate limit); results for mixed, external-only
+  and 1-generated tests, `finish` refusal and `--force`, pooled stats; from-inbox (item plan,
+  flag, refused PDP, bad flag); upload form, upload -> job -> plan, unknown plan 400, card and
+  generation-page labels, no label for a 3-generated test.
+- `tests/test_abtest_cycle67.py`: four split assertions updated for the new UTMs and the
+  assign ping; its script-size guard raised from 900 to 1500 characters (now about 1160 with a beacon URL).
+- Full suite `.venv/bin/python -m pytest -q`: 2622 passed, 0 failed (2576 before the 46 new tests).
+
+### Open
+- Not run against a live store, a real `harness ingest`, or a browser. The split script ran
+  under node with stubs only; that `sendBeacon` survives the `location.replace` on mobile
+  Safari/Chrome is not checked here.
+- `utm_content` on every arm replaces the ad's own `utm_content` (if the team sets one in Ads
+  Manager URL parameters). The default `utm_source=meta` / `utm_medium=paid` is a guess at the
+  team's convention; an ad's own values win.
+- Assignments count visitors the split page sent, not visitors who loaded the PDP or home
+  page; a visitor who leaves during the redirect is still counted.
+- Orders are not credited to an external arm (its cart attribute is set by the beacon), so
+  orders and revenue for a PDP/home arm must come from Shopify/GA4 by utm_content.
+- Changing the plan or the destination of a live test is not built (new test only), even
+  though the split link would allow it.
+- The plan is a select on the upload form only; a Meta-pulled ad gets the `from-inbox
+  --destinations` value (the cron passes none, so 3 generated).
