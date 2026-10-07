@@ -4954,3 +4954,112 @@ not send an ad only to the PDP or the home page while the split link still count
   though the split link would allow it.
 - The plan is a select on the upload form only; a Meta-pulled ad gets the `from-inbox
   --destinations` value (the cron passes none, so 3 generated).
+## Cycle 87 (import any landing page as a PEAK-style look, 2026-10-07)
+Branch `cycle87/look-import` from origin/master 95d62ed. Not merged, not pushed. Built in parallel
+with cycle 86 (the Library page, which lists `tenants/<t>/looks/*/*/library.json`); the button is
+on the Ads page here because the Library page is not in this branch.
+
+### Problem
+A new look (cycle 85's `proof`) took a hand-built template each time. The owner sees landing pages
+elsewhere whose structure he wants to test, but the harness had no way to learn a layout from a
+page: every look was hand-written, and nothing let a reviewer turn a page into an A/B/C option.
+
+### Change
+- **`harness/look_import.py`**: ingest (upload, paste, URL with a 10 s timeout, 2 MB cap, public
+  addresses only, every redirect hop checked, `text/html` only; same-origin CSS only, capped) ->
+  parse with html5lib and sanitise (scripts, frames, objects, event attributes, `javascript:` URLs
+  dropped; nothing is run) -> a deterministic BUILD OBSERVATION (sections in order with a role
+  guess, heading level, words, images and aspect ratios, lists, table, CTA count and type, light/
+  dark background, desktop columns from the CSS or the class names, repeated items; page-wide fonts,
+  content width, nav, sticky elements, images, CTA phrases, estimated weight). The observation holds
+  numbers and role names only. -> ONE call to the tenant's `write` model with the observation,
+  `harness/look_import_rules.md` (tokens, the exact render contract filled in per cartridge, the
+  boxless and mobile rules, the export constraints) and the cartridge's default look as the
+  reference; the model returns only `template.html`. -> validation: Jinja parses; only contract
+  names, schema fields and renderer keys; no `_` names, only allowed calls/filters, `| safe` only on
+  renderer markup; tokens only (no hex, colour function or named colour; only `--ps-*`/`--adv-*` or
+  look-defined custom properties); boxless (no four-sided border, no shadow, no gradient,
+  token-only backgrounds, one dark band, small radii); mobile first (min-width queries only, no
+  fixed width over 390px); no `@font-face`/`@import`/`url()`, no external URL, no literal link,
+  form, button or frame; one small inline script at most; at most short literal labels; every
+  renderer-owned block used; one wrapper `pk-lp adv-<cartridge>`. Then a render of the tenant's
+  demo page through `render_page` (its own backstops run), the brand lint on the review page and the
+  export, the `harness shopify-body` invariants, the one-CTA check (every CTA link has the page's
+  `cta_url` and exact `cta_text` on a beacon CTA class; the secondary text link once and never a
+  CTA class; no other link target), and the demo's renderer values and writer sections visible. On
+  failure one repair call with the errors, then a refusal listing them. Stored as a tenant look
+  (`template.html`, `library.json`, `observation.json`, `review.html`) through a hidden staging
+  folder renamed into place. The spend is reserved and recorded in the tenant's daily ledger.
+- **Tenant looks** (`harness/looks.py`): `LOOK_SLUG_RE`, `imported_looks`, `is_look_of`,
+  `look_arg`; `resolve_look` and `requested_for` accept a tenant look after the cartridge's own;
+  never a default. `render_page` adds a prefix loader on `tenants/<t>/looks/<cartridge>/` after the
+  cartridge folder (`looks_dir=` overrides it for the validation render). `Tenant.looks_dir`.
+  Wired through `pipeline.prepare_run` (all five look resolutions get the tenant; the listicle now
+  resolves through `looks.resolve_look`, same result for built-in looks), `abtest.parse_arm`
+  (`landing:<slug>`, `listicle:<style>:<slug>`), `harness run/rerender --look` (argparse `type=`
+  accepting built-in looks or any tenant's imported look; `brochure` is still refused).
+- **Collision**: a name that is a built-in look of any cartridge (retired listicle names included)
+  or an existing tenant look is refused before any model call, and again at the rename.
+- **Job** `look_import` (`harness/jobs.py`): progress steps in a new `progress` column (added to an
+  existing database with `ALTER TABLE`), set through `jobs.progress` for the running job; the
+  pending upload/paste file is always deleted; audit `look_import` and `look_import_done`.
+- **Site**: "Import a page" on the Ads page (a `<dialog>`; `/looks/import` without JS): name, page
+  type (landing default, listicle), URL / .html file / pasted HTML (exactly one). Login and form
+  token like every POST, 2 MB page cap, 6 imports in 10 minutes per reviewer, one active job per
+  name. The job page shows the step, then the summary, the sections, the validation result, the
+  model cost, a reference render link (`/looks/<c>/<slug>/review`) and the A/B/C entry; a failed job
+  lists the errors and says nothing was stored.
+- **CLI**: `harness look import --tenant <t> --cartridge landing|listicle (--file F | --url U |
+  --html -) --name <slug> [--title T] [--dry-run]`.
+- **Demo pages**: `tenants/peak-saunas/look-demo/{landing,listicle}/` (page, facts_pack, ad_brief)
+  from offline `evals.fake_run` runs of `founder-warranty-demo.txt` (listicle `--seed 42`).
+- `tenants/*/looks/` gitignored (runtime data, like `abtests/`); the isolation fixture redirects
+  `looks_dir` in tests; `look_import_rules.md` in package data.
+
+### Verify
+- The validator passes the approved landing `open` look and the listicle `open` look (with its one
+  legacy `rgba()` replaced by a token), and refuses the `proof` look as an imported look (it reads
+  proof-only context keys) -- as intended.
+- `tests/test_look_import_cycle87.py`: 60 tests (observation of the fixture page: roles nav, hero,
+  benefits, proof, faq, cta, footer, the 3-column grid, the dark band, the sticky header, counts,
+  none of its words; sanitiser; URL refusals: non-HTML, over the cap by body and by Content-Length,
+  five non-public addresses, a redirect to the metadata address, non-http schemes, credentials;
+  same-origin CSS only; a FakeClient import stored, resolved by looks.py, rendered by render_page,
+  accepted by the A/B/C library, never a default; a built-in name shadowing; the validator's 16
+  rules one by one; an unknown variable + colour literal + second CTA refused after one repair with
+  nothing stored; a second CTA phrase refused; repair success on attempt 2; collisions before any
+  model call; a listicle import; the contract names all passed by render_page (AST of render.py);
+  the rules file lists every landing key; the site dialog, login, form token, bad requests, the rate
+  limit, the job (progress steps, result page, reference render, pending file deleted) and a failed
+  job; the CLI dry run, a CLI import and a refusal; `--look <slug>` accepted by argparse).
+- Full suite: 2636 passed, 0 failed.
+- `harness look import --tenant peak-saunas --file tests/fixtures/look_import/sample-landing.html
+  --name split-hero --dry-run` exits 0 and prints the observation; nothing written. `--name open`
+  exits 1 with the collision message.
+
+### Open
+- **Model cost per import: estimated, not measured.** About 9.6k input / 5k output tokens for a
+  landing look (11k / 6.3k for a listicle) at claude-sonnet-5: about $0.07-0.09 per import, $0.15-0.18
+  when the repair call runs. No real-model import has been run; whether the model follows the
+  observation's layout (and how often the first answer passes) is unseen.
+- **Copy, images and scripts of the source page are never kept**: the observation has no text, the
+  model never sees the page, the stored files hold the observation (numbers and role names), the
+  template and the demo render. A literal-label limit (10 words a label, 80 in all, no numbers) keeps
+  the model's own section labels short; their wording is not checked against the tenant's vocab
+  beyond `render_page`'s visible-text backstops.
+- The observation is a heuristic: role guesses come from tags, counts and heading keywords; column
+  counts only from CSS the import could read (same origin) or utility class names; a page built by
+  client-side JavaScript observes as nearly empty (nothing is run).
+- An imported landing look gets the `open` render context, not the `proof` look's extra blocks
+  (benefits, icon row, proof trust line): the writer is told to omit those for any look but `proof`.
+- `brandcheck` in the brief: the pixel brandcheck (harness/brandcheck.py) is for images; a look has
+  none of its own, so the import runs the cycle 78/79 brand lint (no gradient, no shadow, no
+  uppercase heading outside the display face, one h1, the theme marker) on the review page and the
+  export instead. PEAK's retired colour list stays in the test suite; the import refuses every colour
+  literal, which covers it.
+- No way yet to delete or rename an imported look from the site (remove the folder by hand); the
+  Library page (cycle 86) only lists them.
+- A tenant other than peak-saunas needs its own `tenants/<t>/look-demo/<cartridge>/` before it can
+  import (the error says how to make one).
+- No linter ran: ruff is not installed in this checkout's `.venv` (an AST scan found no unused
+  imports in the changed files).

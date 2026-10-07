@@ -116,7 +116,7 @@ def parse_arm(text, tenant=None):
         style = rest[0]
         look = listicle.canonical_look(rest[1]) if len(rest) > 1 else listicle.resolve_look(None, style=style,
                                                                                             tenant=tenant)
-        if look not in listicle.LOOKS or len(rest) > 3:
+        if (look not in listicle.LOOKS and not looks.is_look_of("listicle", look, tenant)) or len(rest) > 3:
             raise AbtestError(f"abtest library entry {text!r}: unknown listicle look")
         hero = rest[2] if len(rest) > 2 else None
         if hero is not None and hero not in first_screen.HERO_STYLES:
@@ -124,7 +124,8 @@ def parse_arm(text, tenant=None):
                               f"{list(first_screen.HERO_STYLES)}")
         arm_id = f"listicle:{style}:{look}" + (f":{hero}" if hero else "")
         return Arm(arm_id, "listicle", style, look, hero)
-    if len(rest) > 1 or (rest and rest[0] not in looks.cartridge_looks(cartridge)):
+    # Cycle 87: a tenant's imported look ("Import a page") is a look too.
+    if len(rest) > 1 or (rest and not looks.is_look_of(cartridge, rest[0], tenant)):
         raise AbtestError(f"abtest library entry {text!r}: {cartridge} has no such look")
     look = rest[0] if rest else None
     return Arm(f"{cartridge}:{look}" if look else cartridge, cartridge, None, look)

@@ -41,6 +41,7 @@ harness claims add "..." --category spec --source https://... --tenant <t>
 harness claims list --tenant <t>
 harness tenant init <slug> | harness tenant list
 harness brand import --tenant <t> (--drive-folder <url-or-id> | --local <dir>) [--dry-run] [--force]  # cycle 27
+harness look import --tenant <t> --cartridge landing (--file F | --url U | --html -) --name <slug> [--dry-run]  # cycle 87
 harness workflow run ad-to-pages --input <input> --tenant <t>
 harness workflow list
 harness approve <run-dir> --by <email> [--pages a,b] [--note ...]   # cycle 20

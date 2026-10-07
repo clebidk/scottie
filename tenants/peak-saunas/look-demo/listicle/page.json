@@ -1,0 +1,164 @@
+{
+  "style": "questions",
+  "eyebrow": "For careful buyers",
+  "headline": "5 Questions Careful Buyers Should Ask Before Buying A Home Cabin",
+  "accent_phrase": "Home Cabin",
+  "display_headline": "The confusing part, made simple",
+  "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
+  "lede": "What should you check before a cabin like this comes home? The answers start below.",
+  "scroll_cue": "Start with the first check",
+  "hero": {
+    "asset_id": "asset-cutout-fuji"
+  },
+  "reasons": [
+    {
+      "number": 1,
+      "heading": "What a careful buyer checks first, part 1",
+      "text": "rarely come from a single glossy photo or a catchy headline; they come from spending a few careful minutes comparing specifics side by side across the handful of options actually worth considering (bravo). A shopper who has been burned before learns to slow down and read past the marketing copy, looking instead for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door (bravo). What separates a brand worth trusting from one that just talks a good game usually shows up in the small details (bravo): how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying (bravo). It (bravo)",
+      "image": {
+        "asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1"
+      },
+      "proof": {
+        "text": "In the ad, the creator says, \"I hated how confusing sauna shopping used to be.\"",
+        "attributed_to_customer": true
+      }
+    },
+    {
+      "number": 2,
+      "heading": "What a careful buyer checks first, part 2",
+      "text": "careful minutes comparing specifics side by side across the handful of options actually worth considering (charlie). A shopper who has been burned before learns to slow down and read past the marketing copy, looking instead for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door (charlie). What separates a brand worth trusting from one that just talks a good game usually shows up in the small details (charlie): how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying (charlie). It helps to write down the two or three things that actually matter for daily use, then check (charlie)",
+      "image": {
+        "asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-11"
+      },
+      "proof": {
+        "text": "Every order ships free.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      }
+    },
+    {
+      "number": 3,
+      "heading": "What a careful buyer checks first, part 3",
+      "text": "who has been burned before learns to slow down and read past the marketing copy, looking instead for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door (delta). What separates a brand worth trusting from one that just talks a good game usually shows up in the small details (delta): how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying (delta). It helps to write down the two or three things that actually matter for daily use, then check each option against that short list instead of getting pulled along by whichever page happens to have (delta)",
+      "image": {
+        "asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-4"
+      },
+      "proof": {
+        "text": "Returns are accepted once the cabin is repacked in its original crate.",
+        "claim_ids": [
+          "returns-policy"
+        ]
+      }
+    },
+    {
+      "number": 4,
+      "heading": "What a careful buyer checks first, part 4",
+      "text": "for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door (echo). What separates a brand worth trusting from one that just talks a good game usually shows up in the small details (echo): how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying (echo). It helps to write down the two or three things that actually matter for daily use, then check each option against that short list instead of getting pulled along by whichever page happens to have the loudest headline or the most dramatic before-and-after style photography on it (echo). None of this is complicated, (echo)",
+      "image": {
+        "asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-2"
+      },
+      "proof": {
+        "text": "In-stock orders leave the warehouse within a few business days.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      }
+    },
+    {
+      "number": 5,
+      "heading": "What a careful buyer checks first, part 5",
+      "text": "is already done and the box has arrived at the front door (foxtrot). What separates a brand worth trusting from one that just talks a good game usually shows up in the small details (foxtrot): how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying (foxtrot). It helps to write down the two or three things that actually matter for daily use, then check each option against that short list instead of getting pulled along by whichever page happens to have the loudest headline or the most dramatic before-and-after style photography on it (foxtrot). None of this is complicated, but it does take a little patience, the kind that pays off later when the choice holds (foxtrot)",
+      "image": {
+        "asset_id": "asset-drive-1jmVVkpZ-wpJvSUuMc0o9w7LIfQz8VAXl"
+      },
+      "proof": {
+        "text": "Shipping is free whatever the model.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      }
+    }
+  ],
+  "audience_fit": {
+    "for_you": [
+      {
+        "text": "You have a dry, level corner of a room you can give up for good."
+      },
+      {
+        "text": "You would rather read the published specification than book a sales call."
+      },
+      {
+        "text": "You want a session you can take without leaving the house."
+      }
+    ],
+    "not_for_you": [
+      {
+        "text": "You rent and cannot leave a cabin behind when the lease ends."
+      },
+      {
+        "text": "Your only free wall is in an unheated garage that freezes in winter."
+      },
+      {
+        "text": "You want something that folds away between sessions."
+      }
+    ]
+  },
+  "faq": {
+    "questions": [
+      {
+        "question": "A question a careful buyer asks before ordering, part 1?",
+        "answer": "come from spending a few careful minutes comparing specifics side by side across the handful of options actually worth considering (india). A shopper who has been burned before learns to slow down and read past the marketing copy, looking instead for (india)"
+      },
+      {
+        "question": "A question a careful buyer asks before ordering, part 2?",
+        "answer": "slow down and read past the marketing copy, looking instead for plain language about materials, construction, and the kind of support a company offers once the sale is already done and the box has arrived at the front door (juliet). What (juliet)"
+      },
+      {
+        "question": "A question a careful buyer asks before ordering, part 3?",
+        "answer": "done and the box has arrived at the front door (kilo). What separates a brand worth trusting from one that just talks a good game usually shows up in the small details (kilo): how it answers a direct question, whether its claims (kilo)"
+      },
+      {
+        "question": "A question a careful buyer asks before ordering, part 4?",
+        "answer": "small details (lima): how it answers a direct question, whether its claims line up with what it actually publishes, and how it treats a customer who asks something inconvenient before buying (lima). It helps to write down the two or three things (lima)"
+      },
+      {
+        "question": "A question a careful buyer asks before ordering, part 5?",
+        "answer": "buying (mike). It helps to write down the two or three things that actually matter for daily use, then check each option against that short list instead of getting pulled along by whichever page happens to have the loudest headline or (mike)"
+      }
+    ]
+  },
+  "cta_text": "See the models",
+  "cta_url": "/collections/all",
+  "closing": {
+    "headline": "Ready to see which one fits",
+    "recap": [
+      {
+        "text": "The cabin goes where you have room, not where a spa happens to have room."
+      },
+      {
+        "text": "Everything a seller would tell you on a call is published on the page instead."
+      },
+      {
+        "text": "Free shipping is included on every order.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      }
+    ],
+    "warranty_line": {
+      "text": "Limited lifetime warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    },
+    "financing_line": {
+      "text": "Financing is available through Bread Pay at checkout.",
+      "claim_ids": []
+    }
+  },
+  "hero_quote_id": "q1",
+  "look": "open",
+  "headline_template_id": "s-questions",
+  "hero_style": "story"
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glacierberry Cold Plunge</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&amp;family=Playfair+Display">
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+body{font-family:"Inter",sans-serif;margin:0}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+.topbar{position:sticky;top:0;background:#ffffff}
+.hero{background:#f6f3ee}
+.grid{display:grid;grid-template-columns:1fr;gap:24px}
+@media (min-width:768px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.quote{font-family:"Playfair Display",serif}
+.band{background:#111111;color:#fff}
+.btn-primary{padding:16px 32px;border-radius:8px}
+</style>
+<script>window.dataLayer=window.dataLayer||[];function track(){}</script>
+<script src="https://tracker.example.com/pixel.js"></script>
+</head>
+<body onload="track()">
+<header class="topbar">
+  <nav><a href="/">Glacierberry</a> <a href="/shop">Shop</a> <a href="/about">About</a> <a href="/contact">Contact</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <h1>Glacierberry plunges you into icy calm every single morning</h1>
+      <p>Our patented Glacierberry chiller keeps water at 39 degrees with whisper quiet frostline technology.</p>
+      <a class="btn-primary" href="/products/plunge" onclick="track('hero')">Get your Glacierberry</a>
+      <img src="/img/hero.jpg" width="1600" height="900" alt="Glacierberry tub">
+    </div>
+  </section>
+  <section class="benefits">
+    <div class="wrap">
+      <h2>Why frostline owners never go back</h2>
+      <div class="grid">
+        <div class="card"><h3>Always cold</h3><p>Frostline holds the temperature all day long.</p></div>
+        <div class="card"><h3>Always clean</h3><p>Ozone sanitising runs every single night.</p></div>
+        <div class="card"><h3>Always ready</h3><p>App control from anywhere you happen to be.</p></div>
+      </div>
+    </div>
+  </section>
+  <section class="testimonial">
+    <div class="wrap">
+      <h2>What our customers say</h2>
+      <blockquote class="quote">&ldquo;The Glacierberry changed my mornings forever.&rdquo; &mdash; Jordan P.</blockquote>
+      <p>&#9733;&#9733;&#9733;&#9733;&#9733; 4.9 from 2,000 reviews</p>
+    </div>
+  </section>
+  <section class="faq">
+    <div class="wrap">
+      <h2>Frequently asked questions</h2>
+      <details><summary>How cold does it get?</summary><p>Down to 37 degrees.</p></details>
+      <details><summary>Does it need a plumber?</summary><p>No, it fills from a garden hose.</p></details>
+      <details><summary>What is the warranty?</summary><p>Three years on the chiller.</p></details>
+    </div>
+  </section>
+  <section class="band">
+    <div class="wrap">
+      <h2>Ready to plunge?</h2>
+      <a class="btn-primary" href="/products/plunge">Shop Glacierberry</a>
+    </div>
+  </section>
+  <iframe src="https://video.example.com/embed/1"></iframe>
+  <object data="movie.swf"></object>
+</main>
+<footer>
+  <a href="/privacy">Privacy</a> <a href="/terms">Terms</a> <a href="/shipping">Shipping</a>
+  <a href="/returns">Returns</a> <a href="javascript:alert(1)">Cookies</a>
+</footer>
+</body>
+</html>

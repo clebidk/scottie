@@ -206,6 +206,8 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     monkeypatch.setattr(type(TENANT), "abtests_dir", property(lambda self: base / "abtests"))
     # Cycle 69: the listicle site's job queue and audit log.
     monkeypatch.setattr(type(TENANT), "jobs_dir", property(lambda self: base / "jobs"))
+    # Cycle 87: looks imported from other pages (harness/look_import.py).
+    monkeypatch.setattr(type(TENANT), "looks_dir", property(lambda self: base / "looks"))
     return base
 
 

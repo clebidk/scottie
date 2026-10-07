@@ -1,0 +1,417 @@
+{
+  "product": {
+    "name": "Fuji",
+    "full_name": "Peak Fuji",
+    "seo_title": "Peak Fuji 2-Person Infrared Sauna",
+    "slug": "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "price": "8250.00",
+    "compare_at_price": null,
+    "financing": {
+      "available": true,
+      "lender": "Bread Pay",
+      "monthly": null
+    },
+    "image_urls": [
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Fuji_34500b66-acc8-4a10-b433-9781b05be7aa.png?v=1778549846",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/PWU_-_Fuji_-_18_7681d6dc-6eeb-4423-b4e1-6840e96fea93.png?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_4034_1_4082x6123_9d4a340b-6439-450a-86ee-338cd4bffeb2.jpg?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_4001.jpg?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/peak-fuji-rendering-05.jpg?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Fuji_05_1.png?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_4050.jpg?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_3998.jpg?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_3962.jpg?v=1776202787",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Peak_Saunas_Fuji_2-Person_Full_Spectrum_Infrared_Sauna_03.png?v=1782432807",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/fuji_09b31eea-bb2c-41cf-a26c-1b4ca27348ad.png?v=1782432966",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/fuji_f49876a0-6017-420a-b20c-8ee5e093d5c3.png?v=1782432971",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/fuji_4d7a0b3a-d27c-4651-ba68-485325bb7955.png?v=1782432943",
+      "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/ProductImages_RLTSingle.jpg?v=1776205855"
+    ]
+  },
+  "specs": [
+    {
+      "label": "Capacity",
+      "value": "2-Person",
+      "claim_id": "spec-fuji-capacity"
+    },
+    {
+      "label": "Cabin material",
+      "value": "Canadian red cedar",
+      "claim_id": "spec-fuji-cabin-material"
+    },
+    {
+      "label": "Max temperature",
+      "value": "150\u00b0F",
+      "claim_id": "spec-fuji-max-temperature"
+    },
+    {
+      "label": "Infrared wavelength range",
+      "value": "700\u201325,000nm (near, mid, far)",
+      "claim_id": "spec-fuji-infrared-wavelength-range"
+    },
+    {
+      "label": "Electrical requirement",
+      "value": "120V / 20A outlet",
+      "claim_id": "spec-fuji-electrical-requirement"
+    },
+    {
+      "label": "Audio",
+      "value": "Two Bluetooth speakers",
+      "claim_id": "spec-fuji-audio"
+    }
+  ],
+  "warranty": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; cabinetry and structure 7 years; control system and power supply 3 years; red light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original purchaser only and requires installation within 6 months of delivery.",
+  "shipping": "Peak Saunas offers free shipping on all orders. In-stock items have a 2-4 business day handling time, then 3-7 business days in transit. Heavy/bulky items ship via LTL freight with a scheduled delivery appointment.",
+  "returns": "Peak Saunas returns require the sauna to be disassembled and repacked in its original crate; all returns are subject to a 25% restocking fee and the customer pays return shipping. Orders cancelled before shipping incur a 5% cancellation fee.",
+  "reviews_summary": null,
+  "verified_claims": [
+    {
+      "id": "founder-ceo",
+      "text": "Austin Laudenslager is the Founder & CEO of Peak Saunas.",
+      "category": "trust",
+      "source": "https://peaksaunas.com/pages/austin-laudenslager"
+    },
+    {
+      "id": "warranty-terms",
+      "text": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; cabinetry and structure 7 years; control system and power supply 3 years; red light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original purchaser only and requires installation within 6 months of delivery.",
+      "category": "trust",
+      "source": "https://peaksaunas.com/pages/warranty"
+    },
+    {
+      "id": "shipping-policy",
+      "text": "Peak Saunas offers free shipping on all orders. In-stock items have a 2-4 business day handling time, then 3-7 business days in transit. Heavy/bulky items ship via LTL freight with a scheduled delivery appointment.",
+      "category": "trust",
+      "source": "https://peaksaunas.com/policies/shipping-policy"
+    },
+    {
+      "id": "returns-policy",
+      "text": "Peak Saunas returns require the sauna to be disassembled and repacked in its original crate; all returns are subject to a 25% restocking fee and the customer pays return shipping. Orders cancelled before shipping incur a 5% cancellation fee.",
+      "category": "trust",
+      "source": "https://peaksaunas.com/policies/refund-policy"
+    },
+    {
+      "id": "spec-fuji-capacity",
+      "text": "Fuji -- Capacity: 2-Person.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "spec-fuji-cabin-material",
+      "text": "Fuji -- Cabin material: Canadian red cedar.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "spec-fuji-max-temperature",
+      "text": "Fuji -- Max temperature: 150\u00b0F.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "spec-fuji-infrared-wavelength-range",
+      "text": "Fuji -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "spec-fuji-electrical-requirement",
+      "text": "Fuji -- Electrical requirement: 120V / 20A outlet.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "spec-fuji-audio",
+      "text": "Fuji -- Audio: Two Bluetooth speakers.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "gbrain-allowlist-red-light",
+      "text": "Medical-grade red light therapy (included standard).",
+      "category": "trust",
+      "source": "gbrain:competitors/overview"
+    },
+    {
+      "id": "gbrain-allowlist-free-shipping",
+      "text": "Free shipping (included, always).",
+      "category": "trust",
+      "source": "gbrain:competitors/overview; gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy"
+    },
+    {
+      "id": "gbrain-allowlist-360-full-spectrum",
+      "text": "360\u00b0 full spectrum infrared heater placement.",
+      "category": "spec",
+      "source": "gbrain:competitors/overview"
+    },
+    {
+      "id": "gbrain-allowlist-us-owned",
+      "text": "US-owned company.",
+      "category": "trust",
+      "source": "gbrain:competitors/overview"
+    },
+    {
+      "id": "gbrain-allowlist-lifetime-warranty",
+      "text": "Limited Lifetime warranty.",
+      "category": "trust",
+      "source": "gbrain:competitors/overview; gbrain:policy/warranty; https://peaksaunas.com/pages/warranty"
+    },
+    {
+      "id": "gbrain-fuji-wavelengths",
+      "text": "Fuji infrared: Full Spectrum (near + mid + far), 8 infrared heater panels, full spectrum halogen/quartz 360\u00b0 placement + floor heater, max temp 150\u00b0F.",
+      "category": "spec",
+      "source": "gbrain:spec/fuji"
+    },
+    {
+      "id": "gbrain-fuji-rlt",
+      "text": "Fuji red light therapy: included standard, 1 RLT panel, seated distance 7\u20138 in from panel.",
+      "category": "spec",
+      "source": "gbrain:spec/fuji"
+    },
+    {
+      "id": "gbrain-fuji-wood",
+      "text": "Fuji wood: crafted entirely from Canadian Red Cedar \u2014 interior AND exterior.",
+      "category": "spec",
+      "source": "gbrain:spec/fuji"
+    },
+    {
+      "id": "gbrain-fuji-dimensions",
+      "text": "Fuji dimensions: exterior (assembled) 53\"W x 44\"D x 75\"H, bench 49\"L x 20\"D (approx), assembled weight 385 lbs; shipping crate 57.9\" \u00d7 22.0\" \u00d7 79.1\", crate weight 467 lbs.",
+      "category": "spec",
+      "source": "gbrain:spec/fuji"
+    },
+    {
+      "id": "gbrain-fuji-persons",
+      "text": "Fuji capacity: 2 persons, indoor.",
+      "category": "spec",
+      "source": "gbrain:spec/fuji"
+    },
+    {
+      "id": "gbrain-fuji-power",
+      "text": "Fuji electrical: 120V/20A, dedicated outlet required \u2014 a standard 15A outlet is NOT sufficient. Wattage ~2050W.",
+      "category": "spec",
+      "source": "gbrain:spec/fuji"
+    },
+    {
+      "id": "price-fuji",
+      "text": "The Peak Fuji is priced at $8,250.",
+      "category": "price",
+      "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "price-everest",
+      "text": "The Peak Everest is priced at $7,950.",
+      "category": "price",
+      "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "spec-everest-capacity",
+      "text": "Everest -- Capacity: 2-Person.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    },
+    {
+      "id": "price-rainier",
+      "text": "The Peak Rainier is priced at $7,250.",
+      "category": "price",
+      "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control"
+    },
+    {
+      "id": "spec-rainier-capacity",
+      "text": "Rainier -- Capacity: 1-Person.",
+      "category": "spec",
+      "source": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control"
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Fuji_34500b66-acc8-4a10-b433-9781b05be7aa.png?v=1778549846",
+      "kind": "image",
+      "alt": "Peak Fuji"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-2",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/PWU_-_Fuji_-_18_7681d6dc-6eeb-4423-b4e1-6840e96fea93.png?v=1776202787",
+      "kind": "image",
+      "alt": "Two-person"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-3",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/6_0ec621c7-fe27-4c9c-818c-5653a246d9e5.jpg?v=1776266360",
+      "kind": "image",
+      "alt": "Close-up of"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-4",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_4034_1_4082x6123_9d4a340b-6439-450a-86ee-338cd4bffeb2.jpg?v=1776202787",
+      "kind": "image",
+      "alt": "Peak Saunas"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-5",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_4001.jpg?v=1776202787",
+      "kind": "image",
+      "alt": "Black heater"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-6",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/peak-fuji-rendering-05.jpg?v=1776202787",
+      "kind": "image",
+      "alt": "Interior view"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-7",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Fuji_05_1.png?v=1776202787",
+      "kind": "image",
+      "alt": "Interior view"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-8",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_4050.jpg?v=1776202787",
+      "kind": "image",
+      "alt": "Digital"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-9",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_3998.jpg?v=1776202787",
+      "kind": "image",
+      "alt": "Interior view"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-10",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/MG_3962.jpg?v=1776202787",
+      "kind": "image",
+      "alt": "Black circular"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-11",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/Peak_Saunas_Fuji_2-Person_Full_Spectrum_Infrared_Sauna_03.png?v=1782432807",
+      "kind": "image",
+      "alt": "Two-person"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-13",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/fuji_f49876a0-6017-420a-b20c-8ee5e093d5c3.png?v=1782432971",
+      "kind": "image",
+      "alt": "Technical"
+    },
+    {
+      "id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-15",
+      "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/ProductImages_RLTSingle.jpg?v=1776205855",
+      "kind": "image",
+      "alt": "Dark"
+    },
+    {
+      "id": "asset-drive-1TXFcMw2yIrt6m3kermZK7McHXevDUkIu",
+      "drive_id": "1TXFcMw2yIrt6m3kermZK7McHXevDUkIu",
+      "url": "https://drive.google.com/uc?export=download&id=1TXFcMw2yIrt6m3kermZK7McHXevDUkIu",
+      "kind": "render",
+      "alt": "Interior view"
+    },
+    {
+      "id": "asset-drive-1Eh3peF64IqVv3jziJvY7zZMEHUDV_9jO",
+      "drive_id": "1Eh3peF64IqVv3jziJvY7zZMEHUDV_9jO",
+      "url": "https://drive.google.com/uc?export=download&id=1Eh3peF64IqVv3jziJvY7zZMEHUDV_9jO",
+      "kind": "render",
+      "alt": "Interior view"
+    },
+    {
+      "id": "asset-drive-1auDJ4WW0VQ0AVM55tU5suraR9Cs8KqNL",
+      "drive_id": "1auDJ4WW0VQ0AVM55tU5suraR9Cs8KqNL",
+      "url": "https://drive.google.com/uc?export=download&id=1auDJ4WW0VQ0AVM55tU5suraR9Cs8KqNL",
+      "kind": "render",
+      "alt": "Wooden"
+    },
+    {
+      "id": "asset-drive-1jmVVkpZ-wpJvSUuMc0o9w7LIfQz8VAXl",
+      "drive_id": "1jmVVkpZ-wpJvSUuMc0o9w7LIfQz8VAXl",
+      "url": "https://drive.google.com/uc?export=download&id=1jmVVkpZ-wpJvSUuMc0o9w7LIfQz8VAXl",
+      "kind": "render",
+      "alt": "Black hinge on"
+    },
+    {
+      "id": "asset-drive-1UC21nokRaJCtHRk3BCqH-O1crGVk7n5W",
+      "drive_id": "1UC21nokRaJCtHRk3BCqH-O1crGVk7n5W",
+      "url": "https://drive.google.com/uc?export=download&id=1UC21nokRaJCtHRk3BCqH-O1crGVk7n5W",
+      "kind": "render",
+      "alt": "Interior view"
+    },
+    {
+      "id": "asset-drive-1_EKK3VwvBDW_P28fl29cxUTYDTCpbBYb",
+      "drive_id": "1_EKK3VwvBDW_P28fl29cxUTYDTCpbBYb",
+      "url": "https://drive.google.com/uc?export=download&id=1_EKK3VwvBDW_P28fl29cxUTYDTCpbBYb",
+      "kind": "render",
+      "alt": "Spherical"
+    }
+  ],
+  "speaker_name": null,
+  "digit_exempt_terms": [
+    "Crown",
+    "Denali",
+    "El Capitan",
+    "Everest",
+    "Fuji",
+    "Kilimanjaro",
+    "Matterhorn",
+    "Mini",
+    "Patagonia",
+    "Peak Crown 2-Person Full Spectrum Infrared Sauna",
+    "Peak Crown 2-Person Infrared Sauna",
+    "Peak Denali 3-Person Full Spectrum Infrared Sauna",
+    "Peak Denali 3-Person Infrared Sauna",
+    "Peak El Capitan 4-Person Outdoor Infrared Sauna",
+    "Peak Everest 2-Person Full Spectrum Infrared Sauna",
+    "Peak Everest 2-Person Infrared Sauna",
+    "Peak Fuji 2-Person Full Spectrum Infrared Sauna",
+    "Peak Fuji 2-Person Infrared Sauna",
+    "Peak Kilimanjaro 5-Person Outdoor Infrared Sauna",
+    "Peak Matterhorn 3-Person Full Spectrum Infrared Sauna",
+    "Peak Matterhorn 3-Person Infrared Sauna",
+    "Peak Mini 1-Person Full Spectrum Infrared Sauna",
+    "Peak Mini 1-Person Infrared Sauna",
+    "Peak Patagonia 2-Person Outdoor Infrared Sauna",
+    "Peak Rainier 1-Person Full Spectrum Infrared Sauna",
+    "Peak Rainier 1-Person Infrared Sauna",
+    "Peak Shasta 1-Person Full Spectrum Infrared Sauna",
+    "Peak Shasta 1-Person Infrared Sauna",
+    "Rainier",
+    "Shasta"
+  ],
+  "image_slots": {
+    "hero_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1"
+  },
+  "model_options": [
+    {
+      "name": "Peak Fuji",
+      "url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "price_text": "$8,250",
+      "fit": "2-Person",
+      "claim_ids": [
+        "price-fuji",
+        "spec-fuji-capacity"
+      ]
+    },
+    {
+      "name": "Peak Everest",
+      "url": "https://peaksaunas.com/products/peak-saunas-everest-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "price_text": "$7,950",
+      "fit": "2-Person",
+      "claim_ids": [
+        "price-everest",
+        "spec-everest-capacity"
+      ]
+    },
+    {
+      "name": "Peak Rainier",
+      "url": "https://peaksaunas.com/products/peak-saunas-rainier-1-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-xl-medical-grade-red-light-therapy-smart-wifi-app-control",
+      "price_text": "$7,250",
+      "fit": "1-Person",
+      "claim_ids": [
+        "price-rainier",
+        "spec-rainier-capacity"
+      ]
+    }
+  ]
+}

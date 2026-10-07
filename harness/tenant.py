@@ -309,6 +309,14 @@ class Tenant:
         return self.root / "jobs"
 
     @property
+    def looks_dir(self):
+        """Cycle 87: looks imported from other pages ("Import a page",
+        harness/look_import.py), one folder per look:
+        looks/<cartridge>/<slug>/{template.html, library.json,
+        observation.json, review.html}. Runtime data, like abtests/."""
+        return self.root / "looks"
+
+    @property
     def inbox_dir(self):
         return self.root / "inbox"
 

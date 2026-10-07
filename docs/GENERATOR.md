@@ -308,6 +308,51 @@ writer adds two optional fields only for this look -- `benefits` and `icon_row`
 (`cartridges.landing.looks`), or the A/B/C library entries `landing:open` / `landing:proof`;
 the variant record keeps the look. `--look proof` reaches the writer, unlike a rerender.
 
+## Tenant looks (cycle 87, "Import a page")
+
+A look can also belong to a TENANT: `tenants/<t>/looks/<cartridge>/<slug>/`
+with `template.html`, `library.json`, `observation.json` and `review.html`.
+`harness/look_import.py` makes one from any landing page (the site's
+**Import a page**, or `harness look import --tenant <t> --cartridge landing
+(--file F | --url U | --html -) --name <slug> [--title T] [--dry-run]`;
+see docs/LISTICLE-SITE.md for the steps). `--dry-run` prints the build
+observation and makes no model call. Landing and listicle looks can be
+imported.
+
+Resolution (`harness/looks.py`): a tenant look resolves AFTER the
+cartridge's own looks. An explicit look (`--look`, page.json's `look`, an
+A/B/C entry) that is not one of the cartridge's own is accepted when it is
+one of this tenant's imported looks for that cartridge
+(`looks.imported_looks`); a tenant look is never a default and never a
+tenant pin. `render_page` loads it through a Jinja prefix loader on
+`tenants/<t>/looks/<cartridge>/`, after the cartridge folder, so a built-in
+look of the same name always wins (the import also refuses such a name).
+The A/B/C library takes `landing:<slug>` / `listicle:<style>:<slug>`;
+`harness run --look <slug>` and `harness rerender --look <slug>` take it
+too. A tenant look is runtime data (`tenants/*/looks/` is gitignored, like
+`abtests/`).
+
+The look contract (enumerated from `landing.render_context` and
+`render_page`'s template context; `look_import.CONTRACT_NAMES`, checked by
+`tests/test_look_import_cycle87.py`). A landing look may read `page`,
+`product`, `assets`, `cartridge_data`, `disclosure_label`, `byline_html`,
+`render_image_slot`, `image_fit`, `look` and `tenant_name` -- not
+`facts_pack`, `ad_brief` or `tenant`. `cartridge_data` keys: `eyebrow`,
+`headline_html`, `headline_fits`, `price`, `financing`, `warranty`,
+`trust`, `specs`, `rating`, `secondary`, `quote`, `made_for`, `frame`,
+`room_kinds` (the proof look's extra keys are not given to an imported
+look). `page.*` must exist in `cartridges/<c>/schema.json`. A listicle look
+also reads `first_screen` and `about_author_html`. The rules the model is
+given and the validator enforces are in `harness/look_import_rules.md`.
+
+The reference render uses the tenant's demo page,
+`tenants/<t>/look-demo/<cartridge>/{page,facts_pack,ad_brief}.json`, made
+once from an offline run (`python -m evals.fake_run
+tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant peak-saunas
+--cartridges landing`; the listicle one with `--cartridges listicle --seed
+42`). A tenant with no demo page for a cartridge cannot import a look for
+it (the error says how to make one).
+
 ## Add a new cartridge type in under 10 minutes
 
 Copy an existing cartridge folder -- `product-page` or `longform` are the most complete

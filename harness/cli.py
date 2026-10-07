@@ -19,6 +19,7 @@ from . import budget as budget_mod
 from . import brand_import
 from . import notify
 from . import listicle
+from . import look_import
 from . import looks
 from . import meta_ingest
 from . import pipeline
@@ -167,6 +168,56 @@ def cmd_tenant_list(args):
 # harness brand import
 # ---------------------------------------------------------------------------
 
+def cmd_look_import(args):
+    """`harness look import --tenant <t> --cartridge landing (--file F | --url U
+    | --html -) --name <slug> [--title T] [--dry-run]` -- cycle 87, the CLI
+    mirror of the site's "Import a page" (harness/look_import.py). A dry run
+    prints the build observation and makes no model call."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    if args.file:
+        path = Path(args.file)
+        try:
+            data = path.read_bytes()
+        except OSError as e:
+            print(f"cannot read {path}: {e}", file=sys.stderr)
+            return exits.USAGE
+        source = {"kind": "upload", "data": data, "filename": path.name}
+    elif args.url:
+        source = {"kind": "url", "url": args.url}
+    else:
+        source = {"kind": "paste", "html": sys.stdin.read() if args.html == "-" else args.html}
+    client = None
+    log = None
+    if not args.dry_run:
+        tenant.load_env()
+        client = make_client()
+        run_id = f"look-import-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    try:
+        result = look_import.import_look(
+            tenant, cartridge=args.cartridge, name=args.name, title=args.title, source=source, client=client,
+            dry_run=args.dry_run, log=log, progress=lambda step: print(f"  {step}", file=sys.stderr),
+        )
+    except look_import.LookImportError as e:
+        print(look_import.format_errors(e), file=sys.stderr)
+        return exits.USAGE
+    finally:
+        if log:
+            log.close()
+    if args.dry_run:
+        print(json.dumps(result["observation"], indent=2))
+        print(f"\n{result['summary']}\n(--dry-run: observation only; no model call, nothing written)",
+              file=sys.stderr)
+        return exits.OK
+    print(f"imported {args.cartridge} look {result['slug']!r} ({result['title']}): validation PASS on attempt "
+          f"{result['attempts']}, model cost ${result['cost_usd']:.4f}")
+    print(f"  {result['summary']}")
+    print(f"  {result['folder']}/review.html")
+    print(f"  A/B/C library entry: {args.cartridge}:{result['slug']}")
+    return exits.OK
+
+
 def cmd_brand_import(args):
     """`harness brand import --tenant <t> (--drive-folder <url-or-id> | --local
     <dir>) [--dry-run] [--force]`. See harness/brand_import.py's module
@@ -300,9 +351,10 @@ def cmd_rerender(args):
             print(f"--look applies to a cartridge with looks ({', '.join(looks.CARTRIDGE_LOOKS)}), "
                   f"not {cartridge_name}", file=sys.stderr)
             return 1
-        if requested_look not in looks.cartridge_looks(cartridge_name):
+        if not looks.is_look_of(cartridge_name, requested_look, tenant):
             print(f"--look {requested_look!r} is not a {cartridge_name} look; choose one of "
-                  f"{list(looks.cartridge_looks(cartridge_name))}", file=sys.stderr)
+                  f"{list(looks.cartridge_looks(cartridge_name) + looks.imported_looks(cartridge_name, tenant))}",
+                  file=sys.stderr)
             return 1
         page["look"] = looks.resolve_look(cartridge_name, requested_look, tenant=tenant)
     ad_brief_json = run_dir / "ad_brief.json"
@@ -1746,11 +1798,12 @@ def build_parser():
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
     p_run.add_argument(
-        "--look", choices=list(looks.all_looks()),
+        "--look", type=looks.look_arg, metavar="LOOK",
         help="page look -- which of cartridges/<cartridge>/looks/ lays the page out, for the "
              "selected cartridge that has this look (listicle: editorial|cards|pillars|"
              "scorecard|lander; product-page: pdp|classic; landing: open|proof); default: the "
-             "listicle's style pairing, product-page's pdp, landing's open, or the tenant's own pins",
+             "listicle's style pairing, product-page's pdp, landing's open, or the tenant's own pins. "
+             "Cycle 87: also a look the tenant imported (harness look import)",
     )
     p_run.add_argument(
         "--style", choices=list(listicle.STYLES),
@@ -1807,7 +1860,7 @@ def build_parser():
     p_rerender.add_argument("run_dir", help="tenants/<t>/out/<run-id>")
     p_rerender.add_argument("--page", required=True, help="cartridge name, e.g. listicle")
     p_rerender.add_argument(
-        "--look", choices=list(looks.all_looks()), default=None,
+        "--look", type=looks.look_arg, metavar="LOOK", default=None,
         help="re-render the page in a different look of its own cartridge (listicle or "
              "product-page); the copy is untouched",
     )
@@ -2092,6 +2145,23 @@ def build_parser():
     p_tenant_init.set_defaults(func=cmd_tenant_init)
     p_tenant_list = tenant_sub.add_parser("list", help="every tenant and whether it is configured")
     p_tenant_list.set_defaults(func=cmd_tenant_list)
+
+    # Cycle 87: "Import a page" from the command line (harness/look_import.py).
+    p_look = sub.add_parser("look", help="looks learned from other pages (cycle 87)")
+    look_sub = p_look.add_subparsers(dest="look_command", required=True)
+    p_look_import = look_sub.add_parser(
+        "import", help="learn a page's layout and store it as a tenant look (one model call; --dry-run: none)")
+    p_look_import.add_argument("--cartridge", choices=list(look_import.CARTRIDGES), default="landing")
+    source = p_look_import.add_mutually_exclusive_group(required=True)
+    source.add_argument("--file", help="a saved .html page")
+    source.add_argument("--url", help="a page URL (http/https, public host, HTML, at most 2 MB)")
+    source.add_argument("--html", help="the page's HTML; '-' reads it from stdin")
+    p_look_import.add_argument("--name", required=True, help="the look's name (slug): letters, digits, hyphens")
+    p_look_import.add_argument("--title", help="a display title for the Library (default: from the name)")
+    p_look_import.add_argument("--dry-run", action="store_true",
+                               help="print the build observation only: no model call, nothing written")
+    _add_tenant_flag(p_look_import)
+    p_look_import.set_defaults(func=cmd_look_import)
 
     p_brand = sub.add_parser("brand", help="import a brand kit from a Drive folder or a local directory")
     brand_sub = p_brand.add_subparsers(dest="brand_command", required=True)
