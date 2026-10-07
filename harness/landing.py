@@ -45,6 +45,33 @@ CLOSING_MAX_WORDS = 10
 EYEBROW_MAX_WORDS = 8
 SPEC_CELLS = 4
 
+# Cycle 85: the `proof` look (cartridges/landing/looks/proof/) -- six ideas
+# from a Shopify product-page post the owner shared, 2026-10-07, in the
+# harness's terms: the rating first, a verified quote under the subhead, the
+# trust facts under the CTA, checkmark benefits, the room photo after them,
+# an icon row before the closing band. Its two writer fields are optional
+# in schema.json; their gates run only when a page carries them.
+BENEFITS_RANGE = (4, 6)
+BENEFIT_MAX_WORDS = 8
+ICON_RANGE = (3, 4)
+ICON_LABEL_MAX_WORDS = 3
+PROOF_TRUST_MAX = 3
+RETURNS_TERM_MAX_WORDS = 6
+
+# The line icons the proof look ships, and what each stands for (told to
+# the writer). The template's own `icons` map draws exactly these keys
+# (tests/test_landing_proof_cycle85.py checks the two agree).
+ICONS = {
+    "shipping": "free shipping",
+    "warranty": "the warranty",
+    "red_light": "red light therapy",
+    "full_spectrum": "full-spectrum infrared heat",
+    "wood": "the cabin's wood",
+    "us_owned": "a US-owned company",
+    "delivery": "the delivery appointment",
+    "assembly": "assembly",
+}
+
 # An asset kind that shows the product in a real room or yard (photo
 # library: lifestyle / people-in-use; brand/assets.json: installation). A
 # studio render, a cut-out or a plain product shot never fills the slot.
@@ -188,9 +215,70 @@ def accent_span(headline, phrase):
     return m.group(0) if m else ""
 
 
-def render_context(page, facts_pack, *, ad_brief=None, tenant=None):
+def returns_term(facts_pack, tenant=None):
+    """Cycle 85: the returns policy's first clause, verbatim, with its claim
+    id -- only when that clause is a short trust fact (at most
+    RETURNS_TERM_MAX_WORDS words, e.g. "30-day returns"). A long clause (a
+    returns procedure, not a promise) is never cut down into one."""
+    tenant = tenant or tenant_mod.active()
+    cid = tenant.get("returns_claim_id") or "returns-policy"
+    claim = _verified(facts_pack).get(cid)
+    if not claim:
+        return None
+    first = re.split(r"[;,]|\.(?:\s|$)", str(claim.get("text") or ""), maxsplit=1)[0].strip()
+    if not first or _words(first) > RETURNS_TERM_MAX_WORDS:
+        return None
+    return {"text": first, "claim_ids": [cid]}
+
+
+def proof_trust_items(facts_pack, tenant=None):
+    """Cycle 85: the proof look's trust line under the CTA -- free shipping,
+    the warranty term and the returns term, each only when a verified claim
+    states it. The financing sentence stays verbatim in the price block just
+    above (vocab.yaml: the fixed sentence is the only way financing may be
+    stated), and nothing says "secure payment" or a guarantee no claim states."""
+    items = []
+    ship = listicle.free_shipping_claim(facts_pack)
+    if ship:
+        items.append({"text": "Free shipping", "claim_ids": [ship["id"]]})
+    for item in (warranty_term(facts_pack), returns_term(facts_pack, tenant)):
+        if item:
+            items.append(item)
+    return items[:PROOF_TRUST_MAX]
+
+
+def _ids_verified(ids, verified):
+    ids = [c for c in (ids or []) if c]
+    return bool(ids) and all(c in verified for c in ids)
+
+
+def proof_blocks(page, facts_pack):
+    """The proof look's writer blocks as the template shows them: benefit
+    rows and icon cells whose claim ids all verify (and known icon keys),
+    and the review quote only when it is verbatim in reviews_summary. The
+    gate already fails anything else; this keeps a hand-edited page.json
+    from showing it."""
+    verified = _verified(facts_pack)
+    benefits = [
+        {"text": str(r["text"]).strip(), "claim_ids": list(r["claim_ids"])}
+        for r in (page.get("benefits") or []) if isinstance(r, dict)
+        and str(r.get("text") or "").strip() and _ids_verified(r.get("claim_ids"), verified)
+    ][:BENEFITS_RANGE[1]]
+    icons = [
+        {"icon_key": c["icon_key"], "label": str(c["label"]).strip(), "claim_ids": list(c["claim_ids"])}
+        for c in (page.get("icon_row") or []) if isinstance(c, dict) and c.get("icon_key") in ICONS
+        and str(c.get("label") or "").strip() and _ids_verified(c.get("claim_ids"), verified)
+    ][:ICON_RANGE[1]]
+    proof = page.get("proof") if isinstance(page.get("proof"), dict) else {}
+    q = proof.get("quote") if isinstance(proof.get("quote"), dict) else None
+    verbatim = q and not any(p["key"] == "landing:quote_verbatim" for p in find_quote_violations(page, facts_pack))
+    return {"benefits": benefits, "icon_row": icons, "review_quote": q if verbatim else None}
+
+
+def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
     """Everything the landing template renders that the writer did not
-    write, plus the first screen's eyebrow and headline markup."""
+    write, plus the first screen's eyebrow and headline markup. Cycle 85:
+    look "proof" adds its trust line and checked writer blocks."""
     tenant = tenant or tenant_mod.active()
     hero = (page or {}).get("hero") or {}
     headline = str(hero.get("headline") or "")
@@ -219,6 +307,9 @@ def render_context(page, facts_pack, *, ad_brief=None, tenant=None):
         "accent_note": (f"accent_phrase {phrase!r} is not in the headline; rendered with no accent"
                         if phrase and not span else ""),
     }
+    if look == "proof":
+        ctx["proof_trust"] = proof_trust_items(facts_pack, tenant)
+        ctx.update(proof_blocks(page or {}, facts_pack))
     ctx["claim_ids"] = context_claim_ids(ctx)
     return ctx
 
@@ -228,7 +319,7 @@ def context_claim_ids(ctx):
     for key in ("price", "warranty", "rating"):
         if ctx.get(key):
             ids.update(ctx[key].get("claim_ids") or [])
-    for row in (ctx.get("trust") or []) + (ctx.get("specs") or []):
+    for row in (ctx.get("trust") or []) + (ctx.get("specs") or []) + (ctx.get("proof_trust") or []):
         ids.update(row.get("claim_ids") or [])
     return ids
 
@@ -259,7 +350,33 @@ def _room_candidates(facts_pack, tenant):
     return out[:8]
 
 
-def writer_lines(facts_pack, tenant=None):
+def proof_writer_lines(facts_pack, tenant=None):
+    """Cycle 85: what the writer is told when the page renders in the proof
+    look -- stated from the constants find_benefits_violations and
+    find_icon_row_violations measure."""
+    tenant = tenant or tenant_mod.active()
+    blo, bhi = BENEFITS_RANGE
+    ilo, ihi = ICON_RANGE
+    have = _verified(facts_pack)
+    allow = [cid for cid in (tenant.get("benefit_allowlist_ids") or ()) if cid in have]
+    return [
+        "This page renders in the PROOF look: also write `benefits` and `icon_row` (below). Their words "
+        "count toward the page's word range, so keep every other section tight.",
+        f"benefits has {blo}-{bhi} rows, each {{text, claim_ids}}: text is a plain noun phrase of at most "
+        f"{BENEFIT_MAX_WORDS} words (no verb, no full stop), e.g. \"Canadian red cedar, inside and out\"; "
+        "claim_ids cite the claim that states it, and at least one id per row is a product spec or benefit "
+        "claim (not price, shipping, warranty terms or returns) or one of the tenant's benefit allowlist ids "
+        + json.dumps(allow) + ". The renderer draws a check mark before each row.",
+        f"icon_row has {ilo}-{ihi} cells, each {{icon_key, label, claim_ids}}: icon_key is one of these keys, "
+        "chosen by what the cell's claim states -- " + json.dumps(ICONS) + f" -- label at most "
+        f"{ICON_LABEL_MAX_WORDS} words, claim_ids from facts_pack.verified_claims that state it. No two cells "
+        "share an icon_key; never pick an icon the verified claims do not back.",
+        "On this look proof.quote sits directly under the subhead: the same rule, word for word from "
+        "facts_pack.reviews_summary or omitted.",
+    ]
+
+
+def writer_lines(facts_pack, tenant=None, look=None):
     tenant = tenant or tenant_mod.active()
     clo, chi = CHECKED_RANGE
     flo, fhi = FAQ_RANGE
@@ -298,7 +415,8 @@ def writer_lines(facts_pack, tenant=None):
         f"{ANSWER_MAX_WORDS} words; any answer with a number, price, spec or trigger word carries claim_ids.",
         f"closing.headline: at most {CLOSING_MAX_WORDS} words. cta_text/cta_url are the page's ONE "
         "call to action -- never add a second link, button, url or phone number anywhere.",
-    ]
+    ] + (proof_writer_lines(facts_pack, tenant) if look == "proof" else
+         ["benefits and icon_row are for the proof look only: omit both."])
 
 
 # ---------------------------------------------------------------------------
@@ -506,6 +624,91 @@ def find_quote_violations(page, facts_pack):
     return problems
 
 
+def _benefit_claim_ids(facts_pack, tenant=None):
+    """Verified ids a benefit row may lean on: the product's spec/benefit
+    claims (claims._is_benefit_claim_id, the rule behind the "at least 3
+    product-benefit claims" gates) plus the tenant's benefit allowlist."""
+    from .claims import _is_benefit_claim_id
+
+    tenant = tenant or tenant_mod.active()
+    verified = _verified(facts_pack)
+    allow = set(tenant.get("benefit_allowlist_ids") or ())
+    return {cid for cid in verified if cid in allow or _is_benefit_claim_id(cid, verified)}
+
+
+def find_benefits_violations(page, facts_pack, tenant=None):
+    """Cycle 85: the proof look's checkmark rows. No-op when page.json has
+    no `benefits` (the open look)."""
+    if "benefits" not in page:
+        return []
+    rows = page.get("benefits") if isinstance(page.get("benefits"), list) else []
+    lo, hi = BENEFITS_RANGE
+    problems = []
+    if not lo <= len(rows) <= hi:
+        problems.append(_problem("$.benefits", "benefits_count", f"benefits has {len(rows)} rows; it needs {lo}-{hi}"))
+    verified = _verified(facts_pack)
+    allowed = _benefit_claim_ids(facts_pack, tenant)
+    for i, row in enumerate(rows):
+        path = f"$.benefits[{i}]"
+        if not isinstance(row, dict) or not str(row.get("text") or "").strip():
+            problems.append(_problem(path, f"benefit_shape:{i}", "each benefit is {text, claim_ids} with a text"))
+            continue
+        if _words(row["text"]) > BENEFIT_MAX_WORDS:
+            problems.append(_problem(f"{path}.text", f"benefit_words:{i}",
+                                     f"benefit is {_words(row['text'])} words; at most {BENEFIT_MAX_WORDS}",
+                                     text=row["text"]))
+        ids = [c for c in (row.get("claim_ids") or []) if c]
+        if not ids:
+            problems.append(_problem(f"{path}.claim_ids", f"benefit_claims:{i}",
+                                     "every benefit row cites at least one claim_id"))
+        elif any(c not in verified for c in ids):
+            problems.append(_problem(f"{path}.claim_ids", f"benefit_claims_unverified:{i}",
+                                     f"claim_ids {[c for c in ids if c not in verified]} are not verified claims"))
+        elif not set(ids) & allowed:
+            problems.append(_problem(f"{path}.claim_ids", f"benefit_not_product:{i}",
+                                     "a benefit row cites a product spec or benefit claim or a benefit allowlist "
+                                     "id -- not only price, shipping, warranty terms or returns"))
+    return problems
+
+
+def find_icon_row_violations(page, facts_pack):
+    """Cycle 85: the proof look's icon cells. No-op when page.json has no
+    `icon_row`."""
+    if "icon_row" not in page:
+        return []
+    cells = page.get("icon_row") if isinstance(page.get("icon_row"), list) else []
+    lo, hi = ICON_RANGE
+    problems = []
+    if not lo <= len(cells) <= hi:
+        problems.append(_problem("$.icon_row", "icon_count", f"icon_row has {len(cells)} cells; it needs {lo}-{hi}"))
+    verified = _verified(facts_pack)
+    seen = set()
+    for i, cell in enumerate(cells):
+        path = f"$.icon_row[{i}]"
+        if not isinstance(cell, dict):
+            problems.append(_problem(path, f"icon_shape:{i}", "each cell is {icon_key, label, claim_ids}"))
+            continue
+        key = cell.get("icon_key")
+        if key not in ICONS:
+            problems.append(_problem(f"{path}.icon_key", f"icon_key:{i}",
+                                     f"icon_key {key!r} is not one of {list(ICONS)}"))
+        elif key in seen:
+            problems.append(_problem(f"{path}.icon_key", f"icon_duplicate:{i}", f"icon_key {key!r} is used twice"))
+        seen.add(key)
+        label = str(cell.get("label") or "").strip()
+        if not label or _words(label) > ICON_LABEL_MAX_WORDS:
+            problems.append(_problem(f"{path}.label", f"icon_label_words:{i}",
+                                     f"an icon label is 1-{ICON_LABEL_MAX_WORDS} words", text=label))
+        ids = [c for c in (cell.get("claim_ids") or []) if c]
+        if not ids:
+            problems.append(_problem(f"{path}.claim_ids", f"icon_claims:{i}",
+                                     "every icon label cites at least one claim_id"))
+        elif any(c not in verified for c in ids):
+            problems.append(_problem(f"{path}.claim_ids", f"icon_claims_unverified:{i}",
+                                     f"claim_ids {[c for c in ids if c not in verified]} are not verified claims"))
+    return problems
+
+
 def find_renderer_owned_violations(page):
     problems = []
     for path, node in walk_page(page):
@@ -588,6 +791,8 @@ def find_landing_violations(page, facts_pack=None):
     problems += find_one_cta_violations(page)
     problems += find_room_photo_violations(page, facts_pack)
     problems += find_quote_violations(page, facts_pack)
+    problems += find_benefits_violations(page, facts_pack)
+    problems += find_icon_row_violations(page, facts_pack)
     problems += find_renderer_owned_violations(page)
     problems += find_power_violations(page, facts_pack)
     problems += find_number_violations(page, facts_pack)

@@ -328,7 +328,8 @@ def test_the_review_page_and_export_pass_the_brand_lint(tmp_path):
 
 
 def test_the_look_has_no_colour_literal():
-    css = re.search(r"<style>(.*?)</style>", (CARTRIDGE_DIR / "template.html").read_text(), re.S).group(1)
+    # cycle 85: the open look's template moved under looks/open/
+    css = re.search(r"<style>(.*?)</style>", (CARTRIDGE_DIR / "looks" / "open" / "template.html").read_text(), re.S).group(1)
     assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", css)
 
 

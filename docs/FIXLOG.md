@@ -4723,3 +4723,92 @@ Branch `cycle82d/landing-adsaid-wording` from origin/master c252fe3 (the cycle 8
 - **Open.** The page now shows the ad's "lifetime warranty" words as a quote in the "the ad
   said" line, and the `fact` next to it corrects them. That is the cartridge's design, but
   the owner has not seen it on a live page. The two prod runs were not run again here.
+
+## Cycle 85 (landing `proof` look: reviews first, checkmark benefits, trust under the CTA, icon row, 2026-10-07)
+Branch `cycle85/landing-proof-look` from origin/master 2dda94c, with `cycle82c/landing-power` merged
+in first (not yet on master; merged here so the two do not conflict later).
+
+### Problem
+The owner shared a Shopify product-page post (a Shopify product-page post the owner shared,
+2026-10-07) that reports a product page going from 1.2% to 4.7% conversion with six changes: reviews
+as the first thing on screen, benefits as visible checkmarks, trust facts at the moment of
+decision, one clean hero with lifestyle photos below, benefit icons near the bottom, and the
+rest kept. The landing cartridge had one look (`open`), so none of this could be tried, and
+nothing let an A/B/C test compare it against `open`.
+
+### Change
+- **Look mechanism.** `cartridges/landing/template.html` is now a dispatcher like longform's;
+  the cycle 82 template moved unchanged to `looks/open/template.html`, and the new
+  `looks/proof/template.html` is the open grammar plus the six ideas. `harness/looks.py`:
+  `CARTRIDGE_LOOKS["landing"] = ("open", "proof")`, default `open`. `--look proof` resolves for
+  landing only; the pipeline stamps `page.json` `look` and `state.json` `landing.look`
+  (`runstate.record_look`), like the product page and longform.
+- **The writer knows the look.** Unlike the other looks, `proof` needs copy: the resolved
+  landing look goes to the writer (`landing_look` through `pipeline` -> `repair.write_and_gate_page`
+  / `batch.build_batch_requests` -> `write.write_page` / `build_initial_write_request`, and
+  `revise` reads it from page.json). `landing.writer_lines(..., look="proof")` adds the
+  `benefits` and `icon_row` lines; the open look is told to omit both.
+- **Schema and rules.** `benefits` (4-6 rows `{text, claim_ids}`, a noun phrase <= 8 words, at
+  least one id a product spec/benefit claim or a tenant `benefit_allowlist_ids` entry -- the
+  `claims._is_benefit_claim_id` rule behind the "3 product-benefit claims" gates) and
+  `icon_row` (3-4 cells `{icon_key, label, claim_ids}`, label <= 3 words, key one of
+  `landing.ICONS`, no key twice) are OPTIONAL in schema.json and described in cartridge.md.
+  Their gates (`landing:benefit_*`, `landing:benefits_count`, `landing:icon_*`) run only when
+  the field is present, so the open look and old page.json files stay valid. `icon_key` joined
+  `textutil.NON_PROSE_KEYS`: it is not a word and not copy. Benefits and labels count toward
+  the 250-450 words.
+- **Render (`landing.render_context(..., look="proof")`).** Adds `proof_trust` (free shipping,
+  the warranty term, and the returns policy's first clause only when it is a short verified
+  trust fact, <= 6 words), and `proof_blocks`: benefit rows and icon cells whose claim ids all
+  verify (and known keys), and `review_quote` = `proof.quote` only when it is verbatim in
+  reviews_summary. Their claim ids join Sources. The open look's context and output are
+  unchanged.
+- **The proof template.** Rating + count (the verified reviews claim) as the first row above
+  the eyebrow; the verified quote under the subhead; price + the fixed financing sentence; the
+  pill; the trust line directly under it; the "Text us" link under that; the hero (ad still or
+  cut-out); then the ✓ benefit rows on hairlines and the room photo; checked claims; the spec
+  strip; FAQ; the icon row (eight inline line icons in the template, 24px, stroke
+  currentColor, no fill, keyed exactly like `landing.ICONS`); the closing band; the sticky bar.
+  The open look's lower Reviews section is dropped in this look (its rating and quote are on
+  the first screen now).
+- **A/B/C.** `landing:open` and `landing:proof` are valid library entries (the existing
+  `cartridge:look` form); `_build_variant` records `variant["look"]` from the built page.json
+  for every cartridge with looks.
+- **fake_run.** `--look` flag; `LANDING_PROOF_PAGE` is the canned landing page plus five
+  benefits and four icon cells citing claims the offline facts pack verifies.
+
+### Verify
+- Open look byte-identical: a render of the canned landing page before the move and after the
+  whole change has the same sha1 (4922e46d...); an open fake run's index.html is identical to
+  the pre-change one apart from the run id. `page.json` now carries `"look": "open"`.
+- `tests/test_landing_proof_cycle85.py`: 25 tests (open default and unchanged, rating row first,
+  ✓ rows with verified ids, room photo after them, trust line under the pill and the text link
+  under it, returns term rule, only known icon keys and the template's icon set equal to
+  `landing.ICONS`, quote only when verbatim, CTA classes and no colour literal, gates for
+  unknown icon key / unverified label / counts / duplicates / benefit rules, `--look proof`
+  resolution, the writer prompt per look, fake run stamping, the Shopify export invariants and
+  brand lint, the A/B/C variant's look). `tests/test_landing_cycle82.py`'s colour-literal test
+  now reads `looks/open/template.html`.
+- Full suite: 2526 passed, 0 failed.
+- `python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant
+  peak-saunas --cartridges landing --look proof` exits 0, gate PASS on attempt 1; `harness
+  review` and `harness shopify-body` on that run exit 0. A 390px render (headless Chrome, page
+  in a 390px iframe because headless Chrome will not size a window under 500px) shows 16px
+  gutters and no horizontal overflow.
+
+### Open
+- **Financing short form: not built.** The brief asked for "the financing sentence's short
+  form" in the trust line. vocab.yaml makes the fixed sentence the only way financing may be
+  stated, so the proof look keeps it verbatim in the price block directly above the pill.
+- **Returns.** PEAK's returns claim starts with a procedure (disassemble and repack in the crate)
+  and has a 25% restocking fee; its first clause is 15 words, so no returns item shows. The
+  rule shows a returns clause only when it is a short promise ("30-day returns").
+- The offline facts pack has no reviews_summary, so the fake-run preview has no rating row and
+  no quote; the tests cover both with the cycle 82 facts pack (4.79, 47 reviews).
+- No real-model run yet: whether the writer keeps benefits to noun phrases and picks icons that
+  match their claims is unseen. The gate checks that a label's ids verify, not that the icon
+  topic matches the claim (a `warranty` icon over a cedar claim would pass).
+- `harness rerender --look proof` on a page written for `open` renders without benefits and
+  the icon row (no model call, so no copy for them).
+- `harness revise` does not re-stamp `look` on the page it writes (all cartridges, before this
+  cycle too); a revised page keeps its look only if the writer echoes the field.

@@ -1723,8 +1723,8 @@ def build_parser():
         "--look", choices=list(looks.all_looks()),
         help="page look -- which of cartridges/<cartridge>/looks/ lays the page out, for the "
              "selected cartridge that has this look (listicle: editorial|cards|pillars|"
-             "scorecard|lander; product-page: pdp|classic); default: the listicle's style "
-             "pairing, product-page's pdp, or the tenant's own pins",
+             "scorecard|lander; product-page: pdp|classic; landing: open|proof); default: the "
+             "listicle's style pairing, product-page's pdp, landing's open, or the tenant's own pins",
     )
     p_run.add_argument(
         "--style", choices=list(listicle.STYLES),

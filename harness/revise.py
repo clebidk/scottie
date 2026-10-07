@@ -303,12 +303,14 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
                     f"Requested changes:\n{notes.strip()}\n"
                 )
                 write_model = tenant.model_for("write")
+                # Cycle 85: a landing page keeps its look's writer lines (proof: benefits, icon_row).
+                landing_look = page.get("look") if page_name == "landing" else None
                 tokens_before = budget.tokens_used
                 initial_page = write_page(
                     cartridge_name=page_name, cartridges_dir=CARTRIDGES_DIR, ad_brief=ad_brief,
                     facts_pack=facts_pack, client=client, model=write_model, budget=budget, log=log,
                     word_range=word_range, allowed_cta_texts=allowed_cta_texts, revision_note=revision_note,
-                    tenant=tenant,
+                    tenant=tenant, landing_look=landing_look,
                 )
                 initial_call_tokens = budget.tokens_used - tokens_before
                 try:
@@ -320,7 +322,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
                         repair_first_model=tenant.model_for("repair_first"),
                         repair_next_model=tenant.model_for("repair_next"),
                         initial_page=initial_page, initial_call_tokens=initial_call_tokens,
-                        listicle_headline=headline_plan,
+                        listicle_headline=headline_plan, landing_look=landing_look,
                     )
                 except (ClaimsGateFailure, BudgetExceeded) as e:
                     # Same rule a fresh run follows: never write a page that failed

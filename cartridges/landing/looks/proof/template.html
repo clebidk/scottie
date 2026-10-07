@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{# Landing cartridge -- the `proof` look (cycle 85).
+
+   The open look's grammar (white page, hairlines, red accents, one pill
+   CTA, 4px radii, no cards or boxes, tokens only) with six ideas from a
+   Shopify product-page post the owner shared, 2026-10-07, in the harness's
+   terms -- every fact on it is a verified claim:
+     1. the rating + count (renderer, the verified reviews claim) is the
+        first row, above the eyebrow; one review quote (`ld.review_quote`,
+        verbatim in reviews_summary) sits under the subhead;
+     2. checkmark benefits (`ld.benefits`, writer rows with claim ids)
+        right after the first screen, a ✓ glyph on hairlines;
+     3. the trust facts under the pill (`ld.proof_trust`: free shipping,
+        warranty term, the returns term when a verified claim states one),
+        the "Text us" link under them; the financing sentence stays verbatim
+        in the price block just above;
+     4. one clean hero (ad still or cut-out); the room photo follows the
+        benefits;
+     5. an icon row (`ld.icon_row`) before the closing band: the inline line
+        icons below, 24px, stroke currentColor, no fill;
+     6. the rest of the landing page as in the open look: checked claims,
+        spec strip, FAQ, closing band, sticky bar, footer.
+   The open look's lower "Reviews" section is gone: its rating and quote are
+   now on the first screen. Class prefix `ld-`, as in the open look. #}
+{% block title %}{{ page.hero.headline }}{% endblock %}
+{% block byline %}<div class="adv-byline ld-about">{{ byline_html | safe }}</div>{% endblock %}
+{% block content %}
+{% set ld = cartridge_data %}
+{% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero and page.hero.hero_image else None %}
+{% set frame_asset = assets.get("asset-adframe") %}
+{% set room_asset = assets.get(page.room_photo.asset_id) if page.room_photo and page.room_photo.asset_id else None %}
+{% set show_room = room_asset and room_asset.kind in ld.room_kinds and not room_asset.ai_generated %}
+{% set h1_cls = "ld-h1--wide" if ld.headline_fits else "ld-h1--long" %}
+{# The look's line icons: exactly harness/landing.py's ICONS keys. #}
+{% set icons = {
+  "shipping": '<path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.75"/><circle cx="16.5" cy="17.5" r="1.75"/>',
+  "warranty": '<path d="M12 3l7 3v5.5c0 4.2-2.9 7.7-7 9.5-4.1-1.8-7-5.3-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
+  "red_light": '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  "full_spectrum": '<path d="M3 7.5c3-3 6 3 9 0s6 3 9 0"/><path d="M3 12c3-3 6 3 9 0s6 3 9 0"/><path d="M3 16.5c3-3 6 3 9 0s6 3 9 0"/>',
+  "wood": '<path d="M12 2.5l5.5 7.5h-3l4 6h-13l4-6h-3z"/><path d="M12 16v5.5"/>',
+  "us_owned": '<path d="M5 21.5v-18"/><path d="M5 4h13l-2.5 4.5L18 13H5"/>',
+  "delivery": '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M8.5 15l2.2 2 4.8-4.5"/>',
+  "assembly": '<path d="M14.5 6.2a4 4 0 0 0 5.3 5.3l-.1.1-2.6-.6-.6-2.6zM14.5 6.2a4 4 0 0 0-5 5.1L3.5 17.3a1.9 1.9 0 0 0 2.7 2.7l6-6a4 4 0 0 0 5.1-5"/>'
+} %}
+<style>
+.adv-wrap:has(.adv-landing){max-width:none;padding-left:0;padding-right:0}
+.adv-wrap:has(.adv-landing) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.adv-landing{
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted-alt,var(--ps-muted,var(--adv-muted)));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-red:var(--ps-red,var(--ps-accent-hover,var(--adv-accent)));
+  --pk-line:var(--ps-hairline,var(--ps-border,var(--adv-border)));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-heading:var(--ps-heading,var(--pk-sans));
+  --pk-display-wide:var(--ps-display-wide,var(--pk-heading));
+  --pk-radius:var(--ps-radius-box,4px);
+  --pk-max:var(--ps-max-width,1320px);
+  --pk-gap:48px;
+  background:var(--pk-bg);
+  color:var(--pk-body);
+  font-family:var(--pk-sans);
+  font-size:16.5px;
+  line-height:1.55;
+}
+.adv-landing.pk-lp{display:block}
+.adv-landing p{color:var(--pk-body)}
+.adv-landing .ld-c{max-width:var(--pk-max);margin:0 auto;padding:0 16px}
+.adv-landing .ld-narrow{max-width:720px;margin:0 auto;padding:0 16px}
+.adv-landing .ld-about{margin-top:0}
+.adv-landing .ld-eyebrow{font:500 11.5px/1.4 var(--pk-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--pk-muted);margin:0}
+.adv-landing .ld-eyebrow span{padding:0 6px}
+.adv-landing .ld-label{font:500 11.5px/1.3 var(--pk-sans);letter-spacing:.18em;text-transform:uppercase;color:var(--pk-muted);margin:0 0 10px}
+.adv-landing .ld-accent{color:var(--pk-red)}
+.adv-landing .ld-h2{font:600 25px/1.18 var(--pk-heading);letter-spacing:-.015em;margin:0 0 20px;color:var(--pk-ink);text-wrap:balance}
+/* first screen */
+.adv-landing .ld-hero{padding:20px 0 0}
+.adv-landing .ld-hero-text{padding:0 16px}
+/* The display face must beat the tenant's live-theme heading rule
+   (brand/base.css sets every h1 to the heading face with !important), so
+   these carry !important and a doubled class, as in the listicle look. */
+.adv-landing .ld-h1.ld-h1--wide{margin:10px 0 0;color:var(--pk-ink);font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:29px!important;line-height:1.08!important;letter-spacing:.02em!important;text-transform:uppercase!important;text-wrap:balance}
+.adv-landing .ld-h1.ld-h1--long{margin:10px 0 0;color:var(--pk-ink);font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:24px!important;line-height:1.15!important;letter-spacing:0!important;text-wrap:balance}
+.adv-landing .ld-dek{font-size:17px;line-height:1.5;margin:12px 0 0;max-width:40ch;text-wrap:pretty}
+.adv-landing .ld-price{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--pk-line)}
+.adv-landing .ld-price b{display:block;font:400 30px/1 var(--pk-display-wide);letter-spacing:.01em;color:var(--pk-ink)}
+.adv-landing .ld-price span{display:block;margin-top:6px;font-size:13.5px;line-height:1.45;color:var(--pk-muted)}
+.adv-landing .ld-act{display:flex;flex-direction:column;align-items:stretch;gap:4px;margin:16px 0 0}
+.adv-landing .ld-btn{display:flex;align-items:center;justify-content:center;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:var(--ps-radius-btn,999px);padding:16px 32px;min-height:52px;font:600 16px var(--pk-heading);text-decoration:none;text-align:center}
+.adv-landing .ld-btn:hover{background:var(--pk-red)}
+.adv-landing .ld-text{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 8px;font-size:15px;color:var(--pk-muted);text-decoration:underline;text-underline-offset:3px}
+.adv-landing .ld-text:hover{color:var(--pk-red)}
+.adv-landing .ld-trust{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 0;font-size:12.5px;line-height:1.5;color:var(--pk-muted)}
+.adv-landing .ld-trust li+li::before{content:"\00b7";padding:0 8px}
+.adv-landing .ld-visual{margin:24px 0 0}
+.adv-landing .ld-visual .adv-img{width:100%;margin:0;border-radius:0}
+.adv-landing .ld-visual--still .adv-img{object-fit:cover;object-position:var(--ld-pos,50% 30%)}
+.adv-landing .ld-visual figcaption{padding:12px 16px 0;font:500 16.5px/1.4 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-visual figcaption small{display:block;margin-top:4px;font:400 12.5px var(--pk-sans);color:var(--pk-muted)}
+.adv-landing .ld-visual--cut{padding:0 16px;text-align:center}
+.adv-landing .ld-visual--cut .adv-img{width:auto;max-width:100%;max-height:300px;margin:0 auto;background:transparent}
+/* sections */
+.adv-landing .ld-sec{padding:var(--pk-gap) 0 0}
+.adv-landing .ld-checks{list-style:none;margin:0;padding:0}
+.adv-landing .ld-check{display:grid;grid-template-columns:34px 1fr;gap:0 10px;padding:16px 0;border-top:1px solid var(--pk-line)}
+.adv-landing .ld-check:last-child{border-bottom:1px solid var(--pk-line)}
+.adv-landing .ld-num{font:600 14px/1.6 var(--pk-heading);color:var(--pk-red);letter-spacing:.06em}
+.adv-landing .ld-said{margin:0;font-size:14px;line-height:1.45;color:var(--pk-muted)}
+.adv-landing .ld-said span{display:block;font:500 10.5px/1.6 var(--pk-sans);letter-spacing:.16em;text-transform:uppercase}
+.adv-landing .ld-fact{margin:6px 0 0;font-weight:500;color:var(--pk-ink);max-width:65ch}
+.adv-landing .ld-room{margin:0}
+.adv-landing .ld-room .adv-img{width:100%;border-radius:var(--pk-radius)}
+.adv-landing .ld-room .ld-cover{object-fit:cover}
+.adv-landing .ld-specs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px}
+.adv-landing .ld-spec{border-top:2px solid var(--pk-red);padding-top:10px;min-width:0}
+.adv-landing .ld-spec b{display:block;font:600 19px/1.2 var(--pk-heading);color:var(--pk-ink);overflow-wrap:anywhere}
+.adv-landing .ld-spec span{display:block;margin-top:6px;font:500 10.5px/1.35 var(--pk-sans);letter-spacing:.14em;text-transform:uppercase;color:var(--pk-muted)}
+.adv-landing .ld-qa{padding:16px 0;border-top:1px solid var(--pk-line)}
+.adv-landing .ld-qa:last-child{border-bottom:1px solid var(--pk-line)}
+.adv-landing .ld-qa h3{margin:0 0 6px;font:600 16.5px/1.35 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-qa p{margin:0;max-width:65ch}
+/* the one dark band */
+.adv-landing .ld-close{background:var(--pk-dark);text-align:center;padding:56px 16px 64px;margin-top:var(--pk-gap)}
+.adv-landing .ld-close .ld-label{color:var(--pk-on-dark);opacity:.7}
+.adv-landing .ld-close .ld-h2{color:var(--pk-on-dark);font-size:28px;max-width:20ch;margin:8px auto 24px}
+.adv-landing .ld-close .ld-btn{display:inline-flex;background:var(--pk-on-dark);color:var(--pk-dark)}
+.adv-landing .ld-close .ld-btn:hover{background:var(--pk-red);color:var(--pk-on-dark)}
+.adv-landing .ld-close .ld-fine{margin:14px auto 0;max-width:52ch;font-size:13px;line-height:1.5;color:var(--pk-on-dark);opacity:.72}
+/* sticky bar: price + the pill, after the first screen scrolls out */
+.adv-landing .ld-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));background:var(--pk-bg);border-top:1px solid var(--pk-line);transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility .25s}
+.adv-landing .ld-bar.ld-bar--on{transform:none;visibility:visible}
+.adv-landing .ld-bar b{font:400 19px/1 var(--pk-display-wide);color:var(--pk-ink);white-space:nowrap}
+.adv-landing .ld-bar .ld-btn.ld-btn{min-height:44px!important;padding:10px 22px!important;font-size:15px!important}
+.adv-case-upper .adv-landing .ld-h2{text-transform:uppercase}
+/* cycle 85, proof look: rating first, quote, trust under the pill */
+.adv-landing .ld-stars{margin:0 0 10px;font-size:14px;line-height:1.4;color:var(--pk-ink)}
+.adv-landing .ld-stars span{color:var(--pk-red);padding-right:6px}
+.adv-landing .ld-stars b{font-weight:600}
+.adv-landing .ld-hq{margin:14px 0 0;padding:10px 0 0 14px;border-left:2px solid var(--pk-red);max-width:44ch}
+.adv-landing .ld-hq p{margin:0;font:500 15.5px/1.45 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-hq .ld-who{margin:4px 0 0;font:400 12.5px/1.4 var(--pk-sans);color:var(--pk-muted)}
+.adv-landing .ld-act--proof{gap:0}
+.adv-landing .ld-act--proof .ld-trust{margin:10px 0 0}
+.adv-landing .ld-act--proof .ld-text{align-self:center}
+/* checkmark benefits on hairlines */
+.adv-landing .ld-sec--first{padding-top:32px}
+.adv-landing .ld-benefits{list-style:none;margin:0;padding:0}
+.adv-landing .ld-benefit{display:grid;grid-template-columns:28px 1fr;align-items:baseline;gap:0 8px;padding:12px 0;border-top:1px solid var(--pk-line);font-weight:500;color:var(--pk-ink)}
+.adv-landing .ld-benefit:last-child{border-bottom:1px solid var(--pk-line)}
+.adv-landing .ld-tick{font:600 17px/1 var(--pk-sans);color:var(--pk-red)}
+.adv-landing .ld-room--after{margin-top:24px}
+/* icon row */
+.adv-landing .ld-icons{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px}
+.adv-landing .ld-icon{border-top:1px solid var(--pk-line);padding-top:14px;min-width:0;color:var(--pk-ink)}
+.adv-landing .ld-icon svg{display:block;width:24px;height:24px;color:var(--pk-red)}
+.adv-landing .ld-icon span{display:block;margin-top:10px;font:600 14px/1.3 var(--pk-heading);overflow-wrap:anywhere}
+@media (min-width:768px){
+  .adv-landing{--pk-gap:72px;font-size:17px}
+  .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
+  .adv-landing .ld-c,.adv-landing .ld-hero-text{padding-left:32px;padding-right:32px}
+  .adv-landing .ld-h1.ld-h1--wide{font-size:44px!important}
+  .adv-landing .ld-h1.ld-h1--long{font-size:34px!important}
+  .adv-landing .ld-act{flex-direction:row;align-items:center;gap:16px}
+  .adv-landing .ld-act.ld-act--proof{flex-direction:column;align-items:flex-start;gap:0}
+  .adv-landing .ld-act--proof .ld-text{align-self:flex-start;padding-left:0}
+  .adv-landing .ld-icons{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+  .adv-landing .ld-trust{justify-content:flex-start}
+  .adv-landing .ld-visual--still{max-width:520px;margin-left:32px}
+  .adv-landing .ld-visual--still .adv-img{border-radius:var(--pk-radius)}
+  .adv-landing .ld-visual figcaption{padding-left:0;padding-right:0}
+  .adv-landing .ld-specs{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+  .adv-landing .ld-h2{font-size:32px}
+  .adv-landing .ld-close .ld-h2{font-size:40px}
+  .adv-landing .ld-bar{justify-content:center;gap:24px}
+}
+@media (min-width:1024px){
+  .adv-landing .ld-hero{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:56px;align-items:center;max-width:var(--pk-max);margin:0 auto;padding:56px 32px 0}
+  .adv-landing .ld-hero-text{padding:0}
+  .adv-landing .ld-h1.ld-h1--wide{font-size:54px!important}
+  .adv-landing .ld-h1.ld-h1--long{font-size:40px!important}
+  .adv-landing .ld-dek{font-size:19px}
+  .adv-landing .ld-visual,.adv-landing .ld-visual--still{margin:0;max-width:none}
+  .adv-landing .ld-visual--cut .adv-img{max-height:520px}
+  .adv-landing .ld-checks{display:grid;grid-template-columns:1fr 1fr;column-gap:56px}
+  .adv-landing .ld-benefits{display:grid;grid-template-columns:1fr 1fr;column-gap:56px}
+  .adv-landing .ld-benefit:nth-last-child(2){border-bottom:1px solid var(--pk-line)}
+  .adv-landing .ld-check:nth-last-child(2){border-bottom:1px solid var(--pk-line)}
+  .adv-landing .ld-close{padding:96px 32px 104px}
+}
+</style>
+<div class="pk-lp adv-landing">
+
+  <header class="ld-hero">
+    <div class="ld-hero-text">
+      {% if ld.rating %}<p class="ld-stars"><span aria-hidden="true">★</span><b>{{ ld.rating.value }}</b> {{ ld.rating.label }}</p>{% endif %}
+      {% if disclosure_label or ld.eyebrow %}<p class="ld-eyebrow">{{ disclosure_label }}{% if disclosure_label and ld.eyebrow %}<span aria-hidden="true">&middot;</span>{% endif %}{{ ld.eyebrow }}</p>{% endif %}
+      <h1 class="ld-h1 {{ h1_cls }}">{{ ld.headline_html }}</h1>
+      {% if page.hero.subhead %}<p class="ld-dek">{{ page.hero.subhead }}</p>{% endif %}
+      {% if ld.review_quote %}<blockquote class="ld-hq"><p>&ldquo;{{ ld.review_quote.text }}&rdquo;</p>{% if ld.review_quote.author %}<p class="ld-who">{{ ld.review_quote.author }}</p>{% endif %}</blockquote>{% endif %}
+      {% if ld.price or ld.financing %}
+      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
+      {% endif %}
+      <div class="ld-act ld-act--proof">
+        <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+        {% if ld.proof_trust %}<ul class="ld-trust">{% for t in ld.proof_trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}
+        {% if ld.secondary %}<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>{% endif %}
+      </div>
+    </div>
+    {% if frame_asset %}
+    <figure class="ld-visual ld-visual--still" style="--ld-pos:{{ ld.frame.object_position if ld.frame and ld.frame.object_position else '50% 30%' }}">
+      {{ render_image_slot(frame_asset, hero=True, frame="4x5") }}
+      {% if ld.quote %}<figcaption>&ldquo;{{ ld.quote.text }}&rdquo;<small>{{ ld.made_for }}</small></figcaption>{% endif %}
+    </figure>
+    {% elif hero_asset %}
+    <figure class="ld-visual ld-visual--cut">{{ render_image_slot(hero_asset, hero=True) }}</figure>
+    {% endif %}
+  </header>
+
+  {% if ld.benefits or show_room %}
+  <section class="ld-sec ld-sec--first">
+    <div class="ld-c">
+      {% if ld.benefits %}
+      <ul class="ld-benefits">
+        {% for b in ld.benefits %}<li class="ld-benefit"><span class="ld-tick" aria-hidden="true">✓</span><span>{{ b.text }}</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if show_room %}<figure class="ld-room{{ ' ld-room--after' if ld.benefits else '' }}">{{ render_image_slot(room_asset, frame="4x3", css_class="ld-cover") }}</figure>{% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.checked_claims %}
+  <section class="ld-sec">
+    <div class="ld-c">
+      <p class="ld-label">The ad, checked</p>
+      <h2 class="ld-h2">What the ad said, and what the facts say</h2>
+      <ol class="ld-checks">
+        {% for item in page.checked_claims %}
+        <li class="ld-check">
+          <span class="ld-num">{{ "%02d" | format(loop.index) }}</span>
+          <div>
+            <p class="ld-said"><span>The ad said</span>{{ item.ad_said }}</p>
+            <p class="ld-fact">{{ item.fact }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if ld.specs %}
+  <section class="ld-sec">
+    <div class="ld-c">
+      <p class="ld-label">At a glance</p>
+      <ul class="ld-specs">
+        {% for s in ld.specs %}<li class="ld-spec"><b>{{ s.value }}</b><span>{{ s.label }}</span></li>{% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if page.faq and page.faq.questions %}
+  <section class="ld-sec">
+    <div class="ld-narrow">
+      <h2 class="ld-h2">Questions before you buy</h2>
+      {% for entry in page.faq.questions %}
+      <div class="ld-qa"><h3>{{ entry.question }}</h3><p>{{ entry.answer }}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if ld.icon_row %}
+  <section class="ld-sec">
+    <div class="ld-c">
+      <ul class="ld-icons">
+        {% for c in ld.icon_row %}<li class="ld-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{{ icons[c.icon_key] | safe }}</svg><span>{{ c.label }}</span></li>{% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="ld-close">
+    <p class="ld-label">{{ product.full_name or product.name }}</p>
+    <h2 class="ld-h2">{{ page.closing.headline }}</h2>
+    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    {% if ld.financing %}<p class="ld-fine">{{ ld.financing }}</p>{% endif %}
+    {% if ld.warranty %}<p class="ld-fine">{{ ld.warranty.text }}</p>{% endif %}
+  </section>
+
+  <div class="ld-bar">
+    {% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}
+    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+  </div>
+</div>
+<script>
+(function(){var h=document.querySelector(".adv-landing .ld-hero"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
+</script>
+{% endblock %}

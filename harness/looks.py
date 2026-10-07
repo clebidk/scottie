@@ -35,12 +35,17 @@ CARTRIDGE_LOOKS = {
     # tenant that pins nothing renders exactly as before; a tenant opts in
     # with tenant.yaml `cartridges.longform.looks: [open]`.
     "longform": ("open", "classic"),
+    # Cycle 85: the landing page's "proof" look (rating first, checkmark
+    # benefits, trust facts under the CTA, icon row). The default stays
+    # "open", the one look landing had before.
+    "landing": ("open", "proof"),
 }
 
 DEFAULT_LOOKS = {
     "listicle": listicle.DEFAULT_LOOK,
     "product-page": "pdp",
     "longform": "classic",
+    "landing": "open",
 }
 
 

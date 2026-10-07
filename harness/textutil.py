@@ -21,7 +21,10 @@ import re
 # Cycle 54: "gallery_order" is the product-page pdp look's optional list of
 # asset id strings -- ids, never prose (an id can carry a product handle's
 # own words, which the forbidden-term scan must not read as copy).
-NON_PROSE_KEYS = frozenset({"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku", "gallery_order"})
+# Cycle 85: "icon_key" is the landing proof look's icon name ("red_light"),
+# a key into a fixed set, never copy and never counted as a word.
+NON_PROSE_KEYS = frozenset({"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku", "gallery_order",
+                            "icon_key"})
 
 # "$8,250" / "$ 8250.00" -- the dollar figure itself is group 1, without the
 # sign, so a caller can float() it after stripping commas.
