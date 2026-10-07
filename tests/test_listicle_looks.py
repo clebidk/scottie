@@ -298,7 +298,8 @@ def test_rerender_leaves_the_approval_state_alone(run_dir):
 
 
 def test_rerender_look_is_refused_for_another_cartridge(run_dir, capsys):
-    (run_dir / "longform").mkdir()
-    (run_dir / "longform" / "page.json").write_text("{}")
-    assert cli.cmd_rerender(_args(run_dir, page="longform", look="open")) == 1
+    # cycle 82: longform has looks now; the article cartridge has none
+    (run_dir / "article").mkdir()
+    (run_dir / "article" / "page.json").write_text("{}")
+    assert cli.cmd_rerender(_args(run_dir, page="article", look="open")) == 1
     assert "--look applies to a cartridge with looks" in capsys.readouterr().err

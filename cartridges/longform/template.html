@@ -1,103 +1,20 @@
-{% extends "base.html" %}
-{% block title %}{{ page.hero.headline }}{% endblock %}
-{% block byline %}<div class="adv-byline">{{ byline_html | safe }}</div>{% endblock %}
-{% block content %}
-{% set _tagline_block = block_choice("tagline", "tagline-reveal") %}
-<style>{% include _tagline_block ~ "/block.css" ignore missing %}</style>
-<div class="adv-longform">
-  <header>
-    {% if disclosure_label %}<span class="adv-badge">{{ disclosure_label }}</span>{% endif %}
-    {% if logo_url %}<img src="{{ logo_url }}" alt="{{ tenant_name }} logo" class="adv-brand-logo"{% if logo_w %} width="{{ logo_w }}" height="{{ logo_h }}"{% endif %}>{% endif %}
-  </header>
+{# Longform cartridge -- LOOK dispatcher (cycle 82).
 
-  <section class="adv-hero">
-    {% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero.hero_image else None %}
-    {{ render_image_slot(hero_asset, hero=True, css_class="adv-hero-image") }}
-    <h1>{{ page.hero.headline }}</h1>
-    <p class="adv-dek">{{ page.hero.subhead }}</p>
-    {% if page.hero.proof_stats %}
-    {% with stats=page.hero.proof_stats %}{% include block_choice("proof", "proof-stat-row") ~ "/block.html" %}{% endwith %}
-    {% endif %}
-    {% if page.hero.financing_line %}
-      {% if product.financing and product.financing.lender %}
-      <p class="adv-financing">{{ page.hero.financing_line.text }}</p>
-      {% else %}
-      <p class="adv-financing">Financing available</p>
-      {% endif %}
-    {% endif %}
-    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
-  </section>
+   Same mechanism as the listicle (cycle 51) and the product page (cycle 54):
+   `look` fixes the LAYOUT, never the copy. Both looks consume the same
+   page.json (schema.json is unchanged).
 
-  {% if page.tagline %}
-  {% with lines=page.tagline.lines %}{% include _tagline_block ~ "/block.html" %}{% endwith %}
-  {% endif %}
+     open     -- the cycle 79 design language (the listicle's approved
+                 boxless look) as a landing page that leads with the ad: its
+                 still or the product cut-out, its own quote, the accent
+                 span, one pill CTA, the stats strip from verified claims.
+     classic  -- the longform template before cycle 82, unchanged.
 
-  <section class="adv-problem">
-    <h2>{{ page.problem.heading }}</h2>
-    {% for p in page.problem.paragraphs %}
-    <p>{{ p.text }}</p>
-    {% endfor %}
-  </section>
-
-  <section class="adv-how-it-works">
-    <h2>{{ page.how_it_works.heading }}</h2>
-    {% for step in page.how_it_works.steps %}
-    <div class="adv-step">
-      {% set step_asset = assets.get(step.image.asset_id) if step.image else None %}
-      {{ render_image_slot(step_asset) }}
-      <h3>{{ step.title }}</h3>
-      <p>{{ step.text }}</p>
-    </div>
-    {% endfor %}
-  </section>
-
-  <section class="adv-specs-proof">
-    <table class="adv-specs">
-      <tbody>
-        {% for row in page.specs_and_proof.specs_table %}
-        <tr><th>{{ row.label }}</th><td>{{ row.value }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% for pt in page.specs_and_proof.proof_points %}
-    <p>{{ pt.text }}</p>
-    {% endfor %}
-  </section>
-
-  <section class="adv-social-proof">
-    {% if facts_pack.reviews_summary and page.social_proof.reviews_summary %}<p>{{ page.social_proof.reviews_summary.text }}</p>{% endif %}
-    {% if page.social_proof.quotes %}
-    <ul class="adv-quotes">
-      {% for q in page.social_proof.quotes %}<li>&ldquo;{{ q }}&rdquo;</li>{% endfor %}
-    </ul>
-    {% endif %}
-  </section>
-
-  <section class="adv-faq">
-    <h2>Frequently asked questions</h2>
-    {% for item in page.faq.questions %}
-    <div class="adv-faq-item">
-      <h3>{{ item.question }}</h3>
-      <p>{{ item.text }}</p>
-    </div>
-    {% endfor %}
-  </section>
-
-  <section class="adv-final-cta">
-    <h2>{{ page.final_cta.headline }}</h2>
-    <p><a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
-    {% if page.final_cta.financing_line %}
-      {% if product.financing and product.financing.lender %}
-      <p class="adv-financing">{{ page.final_cta.financing_line.text }}</p>
-      {% else %}
-      <p class="adv-financing">Financing available</p>
-      {% endif %}
-    {% endif %}
-    {% if page.final_cta.warranty_line %}<p class="adv-warranty">{{ page.final_cta.warranty_line.text }}</p>{% endif %}
-  </section>
-</div>
-
-<div class="adv-sticky-cta">
-  <a class="adv-cta" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-</div>
-{% endblock %}
+   `look` is resolved in Python, once, before this template runs
+   (harness/looks.py's resolve_look: an explicit --look flag or page.json's
+   own "look", else the tenant's pinned looks, else "classic"), and is
+   always one of harness/looks.py's CARTRIDGE_LOOKS["longform"], so the path
+   built here can never escape the looks folder. This comment strips the
+   whitespace after it, so a classic page stays byte-identical to the page
+   the pre-cycle-82 template rendered. -#}
+{% extends "looks/" ~ (look or "classic") ~ "/template.html" %}

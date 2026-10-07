@@ -103,6 +103,7 @@ _HEADLINE_FIELDS = {
     "comparison": lambda page: page.get("headline"),
     "quiz": lambda page: page.get("headline"),
     "longform": lambda page: (page.get("hero") or {}).get("headline"),
+    "landing": lambda page: (page.get("hero") or {}).get("headline"),
     "product-page": lambda page: (page.get("hero") or {}).get("promise"),
 }
 
@@ -112,6 +113,7 @@ _HEADLINE_PATHS = {
     "comparison": "$.headline",
     "quiz": "$.headline",
     "longform": "$.hero.headline",
+    "landing": "$.hero.headline",
     "product-page": "$.hero.promise",
 }
 
@@ -163,7 +165,7 @@ def _above_fold_subtrees(page, cartridge_name):
     definition for this cartridge", distinct from an empty region. Cycle
     56: comparison's header is the same stack as listicle's (headline, dek,
     hero, one CTA to the page's single cta_url)."""
-    if cartridge_name in ("product-page", "longform"):
+    if cartridge_name in ("product-page", "longform", "landing"):
         return page.get("cta_url"), [page.get("hero")]
     if cartridge_name == "article":
         open_list = page.get("open") or []

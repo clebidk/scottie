@@ -77,6 +77,9 @@ Shopify-body-derived claims, budgeted repair loop, renderer with byline/disclosu
 - **Quiz and comparison cartridges** -- `cartridges/` holds `article`, `longform`, `product-page`,
   and `listicle` (opt-in); styles 4 and 5 from `tenants/peak-saunas/brand/NOTES.md` are
   `[NEEDS INPUT]`/unbuilt, matching `docs/SPEC.md`'s "Friday set: 1, 2, 3."
+- **Landing cartridge (cycle 82)** -- `cartridges/landing/` + `harness/landing.py` (renderer
+  context and gate), opt-in with `--cartridges landing`, not in any `default_cartridge_pool`. The
+  longform cartridge has looks since cycle 82: `open` (peak-saunas default) and `classic`.
 - **The non-pipeline workflows** -- `workflows/sweep.yaml`, `score.yaml`, and `packet.yaml` describe
   real work but their steps are keyed `action:`; `harness/workflows.py` executes only `stage:` steps,
   so running one of those exits 1 with "runs no pipeline stages" rather than pretending.

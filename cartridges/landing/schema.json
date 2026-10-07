@@ -1,0 +1,96 @@
+{
+  "type": "object",
+  "allowed_cta_texts": [
+    "See pricing",
+    "Shop the {short_name}",
+    "Shop the {model_name}"
+  ],
+  "headline_word_band": [6, 12],
+  "required": [
+    "cta_text",
+    "cta_url",
+    "hero",
+    "checked_claims",
+    "faq",
+    "closing"
+  ],
+  "properties": {
+    "cta_text": {
+      "type": "string",
+      "description": "The ONE CTA phrase, one of allowed_cta_texts. The renderer reuses it verbatim in the first screen, the closing band and the sticky bar."
+    },
+    "cta_url": {
+      "type": "string",
+      "description": "The ONE CTA destination. No other url, link, button or phone field may appear anywhere in page.json (gate landing:second_cta)."
+    },
+    "hero": {
+      "type": "object",
+      "properties": {
+        "eyebrow": {"type": "string", "description": "The ad's hook in at most 6 words, no number."},
+        "headline": {"type": "string", "description": "6-12 words, from the ad's angle."},
+        "accent_phrase": {"type": "string", "description": "1-4 words copied exactly from headline; shown in brand red."},
+        "subhead": {"type": "string", "description": "The ad's promise in plain words, at most 25 words."},
+        "hero_image": {
+          "type": "object",
+          "description": "Fallback product photo; the ad still (when the run has one) or the product cut-out is shown first.",
+          "properties": {"asset_id": {"type": "string"}}
+        }
+      }
+    },
+    "checked_claims": {
+      "type": "array",
+      "description": "4-6 items: what the ad said, and the verified fact behind it. Cover electrical requirement, footprint, delivery, assembly, warranty where facts exist. At least 3 items cite a product spec or benefit claim.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ad_said": {"type": "string", "description": "What the ad said or implied, at most 14 words."},
+          "fact": {"type": "string", "description": "The verified statement, at most 30 words."},
+          "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims."}
+        }
+      }
+    },
+    "room_photo": {
+      "type": "object",
+      "description": "Optional: one photo of the product in a real room (asset kind lifestyle/installation). Omit when facts_pack has none -- never a render.",
+      "properties": {"asset_id": {"type": "string"}}
+    },
+    "proof": {
+      "type": "object",
+      "description": "Optional. The rating is rendered from facts_pack; quote only if it exists verbatim in facts_pack.reviews_summary.",
+      "properties": {
+        "quote": {
+          "type": "object",
+          "properties": {
+            "text": {"type": "string"},
+            "author": {"type": "string"},
+            "claim_ids": {"type": "array"}
+          }
+        }
+      }
+    },
+    "faq": {
+      "type": "object",
+      "properties": {
+        "questions": {
+          "type": "array",
+          "description": "3-5 entries from the ad's objections and buyer logistics. Question <= 12 words; answer first, <= 35 words; claim_ids on any number, price, spec or trigger word.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": {"type": "string"},
+              "answer": {"type": "string"},
+              "claim_ids": {"type": "array"}
+            }
+          }
+        }
+      }
+    },
+    "closing": {
+      "type": "object",
+      "description": "The closing band. The renderer adds the CTA pill and the financing and warranty sentences.",
+      "properties": {
+        "headline": {"type": "string", "description": "At most 10 words."}
+      }
+    }
+  }
+}

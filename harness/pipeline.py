@@ -207,6 +207,9 @@ def prepare_run(state):
     state.product_page_look = looks.resolve_look(
         "product-page", looks.requested_for("product-page", requested_look), tenant=tenant
     )
+    state.longform_look = looks.resolve_look(
+        "longform", looks.requested_for("longform", requested_look), tenant=tenant
+    )
     if requested_look and not any(looks.requested_for(c, requested_look) for c in selected):
         state.log.event("run", f"--look {requested_look!r} is not a look of any selected cartridge; ignored")
     if "listicle" in selected:
@@ -214,6 +217,8 @@ def prepare_run(state):
         state.log.event("run", f"listicle look: {state.listicle_look}")
     if "product-page" in selected:
         state.log.event("run", f"product-page look: {state.product_page_look}")
+    if "longform" in selected:
+        state.log.event("run", f"longform look: {state.longform_look}")
     # Cycle 76: best-of-N listicle drafts judged by Jev (tenant.yaml `jev`).
     # With --batch, every draft's first write goes in the one Message Batch.
     state.drafts = jev.drafts_for_run(tenant, selected)
@@ -615,6 +620,20 @@ def render_pages(state):
 
         state.pages["product-page"]["look"] = state.product_page_look
         runstate.record_look(state.run_dir, "product-page", state.product_page_look)
+    # Cycle 82: the longform look, stamped and recorded the same way; the
+    # `open` look leads with the ad still, made here (as for a listicle).
+    if "longform" in state.pages and getattr(state, "longform_look", None):
+        from . import first_screen, runstate
+
+        state.pages["longform"]["look"] = state.longform_look
+        runstate.record_look(state.run_dir, "longform", state.longform_look)
+        if state.longform_look == "open":
+            first_screen.build_ad_still(state)
+    # Cycle 82: the landing page leads with the ad still too.
+    if "landing" in state.pages:
+        from . import first_screen
+
+        first_screen.build_ad_still(state)
 
     # Cycle 79: the listicle's ad still and first-screen style.
     if "listicle" in state.pages:

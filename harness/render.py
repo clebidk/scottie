@@ -30,6 +30,7 @@ from . import listicle as listicle_mod
 from . import looks as looks_mod
 from . import pagechecks
 from . import quiz as quiz_mod
+from . import landing as landing_mod
 from . import pdp as pdp_mod
 from . import quote_fidelity
 from . import tenant as tenant_mod
@@ -315,7 +316,7 @@ def build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=N
             if q and a:
                 mains.append({"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}})
         return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": mains}
-    if cartridge_name in ("comparison", "quiz"):
+    if cartridge_name in ("comparison", "quiz", "landing"):
         # Kimi long-run phase 6: same FAQPage shape as longform, but the
         # comparison schema's faq items are {question, answer} (the
         # faq-accordion block's binding names).
@@ -877,6 +878,7 @@ _PRODUCT_HERO_PATHS = {
     "listicle": ("hero",),
     "quiz": ("hero",),
     "longform": ("hero", "hero_image"),
+    "landing": ("hero", "hero_image"),
     "product-page": ("hero", "hero_image"),
 }
 
@@ -1167,6 +1169,52 @@ def render_page(
             if log:
                 log.event("render", f"{e}; falling back to {look!r}")
 
+    # Cycle 82: the longform `open` look leads with the ad -- the same
+    # first-screen context the listicle gets (harness/first_screen.py): the
+    # ad still when the run has one, else the product cut-out already in the
+    # hero slot; the ad's own quote, the accent span, the byline and the
+    # stats strip from verified claims. Their claim ids join Sources.
+    if cartridge_name == "longform" and look == "open":
+        frame_record = ad_frames.load(run_dir)
+        frame_asset = ad_frames.page_assets(run_dir).get(ad_frames.FRAME_ID)
+        if frame_asset:   # the still only; this look has no round avatar
+            assets_by_id[ad_frames.FRAME_ID] = dict(frame_asset)
+        first_screen = first_screen_mod.longform_context(
+            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, frame=frame_record, updated=updated,
+        )
+        used_claim_ids |= first_screen["claim_ids"]
+        sources = build_sources_list(
+            used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
+        )
+        # each proof point's own citation, from the same Sources rule
+        first_screen["proof_sources"] = [
+            build_sources_list(
+                set((pt.get("claim_ids") if isinstance(pt, dict) else None) or []), verified_by_id,
+                product_name=product_name, product_url=product.get("url"), tenant=tenant,
+            )
+            for pt in ((page.get("specs_and_proof") or {}).get("proof_points") or [])
+        ]
+
+    # Cycle 82: the landing cartridge (harness/landing.py). Its price,
+    # financing, trust line, spec strip, rating and secondary link come from
+    # facts_pack and tenant.yaml only; the ad still leads when the run has
+    # one. Their claim ids join Sources.
+    landing_context = None
+    if cartridge_name == "landing":
+        frame_record = ad_frames.load(run_dir)
+        frame_asset = ad_frames.page_assets(run_dir).get(ad_frames.FRAME_ID)
+        if frame_asset:
+            assets_by_id[ad_frames.FRAME_ID] = dict(frame_asset)
+        landing_context = landing_mod.render_context(page, facts_pack, ad_brief=ad_brief, tenant=tenant)
+        pronoun = first_screen_mod.speaker_pronoun(ad_brief=ad_brief, frame=frame_record, tenant=tenant)
+        landing_context["frame"] = frame_record
+        landing_context["made_for"] = (f"In the ad {pronoun} made for {tenant.display_name}" if pronoun
+                                       else f"From the creator's ad for {tenant.display_name}")
+        used_claim_ids |= landing_context["claim_ids"]
+        sources = build_sources_list(
+            used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
+        )
+
     # Cycle 54: the product-page `pdp` look's gallery (the product's own
     # storefront images) and the promise band's one image, chosen from the
     # page's FINAL asset picks (after the slot plan and the paragraph-image
@@ -1237,6 +1285,8 @@ def render_page(
         cartridge_data = comparison_context
     if quiz_data is not None:
         cartridge_data = quiz_data
+    if landing_context is not None:
+        cartridge_data = landing_context
 
     # Cycle 54: the product-page `pdp` look's renderer-owned sections, the
     # same "from facts_pack alone" rule (harness/pdp.py). The claims they

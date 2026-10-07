@@ -214,7 +214,8 @@ def test_longform_proof_row_renders_through_the_block(tmp_path):
     markup, and the writer's recorded pick renders when present."""
     from harness.render import render_page as _render_page
 
-    page_with_stats = dict(LONGFORM_PAGE, hero=dict(LONGFORM_PAGE["hero"], proof_stats=[
+    # cycle 82: the block slots belong to the classic longform look
+    page_with_stats = dict(LONGFORM_PAGE, look="classic", hero=dict(LONGFORM_PAGE["hero"], proof_stats=[
         {"value": "4.8/5", "label": "from 1,200+ reviews", "claim_ids": ["reviews-live"]},
         {"value": "Free", "label": "shipping, always", "claim_ids": ["shipping-policy"]},
     ]))

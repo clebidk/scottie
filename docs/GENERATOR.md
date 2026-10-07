@@ -260,6 +260,40 @@ out. A separate section, **Ad statements about alternatives (not repeated)**, li
 claims about a competing/comparison option; these are never checked against anything and
 never stop a run under either policy, shown purely for visibility.
 
+## The landing cartridge (opt-in, cycle 82)
+
+`--cartridges landing` builds a short, ad-first page for a high-price product, designed for
+a 390px phone first (PEAK: about 74% of traffic is mobile, 22 s average visit, 13% scroll
+depth). The first two thumb-scrolls answer what it is, what it costs and what the ad's
+claims mean; then one next step. Order: first screen (eyebrow, headline with one red accent
+span, subhead, price + financing sentence, the CTA pill, the tenant's secondary text link,
+a small trust line, then the ad's still or the product cut-out) -> checked claims ("The ad
+said" + the verified fact, 4-6, each with claim ids) -> one real-room photo + a 4-cell spec
+strip -> rating and an optional verbatim review quote -> 3-5 FAQs (FAQPage JSON-LD) -> the
+Basalt closing band -> a sticky price + CTA bar once the first screen has scrolled out.
+250-450 model-written words.
+
+The model never types a number the page shows. `harness/landing.py` `render_context`
+builds the price (the `price-<model>` claim), the fixed financing and warranty sentences,
+the trust line (rating, free shipping, warranty term), the spec strip (facts_pack.specs in
+`SPEC_PRIORITY` order: capacity, max temperature, infrared, material, electrical,
+dimensions) and the secondary link from tenant.yaml `cartridges.landing.secondary_cta`:
+`{text, url}` or `{text, sms, body}` (an `sms:<E.164>?&body=` link that opens the phone's
+Messages app; `{product_name}` in the body is the product's full name). That link is a
+text link (`ld-text`), not a button, and not in `abtest.CTA_CLASSES`. `find_landing_violations`
+(wired in `repair.check_page_gates`) checks the checked claims, word limits, FAQ, ONE CTA
+(any other link, url, button or phone field in page.json fails), the room photo (asset
+kind lifestyle/installation only, else omit), the quote (verbatim in reviews_summary), the
+power wording, numbers in claim-free lines and renderer-owned keys; the product-benefit
+minimum (3) is `claims.MIN_BENEFIT_CLAIMS`.
+
+**The longform `open` look (cycle 82).** The longform cartridge now has looks, like the
+product page: `classic` (the template before cycle 82, byte for byte) and `open` (the cycle
+79 boxless grammar, prefix `lo-`, the ad still or the cut-out first, the stats strip from
+verified claims, alternating step rows, a hairline spec table, one Basalt closing band).
+The harness default is `classic`; peak-saunas pins `cartridges.longform.looks: [open]`.
+`harness rerender --look classic` switches back with no model call.
+
 ## Add a new cartridge type in under 10 minutes
 
 Copy an existing cartridge folder -- `product-page` or `longform` are the most complete

@@ -211,6 +211,22 @@ cartridges:
   article:
     warmup_window_words: 600
     warmup_mode: warn
+  # Cycle 82: the longform page renders in the cycle 79 "open" design
+  # language (cartridges/longform/looks/open/), the ad's own still and quote
+  # first. `harness run|rerender --look classic` still renders the old one.
+  longform:
+    looks: [open]
+  # Cycle 82: the landing cartridge (opt-in: --cartridges landing). The one
+  # secondary link under the CTA pill -- a plain text link, never a button
+  # and never counted as a CTA. `sms` + `body` build an sms: link that opens
+  # the phone's Messages app ({product_name} = the product's full name,
+  # e.g. "Peak Fuji"); a `url:` key, when set, wins instead.
+  # TODO (owner): confirm the number and the wording before the first live page.
+  landing:
+    secondary_cta:
+      text: "Text us"
+      sms: "+14706653747"
+      body: "Hi, I have a question about the {product_name}."
 
 # Cycle 32: the simplicity gate (harness/simplicity.py) -- "warn" until a
 # real enforce-mode run's Simplicity section has been reviewed clean, same
