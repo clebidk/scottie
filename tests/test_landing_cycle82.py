@@ -538,8 +538,10 @@ def test_the_warranty_fix_never_rewrites_ad_said():
 
     page = _page()
     page["checked_claims"][1]["ad_said"] = "Every sauna comes with a lifetime warranty."
-    problems = [p for p in _gates(page) if p.get("path") == "$.checked_claims[1].ad_said"]
-    assert problems and any("warranty wording must be exactly" in p["issue"] for p in problems)
+    # Cycle 82d: the landing gate no longer reports ad_said for wording; the
+    # fix must still leave it alone if a wording failure ever names it.
+    problems = [{"path": "$.checked_claims[1].ad_said", "key": "warranty:$.checked_claims[1].ad_said",
+                 "issue": "warranty wording must be exactly 'x'"}]
     valid = {c["id"] for c in _facts_pack()["verified_claims"]}
     repair_mod.apply_deterministic_fixes(page, problems, valid, cartridge_name="landing", facts_pack=_facts_pack(),
                                          financing_lender="Bread Pay", tenant=TENANT)
@@ -571,3 +573,57 @@ def test_digits_stay_allowed_in_a_cited_fact():
 def test_the_writer_prompt_says_to_paraphrase_promos():
     assert landing.AD_SAID_FIGURES_LINE in landing.writer_lines(_facts_pack(), TENANT)
     assert "money off every model" in landing.AD_SAID_FIGURES_LINE
+
+
+# ---------------------------------------------------------------------------
+# Cycle 82d: ad_said quotes the ad, so the fixed-wording gates skip it
+# ---------------------------------------------------------------------------
+
+_LIFETIME = "Backed by a lifetime warranty"
+_FINANCING = "Easy financing available at checkout"
+
+
+def _wording(problems):
+    return [p for p in problems if "wording must be exactly" in p["issue"] or "financing_line must be" in p["issue"]]
+
+
+@pytest.mark.parametrize("said", [_LIFETIME, _FINANCING])
+def test_ad_said_may_quote_the_ads_warranty_or_financing_claim(said):
+    page = _page()
+    page["checked_claims"][1]["ad_said"] = said
+    assert not [p for p in _wording(_gates(page)) if p["path"] == "$.checked_claims[1].ad_said"]
+
+
+@pytest.mark.parametrize("said,word", [(_LIFETIME, "warranty"), (_FINANCING, "financing")])
+@pytest.mark.parametrize("path", ["fact", "faq"])
+def test_the_same_words_in_fact_or_faq_still_fail(said, word, path):
+    page = _page()
+    if path == "fact":
+        page["checked_claims"][1]["fact"] = said + "."
+        where = "$.checked_claims[1].fact"
+    else:
+        page["faq"]["questions"][1]["answer"] = said + "."
+        where = "$.faq.questions[1].answer"
+    hits = [p for p in _wording(_gates(page)) if p["path"] == where]
+    assert hits and f"{word} wording must be exactly" in hits[0]["issue"]
+
+
+def test_a_wording_failure_carries_a_key():
+    page = _page()
+    page["checked_claims"][1]["fact"] = _LIFETIME + "."
+    page["faq"]["questions"][1]["answer"] = _FINANCING + "."
+    keys = {p["path"]: p.get("key") for p in _wording(_gates(page))}
+    assert keys["$.checked_claims[1].fact"] == "warranty:$.checked_claims[1].fact"
+    assert keys["$.faq.questions[1].answer"] == "financing:$.faq.questions[1].answer"
+    line = claims.find_financing_violations({"offer": {"financing_line": "Pay later."}}, financing_lender="Bread Pay")
+    assert line[0]["key"] == "financing_line:$.offer.financing_line"
+
+
+def test_ad_said_keeps_its_own_rules_and_the_exemption_is_landing_only():
+    page = _page()
+    page["checked_claims"][1]["ad_said"] = "Lifetime warranty, call 404-555-0123"
+    keys = _keys(_gates(page))
+    assert "landing:ad_said_figures:1" in keys and "landing:phone:$.checked_claims[1].ad_said" in keys
+    # The finder itself still reports ad_said; only the landing gate skips it.
+    hits = claims.find_warranty_violations({"checked_claims": [{"ad_said": _LIFETIME}]}, [])
+    assert hits and hits[0]["path"] == "$.checked_claims[0].ad_said"
