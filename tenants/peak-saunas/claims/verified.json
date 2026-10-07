@@ -746,9 +746,9 @@
   },
   {
     "id": "gbrain-financing-terms",
-    "text": "0% APR financing via Shop Pay Installments (Affirm): purchases under $2,000 → up to 12 months; over $2,000 → up to 24 months. Soft credit pull at checkout, subject to approval. Also HSA/FSA via TrueMed (2–3 min approval, effective savings ~30%). The only two financing providers are Affirm and Shop Pay Installments — Peak does NOT offer Klarna, Sezzle, Afterpay, Upgrade, or any other financing provider.",
+    "text": "Financing is available through Bread Pay at checkout, subject to approval.",
     "category": "policy",
-    "source": "gbrain:policy/financing-and-payment",
+    "source": "gbrain:policy/financing-and-payment; owner (Caleb) 2026-10-07: Bread Pay is the financing provider, Redo is the HSA/FSA route",
     "approved_by": "gbrain-seed",
     "date": "2026-09-09"
   },
@@ -1140,9 +1140,9 @@
   },
   {
     "id": "hsa-fsa-truemed",
-    "text": "Peak saunas may be eligible for HSA/FSA purchase through TrueMed.",
+    "text": "Peak saunas may be eligible for HSA/FSA purchase through Redo.",
     "category": "trust",
-    "source": "gbrain:policy/financing-and-payment",
+    "source": "gbrain:policy/financing-and-payment; owner (Caleb) 2026-10-07: Bread Pay is the financing provider, Redo is the HSA/FSA route",
     "approved_by": "Caleb",
     "date": "2026-09-10",
     "aliases": [
