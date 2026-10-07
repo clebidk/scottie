@@ -51,6 +51,7 @@ harness publish <run-dir> --page <cartridge> [--live] [--dry-run]   # cycle 20
 harness digest needs-review --tenant <t> [--days 3]                 # cycle 20
 harness doctor --tenant <t> [--offline]                             # cycle 22
 harness serve --tenant <t> [--host 127.0.0.1] [--port 4870]         # cycle 26, reviewer web app
+harness library build --tenant <t> [--only landing,...] [--force]   # cycle 86, the site's Library page
 harness revise <run-dir> --page <cartridge> [--by <email>]          # cycle 26
 harness dataset export --tenant <t> [--out PATH]                    # kimi/long-run, fine-tune records
 harness eval report --tenant <t>                                    # kimi/long-run, scores by cartridge/block/angle/reviewer

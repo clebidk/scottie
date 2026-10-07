@@ -8,7 +8,10 @@ search pill, flat 8px cards), recoloured with the brand's official palette
 and no dark sidebar and no Solar Flare: sidebar Fossil Dust #C0C8C3 with
 Basalt text and a Stone active row, main ground Stone #EFE3D2, cards a
 lighter Stone #F7F1E8, Cedar-tinted hairlines, Basalt #181918 text and
-primary buttons, Red #702B33 only for live / attention. Acid Grotesk (the
+primary buttons, Red #702B33 only for live / attention. Owner change
+2026-10-07 (cycle 86): the page, cards and fields are white (#FFFFFF), cards
+keep their Cedar hairline border; Stone stays only as the sidebar's active
+row, and the light wash (#E9DFCD) behind previews and table heads. Acid Grotesk (the
 webfont the generator already loads) with a Helvetica Neue fallback, Geist
 Mono for numbers. Vanilla CSS and a few lines of JS; no build step.
 """
@@ -56,7 +59,7 @@ ACID_GROTESK_URL = "https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets
 CSS = """
 @font-face{font-family:"Acid Grotesk";src:url("@@ACID@@") format("opentype");font-weight:400 800;font-display:swap}
 :root{--basalt:#181918;--fossil:#C0C8C3;--stone:#EFE3D2;--cedar:#483215;
-  --ink:#181918;--text:#181918;--muted:#5E5548;--faint:#857B6E;--bg:#EFE3D2;--card:#F7F1E8;--field:#FBF8F2;
+  --ink:#181918;--text:#181918;--muted:#5E5548;--faint:#857B6E;--bg:#FFFFFF;--card:#FFFFFF;--field:#FFFFFF;
   --line:rgba(72,50,21,.16);--line-2:rgba(72,50,21,.30);--hover:rgba(72,50,21,.06);--wash:#E9DFCD;
   --red:#702B33;--red-wash:rgba(112,43,51,.09);--red-line:rgba(112,43,51,.34);--r:8px;
   --side:#C0C8C3;--side-ink:#181918;--side-muted:#3D4240;--side-line:rgba(24,25,24,.14);--side-active:#EFE3D2;
@@ -108,7 +111,7 @@ svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-widt
   font-size:.74rem;font-weight:700;text-transform:uppercase;flex:none}
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{display:flex;align-items:center;gap:16px;padding:16px 32px 14px;position:sticky;top:0;z-index:20;
-  background:rgba(239,227,210,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .qsearch{position:relative;flex:1;max-width:520px;margin:0}
 .qsearch input[type=search]{height:40px;border-radius:999px;padding:0 54px 0 38px;background:var(--field);border-color:var(--line)}
 .qsearch svg.i{position:absolute;left:14px;top:12px;color:var(--muted)}
@@ -393,6 +396,22 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
   text-decoration:none;font-size:.8rem;color:var(--muted)}
 .linkrow a:hover{border-color:var(--ink);color:var(--ink)}
 
+/* cycle 86: the Library (every page version as a reference) */
+.lib-note{margin:0 0 14px}
+.lib-nav{display:flex;flex-wrap:wrap;gap:6px}
+.lib-group{margin-top:28px}
+.lib-group .card-h{margin-bottom:4px}
+.lib-group .card-h h2{font-size:1.05rem}
+.lib-purpose{margin:0 0 14px;max-width:760px}
+.lib-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.lib-card .phone img.lib-poster{opacity:1;object-position:top}
+.lib-card .gen-actions{flex-wrap:wrap}
+.lib-text{display:flex;align-items:center;justify-content:center;padding:22px;text-align:center}
+.lib-text b{font-size:.95rem;line-height:1.4;color:var(--ink)}
+.lib-summary{margin:0;line-height:1.45}
+.lib-why{margin:0;color:var(--red)}
+.notice.pin{display:block;margin:0 0 16px}
+
 /* phones */
 @media (max-width:1040px){
   .gv{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"top" "main" "rest"}
@@ -431,6 +450,8 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
     scroll-snap-type:x mandatory;scroll-padding:0 16px;margin:16px -16px 0;padding:0 16px 6px;scrollbar-width:none}
   .gens::-webkit-scrollbar{display:none}
   .gen{scroll-snap-align:start}
+  .lib-cards{grid-template-columns:minmax(0,1fr)}
+  .page-head .actions form,.page-head .actions form .btn{width:100%}
   .stage{padding:0;border:0;background:none}
   .device-frame{border:0;padding:0;border-radius:0;width:100%;height:76vh}
   .device-frame iframe{border:1px solid var(--line);border-radius:var(--r)}
@@ -516,6 +537,7 @@ _ICONS = {
     "clock": '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     "send": '<path d="M5 12h13"/><path d="M13 6l6 6-6 6"/>',
     "grid": '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+    "layers": '<path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/>',
     "list": '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
 }
 
@@ -582,6 +604,8 @@ NAV = (
     ("Review", (
         ("ads_home", "Ads", "grid", ("ads_home", "generation", "gen_publish", "gen_replace", "gen_post_live",
                                      "gen_update_live", "gen_unpublish")),
+        # Cycle 86: every page version as a reference (harness/library.py).
+        ("library_home", "Library", "layers", ("library_home",)),
         ("upload_ad", "Upload an ad", "upload", ("upload_ad",)),
     )),
     ("Queue", (

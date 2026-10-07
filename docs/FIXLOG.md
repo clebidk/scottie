@@ -4882,6 +4882,131 @@ nothing let an A/B/C test compare it against `open`.
 - `harness revise` does not re-stamp `look` on the page it writes (all cartridges, before this
   cycle too); a revised page keeps its look only if the writer echoes the field.
 
+## Cycle 86 (Library page: every generatable version as reference, 2026-10-07)
+Branch `cycle86/library` from origin/master 95d62ed (cycles 80-85).
+
+### Problem
+The team could not see what the harness can make before they asked for it. The page versions
+(seven cartridges, their looks, and for the listicle three first screens and five copy styles)
+were only described in docs and flags; nobody could look at them side by side and pick one, and
+the upload form had no way to ask for a specific version.
+
+### Change
+- **`harness/library.py` + `harness library build --tenant <t> [--only a,b] [--force]`.** A
+  version is a cartridge x a look (`looks.CARTRIDGE_LOOKS`) and, for the listicle, x first screen
+  x copy style: 24 versions today (15 listicles). A tenant-level look folder
+  `tenants/<t>/looks/<cartridge>/<name>/` (template.html + library.json `{name, title, summary,
+  source, added_at}`) is listed automatically; it renders when `looks.resolve_look` accepts the
+  name (the cycle 87 import path decides that), else its card is a text card from library.json.
+  Each version is rendered with NO model call by `evals/fake_run.run_once` (new `hero_style`
+  argument and `--hero-style` flag; nothing duplicated) from the demo text ad
+  `fixtures/founder-warranty-demo.txt`, with the tenant's brand, facts pack and photo library
+  when present. The runs happen in a scratch world (`library.offline_run_env`): Tenant
+  `out_dir`/`runs_dir`/`evals_path` point to a temp folder (no run dir, log or spend-ledger line
+  reaches the tenant), reviewer notifications off, `HARNESS_JEV_DRAFTS=1` (no Jev call), and
+  every socket connect in the process raises. Output per version:
+  `tenants/<t>/library/<cartridge>/<look|default>[/<first screen>/<style>]/` with `index.html` +
+  `assets/`, `review.html` (`review.build_review_for_page`), `meta.json` (cartridge, look,
+  first_screen, style, title, purpose, notes, summary, audience_temperature, word_range,
+  built_at, sha, arm, headline, thumb) and `thumb.png` when `chromium`/`google-chrome`/
+  `chromium-browser` is on PATH. The sha covers the cartridge template, the look template,
+  cartridge.md and schema.json (+ library.json and renderability for an imported look); an
+  unchanged version is skipped unless `--force`. A version whose render is not what was asked
+  (the page.json `hero_style` or `look` differs) is recorded as `unavailable` with the reason.
+  Gitignored: `tenants/*/library/`.
+- **Thumbnails.** Headless Chrome, 390x844, scale 1. The page is framed at exactly 390x844 in a
+  wrapper page (a headless window keeps a wider layout viewport than `--window-size`, which cut
+  the right edge), and the browser is stopped as soon as the PNG is complete (headless Chrome on
+  macOS writes the file and never exits). No browser, or any browser failure: no thumb, never a
+  failed build.
+- **Site.** Nav: Review > **Library** (`/library`). Cards grouped by cartridge (jump links, the
+  cartridge purpose once per group); each card has the thumbnail or a text card, look / first
+  screen / style chips, title, the version notes, audience temperature, word range, **Open
+  reference** (`/library/<key>/review`, framed SAMEORIGIN like `page_review`) and **Generate
+  with this** (`/upload?cartridge=&look=&hero_style=&style=`). Versions that cannot render go to
+  the end of their group. The note line "Reference renders use a canned demo page and the
+  tenant's brand; copy is not real." is at the top. At 760px and less the cards are one column.
+- **Generate with this.** The upload form shows the pre-selection in a "Page version" box and
+  sends it as hidden fields; the site checks it with `abtest.parse_arm` (400 on a combination
+  the harness cannot build) and `upload.save_upload(pinned_arm=...)` keeps it on the inbox item.
+  `abtest_inbox.build_test_for_item` (the `create_test` job and `harness abtest from-inbox`)
+  passes it to `abtest.create_test(pinned_arm=...)`: variant A is that build, B and C are the
+  usual ranked picks, the record keeps `pinned_arm`. An item whose pinned build no longer
+  parses fails with a reason instead of stopping from-inbox.
+- **Job.** `library_build` in `harness/jobs.py` (payload `force`, `only`); it fails when a version
+  failed (the others are still written). **Rebuild library** (login + form token) queues one with
+  force; a second press opens the waiting job. `harness serve` queues a non-forced build at
+  startup when `tenants/<t>/library/` does not exist (`library.queue_if_missing`), without
+  waiting, and a queue error only prints a warning.
+- **Merge with master 34200a2 (cycles 82e, 82f, 82g, 87, 88, the 7-year wording).** Imported
+  looks now come from cycle 87's mechanism: `looks.imported_looks` lists them, `looks.resolve_look`
+  accepts the slug, render.py loads the template from the tenant folder, and the card reads cycle
+  87's `library.json` (`source` is `{kind, origin, imported_at}`). An imported listicle look is one
+  version (story first screen, reasons style) so "Generate with this" has a full build. The pin
+  works with cycle 88's destinations: `create_test(plan=..., pinned_arm=...)` makes the pin the
+  first generated arm (variant A; external arms take the last keys); a plan with no generated arm
+  (`pdp-only`, `home-only`) and a pin is refused on the upload form (400), by `create_test`, and by
+  `build_test_for_item` (the item fails with a reason). Job types: `look_import` and
+  `library_build` side by side.
+- **Owner note (2026-10-07): white background.** `harness/site_ui.py`: `--bg`, `--card` and
+  `--field` are `#FFFFFF` (were Stone `#EFE3D2`, `#F7F1E8`, `#FBF8F2`); cards keep their Cedar
+  hairline border; the sticky top bar is translucent white (was translucent Stone). The Fossil
+  sidebar is unchanged (it was never the page colour); Stone stays only as the sidebar's active
+  row, and the `--wash` `#E9DFCD` stays behind previews and table heads. Thumbnails need no border
+  change (they sit in the ink phone frame on the wash). `tests/test_post_live_cycle80.py` now
+  asserts the white tokens and the card hairline.
+- **Tenant / tests plumbing.** `Tenant.library_dir`, `Tenant.looks_dir`; conftest redirects
+  `library_dir` into tmp_path and tracks `library/` in the leak backstop.
+
+### Verify
+- `tests/test_library_cycle86.py`: 19 tests -- the version list, arm strings, the `--only landing`
+  tree and meta.json fields, skip-when-unchanged / changed sha / `--force`, face recorded as not
+  renderable, no thumbs without a browser and thumbs with one, a browser that never exits and a
+  stale PNG, the offline world restored, the CLI, an imported look listed with its library.json
+  (and a harness-look name clash ignored), the /library page (every version, grouped in order,
+  framed review route, 404 for unknown keys, the Generate pre-selection, the thumb route), the
+  upload pre-selection through the `create_test` job (variant A pinned), `abtest from-inbox`
+  with a pinned and a broken pin, the Rebuild button, the job through `jobs.run_one`, a failed
+  version failing the job, startup queueing and `harness serve` not waiting.
+- Full suite: 2595 passed, 0 failed (origin/master before this change: 2576 passed). `ruff` is not
+  installed in this checkout's venv, so it was not run.
+- After the merge with master 34200a2: 2720 passed, 9 failed. Clean 34200a2 alone: 2698 passed,
+  9 failed -- the same 9 tests in `tests/test_look_import_cycle87.py` (the cycle 87 landing contract
+  still requires `page.proof` / `review_quote`, which cycle 82f changed). The merge adds 22 tests
+  and no failure. `harness library build --tenant peak-saunas --force` after the merge: 19 built,
+  5 not renderable offline, 0 failed; a temporary imported look under
+  `tenants/peak-saunas/looks/landing/` built and rendered (then removed). The Library, Ads and
+  generation pages screenshotted on the white background at 1280px and the Library at 390px.
+- `harness library build --tenant peak-saunas` on the Mac: 19 built, 5 not renderable offline,
+  0 failed, about 12 s; second run: 24 up to date. With Chrome on PATH (a `chromium` shim to
+  Google Chrome): 19 thumbnails, each 390x844, read back and checked by eye. No file appeared
+  under `tenants/peak-saunas/out/` or `runs/`.
+- The /library and /upload pages rendered through the Flask test client and screenshotted at
+  390px and 1280px: cards stack in one column at 390px with no sideways scroll; the Page version
+  box shows "Landing page, proof look `landing:proof`".
+
+### Open
+- **Face first screen: not rendered.** It needs a still from the ad; the canned demo ad is text,
+  so the five face versions are text cards. Rendering them would need a demo video or image ad
+  in the tenant fixtures (and a dry-run still), which this cycle did not add.
+- **Offline content gaps.** The offline facts pack has no reviews_summary, so the landing `proof`
+  look shows no rating row or quote. Product photos come from the tenant photo library only: the
+  fake run's image fetch returns fake bytes, so on a host without `tenants/<t>/photo-library/`
+  (this Mac) the pages carry only the brand cut-outs.
+- **Tenant-shaped canned pages.** fake_run's canned pages cite PEAK claim ids and asset ids; a
+  different tenant's build will fail its gate per version (reported as failed, not hidden).
+- **The sha does not cover brand or renderer changes** (base.css, structure.css, harness code).
+  After a brand import or a renderer change, rebuild with `--force` (the site button always
+  forces).
+- **Imported looks** render with the canned demo page of their cartridge (the plain landing page,
+  not the proof page's extra blocks); a look built around other fields shows those parts empty.
+  "Generate with this" is shown only when `abtest.parse_arm` accepts the version.
+- **Nav label.** The Library page sits in the Review group; the older sidebar group named
+  "Library" (Runs, Images) keeps its name, so the word appears twice in the sidebar.
+- **Server.** Not deployed. Whether the server has a Chromium binary is not known; without one
+  the cards are text cards. `crons/` has no library rebuild timer; the startup queue and the
+  button are the only triggers besides the CLI.
+
 ## Cycle 88 (PDP / home page as A/B/C arms or sole destination, 2026-10-07)
 Branch `cycle88/control-arms` from origin/master 95d62ed (cycles 80-85).
 

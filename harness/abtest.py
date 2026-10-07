@@ -671,15 +671,25 @@ def _new_variants(specs, ranking):
 
 
 def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None, on_record=None, plan=None,
-                brief_runner=None):
+                brief_runner=None, pinned_arm=None):
     """Chooses three builds, records the test, and builds them. `on_record`
     (cycle 69) is called with the record once it is saved, before the first
     build, so a caller can link it (an inbox item keeps the test id).
     Cycle 88: `plan` (parse_plan: a PLANS id or a list of arm specs; default
-    3 generated) makes some arms external; they take the last keys."""
+    3 generated) makes some arms external; they take the last keys.
+    Cycle 86: `pinned_arm` (a build string, e.g. "landing:proof" -- the
+    Library's "Generate with this") is the first generated arm, so variant
+    A; the other generated arms are the usual ranked picks, and a failed A
+    is replaced from the ranking as usual. A plan with no generated arm
+    cannot take a pin (AbtestError)."""
     plan_name, specs = parse_plan(plan)
+    if pinned_arm and not any(s["kind"] == "generated" for s in specs):
+        raise AbtestError(f"destinations {plan_name!r} build no page, so a pinned page version cannot be used")
     seed = seed if seed is not None else random.randrange(1_000_000)
     ranking = rank_arms(tenant, random.Random(seed))
+    pinned = parse_arm(pinned_arm, tenant).id if pinned_arm else None
+    if pinned:
+        ranking = [pinned] + [a for a in ranking if a != pinned]
     rec = {
         "test_id": new_test_id(name),
         "name": name,
@@ -699,6 +709,8 @@ def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None
         "split": None,
         "winner": None,
     }
+    if pinned:
+        rec["pinned_arm"] = pinned
     save_test(tenant, rec)
     if on_record is not None:
         on_record(rec)

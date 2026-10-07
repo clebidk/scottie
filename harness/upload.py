@@ -78,9 +78,12 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
 
 
-def save_upload(tenant, stream, filename, *, ad_name, copy=None, by, max_bytes=None):
+def save_upload(tenant, stream, filename, *, ad_name, copy=None, by, max_bytes=None, pinned_arm=None):
     """Checks and saves one upload as an inbox item in state "new". Returns
-    the item. Raises UploadRejected (nothing is left on disk)."""
+    the item. Raises UploadRejected (nothing is left on disk). Cycle 86:
+    `pinned_arm` (an A/B/C build id the site already checked, from the
+    Library's "Generate with this") is kept on the item; the test builds
+    variant A as that build."""
     max_bytes = MAX_UPLOAD_BYTES if max_bytes is None else max_bytes
     ad_name = " ".join(str(ad_name or "").split())
     if not ad_name:
@@ -140,5 +143,7 @@ def save_upload(tenant, stream, filename, *, ad_name, copy=None, by, max_bytes=N
         "state": "new", "reason": "", "history": [{"state": "new", "at": _now(), "reason": f"uploaded by {by}"}],
         "pulled_at": _now(), "updated_at": _now(),
     }
+    if pinned_arm:
+        item["pinned_arm"] = pinned_arm
     inbox.write(item)
     return item

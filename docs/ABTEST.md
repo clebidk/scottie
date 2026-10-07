@@ -33,6 +33,10 @@ harness abtest create --tenant peak-saunas \
 
 Review the three pages in the review app as usual before you publish.
 
+Cycle 86: an upload from the Library's **Generate with this** pins one build
+(the inbox item's `pinned_arm`, e.g. `landing:proof`). That build is variant
+A; B and C are chosen as above. The record keeps `pinned_arm`.
+
 Cycle 69: an ad uploaded on the listicle site (docs/LISTICLE-SITE.md) and
 `harness abtest from-inbox` (Meta inbox items) create tests the same way.
 When `abtest.auto_publish` is true in `tenant.yaml` (PEAK: true; template:

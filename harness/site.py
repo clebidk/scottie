@@ -12,6 +12,9 @@ harness/site_ui.py. Pages:
                              feedback -> regenerate job, publish / replace,
                              post live / update live / unpublish (cycle 80)
   /upload                    upload an ad -> inbox item -> create-test job
+                             (cycle 86: optionally with a pinned page version)
+  /library                   cycle 86: a reference render of every page
+                             version (harness/library.py), "Generate with this"
   /looks/import              cycle 87: "Import a page" -> look_import job
                              (harness/look_import.py); the form is also a
                              dialog on the Ads page
@@ -38,7 +41,7 @@ from pathlib import Path
 from flask import Response, abort, current_app, g, redirect, request, send_file, url_for
 from PIL import Image
 
-from . import abevents, abtest, ads as ads_mod, budget, jobs, meta_ingest, postlive, runstate, site_ui, textutil
+from . import abevents, abtest, ads as ads_mod, budget, jobs, library, meta_ingest, postlive, runstate, site_ui, textutil
 from . import look_import as look_import_mod
 from . import looks as looks_mod
 from . import serve as _serve
@@ -48,10 +51,11 @@ ENDPOINTS = (
     "ads_home", "generation", "gen_feedback", "gen_publish", "gen_replace", "page_review_version",
     "run_thumb", "ad_media", "upload_ad", "job_list", "job_detail", "audit_log",
     "gen_post_live", "gen_update_live", "gen_unpublish", "ad_frame", "site_favicon", "site_static", "site_manifest",
+    "library_home", "library_review", "library_thumb", "library_rebuild",
     "look_import", "look_review",
 )
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
-                            "gen_post_live", "gen_update_live", "gen_unpublish", "look_import"})
+                            "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import"})
 
 ADS_PER_PAGE = 20
 MAX_FEEDBACK_CHARS = 2000
@@ -72,8 +76,11 @@ PUBLISH_JOB_TYPES = ("publish_page", "replace_variant") + LIVE_JOB_TYPES
 FILTERS = (("all", "All"), ("review", "Needs review"), ("live", "Live"))
 JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "publish_page": "Publish new version",
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
-              "unpublish_live": "Unpublish", "look_import": "Import a page"}
+              "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page"}
 HERO_LABELS = {"face": "Face", "story": "Story", "display": "Display"}
+# Cycle 86: the upload form's pre-selected page version (the Library's
+# "Generate with this"), as query args on GET and hidden fields on POST.
+PIN_FIELDS = ("cartridge", "look", "hero_style", "style")
 
 
 # ---------------------------------------------------------------------------
@@ -971,7 +978,27 @@ def _confirm_page(title, lines, action_url, button, cancel_url, *, danger=False)
 # upload, jobs
 # ---------------------------------------------------------------------------
 
-def _upload_form(tenant, *, error=None, values=None, status=200):
+def _pin_from(source):
+    """(arm, fields, error) for the upload form's pre-selection in
+    `source` (request.args or request.form). (None, {}, None) when none."""
+    fields = {k: (source.get(k) or "").strip() for k in PIN_FIELDS}
+    if not any(fields.values()):
+        return None, {}, None
+    try:
+        return library.arm_from_fields(**fields, tenant=current_app.config["SITE_TENANT"]), fields, None
+    except library.LibraryError as exc:
+        return None, {}, f"That page version cannot be built: {exc}"
+
+
+def _pin_box(arm, fields):
+    hidden = "".join(f'<input type="hidden" name="{k}" value="{e(v)}">' for k, v in fields.items() if v)
+    return (f'{hidden}<div class="notice pin"><p class="eyebrow" style="margin-bottom:6px">Page version</p>'
+            f'<b>{e(library.arm_label(arm))}</b> <code class="small">{e(arm.id)}</code>'
+            '<p class="small muted" style="margin:6px 0 0">Variant A of the test is built as this version; B and C '
+            f'come from the test library. <a href="{url_for("upload_ad")}">Clear</a></p></div>')
+
+
+def _upload_form(tenant, *, error=None, values=None, status=200, pin=None):
     values = values or {}
     auto = abtest.settings(tenant)["auto_publish"]
     note = ("When the pages are built, the test is published and the split link shows here and on the "
@@ -995,6 +1022,7 @@ def _upload_form(tenant, *, error=None, values=None, status=200):
         '<div class="two"><form class="card" method="post" enctype="multipart/form-data" '
         f'action="{url_for("upload_ad")}">{_csrf_field()}'
         + (f'<div class="error">{e(error)}</div>' if error else "")
+        + (_pin_box(*pin) if pin else "")
         + '<label for="ad_name" style="margin-top:0">Ad name</label>'
         f'<input type="text" id="ad_name" name="ad_name" required maxlength="{upload_mod.MAX_NAME_CHARS}" '
         f'value="{e(values.get("ad_name") or "")}" placeholder="The name the ad has in Ads Manager">'
@@ -1094,6 +1122,15 @@ def _job_result_html(tenant, job):
                          + '<p class="hint">Paste this split link as the ad\'s website URL in Ads Manager.</p>')
         elif result.get("publish_error"):
             parts.append(f'<div class="error">Auto publish failed: {e(result["publish_error"])}</div>')
+    elif job["type"] == "library_build":
+        parts.append(f'<p><a href="{url_for("library_home")}">Open the Library</a></p>')
+        if result:
+            parts.append(f'<p>{int(result.get("built") or 0)} built, {int(result.get("skipped") or 0)} up to date, '
+                         f'{len(result.get("unavailable") or [])} not renderable offline, '
+                         f'{int(result.get("thumbs") or 0)} thumbnail(s).</p>')
+            if not result.get("browser"):
+                parts.append('<p class="small muted">No headless browser on the server: the cards are text '
+                             'cards.</p>')
     elif job["type"] == "look_import":
         if result.get("slug"):
             obs = result.get("observation") or {}
@@ -1131,6 +1168,8 @@ def _job_result_html(tenant, job):
 
 
 def _target_link(target):
+    if target == library.JOB_TARGET:
+        return f'<a href="{url_for("library_home")}">{e(target)}</a>'
     m = re.match(r"^run:([^/]+)/(.+)$", target or "")
     if m:
         return f'<a href="{url_for("generation", run_id=m.group(1), page=m.group(2))}">{e(target)}</a>'
@@ -1169,6 +1208,95 @@ def _run_thumb(tenant, run_dir, page):
     if not images:
         return _thumb_placeholder()
     return _cached_thumb(tenant, images[0], f"{run_dir.name}-{page}.jpg", 480)
+
+
+# ---------------------------------------------------------------------------
+# library (cycle 86)
+# ---------------------------------------------------------------------------
+
+def _generate_url(item):
+    args = {"cartridge": item["cartridge"]}
+    for key, field in (("look", "look"), ("hero_style", "first_screen"), ("style", "style")):
+        if item.get(field):
+            args[key] = item[field]
+    return url_for("upload_ad", **args)
+
+
+def _lib_card(item):
+    key = item["key"]
+    chips = [chip(f'{item["look"]} look') if item.get("look") else "",
+             chip(HERO_LABELS.get(item.get("first_screen"), "")) if item.get("first_screen") else "",
+             chip(item["style"]) if item.get("style") else "",
+             chip("Imported look", "solid") if item.get("source") == "tenant" else ""]
+    review_url = url_for("library_review", key=key)
+    if item.get("unavailable"):
+        status = f'<p class="small lib-why">{e(item["unavailable"])}</p>'
+    elif not item["built"]:
+        status = '<p class="small muted">Not built yet. Rebuild the library.</p>'
+    else:
+        status = ""
+    if item["has_thumb"]:
+        shot = (f'<a class="shot" href="{review_url}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">'
+                f'<div class="phone"><div class="screen"><img class="poster lib-poster" loading="lazy" '
+                f'src="{url_for("library_thumb", key=key)}" alt=""></div></div></a>')
+    else:
+        text = ("Not renderable offline" if item.get("unavailable") else
+                item.get("headline") or ("No reference render yet." if not item["has_review"] else
+                                         "No thumbnail: the server has no headless browser."))
+        shot = (f'<div class="shot lib-text"><div><p class="eyebrow">{e(library.CARTRIDGE_LABELS.get(item["cartridge"], item["cartridge"]))}</p>'
+                f'<b>{e(text)}</b></div></div>')
+    words = item.get("word_range")
+    facts = (f'<div class="facts"><span>Audience <b>{e(item.get("audience_temperature") or "-")}</b></span>'
+             f'<span>Words <b>{f"{words[0]}-{words[1]}" if words else "no band"}</b></span>'
+             + (f'<span>Added <b>{_date(item.get("added_at"))}</b></span>' if item.get("added_at") else "")
+             + "</div>")
+    actions = ""
+    if item["has_review"]:
+        actions += (f'<a class="btn ghost sm" href="{review_url}" target="_blank" rel="noopener">'
+                    f'{icon("external")}Open reference</a>')
+    if item.get("arm"):
+        actions += f'<a class="btn sm" href="{e(_generate_url(item))}">{icon("send")}Generate with this</a>'
+    return (f'<div class="gen lib-card" id="lib-{e(key.replace("/", "-"))}">{shot}<div class="gen-body">'
+            f'<div class="chips">{"".join(c for c in chips if c)}</div>'
+            f'<div class="gen-title">{e(item.get("title") or key)}</div>'
+            f'<p class="small muted lib-summary">{e(item.get("notes") or item.get("summary") or "")}</p>{facts}{status}'
+            f'<div class="gen-actions">{actions}</div></div></div>')
+
+
+def render_library(tenant):
+    items = library.entries(tenant)
+    groups = {}
+    for item in items:
+        groups.setdefault(item["cartridge"], []).append(item)
+    for group in groups.values():  # a version that cannot render offline goes to the end of its group
+        group.sort(key=lambda i: bool(i.get("unavailable")))
+    job = jobs.active_job(tenant, job_type="library_build", target=library.JOB_TARGET)
+    if job:
+        rebuild = (f'<a class="btn ghost" href="{url_for("job_detail", job_id=job["id"])}">{icon("clock")}'
+                   f'Rebuild {e(job["state"])}</a>')
+    else:
+        rebuild = (f'<form method="post" action="{url_for("library_rebuild")}">{_csrf_field()}'
+                   f'<button class="btn" type="submit">{icon("refresh")}Rebuild library</button></form>')
+    built = sum(1 for i in items if i["has_review"])
+    nav = "".join(f'<a class="btn ghost sm" href="#lib-group-{e(c)}">'
+                  f'{e(library.CARTRIDGE_LABELS.get(c, c))} <span class="num">{len(v)}</span></a>'
+                  for c, v in groups.items())
+    sections = []
+    for cartridge, group in groups.items():
+        sections.append(
+            f'<section class="lib-group" id="lib-group-{e(cartridge)}"><div class="card-h"><h2>'
+            f'{e(library.CARTRIDGE_LABELS.get(cartridge, cartridge))}</h2>'
+            f'<span class="muted small">{len(group)} version{"s" if len(group) != 1 else ""}</span></div>'
+            + (f'<p class="muted small lib-purpose">{e(group[0]["purpose"])}</p>' if group[0].get("purpose") else "")
+            + f'<div class="lib-cards">{"".join(_lib_card(i) for i in group)}</div></section>')
+    body = (
+        '<div class="page-head"><div><h1>Library</h1><p class="sub">Every page version the harness can generate, '
+        f'rendered once as a reference ({built} of {len(items)} rendered). Pick one and generate a test from it.</p>'
+        f'</div><div class="actions">{rebuild}</div></div>'
+        f'<div class="notice lib-note">{e(library.NOTE)}</div>'
+        f'<div class="lib-nav">{nav}</div>' + "".join(sections)
+    )
+    return _page("Library", body, refresh=10 if job else None)
 
 
 # ---------------------------------------------------------------------------
@@ -1451,24 +1579,35 @@ def register(app, tenant):
     @app.route("/upload", methods=["GET", "POST"])
     def upload_ad():
         if request.method == "GET":
-            return _upload_form(tenant)
+            arm, fields, pin_error = _pin_from(request.args)
+            return _upload_form(tenant, error=pin_error, pin=(arm, fields) if arm else None,
+                                status=400 if pin_error else 200)
         email = g.reviewer_email
         values = {k: request.form.get(k) or "" for k in ("ad_name", "destinations") + upload_mod.COPY_FIELDS}
         plan = values["destinations"] or abtest.DEFAULT_PLAN
         if plan not in abtest.PLANS:
             return _upload_form(tenant, values={**values, "destinations": ""}, status=400,
                                 error="Choose one of the listed destinations.")
+        arm, fields, pin_error = _pin_from(request.form)
+        pin = (arm, fields) if arm else None
+        if pin_error:
+            return _upload_form(tenant, values=values, error=pin_error, status=400)
+        if arm and "gen" not in abtest.PLANS[plan][1]:
+            return _upload_form(tenant, values=values, pin=pin, status=400,
+                                error=f"{abtest.PLANS[plan][0]} builds no page, so the page version cannot be used. "
+                                      "Choose destinations with a generated page, or clear the page version.")
         if not upload_limiter.allow(email.lower()):
-            return _upload_form(tenant, values=values, status=429,
+            return _upload_form(tenant, values=values, status=429, pin=pin,
                                 error=f"More than {UPLOADS_PER_WINDOW} uploads in {UPLOAD_WINDOW_S // 60} minutes. "
                                       "Wait a few minutes.")
         media = request.files.get("media")
         try:
             item = upload_mod.save_upload(
                 tenant, media.stream if media and media.filename else None, media.filename if media else "",
-                ad_name=values["ad_name"], copy={k: values[k] for k in upload_mod.COPY_FIELDS}, by=email)
+                ad_name=values["ad_name"], copy={k: values[k] for k in upload_mod.COPY_FIELDS}, by=email,
+                pinned_arm=arm.id if arm else None)
         except upload_mod.UploadRejected as exc:
-            return _upload_form(tenant, values=values, error=str(exc), status=exc.status)
+            return _upload_form(tenant, values=values, error=str(exc), status=exc.status, pin=pin)
         ad_id = item["ad_id"]
         inbox = meta_ingest.Inbox(tenant.meta_inbox_dir)
         inbox.note(ad_id, f"destinations: {abtest.PLANS[plan][0]}", destinations=plan)
@@ -1476,7 +1615,48 @@ def register(app, tenant):
         job_id = jobs.enqueue(tenant, "create_test", {"ad_id": ad_id, "by": email}, by=email, target=f"ad:{ad_id}")
         jobs.audit(tenant, by=email, action="upload", target=f"ad:{ad_id}",
                    detail={"ad_name": item["ad_name"], "media_file": item["media_file"],
-                           "bytes": item["media_bytes"], "job_id": job_id, "destinations": plan})
+                           "bytes": item["media_bytes"], "job_id": job_id, "destinations": plan,
+                           **({"pinned_arm": arm.id} if arm else {})})
+        return redirect(url_for("job_detail", job_id=job_id), code=303)
+
+    @app.route("/library")
+    def library_home():
+        return render_library(tenant)
+
+    @app.route("/library/<path:key>/review")
+    def library_review(key):
+        """Cycle 86: a version's self-contained reference page; framed by the
+        site like page_review (serve.py's framing rule names both)."""
+        version = library.find(tenant, key)
+        if version is None:
+            abort(404)
+        path = Path(tenant.library_dir) / version.key / "review.html"
+        if not path.is_file():
+            return Response(_serve._page_shell("Not built yet", "<p>This version has no reference render yet.</p>",
+                                               chrome=False), mimetype="text/html")
+        return send_file(path, mimetype="text/html")
+
+    @app.route("/library/<path:key>/thumb")
+    def library_thumb(key):
+        version = library.find(tenant, key)
+        path = Path(tenant.library_dir) / version.key / "thumb.png" if version else None
+        if path is None or not path.is_file():
+            abort(404)
+        resp = send_file(path, mimetype="image/png")
+        resp.headers["Cache-Control"] = "max-age=300"
+        return resp
+
+    @app.route("/library/rebuild", methods=["POST"])
+    def library_rebuild():
+        email = g.reviewer_email
+        job = jobs.active_job(tenant, job_type="library_build", target=library.JOB_TARGET)
+        if job is None:
+            job_id = jobs.enqueue(tenant, "library_build", {"by": email, "force": True}, by=email,
+                                  target=library.JOB_TARGET)
+            jobs.audit(tenant, by=email, action="library_build", target=library.JOB_TARGET,
+                       detail={"job_id": job_id, "force": True})
+        else:
+            job_id = job["id"]
         return redirect(url_for("job_detail", job_id=job_id), code=303)
 
     @app.route("/looks/import", methods=["GET", "POST"])

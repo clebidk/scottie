@@ -106,6 +106,16 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
             inbox.set_state(ad_id, "failed", "the inbox item has no media file")
             return {"outcome": "failed", "test_id": None, "split_url": None,
                     "reason": "the inbox item has no media file"}
+        pinned = item.get("pinned_arm")
+        if pinned:
+            # Cycle 86: checked at upload; a build the harness no longer has
+            # (a look removed since) fails this item, not the whole run.
+            try:
+                abtest.parse_arm(pinned, tenant)
+            except abtest.AbtestError as e:
+                inbox.set_state(ad_id, "failed", f"pinned page version: {e}")
+                return {"outcome": "failed", "test_id": None, "split_url": None,
+                        "reason": f"pinned page version: {e}"}
         source = {"kind": item.get("source") or "meta", "ad_id": ad_id, "ad_name": item.get("ad_name")}
         for key in ("uploaded_by", "campaign", "adset", "creative_id"):
             if item.get(key):
@@ -115,12 +125,16 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
             inbox.note(ad_id, f"building A/B/C test {new_rec['test_id']}", test_id=new_rec["test_id"])
 
         try:
-            specs = abtest.parse_plan(item.get("destinations") or plan)[1]
+            plan_name, specs = abtest.parse_plan(item.get("destinations") or plan)
+            if pinned and not any(s["kind"] == "generated" for s in specs):
+                raise abtest.AbtestError(f"destinations {plan_name!r} build no page, so the pinned page "
+                                         f"version {pinned} cannot be used")
         except abtest.AbtestError as e:
             inbox.set_state(ad_id, "failed", str(e))
             return {"outcome": "failed", "test_id": None, "split_url": None, "reason": str(e)}
         rc, rec = abtest.create_test(tenant, input_path=media, name=item.get("ad_name") or ad_id,
-                                     source=source, runner=runner, on_record=link, plan=specs)
+                                     source=source, runner=runner, on_record=link, plan=specs,
+                                     pinned_arm=pinned)
 
     test_id = rec["test_id"]
     if rc == exits.BUDGET:

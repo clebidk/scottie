@@ -309,6 +309,13 @@ class Tenant:
         return self.root / "jobs"
 
     @property
+    def library_dir(self):
+        """Cycle 86: one reference render of every page version the harness
+        can generate (harness/library.py), shown on the site's Library page.
+        Build output, like out/: `harness library build` rewrites it."""
+        return self.root / "library"
+
+    @property
     def looks_dir(self):
         """Cycle 87: looks imported from other pages ("Import a page",
         harness/look_import.py), one folder per look:

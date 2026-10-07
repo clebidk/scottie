@@ -6,6 +6,8 @@ tenants/*/runs/
 tenants/*/abtests/
 # Cycle 69: the listicle site's job queue + audit log (harness/jobs.py).
 tenants/*/jobs/
+# Cycle 86: the review site's Library (harness library build) -- build output.
+tenants/*/library/
 # Cycle 87: looks imported from other pages ("Import a page",
 # harness/look_import.py) -- runtime data, like abtests/.
 tenants/*/looks/
