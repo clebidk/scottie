@@ -1009,9 +1009,11 @@ CARTRIDGE_RULES = {
         # (root, first attribute) pairs and names every landing look must use:
         # the renderer-owned blocks and the writer's sections.
         "required": {
+            # Cycle 82e: the review quote is the renderer-checked
+            # cartridge_data.review_quote, not page.proof.quote.
             "cartridge_data": ("eyebrow", "headline_html", "price", "financing", "secondary", "trust", "specs",
-                               "rating", "warranty"),
-            "page": ("hero", "checked_claims", "faq", "closing", "cta_url", "cta_text", "room_photo", "proof"),
+                               "rating", "warranty", "review_quote"),
+            "page": ("hero", "checked_claims", "faq", "closing", "cta_url", "cta_text", "room_photo"),
             "names": ("disclosure_label", "render_image_slot", "byline_html", "product"),
         },
     },
