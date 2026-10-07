@@ -713,3 +713,116 @@ def test_the_open_look_drops_the_rating_sentence_quote_and_keeps_the_rating_row(
     html = (_render(tmp_path, page=_page(proof=proof)) / "index.html").read_text()
     assert 'class="ld-quote"' not in html and "Judge.me reviews" not in html
     assert 'class="ld-rating"' in html
+
+
+# ---------------------------------------------------------------------------
+# Cycle 82f: an unverifiable quote is dropped, not repaired; a repair that
+# drops most of the page is discarded (prod run 20261007-201051-...-tks7)
+# ---------------------------------------------------------------------------
+
+AD_LINE_QUOTE = {"quote": {"text": "I use it every night after work and sleep like a rock.",
+                           "author": "From the ad", "claim_ids": ["reviews-live"]}}
+DANA = "Best sauna I ever owned. It heats fast."
+
+
+def _loop(responses, tmp_path, facts_pack=None):
+    from harness.budget import Budget
+    from harness.log import RunLog
+    from tests.conftest import FakeClient, json_response
+
+    client = FakeClient([json_response(r) for r in responses])
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        result = repair.write_and_gate_page(
+            cartridge_name="landing", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=AD_BRIEF,
+            facts_pack=facts_pack or _facts_pack(), client=client, model="claude-sonnet-5", budget=Budget(),
+            log=log, financing_lender="Bread Pay", speaker_pov=AD_BRIEF["speaker_pov"], tenant=TENANT,
+        )
+    finally:
+        log.close()
+    return result, client, (tmp_path / "run.log").read_text()
+
+
+def test_a_quote_with_no_review_quotes_is_dropped_and_the_page_passes_on_attempt_one(tmp_path):
+    fp = _facts_pack()
+    assert not fp.get("review_quotes")
+    (page, attempts, fixes), client, log_text = _loop([_page(proof=copy.deepcopy(AD_LINE_QUOTE))], tmp_path, fp)
+    assert len(client.messages.calls) == 1 and attempts == [[]] and fixes == [1]
+    assert "quote" not in page["proof"]
+    assert "fix: dropped unverifiable proof.quote" in log_text
+
+
+def test_the_deterministic_pass_drops_an_unverifiable_quote():
+    page = _page(proof=copy.deepcopy(AD_LINE_QUOTE))
+    problems = _gates(page)
+    assert "landing:quote_verbatim" in _keys(problems)
+    fixed = repair.apply_deterministic_fixes(page, problems, set(), cartridge_name="landing", facts_pack=_facts_pack())
+    assert fixed == 1 and "quote" not in page["proof"]
+    assert "landing:quote_verbatim" not in _keys(_gates(page))
+
+
+def test_a_verbatim_quote_survives_the_write_loop(tmp_path):
+    fp = _facts_pack()
+    fp["review_quotes"] = [{"id": "rq-dana", "text": DANA, "author": "Dana R."}]
+    proof = {"quote": {"text": "Best sauna I ever owned", "author": "Dana R.", "claim_ids": ["reviews-live"]}}
+    (page, attempts, fixes), client, log_text = _loop([_page(proof=proof)], tmp_path, fp)
+    assert page["proof"] == proof and fixes == [0]
+    assert "dropped unverifiable" not in log_text
+
+
+def test_the_prompt_says_do_not_write_a_quote_when_there_are_none():
+    lines = landing.writer_lines(_facts_pack(), TENANT, look="proof")
+    assert ("There are no customer review quotes in the facts pack: do not write proof.quote; "
+            "the rating row is shown by the renderer.") in lines
+    assert not any("word for word from" in line for line in lines)
+    fp = _facts_pack()
+    fp["review_quotes"] = [{"id": "rq-dana", "text": DANA, "author": "Dana R."}]
+    text = " ".join(landing.writer_lines(fp, TENANT, look="proof"))
+    assert landing.NO_REVIEW_QUOTES_LINE not in text
+    assert '"id": "rq-dana"' in text and DANA in text and "proof.quote sits directly under the subhead" in text
+
+
+def _degenerate_page():
+    page = _page()
+    return {"cta_text": page["cta_text"], "cta_url": page["cta_url"], "hero": page["hero"],
+            "checked_claims": [], "faq": {"questions": []}, "closing": {}}
+
+
+def test_a_degenerate_repair_is_discarded_and_sent_again(tmp_path):
+    bad = _page()
+    bad["hero"]["subhead"] = " ".join(["plain"] * 31)       # one gate failure, not trimmable
+    good = _page()
+    (page, attempts, fixes), client, log_text = _loop([bad, _degenerate_page(), good], tmp_path)
+    assert page == good and len(client.messages.calls) == 3
+    assert len(attempts) == 3 and attempts[1] == attempts[0] and attempts[2] == []
+    assert "attempt 2: degenerate repair discarded" in log_text and "kept attempt 1's page" in log_text
+    third = json.dumps(client.messages.calls[2], default=str)
+    assert repair.DEGENERATE_REPAIR_NOTE in third
+    assert repair.DEGENERATE_REPAIR_NOTE not in json.dumps(client.messages.calls[1], default=str)
+
+
+def test_a_degenerate_last_attempt_stops_with_the_previous_pages_failures(tmp_path):
+    bad = _page()
+    bad["hero"]["subhead"] = " ".join(["plain"] * 31)
+    n = repair.max_repair_attempts("landing")
+    with pytest.raises(claims.ClaimsGateFailure) as exc_info:
+        _loop([bad] * n + [_degenerate_page()], tmp_path)
+    assert len(exc_info.value.attempts) == n + 1
+    assert exc_info.value.attempts[-1] == exc_info.value.attempts[-2]
+
+
+def test_the_degenerate_guard_is_general():
+    full = _page()
+    assert not repair.degenerate_repair(full, copy.deepcopy(full))
+    assert repair.degenerate_repair(full, _degenerate_page())
+    for drop in ("checked_claims", "faq", "closing"):
+        lost = copy.deepcopy(full)
+        lost[drop] = [] if drop == "checked_claims" else {}
+        lost["hero"]["subhead"] += " word" * 200                                  # keep the word count up
+        assert repair.count_words(lost) >= 0.6 * repair.count_words(full), drop   # the section rule, not words
+        assert repair.degenerate_repair(full, lost), drop
+    # a cartridge with none of the landing sections: the word count alone
+    article = {"headline": "A headline", "body_sections": [{"paragraphs": [{"text": "word " * 200}]}]}
+    short = {"headline": "A headline", "body_sections": [{"paragraphs": [{"text": "word " * 100}]}]}
+    assert repair.degenerate_repair(article, short)
+    assert not repair.degenerate_repair(article, copy.deepcopy(article))

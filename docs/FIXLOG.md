@@ -4761,6 +4761,38 @@ Branch `cycle82e/power-synonyms` from origin/master 95d62ed.
   rating row. The fourth landing attempt costs one more write call on a failing page (the budget
   guard still applies). The two prod runs were not run again here.
 
+### Cycle 82f (landing: an unverifiable quote is dropped; a degenerate repair is discarded, 2026-10-07)
+Branch `cycle82f/quote-drop` from origin/master e52bade.
+- **Problem.** Prod run 20261007-201051-...-tks7 (`--look proof`): `facts_pack.review_quotes` is
+  empty for this tenant. Attempt 3 failed only on `$.proof.quote.text` (`landing:quote_verbatim`;
+  the writer had copied a line from the ad transcript as a quote). Attempt 4 came back as a
+  near-empty page (48 words, 0 checked_claims, no FAQ, no closing headline, 2 benefits) and the run
+  STOPped. A quote the harness cannot verify cost a repair attempt, and the repair after it lost
+  the page.
+- **Change.** `landing.drop_unverifiable_quote` deletes `proof.quote` (the rest of `proof` stays)
+  when it fails `landing:quote_verbatim` or `landing:quote_not_review` (no review_quotes, not word
+  for word in one of them, or a rating line -- the 82e checks). `write_and_gate_page` calls it on
+  every landing attempt before the gate, and `apply_deterministic_fixes` does the same for those
+  two keys; both log "fix: dropped unverifiable proof.quote" and count it as a deterministic fix.
+  The gate check and the renderer safety net (`landing.review_quote`) stay. Writer prompt
+  (`landing.quote_writer_line`): with no review_quotes, the one line "There are no customer review
+  quotes in the facts pack: do not write proof.quote; the rating row is shown by the renderer.",
+  and the proof look's "proof.quote sits under the subhead" line is left out; with quotes, the
+  line lists them verbatim with their ids (or `review_quotes[i]`) and authors. Degenerate-repair
+  guard, all cartridges (`repair.degenerate_repair`): a repair page with under 60% of the previous
+  attempt's words, or that lost 4+ checked_claims, the FAQ questions or the closing headline, is
+  discarded; the previous page and its failures stay the working copy, the attempt counts, and the
+  next repair note starts with `repair.DEGENERATE_REPAIR_NOTE` ("Your last answer dropped most of
+  the page; return the full page with only the listed fixes applied.").
+- **Verify.** 7 new tests in `tests/test_landing_cycle82.py`; 6 of them fail on e52bade (the
+  verbatim-quote-survives test passes before and after). Full suite
+  `.venv/bin/python -m pytest -q`: 2638 passed, 9 failed. The 9 failures are on e52bade too
+  (2631 passed, 9 failed before this change) and come from c4d774d (peak-saunas warranty wording
+  is 7-year residential): the same six test files pass at ca1a21f (390 passed).
+- **Open.** The 60% word threshold also applies when a repair legitimately cuts an over-long page
+  by more than 40%; that repair is now discarded. The prod run was not run again here. The 9
+  failures from c4d774d are not fixed in this cycle.
+
 ## Cycle 85 (landing `proof` look: reviews first, checkmark benefits, trust under the CTA, icon row, 2026-10-07)
 Branch `cycle85/landing-proof-look` from origin/master 2dda94c, with `cycle82c/landing-power` merged
 in first (not yet on master; merged here so the two do not conflict later).
