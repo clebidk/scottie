@@ -4494,3 +4494,32 @@ hero photo, plain headings, grey-ish boxes) and is 800-1,400 words long.
   the review file shows the product cut-out as the hero (a text fixture has no ad still).
 - Not visually checked in a browser (the browser pane was in use); the 375/390/430px layout
   is reasoned from the CSS (fixed grids use `minmax(0,1fr)`, long values wrap), not measured.
+
+### Cycle 82b (landing gates after the first five prod runs, 2026-10-07)
+Branch `cycle82b/landing-gates` from origin/master ca64779 (the cycle 82 merge). Five prod
+landing runs: 2 passed, 3 STOPped at `page_json:landing` after 3 attempts.
+- **Problem.** (A) cold-mornings: `$.hero.subhead` 26 words vs 25, never trimmed by the
+  repair. (B) pricing ad: a shipping fact 35 words vs 30; `$.hero.accent_phrase` not an exact
+  substring of the headline on attempts 2-3. (C) Mini ad (the ad says "normal outlet, no
+  electrician"; the verified claim says dedicated circuit): six `landing:power:*` failures,
+  including `checked_claims[1].ad_said`, which quotes the ad and is where the wrong claim
+  belongs; also the eyebrow 7 words vs 6.
+- **Change.** Limits: subhead <= 30, fact <= 36, eyebrow <= 8 (ad_said stays 14); schema,
+  cartridge.md, gate and writer lines together. `accent_phrase` is no longer gated: the
+  renderer matches it case-insensitively, ignoring surrounding punctuation and whitespace
+  runs (`landing.accent_span`); no match renders the headline with no accent and logs a
+  render note. `landing:power` skips `checked_claims[].ad_said`; every other field keeps it,
+  and its issue text now tells the writer to quote the ad's outlet claim in ad_said and
+  correct it in fact. Writer prompt line: "Never put an ad claim the facts contradict in the
+  hero, eyebrow, subhead, FAQ or closing; quote it in checked_claims[].ad_said and correct
+  it in fact." Last resort: on the final attempt only, `repair.apply_deterministic_fixes`
+  trims a `landing:subhead_words` / `landing:fact_words` field with `landing.trim_to_limit`
+  -- the last sentence end that fits, else the last clause break (";", " -- ", em dash) that
+  fits closed with a full stop; never mid-word; nothing when the text did not end on
+  terminal punctuation. No existing trim helper fit (`write._truncate_words` cuts
+  mid-sentence), so this one is new.
+- **Verify.** 11 new tests in `tests/test_landing_cycle82.py` (10 fail on ca64779, pass
+  here). `--cartridges landing` fake run exit 0; full suite 2485 passed, 0 failed, 0 skipped.
+- **Open.** (C) is not fully fixed by the exemption: the Mini headline itself repeated the
+  ad's contradicted claim, which still fails (correctly); whether the writer now moves it to
+  ad_said depends on the new prompt line and repair text, not yet seen on a real run.

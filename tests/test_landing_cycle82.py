@@ -343,3 +343,116 @@ def test_fake_run_renders_the_landing_page():
     html = (run_dir / "landing" / "index.html").read_text()
     assert 'class="pk-lp adv-landing"' in html and "<b>$8,250</b>" in html
     assert json.loads(pages[0].read_text())["cta_text"] == "Shop the Fuji"
+
+
+# ---------------------------------------------------------------------------
+# Cycle 82b: the gate fixes from the first five prod runs
+# ---------------------------------------------------------------------------
+
+def _words(n, end="."):
+    return " ".join(["word"] * (n - 1) + ["last" + end])
+
+
+@pytest.mark.parametrize("field,limit,key", [
+    (("hero", "subhead"), 30, "landing:subhead_words"),
+    (("hero", "eyebrow"), 8, "landing:eyebrow_words"),
+])
+def test_the_first_screen_word_limits(field, limit, key):
+    ok, over = _page(), _page()
+    ok[field[0]][field[1]] = _words(limit)
+    over[field[0]][field[1]] = _words(limit + 1)
+    assert key not in _keys(landing.find_landing_violations(ok, _facts_pack()))
+    assert key in _keys(landing.find_landing_violations(over, _facts_pack()))
+
+
+def test_the_checked_claim_word_limits():
+    page = _page()
+    page["checked_claims"][0]["fact"] = _words(36)
+    page["checked_claims"][1]["fact"] = _words(37)
+    page["checked_claims"][2]["ad_said"] = _words(15)
+    keys = _keys(landing.find_landing_violations(page, _facts_pack()))
+    assert "landing:fact_words:0" not in keys
+    assert "landing:fact_words:1" in keys and "landing:ad_said_words:2" in keys
+
+
+def test_the_accent_phrase_matches_case_and_punctuation_insensitively(tmp_path):
+    page = _page()
+    page["hero"]["accent_phrase"] = "\u201cNothing  Hidden.\u201d"
+    assert _gates(page) == []
+    html = (_render(tmp_path, page=page) / "index.html").read_text()
+    assert '<span class="ld-accent">nothing hidden</span>' in html
+
+
+def test_an_accent_phrase_not_in_the_headline_renders_no_accent_and_passes(tmp_path):
+    page = _page()
+    page["hero"]["accent_phrase"] = "see the full price"
+    assert _gates(page) == []
+    ctx = landing.render_context(page, _facts_pack(), ad_brief=AD_BRIEF, tenant=TENANT)
+    assert "not in the headline" in ctx["accent_note"]
+    html = (_render(tmp_path, page=page) / "index.html").read_text()
+    assert 'class="ld-accent"' not in html
+
+
+def test_ad_said_may_quote_the_ads_outlet_claim():
+    page = _page()
+    page["checked_claims"][1]["ad_said"] = "It plugs right into a normal outlet, no electrician involved"
+    assert not [p for p in landing.find_landing_violations(page, _facts_pack()) if "power" in p["key"]]
+
+
+def test_the_hero_may_not_repeat_a_contradicted_outlet_claim_and_the_repair_says_where_it_goes():
+    page = _page()
+    page["hero"]["headline"] = "A small-footprint sauna that plugs into a standard outlet"
+    hits = [p for p in landing.find_landing_violations(page, _facts_pack()) if "power" in p["key"]]
+    assert [p["path"] for p in hits] == ["$.hero.headline"]
+    assert "move it into checked_claims[].ad_said" in hits[0]["issue"]
+
+
+def test_the_writer_prompt_carries_the_contradicted_claim_rule():
+    assert landing.CONTRADICTED_AD_CLAIM_LINE in landing.writer_lines(_facts_pack(), TENANT)
+
+
+def test_trim_to_limit_cuts_only_at_a_sentence_or_clause_boundary():
+    text = ("A home sauna is easier to stick with once the weather turns -- a warm session in your own "
+            "house instead of a cold drive out.")
+    assert landing.trim_to_limit(text, 20) == "A home sauna is easier to stick with once the weather turns."
+    two = "One two three four. Five six seven eight nine."
+    assert landing.trim_to_limit(two, 6) == "One two three four."
+    assert landing.trim_to_limit("one two three four five six", 3) is None      # no terminal punctuation
+    assert landing.trim_to_limit("one two three four five six.", 3) is None     # no boundary that fits
+    assert landing.trim_to_limit(two, 20) == two
+
+
+def _write_loop(page, tmp_path):
+    from harness.budget import Budget
+    from harness.log import RunLog
+    from harness.repair import write_and_gate_page
+    from tests.conftest import FakeClient, json_response
+
+    client = FakeClient([json_response(page)] * 3)
+    log = RunLog("test-run", tmp_path / "run.log")
+    try:
+        return write_and_gate_page(
+            cartridge_name="landing", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=AD_BRIEF,
+            facts_pack=_facts_pack(), client=client, model="claude-sonnet-5", budget=Budget(), log=log,
+            financing_lender="Bread Pay", speaker_pov=AD_BRIEF["speaker_pov"], tenant=TENANT,
+        ), client
+    finally:
+        log.close()
+
+
+def test_the_last_attempt_trims_an_over_long_subhead(tmp_path):
+    page = _page()
+    page["hero"]["subhead"] = ("The price, the power it needs and what arrives at your door, stated up front. "
+                               "So you can decide on your own time, without a sales call or a showroom visit, "
+                               "and without a single form.")
+    assert len(page["hero"]["subhead"].split()) > landing.SUBHEAD_MAX_WORDS
+    (result, attempts, fixes), client = _write_loop(page, tmp_path)
+    assert len(client.messages.calls) == 3 and fixes[-1] == 1 and fixes[0] == 0
+    assert result["hero"]["subhead"] == "The price, the power it needs and what arrives at your door, stated up front."
+
+
+def test_an_untrimmable_subhead_still_stops_the_run(tmp_path):
+    page = _page()
+    page["hero"]["subhead"] = " ".join(["plain"] * 31)
+    with pytest.raises(claims.ClaimsGateFailure):
+        _write_loop(page, tmp_path)

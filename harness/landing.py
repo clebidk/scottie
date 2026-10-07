@@ -36,13 +36,13 @@ from .textutil import product_name_slug, walk_page
 
 CHECKED_RANGE = (4, 6)
 AD_SAID_MAX_WORDS = 14
-FACT_MAX_WORDS = 30
+FACT_MAX_WORDS = 36   # cycle 82b: a full logistics fact (shipping) is ~35 words
 FAQ_RANGE = (3, 5)
 QUESTION_MAX_WORDS = 12
 ANSWER_MAX_WORDS = 35
-SUBHEAD_MAX_WORDS = 25
+SUBHEAD_MAX_WORDS = 30
 CLOSING_MAX_WORDS = 10
-EYEBROW_MAX_WORDS = first_screen.EYEBROW_MAX_WORDS
+EYEBROW_MAX_WORDS = 8
 SPEC_CELLS = 4
 
 # An asset kind that shows the product in a real room or yard (photo
@@ -173,6 +173,21 @@ def room_asset_ok(asset):
     return bool(asset) and asset.get("kind") in ROOM_KINDS and not asset.get("ai_generated")
 
 
+_EDGE_PUNCT = "\"'\u201c\u201d\u2018\u2019.,;:!?()[]-\u2013\u2014 "
+
+
+def accent_span(headline, phrase):
+    """The headline's own text for `phrase`, matched case-insensitively and
+    ignoring punctuation around the phrase and runs of whitespace; "" when
+    the headline does not contain it. Cycle 82b: a phrase that does not
+    match is a layout miss, not a gate failure."""
+    words = str(phrase or "").strip(_EDGE_PUNCT).split()
+    if not words or not headline:
+        return ""
+    m = re.search(r"\s+".join(re.escape(w) for w in words), headline, re.IGNORECASE)
+    return m.group(0) if m else ""
+
+
 def render_context(page, facts_pack, *, ad_brief=None, tenant=None):
     """Everything the landing template renders that the writer did not
     write, plus the first screen's eyebrow and headline markup."""
@@ -180,9 +195,12 @@ def render_context(page, facts_pack, *, ad_brief=None, tenant=None):
     hero = (page or {}).get("hero") or {}
     headline = str(hero.get("headline") or "")
     phrase = str(hero.get("accent_phrase") or "").strip()
+    span = accent_span(headline, phrase)
     view = {
         "headline": headline,
-        "accent_phrase": phrase if phrase and phrase in headline else first_screen.longform_accent(headline),
+        # no phrase given: the longform rule picks one; a phrase that is not
+        # in the headline: no accent at all (render.py logs it)
+        "accent_phrase": span if phrase else first_screen.longform_accent(headline),
         "eyebrow": hero.get("eyebrow") or "",
     }
     ctx = {
@@ -198,6 +216,8 @@ def render_context(page, facts_pack, *, ad_brief=None, tenant=None):
         "secondary": secondary_link(tenant, facts_pack),
         "quote": first_screen.hero_quote(page, ad_brief, facts_pack),
         "room_kinds": ROOM_KINDS,
+        "accent_note": (f"accent_phrase {phrase!r} is not in the headline; rendered with no accent"
+                        if phrase and not span else ""),
     }
     ctx["claim_ids"] = context_claim_ids(ctx)
     return ctx
@@ -257,7 +277,7 @@ def writer_lines(facts_pack, tenant=None):
         "renderer shows the price, financing, warranty, rating, shipping and the spec strip from "
         "facts_pack -- never write a price, a spec value, a rating, a phone number or a link yourself.",
         f"hero.eyebrow: the ad's hook in at most {EYEBROW_MAX_WORDS} words (no number). hero.headline: "
-        "6-12 words from the ad's angle; hero.accent_phrase: 1-4 words copied exactly from the headline "
+        "6-12 words from the ad's angle; hero.accent_phrase: 1-4 words copied from the headline "
         f"(shown in brand red). hero.subhead: the ad's promise in plain words, at most {SUBHEAD_MAX_WORDS} "
         "words. hero.hero_image.asset_id: the product photo to show when the ad has no usable still.",
         f"checked_claims has {clo}-{chi} items, each {{ad_said, fact, claim_ids}}: ad_said is what the "
@@ -268,6 +288,7 @@ def writer_lines(facts_pack, tenant=None):
         "electrical requirement, the footprint/dimensions, delivery and shipping, assembly, the warranty.",
         "Power and outlet: state only what this product's own electrical claim says, in its own terms. "
         "Never say an electrician or a dedicated circuit is or is not needed unless that claim says so.",
+        CONTRADICTED_AD_CLAIM_LINE,
         room,
         "proof.quote: only a sentence that appears word for word in facts_pack.reviews_summary, with "
         "its author and claim_ids; omit proof entirely when there is none. Never invent a quote.",
@@ -282,6 +303,69 @@ def writer_lines(facts_pack, tenant=None):
 # ---------------------------------------------------------------------------
 # Gate: writer-owned structural checks
 # ---------------------------------------------------------------------------
+
+_SENTENCE_END_RE = re.compile(r"[.!?][\"'\u201d\u2019)]*(?=\s|$)")
+_CLAUSE_BREAK_RE = re.compile(r"\s*(?:;|\s--\s|\s\u2014\s|\u2014)\s*")
+
+
+def trim_to_limit(text, limit):
+    """`text` cut to at most `limit` words at its last sentence end that
+    fits, else at its last clause break (";", " -- ", an em dash) that fits,
+    closed with a full stop -- never mid-word and never mid-clause. None when
+    no such cut exists, or the text did not end with terminal punctuation in
+    the first place. Cycle 82b: the landing page's last-resort fix for a
+    subhead or fact a few words over its limit."""
+    text = str(text or "").strip()
+    if len(text.split()) <= limit:
+        return text
+    if not re.search(r"[.!?][\"'\u201d\u2019)]*$", text):
+        return None
+    best = None
+    for m in _SENTENCE_END_RE.finditer(text):
+        cut = text[: m.end()].strip()
+        if cut != text and len(cut.split()) <= limit:
+            best = cut
+    if best:
+        return best
+    for m in _CLAUSE_BREAK_RE.finditer(text):
+        cut = text[: m.start()].rstrip(" ,")
+        if cut and len(cut.split()) <= limit:
+            best = cut + "."
+    return best
+
+
+# gate key prefix -> (page path pattern, limit) the last-resort trim may cut
+_TRIMMABLE = {
+    "landing:subhead_words": SUBHEAD_MAX_WORDS,
+    "landing:fact_words": FACT_MAX_WORDS,
+}
+
+
+def trim_word_limit_violation(page, item):
+    """Applies trim_to_limit to the field a landing:subhead_words or
+    landing:fact_words failure names. Returns (path, old, new) or None."""
+    key = str(item.get("key") or "")
+    limit = next((v for k, v in _TRIMMABLE.items() if key == k or key.startswith(k + ":")), None)
+    path = item.get("path") or ""
+    if limit is None:
+        return None
+    m = re.match(r"^\$\.(?:hero\.subhead|checked_claims\[(\d+)\]\.fact)$", path)
+    if not m:
+        return None
+    if m.group(1) is None:
+        node, field = page.get("hero"), "subhead"
+    else:
+        items = page.get("checked_claims") or []
+        i = int(m.group(1))
+        node, field = (items[i] if i < len(items) else None), "fact"
+    if not isinstance(node, dict) or not isinstance(node.get(field), str):
+        return None
+    new = trim_to_limit(node[field], limit)
+    if not new or new == node[field]:
+        return None
+    old, node[field] = node[field], new
+    return path, old, new
+
 
 def find_checked_claims_violations(page, facts_pack):
     items = page.get("checked_claims")
@@ -331,10 +415,6 @@ def find_word_limit_violations(page):
     for path, text, limit, key in checks:
         if _words(text) > limit:
             problems.append(_problem(path, key, f"{_words(text)} words; at most {limit}", text=text))
-    phrase = str(hero.get("accent_phrase") or "").strip()
-    if phrase and phrase not in str(hero.get("headline") or ""):
-        problems.append(_problem("$.hero.accent_phrase", "accent_phrase",
-                                 "accent_phrase must be copied exactly from hero.headline", text=phrase))
     if not str(closing.get("headline") or "").strip():
         problems.append(_problem("$.closing.headline", "closing_headline", "closing.headline is required"))
     return problems
@@ -451,9 +531,30 @@ def find_number_violations(page, facts_pack):
     return problems
 
 
+_AD_SAID_PATH_RE = re.compile(r"^\$\.checked_claims\[\d+\]\.ad_said$")
+
+CONTRADICTED_AD_CLAIM_LINE = (
+    "Never put an ad claim the facts contradict in the hero, eyebrow, subhead, FAQ or closing; "
+    "quote it in checked_claims[].ad_said and correct it in fact."
+)
+
+
 def find_power_violations(page, facts_pack):
-    return [dict(p, key=p["key"].replace("product-page:", f"{_PROBLEM_PREFIX}:", 1))
-            for p in pdp.find_power_violations(page, facts_pack)]
+    """pdp's power rule (no sentence may contradict the product's own
+    electrical claim), except checked_claims[].ad_said: it quotes the ad, and
+    is exactly where an ad's wrong outlet claim belongs so `fact` can correct
+    it (cycle 82b)."""
+    problems = []
+    for p in pdp.find_power_violations(page, facts_pack):
+        if _AD_SAID_PATH_RE.match(p["path"]):
+            continue
+        problems.append(dict(
+            p, key=p["key"].replace("product-page:", f"{_PROBLEM_PREFIX}:", 1),
+            issue=p["issue"] + ". If the ad made this outlet claim, move it into checked_claims[].ad_said and "
+            "write the correction in that item's fact; the hero must not repeat an ad claim the verified "
+            "facts contradict.",
+        ))
+    return problems
 
 
 def find_landing_violations(page, facts_pack=None):
