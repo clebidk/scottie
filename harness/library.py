@@ -368,7 +368,10 @@ def capture_thumb(browser, html_path, png_path, *, popen=subprocess.Popen, timeo
     png_path = Path(png_path)
     png_path.unlink(missing_ok=True)  # never report an older file as this capture
     w, h = THUMB_SIZE
-    with tempfile.TemporaryDirectory(prefix="harness-thumb-") as work:
+    # The frame page and the profile sit next to the PNG, never in /tmp: a snap-
+    # packaged Chromium (prod) has a private /tmp and sees neither a page nor a
+    # PNG path there (it reported the PNG written, but nothing arrived).
+    with tempfile.TemporaryDirectory(prefix="harness-thumb-", dir=png_path.parent) as work:
         frame = Path(work) / "frame.html"
         frame.write_text(
             f'<!doctype html><html><body style="margin:0;background:#fff">'
@@ -411,12 +414,17 @@ def _blocked_connect(*_args, **_kwargs):
 
 
 @contextlib.contextmanager
-def offline_run_env():
+def offline_run_env(base_dir=None):
     """The scratch world the fake runs happen in (see the module docstring).
     Yields the scratch folder; everything is put back afterwards."""
     from . import notify
 
-    scratch = Path(tempfile.mkdtemp(prefix="harness-library-"))
+    # base_dir: the build passes the tenant library folder so staging, the fake
+    # runs and the thumbnail work all stay on the same filesystem as the
+    # destination (prod /tmp is another device, and snap Chromium cannot see it).
+    if base_dir is not None:
+        Path(base_dir).mkdir(parents=True, exist_ok=True)
+    scratch = Path(tempfile.mkdtemp(prefix="harness-library-", dir=base_dir))
     cls = tenant_mod.Tenant
     props = {"out_dir": scratch / "out", "runs_dir": scratch / "runs", "evals_path": scratch / "evals" / "scores.jsonl"}
     saved_props = {name: cls.__dict__[name] for name in props}
@@ -552,7 +560,7 @@ def build(tenant, *, only=None, force=False, log=print):
         return summary
     fixture = _fixture(tenant)
     fake_run = _fake_run_module()
-    with offline_run_env() as scratch:
+    with offline_run_env(base_dir=tenant.library_dir) as scratch:
         for i, (version, sha) in enumerate(todo, 1):
             dest = root / version.key
             meta = describe(tenant, version)
