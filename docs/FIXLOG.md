@@ -4724,6 +4724,43 @@ Branch `cycle82d/landing-adsaid-wording` from origin/master c252fe3 (the cycle 8
   said" line, and the `fact` next to it corrects them. That is the cartridge's design, but
   the owner has not seen it on a live page. The two prod runs were not run again here.
 
+### Cycle 82e (landing: other words for "dedicated circuit", 4 attempts, the rating is not a quote, 2026-10-07)
+Branch `cycle82e/power-synonyms` from origin/master 95d62ed.
+- **Problem 1.** Prod run 20261007-195142-...-rzvr (Mini) STOPped on attempt 3 with one item,
+  `$.faq.questions[1].answer` under `landing:power`: "... plugs into a standard 120V/15A household
+  outlet on its own 15A circuit." The sentence states the dedicated circuit, but
+  `pdp.states_dedicated` knew only the word "dedicated". Two repairs went to other fixes first, so
+  the writer saw this item once.
+- **Problem 2.** The first `--look proof` run (20261007-195303-...-ybme) showed the rating sentence
+  "Rated 4.8 out of 5 across 49 reviews ... (fetched 2026-10-07)." under the subhead as a customer
+  quote. The quote gate accepted any text inside `facts_pack.reviews_summary`, and that is the
+  rating claim. No facts source holds individual review texts (`ground.py` sets
+  `reviews_summary = {text, claim_ids}` only); the listicle's `facts_pack.review_quotes` is the
+  one field for them, and nothing fills it yet.
+- **Change.** `pdp.states_dedicated` also accepts "its own [15A|20A|N-amp] circuit/breaker/line/
+  outlet", "a separate [15A|20A] circuit/breaker/line", "dedicated ... breaker" and "single-purpose
+  circuit"; a negation just before ("not on its own circuit") still does not count. A
+  `landing:power` issue for a dedicated-circuit product now ends "Say 'dedicated circuit' in the
+  same sentence, for example: '<the product's own claim>'" (`pdp.dedicated_claim_text`).
+  `repair.REPAIR_ATTEMPTS_BY_CARTRIDGE = {"landing": 3}`: landing gets 4 attempts, every other
+  cartridge keeps 3 (`MAX_REPAIR_ATTEMPTS` is unchanged). `proof.quote` must now be word for word
+  inside one `facts_pack.review_quotes` text; a quote that looks like a rating ("out of 5",
+  "reviews on", "fetched", "rated 4", "4.8 stars", "/5") or sits inside the reviews_summary or
+  `reviews-live` text fails a new key `landing:quote_not_review`. The renderer
+  (`landing.review_quote`) shows only a quote that passes both, in the proof look AND the open
+  look (the open look rendered `page.proof.quote` unchecked before). Prompt line, cartridge.md and
+  schema description say the same.
+- **Verify.** 18 new tests (17 in `tests/test_landing_cycle82.py`, 1 in
+  `tests/test_landing_proof_cycle85.py`); 14 of them fail on 95d62ed (the "dedicated 15A" and
+  the three negation cases already held). Existing tests changed: the 82c quote test asserted
+  the rating sentence as a good quote; `_write_loop` feeds 4 responses and the subhead-trim test
+  now trims on attempt 4; the cycle 85 quote fixture moved from an invented
+  `reviews_summary.quotes` to `review_quotes`. Landing files: 109 passed. Full suite
+  `.venv/bin/python -m pytest -q`: 2594 passed, 0 failed.
+- **Open.** Until a facts source fills `review_quotes`, every landing page has no quote, only the
+  rating row. The fourth landing attempt costs one more write call on a failing page (the budget
+  guard still applies). The two prod runs were not run again here.
+
 ## Cycle 85 (landing `proof` look: reviews first, checkmark benefits, trust under the CTA, icon row, 2026-10-07)
 Branch `cycle85/landing-proof-look` from origin/master 2dda94c, with `cycle82c/landing-power` merged
 in first (not yet on master; merged here so the two do not conflict later).

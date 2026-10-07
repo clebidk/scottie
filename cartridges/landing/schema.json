@@ -79,7 +79,7 @@
     },
     "proof": {
       "type": "object",
-      "description": "Optional. The rating is rendered from facts_pack; quote only if it exists verbatim in facts_pack.reviews_summary.",
+      "description": "Optional. The rating is rendered from facts_pack; quote only one customer review copied verbatim from facts_pack.review_quotes. The rating sentence in reviews_summary is never a quote. Omit when review_quotes is empty.",
       "properties": {
         "quote": {
           "type": "object",

@@ -221,7 +221,7 @@
   </section>
   {% endif %}
 
-  {% set q = page.proof.quote if page.proof and page.proof.quote else None %}
+  {% set q = ld.review_quote %}
   {% if ld.rating or q %}
   <section class="ld-sec">
     <div class="ld-narrow">
