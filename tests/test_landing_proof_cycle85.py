@@ -15,7 +15,7 @@ from harness import abtest, landing, looks, repair, write
 from harness.page_body import build_shopify_body
 from tests.support import REPO_ROOT, TENANT
 from tests.test_brand_lint_cycle78 import _PAGE_SCOPED, _css, _lint, _rules
-from tests.test_landing_cycle82 import PHONE, SRC, _keys, _render
+from tests.test_landing_cycle82 import PHONE, SRC, WARRANTY_TERM, _keys, _render
 from tests.test_landing_cycle82 import _gates as _landing_gates
 from tests.test_landing_cycle82 import _facts_pack as _landing_facts_pack
 
@@ -125,7 +125,7 @@ def test_the_trust_line_sits_under_the_cta_and_the_text_link_under_it(tmp_path):
     act = re.search(r'<div class="ld-act ld-act--proof">(.*?)</div>', html, re.S).group(1)
     assert act.index('class="ld-btn"') < act.index('class="ld-trust"') < act.index('class="ld-text"')
     trust = re.findall(r"<li>([^<]*)</li>", re.search(r'<ul class="ld-trust">(.*?)</ul>', act).group(1))
-    assert trust[:2] == ["Free shipping", "Limited lifetime warranty"] and len(trust) <= landing.PROOF_TRUST_MAX
+    assert trust[:2] == ["Free shipping", WARRANTY_TERM] and len(trust) <= landing.PROOF_TRUST_MAX
     assert "secure" not in act.lower() and "guarantee" not in act.lower()
     # the financing sentence stays verbatim in the price block above the pill
     assert html.index("Financing is available through Bread Pay at checkout.") < html.index('class="ld-act ld-act--proof"')
@@ -141,7 +141,7 @@ def test_the_returns_term_only_from_a_short_verified_returns_clause():
     assert landing.returns_term(fp, TENANT) is None
     fp["verified_claims"] = [c for c in fp["verified_claims"] if c["id"] != "returns-policy"]
     assert landing.returns_term(fp, TENANT) is None
-    assert [t["text"] for t in landing.proof_trust_items(fp, TENANT)] == ["Free shipping", "Limited lifetime warranty"]
+    assert [t["text"] for t in landing.proof_trust_items(fp, TENANT)] == ["Free shipping", WARRANTY_TERM]
 
 
 def test_the_icon_row_draws_only_known_icon_keys(tmp_path):

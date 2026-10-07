@@ -21,6 +21,7 @@ from harness.ground import LocalFactsSource
 from harness.render import render_page
 from harness.repair import check_page_gates, count_words
 from harness.simplicity import find_above_fold_link_violations
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_VALUE
 from harness.write import build_initial_write_request
 from tests.conftest import FakeClient, json_response
 from tests.support import REPO_ROOT, TENANT, newest_run_dir
@@ -206,7 +207,7 @@ def test_the_price_cell_never_shows_a_compare_at_price():
 def test_the_warranty_cell_is_the_fixed_spec_value():
     pack = _facts_pack_with_comparison()
     for model in pack["comparison"]["models"]:
-        assert model["cells"]["warranty"]["text"] == "Limited lifetime warranty (terms by component)"
+        assert model["cells"]["warranty"]["text"] == ALLOWED_WARRANTY_SPEC_VALUE
         assert model["cells"]["warranty"]["claim_ids"] == ["warranty-terms"]
 
 
@@ -535,7 +536,7 @@ def test_the_page_renders_the_table_alternatives_and_fixed_lines(tmp_path):
     assert "120V/15A, standard outlet" in html
     assert 'class="cmp-rowhead" scope="row"' in html
     assert "Studio membership" in html and "Traditional sauna" in html
-    assert "Limited lifetime warranty; full terms by component are published on the warranty page." in html
+    assert ALLOWED_WARRANTY_SENTENCE in html
     assert "Financing is available through Bread Pay at checkout." in html
     assert html.count(">See the models<") == 3  # header, closing, sticky bar -- one offer
     assert 'class="adv-badge"' not in html
