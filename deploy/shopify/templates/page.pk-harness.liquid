@@ -1,0 +1,26 @@
+{%- comment -%}
+  The advertorial harness's page template (cycle 84, 2026-10-07).
+  Source of truth: the harness repo, deploy/shopify/templates/page.pk-harness.liquid.
+  Push it with deploy/shopify/push_template.py; do not edit it in the theme editor.
+
+  The harness sets template_suffix "pk-harness" on every page it publishes
+  (tenant.yaml shopify_publish.template_suffix).
+  Its body_html carries all of its own CSS in one body <style> block, so this
+  template prints page.content raw: no section, no .rte wrapper, no container,
+  no theme page title. It uses no section or snippet, so it renders the same in
+  every theme that holds it. The theme layout still loads (head, fonts,
+  analytics, app scripts).
+
+  Hidden theme chrome (header, announcement bar, footer): the same selectors
+  as templates/page.pk-regret-lp.liquid. The page body never holds a bare
+  <header> or <footer> (harness/page_body.py strip_document_chrome turns a
+  classed one into a <div>), so the element selectors cannot hide page content.
+  Rollback: docs/PUBLISHING.md "Storefront template (cycle 84)".
+{%- endcomment -%}
+<style id="pk-harness-hide-chrome">
+  header, #shopify-section-header, .header-wrapper, [data-site-header], .shopify-section-group-header-group, [class*="shopify-section-group-main-header"], #shopify-section-static-header { display: none !important }
+  footer:not(cart-drawer footer), #shopify-section-footer, [id^="shopify-section-footer"], .shopify-section-group-footer-group, [class*="shopify-section-group-main-footer"] { display: none !important }
+  #shopify-section-announcement-bar, .announcement-bar, #shopify-section-announcement, .announcement_bar, .promo-bar:not(body) { display: none !important }
+  #MainContent, .main-content { padding-top: 0 !important; margin-top: 0 !important; padding-bottom: 0 !important; margin-bottom: 0 !important }
+</style>
+{{ page.content }}

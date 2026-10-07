@@ -371,7 +371,8 @@ query fileStatus($id: ID!) {
 
 
 class ShopifyPublisher(Publisher):
-    def __init__(self, *, store=None, token=None, transport=None, upload_transport=None, sleep=None):
+    def __init__(self, *, store=None, token=None, transport=None, upload_transport=None, sleep=None,
+                 template_suffix=None):
         """`store`/`token` default to reading SHOPIFY_STORE/SHOPIFY_TOKEN
         from the environment. `transport`, if given, replaces the real HTTP
         call for every Admin API request this adapter makes (REST and
@@ -382,7 +383,14 @@ class ShopifyPublisher(Publisher):
         target (see module docstring); it defaults to the same urllib call
         `transport` does. `sleep`, if given, replaces `time.sleep` for the
         staged-upload processing poll -- tests inject a no-op so a fake
-        "never becomes ready" run doesn't actually wait 30 seconds."""
+        "never becomes ready" run doesn't actually wait 30 seconds.
+
+        Cycle 84: `template_suffix` (tenant.yaml
+        shopify_publish.template_suffix, passed by harness/cli.py
+        _make_publisher) is sent on every page create and on every update
+        that carries content, so a page renders through
+        templates/page.<suffix>.liquid in whichever theme serves it. None (the
+        default) sends nothing, so the payloads stay as they were."""
         raw_store = store if store is not None else os.environ.get("SHOPIFY_STORE")
         # Normalize when present; leave None/empty for _require_credentials to
         # report the usual "not configured" error (don't turn "missing" into
@@ -397,6 +405,7 @@ class ShopifyPublisher(Publisher):
         self._transport = transport or self._urllib_transport
         self._upload_transport = upload_transport or self._urllib_transport
         self._sleep = sleep or time.sleep
+        self.template_suffix = template_suffix or None
 
     def _require_credentials(self):
         missing = []
@@ -478,6 +487,7 @@ class ShopifyPublisher(Publisher):
             "ok": ok,
             "reason": "" if ok else f"shop.json returned status {status}",
             "store": self.store,
+            "template_suffix": self.template_suffix,
             "body_bytes": len(page.get("body_html", "")) if isinstance(page, dict) else None,
             "asset_count": len(page.get("assets", []) or []) if isinstance(page, dict) else None,
         }
@@ -710,6 +720,8 @@ class ShopifyPublisher(Publisher):
         # test page (keeps it out of the sitemap and search results).
         if page.get("metafields"):
             payload["page"]["metafields"] = page["metafields"]
+        if self.template_suffix:
+            payload["page"]["template_suffix"] = self.template_suffix
         status, data = self._request("POST", "pages.json", payload)
         if status not in (200, 201) or "page" not in data:
             raise PublishFailed(f"page create failed: status={status} body={data}")
@@ -736,11 +748,17 @@ class ShopifyPublisher(Publisher):
         "admin_url", "handle"}.
 
         Cycle 80: a `page` with no title/body_html sends only `published`
-        (harness/postlive.py's unpublish: hide the page, keep its body)."""
+        (harness/postlive.py's unpublish: hide the page, keep its body).
+
+        Cycle 84: an update that carries content also sends the tenant's
+        `template_suffix`; an unpublish (no content) still sends only
+        `published`."""
         payload = {"page": {"id": page_id}}
         for key in ("title", "body_html"):
             if key in page:
                 payload["page"][key] = page[key]
+        if self.template_suffix and ("title" in page or "body_html" in page):
+            payload["page"]["template_suffix"] = self.template_suffix
         payload["page"]["published"] = not unpublished
         status, data = self._request("PUT", f"pages/{page_id}.json", payload)
         if status not in (200, 201) or "page" not in data:
@@ -764,6 +782,28 @@ class ShopifyPublisher(Publisher):
         if status != 200 or "pages" not in data:
             raise PublishFailed(f"page lookup failed: status={status} body={data}")
         return next((p for p in data["pages"] if p.get("handle") == handle), None)
+
+    def get_page(self, page_id):
+        """Cycle 84: the page `page_id` (id, handle, template_suffix,
+        published_at), or None when Shopify has no such page. Read only."""
+        query = urllib.parse.urlencode({"fields": "id,handle,template_suffix,published_at"})
+        status, data = self._request("GET", f"pages/{page_id}.json?{query}")
+        if status == 404:
+            return None
+        if status != 200 or "page" not in data:
+            raise PublishFailed(f"page read failed: status={status} body={data}")
+        return data["page"]
+
+    def set_template_suffix(self, page_id, template_suffix):
+        """Cycle 84: PUT only `template_suffix` on page `page_id` -- no title,
+        body or `published`, so the page's content and visibility stay as
+        they are. `harness pages set-template` uses this for pages published
+        before the tenant had a suffix. Returns the updated page."""
+        payload = {"page": {"id": page_id, "template_suffix": template_suffix}}
+        status, data = self._request("PUT", f"pages/{page_id}.json", payload)
+        if status not in (200, 201) or "page" not in data:
+            raise PublishFailed(f"page template update failed: status={status} body={data}")
+        return data["page"]
 
     # Cycle 67: read-only order lookup for A/B/C test attribution
     # (harness/abtest.py attribute_orders). Needs the read_orders scope.

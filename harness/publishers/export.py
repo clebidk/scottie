@@ -10,14 +10,18 @@ from .base import Publisher
 
 
 class ExportPublisher(Publisher):
-    def __init__(self, *, out_dir):
+    def __init__(self, *, out_dir, template_suffix=None):
         self.out_dir = Path(out_dir)
+        # Cycle 84: tenant.yaml shopify_publish.template_suffix; only named
+        # in the README, since nothing here talks to a storefront.
+        self.template_suffix = template_suffix or None
 
     def dry_run(self, page):
         return {
             "ok": True,
             "reason": "",
             "out_dir": str(self.out_dir),
+            "template_suffix": self.template_suffix,
             "body_bytes": len(page.get("body_html", "")) if isinstance(page, dict) else None,
             "asset_count": len(page.get("assets", []) or []) if isinstance(page, dict) else None,
         }
@@ -51,6 +55,17 @@ class ExportPublisher(Publisher):
             "assets/... src in the pasted body with its Shopify CDN URL.\n"
             "5. Leave the page unpublished (draft) unless the packet is stamped "
             "'ship' and a reviewer has approved.\n"
+            "6. Theme template: some themes' default page template strips the body "
+            "<style> block, and the page then shows its CSS as text. "
+            + (
+                f"Set the page's theme template to `{self.template_suffix}` "
+                f"(templates/page.{self.template_suffix}.liquid, pushed to every theme the store "
+                "runs with deploy/shopify/push_template.py).\n"
+                if self.template_suffix else
+                "If the store has deploy/shopify/templates/page.pk-harness.liquid in its themes "
+                "(deploy/shopify/push_template.py), set the page's theme template to `pk-harness`.\n"
+            )
+            + "   See docs/PUBLISHING.md, \"Storefront template (cycle 84)\".\n"
         )
         (self.out_dir / "README.md").write_text(readme)
         return {"id": None, "url": None, "export_dir": str(self.out_dir)}
