@@ -244,7 +244,7 @@ design_reference: [tesla, apple]
 # the model as its exemplar. Relative to the repo; a missing folder means no
 # pack exemplars (hand-made tenant looks with source.kind "pack" still count).
 look_import:
-  pack_dir: ../peak-lp-pack
+  pack_dir: /home/deploy/lp-pack
 
 # Cycle 17 (cost reduction): which model each stage calls -- see
 # harness/config.py's DEFAULT_MODELS for what a key left out falls back to.
