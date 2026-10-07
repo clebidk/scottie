@@ -1177,7 +1177,7 @@ def _snap_attributed_quote(page, path, ad_brief, facts_pack):
 
 def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartridge_name=None,
                                financing_lender=None, facts_pack=None, tenant=None, listicle_headline=None,
-                               ad_brief=None):
+                               ad_brief=None, last_attempt=False):
     """Mutates `page` in place, resolving exactly the failures that a safe
     text substitution can fix -- a forbidden hype word/exclamation mark, a
     claim id leaked into a parenthetical, a trigger word with a safe
@@ -1214,6 +1214,21 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                 fixed += 1
                 if log is not None:
                     log.event(f"write.{cartridge_name}", f"deterministic fix applied: {item.get('key')}")
+            continue
+
+        # Cycle 82b: a landing subhead or checked-claim fact over its word
+        # limit, on the LAST attempt only (the writer had two chances): cut at
+        # the last sentence end or clause break that fits, never mid-word,
+        # never a cut that does not end on terminal punctuation
+        # (landing.trim_to_limit). Anything else stays a gate failure.
+        if cartridge_name == "landing" and last_attempt and str(item.get("key") or "").startswith(
+                ("landing:subhead_words", "landing:fact_words")):
+            result = landing.trim_word_limit_violation(page, item)
+            if result:
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", f"deterministic fix applied: trimmed {result[0]} "
+                                                         f"to {len(result[2].split())} words")
             continue
 
         # Cycle 41: a listicle headline whose leading count is spelled out,
@@ -1563,6 +1578,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
                 financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
                 listicle_headline=listicle_headline, ad_brief=ad_brief,
+                last_attempt=attempt >= MAX_REPAIR_ATTEMPTS + 1,
             )
             if problems else 0
         )

@@ -26,10 +26,10 @@
     "hero": {
       "type": "object",
       "properties": {
-        "eyebrow": {"type": "string", "description": "The ad's hook in at most 6 words, no number."},
+        "eyebrow": {"type": "string", "description": "The ad's hook in at most 8 words, no number."},
         "headline": {"type": "string", "description": "6-12 words, from the ad's angle."},
-        "accent_phrase": {"type": "string", "description": "1-4 words copied exactly from headline; shown in brand red."},
-        "subhead": {"type": "string", "description": "The ad's promise in plain words, at most 25 words."},
+        "accent_phrase": {"type": "string", "description": "1-4 words copied from headline; shown in brand red (no accent when not found)."},
+        "subhead": {"type": "string", "description": "The ad's promise in plain words, at most 30 words."},
         "hero_image": {
           "type": "object",
           "description": "Fallback product photo; the ad still (when the run has one) or the product cut-out is shown first.",
@@ -43,8 +43,8 @@
       "items": {
         "type": "object",
         "properties": {
-          "ad_said": {"type": "string", "description": "What the ad said or implied, at most 14 words."},
-          "fact": {"type": "string", "description": "The verified statement, at most 30 words."},
+          "ad_said": {"type": "string", "description": "What the ad said or implied, at most 14 words. The one place an ad claim the facts contradict may appear; fact corrects it."},
+          "fact": {"type": "string", "description": "The verified statement, at most 36 words."},
           "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims."}
         }
       }

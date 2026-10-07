@@ -1206,6 +1206,8 @@ def render_page(
         if frame_asset:
             assets_by_id[ad_frames.FRAME_ID] = dict(frame_asset)
         landing_context = landing_mod.render_context(page, facts_pack, ad_brief=ad_brief, tenant=tenant)
+        if landing_context.get("accent_note") and log:
+            log.event("render", landing_context["accent_note"])
         pronoun = first_screen_mod.speaker_pronoun(ad_brief=ad_brief, frame=frame_record, tenant=tenant)
         landing_context["frame"] = frame_record
         landing_context["made_for"] = (f"In the ad {pronoun} made for {tenant.display_name}" if pronoun
