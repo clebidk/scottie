@@ -1063,6 +1063,7 @@ def _find_financing_prose_violations(page_json, allowed, financing_lender):
                 hits.append(
                     {
                         "path": path,
+                        "key": f"financing:{path}",
                         "issue": f"financing wording must be exactly {allowed!r} ({configured})",
                         "text": node,
                     }
@@ -1085,6 +1086,7 @@ def find_financing_violations(page_json, financing_lender=None):
                     hits.append(
                         {
                             "path": text_path,
+                            "key": f"financing_line:{text_path}",
                             "issue": f"financing_line must be exactly {allowed!r} ({configured})",
                             "text": text,
                         }
@@ -1206,6 +1208,7 @@ def find_warranty_violations(page_json, verified_claims):
                 hits.append(
                     {
                         "path": path,
+                        "key": f"warranty:{path}",
                         "issue": (
                             f"warranty wording must be exactly {vocab.ALLOWED_WARRANTY_SENTENCE!r}, "
                             f"the spec-table pair ({vocab.ALLOWED_WARRANTY_SPEC_LABEL!r}: "
@@ -1517,6 +1520,9 @@ def find_warmup_violations(page_json, tenant, window):
     return hits
 
 
+_LANDING_AD_SAID_PATH_RE = re.compile(r"^\$\.checked_claims\[\d+\]\.ad_said$")
+
+
 def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None, speaker_pov=None, ad_brief=None,
                    ad_speaker_verified=False):
     valid_ids = {c["id"] for c in facts_pack["verified_claims"]}
@@ -1534,8 +1540,15 @@ def gate_page_json(page_json, facts_pack, cartridge_name, financing_lender=None,
     problems += find_first_person_violations(page_json, speaker_pov)
     problems += find_benefit_claim_shortfall(page_json, facts_pack, cartridge_name)
     problems += find_leaked_claim_ids(page_json, valid_ids)
-    problems += find_financing_violations(page_json, financing_lender=financing_lender)
-    problems += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
+    wording = find_financing_violations(page_json, financing_lender=financing_lender)
+    wording += find_warranty_violations(page_json, facts_pack.get("verified_claims"))
+    if cartridge_name == "landing":
+        # Cycle 82d: a landing page's checked_claims[].ad_said quotes the ad
+        # ("lifetime warranty") so the item's `fact` can correct it -- the
+        # same exemption as landing:power. `fact` and every other field keep
+        # the fixed-wording gates; ad_said keeps landing.py's own rules.
+        wording = [p for p in wording if not _LANDING_AD_SAID_PATH_RE.match(p["path"])]
+    problems += wording
     problems += find_missing_attribution(page_json)
     # Cycle 65: an attributed line must also say what the speaker said --
     # only checkable with her words in hand (same no-ad_brief contract as

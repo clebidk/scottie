@@ -4698,3 +4698,28 @@ that bucket.
   `tenants/<t>/abtests/*.json`) are not touched. They are a script plus a `<noscript>` link
   list with no `<style>`; whether the other theme's fallback also strips `<script>` is not
   known, and was not checked.
+
+### Cycle 82d (landing: the fixed-wording gates skip ad_said, 2026-10-07)
+Branch `cycle82d/landing-adsaid-wording` from origin/master c252fe3 (the cycle 82c merge).
+- **Problem.** Two prod runs (20261007-185140-...-74rb, 20261007-185240-...-jcm5) STOPped
+  after 3 attempts on `$.checked_claims[5].ad_said`: "warranty wording must be exactly ...".
+  The ad says "lifetime warranty"; the writer quotes it in `ad_said` as the cartridge asks.
+  Since 82c the deterministic rewrite leaves `ad_said` alone, so the gate stops the run. The
+  item also had no `key`: the warranty and financing finders never set one (the repair loop
+  deduped them on (path, issue)), while the landing items all carry keys.
+- **Change.** `claims.gate_page_json` drops warranty and financing wording failures on
+  `$.checked_claims[N].ad_said` when the cartridge is landing, the same exemption as
+  `landing:power` (82b). The paired `fact`, the FAQ and every other field keep both gates.
+  The finders themselves and every other cartridge are unchanged. `ad_said` keeps
+  `landing:ad_said_figures`, `landing:ad_said_words`, the phone rule and the forbidden-term
+  gate. Every wording failure now has a key: `warranty:<path>`, `financing:<path>`,
+  `financing_line:<path>`.
+- **Verify.** Eight new tests in `tests/test_landing_cycle82.py`. Three of them fail on
+  c252fe3 (ad_said may quote a warranty or financing claim; a wording failure carries a key).
+  The others check that the same words in `fact` or `faq` still fail and that ad_said's own
+  rules still fire. The 82c test `test_the_warranty_fix_never_rewrites_ad_said` now feeds the
+  fix a wording failure directly, because the landing gate no longer reports one there.
+  Landing tests: 66 passed. Full suite `.venv/bin/python -m pytest -q`: 2507 passed, 0 failed.
+- **Open.** The page now shows the ad's "lifetime warranty" words as a quote in the "the ad
+  said" line, and the `fact` next to it corrects them. That is the cartridge's design, but
+  the owner has not seen it on a live page. The two prod runs were not run again here.
