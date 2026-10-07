@@ -222,6 +222,8 @@ def all_used_asset_ids(run_dir, *, exclude_cartridge=None):
 # field, purely which existing asset_id gets checked/possibly swapped).
 _HERO_FIELD_PATH = {
     "longform": ("hero", "hero_image"),
+    # Cycle 82: the landing page's fallback hero (the ad still comes first).
+    "landing": ("hero", "hero_image"),
     "product-page": ("hero", "hero_image"),
     # Cycle 41: listicle v0.2 has a real header hero slot of its own
     # (page.hero.asset_id). v0.1 had none, so the first item's image was
@@ -480,6 +482,16 @@ def _match_slots(page, cartridge_name):
             image = step.get("image")
             if isinstance(image, dict):
                 slots.append((f"how_it_works.steps[{i}].image", image, _match_section_context(step)))
+    elif cartridge_name == "landing":
+        hero = page.get("hero") or {}
+        hero_image = hero.get("hero_image")
+        if isinstance(hero_image, dict):
+            context = f"{hero.get('headline', '')} {hero.get('subhead', '')}".strip()
+            slots.append(("hero.hero_image", hero_image, context))
+        room = page.get("room_photo")
+        if isinstance(room, dict):
+            # Cycle 82: the one photo of the product in a real room.
+            slots.append(("room_photo", room, "the cabin in a real room, its size in the room, lifestyle"))
     elif cartridge_name == "product-page":
         hero = page.get("hero") or {}
         hero_image = hero.get("hero_image")

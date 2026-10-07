@@ -5,7 +5,8 @@ is only a dispatcher, and one template per look under
 cartridges/<cartridge>/looks/<look>/. The look is a LAYOUT choice, never a
 copy choice, so a page can change look with no writer call
 (`harness rerender --look`). Cycle 54 gives the product-page cartridge the
-same mechanism (looks `pdp` and `classic`), so the rule now lives here and
+same mechanism (looks `pdp` and `classic`), and cycle 82 the longform
+cartridge (looks `open` and `classic`), so the rule now lives here and
 harness/listicle.py keeps only what is listicle-specific (its style ->
 look pairing).
 
@@ -29,11 +30,17 @@ from . import tenant as tenant_mod
 CARTRIDGE_LOOKS = {
     "listicle": listicle.LOOKS,
     "product-page": ("pdp", "classic"),
+    # Cycle 82: the cycle 79 "open" design language for the longform page.
+    # The default stays "classic" (the template longform always had), so a
+    # tenant that pins nothing renders exactly as before; a tenant opts in
+    # with tenant.yaml `cartridges.longform.looks: [open]`.
+    "longform": ("open", "classic"),
 }
 
 DEFAULT_LOOKS = {
     "listicle": listicle.DEFAULT_LOOK,
     "product-page": "pdp",
+    "longform": "classic",
 }
 
 

@@ -32,10 +32,63 @@ from harness.prices import build_live_price_claims
 from tests.conftest import FakeClient, json_response
 from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE, _FILLER_SENTENCES
 
+# Cycle 82: the landing cartridge's canned page -- every number in it
+# cites a verified claim the offline facts pack carries; the price, rating,
+# specs and links are the renderer's.
+LANDING_PAGE = {
+    "cta_text": "Shop the Fuji",
+    "cta_url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+    "hero": {
+        "eyebrow": "Sauna shopping, made plain",
+        "headline": "The home sauna with nothing hidden before checkout",
+        "accent_phrase": "nothing hidden",
+        "subhead": "The price, the power it needs and what arrives at your door, stated up front so you can decide without a sales call.",
+        "hero_image": {"asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1"},
+    },
+    "checked_claims": [
+        {"ad_said": "Sauna shopping used to be confusing.",
+         "fact": "The Fuji page lists its capacity, cabin wood and heat range before you buy: two people, Canadian red cedar, up to 150°F.",
+         "claim_ids": ["spec-fuji-capacity", "spec-fuji-cabin-material", "spec-fuji-max-temperature"]},
+        {"ad_said": "It plugs into your home.",
+         "fact": "The Fuji runs on a 120V / 20A dedicated outlet; a standard 15A outlet is not sufficient.",
+         "claim_ids": ["gbrain-fuji-power"]},
+        {"ad_said": "It fits a spare corner.",
+         "fact": "Assembled, the cabin measures 53 inches wide, 44 inches deep and 75 inches high.",
+         "claim_ids": ["gbrain-fuji-dimensions"]},
+        {"ad_said": "Real infrared, not a gimmick.",
+         "fact": "Infrared heaters cover near, mid and far wavelengths, from 700 to 25,000nm.",
+         "claim_ids": ["spec-fuji-infrared-wavelength-range"]},
+        {"ad_said": "Red light comes with it.",
+         "fact": "Medical-grade red light therapy is included standard, with one panel you sit facing from about seven to eight inches away.",
+         "claim_ids": ["gbrain-allowlist-red-light", "gbrain-fuji-rlt"]},
+        {"ad_said": "Getting it home is simple.",
+         "fact": "Every order ships free. In-stock orders leave the warehouse within a few business days, and heavy freight arrives on a delivery appointment you schedule.",
+         "claim_ids": ["shipping-policy"]},
+    ],
+    "faq": {
+        "questions": [
+            {"question": "Do I need special wiring?",
+             "answer": "You need a 120V / 20A dedicated outlet. A standard 15A outlet is not sufficient, so check your panel before ordering.",
+             "claim_ids": ["gbrain-fuji-power"]},
+            {"question": "How many people fit inside?",
+             "answer": "Two people sit side by side on one bench.",
+             "claim_ids": ["spec-fuji-capacity"]},
+            {"question": "How hot does the cabin get?",
+             "answer": "The Fuji reaches up to 150°F, with heaters placed around you so the warmth reaches your back, sides and legs, not just the front.",
+             "claim_ids": ["spec-fuji-max-temperature", "gbrain-allowlist-360-full-spectrum"]},
+            {"question": "What happens if I change my mind?",
+             "answer": "Returns are accepted once the cabin is taken apart and repacked in its original crate.",
+             "claim_ids": ["returns-policy"]},
+        ]
+    },
+    "closing": {"headline": "See the Fuji with every number on the page"},
+}
+
 CANNED_PAGES = {
     "article": ARTICLE_PAGE,
     "product-page": PRODUCT_PAGE_PAGE,
     "longform": LONGFORM_PAGE,
+    "landing": LANDING_PAGE,
 }
 
 FUJI_SLUG = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"

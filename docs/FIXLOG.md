@@ -4402,3 +4402,95 @@ $0 spent.
 6. Favicon v2: Stone wave mark on Fossil Dust (`~/asset-inbox/site-favicon-v2/`), same
    names and routes.
 
+
+## Cycle 82 (landing cartridge: the ad-first, mobile-first page for high-AOV products, 2026-10-07)
+
+Branch `cycle82/landing-cartridge` from master e46c6fb. Not merged, not pushed. The cycle
+started as a longform `open` look; mid-cycle the owner asked for a new cartridge instead.
+Both are in this branch: the longform look is finished to "compiles, tested, default for
+PEAK"; the main work is `cartridges/landing/`.
+
+### Problem
+The owner wants general, clean landing pages for $4k-$10k saunas, built from each ad and
+repeatable for future ads. PEAK data: about 74% mobile traffic, 22 s average active time,
+13% scroll depth; the old landing page handled no price objection in the first two scrolls
+and weighed 1.2 MB. The only landing-type cartridge, longform, rendered generically (huge
+hero photo, plain headings, grey-ish boxes) and is 800-1,400 words long.
+
+### Change
+- **`cartridges/landing/` (v0.1.0)**: cartridge.md (250-450 words), schema.json
+  (`hero{eyebrow, headline, accent_phrase, subhead, hero_image}`, `checked_claims[]`,
+  `room_photo`, `proof.quote`, `faq.questions[]`, `closing.headline`, one
+  `cta_text`/`cta_url`), rubric.md, template.html (one look, the cycle 79 open grammar, prefix
+  `ld-`, CSS written for 390px first, widened at 768/1024px). Auto-discovered; opt-in with
+  `--cartridges landing` (not in `default_cartridge_pool`).
+- **`harness/landing.py`**: `render_context` builds everything with a number from facts_pack
+  and tenant.yaml -- price (the `price-<model>` claim the listicle value stack uses), the
+  fixed financing and warranty sentences, the trust line (rating + count, free shipping,
+  warranty term), the 4-cell spec strip (`SPEC_PRIORITY`), the rating, and the secondary
+  link. `find_landing_violations` (wired in `repair.check_page_gates`, keys `landing:*`):
+  4-6 checked claims each with verified claim ids and word limits; FAQ 3-5 with word limits
+  and claim ids on factual answers; eyebrow/subhead/closing word limits; accent phrase must
+  be in the headline; ONE CTA (any other `cta_url`, `cta_text`, `url`, `href`, `link`,
+  `button`, `sms`, `tel`, `phone` key anywhere fails); room photo must be kind
+  lifestyle/installation, not AI; quote verbatim in reviews_summary; no number or trigger
+  word in the claim-free first-screen and closing lines; no phone number anywhere; the
+  product-page power rule; urgency; renderer-owned keys. `claims.MIN_BENEFIT_CLAIMS["landing"]
+  = 3` over `checked_claims`. The writer prompt gets `landing.writer_lines` (logistics
+  coverage; the real-room photo candidates with the photo library's setting/shot/description
+  when the manifest is on the machine, else "omit room_photo").
+- **Secondary link**: tenant.yaml `cartridges.landing.secondary_cta` = `{text: "Text us",
+  sms: "+14706653747", body: "Hi, I have a question about the {product_name}."}` -> 
+  `sms:+14706653747?&body=<url-encoded>`; a `url:` key wins when set. Class `ld-text`: plain
+  underlined muted text, 44px tap height, not in `abtest.CTA_CLASSES`; the gate never sees it
+  (renderer-owned). The number appears once on the page, in that href.
+- **Wiring**: render.py (frame asset, `landing_context` as `cartridge_data`, its claim ids
+  into Sources, FAQPage JSON-LD with `answer`, the cut-out as product hero), ground.py (hero
+  path, the room slot's matching context), pagechecks (JSON-LD type, hero required),
+  simplicity (headline band, above-the-fold), pipeline (the ad still is made for a landing
+  run), write.py, evals/fake_run.py (`LANDING_PAGE`).
+- **Longform looks**: `looks.CARTRIDGE_LOOKS["longform"] = ("open", "classic")`, harness
+  default `classic` (other tenants unchanged); peak-saunas pins `[open]`. The old template
+  moved to `looks/classic/` (byte-identical output: the dispatcher comment strips its trailing
+  newline). `open` (prefix `lo-`) uses `first_screen.longform_context` (eyebrow, accent span
+  `longform_accent`, the ad's safe quote, byline, stats strip = verified proof_stats +
+  `first_screen.stats`, deduplicated, max 3) and per-proof-point citations. The pipeline stamps
+  the longform look on page.json and state.json and makes the ad still for an `open` run.
+  `first_screen.headline_markup` gained `accent_class` (default `op-accent`: listicle output
+  unchanged).
+
+### Verify
+- Listicle renders (face, story, display) and the longform `classic` render are
+  byte-identical to master (sha256 of index.html from a master worktree vs this branch).
+- `python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant
+  peak-saunas --cartridges landing` exit 0; `harness shopify-body` and `harness review` on the
+  run succeed. Same for `--cartridges longform` (open look).
+- New tests: `tests/test_landing_cycle82.py` (33), `tests/test_longform_open_cycle82.py` (6).
+  Two older tests changed for the longform looks: `test_render.py` proof-stats row pins
+  `look: classic`; `test_listicle_looks.py` "--look refused" now uses `article`.
+- Full suite: `.venv/bin/python -m pytest -q`: 2474 passed, 0 failed, 0 skipped (master: 2432
+  passed). The two longform baselines in `evals/baseline/*/longform.page.json` gained one line,
+  `"look": "open"` (the stamped look); article and product-page baselines are unchanged.
+- `pagechecks` (HTML validity, JSON-LD type, internal link, image markup) pass on both fake-run
+  pages. Landing page weight: index.html 47 KB; one hero image (the cut-out, 480/800 px
+  WebP/JPEG variants), the brand logo.
+
+### Open
+- **Sticky bar vs PEAK's bottom UI**: brand/base.css hides every other sticky bar because the
+  storefront has fixed UI on the bottom edge (Peak Assist bar ~70px, sales popup, Klaviyo).
+  The landing bar (`ld-bar`) is NOT hidden, per the owner's brief; it may overlap that UI on
+  the live store. Owner to check on a phone; hiding it is one selector in base.css.
+- **`ld-` prefix** was the retired cycle 51 "lander" look's prefix; base.css still styles
+  `.ld-btn` (basalt pill) and `.ld-close .ld-btn` (white pill) -- the landing page uses both
+  on purpose -- and counts `ld-btn`/`ld-link` as CTAs. The secondary link is `ld-text`, never
+  `ld-link`.
+- **SMS body wording**: the brief's body "...about the Peak {product_name}" with the full name
+  ("Peak Fuji") would read "the Peak Peak Fuji"; the tenant body drops the extra "Peak".
+  Owner to confirm the number and wording.
+- The eyebrow is the writer's `hero.eyebrow` (the ad hook in <= 6 words, gated as writer
+  copy) through `first_screen.eyebrow` (fallback: the ad's audience); the raw `ad_brief.hook`
+  is never printed, since it is ungated ad text.
+- No real photo library on this machine, so the room photo degrades to none in the fake run;
+  the review file shows the product cut-out as the hero (a text fixture has no ad still).
+- Not visually checked in a browser (the browser pane was in use); the 375/390/430px layout
+  is reasoned from the CSS (fixed grids use `minmax(0,1fr)`, long values wrap), not measured.

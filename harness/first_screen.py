@@ -197,7 +197,7 @@ def display_line(page):
     return None
 
 
-def headline_markup(page, text=None):
+def headline_markup(page, text=None, *, accent_class="op-accent"):
     headline = str(text if text is not None else (page or {}).get("headline") or "")
     phrase = accent_phrase(page) if text is None else str((page or {}).get("accent_phrase") or "").strip()
     if text is not None and phrase not in headline:
@@ -206,7 +206,7 @@ def headline_markup(page, text=None):
     escaped = html.escape(headline, quote=False)
     if phrase:
         target = html.escape(phrase, quote=False)
-        escaped = escaped.replace(target, f'<span class="op-accent">{target}</span>', 1)
+        escaped = escaped.replace(target, f'<span class="{accent_class}">{target}</span>', 1)
     return Markup(escaped)
 
 
@@ -421,6 +421,116 @@ def render_context(page, *, ad_brief, facts_pack, tenant, hero_style, frame=None
         "value_stack": stack,
         "claim_ids": claim_ids,
     }
+
+
+# ---------------------------------------------------------------------------
+# Cycle 82: the longform `open` look's first screen
+# ---------------------------------------------------------------------------
+
+# A longform page has no accent_phrase, eyebrow or dek field (its schema is
+# unchanged), so the same helpers run on a small view of its hero. Nothing
+# here is new copy: the accent is a span of the writer's own headline, the
+# quote is one of claims.safe_quote_candidates word for word, and the stats
+# cite verified claims only.
+_CLAUSE_SPLIT_RE = re.compile(r"\s*(?::|\u2014|\u2013|\s-\s|,)\s*")
+_LAST_THREE_RE = re.compile(r"\S+\s+\S+\s+\S+\s*$")
+ACCENT_MIN_HEADLINE_WORDS = 6
+LONGFORM_STATS_MAX = 3
+
+
+def longform_accent(headline):
+    """The red span of a longform headline: its last sentence when it has
+    two or more (accent_phrase's own rule), else the clause after its last
+    colon, dash or comma when that is 2-6 words, else its last three words
+    (a headline of 6 words or more), else "". Always a substring of the
+    headline."""
+    headline = str(headline or "").strip()
+    phrase = accent_phrase({"headline": headline})
+    if phrase:
+        return phrase
+    parts = [x for x in _CLAUSE_SPLIT_RE.split(headline) if x]
+    if len(parts) >= 2 and 2 <= len(parts[-1].split()) <= 6:
+        return parts[-1]
+    if len(headline.split()) >= ACCENT_MIN_HEADLINE_WORDS:
+        m = _LAST_THREE_RE.search(headline)
+        return m.group(0).strip() if m else ""
+    return ""
+
+
+def _stat_key(value):
+    return re.sub(r"[^a-z0-9.]", "", str(value or "").lower())
+
+
+def longform_stats(page, facts_pack):
+    """The longform stats strip: the writer's hero.proof_stats whose every
+    claim id is a verified claim, then first_screen.stats() for what they do
+    not already cover (same claim or same value), at most LONGFORM_STATS_MAX."""
+    verified = _claims(facts_pack)
+    strip = []
+    for s in (((page or {}).get("hero") or {}).get("proof_stats") or []):
+        ids = [c for c in (s.get("claim_ids") or []) if c]
+        if s.get("value") and ids and all(c in verified for c in ids):
+            strip.append({"value": str(s["value"]), "label": str(s.get("label") or ""), "claim_ids": ids})
+    for s in stats(facts_pack):
+        if any(set(s["claim_ids"]) & set(x["claim_ids"]) for x in strip):
+            continue
+        if _stat_key(s["value"]) in {_stat_key(x["value"]) for x in strip}:
+            continue
+        strip.append(s)
+    return strip[:LONGFORM_STATS_MAX]
+
+
+def rating_stat(facts_pack):
+    """{value, label, claim_ids} for the verified rating (only when
+    listicle.rating_line shows it), else None."""
+    from . import listicle
+
+    line = listicle.rating_line(facts_pack)
+    m = _RATING_RE.search(line["text"]) if line else None
+    if not m:
+        return None
+    return {"value": m.group(1), "label": f"out of 5, {m.group(2)} reviews", "claim_ids": line["claim_ids"]}
+
+
+def longform_context(page, *, ad_brief, facts_pack, tenant, frame=None, updated=None):
+    """Everything the longform `open` look's first screen renders that the
+    writer did not write as such. `frame` is ad_frames.load(run_dir)."""
+    hero = (page or {}).get("hero") or {}
+    headline = str(hero.get("headline") or "")
+    view = {"headline": headline, "accent_phrase": longform_accent(headline)}
+    quote = hero_quote(page, ad_brief, facts_pack)
+    strip = longform_stats(page, facts_pack)
+    rating = rating_stat(facts_pack)
+    claim_ids = set()
+    for s in strip:
+        claim_ids.update(s["claim_ids"])
+    if rating:
+        claim_ids.update(rating["claim_ids"])
+    pronoun = speaker_pronoun(ad_brief=ad_brief, frame=frame, tenant=tenant)
+    return {
+        "eyebrow": eyebrow(view, ad_brief),
+        "headline_html": headline_markup(view, accent_class="lo-accent"),
+        "accent_phrase": view["accent_phrase"],
+        # the wide display face only for a short line (<= 8 words, 48
+        # characters), as on the listicle's display first screen
+        "display_fits": fits_display(headline),
+        "display_font": display_font(tenant),
+        "quote": quote,
+        "quote_frame": quote_frame(pronoun),
+        "made_for": (f"In the ad {pronoun} made for {tenant.display_name}" if pronoun
+                     else f"From the creator's ad for {tenant.display_name}"),
+        "frame": frame,
+        "byline": byline(tenant, page, updated),
+        "stats": strip,
+        "rating": rating,
+        "claim_ids": claim_ids,
+    }
+
+
+def build_ad_still(state):
+    """Cycle 82: the ad still for a longform run in the `open` look (one
+    cheap vision call on a real run, as for a listicle; idempotent)."""
+    _build_frame(state)
 
 
 # ---------------------------------------------------------------------------

@@ -27,6 +27,7 @@ from . import pagechecks
 from . import pagepatch
 from . import quote_fidelity
 from . import quiz
+from . import landing
 from . import pdp
 from . import simplicity
 from . import tenant as tenant_mod
@@ -523,6 +524,11 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # vocabulary, renderer-owned sections) -- harness/pdp.py.
     if cartridge_name == "product-page":
         problems += pdp.find_product_page_violations(page, facts_pack)
+    # Cycle 82: the landing cartridge's own structural checks (checked
+    # claims, word limits, FAQ, one CTA, room photo, quote, renderer-owned
+    # keys, power wording) -- harness/landing.py. Keys are "landing:*".
+    if cartridge_name == "landing":
+        problems += landing.find_landing_violations(page, facts_pack)
     # Cycle 32: simplicity gate (above-fold links, headline word band, one
     # offer element) -- hard gate only when this tenant's simplicity_mode is
     # "enforce" (default "warn": advisory REVIEW.md line only, see

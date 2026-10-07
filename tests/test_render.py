@@ -967,7 +967,9 @@ def test_asset_alt_does_not_prefix_rendering_for_a_real_photo():
 
 
 def test_render_page_shows_longform_proof_stats_row_when_present(tmp_path):
-    page = dict(LONGFORM_PAGE, hero=dict(LONGFORM_PAGE["hero"], proof_stats=[
+    # cycle 82: the classic look's proof-stat row (the open look's strip is
+    # covered in tests/test_longform_open_cycle82.py)
+    page = dict(LONGFORM_PAGE, look="classic", hero=dict(LONGFORM_PAGE["hero"], proof_stats=[
         {"value": "4.8/5", "label": "from 1,200+ reviews", "claim_ids": ["reviews-live"]},
         {"value": "Free", "label": "shipping, always", "claim_ids": ["shipping-policy"]},
     ]))

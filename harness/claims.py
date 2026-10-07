@@ -1673,7 +1673,7 @@ def strip_leaked_claim_ids(html_text, valid_claim_ids):
 # spec/benefit/trust, excluding the transactional ids by name.
 # ---------------------------------------------------------------------------
 
-MIN_BENEFIT_CLAIMS = {"product-page": 3, "longform": 3, "article": 1}
+MIN_BENEFIT_CLAIMS = {"product-page": 3, "longform": 3, "article": 1, "landing": 3}
 
 BENEFIT_CLAIM_CATEGORIES = {"spec", "benefit", "trust"}
 
@@ -1692,6 +1692,8 @@ _BENEFIT_SECTION_GETTERS = {
     # a page written before it still carries proof_bullets
     "product-page": lambda page: (page.get("proof_bullets") or []) + (page.get("included") or []),
     "longform": lambda page: (page.get("how_it_works") or {}).get("steps", []),
+    # Cycle 82: the landing page's checked claims are its persuasive section.
+    "landing": lambda page: page.get("checked_claims") or [],
     "article": lambda page: (page.get("turn_section") or {}).get("criteria", []),
 }
 

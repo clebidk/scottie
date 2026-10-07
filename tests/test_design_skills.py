@@ -179,6 +179,7 @@ def test_new_blocks_pass_the_block_gate():
 def test_longform_renders_a_tagline_through_the_block(tmp_path):
     page = json.loads(json.dumps(LONGFORM_PAGE))
     page["tagline"] = {"lines": ["Heat that reaches the seats.", "Without a sales call."]}
+    page["look"] = "classic"  # cycle 82: the tagline block is the classic look's
     index_path = render_page(
         cartridge_name="longform",
         page=page,
