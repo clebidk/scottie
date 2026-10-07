@@ -11,7 +11,8 @@ What is asserted here, offline (FakeClient, fake HTTP transport, fake DNS):
   - a FakeClient template that passes is stored as a TENANT look that
     looks.py resolves, render_page renders and the A/B/C library accepts;
   - an invalid template (unknown variable, colour literal, a second CTA)
-    is repaired once, then refused with every message, storing nothing;
+    is repaired (twice since cycle 90: three calls at most), then refused
+    with every message, storing nothing;
   - name collisions are refused before any model call;
   - the look_import job (progress, result, failure) and the site's dialog
     and form (login, form token, one source, rate limit);
@@ -39,8 +40,12 @@ SOURCE_WORDS = ("Glacierberry", "frostline", "Jordan", "plunge", "tracker.exampl
 
 def _valid_template():
     """The approved open look with an import marker: a template the
-    validator must accept."""
-    return OPEN_LOOK.replace('{% extends "base.html" %}', '{% extends "base.html" %}{# imported split layout #}', 1)
+    validator must accept. Cycle 90: it marks the fixture's one observed
+    pattern (the FAQ accordion), so its fidelity passes on the first call."""
+    return OPEN_LOOK.replace('{% extends "base.html" %}', '{% extends "base.html" %}{# imported split layout #}', 1) \
+        .replace('{% if page.faq and page.faq.questions %}\n  <section class="ld-sec">',
+                 '{% if page.faq and page.faq.questions %}\n  <section class="ld-sec" data-look-pattern="faq-accordion">',
+                 1)
 
 
 def _fixture_source():
@@ -306,14 +311,14 @@ def test_each_rule_is_enforced(change, needle):
     assert any(needle in e for e in errors), errors
 
 
-def test_an_invalid_template_is_repaired_once_then_refused_and_nothing_is_stored():
-    client = _client(BAD_TEMPLATE, BAD_TEMPLATE)
+def test_an_invalid_template_is_repaired_then_refused_and_nothing_is_stored():
+    client = _client(BAD_TEMPLATE, BAD_TEMPLATE, BAD_TEMPLATE)
     with pytest.raises(look_import.LookImportError) as info:
         _import(client=client)
     message = look_import.format_errors(info.value)
-    assert "after one repair" in message and "nothing was stored" in message
+    assert "after 2 repair(s)" in message and "nothing was stored" in message
     assert "'tagline' is not in the landing page schema" in message and "colour literal" in message
-    assert len(client.messages.calls) == 2
+    assert len(client.messages.calls) == 3
     repair = client.messages.calls[1]["messages"]
     assert repair[1] == {"role": "assistant", "content": BAD_TEMPLATE.strip() + "\n"}
     assert "The harness refused this template" in repair[2]["content"] and "tagline" in repair[2]["content"]
@@ -327,7 +332,7 @@ def test_a_second_cta_phrase_is_refused():
         '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n'
         '        <a class="ld-btn" href="{{ page.cta_url }}">Buy it now</a>\n        {% if ld.secondary %}', 1)
     with pytest.raises(look_import.LookImportError) as info:
-        _import(client=_client(second_cta, second_cta))
+        _import(client=_client(second_cta, second_cta, second_cta))
     assert any("one CTA phrase" in e and "Buy it now" in e for e in info.value.errors)
 
 
@@ -358,7 +363,9 @@ def test_name_collisions_are_refused_before_any_model_call():
 def test_a_listicle_look_can_be_imported_too():
     listicle_open = (REPO_ROOT / "cartridges" / "listicle" / "looks" / "open" / "template.html").read_text()
     # the reference still has one legacy colour literal; an import may not
-    fixed = listicle_open.replace("rgba(255,255,255,.18)", "var(--pk-line)")
+    fixed = listicle_open.replace("rgba(255,255,255,.18)", "var(--pk-line)").replace(
+        '<section class="op-sec op-faq op-narrow">',
+        '<section class="op-sec op-faq op-narrow" data-look-pattern="faq-accordion">', 1)
     result = look_import.import_look(TENANT, cartridge="listicle", name="long-read", source=_fixture_source(),
                                      client=_client(listicle_open, fixed))
     assert result["attempts"] == 2
@@ -473,7 +480,7 @@ def test_the_job_imports_the_page_reports_progress_and_links_the_reference(clien
 
 
 def test_a_failed_job_shows_the_errors_and_keeps_nothing(client, monkeypatch):
-    fake = _client(BAD_TEMPLATE, BAD_TEMPLATE)
+    fake = _client(BAD_TEMPLATE, BAD_TEMPLATE, BAD_TEMPLATE)
     monkeypatch.setattr(look_import, "make_client", lambda: fake)
     assert _post(client, {"name": "split-hero", "html": FIXTURE.read_text()}).status_code == 303
     job = jobs.list_jobs(TENANT)[0]

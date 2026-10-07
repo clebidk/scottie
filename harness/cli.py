@@ -170,7 +170,7 @@ def cmd_tenant_list(args):
 
 def cmd_look_import(args):
     """`harness look import --tenant <t> --cartridge landing (--file F | --url U
-    | --html -) --name <slug> [--title T] [--dry-run]` -- cycle 87, the CLI
+    | --html -) --name <slug> [--title T] [--exemplar SLUG] [--dry-run]` -- cycle 87, the CLI
     mirror of the site's "Import a page" (harness/look_import.py). A dry run
     prints the build observation and makes no model call."""
     tenant = tenant_mod.load_tenant(args.tenant)
@@ -198,6 +198,7 @@ def cmd_look_import(args):
         result = look_import.import_look(
             tenant, cartridge=args.cartridge, name=args.name, title=args.title, source=source, client=client,
             dry_run=args.dry_run, log=log, progress=lambda step: print(f"  {step}", file=sys.stderr),
+            exemplar=args.exemplar,
         )
     except look_import.LookImportError as e:
         print(look_import.format_errors(e), file=sys.stderr)
@@ -207,12 +208,16 @@ def cmd_look_import(args):
             log.close()
     if args.dry_run:
         print(json.dumps(result["observation"], indent=2))
-        print(f"\n{result['summary']}\n(--dry-run: observation only; no model call, nothing written)",
-              file=sys.stderr)
+        print(f"\n{result['summary']}\n\nDesign brief: {result['brief']}\nExemplar: {result['exemplar'] or 'none'}"
+              "\n(--dry-run: observation only; no model call, nothing written)", file=sys.stderr)
         return exits.OK
     print(f"imported {args.cartridge} look {result['slug']!r} ({result['title']}): validation PASS on attempt "
           f"{result['attempts']}, model cost ${result['cost_usd']:.4f}")
     print(f"  {result['summary']}")
+    print(f"  design brief: {result['brief']}")
+    print(f"  fidelity {result['fidelity']:.2f}"
+          + (f"; missing patterns: {', '.join(result['missing_patterns'])}" if result["missing_patterns"] else "")
+          + f"; exemplar: {result['exemplar'] or 'none'}")
     print(f"  {result['folder']}/review.html")
     print(f"  A/B/C library entry: {args.cartridge}:{result['slug']}")
     return exits.OK
@@ -2198,6 +2203,8 @@ def build_parser():
     source.add_argument("--html", help="the page's HTML; '-' reads it from stdin")
     p_look_import.add_argument("--name", required=True, help="the look's name (slug): letters, digits, hyphens")
     p_look_import.add_argument("--title", help="a display title for the Library (default: from the name)")
+    p_look_import.add_argument("--exemplar", help="the hand-made look (slug) to show the model instead of the "
+                                                  "closest one (cycle 90)")
     p_look_import.add_argument("--dry-run", action="store_true",
                                help="print the build observation only: no model call, nothing written")
     _add_tenant_flag(p_look_import)

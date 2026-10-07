@@ -353,6 +353,19 @@ tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant peak-saunas
 42`). A tenant with no demo page for a cartridge cannot import a look for
 it (the error says how to make one).
 
+### Import fidelity (cycle 90)
+
+`harness/look_design.py` adds the design level to the import: per section a
+DOM skeleton and a style summary from the page's own CSS, the distinctive
+patterns (`look_design.PATTERNS`), a design brief, the page's sanitised CSS
+and the closest hand-made exemplar for the prompt, and the fidelity score of
+the rendered candidate (below `FIDELITY_THRESHOLD` = 0.7 a repair round names
+the missing patterns; `look_import.MAX_CALLS` = 3). A look marks each
+pattern it realises with `data-look-pattern="<name>"`; the score reads those
+markers from the demo render. `harness look import ... --exemplar <slug>`
+names the exemplar; `--dry-run` prints the observation (with `brief`) and
+the exemplar it would use. Details: docs/LISTICLE-SITE.md "Import fidelity".
+
 ## Add a new cartridge type in under 10 minutes
 
 Copy an existing cartridge folder -- `product-page` or `longform` are the most complete
