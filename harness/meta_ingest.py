@@ -19,6 +19,7 @@ Graph calls used (all GET, on https://graph.facebook.com/<version>/):
     act_<id>?fields=name,account_status                 (harness meta check)
     act_<id>/ads?fields=AD_FIELDS&effective_status=[..]&updated_since=<ts>&limit=100
     <ad_id>?fields=AD_FIELDS,account_id                 (pull --ad-ids, cycle 77)
+    ?ids=<id,...>&fields=LINK_FIELDS                    (refresh-links, cycle 83)
     <video_id>?fields=source,length,title,picture
     act_<id>/adimages?hashes=[..]&fields=hash,url,width,height,name
 """
@@ -56,6 +57,11 @@ AD_FIELDS = (
     "thumbnail_url,object_story_spec,asset_feed_spec,url_tags,"
     "call_to_action_type,link_url}"
 )
+# Cycle 83: what `harness meta refresh-links` reads for an ad already in the
+# inbox -- its status and the creative fields the destination comes from.
+LINK_FIELDS = "id,effective_status,creative{link_url,object_story_spec,asset_feed_spec,url_tags}"
+# Meta accepts at most 50 ids in one `?ids=` call.
+IDS_PER_CALL = 50
 VIDEO_FIELDS = "source,length,title,picture"
 ADIMAGE_FIELDS = "hash,url,width,height,name"
 PAGE_SIZE = 100
@@ -518,6 +524,24 @@ def creative_key(chosen):
     return None
 
 
+def destination_of(creative):
+    """The URL the ad's click goes to: the story spec's link, the CTA link,
+    the creative's link_url, the first asset_feed_spec link, the template
+    link -- the first one set. "" when the creative carries none."""
+    creative = creative or {}
+    spec = creative.get("object_story_spec") or {}
+    video_data = spec.get("video_data") or {}
+    link_data = spec.get("link_data") or {}
+    template = spec.get("template_data") or {}
+    feed = creative.get("asset_feed_spec") or {}
+    cta_block = video_data.get("call_to_action") or link_data.get("call_to_action") or {}
+    link_urls = feed.get("link_urls") or []
+    return (link_data.get("link") or (cta_block.get("value") or {}).get("link")
+            or creative.get("link_url")
+            or (link_urls[0].get("website_url") if link_urls and isinstance(link_urls[0], dict) else "")
+            or template.get("link") or "")
+
+
 def normalize_ad(raw):
     """ad.json's fields from one raw /ads item."""
     creative = raw.get("creative") or {}
@@ -536,11 +560,7 @@ def normalize_ad(raw):
     description = (link_data.get("description") or video_data.get("link_description")
                    or _first_text(feed.get("descriptions")) or "")
     cta = cta_block.get("type") or creative.get("call_to_action_type") or (cta_types[0] if cta_types else "")
-    link_urls = feed.get("link_urls") or []
-    destination = (link_data.get("link") or (cta_block.get("value") or {}).get("link")
-                   or creative.get("link_url")
-                   or (link_urls[0].get("website_url") if link_urls and isinstance(link_urls[0], dict) else "")
-                   or template.get("link") or "")
+    destination = destination_of(creative)
 
     def pair(node):
         node = node or {}
@@ -852,6 +872,95 @@ def pull(client, inbox, *, account_id, since, limit=None, refresh=False, dry_run
             summary["ingested"].append(ad_id)
             log(f"ingested {ad_id} ({item['media_type']}) -> "
                 f"{inbox.item_dir(ad_id) / item['media_file']}")
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Refresh links (cycle 83)
+# ---------------------------------------------------------------------------
+
+LINK_KEYS = ("destination_url", "effective_status", "links_checked_at")
+
+
+def _read_links(client, ad_ids):
+    """({ad_id: raw}, [(ad_id, reason)]) for `ad_ids`: one `?ids=` GET per
+    IDS_PER_CALL ids. Meta refuses a whole `?ids=` call when one id cannot
+    be read (deleted for good, another account), so a refused call is
+    retried one GET per ad and only the unreadable ads are reported."""
+    found, failed = {}, []
+    for start in range(0, len(ad_ids), IDS_PER_CALL):
+        chunk = ad_ids[start:start + IDS_PER_CALL]
+        try:
+            data = client.get("", {"ids": ",".join(chunk), "fields": LINK_FIELDS})
+        except (MetaPermissionError, MetaAPIError):  # a token failure (MetaAuthError) propagates
+            data = None
+        if data is not None:
+            for ad_id in chunk:
+                raw = data.get(ad_id)
+                if isinstance(raw, dict):
+                    found[ad_id] = raw
+                else:
+                    failed.append((ad_id, "Meta did not return the ad"))
+            continue
+        for ad_id in chunk:
+            try:
+                found[ad_id] = client.get(ad_id, {"fields": LINK_FIELDS})
+            except (MetaPermissionError, MetaAPIError) as e:
+                failed.append((ad_id, client.redact(str(e))))
+    return found, failed
+
+
+def refresh_links(client, inbox, *, dry_run=False, log=print):
+    """Cycle 83: read each Meta ad in the inbox again and store where it
+    points NOW. Only `destination_url`, `effective_status` and
+    `links_checked_at` change in ad.json; every other key, the key order and
+    the file's layout stay as they were. READ ONLY on Meta's side: GETs
+    only. `dry_run` logs each change and writes nothing.
+
+    Returns {"checked": [ids], "changed": [ids], "failed": [ids]}."""
+    summary = {"checked": [], "changed": [], "failed": []}
+    ad_ids = sorted(path.parent.name for path in inbox.root.glob("*/ad.json")
+                    if path.parent.name.isdigit() and path.parent.name.isascii()) if inbox.root.is_dir() else []
+    found, failed = _read_links(client, ad_ids)
+    for ad_id, reason in failed:
+        summary["failed"].append(ad_id)
+        log(f"not checked {ad_id}: {reason}")
+    at = _now()
+    for ad_id in ad_ids:
+        raw = found.get(ad_id)
+        if raw is None:
+            continue
+        try:
+            item = inbox.read(ad_id)
+        except ValueError:
+            summary["failed"].append(ad_id)
+            log(f"not checked {ad_id}: ad.json is not valid JSON")
+            continue
+        new = {"destination_url": destination_of(raw.get("creative")),
+               "effective_status": raw.get("effective_status") or ""}
+        old = {k: item.get(k) or "" for k in new}
+        summary["checked"].append(ad_id)
+        if new != old:
+            summary["changed"].append(ad_id)
+            if dry_run:
+                changes = "; ".join(f"{k} {old[k] or '-'} -> {new[k] or '-'}" for k in new if new[k] != old[k])
+                log(f"would change {ad_id}: {changes}")
+        if dry_run:
+            continue
+        item.update(new)
+        if "links_checked_at" in item:
+            item["links_checked_at"] = at
+        else:
+            # Placed just after destination_url, not at the end, so no other
+            # line of the file changes (not even the last line's comma).
+            ordered = {}
+            for key, value in item.items():
+                ordered[key] = value
+                if key == "destination_url":
+                    ordered["links_checked_at"] = at
+            ordered.setdefault("links_checked_at", at)
+            item = ordered
+        inbox.write(item)
     return summary
 
 

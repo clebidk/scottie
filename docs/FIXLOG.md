@@ -4552,3 +4552,63 @@ Branch `cycle82c/landing-power` from origin/master 2dda94c (the cycle 82b merge)
 - **Open.** The financing-rewrite skip on ad_said was not asked for; it is the same bug as the
   warranty one. An all-caps quoted ad line ("LEVEL UP YOUR HEALTH") now fails the code rule;
   the writer must paraphrase it in sentence case.
+## Cycle 83 (linked-ad icon on the review site, 2026-10-07)
+Branch `cycle83/linked-ads` from origin/master 2dda94c (the cycle 82b merge).
+
+### Problem
+On the review site "Live" says only that the Shopify page is published. Nothing showed
+whether a Meta ad sends traffic to the page. ad.json had the ad's `destination_url` and
+`effective_status`, but only as of the pull: `harness meta pull` ingests new ads only, so an
+edit or a pause in Ads Manager never reached the inbox.
+
+### Change
+- `harness meta refresh-links --tenant <t> [--dry-run]` (harness/meta_ingest.py
+  `refresh_links`, cli.py `cmd_meta_refresh_links`): reads every Meta ad in the inbox again
+  (uploads skipped) with `GET ?ids=<50 ids>&fields=id,effective_status,creative{link_url,
+  object_story_spec,asset_feed_spec,url_tags}`; when Meta refuses a batch, one `GET <ad_id>`
+  per ad of that batch. Writes ONLY `destination_url`, `effective_status`, `links_checked_at`
+  (ISO UTC; the first time inserted right after `destination_url` so no other line of ad.json
+  changes). `--dry-run` prints each change and writes nothing. One summary line. GETs only.
+- The destination resolver moved out of `normalize_ad` into `meta_ingest.destination_of`;
+  `normalize_ad` calls it (same result, the existing meta tests pass unchanged).
+- `crons/meta-pull.sh`: `harness meta refresh-links --tenant "$TENANT"` right after the pull,
+  same log file; its failure sets the script's exit status like the other two steps.
+- harness/postlive.py `normalize_url` and `linked_ads(tenant, url, *, test=None, items=None)`:
+  inbox ads whose normalised `destination_url` equals the page's live URL or, for a test
+  page, the test's split link. ACTIVE first, then by name. `links_checked_at` falls back to
+  `pulled_at` for an ad never refreshed.
+- harness/site.py: a "link" glyph in site_ui `icon()`; `_ad_link` next to the status pill
+  (cards and the generation page heading): red when an ACTIVE ad points at the page, grey
+  (`adlink off`) when only non-ACTIVE ads do, nothing when none; `title` and `aria-label`
+  "Destination of Meta ad <name> (<status>)", one line per ad. Details card row "Ads pointing
+  here" (name, status, checked time), or "none" for a live page. Status words unchanged. The
+  inbox is read once per request (`g`).
+- docs/META-INGEST.md (refresh-links, cron, Graph calls), docs/LISTICLE-SITE.md ("Linked-ad
+  icon").
+
+### Verify
+- `tests/test_linked_ads_cycle83.py` (20): URL normalisation (utm query, trailing slash,
+  www, http/https, upper case, encoded path), the split link by state entry and by test
+  record, ACTIVE before PAUSED, no ads; refresh-links against the fake Graph transport (one
+  batched GET, only the three keys change, every other line byte-identical, upload item
+  untouched, non-ASCII kept), `--dry-run` writes nothing, the per-ad fallback when Meta
+  refuses a batch; the cron order; the site icon for a run whose live URL matches an ACTIVE
+  ad (home and generation page), the muted icon for PAUSED / CAMPAIGN_PAUSED, no icon and
+  "none" when no ad matches, no row for a page that is not live.
+- Full suite `.venv/bin/python -m pytest -q`: 2505 passed, 0 failed (2485 before the 20 new tests).
+
+### Open
+- Only ads in the inbox count. An ad created before `meta.ingest_since`, or one never
+  ingested (DISAPPROVED, ARCHIVED, DELETED at pull time), never shows an icon, even when it
+  points at a page. The five pages published by hand on 2026-10-06 may be linked from such
+  ads; `pull --ad-ids` brings a named ad in.
+- Not run against the live Graph API: that `?ids=` with the `creative{...}` expansion is
+  accepted on v24.0, and what Meta returns for an ad deleted after ingest (a DELETED status
+  or an error; the code handles both).
+- The icon is as fresh as the last cron run (hourly when installed). The cron is not
+  installed on prod yet; this branch is not deployed.
+- refresh-links re-reads ad.json just before it writes, but a worker that writes the same
+  file in that instant (a state change) can still lose one of the two writes.
+- "Run detail" was read as the site's generation page (/gen/<run>/<page>). The older
+  reviewer page in harness/serve.py has no status pill and is unchanged.
+- Not checked in a browser; the markup and CSS were checked by the tests only.

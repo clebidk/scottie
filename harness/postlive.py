@@ -31,6 +31,7 @@ import contextlib
 import io
 import json
 import re
+import urllib.parse
 from pathlib import Path
 
 from . import abtest, exits, runstate
@@ -178,6 +179,69 @@ def page_status(run_dir, state, page):
     test = (state.get("abtest") or {}).get(page)
     unlinked = bool(record and record.get("page_id") and not test and not redirected)
     return {"record": record, "live": live, "redirected": redirected, "test": test, "unlinked": unlinked}
+
+
+# ---------------------------------------------------------------------------
+# cycle 83: which Meta ads point at a page now
+# ---------------------------------------------------------------------------
+
+LIVE_AD_STATUS = "ACTIVE"
+
+
+def normalize_url(url):
+    """A comparison key for a page address: scheme dropped (http and https
+    alike), host lower-case without `www.`, path percent-decoded, query
+    string, fragment and trailing slash dropped. "" for an empty value."""
+    text = str(url or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = "https://" + text.lstrip("/")
+    parts = urllib.parse.urlsplit(text)
+    host = (parts.netloc.rsplit("@", 1)[-1]).lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = urllib.parse.unquote(parts.path).rstrip("/")
+    return f"{host}{path}"
+
+
+def _split_url(tenant, test):
+    """The A/B/C split link of `test`: a test record (with `split`) or a
+    run's state.json abtest entry (with `test_id`)."""
+    if not test:
+        return ""
+    rec = test if "split" in test else abtest.find_test(tenant, test.get("test_id") or "")
+    return ((rec or {}).get("split") or {}).get("url") or ""
+
+
+def linked_ads(tenant, url, *, test=None, items=None):
+    """The Meta ads in the tenant's inbox whose stored destination_url is
+    this page: its live `url`, or the split link when the page is in an
+    A/B/C test (`test`). ACTIVE ads first, then the rest, each by name.
+    `items` is the inbox's items when the caller has them already.
+
+    The answer is only as fresh as the last `harness meta pull` /
+    `harness meta refresh-links`; `links_checked_at` says when, and falls
+    back to `pulled_at` for an ad never refreshed."""
+    from .meta_ingest import Inbox
+
+    keys = {k for k in (normalize_url(url), normalize_url(_split_url(tenant, test))) if k}
+    if not keys:
+        return []
+    if items is None:
+        items = Inbox(tenant.meta_inbox_dir).items()
+    found = []
+    for item in items:
+        if item.get("source") == "upload" or normalize_url(item.get("destination_url")) not in keys:
+            continue
+        found.append({
+            "ad_id": str(item.get("ad_id") or ""),
+            "ad_name": item.get("ad_name") or "",
+            "effective_status": item.get("effective_status") or "",
+            "links_checked_at": item.get("links_checked_at") or item.get("pulled_at") or "",
+            "destination_url": item.get("destination_url") or "",
+        })
+    return sorted(found, key=lambda a: (a["effective_status"] != LIVE_AD_STATUS, a["ad_name"].lower(), a["ad_id"]))
 
 
 # ---------------------------------------------------------------------------

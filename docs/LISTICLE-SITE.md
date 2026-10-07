@@ -151,6 +151,24 @@ and only when harness/postlive.py calls it (`harness publish` has no flag for
 it). With that flag a live create needs an explicit handle, a live update needs
 a page id the run owns, and `create_redirect` is still refused.
 
+### Linked-ad icon -- cycle 83
+
+"Live" means only that the Shopify page is published. A page that is the
+current destination of a Meta ad also shows a link icon next to its status
+pill, on the generation cards and on the generation page. The icon is red when
+at least one ACTIVE ad points at the page and grey when only paused (or other
+non-ACTIVE) ads do; its tooltip names each ad and its status ("Destination of
+Meta ad <name> (<status>)", one line per ad). The Details card lists "Ads
+pointing here" with each ad's name, status and the time it was last read from
+Meta, or "none" for a live page no ad points at. An ad points at a page when
+its `destination_url` in the inbox's ad.json equals the page's live URL, or the
+test's split link for an A/B/C variant, after normalising both (http and https
+alike, no `www.`, no query string or fragment, no trailing slash, path
+percent-decoded; `postlive.linked_ads`). The data is only as fresh as the last
+`harness meta refresh-links` (in the meta-pull cron, docs/META-INGEST.md); an ad
+never refreshed shows its pull time. The site and the harness only read from
+Meta; nothing here attaches a page to an ad.
+
 ### Replace live variant (a page that is a variant of a live A/B/C test)
 
 The button shows only when the page was regenerated after the variant was

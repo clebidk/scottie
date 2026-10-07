@@ -174,9 +174,38 @@ The ad copy is brand copy: it never goes into `transcript_or_text` or
 `speaker_experience`, so the quote-fidelity gate still checks speaker lines
 against the transcript only.
 
+### Refresh links (cycle 83)
+
+```bash
+.venv/bin/harness meta refresh-links --tenant peak-saunas --dry-run   # print what would change
+.venv/bin/harness meta refresh-links --tenant peak-saunas             # store it
+```
+
+`pull` writes an ad once; after that its `destination_url` and
+`effective_status` in ad.json go stale when someone edits or pauses the ad in
+Ads Manager. `refresh-links` reads every Meta ad in the inbox again (not the
+uploads) with `GET ?ids=<id,...>&fields=id,effective_status,creative{link_url,object_story_spec,asset_feed_spec,url_tags}`,
+50 ids per call (Meta's limit for `ids=`), the same retry and rate-limit
+handling as `pull`. Meta refuses a whole `ids=` call when one ad cannot be
+read; that batch is then read one `GET <ad_id>` per ad and only the unreadable
+ads are reported ("not checked"). The destination is resolved the same way
+`pull` resolves it (`meta_ingest.destination_of`).
+
+It changes exactly three keys of ad.json: `destination_url`,
+`effective_status` and `links_checked_at` (ISO UTC; added after
+`destination_url` the first time). Every other line of the file stays as it
+was. Nothing on Meta changes: GETs only, as everywhere in this module. It
+prints one summary line: `refresh-links: N ad(s) checked, M changed, K not
+checked`. `--dry-run` prints `would change <id>: destination_url A -> B;
+effective_status X -> Y` for each ad and writes nothing.
+
+The listicle site reads these fields for its linked-ad icon
+(docs/LISTICLE-SITE.md, "Linked-ad icon").
+
 ## 5. Cron
 
-`crons/meta-pull.sh [tenant]` runs `harness meta pull`, appends to
+`crons/meta-pull.sh [tenant]` runs `harness meta pull`, then (cycle 83)
+`harness meta refresh-links`, then `harness abtest from-inbox`, appends to
 `tenants/<tenant>/runs/meta-pull.log`, and skips a run if the last one is
 still going (flock). It is not installed. When the token is in place and
 `harness meta check` passes, add this line with `crontab -e` as the deploy
@@ -201,6 +230,7 @@ user (every hour at :15):
   - `me?fields=id,name` and `act_<id>?fields=name,account_status` (check)
   - `act_<id>/ads?fields=<below>&effective_status=[...]&updated_since=<unix>&limit=100`, then `paging.next`
   - `<video_id>?fields=source,length,title,picture`
+  - `?ids=<id,...>&fields=id,effective_status,creative{link_url,object_story_spec,asset_feed_spec,url_tags}` (refresh-links; falls back to `<ad_id>?fields=...` per ad)
   - `act_<id>/adimages?hashes=["<hash>"]&fields=hash,url,width,height,name`
 - Ad fields: `id,name,created_time,effective_status,adset{id,name},campaign{id,name},creative{id,name,title,body,object_type,video_id,image_url,image_hash,thumbnail_url,object_story_spec,asset_feed_spec,url_tags,call_to_action_type,link_url}`
 - Statuses asked for: ACTIVE, PAUSED, IN_PROCESS, PENDING_REVIEW,
