@@ -35,7 +35,7 @@ from .prices import format_price
 from .textutil import product_name_slug, walk_page
 
 CHECKED_RANGE = (4, 6)
-AD_SAID_MAX_WORDS = 14
+AD_SAID_MAX_WORDS = 18   # cycle 82c: room for a quoted ad sentence
 FACT_MAX_WORDS = 36   # cycle 82b: a full logistics fact (shipping) is ~35 words
 FAQ_RANGE = (3, 5)
 QUESTION_MAX_WORDS = 12
@@ -289,6 +289,7 @@ def writer_lines(facts_pack, tenant=None):
         "Power and outlet: state only what this product's own electrical claim says, in its own terms. "
         "Never say an electrician or a dedicated circuit is or is not needed unless that claim says so.",
         CONTRADICTED_AD_CLAIM_LINE,
+        AD_SAID_FIGURES_LINE,
         room,
         "proof.quote: only a sentence that appears word for word in facts_pack.reviews_summary, with "
         "its author and claim_ids; omit proof entirely when there is none. Never invent a quote.",
@@ -338,18 +339,19 @@ def trim_to_limit(text, limit):
 _TRIMMABLE = {
     "landing:subhead_words": SUBHEAD_MAX_WORDS,
     "landing:fact_words": FACT_MAX_WORDS,
+    "landing:ad_said_words": AD_SAID_MAX_WORDS,
 }
 
 
 def trim_word_limit_violation(page, item):
-    """Applies trim_to_limit to the field a landing:subhead_words or
-    landing:fact_words failure names. Returns (path, old, new) or None."""
+    """Applies trim_to_limit to the field a landing:subhead_words,
+    landing:fact_words or landing:ad_said_words failure names. Returns (path, old, new) or None."""
     key = str(item.get("key") or "")
     limit = next((v for k, v in _TRIMMABLE.items() if key == k or key.startswith(k + ":")), None)
     path = item.get("path") or ""
     if limit is None:
         return None
-    m = re.match(r"^\$\.(?:hero\.subhead|checked_claims\[(\d+)\]\.fact)$", path)
+    m = re.match(r"^\$\.(?:hero\.subhead|checked_claims\[(\d+)\]\.(fact|ad_said))$", path)
     if not m:
         return None
     if m.group(1) is None:
@@ -357,7 +359,7 @@ def trim_word_limit_violation(page, item):
     else:
         items = page.get("checked_claims") or []
         i = int(m.group(1))
-        node, field = (items[i] if i < len(items) else None), "fact"
+        node, field = (items[i] if i < len(items) else None), m.group(2)
     if not isinstance(node, dict) or not isinstance(node.get(field), str):
         return None
     new = trim_to_limit(node[field], limit)
@@ -365,6 +367,16 @@ def trim_word_limit_violation(page, item):
         return None
     old, node[field] = node[field], new
     return path, old, new
+
+
+# Cycle 82c: ad_said quotes the ad, and the harness cannot verify a promo:
+# no digit, currency symbol, percent sign or code-like all-caps token.
+_AD_SAID_FIGURE_RE = re.compile(r"[0-9$\u20ac\u00a3\u00a5%]|\b[A-Z0-9]{5,}\b")
+AD_SAID_FIGURES_LINE = (
+    "checked_claims[].ad_said never states a price, discount, percentage, figure or code: paraphrase a "
+    "price or promo claim without figures (\"The ad said: a fall sale with money off every model\") or "
+    "pick another ad claim."
+)
 
 
 def find_checked_claims_violations(page, facts_pack):
@@ -389,6 +401,11 @@ def find_checked_claims_violations(page, facts_pack):
             problems.append(_problem(f"{path}.ad_said", f"ad_said_words:{i}",
                                      f"ad_said is {_words(item.get('ad_said'))} words; at most {AD_SAID_MAX_WORDS}",
                                      text=item.get("ad_said")))
+        said = str(item.get("ad_said") or "")
+        if _AD_SAID_FIGURE_RE.search(said):
+            problems.append(_problem(f"{path}.ad_said", f"ad_said_figures:{i}",
+                                     "ad_said states a figure, price, discount or code the page cannot verify -- "
+                                     + AD_SAID_FIGURES_LINE, text=said))
         if _words(item.get("fact")) > FACT_MAX_WORDS:
             problems.append(_problem(f"{path}.fact", f"fact_words:{i}",
                                      f"fact is {_words(item.get('fact'))} words; at most {FACT_MAX_WORDS}",
