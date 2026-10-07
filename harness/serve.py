@@ -797,7 +797,8 @@ def build_app(tenant):
         # SAMEORIGIN / frame-ancestors 'self': still refuses any third-party
         # framing, just not the app's own.
         # Cycle 69: the listicle site's old-version preview is framed the same way.
-        if request.endpoint in ("page_review", "page_review_version"):
+        # Cycle 86: and the Library's reference pages.
+        if request.endpoint in ("page_review", "page_review_version", "library_review"):
             resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
             resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
         else:

@@ -102,6 +102,16 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None):
             inbox.set_state(ad_id, "failed", "the inbox item has no media file")
             return {"outcome": "failed", "test_id": None, "split_url": None,
                     "reason": "the inbox item has no media file"}
+        pinned = item.get("pinned_arm")
+        if pinned:
+            # Cycle 86: checked at upload; a build the harness no longer has
+            # (a look removed since) fails this item, not the whole run.
+            try:
+                abtest.parse_arm(pinned, tenant)
+            except abtest.AbtestError as e:
+                inbox.set_state(ad_id, "failed", f"pinned page version: {e}")
+                return {"outcome": "failed", "test_id": None, "split_url": None,
+                        "reason": f"pinned page version: {e}"}
         source = {"kind": item.get("source") or "meta", "ad_id": ad_id, "ad_name": item.get("ad_name")}
         for key in ("uploaded_by", "campaign", "adset", "creative_id"):
             if item.get(key):
@@ -111,7 +121,7 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None):
             inbox.note(ad_id, f"building A/B/C test {new_rec['test_id']}", test_id=new_rec["test_id"])
 
         rc, rec = abtest.create_test(tenant, input_path=media, name=item.get("ad_name") or ad_id,
-                                     source=source, runner=runner, on_record=link)
+                                     source=source, runner=runner, on_record=link, pinned_arm=pinned)
 
     test_id = rec["test_id"]
     if rc == exits.BUDGET:

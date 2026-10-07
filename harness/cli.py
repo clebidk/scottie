@@ -493,8 +493,39 @@ def cmd_serve(args):
     tenant_mod.activate(tenant)
     tenant.load_env()
     app = serve_mod.build_app(tenant)
+    # Cycle 86: a site with no Library yet queues its first build for the
+    # worker; startup never waits for it, and a queue error never stops it.
+    from . import library
+
+    try:
+        job_id = library.queue_if_missing(tenant)
+    except Exception as e:  # noqa: BLE001 -- the review site must start anyway
+        print(f"warning: could not queue the library build: {e}", file=sys.stderr)
+    else:
+        if job_id:
+            print(f"no library under {tenant.library_dir}: queued library_build job {job_id}", file=sys.stderr)
     app.run(host=args.host, port=args.port)
     return 0
+
+
+def cmd_library_build(args):
+    """`harness library build --tenant <t> [--only landing,...] [--force]`
+    (cycle 86): one offline reference render per page version, for the
+    review site's Library page (harness/library.py). Exit 1 when a version
+    failed to render."""
+    from . import jobs, library
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    only = [c.strip() for c in (args.only or "").split(",") if c.strip()]
+    with jobs.build_lock(tenant, blocking=False):
+        summary = library.build(tenant, only=only or None, force=args.force, log=lambda m: print(m, flush=True))
+    print(f"library: {len(summary['built'])} built, {len(summary['skipped'])} up to date, "
+          f"{len(summary['unavailable'])} not renderable offline, {len(summary['failed'])} failed, "
+          f"{summary['thumbs']} thumbnail(s) -> {tenant.library_dir}")
+    for key, why in summary["failed"]:
+        print(f"FAILED {key}: {why}", file=sys.stderr)
+    return exits.USAGE if summary["failed"] else exits.OK
 
 
 def cmd_packet(args):
@@ -1893,6 +1924,15 @@ def build_parser():
     p_serve.add_argument("--port", type=int, default=4870)
     _add_tenant_flag(p_serve)
     p_serve.set_defaults(func=cmd_serve)
+
+    p_library = sub.add_parser("library", help="the review site's Library: a reference render of every page version")
+    library_sub = p_library.add_subparsers(dest="library_command", required=True)
+    p_library_build = library_sub.add_parser(
+        "build", help="render every page version offline (no model call) into tenants/<t>/library/")
+    p_library_build.add_argument("--only", help="comma-separated cartridge names, e.g. landing,listicle")
+    p_library_build.add_argument("--force", action="store_true", help="rebuild versions that are up to date")
+    _add_tenant_flag(p_library_build)
+    p_library_build.set_defaults(func=cmd_library_build)
 
     p_publish = sub.add_parser("publish", help="publish one cartridge's page via the tenant's publisher adapter")
     p_publish.add_argument("run_dir")

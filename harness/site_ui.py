@@ -393,6 +393,22 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
   text-decoration:none;font-size:.8rem;color:var(--muted)}
 .linkrow a:hover{border-color:var(--ink);color:var(--ink)}
 
+/* cycle 86: the Library (every page version as a reference) */
+.lib-note{margin:0 0 14px}
+.lib-nav{display:flex;flex-wrap:wrap;gap:6px}
+.lib-group{margin-top:28px}
+.lib-group .card-h{margin-bottom:4px}
+.lib-group .card-h h2{font-size:1.05rem}
+.lib-purpose{margin:0 0 14px;max-width:760px}
+.lib-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.lib-card .phone img.lib-poster{opacity:1;object-position:top}
+.lib-card .gen-actions{flex-wrap:wrap}
+.lib-text{display:flex;align-items:center;justify-content:center;padding:22px;text-align:center}
+.lib-text b{font-size:.95rem;line-height:1.4;color:var(--ink)}
+.lib-summary{margin:0;line-height:1.45}
+.lib-why{margin:0;color:var(--red)}
+.notice.pin{display:block;margin:0 0 16px}
+
 /* phones */
 @media (max-width:1040px){
   .gv{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"top" "main" "rest"}
@@ -431,6 +447,8 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
     scroll-snap-type:x mandatory;scroll-padding:0 16px;margin:16px -16px 0;padding:0 16px 6px;scrollbar-width:none}
   .gens::-webkit-scrollbar{display:none}
   .gen{scroll-snap-align:start}
+  .lib-cards{grid-template-columns:minmax(0,1fr)}
+  .page-head .actions form,.page-head .actions form .btn{width:100%}
   .stage{padding:0;border:0;background:none}
   .device-frame{border:0;padding:0;border-radius:0;width:100%;height:76vh}
   .device-frame iframe{border:1px solid var(--line);border-radius:var(--r)}
@@ -516,6 +534,7 @@ _ICONS = {
     "clock": '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     "send": '<path d="M5 12h13"/><path d="M13 6l6 6-6 6"/>',
     "grid": '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+    "layers": '<path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/>',
     "list": '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
 }
 
@@ -582,6 +601,8 @@ NAV = (
     ("Review", (
         ("ads_home", "Ads", "grid", ("ads_home", "generation", "gen_publish", "gen_replace", "gen_post_live",
                                      "gen_update_live", "gen_unpublish")),
+        # Cycle 86: every page version as a reference (harness/library.py).
+        ("library_home", "Library", "layers", ("library_home",)),
         ("upload_ad", "Upload an ad", "upload", ("upload_ad",)),
     )),
     ("Queue", (

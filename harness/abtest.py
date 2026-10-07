@@ -402,12 +402,19 @@ def build_variants(tenant, rec, runner):
     return exits.OK, rec
 
 
-def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None, on_record=None):
+def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None, on_record=None,
+                pinned_arm=None):
     """Chooses three builds, records the test, and builds them. `on_record`
     (cycle 69) is called with the record once it is saved, before the first
-    build, so a caller can link it (an inbox item keeps the test id)."""
+    build, so a caller can link it (an inbox item keeps the test id).
+    Cycle 86: `pinned_arm` (a build string, e.g. "landing:proof" -- the
+    Library's "Generate with this") is variant A; B and C are the usual
+    ranked picks, and a failed A is replaced from the ranking as usual."""
     seed = seed if seed is not None else random.randrange(1_000_000)
     ranking = rank_arms(tenant, random.Random(seed))
+    pinned = parse_arm(pinned_arm, tenant).id if pinned_arm else None
+    if pinned:
+        ranking = [pinned] + [a for a in ranking if a != pinned]
     rec = {
         "test_id": new_test_id(name),
         "name": name,
@@ -427,6 +434,8 @@ def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None
         "split": None,
         "winner": None,
     }
+    if pinned:
+        rec["pinned_arm"] = pinned
     save_test(tenant, rec)
     if on_record is not None:
         on_record(rec)

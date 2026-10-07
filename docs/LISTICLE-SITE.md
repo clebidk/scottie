@@ -29,7 +29,10 @@ browser --> Caddy (listicle.peaksaunasteam.com) --> harness serve 127.0.0.1:4870
 | `/gen/<run>/<page>` | One generation: phone / desktop preview (old version next to the new one after feedback), the Status card (live URL, **Post live**, **Update live page**, **Unpublish**, **Publish new version** or **Replace live variant**, the latest publish job), the feedback form, the details (ad, style, hero, headline template, skeleton, look, Jev composite, gate, cost, run id, created), the Jev drafts table, the versions and the history. |
 | `/gen/<run>/<page>/post-live`, `/update-live`, `/unpublish` | Cycle 80: the confirm step (a dialog on the page, or this page without JS) and the POST that queues the job. |
 | `/run/<run>/ad-frame` | Cycle 80: a thumbnail of the run's ad still (`ad-frame/frame.jpg`). |
-| `/upload` | The upload form. |
+| `/upload` | The upload form. Cycle 86: `?cartridge=&look=&hero_style=&style=` pins a page version (the Library's **Generate with this**). |
+| `/library` | Cycle 86: every page version the harness can generate, as reference cards grouped by cartridge (see **Library** below). |
+| `/library/<version>/review`, `/library/<version>/thumb` | Cycle 86: one version's self-contained reference page (framed like `/run/<run>/review/<page>`) and its thumbnail. |
+| `/library/rebuild` | Cycle 86: the POST of **Rebuild library** (queues a `library_build` job). |
 | `/jobs`, `/job/<id>` | The job queue and one job (state, reason, result, split link). |
 | `/audit` | Who did what, and when. |
 | `/runs` | The old run list (it was at `/` before cycle 69). |
@@ -45,8 +48,8 @@ no Solar Flare:
 
 - a left sidebar in Fossil Dust `#C0C8C3` with Basalt `#181918` text: the
   logo (`brand/logo-basalt.svg`), "Listicles workspace", nav groups Review
-  (Ads, Upload an ad), Queue (Jobs with a running-jobs badge, Audit log) and
-  Library (Runs, Images); the active row is Stone `#EFE3D2`; the reviewer at
+  (Ads, Library, Upload an ad -- Library since cycle 86), Queue (Jobs with a
+  running-jobs badge, Audit log) and Library (Runs, Images); the active row is Stone `#EFE3D2`; the reviewer at
   the bottom;
 - a top bar with a search pill (ads by name; keeps the home filter) and the
   reviewer's name and email;
@@ -213,6 +216,76 @@ of them. Moving the old rows changes nothing a visitor sees.
   inbox item stays `building`. The next `harness abtest from-inbox` run
   resumes it.
 
+### Library -- cycle 86
+
+The Library page (`/library`, nav: Review > Library) shows every version of
+page the harness can generate, rendered once as a reference, so the team can
+see the options and pick one to generate from. A note at the top says:
+"Reference renders use a canned demo page and the tenant's brand; copy is not
+real."
+
+**What a version is.** A cartridge x one of its looks (`harness/looks.py`
+`CARTRIDGE_LOOKS`: landing `open|proof`, longform `open|classic`, product-page
+`pdp|classic`, listicle `open`) and, for the listicle, x its first screen
+(`face|story|display`, harness/first_screen.py) x its copy style
+(`reasons|mistakes|questions|myths|tested`). A cartridge with no looks
+(article, comparison, quiz) is one version. That is 24 versions today (15 of
+them listicles). A tenant-level imported look, a folder
+`tenants/<t>/looks/<cartridge>/<name>/` with a `template.html` and a
+`library.json` `{name, title, summary, source, added_at}`, is listed
+automatically as one more version of that cartridge (a name the harness
+already uses for its own look is ignored). It is rendered when the harness can
+resolve that look name; until then its card shows the library.json title and
+summary and says it cannot be rendered yet.
+
+**The build.** `harness library build --tenant <t> [--only landing,...]
+[--force]` (harness/library.py) renders each version with NO model call: the
+cartridge's canned page from `evals/fake_run.py` goes through the real
+pipeline with the tenant's brand (brand/base.css, logo, photo library when
+present) and the facts pack the fake run builds, from the demo text ad
+`fixtures/founder-warranty-demo.txt`. The runs happen in a scratch folder (out/,
+runs/ and evals/ point there; nothing reaches the spend ledger or the Ads
+page), with reviewer notifications off, one listicle draft (no Jev call), and
+every network connect in the process blocked. Each version writes
+`tenants/<t>/library/<cartridge>/<look>[/<first screen>/<style>]/`
+(`default` as the look of a cartridge with no looks): `index.html` + `assets/`,
+a self-contained `review.html` (the review builder `harness review` uses),
+`meta.json` (cartridge, look, first_screen, style, title, summary from
+cartridge.md's Purpose plus the look's notes, audience_temperature,
+word_range, built_at, sha, and `arm`, the A/B/C build string) and, when a
+`chromium`, `google-chrome` or `chromium-browser` binary is on PATH, a 390x844
+`thumb.png` at scale 1. Without a browser there is no thumbnail and the card is
+a text card; the build never fails for that. A version whose sha (its cartridge
+template, look template, cartridge.md and schema.json) has not changed is
+skipped unless `--force`. Exit 1 when a version failed to render.
+
+Not renderable offline: the listicle's `face` first screen needs a still from
+the ad, and the demo ad is text, so its five versions show a text card with
+that reason (the "Generate with this" button still works: a real ad with a
+usable still renders it).
+
+**Cards.** Grouped by cartridge (a row of jump links at the top). Each card:
+the thumbnail (or a text card), the look / first screen / style chips, the
+title, the summary, the audience temperature and word range, **Open reference**
+(the version's `review.html`, in a new tab, from the frameable route) and
+**Generate with this**: it opens `/upload` with the cartridge, look, hero style
+and style pre-selected (shown in a "Page version" box, sent as hidden fields).
+The upload checks the combination (`abtest.parse_arm`) and keeps it on the inbox
+item as `pinned_arm`; the `create_test` job and `harness abtest from-inbox`
+build **variant A** as that version, and B and C are the usual ranked picks from
+the test library (`abtest.create_test(pinned_arm=...)`). An item whose pinned
+version the harness no longer has fails with a reason.
+
+**Rebuild.** **Rebuild library** (login + form token, like every POST) queues
+one `library_build` job with `--force` (a second press while it waits opens the
+same job); the worker runs it. `harness serve` queues a non-forced build at
+startup when `tenants/<t>/library/` does not exist; startup does not wait for
+it.
+
+Run it on a server: `cd ~/advertorial && .venv/bin/harness library build
+--tenant peak-saunas` (about 15 seconds without thumbnails; add a few seconds
+for each thumbnail when Chromium is installed).
+
 ### Security
 
 - Every route except `POST /e` needs the login (HTTP basic auth against
@@ -351,6 +424,9 @@ you give them the link. They all use the same `REVIEW_PASSWORD`.
 | `tenants/<t>/jobs/worker.lock`, `build.lock` | One worker for each tenant; one build at a time. |
 | `tenants/<t>/meta_inbox/up-*/` | Uploaded ads (`ad.json` + media). |
 | `tenants/<t>/runs/thumb-cache/` | Page thumbnails for the Ads page. |
+| `tenants/<t>/library/` | Cycle 86: the Library's reference renders (`harness library build`). Gitignored. |
+| `tenants/<t>/looks/<cartridge>/<name>/` | Cycle 86: tenant-level imported looks the Library lists (template.html + library.json). |
 
 Job states: `queued`, `running`, `done`, `failed` (always with a reason).
-Job types: `regenerate`, `create_test`, `publish_page`, `replace_variant`.
+Job types: `regenerate`, `create_test`, `publish_page`, `replace_variant`,
+`post_live`, `update_live`, `unpublish_live`, `library_build` (cycle 86).

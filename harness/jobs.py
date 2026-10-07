@@ -27,6 +27,8 @@ Job types and handlers (each reuses the CLI's own code path):
                    (= `harness post-live`)
   update_live      re-publish the current version over that live page
   unpublish_live   set that page back to hidden
+  library_build    cycle 86: library.build (= `harness library build`), the
+                   Library page's reference renders; no model call
 """
 import argparse
 import contextlib
@@ -45,7 +47,7 @@ from .errors import HarnessError
 
 STATES = ("queued", "running", "done", "failed")
 JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
-             "unpublish_live")
+             "unpublish_live", "library_build")
 POST_LIVE_ACTIONS = {"post_live": "post", "update_live": "update", "unpublish_live": "unpublish"}
 
 
@@ -373,6 +375,25 @@ def handle_post_live(tenant, payload, *, job_type="post_live"):
             "unlinked": True}
 
 
+def handle_library_build(tenant, payload, log=print):
+    """Cycle 86: (re)renders the Library (harness/library.py). Fails the job
+    when a version failed to render; the other versions are still written."""
+    from . import library
+
+    try:
+        summary = library.build(tenant, only=payload.get("only") or None, force=bool(payload.get("force")),
+                                log=log)
+    except HarnessError as e:
+        raise JobFailed(str(e)) from e
+    result = {"built": len(summary["built"]), "skipped": len(summary["skipped"]),
+              "unavailable": summary["unavailable"], "failed": summary["failed"], "thumbs": summary["thumbs"],
+              "browser": bool(summary["browser"])}
+    if summary["failed"]:
+        raise JobFailed(f"{len(summary['failed'])} version(s) failed: "
+                        + "; ".join(f"{key}: {why}" for key, why in summary["failed"]))
+    return result
+
+
 HANDLERS = {
     "regenerate": handle_regenerate,
     "create_test": handle_create_test,
@@ -381,6 +402,7 @@ HANDLERS = {
     "post_live": handle_post_live,
     "update_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="update_live"),
     "unpublish_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="unpublish_live"),
+    "library_build": handle_library_build,
 }
 
 

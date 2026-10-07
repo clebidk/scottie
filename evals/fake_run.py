@@ -367,10 +367,12 @@ def _newest_run_dir(base_dir, pattern):
 
 
 def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
-             style=None, headline_template=None, skeleton=None, look=None):
+             style=None, headline_template=None, skeleton=None, look=None, hero_style=None):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
-    None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
-    (the 200-generation dry run)."""
+    None, [page.json paths]). Shared by main() (the CLI), evals/soak.py
+    (the 200-generation dry run) and harness/library.py (cycle 86: one
+    reference render per page version; `hero_style` is the listicle's first
+    screen, as `harness run --hero-style`)."""
     selected = [c.strip() for c in cartridges.split(",") if c.strip()]
     known = set(CANNED_PAGES) | {"comparison", "listicle", "quiz"}
     unknown = [c for c in selected if c not in known]
@@ -433,6 +435,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
         headline_template=headline_template,
         skeleton=skeleton,
         look=look,
+        hero_style=hero_style,
         product=product,
         ffmpeg_bin="/usr/bin/ffmpeg",
         whisper_bin="/nonexistent/whisper-cli",
@@ -466,6 +469,8 @@ def main(argv=None):
     parser.add_argument("--product", default=None)
     parser.add_argument("--look", choices=list(looks.all_looks()), default=None,
                         help="a look of a selected cartridge (e.g. landing: open | proof); default: the cartridge's own")
+    parser.add_argument("--hero-style", choices=["face", "story", "display"], default=None,
+                        help="listicle first screen; default: seeded from --seed")
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)
@@ -473,6 +478,7 @@ def main(argv=None):
     exit_code, run_dir, pages = run_once(
         ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
         style=ns.style, headline_template=ns.headline_template, skeleton=ns.skeleton, look=ns.look,
+        hero_style=ns.hero_style,
     )
     if exit_code != 0:
         return exit_code
