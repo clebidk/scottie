@@ -619,3 +619,25 @@ scored by `ad_frames.still_score` (log Laplacian sharpness, exposure, +3 for a f
 vision call saw, -2 for none, -2 for a large caption), saved as `ad-frame/still-N.jpg`
 with their scores in `ad-frame.json` `stills`. Ids `asset-adframe-still-N`.
 `ad_frames.page_assets` still returns only the frame and the avatar.
+
+## 12. The Photos page (cycle 96)
+
+Photos can be added and curated on the review site: docs/LISTICLE-SITE.md
+"Photos". An upload runs the same import, measure and tag steps as
+`harness photos import|measure|tag` (one `photos_import` job,
+`harness/photo_uploads.py`), so the new photo is a normal library row. Two
+changes here that the CLI sees too:
+
+- **Person values win.** `corrections` may carry `{"field": "product",
+  "value", "agnostic"}` (the model set on the page; `apply_corrections` applies
+  it after every tag), and `image_tags` may carry `shot_source`,
+  `mood_source` or `focal_source: "person"`; `merge_image_tags` (measure) and
+  `tag_missing` (vision) keep those values.
+- **Locked row writes.** `photo_library.update_photo` / `import_paths` and the
+  tag steps write under `brand/.photo-library.lock` and change only their own
+  row and fields; `photos measure` holds the lock for its read-modify-write.
+- A row may also carry `added_at`, `added_by`, `origin` (upload | drive),
+  `label_model` (the uploader's model, used as the folder label) and
+  `removed` (moved to `photo-library/.trash/`; also excluded).
+- `images.audit` also returns `wants` (each audit want with its count), which
+  the page turns into "what to shoot next".

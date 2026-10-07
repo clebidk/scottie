@@ -205,14 +205,18 @@ def measure_file(path):
 
 def merge_image_tags(photo, measured):
     """`photo`'s new image_tags: the measured part replaced, the vision part
-    (shot, quality, a vision focal) kept, model from the product decision."""
+    (shot, quality, a vision focal) kept, model from the product decision.
+    Cycle 96: what a person set on the Photos page (shot_source, mood_source
+    or focal_source "person") is kept too."""
     old = dict(photo.get(FIELD) or {})
     new = dict(measured)
-    for key in ("shot", "quality", "tagged_by"):
+    for key in ("shot", "quality", "tagged_by", "shot_source"):
         if old.get(key) is not None:
             new[key] = old[key]
-    if old.get("focal_source") == "vision" and isinstance(old.get("focal"), dict):
-        new["focal"], new["focal_source"] = old["focal"], "vision"
+    if old.get("mood_source") == "person" and old.get("mood") in MOODS:
+        new["mood"], new["mood_source"] = old["mood"], "person"
+    if old.get("focal_source") in ("vision", "person") and isinstance(old.get("focal"), dict):
+        new["focal"], new["focal_source"] = old["focal"], old["focal_source"]
     else:
         new["focal_source"] = "edges"
     product = (photo.get("tags") or {}).get("product")
@@ -357,16 +361,17 @@ def audit(manifest, *, files_dir=None):
         flags["old_brand"] += bool((p.get("tags") or {}).get("old_logo_visible"))
         flags["ai_generated"] += bool(p.get("ai_generated"))
         rows.append((p, it, photo_shots(p)))
-    gaps = []
+    gaps, wants = [], []
     for label, shot, mood, extra in AUDIT_WANTS:
         n = sum(1 for _p, it, shots in rows
                 if shot in shots and (mood is None or it.get("mood") == mood) and (extra is None or it.get(extra)))
+        wants.append({"label": label, "n": n})
         if n == 0:
             gaps.append(f"no {label}")
         elif n < 3:
             gaps.append(f"only {n} {label}")
     return {"total": len(photos), "usable": usable, "missing_file": missing, "measured": measured,
-            "vision_tagged": tagged, "by_shot": by_shot, "flags": flags, "gaps": gaps}
+            "vision_tagged": tagged, "by_shot": by_shot, "flags": flags, "gaps": gaps, "wants": wants}
 
 
 def audit_lines(report):
@@ -954,7 +959,10 @@ def tag_missing(tenant, *, client, model, budget, log, ids=None, save_every=1):
     usable library photo that lacks it -- one asset_describe.describe_one
     call per photo with look_fields=True. Measures a photo first when its
     measured part is missing. Saves the manifest after every `save_every`
-    photos. Returns {"tagged", "failed", "skipped"}."""
+    photos. Returns {"tagged", "failed", "skipped"}. Cycle 96: each answer is
+    written as that photo's image_tags only, under the manifest lock, with
+    a person's shot / mood / focal (Photos page) kept; `save_every` is
+    kept for callers and no longer batches writes."""
     from . import asset_describe
     from . import photo_library as pl
 
@@ -985,14 +993,23 @@ def tag_missing(tenant, *, client, model, budget, log, ids=None, save_every=1):
         if result is None:
             counts["failed"] += 1
             continue
-        it = photo[FIELD]
-        it["shot"], it["quality"], it["tagged_by"] = result["shot"], result["quality"], model
-        if result.get("focal"):
-            it["focal"], it["focal_source"] = result["focal"], "vision"
+        measured = photo[FIELD]
+
+        def store(row, measured=measured, result=result):
+            old = row.get(FIELD) or {}
+            it = merge_image_tags(row, measured) if old.get("measured") != MEASURE_VERSION else dict(old)
+            if it.get("shot_source") != "person":
+                it["shot"] = result["shot"]
+            it["quality"], it["tagged_by"] = result["quality"], model
+            if result.get("focal") and it.get("focal_source") != "person":
+                it["focal"], it["focal_source"] = result["focal"], "vision"
+            row[FIELD] = it
+
+        try:
+            it = pl.update_photo(tenant, photo["id"], store)[FIELD]
+        except pl.PhotoNotFound:
+            continue
         counts["tagged"] += 1
         done += 1
         log.event("photos_tag", f"{photo['id']}: {it['shot']}, quality {it['quality']}, mood {it['mood']}")
-        if done % save_every == 0:
-            pl.save_manifest(tenant, manifest)
-    pl.save_manifest(tenant, manifest)
     return counts

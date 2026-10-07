@@ -412,6 +412,74 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
 .lib-why{margin:0;color:var(--red)}
 .notice.pin{display:block;margin:0 0 16px}
 
+/* cycle 96: the Photos page */
+.ph-tabs{margin:0 0 18px}
+.ph-jobs ul{margin:4px 0 0;padding-left:18px}
+.ph-jobs .ph-step{font-weight:600}
+.ph-top{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:28px}
+.ph-top > .card{margin:0}
+.ph-cov-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px}
+.ph-cov .card-h{flex-wrap:wrap;gap:4px 12px}
+.ph-cov .card-h h2{flex:none}
+.ph-cov h3{font-size:.95rem;margin:0 0 8px}
+.ph-cov h3 + ol,.ph-cov h3 + ul{margin-top:0}
+.ph-mat{width:100%;border-collapse:collapse;font-size:.8rem}
+.ph-mat th,.ph-mat td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;background:none}
+.ph-mat th:first-child{text-align:left;font:500 .78rem var(--ui);text-transform:none;letter-spacing:0;color:var(--ink)}
+.ph-mat thead th{font:500 .68rem var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--wash)}
+.ph-mat td.z{color:var(--faint)}
+.ph-mat td.tot{font-weight:600}
+.ph-flagline{margin:8px 0 0}
+.ph-models{flex-wrap:wrap;gap:6px}
+.ph-models .chip b{color:var(--ink);font-weight:600}
+.ph-shoot{padding-left:20px;margin:0 0 16px;font-size:.86rem}
+.ph-shoot li{margin:0 0 6px}
+.ph-rules{list-style:none;padding:0;margin:0;font-size:.84rem}
+.ph-rules li{display:flex;gap:8px;align-items:flex-start;margin:0 0 6px}
+.ph-rules svg.i{flex:none;width:16px;height:16px;margin-top:2px}
+.ph-up .drop{padding:22px 14px}
+.ph-drive{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.ph-drive .hint{margin:0}
+.ph-lib > .card-h{margin-bottom:8px}
+.ph-filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 10px}
+.ph-filters select{height:36px;font-size:.84rem}
+.ph-vocab{margin:-8px 0 16px}
+.ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;align-items:start}
+.ph-card{border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden;min-width:0}
+.ph-card.off .ph-img img{opacity:.45}
+.ph-img{position:relative;background:var(--wash);cursor:crosshair;line-height:0}
+.ph-img img{display:block;width:100%;height:auto}
+.ph-img.saving{opacity:.6}
+.ph-dot{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid #fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.55);background:rgba(112,43,51,.85);pointer-events:none}
+.ph-b{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.ph-b > *{min-width:0;max-width:100%}
+.ph-b .chips{display:flex;flex-wrap:wrap;gap:5px}
+.ph-id{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;font-size:.72rem;color:var(--muted)}
+.ph-id code{font-size:.7rem}
+.ph-tags{display:flex;flex-wrap:wrap;gap:4px}
+.ph-tags span{font-size:.74rem;border-radius:4px;background:var(--wash);padding:1px 7px;color:var(--ink)}
+.ph-tags span.none{background:none;padding:0;color:var(--faint)}
+.ph-desc{margin:0;font-size:.82rem;line-height:1.4}
+.ph-src{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ph-used a{color:var(--ink)}
+.ph-edit summary{cursor:pointer;font-weight:500;font-size:.84rem;color:var(--ink)}
+.ph-edit label{margin:10px 0 4px;font-size:.78rem}
+.ph-edit input[type=text],.ph-edit select{height:34px;font-size:.84rem;padding:0 8px}
+.ph-edit input[type=number]{width:84px;height:34px;border:1px solid var(--line-2);border-radius:var(--r);padding:0 8px;font:inherit;font-size:.84rem}
+.ph-sel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}
+.ph-focal{margin-top:4px}
+.ph-acts{display:flex;flex-wrap:wrap;gap:6px}
+.ph-pager{margin-top:20px}
+@media (max-width:1100px){.ph-top{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  .ph-cov-grid{grid-template-columns:minmax(0,1fr)}
+  .ph-top .ph-up{order:-1}
+  .ph-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ph-grid{grid-template-columns:minmax(0,1fr)}
+  .ph-sel{grid-template-columns:minmax(0,1fr)}
+}
+
 /* phones */
 @media (max-width:1040px){
   .gv{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"top" "main" "rest"}
@@ -502,7 +570,8 @@ document.addEventListener('keydown',function(ev){if((ev.metaKey||ev.ctrlKey)&&(e
   var q=document.getElementById('q');if(q){ev.preventDefault();q.focus();q.select();}}});
 document.addEventListener('input',function(ev){if(ev.target.hasAttribute('data-preview')){pkHandle(ev.target);}});
 document.addEventListener('change',function(ev){var t=ev.target;if(t.type==='file'&&t.closest('.drop')){
-  var n=t.closest('.drop').querySelector('.file');if(n){n.textContent=t.files.length?t.files[0].name:'';}}});
+  var n=t.closest('.drop').querySelector('.file');
+  if(n){n.textContent=t.files.length>1?t.files.length+' files: '+t.files[0].name+', \u2026':t.files.length?t.files[0].name:'';}}});
 document.addEventListener('DOMContentLoaded',function(){
   var s=document.querySelectorAll('svg[data-fit]');for(var i=0;i<s.length;i++){try{var b=s[i].getBBox();
     if(b.width){s[i].setAttribute('viewBox',[b.x,b.y,b.width,b.height].join(' '));}}catch(e){}}
@@ -614,9 +683,20 @@ NAV = (
     )),
     ("Library", (
         ("run_list", "Runs", "text", ("run_list", "run_detail")),
-        ("image_library", "Images", "image", ("image_library", "image_library_product")),
+        # Cycle 96: one Photos page; the older per-product image review is its second tab.
+        ("photos_home", "Photos", "image", ("photos_home", "image_library", "image_library_product")),
     )),
 )
+
+
+def photo_tabs(active):
+    """Cycle 96: the Photos page's two tabs -- the library photos
+    (harness/site_photos.py) and the older per-product image review
+    (serve.py /images: alt text and exclusions)."""
+    tabs = (("photos_home", "Library photos"), ("image_library", "Product images (alt text)"))
+    links = "".join(f'<a href="{url_for(ep)}"' + (' class="on" aria-current="page"' if ep == active else "")
+                    + f">{label}</a>" for ep, label in tabs)
+    return f'<nav class="seg ph-tabs" aria-label="Photos">{links}</nav>'
 
 
 def _active_jobs():

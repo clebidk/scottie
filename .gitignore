@@ -52,3 +52,6 @@ __pycache__/
 *.pyc
 *.egg-info/
 tenants/*/evals/_archive/
+
+# Cycle 96: the photo-library manifest lock (harness/photo_library.manifest_lock).
+tenants/*/brand/.photo-library.lock

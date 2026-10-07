@@ -1702,9 +1702,14 @@ def cmd_photos_measure(args):
     if not manifest.get("photos"):
         print(f"no photos in {photo_library.manifest_path(tenant)}", file=sys.stderr)
         return exits.USAGE
-    new, counts = images.measure_manifest(manifest, photo_library.files_dir(tenant), only_missing=args.only_missing)
-    if not args.dry_run:
-        photo_library.save_manifest(tenant, new)
+    # Cycle 96: under the manifest lock, read again, so a Photos page edit
+    # made while this ran is not lost.
+    with photo_library.manifest_lock(tenant):
+        manifest = photo_library.load_manifest(tenant)
+        new, counts = images.measure_manifest(manifest, photo_library.files_dir(tenant),
+                                              only_missing=args.only_missing)
+        if not args.dry_run:
+            photo_library.save_manifest(tenant, new)
     print(f"measured {counts['measured']}, kept {counts['kept']}, no file {counts['missing_file']}"
           + (" (dry run, nothing written)" if args.dry_run else f" -> {photo_library.manifest_path(tenant)}"))
     return 0
