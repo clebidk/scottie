@@ -5202,3 +5202,72 @@ reference renders show the 7-year warranty wording (c4d774d); the listicle demo'
 `closing.warranty_line` is set to vocab.yaml's `allowed_warranty_sentence`, because
 evals/fake_run.py's canned listicle page still has the retired lifetime sentence (follow-up; one of
 two listicle fake runs on master exited 2).
+
+## Cycle 93 (image pipeline: richer tags, slot resolver, focal crops, better ad stills, 2026-10-07)
+
+Branch `cycle93/image-pipeline` from master bbc3ac4. Not merged, not pushed.
+
+### Problem
+Generated pages look plain partly because the image supply is thin: one hero (the
+cut-out) and a few tag-matched item photos. The ten owner-approved pack pages use 5-15
+strong images each (full-bleed heroes, detail macros, dark shots, deliberate crops).
+The harness could not ask for "a dark wide photo" or "two close-ups cropped 4:3": the
+cycle 75 tags say what a photo shows, not how it can be used on a page.
+
+### Fix (docs/IMAGES.md section 11)
+1. **Tags** (`harness/images.py`, `harness photos measure`): `image_tags` on each
+   photo-library.json entry, additive. Pillow measures orientation, aspect, mood,
+   luminance, warmth, white studio edge, full-bleed ok, dark-page ok, a focal guess and
+   sharpness; `model` is copied from the cycle 75 product decision. The 66 PEAK photos
+   are measured and committed (purely additive: the manifest minus `image_tags` equals
+   master's). The mood rule was calibrated on them: cedar gives every photo a red cast,
+   so the first rule (cast decides) called the white studio shots "warm"; luminance now
+   decides first.
+2. **Vision part** (`harness photos tag --only-missing`): one
+   `asset_describe.describe_one(..., look_fields=True)` call per photo adds `shot`
+   (hero-wide / room / detail-macro / exterior / lifestyle-person / cutout), `quality`
+   1-5 and a focal point. Not run this cycle (no model calls on this build); dry run: 66
+   photos, about $0.13 with Haiku. Until it runs, the old `tags.shot` is read through
+   `LEGACY_SHOT`. `model` is deliberately not asked again: a second guess would bypass
+   the cycle 75 folder and verify rules.
+3. **Audit** (`harness photos audit`): coverage per shot x mood and the gaps.
+4. **Slots and the resolver** (`images.fill_slots`): a look declares slots in its
+   library.json `image_slots`; picks come back ordered with scores and reasons, no repeat
+   on a page, the run's model first, real over AI, exclusions (manifest and
+   asset-review.json) honoured, no retired-mark photo above the fold, down the declared
+   fallback chain, then the product cut-out. `render_page` fills them after the existing
+   matchers, downloads the picks, records them in `.image-selection.json` `slots`, logs
+   them and lists them in REVIEW.md "## Images". Templates read `image_slots`.
+5. **Crops**: `render_image_slot(..., crop=)` cuts round the focal point, reuses
+   `generate_image_variants`, caches by source sha + crop + focal; `pill` is rounded in CSS.
+6. **Ad stills** (`harness/ad_frames.py`): scene-change frames join the 8 even frames;
+   Laplacian sharpness + exposure + the vision call's face answer rank them; the best 3
+   are saved as `ad-frame/still-N.jpg` with their scores; slots ask for `shot: ad-still`.
+   The first-screen frame is chosen exactly as before.
+7. **Shipped looks**: listicle `open` and landing `open`/`proof` declare their images as
+   bind slots plus the ad still (`images.SHIPPED_LOOK_SLOTS`). Their templates do not read
+   `image_slots`, so the resolver records and checks their images without changing them.
+
+### Result
+- Shipped looks identical: 7 renders (listicle face/story/display, landing open/proof
+  with and without a still, real downloads) hash the same on master and on this branch;
+  the suite pins it by rendering 4 of them with and without the resolver.
+- Audit of the 66-photo library (pack copy, measured in memory, nothing written there):
+  66 usable, 17 full-bleed ok, 34 dark-page ok, 9 white studio edges, 35 with the old
+  mark, 17 AI-generated; by shot (legacy mapping) hero-wide 5, room 22, detail-macro 19,
+  exterior 11, lifestyle-person 14; gaps: only 1 dark full-bleed hero, no dark room, only
+  1 bright room, only 1 dark exterior.
+- The focal guesses on real photos sit near the centre (x 0.44-0.58, y 0.39-0.59): edge
+  density is spread across these frames. Crops are near-centre until the vision focal is in.
+- Tests: tests/test_images_cycle93.py (30); suite 2759 passed (master 2729).
+
+### Open
+- The vision part (`photos tag --only-missing`) has not run; `shot`/`quality` are null on
+  every photo. Run it on prod after merge (about $0.13).
+- The first-screen still and the shipped hero/item images go THROUGH the resolver only as
+  recorded bind/ad-still slots; the shipped templates still read `assets["asset-adframe"]`
+  and the page fields directly. Moving those templates onto `image_slots` is the cycle 94
+  hero work.
+- Stills are saved only when the video gives a usable first-screen frame (a face); a
+  product-only video gives no stills.
+- 35 of 66 photos carry the old mark, so above-the-fold slots have about half the library.
