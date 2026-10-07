@@ -26,6 +26,8 @@ from evals import fake_run
 from harness import abtest, claims, landing, pagechecks, repair, write
 from harness.page_body import build_shopify_body, relativize_internal_links
 from harness.render import render_page
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE
 from tests.support import REPO_ROOT, TENANT
 from tests.test_brand_lint_cycle78 import _PAGE_SCOPED, _css, _lint, _rules
 from tests.test_product_page_looks import _rich_facts_pack
@@ -33,6 +35,8 @@ from tests.test_render import AD_BRIEF
 
 CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "landing"
 PHONE = "+14706653747"
+# The trust line shows the first clause of the tenant's fixed warranty sentence.
+WARRANTY_TERM = ALLOWED_WARRANTY_SENTENCE.split(";")[0]
 SRC = "https://peaksaunas.com/products/fuji"
 
 
@@ -211,7 +215,7 @@ def test_price_financing_trust_and_specs_come_from_facts_pack(tmp_path):
     assert "Financing is available through Bread Pay at checkout." in html
     assert "<li>Free shipping</li>" in html
     assert "4.79 ★ · 47 reviews" in html
-    assert "Limited lifetime warranty</li>" in html
+    assert f"{WARRANTY_TERM}</li>" in html
     strip = re.findall(r'<li class="ld-spec"><b>([^<]*)</b><span>([^<]*)</span>', html)
     assert [label for _v, label in strip] == ["Capacity", "Max temperature", "Infrared wavelength range", "Cabin material"]
 

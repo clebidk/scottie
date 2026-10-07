@@ -46,6 +46,16 @@ def _real(key):
     return copy.deepcopy(REAL[key])
 
 
+def _real_2sxl_with_the_tenants_warranty_sentence():
+    """Run 2sxl's item 6 is the renderer's fixed warranty sentence (heading, body
+    and proof). The fixture keeps the wording of the day; swap in the tenant's
+    current sentence so these tests stop pinning tenant copy."""
+    data = _real("2sxl")
+    item = data["page"]["reasons"][5]
+    item["heading"] = item["text"] = item["proof"]["text"] = ALLOWED_WARRANTY_SENTENCE
+    return data
+
+
 def _fix(page, failures, facts_pack, ad_brief=None):
     valid = {c["id"] for c in facts_pack["verified_claims"]}
     return apply_deterministic_fixes(
@@ -346,7 +356,7 @@ def test_warranty_fix_leaves_a_heading_for_the_writer_and_fixes_the_body():
 # ---------------------------------------------------------------------------
 
 def test_real_page_2sxl_fails_the_quality_gates_it_should():
-    data = _real("2sxl")
+    data = _real_2sxl_with_the_tenants_warranty_sentence()
     problems = _quality(data["page"], data["facts_pack"], data["ad_brief"], style="myths")
     keys = _keys(problems)
     assert "listicle:item_repeats:5" in keys                       # item 6: one sentence three times
@@ -437,7 +447,7 @@ def test_a_dek_narrating_the_speaker_fails_and_a_dek_to_the_reader_passes():
 
 
 def test_real_myth_headings_pass_and_a_spec_or_product_heading_fails():
-    data = _real("2sxl")
+    data = _real_2sxl_with_the_tenants_warranty_sentence()
     page = data["page"]
     names = [TENANT.display_name, "Fuji", "Peak Fuji"]
     texts = [c["text"] for c in data["facts_pack"]["verified_claims"]]
