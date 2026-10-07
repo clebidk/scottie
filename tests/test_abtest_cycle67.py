@@ -358,10 +358,11 @@ def test_publish_ships_three_hidden_variants_and_a_split_page(monkeypatch, capsy
         assert p["published"] is True
         assert {"namespace": "seo", "key": "hidden", "value": 1, "type": "number_integer"} in p["metafields"]
     # variants carry the beacon; the split page carries only the split script
+    # (cycle 88: which sends its own "assign" event, never a view or a cta)
     for p, key in zip(posts[:3], "ABC"):
         assert "sendBeacon" in p["body_html"] and f'"{key}"' in p["body_html"]
     split = posts[3]["body_html"]
-    assert "sendBeacon" not in split
+    assert "e:'assign'" in split and "'view'" not in split and "'cta'" not in split
     assert split.lstrip().startswith("<script>")
     assert f"/pages/lp-{tid}-a" in split and "<noscript>" in split
 
@@ -509,14 +510,18 @@ def test_split_body_survives_the_shopify_export_unchanged():
     passed = page_body.css_scope.rem_to_px_in_style_attrs(passed)
     assert passed == html and css == "" and motion is None
     assert html.index("<script>") == 0
-    assert len(_script_body(html)) < 900
+    # cycle 88: the UTM tagging and the assign ping took it past the old 900
+    assert len(_script_body(html)) < 1500
 
 
 @needs_node
 def test_split_script_picks_sets_cookie_and_forwards_the_query():
     script = _script_body(abtest.split_body("t1", SPLIT_VARIANTS))
     out = _run_js(_split_prelude("?utm_source=fb&utm_campaign=x%20y&fbclid=AbC&pk_v=Z", rand=0.5), script)
-    assert out["replaced"] == "/pages/lp-t1-b?utm_source=fb&utm_campaign=x%20y&fbclid=AbC&pk_t=t1&pk_v=B"
+    # cycle 88: the ad's utm_source/utm_campaign are kept; utm_medium and
+    # utm_content=<test>_<key> are added
+    assert out["replaced"] == ("/pages/lp-t1-b?utm_source=fb&utm_campaign=x%20y&fbclid=AbC&utm_medium=paid"
+                               "&utm_content=t1_B&pk_t=t1&pk_v=B")
     cookie = out["cookies"][0]
     assert cookie.startswith("pk_ab_t1=B;") and "path=/" in cookie
     assert "max-age=2592000" in cookie and "SameSite=Lax" in cookie
@@ -526,11 +531,13 @@ def test_split_script_picks_sets_cookie_and_forwards_the_query():
 def test_split_script_honors_an_existing_cookie_and_handles_no_query():
     script = _script_body(abtest.split_body("t1", SPLIT_VARIANTS))
     out = _run_js(_split_prelude("", cookie="x=1; pk_ab_t1=C", rand=0.0), script)
-    assert out["replaced"] == "/pages/lp-t1-c?pk_t=t1&pk_v=C"
+    assert out["replaced"] == ("/pages/lp-t1-c?utm_source=meta&utm_medium=paid&utm_campaign=t1&utm_content=t1_C"
+                               "&pk_t=t1&pk_v=C")
     assert out["cookies"] == []
     # a stale cookie naming no current variant is re-picked
     out = _run_js(_split_prelude("?a=1", cookie="pk_ab_t1=Q", rand=0.0), script)
-    assert out["replaced"] == "/pages/lp-t1-a?a=1&pk_t=t1&pk_v=A"
+    assert out["replaced"] == ("/pages/lp-t1-a?a=1&utm_source=meta&utm_medium=paid&utm_campaign=t1&utm_content=t1_A"
+                               "&pk_t=t1&pk_v=A")
 
 
 # ---------------------------------------------------------------------------

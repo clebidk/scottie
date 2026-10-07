@@ -59,7 +59,10 @@ SPLIT LINK (paste as the ad's destination in Ads Manager): https://peaksaunas.co
 - The split page body is only a small script and a `<noscript>` link list.
   The script keeps a returning visitor on the same variant (cookie
   `pk_ab_<test_id>`, 30 days). It forwards the full query string (utm_*,
-  fbclid) and adds `pk_t=<test_id>&pk_v=<A|B|C>`.
+  fbclid) and adds `pk_t=<test_id>&pk_v=<A|B|C>`. Cycle 88: it also sets
+  `utm_content=<test_id>_<key>` and, when the query has none,
+  `utm_source=meta`, `utm_medium=paid`, `utm_campaign=<test_id>`, and it
+  sends an `assign` event before it redirects (see "Control arms").
 - If one page fails, fix the error and run the same command again. Pages
   that are already published are updated, not duplicated.
 - `--draft` publishes all four pages unpublished. Use it only to check the
@@ -154,12 +157,63 @@ docs/LISTICLE-SITE.md.
 ## The receiver (`POST /e`)
 
 This is the one route in `harness serve` that is not behind the login. It
-accepts only a JSON body of 1 KB or less. The event must be `view` or `cta`
+accepts only a JSON body of 1 KB or less. The event must be `view`, `cta` or
+`assign` (cycle 88, from the split page)
 and must name a live or finished test and one of its variants. The receiver
 drops crawlers and link previewers (for example facebookexternalhit)
 silently. A repeat event from the same visitor is a no-op. The limit is 60
 events per minute per IP. Replies: 204 (stored, duplicate, or bot), 400,
 413, 429.
+
+## Control arms (cycle 88)
+
+Per ad, the operator can make an arm the product's page (PDP) or the store
+home page instead of a page the harness builds, or send the ad only to one
+of them. The split link stays in every case: the click is counted, and the
+destination can be changed later without a new link in the ad.
+
+| Destinations (site) | `--destinations` | A | B | C |
+|---|---|---|---|---|
+| 3 generated (default) | `generated` | generated | generated | generated |
+| 2 generated + PDP | `gen2-pdp` | generated | generated | PDP |
+| 2 generated + home | `gen2-home` | generated | generated | home |
+| 1 generated + PDP + home | `gen1-pdp-home` | generated | PDP | home |
+| PDP only | `pdp-only` | PDP (100%) | | |
+| Home only | `home-only` | home (100%) | | |
+
+- Where to choose: the **Destinations** field on the upload form, `harness
+  abtest create --destinations <plan>`, and `harness abtest from-inbox
+  --destinations <plan>` (for inbox items that have no plan of their own; an
+  upload's choice wins). The CLI also takes a JSON list of arms, for example
+  `[{"kind":"generated"},{"kind":"generated"},{"kind":"external","target":"url","url":"https://..."}]`.
+  Allowed shapes: 3 generated; 2 generated + 1 external; 1 generated + PDP +
+  home; one external arm alone. Generated arms always take the first keys.
+- A plan is fixed when the test is created. To change it, make a new test.
+- **PDP** is the product page of the product the ad names: the
+  `facts_pack.product.url` of the first built variant (the URL its CTA links
+  to). With no generated arm (`pdp-only`), the harness reads the ad once
+  (`harness ingest`, one model call, spend recorded) and takes the product
+  from `claims/products.json`. If the ad names no product, the PDP arm is
+  refused and the test fails with "product not named in ad": the run's
+  fallback to the default product is acceptable for a written page, but it
+  would send the ad to a product the ad never mentions. With a generated arm,
+  the refusal comes after the first build, not after all of them.
+- **Home** is `site_url` from `tenant.yaml` plus `/`.
+- The split page redirects within the store (`/products/<handle>`, `/`), with
+  the same cookie, query string and `pk_t`/`pk_v` as for a generated page.
+- **Counting.** An external page has no beacon. The split page sends
+  `{e: "assign"}` to `POST /e` (same visitor id `pk_vid`, same 60 per minute
+  limit, one row per visitor and arm) before it redirects. For an external
+  arm this is the only number the harness has: `results` shows it under
+  `assigned` and shows `-` for views, CTA, CTR, P(best), orders and revenue,
+  with the note "measure in GA4/Shopify by utm_content=<test_id>_<key>".
+  Orders are not credited to an external arm: the cart attribute that
+  attributes them is set by the beacon.
+- P(best) compares generated arms only, and only when there are two or more.
+  `finish` refuses a test with fewer than two generated arms; `--force`
+  finishes it with no winner.
+- The harness never writes to Meta. You paste the split link into the ad in
+  Ads Manager by hand, as before.
 
 ## First-screen styles (cycle 79)
 

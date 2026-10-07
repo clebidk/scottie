@@ -434,7 +434,36 @@ def _status_chips(info, *, with_gate=True):
     return "".join(parts)
 
 
+def _pct(value, fmt):
+    return "-" if value is None else format(value, fmt)
+
+
+def _external_card(ad, v):
+    """Cycle 88: an external arm (PDP / home / URL) of the ad's test: where
+    the split page sends visitors, how many it sent (split-page assign
+    events), and where the rest of the numbers live."""
+    rec = ad["tests"][0] if ad["tests"] else {}
+    label = abtest.TARGET_LABELS.get(v.get("target"), "URL")
+    parts = [
+        '<div class="gen gen-ext"><div class="shot"></div><div class="gen-body"><div class="chips">'
+        + chip("Variant " + v["key"], "solid") + chip(label) + "</div>",
+        f'<div class="gen-title">{e(v["key"])} = {e(label)}</div>',
+        (f'<p class="small"><a href="{e(v["url"])}" rel="noopener" target="_blank">{e(v["url"])}</a></p>'
+         if v.get("url") else '<p class="muted small">Destination not resolved yet.</p>'),
+    ]
+    if "assigns" in v:
+        parts.append('<div class="abstats">'
+                     f'<div><span>Assigned</span><b>{v["assigns"]}</b></div><div><span>CTA</span><b>-</b></div>'
+                     '<div><span>CTR</span><b>-</b></div><div><span>P(best)</span><b>-</b></div></div>')
+    utm = abtest.utm_content(rec.get("test_id") or "", v["key"])
+    parts.append(f'<p class="muted small">No beacon on this page: {e(abtest.NO_BEACON_NOTE)}='
+                 f'<code>{e(utm)}</code>.</p></div></div>')
+    return "".join(parts)
+
+
 def _gen_card(tenant, ad, v, info, *, dom_id):
+    if v.get("kind") == "external":
+        return _external_card(ad, v)
     if info is None:
         return (f'<div class="gen"><div class="shot"></div><div class="gen-body"><div class="chips">'
                 f'{chip(v.get("key") or "", "solid") if v.get("key") else ""}{chip(v.get("status") or "pending")}</div>'
@@ -458,7 +487,8 @@ def _gen_card(tenant, ad, v, info, *, dom_id):
         parts.append(
             '<div class="abstats">'
             f'<div><span>Views</span><b>{v["views"]}</b></div><div><span>CTA</span><b>{v["clicks"]}</b></div>'
-            f'<div><span>CTR</span><b>{v["ctr"]:.1%}</b></div><div><span>P(best)</span><b>{v["p_best"]:.0%}</b></div></div>'
+            f'<div><span>CTR</span><b>{v["ctr"]:.1%}</b></div><div><span>P(best)</span><b>{_pct(v["p_best"], ".0%")}</b>'
+            "</div></div>"
         )
         if v.get("replacements"):
             parts.append(f'<div class="muted small">Stats since the page was replaced at '
@@ -517,6 +547,9 @@ def _ad_card(tenant, ad, index):
     if rec is not None:
         parts.append(f'<p class="muted small" style="margin:12px 0 0">A/B/C test {e(rec["test_id"])}'
                      + (f": {e(rec['reason'])}" if rec.get("reason") else "") + "</p>")
+        if any(abtest.is_external(v) for v in rec.get("variants") or []):
+            parts.append(f'<p class="small" style="margin:6px 0 0">Destinations: <b>{e(abtest.destinations_label(rec))}'
+                         '</b> <span class="muted">(fixed when the test was created)</span></p>')
         split = (rec.get("split") or {}).get("url")
         if split:
             parts.append(f'<div class="ad-split">{_copy_row(f"split-{index}", split)}</div>')
@@ -853,6 +886,9 @@ def render_generation(tenant, run_dir, state, page, *, error=None, status_code=2
         f'<h1 class="gv-title">{e(info["title"] or page)}</h1>'
         + (f'<p class="sub muted small" style="margin:6px 0 0">Page title: {e(info["seo_title"])}</p>'
            if info["seo_title"] else "")
+        + (f'<p class="sub small" style="margin:6px 0 0">Test destinations: '
+           f'{e(abtest.destinations_label(status["test"], this_key=status["key"]))}</p>'
+           if status["test"] and any(abtest.is_external(v) for v in status["test"].get("variants") or []) else "")
         +
         f'<div class="chips" style="margin-top:12px">{_status_chips(info)}'
         + (chip(f"{hero} first screen") if hero else "") + chip(state["pages"][page])
@@ -923,9 +959,12 @@ def _confirm_page(title, lines, action_url, button, cancel_url, *, danger=False)
 def _upload_form(tenant, *, error=None, values=None, status=200):
     values = values or {}
     auto = abtest.settings(tenant)["auto_publish"]
-    note = ("When the three pages are built, the test is published and the split link shows here and on the "
+    note = ("When the pages are built, the test is published and the split link shows here and on the "
             "Ads page. Paste it into the ad in Ads Manager." if auto else
-            "When the three pages are built, publish the test with <code>harness abtest publish</code>.")
+            "When the pages are built, publish the test with <code>harness abtest publish</code>.")
+    plan = values.get("destinations") or abtest.DEFAULT_PLAN
+    plan_options = "".join(f'<option value="{k}"{" selected" if k == plan else ""}>{e(label)}</option>'
+                           for k, (label, _shape) in abtest.PLANS.items())
 
     def field(name, label, *, area=False, hint=""):
         value = e(values.get(name) or "")
@@ -936,8 +975,8 @@ def _upload_form(tenant, *, error=None, values=None, status=200):
         return f'<label for="{name}">{label} <span class="opt">(optional)</span></label>{control}'
 
     body = (
-        '<div class="page-head"><div><h1>Upload an ad</h1><p class="sub">The harness builds three landing pages from '
-        'it (an A/B/C test).</p></div></div>'
+        '<div class="page-head"><div><h1>Upload an ad</h1><p class="sub">The harness builds landing pages from it '
+        'and puts them behind one split link (an A/B/C test).</p></div></div>'
         '<div class="two"><form class="card" method="post" enctype="multipart/form-data" '
         f'action="{url_for("upload_ad")}">{_csrf_field()}'
         + (f'<div class="error">{e(error)}</div>' if error else "")
@@ -949,6 +988,13 @@ def _upload_form(tenant, *, error=None, values=None, status=200):
         '<div class="small">mp4, mov, jpg, png, webp &middot; up to 500 MB</div><div class="file"></div>'
         '<input type="file" id="media" name="media" required '
         'accept="video/mp4,video/quicktime,.mp4,.mov,image/jpeg,image/png,image/webp"></div>'
+        # Cycle 88: the test's destination plan (abtest.PLANS).
+        f'<label for="destinations">Destinations</label><select id="destinations" name="destinations">{plan_options}'
+        '</select><p class="hint">Where the split link sends visitors: pages the harness builds, the product page '
+        '(PDP) of the product the ad names, or the store home page. PDP and home pages carry no tracking, so the '
+        'harness counts only the visitors it sends there; read the rest in GA4 or Shopify by utm_content. This '
+        'choice is for this new test only: the destinations of a live test cannot be changed here. The harness '
+        'never edits the ad in Meta; you paste the split link into the ad in Ads Manager by hand.</p>'
         '<hr class="hr" style="margin-top:24px"><p class="eyebrow" style="margin-bottom:0">Ad copy</p>'
         + field("primary_text", "Primary text", area=True)
         + field("headline", "Headline")
@@ -959,7 +1005,7 @@ def _upload_form(tenant, *, error=None, values=None, status=200):
         '<div class="card"><h3 style="margin-bottom:10px">What happens next</h3>'
         '<ul class="timeline">'
         '<li><b>Saved to the inbox</b><div class="muted small">The type is read from the file itself.</div></li>'
-        '<li><b>Three pages are built</b><div class="muted small">One job in the queue; it takes a few minutes. '
+        '<li><b>The pages are built</b><div class="muted small">One job in the queue; it takes a few minutes. '
         'You land on the job page.</div></li>'
         f'<li><b>Published</b><div class="muted small">{note}</div></li></ul></div></div>'
     )
@@ -1321,7 +1367,11 @@ def register(app, tenant):
         if request.method == "GET":
             return _upload_form(tenant)
         email = g.reviewer_email
-        values = {k: request.form.get(k) or "" for k in ("ad_name",) + upload_mod.COPY_FIELDS}
+        values = {k: request.form.get(k) or "" for k in ("ad_name", "destinations") + upload_mod.COPY_FIELDS}
+        plan = values["destinations"] or abtest.DEFAULT_PLAN
+        if plan not in abtest.PLANS:
+            return _upload_form(tenant, values={**values, "destinations": ""}, status=400,
+                                error="Choose one of the listed destinations.")
         if not upload_limiter.allow(email.lower()):
             return _upload_form(tenant, values=values, status=429,
                                 error=f"More than {UPLOADS_PER_WINDOW} uploads in {UPLOAD_WINDOW_S // 60} minutes. "
@@ -1334,11 +1384,13 @@ def register(app, tenant):
         except upload_mod.UploadRejected as exc:
             return _upload_form(tenant, values=values, error=str(exc), status=exc.status)
         ad_id = item["ad_id"]
-        meta_ingest.Inbox(tenant.meta_inbox_dir).set_state(ad_id, "queued", "uploaded; waiting for the worker")
+        inbox = meta_ingest.Inbox(tenant.meta_inbox_dir)
+        inbox.note(ad_id, f"destinations: {abtest.PLANS[plan][0]}", destinations=plan)
+        inbox.set_state(ad_id, "queued", "uploaded; waiting for the worker")
         job_id = jobs.enqueue(tenant, "create_test", {"ad_id": ad_id, "by": email}, by=email, target=f"ad:{ad_id}")
         jobs.audit(tenant, by=email, action="upload", target=f"ad:{ad_id}",
                    detail={"ad_name": item["ad_name"], "media_file": item["media_file"],
-                           "bytes": item["media_bytes"], "job_id": job_id})
+                           "bytes": item["media_bytes"], "job_id": job_id, "destinations": plan})
         return redirect(url_for("job_detail", job_id=job_id), code=303)
 
     @app.route("/jobs")
