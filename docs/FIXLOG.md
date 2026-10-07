@@ -5396,3 +5396,91 @@ cycle 75 tags say what a photo shows, not how it can be used on a page.
 - Stills are saved only when the video gives a usable first-screen frame (a face); a
   product-only video gives no stills.
 - 35 of 66 photos carry the old mark, so above-the-fold slots have about half the library.
+
+## Cycle 95 (brand fonts: Epika, Montserrat, licensed Acid Grotesk, Peak Grotesk Wide, 2026-10-07)
+
+Branch `cycle95/brand-fonts` from master 090e498. Not merged, not pushed.
+
+### Problem
+Owner: "We need to add Epika, Montserrat, Peak Grotesk and Acid Grotesk to the
+generator." Peak Grotesk Wide was wired (cycle 79, theme CDN). Acid Grotesk was
+wired only as the unlicensed evaluation file on the theme CDN. Epika and Montserrat
+were not wired at all. `--ps-serif` was only an alias for the heading face.
+
+### Fix
+1. **Font files** (`tenants/peak-saunas/brand/fonts/`, the folder `harness publish`
+   uploads to Shopify Files): `Epika-Regular.woff2` (Superior Type webfont, as
+   delivered), `FFF-AcidGrotesk-Regular.woff2` (licensed, as delivered),
+   `Montserrat-Variable.woff2` (OFL, converted from the Google Fonts variable TTF with
+   fontTools, weights 100-900), `OFL-Montserrat.txt`, and `LICENSES.md` (each face,
+   its licence, the Drive folder and file ids). `brand/fonts-display/` keeps
+   `pk-peak-grotesk-wide.woff2`. The evaluation Acid Grotesk file is deleted.
+2. **`brand/base.css`**: four `@font-face` rules. Peak Grotesk Wide keeps its absolute
+   theme-CDN url. Acid Grotesk, Montserrat and Epika use `brand/fonts/<file>`, the form
+   the publisher rewrites. Tokens: `--ps-heading` = Montserrat, then Poppins, then DM Sans;
+   `--ps-serif` = Epika, then Georgia; `--ps-display-acid` = "Acid Grotesk" (was "PK Acid
+   Grotesk"); `--ps-display-wide` and `--ps-sans` (DM Sans) unchanged. `tokens.json`,
+   `NOTES.md`, `brand-guide-summary.md` ("Web typography (2026-10-07)") and the
+   `tenant.yaml` `brand.fonts` block now show these roles.
+3. **Publisher** (`harness/publishers/shopify.py` `rewrite_font_face_urls`): an absolute
+   http(s) url is kept. Before this change, entries were matched by filename only, so the
+   theme-CDN Peak Grotesk Wide block would have been dropped from every published page as
+   soon as `brand/fonts/` held a file. `FONT_SUFFIXES` already accepted woff2.
+4. **`harness publish --dry-run`** (`harness/cli.py`): the JSON report gains
+   `fonts: {upload_on_next_publish: [...], already_on_cdn: [...]}`.
+5. **Review page and thumbnails** (`harness/review.py` `inline_font_face_urls`, called by
+   `build_review_for_page`): every `@font-face` src in the review file becomes a data:
+   URI of the local file (brand/fonts/ or brand/fonts-display/, matched by filename). The
+   library thumbnail screenshots that file, so it renders offline. `index.html` and the
+   export keep the publishable urls. A first attempt that inlined at render time put
+   about 400 KB of base64 into `index.html`, and a raw-text check found "HSA" in the
+   font data (test_product_page_looks), so the inlining moved to the review build. The
+   review file grows by about 550 KB (budget 12 MB).
+6. **Looks**: the two landing looks and the listicle `open` look define
+   `--pk-serif:var(--ps-serif,var(--pk-heading))` and set Epika 400 on the review quote
+   (`.ld-quote p`, `.ld-hq p`) and the pull quote (`.op-pull blockquote`). The open
+   landing look's `.ld-who` attribution is set to DM Sans, so that it does not inherit
+   Epika. The first-screen display styles keep Peak Grotesk Wide and Acid Grotesk.
+7. **Import rules** (`harness/look_import_rules.md`) list the families and their roles,
+   with `var(--ps-serif)` for one quote or statement line. The validator message in
+   `harness/look_import.py` names the five tokens. `look_design.font_token` maps Epika to
+   `serif` and Montserrat to `heading`. `harness/design_rubric.md` does not exist in
+   this checkout: the cycle 92 rubric must list the same four families and their roles.
+8. **Brand lint** (`tests/test_brand_lint_cycle78.py`): the declared Acid Grotesk family
+   is now "Acid Grotesk". Any other spelling ("PK Acid Grotesk", "FFF Acid Grotesk") is
+   still flagged.
+9. **Tests**: `tests/test_fonts_cycle95.py` (19); suite 2805 passed (master 2786 collected). `tests/conftest.py` gives the real
+   PEAK tenant a temporary CDN manifest that already lists its fonts (the steady state
+   after the first real publish). Without it, every publish test against the fake
+   Shopify would attempt a GraphQL font upload. `tests/test_brand_tokens_cycle52.py`
+   now asserts the four-face contract.
+
+### Operator steps
+- Nothing to run now. The next `harness publish` (or A/B/C publish, or post-live) with
+  credentials uploads the three `brand/fonts/` files once, writes
+  `brand/fonts/cdn-manifest.json` and rewrites the urls. Commit that manifest on prod.
+  `harness publish <run> --page <p> --dry-run` shows the upload list first.
+- `harness rerender` re-applies cached CDN urls only. A page rerendered before the first
+  upload falls back to Poppins (headings), Georgia (quotes) and Poppins (Acid display).
+
+### Licence notes
+- Superior Type webfont EULA (Epika): web use via `@font-face` only, up to the monthly
+  pageviews on the invoice, on domains of the same company. Never modify, rename,
+  convert or subset the files (subsetting is allowed only for load time). Never upload
+  them to a publicly accessible server, cloud service or git repository. This repo's
+  origin is PEAK's own server: never push it to a public host. The desktop EULA does not
+  permit `@font-face`, so Epika Light (desktop .otf only) is NOT shipped.
+- Open for the owner: (a) is Shopify's `cdn.shopify.com` within "domains of the same
+  company"? (b) The EULA forbids use "in any automated document composition systems"
+  installed on a server. The generator only writes `@font-face` rules, but the library
+  thumbnails are rendered with Epika by headless Chrome on prod. (c) The Acid Grotesk
+  licence text (Drive folder `1LkMYVrbbN72DlEwnr-YajA55mSnVL31u`) was not read in this
+  cycle.
+- Montserrat: SIL OFL 1.1, no Reserved Font Name. The woff2 conversion and the file name
+  are allowed. The licence travels as `OFL-Montserrat.txt`.
+
+### Open
+- `harness/site_ui.py` (the generator's own site UI) still loads the evaluation Acid
+  Grotesk file from the theme CDN (`ACID_GROTESK_URL`). This cycle did not change it.
+- Montserrat Italic was converted (in the pack folder) but is not shipped: no heading
+  style sets italic.

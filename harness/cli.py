@@ -392,7 +392,7 @@ def cmd_rerender(args):
     )
     print(f"Wrote {index_path}")
 
-    review_path = build_review_for_page(run_dir, cartridge_name)
+    review_path = build_review_for_page(run_dir, cartridge_name, tenant=tenant)
     if review_path:
         print(f"Wrote {review_path}")
 
@@ -770,6 +770,13 @@ def cmd_publish(args):
     if args.dry_run:
         publisher = _make_publisher(tenant, export_dir=export_dir)
         report = publisher.dry_run({"body_html": shopify_body_html, "assets": assets_manifest})
+        # Cycle 95: which brand/fonts files the next real publish uploads
+        # (once per tenant; brand/fonts/cdn-manifest.json remembers them).
+        fonts = [f.name for f in shopify_pub.font_files(tenant)]
+        if fonts:
+            known = shopify_pub.load_font_cdn_manifest(tenant)
+            report["fonts"] = {"upload_on_next_publish": [n for n in fonts if n not in known],
+                               "already_on_cdn": [n for n in fonts if n in known]}
         print(json.dumps(report, indent=2))
         return 0 if report.get("ok") else 1
 
