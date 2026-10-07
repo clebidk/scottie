@@ -112,6 +112,16 @@ words, from the ad's hook, never the answer), `accent_phrase` (a substring of th
 headline), `dek`, `lede` (opens the loop, no number), `scroll_cue`, `hero_quote_id` (an
 `ad_quotes` id) and `speaker_pronoun` -- so switching the style is a re-render, no model call.
 
+**Hero compositions (cycle 94).** The first screen is now a shared, pluggable part:
+`harness/heroes/` holds one module + one partial per composition, and every look includes
+`heroes/_pick.html`. Besides face, story and display (listicle) and ad_first (the landing
+page's own first screen), the listicle and landing looks render `caps_over_photo`,
+`dark_statement` and `split`; the landing looks also `letters_pill` and `buybox`.
+`--hero-style`, `harness rerender --hero-style`, the A/B/C arm (`listicle:<style>:<look>:<hero>`,
+`landing:<look>:<hero>`) and the Library's "Generate with this" take any of them; a
+composition whose image is missing falls back, logged, and page.json/state.json record what
+rendered. Catalog, image needs, selection and how to add one: `docs/HEROES.md`.
+
 **Page structure.** Header (the first screen above; the product hero is the model's cut-out,
 `harness/cutouts.py`) -> 5-7 numbered items, each with an H2, a short
 one-idea body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a

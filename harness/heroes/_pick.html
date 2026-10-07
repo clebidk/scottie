@@ -1,0 +1,5 @@
+{# Cycle 94: the one place a look picks its first screen (harness/heroes/). `hero`
+   is the renderer's context for the resolved composition; its id is always a
+   registered composition, so the path cannot leave this folder. No whitespace
+   may be added: the adapters' output is pinned by a hash test. -#}
+{% include "heroes/" ~ hero.id ~ ".html" %}

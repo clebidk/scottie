@@ -291,6 +291,14 @@ first_screen: {}
 #   # check (when unambiguous) or this per-ad override (ad id or file stem)
 #   speaker_pronouns: {"1234567890": she}
 
+# Cycle 94: hero compositions (harness/heroes/, docs/HEROES.md) -- the first
+# screen every look shares. `cartridges.<c>.hero_styles` pins the ones a run
+# with no --hero-style is seeded among (only ids the look renders). letters:
+# letters_pill's two display letter pairs; default: the first two and the
+# last two letters of display_name.
+hero: {}
+#   letters: ["AB", "CD"]
+
 # Cycle 79: product cut-outs, one per model (harness/cutouts.py). The
 # product hero and every per-model image the renderer owns use them.
 # Manifest: {"version": 1, "models": {"<model slug>": {"file": "...",

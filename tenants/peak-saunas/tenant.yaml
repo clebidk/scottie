@@ -415,6 +415,15 @@ brand:
 # approved styles -- face | story | display -- picked per run (--hero-style,
 # an A/B/C build, else seeded from the run seed); pin a subset with
 # cartridges.listicle.hero_styles: [story, display].
+# Cycle 94: these are hero compositions now (harness/heroes/, docs/HEROES.md),
+# next to caps_over_photo, split, dark_statement (listicle and landing),
+# letters_pill and buybox (landing); `cartridges.<c>.hero_styles` may pin any
+# the look renders. With no pin a run keeps the look's own default.
+hero:
+  # letters_pill's two display letter pairs (default: first two and last two
+  # letters of the display name, which for PEAK is the same).
+  letters: ["PE", "AK"]
+
 first_screen:
   # No photo of the author yet: the byline shows the PEAK mark. Set a path
   # under this tenant folder (e.g. brand/austin.jpg) to show his photo.

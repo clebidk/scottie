@@ -23,6 +23,7 @@ from . import ad_frames
 from . import blocks
 from . import cutouts as cutouts_mod
 from . import first_screen as first_screen_mod
+from . import heroes as heroes_mod
 from . import ground as ground_mod
 from . import ingest
 from . import comparison as comparison_mod
@@ -944,6 +945,11 @@ def render_page(
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     loader = jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)])
+    # Cycle 94: the shared hero compositions, "heroes/<id>.html" (harness/
+    # heroes/), which every look includes through heroes/_pick.html.
+    loader = jinja2.ChoiceLoader([
+        loader, jinja2.PrefixLoader({"heroes": jinja2.FileSystemLoader(str(heroes_mod.PACKAGE_DIR))}, delimiter="/"),
+    ])
     # Cycle 87: the tenant's imported looks (harness/look_import.py) resolve
     # AFTER the cartridge's own: the dispatcher's "looks/<look>/template.html"
     # finds cartridges/<c>/looks/<look>/ first, else
@@ -1017,23 +1023,10 @@ def render_page(
         frame_record = ad_frames.load(run_dir)
         for frame_id, frame_asset in ad_frames.page_assets(run_dir).items():
             assets_by_id[frame_id] = dict(frame_asset)
-        quote = first_screen_mod.hero_quote(page, ad_brief, facts_pack)
-        requested_style = page.get("hero_style")
-        try:
-            hero_style, note = first_screen_mod.resolve_hero_style(
-                requested_style, seed=run_dir.name, tenant=tenant,
-                frame=frame_record is not None, quote=quote is not None,
-            )
-        except ValueError as e:
-            hero_style, note = first_screen_mod.resolve_hero_style(
-                None, seed=run_dir.name, tenant=tenant, frame=frame_record is not None, quote=quote is not None,
-            )
-            note = str(e)
-        if note and log:
-            log.event("render", f"hero style: {note}")
-        page["hero_style"] = hero_style
+        # Cycle 94: the composition is resolved below, once the look and the
+        # page's images are known (harness/heroes/); hero_style is set there.
         first_screen = first_screen_mod.render_context(
-            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=hero_style,
+            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=page.get("hero_style"),
             frame=frame_record, updated=updated,
         )
         used_claim_ids |= first_screen["claim_ids"]
@@ -1230,6 +1223,38 @@ def render_page(
             used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
         )
 
+    # Cycle 94: the hero composition (harness/heroes/) -- resolved from the
+    # request (page.json's hero_style: --hero-style, an A/B/C arm, or the
+    # pipeline's seeded pick), the look's supported compositions
+    # (look.json), the ad (its still, its quote) and the images the page
+    # can show (heroes.pick_image), then stamped on page.json. The listicle
+    # keeps its cycle 79 note ("hero style: face needs a still ...").
+    hero_ctx = None
+    if heroes_mod.has_heroes(cartridge_name):
+        hero_base = first_screen if cartridge_name == "listicle" else (landing_context or {})
+        hero_ctx, hero_note = heroes_mod.render_context(
+            cartridge_name, page, look=look, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant,
+            base=hero_base, assets=assets_by_id, frame=ad_frames.load(run_dir), seed=run_dir.name,
+            require_files=download_assets, exclude_ids=collect_asset_ids(page),
+            quote=hero_base.get("quote") is not None,
+        )
+        if log:
+            if hero_note:
+                log.event("render", f"hero style: {hero_note}")
+            image = hero_ctx.get("image")
+            log.event("render", f"hero composition: {hero_ctx['id']} ({hero_ctx['reason']}; image: "
+                                f"{image['why'] + ' ' + image['id'] if image else 'none'})")
+        page["hero_style"] = hero_ctx["id"]
+        if cartridge_name == "listicle":
+            first_screen["hero_style"] = hero_ctx["id"]
+        hero_claims = set(hero_ctx.get("claim_ids") or ())
+        if not hero_claims <= used_claim_ids:
+            used_claim_ids |= hero_claims
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+
     # Cycle 54: the product-page `pdp` look's gallery (the product's own
     # storefront images) and the promise band's one image, chosen from the
     # page's FINAL asset picks (after the slot plan and the paragraph-image
@@ -1257,6 +1282,7 @@ def render_page(
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
             | ({promise_id} if promise_id else set()) | quiz_asset_ids
             | {a for a in assets_by_id if a.startswith(ad_frames.FRAME_ID)}
+            | ({hero_ctx["image"]["id"]} if hero_ctx and hero_ctx.get("image") else set())
         )
         assets_dir = out_dir / "assets"
         photo_library.attach_local_paths(assets_by_id, tenant)
@@ -1363,6 +1389,7 @@ def render_page(
         cartridge_data=cartridge_data,
         look=look,
         first_screen=first_screen,
+        hero=hero_ctx or {},
         micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
         tenant_name=tenant.display_name,

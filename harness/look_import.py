@@ -59,7 +59,7 @@ import jinja2
 from jinja2 import meta, nodes
 
 from . import budget as budget_mod
-from . import css_scope, looks, page_body, pricing
+from . import css_scope, heroes, looks, page_body, pricing
 from . import tenant as tenant_mod
 from .anthropic_client import make_client, thinking_kwargs
 from .errors import HarnessError
@@ -1771,7 +1771,10 @@ def contract_markdown(cartridge, contract_, schema):
 def build_system_prompt(cartridge, contract_, schema):
     rules = RULES_PATH.read_text()
     default = looks.DEFAULT_LOOKS.get(cartridge, "open")
-    reference = (REPO_ROOT / "cartridges" / cartridge / "looks" / default / "template.html").read_text()
+    # Cycle 94: the shipped look includes the shared hero partial; an imported
+    # look is one file, so the model sees the look with its first screen inline.
+    reference = heroes.standalone_source(
+        (REPO_ROOT / "cartridges" / cartridge / "looks" / default / "template.html").read_text(), cartridge, default)
     return (rules.replace("{{CONTRACT}}", contract_markdown(cartridge, contract_, schema))
             + f"\n\n## Reference look: cartridges/{cartridge}/looks/{default}/template.html\n\n"
             + "This is the tenant's approved look for this cartridge. Keep its tokens, its renderer-owned blocks "

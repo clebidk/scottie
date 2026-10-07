@@ -5202,3 +5202,123 @@ reference renders show the 7-year warranty wording (c4d774d); the listicle demo'
 `closing.warranty_line` is set to vocab.yaml's `allowed_warranty_sentence`, because
 evals/fake_run.py's canned listicle page still has the retired lifetime sentence (follow-up; one of
 two listicle fake runs on master exited 2).
+
+## Cycle 94 (pluggable hero compositions: caps over photo, dark statement, split, letters + pill, buy box, 2026-10-07)
+Branch `cycle94/hero-compositions` from origin/master bbc3ac4. Not merged, not pushed. Local build
+only (no model call, no server).
+
+### Problem
+The first screen had three listicle styles (face, story, display) and the landing page its own
+hero, each written inside the look that used it. The owner wants pages like the ten approved
+references (peak-lp-pack, 2026-10-07); most of what tells them apart is the hero composition. A
+new first screen meant editing every look, and nothing let an ad pick one.
+
+### Change
+- **`harness/heroes/`** (docs/HEROES.md): one module + one Jinja partial per composition, found by
+  package discovery. A module registers `Hero(id, title, supports, needs, fallbacks, context,
+  summary)`; `context(...)` builds what the partial prints from what the renderer already computed
+  (`_common.fields`: eyebrow, the writer's headline with its accent span as `hr-accent`, the short
+  display line, dek/subhead, byline, verified rating, price + the fixed financing sentence, trust
+  facts, CTA, the tenant's secondary text link, spec rows, product name). No new writer field.
+- **Five new compositions**, each `<header class="hr-root hr-<id> hr-bleed"
+  data-look-pattern="hero:<id>">` with one scoped `<style>` (prefix `hr-<id>-`, colours only from
+  `--pk-*`/`--ps-*` tokens, dark grounds by token, 390px first, widened at 900px, CTA 52px, text link
+  44px): `caps_over_photo` (01 Ridge: all-caps wide display headline over a dark full-bleed photo,
+  a flat basalt overlay = the token at opacity .58, no gradient; white pill), `dark_statement`
+  (02/07: dark ground, one display line, white pill, an optional dark macro photo below / beside),
+  `split` (03: photo one side, headline + pill + trust row the other; photo first on a phone),
+  `letters_pill` (09: the display name's first and last two letters, or tenant.yaml
+  `hero.letters`, flanking a pill-shaped photo window; the pill and the text link as an outline
+  pill), `buybox` (06, landing only: cut-out, product name, headline, rating row, price +
+  financing, full-width pill, spec bullets from the landing spec strip, trust facts without the
+  rating).
+- **Adapters.** `face`, `story`, `display` (listicle) and `ad_first` (the landing looks' own first
+  screen; the proof look's rating row, review quote and trust line under the pill are a branch on
+  `look`) are compositions too. Their partials are the exact text sliced out of the looks, the CSS
+  stays in the look, and the landing sticky bar observes `{{ hero.anchor }}` (`.adv-landing
+  .ld-hero` for ad_first, `.adv-landing .hr-root` otherwise). They carry no `data-look-pattern`:
+  adding it would change the shipped output.
+- **Looks.** The three shipped looks print `{% include "heroes/_pick.html" %}` where their first
+  screen was; `_pick.html` includes `heroes/<hero.id>.html` (render.py adds a `heroes/` prefix
+  loader on the package). `look.json` beside each look: `{"heroes": [...], "default_heroes":
+  [...]}` -- cycle 91's look metadata is not in this clone, so this is the format until it lands
+  (one reader, `heroes.look_spec`). Listicle `open`: face, story, display, caps_over_photo, split,
+  dark_statement (default pool face/story/display). Landing `open` and `proof`: ad_first,
+  caps_over_photo, split, letters_pill, dark_statement, buybox (default ad_first). A look with no
+  look.json (an imported cycle 87 look) renders its cartridge's legacy screens only.
+- **Selection** (`heroes.resolve`): the request when the look renders it and its image exists,
+  else its fallbacks (caps_over_photo/letters_pill -> dark_statement, buybox -> ad_first, the
+  cycle 79 face rule word for word), else the rest of the pool; with no request a pick seeded from
+  the run (the cycle 79 key, so a listicle run picks what it picked before) among the look's
+  default pool, narrowed by tenant.yaml `cartridges.<c>.hero_styles`. `render_page` resolves once
+  the look and the page's images are known, logs `hero composition: <id> (<reason>; image: ...)`
+  plus the old `hero style: <note>` on a fallback, and stamps `hero_style` on page.json (landing
+  page.json now carries it too). `first_screen.resolve_hero_style` / `prepare` delegate to it.
+- **Images** go through one call, `heroes.pick_image(needs, ...)`: the ad still, then the
+  library photos the facts pack offers ranked by tags (shot, setting, orientation, a measured dark
+  mean luminance for `dark_ok`), never a text overlay, the retired mark, blur or a photo already on
+  the page, a real render only with the file on disk; then the cut-out. Cycle 93's resolver
+  replaces the matcher behind the same call.
+- **Plumbing.** `harness run --hero-style` / `harness rerender --hero-style` take any composition
+  (`heroes.arg`); a run-wide flag applies to each cartridge that has it (`heroes.requested_for`);
+  the pipeline stamps the landing request and records what rendered (`listicle.hero_style`,
+  `landing.hero_style` via `runstate.record_hero`). A/B/C: `listicle:<style>:<look>:<hero>` with
+  any composition the look renders and `landing:<look>:<hero>`; the variant records the rendered
+  composition for every cartridge with heroes. Library: a card per composition a look renders
+  (listicle x copy style: 30 listicle versions; landing `landing/<look>/<hero>`, 12), notes from
+  each composition's summary, the version sha covers look.json and the partial; "Generate with
+  this" / the upload form pin `landing:<look>:<hero>` (`library.arm_from_fields`). Site hero chips
+  read every composition's title (a landing card now shows "Ad first"). `evals/fake_run.py
+  --hero-style` takes any composition.
+- **Look import (cycle 87).** An imported look is one file, so the model's reference and the
+  validator tests use `heroes.standalone_source(...)`, which writes the legacy first screen back
+  inline; for the three shipped looks it returns their pre-cycle-94 source byte for byte.
+- tenant.yaml `hero.letters: ["PE", "AK"]` (PEAK), documented in tenants/_template/tenant.yaml;
+  pyproject package data `heroes/*.html`.
+
+### Verify
+- Shipped looks unchanged: 10 renders (listicle face/story/display with and without an ad still,
+  landing open/proof dry and with a still) have the same sha256 of the whole index.html as on
+  master bbc3ac4 (recorded before any change, twice, deterministic). The committed test pins the
+  `<main>`...`<footer>` part (`SHIPPED` in tests/test_heroes_cycle94.py) so a brand stylesheet
+  edit does not trip it.
+- `tests/test_heroes_cycle94.py`: 60 tests -- registry, needs, partial scoping / tokens / prefix,
+  look.json; every new composition rendered with and without an ad still (16 cases, including the
+  caps_over_photo -> dark_statement fallback with its log line); letters from the tenant setting
+  and the display name; landing price/financing/text link/trust and the sticky-bar anchor; buy box
+  spec bullets and one rating; resolver (request, fallbacks, the face rule, refusals, a look that
+  does not render a request), default = the look's own, the tenant pin and availability;
+  pick_image on the committed manifest with generated files (wide people/lifestyle/exterior, no
+  retired mark, page exclusion, ad still first, dark macro, no file = no pick); caps_over_photo
+  with a library photo; the 10 shipped hashes; offline fake runs (landing x 5, listicle x 3) exit
+  0, stamp page.json and state.json, pass html validity / JSON-LD / internal links / image markup
+  / brand lint and the shopify-body invariants; a static 390px CSS check per partial (no fixed
+  width over 390px without max-width, no 100vw, no negative side margin, 52px/44px targets,
+  contained root); arms, variant record, CLI flags, rerender of a landing page, Library cards and
+  the upload pre-selection.
+- Changed older tests: `tests/test_library_cycle86.py` (listicle count from look.json; the build-
+  mechanics tests keep the landing looks to their own first screen, since the extra landing cards
+  are cycle 94's and are tested there), `tests/test_look_import_cycle87.py` (reference = the
+  standalone source).
+- Full suite `.venv/bin/python -m pytest -q`: 2789 passed, 0 failed, 0 skipped (master bbc3ac4 in a
+  worktree: 2729 passed, 0 failed; +60 new).
+- Headless Chrome (390x844 and 1280x900, the owner's real photo derivatives from
+  peak-lp-pack/assets/photo-library through `HARNESS_PHOTO_LIBRARY_DIR`, fake runs in the Library's
+  offline scratch world): every new composition plus ad_first and display, read back by eye; a
+  390px probe in Chrome measured scrollWidth = 390 and no first-screen element outside 0-390px on
+  all ten pages. Screenshots (`<cartridge>-<hero>-390.png` / `-1280.png`, `sheet-390.png`,
+  `sheet-1280.png`): `c94-shots/` beside the clone (not in the repo).
+
+### Open
+- **Photo choice.** Almost every exterior/lifestyle library photo carries `old_logo_visible`, so
+  above the fold the picker falls back to the ad still or the cut-out: letters_pill shows the
+  cut-out in the pill on Fuji pages, and dark_statement's "macro" is a bright heater close-up
+  (dark is a preference, not a rule). New-mark photos would change both.
+- `caps_over_photo` needs a photo: with a text ad and no library files on the host (this Mac
+  without the derivatives) it renders dark_statement, and the Library marks it not renderable
+  offline, like face.
+- `harness revise` does not re-stamp `hero_style` (nor `look`, cycle 85), so a revised page goes
+  back to the look's default unless the writer echoes the field.
+- Adapters carry no `data-look-pattern` (shipped output pinned); only the five new compositions do.
+- Not deployed; no real-model run. The Library on prod will build 25 more versions than before
+  (30 listicle, 12 landing).

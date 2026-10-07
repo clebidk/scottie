@@ -33,7 +33,7 @@ from . import workflows
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from . import doctor as doctor_mod
-from . import first_screen
+from . import heroes
 from . import evals as evals_mod
 from . import exits
 from . import config as harness_config
@@ -360,11 +360,17 @@ def cmd_rerender(args):
     ad_brief_json = run_dir / "ad_brief.json"
     ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
     # Cycle 79: `--hero-style` switches the listicle's first screen (harness/
-    # first_screen.py) -- a layout choice like --look, no model call.
+    # first_screen.py) -- a layout choice like --look, no model call. Cycle
+    # 94: any hero composition of the page's cartridge (harness/heroes/);
+    # the renderer still checks the look and the images, and stamps what it
+    # rendered.
     requested_hero = getattr(args, "hero_style", None)
     if requested_hero:
-        if cartridge_name != "listicle":
-            print(f"--hero-style applies to the listicle page, not {cartridge_name}", file=sys.stderr)
+        if not heroes.requested_for(cartridge_name, requested_hero):
+            print(f"--hero-style {requested_hero} is not a {cartridge_name} hero composition; choose one of "
+                  f"{list(heroes.ids(cartridge_name))}" if heroes.has_heroes(cartridge_name)
+                  else f"--hero-style applies to the {', '.join(heroes.cartridges())} pages, not {cartridge_name}",
+                  file=sys.stderr)
             return 1
         page["hero_style"] = requested_hero
 
@@ -403,10 +409,12 @@ def cmd_rerender(args):
         print(f"Wrote {shopify_body_path}")
         print(f"Wrote {assets_manifest_path}")
 
-    if cartridge_name == "listicle":
+    if heroes.has_heroes(cartridge_name):
         rendered_hero = json.loads(page_json.read_text()).get("hero_style")
-        if rendered_hero:
+        if rendered_hero and cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, hero_style=rendered_hero)
+        elif rendered_hero:
+            runstate.record_hero(run_dir, cartridge_name, rendered_hero)
     if requested_look:
         if cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, look=page["look"])
@@ -1854,10 +1862,12 @@ def build_parser():
              "Default: picked from the skeletons that fit the style, by the ad's angle",
     )
     p_run.add_argument(
-        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES),
-        help="listicle first screen: face (a still from the ad + the speaker's words), story (text-first "
-             "open-loop lede) or display (wide display headline, product cut-out, stats). Default: seeded; "
-             "face falls back to story/display when the ad has no usable still",
+        "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO",
+        help="first-screen composition (harness/heroes/, docs/HEROES.md): listicle face | story | display | "
+             "caps_over_photo | split | dark_statement; landing ad_first | caps_over_photo | split | "
+             "letters_pill | dark_statement | buybox. Applies to each selected cartridge that has it. "
+             "Default: the look's own (seeded for the listicle); a composition whose image is missing falls "
+             "back, logged",
     )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)
@@ -1896,8 +1906,9 @@ def build_parser():
              "product-page); the copy is untouched",
     )
     p_rerender.add_argument(
-        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES), default=None,
-        help="re-render the listicle's first screen in another style (face|story|display); copy untouched",
+        "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO", default=None,
+        help="re-render the page's first screen in another hero composition of its cartridge (listicle or "
+             "landing; docs/HEROES.md); copy untouched",
     )
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)

@@ -650,6 +650,13 @@ def render_pages(state):
             state.pages["landing"]["look"] = state.landing_look
             runstate.record_look(state.run_dir, "landing", state.landing_look)
         first_screen.build_ad_still(state)
+        # Cycle 94: --hero-style / an A/B/C arm's composition, as a request
+        # the renderer resolves (harness/heroes/); none -> the look's default.
+        from . import heroes
+
+        requested_hero = heroes.requested_for("landing", getattr(state.args, "hero_style", None))
+        if requested_hero:
+            state.pages["landing"]["hero_style"] = requested_hero
 
     # Cycle 79: the listicle's ad still and first-screen style.
     if "listicle" in state.pages:
@@ -675,6 +682,29 @@ def render_pages(state):
             tenant=state.tenant,
         )
         state.outputs.append(index_path)
+        _record_rendered_hero(state.run_dir, cartridge_name)
+
+
+def _record_rendered_hero(run_dir, cartridge_name):
+    """Cycle 94: the composition the page actually rendered (the renderer
+    stamps it on page.json after its image check, which may fall back from
+    the request) -> state.json, for every cartridge with hero compositions."""
+    import json as _json
+
+    from . import heroes, runstate
+
+    if not heroes.has_heroes(cartridge_name):
+        return
+    try:
+        rendered = _json.loads((Path(run_dir) / cartridge_name / "page.json").read_text()).get("hero_style")
+    except (OSError, ValueError):
+        return
+    if not rendered:
+        return
+    if cartridge_name == "listicle":
+        runstate.record_listicle_choice(run_dir, hero_style=rendered)
+    else:
+        runstate.record_hero(run_dir, cartridge_name, rendered)
 
 
 def review_notify(state):
