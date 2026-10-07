@@ -380,9 +380,27 @@ def proof_writer_lines(facts_pack, tenant=None):
         "chosen by what the cell's claim states -- " + json.dumps(ICONS) + f" -- label at most "
         f"{ICON_LABEL_MAX_WORDS} words, claim_ids from facts_pack.verified_claims that state it. No two cells "
         "share an icon_key; never pick an icon the verified claims do not back.",
-        "On this look proof.quote sits directly under the subhead: the same rule, word for word from "
-        "facts_pack.review_quotes or omitted.",
-    ]
+    ] + (["On this look proof.quote sits directly under the subhead: the same rule, word for word from "
+          "facts_pack.review_quotes or omitted."] if review_quote_texts(facts_pack) else [])
+
+
+NO_REVIEW_QUOTES_LINE = ("There are no customer review quotes in the facts pack: do not write proof.quote; "
+                         "the rating row is shown by the renderer.")
+
+
+def quote_writer_line(facts_pack):
+    """Cycle 82f: with no review_quotes, one explicit "do not write" line;
+    else the quotes themselves (verbatim, with their ids) and the rule."""
+    quotes = [{"id": q.get("id") or f"review_quotes[{i}]", "text": str(q["text"]),
+               "author": q.get("author") or q.get("attribution")}
+              for i, q in enumerate((facts_pack or {}).get("review_quotes") or [])
+              if isinstance(q, dict) and q.get("text")]
+    if not quotes:
+        return NO_REVIEW_QUOTES_LINE
+    return ("proof.quote (optional): at most one customer's review, copied word for word from one of these "
+            "facts_pack.review_quotes -- " + json.dumps(quotes, ensure_ascii=False) + " -- with its author "
+            "and claim_ids. The rating sentence (facts_pack.reviews_summary, \"Rated ... out of 5 ...\") is "
+            "never a quote -- the renderer already shows it. Never invent a quote.")
 
 
 def writer_lines(facts_pack, tenant=None, look=None):
@@ -417,10 +435,7 @@ def writer_lines(facts_pack, tenant=None, look=None):
         CONTRADICTED_AD_CLAIM_LINE,
         AD_SAID_FIGURES_LINE,
         room,
-        "proof.quote: only one customer's review, copied word for word from facts_pack.review_quotes, "
-        "with its author and claim_ids; omit proof entirely when review_quotes is empty or missing. The "
-        "rating sentence (facts_pack.reviews_summary, \"Rated ... out of 5 ...\") is never a quote -- the "
-        "renderer already shows it. Never invent a quote.",
+        quote_writer_line(facts_pack),
         f"faq.questions has {flo}-{fhi} entries from the ad's objections and the buyer's logistics: "
         f"each question at most {QUESTION_MAX_WORDS} words; each answer first, at most "
         f"{ANSWER_MAX_WORDS} words; any answer with a number, price, spec or trigger word carries claim_ids.",
@@ -659,6 +674,21 @@ def find_quote_violations(page, facts_pack):
     if isinstance(q, dict) and not q.get("claim_ids"):
         problems.append(_problem("$.proof.quote.claim_ids", "quote_claims", "proof.quote needs claim_ids"))
     return problems
+
+
+def drop_unverifiable_quote(page, facts_pack):
+    """Cycle 82f: a proof.quote the harness cannot verify (no review_quotes,
+    not word for word in one of them, or the rating sentence) is dropped
+    in place -- never a gate failure that costs a repair attempt. The rest
+    of `proof` stays. True when it dropped one."""
+    proof = page.get("proof") if isinstance(page, dict) else None
+    if not isinstance(proof, dict) or not proof.get("quote"):
+        return False
+    bad = {"landing:quote_verbatim", "landing:quote_not_review"}
+    if not any(p["key"] in bad for p in find_quote_violations(page, facts_pack)):
+        return False
+    del proof["quote"]
+    return True
 
 
 def _benefit_claim_ids(facts_pack, tenant=None):
