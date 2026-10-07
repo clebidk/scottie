@@ -483,7 +483,9 @@ def _swap_in(staging, dest):
     if dest.exists():
         shutil.rmtree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    staging.rename(dest)
+    # shutil.move copies across filesystems (prod stages in /tmp, which is a
+    # different device from the tenant folder; a bare rename raised EXDEV there).
+    shutil.move(str(staging), str(dest))
 
 
 def _write_meta(folder, meta):
