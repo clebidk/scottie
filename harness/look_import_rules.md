@@ -49,6 +49,9 @@ name or attribute starting with `_`.
 - `trust` ([{text, claim_ids}]): the small trust line under the CTA.
 - `specs` ([{label, value, claim_ids}]): the 4-cell spec strip.
 - `rating` ({value, label, claim_ids} or none).
+- `review_quote` ({text, author, ...} or none): the one customer review
+  quote the renderer verified word for word. Print the proof quote from
+  here, never from `page.proof.quote`.
 - `secondary` ({text, href} or none): the tenant's secondary TEXT link
   ("Text us"). Render it exactly once, as `<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>`.
 - `quote` ({text, ...} or none) and `made_for` (string): the ad still's caption.

@@ -339,7 +339,7 @@ The look contract (enumerated from `landing.render_context` and
 `render_image_slot`, `image_fit`, `look` and `tenant_name` -- not
 `facts_pack`, `ad_brief` or `tenant`. `cartridge_data` keys: `eyebrow`,
 `headline_html`, `headline_fits`, `price`, `financing`, `warranty`,
-`trust`, `specs`, `rating`, `secondary`, `quote`, `made_for`, `frame`,
+`trust`, `specs`, `rating`, `review_quote`, `secondary`, `quote`, `made_for`, `frame`,
 `room_kinds` (the proof look's extra keys are not given to an imported
 look). `page.*` must exist in `cartridges/<c>/schema.json`. A listicle look
 also reads `first_screen` and `about_author_html`. The rules the model is

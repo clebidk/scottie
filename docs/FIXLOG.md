@@ -5063,3 +5063,17 @@ page: every look was hand-written, and nothing let a reviewer turn a page into a
   import (the error says how to make one).
 - No linter ran: ruff is not installed in this checkout's `.venv` (an AST scan found no unused
   imports in the changed files).
+
+### Cycle 87b (the import on master, 2026-10-07)
+Branch `cycle87b/import-on-master` from origin/master 34200a2. On master 9 of the 60 cycle 87 tests
+failed. Cause: cycle 82e (1e2f2fa) made both landing looks print the review quote from the
+renderer-checked `cartridge_data.review_quote` instead of `page.proof.quote`, and added
+`review_quote` to every landing render context. The import's validator still required the look to
+use `page.proof`, so it refused the approved `open` look (the FakeClient's valid template), and the
+rules file did not document the new key. Change: the landing required list names
+`cartridge_data.review_quote` instead of `page.proof`; look_import_rules.md and GENERATOR.md list
+`review_quote`. The demo bundles were regenerated from master with the same offline fake runs, so
+reference renders show the 7-year warranty wording (c4d774d); the listicle demo's
+`closing.warranty_line` is set to vocab.yaml's `allowed_warranty_sentence`, because
+evals/fake_run.py's canned listicle page still has the retired lifetime sentence (follow-up; one of
+two listicle fake runs on master exited 2).
