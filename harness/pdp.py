@@ -85,6 +85,17 @@ _DEDICATED_PAGE_RES = (
     re.compile(r"\b(?:requires|needs)\s+an?\s+electrician", re.IGNORECASE),
 )
 _NEGATED_CLAUSE_RE = re.compile(r"\b(?:no|not|without|never)\b[^.;?!]*", re.IGNORECASE)
+# Cycle 82c: a sentence that itself states the dedicated requirement
+# ("... on a dedicated 15A circuit", "a 20A dedicated outlet") says what a
+# dedicated-mode claim says, even when it also names the standard plug or "no
+# electrician" (a claim such as "Plugs into a standard 120V/15A household
+# outlet -- no electrician; use a dedicated 15A circuit").
+_STATES_DEDICATED_RE = re.compile(
+    r"\bdedicated\b[^.;!?]{0,30}?\b(?:circuit|outlet|line|1[05]\s*A|20\s*A)\b"
+    r"|\b(?:1[05]\s*A|20\s*A)\s+dedicated\b", re.IGNORECASE)
+_NEGATION_BEFORE_RE = re.compile(r"(?:\b(?:no|not|without|never)|n't)\b(?:\s+[\w/-]+){0,3}\s*$", re.IGNORECASE)
+_NO_ELECTRICIAN_RE = re.compile(r"\bno\s+electrician", re.IGNORECASE)
+_POWER_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 
 # page.json keys for sections the RENDERER owns. A writer that adds one is
 # inventing data the gate cannot check (same rule as
@@ -462,19 +473,32 @@ def find_angle_paragraph_violations(page):
     return []
 
 
-def _product_power_mode(facts_pack):
-    """"dedicated", "standard" or None: what this product's own verified
-    claims say about its outlet. Only claims about THIS product count -- a
-    claim whose id carries the product's name slug, or a facts_pack.specs
-    row -- so another model's claim in the same facts pack (the compare
-    data) never decides it."""
+def _product_power_texts(facts_pack):
+    """The texts of this product's own verified claims -- a claim whose id
+    carries the product's name slug, or a facts_pack.specs row -- so another
+    model's claim in the same facts pack (the compare data) never counts."""
     product = (facts_pack or {}).get("product") or {}
     slug = product_name_slug(product.get("name") or "")
     spec_ids = {s.get("claim_id") for s in (facts_pack or {}).get("specs") or []}
-    texts = [
+    return [
         c.get("text") or "" for c in (facts_pack or {}).get("verified_claims", [])
         if c["id"] in spec_ids or (slug and re.search(r"(?:^|-)" + re.escape(slug) + r"(?:-|$)", c["id"]))
     ]
+
+
+def states_dedicated(sentence):
+    """True when `sentence` itself states a dedicated outlet/circuit (not a
+    negated one: "no dedicated circuit", "without a dedicated outlet")."""
+    for m in _STATES_DEDICATED_RE.finditer(sentence or ""):
+        if not _NEGATION_BEFORE_RE.search(sentence[:m.start()]):
+            return True
+    return False
+
+
+def _product_power_mode(facts_pack):
+    """"dedicated", "standard" or None: what this product's own verified
+    claims say about its outlet (_product_power_texts)."""
+    texts = _product_power_texts(facts_pack)
     if any(_DEDICATED_RE.search(_NO_DEDICATED_RE.sub("", t)) for t in texts):
         return "dedicated"
     if any(r.search(t) for t in texts for r in _STANDARD_OUTLET_RES):
@@ -487,12 +511,22 @@ def find_power_violations(page, facts_pack):
     mode = _product_power_mode(facts_pack)
     if not mode:
         return []
+    # Cycle 82c: "no electrician" is the product's own wording when its claim
+    # says so, so it is never a contradiction on its own.
+    standard_res = _STANDARD_OUTLET_RES
+    if any(_NO_ELECTRICIAN_RE.search(t) for t in _product_power_texts(facts_pack)):
+        standard_res = tuple(r for r in _STANDARD_OUTLET_RES if r is not _STANDARD_OUTLET_RES[0])
     problems = []
     for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
         if not isinstance(node, str):
             continue
         if mode == "dedicated":
-            hit = any(r.search(node) for r in _STANDARD_OUTLET_RES)
+            # per sentence: one that states the dedicated circuit itself says
+            # what the claim says, whatever else it names (cycle 82c)
+            hit = any(
+                any(r.search(sentence) for r in standard_res) and not states_dedicated(sentence)
+                for sentence in _POWER_SENTENCE_RE.split(node)
+            )
             says = "needs a dedicated outlet or circuit"
         else:
             hit = any(r.search(_NEGATED_CLAUSE_RE.sub("", node)) for r in _DEDICATED_PAGE_RES)

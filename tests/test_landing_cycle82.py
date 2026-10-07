@@ -369,10 +369,12 @@ def test_the_checked_claim_word_limits():
     page = _page()
     page["checked_claims"][0]["fact"] = _words(36)
     page["checked_claims"][1]["fact"] = _words(37)
-    page["checked_claims"][2]["ad_said"] = _words(15)
+    page["checked_claims"][2]["ad_said"] = _words(19)
+    page["checked_claims"][3]["ad_said"] = _words(18)
     keys = _keys(landing.find_landing_violations(page, _facts_pack()))
     assert "landing:fact_words:0" not in keys
     assert "landing:fact_words:1" in keys and "landing:ad_said_words:2" in keys
+    assert "landing:ad_said_words:3" not in keys
 
 
 def test_the_accent_phrase_matches_case_and_punctuation_insensitively(tmp_path):
@@ -456,3 +458,116 @@ def test_an_untrimmable_subhead_still_stops_the_run(tmp_path):
     page["hero"]["subhead"] = " ".join(["plain"] * 31)
     with pytest.raises(claims.ClaimsGateFailure):
         _write_loop(page, tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Cycle 82c: the power rule states what the claim states; ad_said is a quote
+# ---------------------------------------------------------------------------
+
+from harness import pdp  # noqa: E402
+
+MINI_CLAIMS = [
+    {"id": "spec-mini-electrical", "category": "spec", "source": SRC,
+     "text": "Mini electrical: 120V/15A, standard outlet -- no electrician needed. Wattage ~1500W."},
+    {"id": "pdp-mini-electrical", "category": "spec", "source": SRC,
+     "text": "Plugs into a standard 120V/15A household outlet (NEMA 5-15P) \u2014 no electrician; use a dedicated 15A circuit."},
+]
+FUJI_POWER = {"id": "gbrain-fuji-power", "category": "spec", "source": SRC,
+              "text": "Fuji electrical: 120V/20A, dedicated outlet required \u2014 a standard 15A outlet is NOT sufficient. Wattage ~2050W."}
+MINI_SENTENCES = (
+    "The Mini plugs into a standard 120V/15A household outlet, but the maker specifies a dedicated 15A circuit for that outlet.",
+    "The Mini plugs into a standard 120V/15A household outlet, and the maker specifies that outlet be on a dedicated 15A circuit for the sauna.",
+    "It plugs into a standard 120V/15A household outlet (NEMA 5-15P) on a dedicated 15A circuit, per the product's own electrical specification.",
+)
+
+
+def _power_fp(name, claims_):
+    return {"product": {"name": name}, "specs": [], "verified_claims": list(claims_)}
+
+
+def _power_page(*texts):
+    return {"faq": {"questions": [{"question": "Power?", "answer": t} for t in texts]}}
+
+
+def test_the_minis_own_wording_passes_the_power_rule():
+    mini = _facts_pack()
+    mini["product"]["name"] = "Mini"
+    mini["verified_claims"] += MINI_CLAIMS
+    page = _page()
+    page["checked_claims"][1]["fact"] = MINI_SENTENCES[0]
+    page["checked_claims"][1]["claim_ids"] = ["pdp-mini-electrical"]
+    page["faq"]["questions"][0]["answer"] = MINI_SENTENCES[1]
+    page["faq"]["questions"][1]["answer"] = MINI_SENTENCES[2]
+    assert [p for p in landing.find_landing_violations(page, mini) if ":power:" in p["key"]] == []
+    assert pdp.find_power_violations(_power_page(*MINI_SENTENCES), _power_fp("Mini", MINI_CLAIMS)) == []
+
+
+def test_no_electrician_alone_passes_when_the_claim_says_so_but_a_bare_normal_outlet_does_not():
+    fp = _power_fp("Mini", MINI_CLAIMS)
+    assert pdp.find_power_violations(_power_page("No electrician is needed to set it up."), fp) == []
+    assert pdp.find_power_violations(_power_page("It plugs into any normal outlet."), fp)
+
+
+def test_a_dedicated_circuit_product_still_fails_the_easy_install_line():
+    fp = _power_fp("Fuji", [FUJI_POWER])
+    assert pdp.find_power_violations(_power_page("It plugs into any normal outlet, no electrician needed."), fp)
+    assert pdp.find_power_violations(_power_page("No electrician needed."), fp)       # the Fuji claim does not say so
+    assert pdp.find_power_violations(_power_page(
+        "It plugs into a standard outlet with no dedicated circuit needed."), fp)
+    assert pdp.find_power_violations(_power_page(
+        "The Fuji runs on a 120V / 20A dedicated outlet; a standard 15A outlet is not sufficient."), fp) == []
+
+
+def test_states_dedicated_ignores_a_negated_dedicated_circuit():
+    assert pdp.states_dedicated("use a dedicated 15A circuit")
+    assert pdp.states_dedicated("a 20A dedicated outlet")
+    assert not pdp.states_dedicated("no dedicated circuit needed")
+    assert not pdp.states_dedicated("you don't need a dedicated circuit")
+
+
+def test_the_last_attempt_may_trim_ad_said():
+    page = _page()
+    page["checked_claims"][0]["ad_said"] = ("I can start it from an app on my phone. "
+                                            "It has Bluetooth for music and podcasts while I sit in there.")
+    item = {"key": "landing:ad_said_words:0", "path": "$.checked_claims[0].ad_said"}
+    assert landing.trim_word_limit_violation(page, item)[2] == "I can start it from an app on my phone."
+
+
+def test_the_warranty_fix_never_rewrites_ad_said():
+    from harness import repair as repair_mod
+
+    page = _page()
+    page["checked_claims"][1]["ad_said"] = "Every sauna comes with a lifetime warranty."
+    problems = [p for p in _gates(page) if p.get("path") == "$.checked_claims[1].ad_said"]
+    assert problems and any("warranty wording must be exactly" in p["issue"] for p in problems)
+    valid = {c["id"] for c in _facts_pack()["verified_claims"]}
+    repair_mod.apply_deterministic_fixes(page, problems, valid, cartridge_name="landing", facts_pack=_facts_pack(),
+                                         financing_lender="Bread Pay", tenant=TENANT)
+    assert page["checked_claims"][1]["ad_said"] == "Every sauna comes with a lifetime warranty."
+
+
+@pytest.mark.parametrize("said,bad", [
+    ("Fall Sale: $4,025+ off every model, extra $250 with code CRISP250", True),
+    ("Save 20% this week", True),
+    ("Use code SAUNAS at checkout", True),
+    ("It runs on 120V", True),
+    ("A fall sale with money off every model", False),
+    ("It plugs right into a normal outlet, no electrician involved", False),
+])
+def test_ad_said_carries_no_figure_or_code(said, bad):
+    page = _page()
+    page["checked_claims"][0]["ad_said"] = said
+    hits = [p for p in landing.find_landing_violations(page, _facts_pack()) if p["key"] == "landing:ad_said_figures:0"]
+    assert bool(hits) is bad
+    if bad:
+        assert "paraphrase a price or promo claim without figures" in hits[0]["issue"]
+
+
+def test_digits_stay_allowed_in_a_cited_fact():
+    assert "landing:ad_said_figures:2" not in _keys(landing.find_landing_violations(_page(), _facts_pack()))
+    assert any(ch.isdigit() for ch in _page()["checked_claims"][2]["fact"])
+
+
+def test_the_writer_prompt_says_to_paraphrase_promos():
+    assert landing.AD_SAID_FIGURES_LINE in landing.writer_lines(_facts_pack(), TENANT)
+    assert "money off every model" in landing.AD_SAID_FIGURES_LINE

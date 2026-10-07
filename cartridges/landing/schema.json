@@ -43,7 +43,7 @@
       "items": {
         "type": "object",
         "properties": {
-          "ad_said": {"type": "string", "description": "What the ad said or implied, at most 14 words. The one place an ad claim the facts contradict may appear; fact corrects it."},
+          "ad_said": {"type": "string", "description": "What the ad said or implied, at most 18 words. The one place an ad claim the facts contradict may appear; fact corrects it."},
           "fact": {"type": "string", "description": "The verified statement, at most 36 words."},
           "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims."}
         }
