@@ -49,7 +49,7 @@ def _gates(page, facts_pack=None):
 
 def _with_quote_source(fp, text=QUOTE):
     fp = copy.deepcopy(fp)
-    fp["reviews_summary"] = dict(fp.get("reviews_summary") or {}, quotes=[{"text": text, "author": "Dana R."}])
+    fp["review_quotes"] = [{"text": text, "author": "Dana R."}]
     return fp
 
 
@@ -334,3 +334,17 @@ def test_a_landing_ab_test_can_pit_open_against_proof_and_records_the_look(monke
         rec["variants"].append(variant)
         assert abtest._build_variant(TENANT, rec, variant, runner) == "built"
     assert [(v["cartridge"], v["look"]) for v in rec["variants"]] == [("landing", "open"), ("landing", "proof")]
+
+
+def test_the_proof_look_drops_the_rating_sentence_quote_and_keeps_the_rating_row(tmp_path):
+    """Cycle 82e: run 20261007-195303-...-ybme showed the reviews claim text
+    under the subhead, attributed to "Judge.me reviews"."""
+    fp = _with_quote_source(_facts_pack())
+    rating = fp["reviews_summary"]["text"]
+    proof = {"quote": {"text": rating, "author": "Judge.me reviews", "claim_ids": ["reviews-live"]}}
+    html = _html(tmp_path / "a", _proof_page(proof=proof), facts_pack=fp)
+    assert 'class="ld-hq"' not in html and "Judge.me reviews" not in html
+    assert 'class="ld-stars"' in html
+    real = {"quote": {"text": QUOTE, "author": "Dana R.", "claim_ids": ["reviews-live"]}}
+    assert landing.find_quote_violations(_proof_page(proof=real), fp) == []
+    assert QUOTE in _html(tmp_path / "b", _proof_page(proof=real), facts_pack=fp)

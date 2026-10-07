@@ -51,6 +51,14 @@ from .write import parse_word_range, resolve_allowed_cta_texts, word_range_targe
 
 
 MAX_REPAIR_ATTEMPTS = 2
+# Cycle 82e: landing gets one more repair (4 attempts). Its gates are many and
+# narrow, and one Mini run spent two repairs on other fixes before the writer
+# saw the power sentence once.
+REPAIR_ATTEMPTS_BY_CARTRIDGE = {"landing": 3}
+
+
+def max_repair_attempts(cartridge_name):
+    return REPAIR_ATTEMPTS_BY_CARTRIDGE.get(cartridge_name, MAX_REPAIR_ATTEMPTS)
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +552,7 @@ def _format_gate_failure(item):
     return f"- {item.get('path', '')}: {item['issue']}{detail}"
 
 
-def build_revision_note(attempt, failures):
+def build_revision_note(attempt, failures, max_repairs=MAX_REPAIR_ATTEMPTS):
     """`failures` (fix cycle 6 item 3) is every failure seen across every
     attempt so far in this cartridge, deduplicated -- not just this attempt's
     -- so a repair that fixes one violation but reintroduces an earlier one
@@ -553,7 +561,7 @@ def build_revision_note(attempt, failures):
     near the top of this block and (via write.write_page) at the top of the
     system prompt, so a repair attempt can't claim it forgot the list."""
     lines = [
-        f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS})",
+        f"## REVISION REQUIRED (repair attempt {attempt} of {max_repairs})",
         vocab.forbidden_words_block(),
         "",
         "Your page.json failed the gate checks below (every failure seen across every attempt "
@@ -605,12 +613,12 @@ def _patch_roots(failures, page):
     return list(dict.fromkeys(roots)) or None
 
 
-def build_patch_revision_note(attempt, failures, roots):
+def build_patch_revision_note(attempt, failures, roots, max_repairs=MAX_REPAIR_ATTEMPTS):
     """The REVISION REQUIRED block for a patch repair: the page is in
     current_page, only the flagged fields change, and the answer is an edit
     list (harness/pagepatch.py)."""
     lines = [
-        f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS}) -- patch the flagged fields only",
+        f"## REVISION REQUIRED (repair attempt {attempt} of {max_repairs}) -- patch the flagged fields only",
         vocab.forbidden_words_block(),
         "",
         "Your page.json is in current_page. It failed the gate checks below. Change only what these "
@@ -1471,6 +1479,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant
     )
     valid_claim_ids = {c["id"] for c in facts_pack["verified_claims"]}
+    max_repairs = max_repair_attempts(cartridge_name)
 
     def _gate(page):
         return check_page_gates(
@@ -1588,7 +1597,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
                 financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
                 listicle_headline=listicle_headline, ad_brief=ad_brief,
-                last_attempt=attempt >= MAX_REPAIR_ATTEMPTS + 1,
+                last_attempt=attempt >= max_repairs + 1,
             )
             if problems else 0
         )
@@ -1608,7 +1617,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             dedup_key = item.get("key") or (item.get("path"), item.get("issue"))
             failures_seen_by_key[dedup_key] = item
 
-        if attempt >= MAX_REPAIR_ATTEMPTS + 1 or (
+        if attempt >= max_repairs + 1 or (
             attempt == 1 and on_first_failure is not None and not on_first_failure()
         ):
             err = ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
@@ -1619,10 +1628,10 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         patch_roots = _patch_roots(problems, page) if cartridge_name == "listicle" else None
         if patch_roots:
             current_page = page
-            revision_note = build_patch_revision_note(attempt, problems, patch_roots)
+            revision_note = build_patch_revision_note(attempt, problems, patch_roots, max_repairs)
         else:
             current_page = None
-            revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()))
+            revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()), max_repairs)
 
 
 # ---------------------------------------------------------------------------

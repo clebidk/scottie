@@ -90,9 +90,15 @@ _NEGATED_CLAUSE_RE = re.compile(r"\b(?:no|not|without|never)\b[^.;?!]*", re.IGNO
 # dedicated-mode claim says, even when it also names the standard plug or "no
 # electrician" (a claim such as "Plugs into a standard 120V/15A household
 # outlet -- no electrician; use a dedicated 15A circuit").
+# Cycle 82e: the same statement in other words -- "on its own 15A circuit",
+# "a separate 20A line", "its own outlet", "a single-purpose circuit".
+_AMPS = r"(?:1[05]\s*A|20\s*A|\d+[\s-]*amps?)"
 _STATES_DEDICATED_RE = re.compile(
-    r"\bdedicated\b[^.;!?]{0,30}?\b(?:circuit|outlet|line|1[05]\s*A|20\s*A)\b"
-    r"|\b(?:1[05]\s*A|20\s*A)\s+dedicated\b", re.IGNORECASE)
+    r"\bdedicated\b[^.;!?]{0,30}?\b(?:circuit|outlet|line|breaker|1[05]\s*A|20\s*A)\b"
+    r"|\b(?:1[05]\s*A|20\s*A)\s+dedicated\b"
+    rf"|\bits\s+own\s+(?:{_AMPS}\s+)?(?:circuit|breaker|line|outlet)\b"
+    rf"|\ba\s+separate\s+(?:{_AMPS}\s+)?(?:circuit|breaker|line)\b"
+    r"|\bsingle[\s-]purpose\s+circuit\b", re.IGNORECASE)
 _NEGATION_BEFORE_RE = re.compile(r"(?:\b(?:no|not|without|never)|n't)\b(?:\s+[\w/-]+){0,3}\s*$", re.IGNORECASE)
 _NO_ELECTRICIAN_RE = re.compile(r"\bno\s+electrician", re.IGNORECASE)
 _POWER_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
@@ -495,11 +501,20 @@ def states_dedicated(sentence):
     return False
 
 
+def dedicated_claim_text(facts_pack):
+    """The product's own claim text that states the dedicated circuit, or
+    None (cycle 82e: the repair quotes it so the writer can copy it)."""
+    for t in _product_power_texts(facts_pack):
+        if _DEDICATED_RE.search(_NO_DEDICATED_RE.sub("", t)):
+            return t
+    return None
+
+
 def _product_power_mode(facts_pack):
     """"dedicated", "standard" or None: what this product's own verified
     claims say about its outlet (_product_power_texts)."""
     texts = _product_power_texts(facts_pack)
-    if any(_DEDICATED_RE.search(_NO_DEDICATED_RE.sub("", t)) for t in texts):
+    if dedicated_claim_text(facts_pack):
         return "dedicated"
     if any(r.search(t) for t in texts for r in _STANDARD_OUTLET_RES):
         return "standard"

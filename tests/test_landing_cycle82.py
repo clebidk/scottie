@@ -163,10 +163,11 @@ def test_the_room_photo_must_be_a_real_room_photo():
     assert landing.find_room_photo_violations(_page(), fp) == []      # omitted: fine
 
 
-def test_a_quote_must_be_verbatim_in_the_reviews_summary():
+def test_a_quote_must_be_verbatim_in_one_of_the_review_quotes():
     fp = _facts_pack()
-    good = {"quote": {"text": "Rated 4.79 out of 5 across 47 reviews", "author": "Judge.me", "claim_ids": ["reviews-live"]}}
-    bad = {"quote": {"text": "Best sauna I ever owned", "author": "A buyer", "claim_ids": ["reviews-live"]}}
+    fp["review_quotes"] = [{"text": "Best sauna I ever owned. It heats fast.", "author": "Dana R."}]
+    good = {"quote": {"text": "Best sauna I ever owned", "author": "Dana R.", "claim_ids": ["reviews-live"]}}
+    bad = {"quote": {"text": "Best sauna in the world", "author": "A buyer", "claim_ids": ["reviews-live"]}}
     assert landing.find_quote_violations(_page(proof=good), fp) == []
     assert _keys(landing.find_quote_violations(_page(proof=bad), fp)) == {"landing:quote_verbatim"}
 
@@ -431,7 +432,7 @@ def _write_loop(page, tmp_path):
     from harness.repair import write_and_gate_page
     from tests.conftest import FakeClient, json_response
 
-    client = FakeClient([json_response(page)] * 3)
+    client = FakeClient([json_response(page)] * (repair.max_repair_attempts("landing") + 1))
     log = RunLog("test-run", tmp_path / "run.log")
     try:
         return write_and_gate_page(
@@ -450,7 +451,7 @@ def test_the_last_attempt_trims_an_over_long_subhead(tmp_path):
                                "and without a single form.")
     assert len(page["hero"]["subhead"].split()) > landing.SUBHEAD_MAX_WORDS
     (result, attempts, fixes), client = _write_loop(page, tmp_path)
-    assert len(client.messages.calls) == 3 and fixes[-1] == 1 and fixes[0] == 0
+    assert len(client.messages.calls) == 4 and fixes[-1] == 1 and fixes[:-1] == [0, 0, 0]
     assert result["hero"]["subhead"] == "The price, the power it needs and what arrives at your door, stated up front."
 
 
@@ -628,3 +629,83 @@ def test_ad_said_keeps_its_own_rules_and_the_exemption_is_landing_only():
     # The finder itself still reports ad_said; only the landing gate skips it.
     hits = claims.find_warranty_violations({"checked_claims": [{"ad_said": _LIFETIME}]}, [])
     assert hits and hits[0]["path"] == "$.checked_claims[0].ad_said"
+
+
+# ---------------------------------------------------------------------------
+# Cycle 82e: other words for "dedicated circuit"; the repair quotes the
+# claim; landing gets 4 attempts; proof.quote is a review, not the rating
+# ---------------------------------------------------------------------------
+
+PROD_POWER_ANSWER = ("No new wiring is required beyond a dedicated outlet. The Peak Mini plugs into a standard "
+                     "120V/15A household outlet on its own 15A circuit.")
+
+
+def test_the_prod_mini_answer_passes_the_power_rule():
+    mini = _facts_pack()
+    mini["product"]["name"] = "Mini"
+    mini["verified_claims"] += MINI_CLAIMS
+    page = _page()
+    page["faq"]["questions"][1]["answer"] = PROD_POWER_ANSWER
+    assert pdp.find_power_violations(_power_page(PROD_POWER_ANSWER), _power_fp("Mini", MINI_CLAIMS)) == []
+    assert [p for p in landing.find_landing_violations(page, mini) if ":power:" in p["key"]] == []
+
+
+@pytest.mark.parametrize("words", ["on its own circuit", "on a separate 20A line", "on a dedicated 15A",
+                                   "on its own 20-amp breaker", "on a single-purpose circuit",
+                                   "into its own outlet", "on a dedicated breaker"])
+def test_other_words_for_a_dedicated_circuit_pass(words):
+    sentence = f"It plugs into a standard 120V/15A household outlet {words}."
+    assert pdp.states_dedicated(sentence)
+    assert pdp.find_power_violations(_power_page(sentence), _power_fp("Mini", MINI_CLAIMS)) == []
+
+
+@pytest.mark.parametrize("sentence", [
+    "It plugs into a standard household outlet, not on its own circuit.",
+    "It plugs into a standard household outlet without a separate circuit.",
+    "It plugs into a standard household outlet with no dedicated line.",
+])
+def test_a_negated_dedicated_statement_still_fails(sentence):
+    assert not pdp.states_dedicated(sentence)
+    assert pdp.find_power_violations(_power_page(sentence), _power_fp("Mini", MINI_CLAIMS))
+
+
+def test_the_power_repair_quotes_the_claim_that_states_the_dedicated_circuit():
+    mini = _facts_pack()
+    mini["product"]["name"] = "Mini"
+    mini["verified_claims"] += MINI_CLAIMS
+    page = _page()
+    page["faq"]["questions"][1]["answer"] = "It plugs into any standard household outlet."
+    hits = [p for p in landing.find_landing_violations(page, mini) if ":power:" in p["key"]]
+    assert hits and hits[0]["issue"].endswith(
+        "Say 'dedicated circuit' in the same sentence, for example: '" + MINI_CLAIMS[1]["text"] + "'")
+
+
+def test_landing_gets_four_attempts_and_other_cartridges_keep_three(tmp_path):
+    assert repair.max_repair_attempts("landing") == 3
+    assert repair.max_repair_attempts("listicle") == repair.max_repair_attempts("article") == 2
+    page = _page()
+    page["hero"]["subhead"] = " ".join(["plain"] * 31)
+    with pytest.raises(claims.ClaimsGateFailure) as exc_info:
+        _write_loop(page, tmp_path)
+    assert len(exc_info.value.attempts) == 4
+    assert "repair attempt 3 of 3" in repair.build_revision_note(3, [], 3)
+
+
+PROD_RATING = "Rated 4.8 out of 5 across 49 reviews on Judge.me (fetched 2026-10-07)."
+
+
+@pytest.mark.parametrize("text", [PROD_RATING, "Rated 4.79 out of 5 across 47 reviews", "4.8 stars from 49 buyers"])
+def test_the_rating_sentence_is_never_a_quote(text):
+    fp = _facts_pack()
+    fp["review_quotes"] = [{"text": PROD_RATING, "author": "Judge.me reviews"}]   # even when listed there
+    proof = {"quote": {"text": text, "author": "Judge.me reviews", "claim_ids": ["reviews-live"]}}
+    assert _keys(landing.find_quote_violations(_page(proof=proof), fp)) == {"landing:quote_not_review"}
+    assert "landing:quote_not_review" in _keys(_gates(_page(proof=proof), fp))
+
+
+def test_the_open_look_drops_the_rating_sentence_quote_and_keeps_the_rating_row(tmp_path):
+    rating = _facts_pack()["reviews_summary"]["text"]
+    proof = {"quote": {"text": rating, "author": "Judge.me reviews", "claim_ids": ["reviews-live"]}}
+    html = (_render(tmp_path, page=_page(proof=proof)) / "index.html").read_text()
+    assert 'class="ld-quote"' not in html and "Judge.me reviews" not in html
+    assert 'class="ld-rating"' in html
