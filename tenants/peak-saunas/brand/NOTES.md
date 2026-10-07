@@ -36,10 +36,23 @@ all-caps headings.
 
 ## Type
 
-DM Sans 400/500 body (16px / 1.55). Poppins 600 headings, sentence case,
--.01em. Both are loaded site-wide by the theme; the review page loads them
-from Google Fonts. No `@font-face` is emitted, so nothing is uploaded to the
-storefront at publish time.
+DM Sans 400/500 body (16px / 1.55), loaded site-wide by the theme; the
+review page loads it (and Poppins) from Google Fonts.
+
+Cycle 95 (2026-10-07): four web families, declared as `@font-face` in
+`base.css` --
+
+- **Montserrat** 600 headings, sentence case, -.01em (`--ps-heading`;
+  Poppins, which the theme loads, is the next fallback);
+- **Epika** 400, the serif voice: pull quotes, review quotes, the founder
+  line, statement lines (`--ps-serif`);
+- **Peak Grotesk Wide**, upper case, the display headline
+  (`--ps-display-wide`, theme CDN);
+- **Acid Grotesk**, licensed, the second display face (`--ps-display-acid`).
+
+Files and licences: `fonts/LICENSES.md`. `fonts/*` is uploaded to Shopify
+Files at the next publish (once; `fonts/cdn-manifest.json`); the review
+page and the library thumbnails inline every face from the local file.
 
 ## Logo
 
@@ -54,4 +67,4 @@ repo.
 `base-legacy.css`, `tokens-legacy.json` (pre-rebrand green theme record),
 `logo-on-dark.svg`, `logo-stone.svg`, `logo-stone.png` (cream wordmark),
 `fonts/Epika-Regular.*` and `fonts/cdn-manifest.json`. Nothing read them.
-They are in git history.
+They are in git history. (Cycle 95 brings Epika and `fonts/` back.)

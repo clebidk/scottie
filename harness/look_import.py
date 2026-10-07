@@ -1232,7 +1232,8 @@ def _css_value_errors(prop, value, where, defined, cartridge_rules, in_desktop):
         rest = re.sub(r"var\([^)]*\)", "", low).replace(",", " ").strip()
         if rest not in ("", "inherit", "initial"):
             errors.append(f"{where}: `font-family:{value}` -- fonts come from the tenant tokens "
-                          "(var(--pk-sans), var(--pk-heading), var(--pk-display-wide)) only")
+                          "(var(--pk-sans), var(--pk-heading), var(--pk-display-wide), var(--ps-display-acid), "
+                          "var(--ps-serif)) only")
     if prop == "font" and low not in ("inherit", "initial") and ("var(" not in low or re.search(r"[\"']", low)):
         errors.append(f"{where}: `font:{value}` -- the family must be a tenant token, var(--pk-*)")
     if "url(" in low:

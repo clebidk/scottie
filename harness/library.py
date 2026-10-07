@@ -584,7 +584,7 @@ def build(tenant, *, only=None, force=False, log=print):
                     summary["unavailable"].append(version.key)
                     log(f"[{i}/{len(todo)}] {version.key}: {reason}")
                     continue
-                review_path = review.build_review_for_page(run_dir, version.cartridge)
+                review_path = review.build_review_for_page(run_dir, version.cartridge, tenant=tenant)
                 if review_path is None:
                     error = "the run wrote no index.html"
             if error is not None:
