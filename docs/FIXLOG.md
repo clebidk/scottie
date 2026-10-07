@@ -4523,3 +4523,32 @@ landing runs: 2 passed, 3 STOPped at `page_json:landing` after 3 attempts.
 - **Open.** (C) is not fully fixed by the exemption: the Mini headline itself repeated the
   ad's contradicted claim, which still fails (correctly); whether the writer now moves it to
   ad_said depends on the new prompt line and repair text, not yet seen on a real run.
+
+### Cycle 82c (landing: power rule states what the claim states; ad_said is a quote, 2026-10-07)
+Branch `cycle82c/landing-power` from origin/master 2dda94c (the cycle 82b merge).
+- **Problem.** Second prod round: the Mini page (run 20261007-180410-...-rm56) still STOPped. Its
+  claims say BOTH a standard 120V/15A household outlet AND a dedicated 15A circuit, with "no
+  electrician" in the claim itself; three sentences that said exactly that failed
+  `landing:power:*`, and a quoted ad sentence in `ad_said` was 16 words (cap 14). On the
+  cold-mornings page that passed (run ...-e6g7), the deterministic warranty fix rewrote
+  `checked_claims[1].ad_said` into the fixed warranty sentence (ad said == fact), and
+  `checked_claims[0].ad_said` printed the ad's promo with a discount figure and code.
+- **Change.** `pdp.find_power_violations` (shared by product-page and landing; the listicle uses
+  its own `first_screen.find_install_claim_violations`, longform has none) now checks per
+  sentence: in dedicated mode a sentence that itself states a dedicated circuit/outlet
+  (`pdp.states_dedicated`, a negated "no dedicated circuit" does not count) passes, even with
+  "standard/household outlet" or "no electrician"; "no electrician" alone passes when the
+  product's own claim says it; "plugs into any normal outlet" without the dedicated statement
+  still fails. `ad_said` <= 18 words (schema, gate, cartridge.md, prompt) and joins the
+  last-attempt trim. The warranty and financing fixed-sentence rewrites skip
+  `checked_claims[].ad_said` (the gate still reports it and the repair rewrites it). New gate
+  `landing:ad_said_figures:*`: no digit, currency sign, percent sign or all-caps code token
+  (5+ letters/digits) in ad_said; prompt line and repair text: paraphrase a price or promo
+  claim without figures ("a fall sale with money off every model") or pick another ad claim.
+  Digits in a cited `fact` stay allowed.
+- **Verify.** 14 new tests in `tests/test_landing_cycle82.py` (11 fail on 2dda94c); the three
+  Mini sentences pass with the Mini claims; the easy-install line still fails for a
+  dedicated-circuit product whose claim does not say "no electrician".
+- **Open.** The financing-rewrite skip on ad_said was not asked for; it is the same bug as the
+  warranty one. An all-caps quoted ad line ("LEVEL UP YOUR HEALTH") now fails the code rule;
+  the writer must paraphrase it in sentence case.

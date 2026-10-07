@@ -930,6 +930,7 @@ def _fix_warranty_violation(page, path, valid_claim_ids):
 
 
 _SENTENCE_BREAK_RE = re.compile(r"(?<=[.!?])\s+")
+_AD_SAID_PATH_RE = re.compile(r"^\$\.checked_claims\[\d+\]\.ad_said$")
 
 
 def _replace_warranty_sentences(text):
@@ -1222,7 +1223,7 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
         # never a cut that does not end on terminal punctuation
         # (landing.trim_to_limit). Anything else stays a gate failure.
         if cartridge_name == "landing" and last_attempt and str(item.get("key") or "").startswith(
-                ("landing:subhead_words", "landing:fact_words")):
+                ("landing:subhead_words", "landing:fact_words", "landing:ad_said_words")):
             result = landing.trim_word_limit_violation(page, item)
             if result:
                 fixed += 1
@@ -1260,6 +1261,14 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                         f"write.{cartridge_name}",
                         f"deterministic fix applied: removed redundant nested cta_url at {raw_path}",
                     )
+            continue
+
+        # Cycle 82c: a landing page's checked_claims[].ad_said quotes the ad;
+        # replacing it with the fixed warranty or financing sentence made "the
+        # ad said" and the fact the same line. Left for the gate and repair.
+        if _AD_SAID_PATH_RE.match(raw_path) and (
+                "warranty wording must be exactly" in issue or "financing_line must be exactly" in issue
+                or "financing wording must be exactly" in issue):
             continue
 
         if "warranty wording must be exactly" in issue:
