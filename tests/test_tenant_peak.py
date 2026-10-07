@@ -82,7 +82,7 @@ def test_pwc_included_free_text_and_category():
 
 def test_hsa_fsa_truemed_text_and_category():
     claim = VERIFIED_BY_ID["hsa-fsa-truemed"]
-    assert claim["text"] == "Peak saunas may be eligible for HSA/FSA purchase through TrueMed."
+    assert claim["text"] == "Peak saunas may be eligible for HSA/FSA purchase through Redo."
     assert claim["category"] == "trust"
 
 
