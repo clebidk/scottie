@@ -532,6 +532,18 @@ def _page_field(run_dir, field, cartridge="listicle"):
         return None
 
 
+def _design_record(run_dir, cartridge):
+    """Cycle 92: {score, status, cost_usd} from the run's design gate
+    (out/<run>/<cartridge>/design/scores.json), or None (gate off)."""
+    if not run_dir:
+        return None
+    try:
+        data = json.loads((Path(run_dir) / cartridge / "design" / "scores.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return {"score": data.get("score"), "status": data.get("status"), "cost_usd": data.get("cost_usd")}
+
+
 def _build_variant(tenant, rec, variant, runner):
     """Up to MAX_ATTEMPTS runs of the variant's current arm, each with a new
     seed. Returns "built", "budget" or "failed"."""
@@ -545,12 +557,20 @@ def _build_variant(tenant, rec, variant, runner):
             rc, run_dir = e.exit_code, None
         attempt = {"arm": variant["arm"], "seed": seed, "rc": rc,
                    "run_dir": str(run_dir) if run_dir else None, "at": _now()}
+        # Cycle 92: every variant page passes the design gate too (it is a
+        # stage of the run); its score is kept on the attempt and the variant.
+        design = _design_record(run_dir, arm.cartridge)
+        if design:
+            attempt["design_score"], attempt["design_status"] = design["score"], design["status"]
         variant["attempts"].append(attempt)
         save_test(tenant, rec)
         if rc == exits.BUDGET:
             return "budget"
         if rc == 0 and run_dir and (Path(run_dir) / arm.cartridge / "index.html").exists():
             variant.update(run_dir=str(run_dir), cartridge=arm.cartridge, status="built")
+            if design:
+                variant.update(design_score=design["score"], design_status=design["status"],
+                               design_cost_usd=design["cost_usd"])
             if arm.cartridge == "listicle":
                 variant["headline_template_id"] = _headline_template_id(run_dir)
                 # Cycle 79: the first screen it actually rendered (face falls

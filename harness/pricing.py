@@ -10,6 +10,9 @@ cli.py's --batch flag). Every dollar figure below is $ per million tokens.
 PRICES_PER_MILLION = {
     "claude-sonnet-5": {"input": 2.00, "output": 10.00},
     "claude-haiku-4-5": {"input": 1.00, "output": 5.00},
+    # Cycle 92: the design gate's vision judge (harness/design_gate.py).
+    # Anthropic first-party rate, checked 2026-10-07 (claude-api skill table).
+    "claude-opus-5-5": {"input": 4.00, "output": 20.00},
 }
 
 # A cache write (cache_creation_input_tokens) costs MORE than an ordinary
@@ -25,6 +28,17 @@ BATCH_MULTIPLIER = 0.5
 class UnknownModel(Exception):
     """No price entry for a model id -- fail loudly rather than silently cost
     it at $0 (or at some other model's rate)."""
+
+
+def family_id(model):
+    """Cycle 92: the PRICES_PER_MILLION key for `model` -- itself, or the
+    family a dated snapshot id belongs to ("claude-haiku-4-5-20251001" ->
+    "claude-haiku-4-5"). An unknown model is returned unchanged, so
+    price_for still raises UnknownModel for it."""
+    for family in PRICES_PER_MILLION:
+        if model == family or model.startswith(family + "-"):
+            return family
+    return model
 
 
 def price_for(model):

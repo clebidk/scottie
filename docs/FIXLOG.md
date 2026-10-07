@@ -5202,3 +5202,115 @@ reference renders show the 7-year warranty wording (c4d774d); the listicle demo'
 `closing.warranty_line` is set to vocab.yaml's `allowed_warranty_sentence`, because
 evals/fake_run.py's canned listicle page still has the retired lifetime sentence (follow-up; one of
 two listicle fake runs on master exited 2).
+
+## Cycle 92 (design-quality gate: screenshots, hard checks, vision judge, best-of-3 design variants, 2026-10-07)
+Branch `cycle92/design-gate` from prod master bbc3ac4.
+
+### Problem
+Owner rule 2026-10-07: "Visual design needs to be top tier. Better generation is preferred over lower cost;
+prioritise quality while optimising both." Nothing judged the rendered page as a design: the claims gates
+check facts, Jev (cycle 76) scores the copy, and one layout per page shipped as the renderer picked it. On
+prod the Library thumbnails rendered in fallback fonts (the display faces load from the Shopify CDN, the body
+faces from Google Fonts, and the server has none installed), so any judge looking at them would mark
+typography wrong for the wrong reason.
+
+### Change
+- `harness/design_gate.py`, a stage after `render_pages` (also in workflows/ad-to-pages.yaml), tenant.yaml
+  `design_gate: mode off|warn|enforce, model (default claude-opus-5-5), effort (high), min_score (75),
+  variants (3), max_usd_per_page (1.00)`; PEAK: enforce. `HARNESS_DESIGN_GATE` overrides the mode (the suite
+  sets off in conftest, like HARNESS_JEV_DRAFTS).
+  - Screenshots (phone 390 full page capped at 6000 px, desktop 1280x900 fold, desktop full page) and a DOM
+    probe through `harness/capture.py`. Hard checks without a model: overflow at 390, contrast of first-screen
+    text over photos (WCAG AA, measured on the screenshot), empty image slots, cut-off text, tap targets
+    < 44 px, page weight, fonts loaded. A hard-check failure is never chosen over a clean variant and never
+    passes.
+  - Vision judge through the harness's Anthropic client (`client.messages.create`; thinking left on, as Opus
+    5.5 cannot disable it; `output_config.effort`): phone page in tiles of <= 2400 px plus the desktop fold;
+    JSON `{score_0_100, subscores{7}, top_issues[{what, where, fix_as_layout_choice}], verdict}`. Refusal, API
+    error, cut-off or bad JSON: that variant is not judged (logged), never a crash. No browser: UNSCORED.
+  - Variants: the page as rendered, then look x first screen (x block set: `block_sets()` hook for cycle 91)
+    within the tenant's allowed set, never against an explicit `--look`/`--hero-style`; a layout that renders
+    as one already tried (face with no still) is skipped without a call. Below min_score: one revise round of
+    untried layouts (plus the tenant's imported looks) ranked by the judge's fixes (first screen / look / more
+    or fewer photos); still below: exit 2 (enforce, after every page is scored; REVIEW.md still written, state
+    stays "generated") or a warning (warn). The best layout is re-rendered into the run folder and recorded in
+    page.json / state.json. Copy is never rewritten.
+  - `max_usd_per_page` stops further variants/rounds with a note in the run log and REVIEW.md; a page left
+    under the bar or never judged because of it is not a pass. `harness run` reserves max_usd_per_page x pages
+    on top of its daily-cap reservation (`budget.reserve_spend(extra_usd=...)`). The gate's time is added to
+    the wall-clock budget, like a batch wait.
+  - Everything under `out/<run>/<cartridge>/design/`: `variant-<n>.png`, `-desktop.png`, `-desktop-full.png`,
+    `scores.json`. Run log: per call `design_gate.<cartridge>: model=claude-opus-5-5 ...`, per page and in total
+    `design gate: N variants, M judge calls, $X`.
+- Rubric: `harness/design_rubric.md` (tenant-neutral: dimensions, score bands, verdicts, anti-patterns) +
+  `tenants/peak-saunas/design-rubric.md` (PEAK tokens, fonts, boxless, 4 px radii, one accent, and the ten
+  owner-approved pack pages, one line each). Split because tests/test_tenant.py forbids tenant words in
+  harness/; a tenant with no file gets a brand section from tenant.yaml.
+- harness/pricing.py: `claude-opus-5-5` $4/$20 per M tokens; `family_id()`. harness/anthropic_client.py:
+  `adaptive_kwargs()` (no thinking param, effort in output_config; Haiku takes neither).
+- REVIEW.md "## Design": result, chosen variant, score, subscores, top issues, hard checks, fonts
+  (loaded/fallback), notes, a table of every variant with cost and shot links, the chosen shots inline, the
+  gate's total cost. Nothing when the gate is off.
+- Review site: "Design <score>" on the generation card (Jev stays separate), a Design card with the "Design
+  variants" strip on the generation page, a "Design score" row in Details; shots at
+  `/run/<run>/design/<page>/<file>` (`?thumb=1`: first screen, 240 px) behind the same login. Library card:
+  the score from `harness library build --design-score`.
+- A/B/C: every variant runs the gate as a stage; `design_score` / `design_status` on the variant and on each
+  attempt (abtest.py `_design_record`).
+- CLI: `harness design score <run-dir>/<cartridge>`, `harness design report`, `harness library build
+  --design-score`, `harness fonts fetch`, `harness review --inline-fonts`.
+- Fonts (coordinator/owner instruction mid-cycle): `harness/fonts.py`. Display faces from
+  `brand/fonts-display/` (matched to base.css @font-face by file name), body faces from `brand/fonts-body/`
+  (`harness fonts fetch` downloads the tenant's Google Fonts css2 families as woff2, latin + latin-ext, with
+  manifest.json and LICENCE.md). Injected at the top of `<head>` (before the page's CSS): file:// urls in
+  the capture path, `review-fonts/` relative urls in `harness review` (served by the site at
+  `/run/<run>/review/review-fonts/<file>`), data: urls with `--inline-fonts` and in the Library's review
+  pages. The capture waits for `document.fonts.ready`, asks for one face of every declared family and records
+  per family whether a face loaded (scores.json, REVIEW.md, Library meta.json `fonts`). Library thumbnails
+  now go through the same `harness/capture.py` path (library.capture_thumb delegates). The storefront export
+  is unchanged (CDN urls).
+- harness/capture.py starts the browser in its own session and kills the whole process group when it
+  stops it (a left-over Chrome helper kept writing into the profile folder and broke a temp-dir cleanup in
+  one full-suite run); the scratch folder's cleanup ignores errors.
+- tests/conftest.py: autouse `_no_real_browser` (capture.find_browser now also finds the macOS Chrome app;
+  only tests marked `real_browser` may drive it).
+
+### Verify
+- `tests/test_design_gate_cycle92.py` (30): hard checks on three synthetic pages in real headless Chrome
+  (overflowing, low-contrast hero, good) and the font record (a real local display face loads from file://, a
+  tiny generated non-font is recorded as fallback); synthetic-probe hard checks; judge JSON parsing and
+  verdicts; the judge request (opus-5-5, effort high, no thinking key, images, the PEAK rubric) and its cost
+  in the log; refusal / API error; settings; best of 3 picks the best, records every variant and leaves the
+  best layout in the folder; face fallback not judged twice; revise round (landing open -> proof from a
+  "different look" fix); STOP and warn after the revise round; no untried layout; a hard-check failure never
+  ships; the cost cap; no browser = UNSCORED; pinned layouts; the REVIEW.md section; the pipeline through
+  `evals/fake_run.py` (enforce exit 2 with REVIEW.md + log + state, warn, pass); mode off byte-identical to a
+  run without the stage (hash of every html/json/md artifact, run id and clock normalised); the A/B/C
+  record; site card / generation page / strip / shot route (login, traversal); Library card; CLI score and
+  report; fonts fetch (fake HTTP), css modes and injection order, review html relative/inline, the site's
+  review-fonts route, the export keeps CDN urls.
+- Real Chrome on this Mac: a fake listicle run with the gate in enforce and canned judge answers (52 s,
+  2 variants: face fell back and was skipped), shots checked by eye, REVIEW.md section read; `harness library
+  build --only landing --force` with real thumbnails, meta.json `fonts: loaded` (Peak Grotesk Wide from the
+  local file).
+- Full suite `.venv/bin/python -m pytest -q`: 2759 passed, 0 failed (2729 before the 30 new tests).
+
+### Open
+- No real judge call was made (worker rule: FakeClient only). The per-page cost is an estimate (docs/
+  DESIGN-GATE.md: about $0.06-$0.13 per call on Opus 5.5 at effort high, $0.18-$0.40 for best of 3, up to
+  about $0.80 with a revise round); the thinking-token share is the unknown. Measure with `harness design
+  report` after the first real runs, and check that the judge's scores separate good from bad pages before
+  trusting enforce on every build.
+- `brand/fonts-body/` is empty in this commit: `harness fonts fetch --tenant peak-saunas` was not run here (it
+  downloads from Google). Until it runs, the body faces come from Google Fonts in a browser that has network,
+  and the record says "fallback" where it does not.
+- The listicle has one look ("open"), so its variants are only the three first screens; a text ad (no still)
+  gets two. More variety arrives with cycle 91's block sets (the hook is `design_gate.block_sets`) and with
+  tenant imported looks (prod's pack looks are tried in the revise round).
+- "More / fewer photos" is translated into first-screen and imported-look choices; no look has a photo-count
+  knob yet.
+- The full-page phone shot is capped at 6000 px; a longer listicle is judged on its first 6000 px.
+- The previous-version review pages (`/run/<run>/review/<page>/v/<n>`) do not resolve `review-fonts/` (they
+  fall back to the page's own CDN/Google urls).
+- A design-gate STOP leaves a rendered page with state "generated"; the site shows it as a draft with its
+  design score below the bar.

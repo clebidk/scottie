@@ -51,7 +51,6 @@ import socket
 import subprocess
 import sys
 import tempfile
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -350,59 +349,35 @@ def entries(tenant):
 # ---------------------------------------------------------------------------
 
 def find_browser():
-    """A headless-capable Chromium on PATH, or None."""
-    for name in BROWSERS:
-        path = shutil.which(name)
-        if path:
-            return path
-    return None
+    """A headless-capable Chromium, or None (harness/capture.py: $HARNESS_CHROME,
+    PATH, then the macOS application bundle)."""
+    from . import capture
+
+    return capture.find_browser()
 
 
-def capture_thumb(browser, html_path, png_path, *, popen=subprocess.Popen, timeout_s=THUMB_TIMEOUT_S):
-    """A 390x844 screenshot at scale 1 of html_path. True when thumb.png
-    was written; any browser failure is False (never raised). Headless
-    Chrome on some hosts writes the file and then does not exit, so the
-    browser is stopped as soon as the file is complete. The page is framed
-    at exactly 390x844 inside a wrapper page, because a headless window can
-    keep a wider layout viewport than --window-size asks for."""
-    png_path = Path(png_path)
-    png_path.unlink(missing_ok=True)  # never report an older file as this capture
+def thumb_fonts(browser, html_path, tenant):
+    """Cycle 92: {"status": loaded|fallback|unknown, "loaded", "fallback", ...}
+    for the families the reference page's text uses, from the same capture
+    path (harness/capture.py's probe) the thumbnail went through."""
+    from . import capture, design_gate
+
     w, h = THUMB_SIZE
-    # The frame page and the profile sit next to the PNG, never in /tmp: a snap-
-    # packaged Chromium (prod) has a private /tmp and sees neither a page nor a
-    # PNG path there (it reported the PNG written, but nothing arrived).
-    with tempfile.TemporaryDirectory(prefix="harness-thumb-", dir=png_path.parent) as work:
-        frame = Path(work) / "frame.html"
-        frame.write_text(
-            f'<!doctype html><html><body style="margin:0;background:#fff">'
-            f'<iframe src="{Path(html_path).resolve().as_uri()}" scrolling="no" '
-            f'style="position:fixed;top:0;left:0;width:{w}px;height:{h}px;border:0"></iframe></body></html>')
-        cmd = [browser, "--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", "--mute-audio",
-               "--no-first-run", "--no-default-browser-check", f"--user-data-dir={Path(work) / 'profile'}",
-               f"--window-size={w},{h}", "--force-device-scale-factor=1",
-               f"--screenshot={png_path}", frame.as_uri()]
-        try:
-            proc = popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
-            return False
-        deadline = time.monotonic() + timeout_s
-        last_size = -1
-        try:
-            while time.monotonic() < deadline and proc.poll() is None:
-                size = png_path.stat().st_size if png_path.is_file() else 0
-                if size and size == last_size:
-                    break
-                last_size = size
-                time.sleep(0.3)
-        finally:
-            if proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait()
-    return png_path.is_file() and png_path.stat().st_size > 0
+    return design_gate.font_report(capture.probe(browser, html_path, width=w, height=h, tenant=tenant))
+
+
+def capture_thumb(browser, html_path, png_path, *, popen=subprocess.Popen, timeout_s=THUMB_TIMEOUT_S, tenant=None):
+    """A 390x844 screenshot at scale 1 of html_path. True when thumb.png
+    was written; any browser failure is False (never raised). Cycle 92: the
+    shared capture path (harness/capture.py) -- the tenant's local brand
+    fonts are injected and the page waits for document.fonts.ready, so a
+    thumbnail never shows a fallback face because the host has no fonts."""
+    from . import capture
+
+    w, h = THUMB_SIZE
+    tenant = tenant or tenant_mod.active_or_none()
+    return capture.screenshot(browser, html_path, png_path, width=w, height=h, tenant=tenant, popen=popen,
+                              timeout_s=timeout_s)
 
 
 # ---------------------------------------------------------------------------
@@ -429,12 +404,17 @@ def offline_run_env(base_dir=None):
     props = {"out_dir": scratch / "out", "runs_dir": scratch / "runs", "evals_path": scratch / "evals" / "scores.jsonl"}
     saved_props = {name: cls.__dict__[name] for name in props}
     saved_env = os.environ.get("HARNESS_JEV_DRAFTS")
+    saved_gate = os.environ.get("HARNESS_DESIGN_GATE")
     saved_notify = notify.notify_needs_review
     saved_socket = (socket.socket.connect, socket.socket.connect_ex, socket.create_connection)
     try:
         for name, path in props.items():
             setattr(cls, name, property(lambda _self, _p=path: _p))
         os.environ["HARNESS_JEV_DRAFTS"] = "1"
+        # Cycle 92: no design gate inside the offline fake runs (no model call
+        # is possible here); `harness library build --design-score` scores the
+        # versions afterwards.
+        os.environ["HARNESS_DESIGN_GATE"] = "off"
         notify.notify_needs_review = lambda *_a, **_k: None
         socket.socket.connect = _blocked_connect
         socket.socket.connect_ex = _blocked_connect
@@ -447,6 +427,10 @@ def offline_run_env(base_dir=None):
             os.environ.pop("HARNESS_JEV_DRAFTS", None)
         else:
             os.environ["HARNESS_JEV_DRAFTS"] = saved_env
+        if saved_gate is None:
+            os.environ.pop("HARNESS_DESIGN_GATE", None)
+        else:
+            os.environ["HARNESS_DESIGN_GATE"] = saved_gate
         for name, prop in saved_props.items():
             setattr(cls, name, prop)
         shutil.rmtree(scratch, ignore_errors=True)
@@ -581,7 +565,9 @@ def build(tenant, *, only=None, force=False, log=print):
                     summary["unavailable"].append(version.key)
                     log(f"[{i}/{len(todo)}] {version.key}: {reason}")
                     continue
-                review_path = review.build_review_for_page(run_dir, version.cartridge)
+                # Cycle 92: fonts inline -- the Library serves review.html alone.
+                review_path = review.build_review_for_page(run_dir, version.cartridge, tenant=tenant,
+                                                           inline_fonts=True)
                 if review_path is None:
                     error = "the run wrote no index.html"
             if error is not None:
@@ -599,6 +585,9 @@ def build(tenant, *, only=None, force=False, log=print):
             thumb = bool(browser) and capture_thumb(browser, staging / "review.html", staging / "thumb.png")
             summary["thumbs"] += int(thumb)
             meta["thumb"] = thumb
+            if thumb:
+                # Cycle 92: which brand fonts the thumbnail browser actually loaded.
+                meta["fonts"] = thumb_fonts(browser, staging / "review.html", tenant)
             _write_meta(staging, meta)
             _swap_in(staging, dest)
             summary["built"].append(version.key)
@@ -610,6 +599,47 @@ def _staged_meta(scratch, version, meta):
     staging = scratch / "staging" / version.key
     _write_meta(staging, meta)
     return staging
+
+
+# ---------------------------------------------------------------------------
+# cycle 92: design scores on the Library cards
+# ---------------------------------------------------------------------------
+
+def versions_to_score(tenant, *, force=False):
+    """Built versions with a page (index.html) and, unless force, no design
+    score yet."""
+    from . import design_gate
+
+    out = []
+    for version in versions(tenant):
+        folder = Path(tenant.library_dir) / version.key
+        if not (folder / "index.html").is_file():
+            continue
+        if not force and design_gate.load_scores(folder) is not None:
+            continue
+        out.append(version)
+    return out
+
+
+def score_versions(tenant, todo, *, client, cfg, log=None, say=print):
+    """Scores each version folder with the design gate's judge (no
+    variants) and puts design_score / design_status / design_cost_usd in
+    its meta.json. Returns how many got a score."""
+    from . import design_gate
+
+    scored = 0
+    for i, version in enumerate(todo, 1):
+        folder = Path(tenant.library_dir) / version.key
+        layout = {"look": version.look, "hero_style": version.first_screen, "block_set": None}
+        result = design_gate.score_folder(folder, cartridge=version.cartridge, tenant=tenant, client=client,
+                                          cfg=cfg, log=log, layout=layout)
+        meta = read_meta(tenant, version) or describe(tenant, version)
+        meta.update(design_score=result["score"], design_status=result["status"],
+                    design_cost_usd=result["cost_usd"], design_scored_at=result["scored_at"])
+        _write_meta(folder, meta)
+        scored += int(result["score"] is not None)
+        say(f"[{i}/{len(todo)}] {version.key}: {design_gate.summary_line(result)}")
+    return scored
 
 
 def queue_if_missing(tenant, *, by="harness serve"):

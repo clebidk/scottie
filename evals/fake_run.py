@@ -17,6 +17,7 @@ import argparse
 import contextlib
 import datetime
 import json
+import os
 import re
 import shutil
 import sys
@@ -352,9 +353,17 @@ def fake_environment(client):
     saved = [(obj, name, getattr(obj, name)) for obj, name, _ in patches]
     for obj, name, value in patches:
         setattr(obj, name, value)
+    # Cycle 92: a fake run has no judge answers; the design gate is off
+    # unless the caller set HARNESS_DESIGN_GATE itself (and the judge answers
+    # with extra_responses).
+    gate_was_set = "HARNESS_DESIGN_GATE" in os.environ
+    if not gate_was_set:
+        os.environ["HARNESS_DESIGN_GATE"] = "off"
     try:
         yield
     finally:
+        if not gate_was_set:
+            os.environ.pop("HARNESS_DESIGN_GATE", None)
         for obj, name, old in saved:
             setattr(obj, name, old)
 
@@ -367,7 +376,7 @@ def _newest_run_dir(base_dir, pattern):
 
 
 def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
-             style=None, headline_template=None, skeleton=None, look=None, hero_style=None):
+             style=None, headline_template=None, skeleton=None, look=None, hero_style=None, extra_responses=()):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
     None, [page.json paths]). Shared by main() (the CLI), evals/soak.py
     (the 200-generation dry run) and harness/library.py (cycle 86: one
@@ -425,6 +434,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id,
                                              _display_line(brief), landing_look))
                   for c in selected]
+    responses += list(extra_responses)   # cycle 92: the design gate's judge answers, in order
     client = FakeClient(responses)
 
     args = argparse.Namespace(

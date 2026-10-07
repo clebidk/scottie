@@ -74,7 +74,31 @@ def inline_assets_as_data_uris(html_text, assets_dir):
     return _ASSET_SRC_RE.sub(replace, html_text)
 
 
-def build_review_for_page(run_dir, page_name):
+# Cycle 92: the tenant's local brand fonts (harness/fonts.py) are injected
+# at the top of <head>, so the review shows the real faces on a machine that
+# has none installed and cannot reach the CDN. Default: the files are copied
+# once into <run_dir>/review-fonts/ and referenced relatively (the review
+# site serves that folder next to the review page); inline_fonts=True puts
+# them in the file as data: urls (a truly self-contained file; the Library
+# uses this).
+REVIEW_FONTS_DIR = "review-fonts"
+
+
+def _font_css(run_dir, tenant, inline_fonts):
+    from . import fonts as fonts_mod
+    from . import tenant as tenant_mod
+
+    tenant = tenant or tenant_mod.active_or_none()
+    faces = fonts_mod.local_faces(tenant) if tenant is not None else []
+    if not faces:
+        return ""
+    if inline_fonts:
+        return fonts_mod.brand_font_css(faces, "inline")
+    fonts_mod.copy_faces(faces, Path(run_dir) / REVIEW_FONTS_DIR)
+    return fonts_mod.brand_font_css(faces, "relative", relative_dir=REVIEW_FONTS_DIR)
+
+
+def build_review_for_page(run_dir, page_name, *, tenant=None, inline_fonts=False):
     """Write <page_name>-review.html for one cartridge under `run_dir`, if it
     has a rendered index.html. Returns the path written, or None if that
     cartridge has no index.html yet (the caller decides what that means --
@@ -88,6 +112,9 @@ def build_review_for_page(run_dir, page_name):
     if not index_path.exists():
         return None
     review_html = inline_assets_as_data_uris(index_path.read_text(), cartridge_dir / "assets")
+    from .fonts import inject
+
+    review_html = inject(review_html, _font_css(run_dir, tenant, inline_fonts))
     review_path = run_dir / f"{page_name}-review.html"
     review_path.write_text(review_html)
     size = review_path.stat().st_size
@@ -100,13 +127,13 @@ def build_review_for_page(run_dir, page_name):
     return review_path
 
 
-def build_reviews(run_dir):
+def build_reviews(run_dir, *, tenant=None, inline_fonts=False):
     """Write <cartridge>-review.html for every cartridge under `run_dir` that
     has a rendered index.html. Returns the list of paths written."""
     run_dir = Path(run_dir)
     written = []
     for cartridge_dir in sorted(p for p in run_dir.iterdir() if p.is_dir()):
-        path = build_review_for_page(run_dir, cartridge_dir.name)
+        path = build_review_for_page(run_dir, cartridge_dir.name, tenant=tenant, inline_fonts=inline_fonts)
         if path is not None:
             written.append(path)
     return written

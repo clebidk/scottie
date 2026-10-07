@@ -26,6 +26,11 @@ steps:
   - stage: render_pages
     description: page.json -> index.html with byline, disclosure, sources, JSON-LD
     for_each: cartridge
+  - stage: design_gate
+    description: >-
+      cycle 92: screenshots, hard checks and a vision judge per page; best of
+      N layouts (tenant.yaml design_gate; off changes nothing)
+    on_fail: stop            # exit 2 in enforce mode, see design/scores.json
   - stage: review_notify
     description: >-
       state.json -> needs_review (every page passed), then notify the
