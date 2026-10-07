@@ -212,6 +212,26 @@ def _ad_name_for_run(tenant, run_dir, status):
     return ads_mod.name_from_source_file(brief.get("source_file")) or run_dir.name
 
 
+def _inbox_items(tenant):
+    """The inbox's items, read once per request (every card asks)."""
+    if getattr(g, "_inbox_items", None) is None:
+        g._inbox_items = meta_ingest.Inbox(tenant.meta_inbox_dir).items()
+    return g._inbox_items
+
+
+def _ad_link(ads):
+    """Cycle 83: the link icon next to the status pill when a Meta ad's
+    current destination is this page. Muted when no ACTIVE ad does. ""
+    when none does."""
+    if not ads:
+        return ""
+    active = any(a["effective_status"] == postlive.LIVE_AD_STATUS for a in ads)
+    text = "\n".join(f"Destination of Meta ad {a['ad_name'] or a['ad_id']} ({a['effective_status'] or 'unknown'})"
+                     for a in ads)
+    return (f'<span class="adlink{"" if active else " off"}" role="img" title="{e(text)}" aria-label="{e(text)}">'
+            f'{icon("link")}</span>')
+
+
 def _first_at(state):
     for entry in state.get("history") or []:
         if entry.get("at"):
@@ -288,12 +308,14 @@ def _gen_info(tenant, run_id, page, *, test=None, variant=None, taken=None):
     headline = page_json.get("headline") or ""
     display = page_json.get("display_headline") or ""
     title = display if hero == "display" and display else headline
+    page_url = record.get("url") or (variant or {}).get("url") or ""
+    linked = postlive.linked_ads(tenant, page_url, test=test or st["test"], items=_inbox_items(tenant))
     can_post = (rendered and not in_test and not st["redirected"] and page_state != "rejected"
                 and (not record or (st["live"] is False and record.get("page_id"))))
     info = {
         "run_id": run_id, "page": page, "run_dir": run_dir, "state": state, "page_state": page_state,
         "status": status, "label": label, "record": record, "live": st["live"], "unlinked": st["unlinked"] and not in_test,
-        "in_test": in_test, "variant": variant, "test": test,
+        "in_test": in_test, "variant": variant, "test": test, "ads": linked,
         "headline": headline, "display_headline": display, "title": title,
         "seo_title": headline if headline and headline != title else "",
         "hero": hero,
@@ -406,7 +428,7 @@ def _facts(info):
 
 
 def _status_chips(info, *, with_gate=True):
-    parts = [chip(info["label"], info["status"], dot=info["status"] in ("live", "approved"))]
+    parts = [chip(info["label"], info["status"], dot=info["status"] in ("live", "approved")), _ad_link(info["ads"])]
     if with_gate and info["gate"]:
         parts.append(chip(info["gate"], "pass" if info["gate"] == "PASS" else "fail"))
     return "".join(parts)
@@ -796,6 +818,12 @@ def _details_card(tenant, run_dir, info, name):
         ("Run", f'<code>{e(run_dir.name)}</code>'),
         ("Created", _when(info["created"])),
     ]
+    if info["ads"]:
+        rows.append(("Ads pointing here", "<br>".join(
+            f'{e(a["ad_name"] or a["ad_id"])} &middot; {chip(a["effective_status"] or "unknown", "live" if a["effective_status"] == postlive.LIVE_AD_STATUS else "")}'
+            f' <span class="muted small">checked {_when(a["links_checked_at"])}</span>' for a in info["ads"])))
+    elif info["status"] == "live":
+        rows.append(("Ads pointing here", '<span class="muted">none</span>'))
     dl = "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows)
     return (f'<div class="card"><div class="card-h"><h3>Details</h3>'
             f'<a class="small muted" href="{url_for("run_detail", run_id=run_dir.name)}">scores and approve (reviewer page)'

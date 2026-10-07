@@ -159,6 +159,11 @@ main.content{width:100%;max-width:1320px;padding:12px 32px 96px}
 .chip.running::before{content:"";width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor;
   border-right-color:transparent;animation:spin .8s linear infinite;flex:none}
 .chip.solid{background:var(--ink);color:var(--stone);border-color:var(--ink)}
+/* cycle 83: the page is the destination of a Meta ad (muted: no ACTIVE ad) */
+.adlink{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;
+  border:1px solid var(--red-line);color:var(--red);background:var(--red-wash);cursor:help;flex:none}
+.adlink svg.i{width:13px;height:13px}
+.adlink.off{border-color:var(--line-2);color:var(--faint);background:var(--field)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* cards, sections */
@@ -504,6 +509,7 @@ _ICONS = {
     "image": '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
     "video": '<rect x="3" y="5" width="13" height="14" rx="2"/><path d="M16 10l5-3v10l-5-3"/>',
     "text": '<path d="M5 6h14"/><path d="M5 11h14"/><path d="M5 16h9"/>',
+    "link": '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>',
     "live": '<circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4"/>',
     "refresh": '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>',
     "hide": '<path d="M3 3l18 18"/><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4.5 9 6-.3.8-1.2 2.3-2.7 3.6"/><path d="M6.6 6.7C4.6 8 3.4 10 3 12c.5 1.5 4 6 9 6 1.6 0 3-.4 4.2-1.1"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>',

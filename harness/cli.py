@@ -1235,6 +1235,19 @@ def cmd_meta_pull(args):
     return exits.OK
 
 
+def cmd_meta_refresh_links(args):
+    """`harness meta refresh-links [--dry-run]` (cycle 83): read every Meta ad
+    in the inbox again and store its current destination_url and
+    effective_status (GETs only; nothing on Meta changes)."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    _cfg, client = _meta_setup(tenant)
+    summary = meta_ingest.refresh_links(client, meta_ingest.Inbox(tenant.meta_inbox_dir), dry_run=args.dry_run)
+    print(f"refresh-links: {len(summary['checked'])} ad(s) checked, {len(summary['changed'])} "
+          f"{'would change' if args.dry_run else 'changed'}, {len(summary['failed'])} not checked"
+          + (". Nothing written." if args.dry_run else ""))
+    return exits.OK
+
+
 def cmd_meta_inbox(args):
     """`harness meta inbox`: one line per item, oldest first."""
     tenant = tenant_mod.load_tenant(args.tenant)
@@ -2016,6 +2029,11 @@ def build_parser():
     p_meta_pull.add_argument("--dry-run", action="store_true", help="list what would be ingested; write nothing")
     _add_tenant_flag(p_meta_pull)
     p_meta_pull.set_defaults(func=cmd_meta_pull)
+    p_meta_links = meta_sub.add_parser(
+        "refresh-links", help="read each inbox ad's current destination and status from Meta (read only)")
+    p_meta_links.add_argument("--dry-run", action="store_true", help="print what would change; write nothing")
+    _add_tenant_flag(p_meta_links)
+    p_meta_links.set_defaults(func=cmd_meta_refresh_links)
     p_meta_inbox = meta_sub.add_parser("inbox", help="every inbox item and its state")
     _add_tenant_flag(p_meta_inbox)
     p_meta_inbox.set_defaults(func=cmd_meta_inbox)
