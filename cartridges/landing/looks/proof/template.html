@@ -264,16 +264,7 @@
   </section>
   {% endif %}
 
-  {% if page.faq and page.faq.questions %}
-  <section class="ld-sec">
-    <div class="ld-narrow">
-      <h2 class="ld-h2">Questions before you buy</h2>
-      {% for entry in page.faq.questions %}
-      <div class="ld-qa"><h3>{{ entry.question }}</h3><p>{{ entry.answer }}</p></div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
+  {% include "blocks/faq.html" %}
 
   {% if ld.icon_row %}
   <section class="ld-sec">

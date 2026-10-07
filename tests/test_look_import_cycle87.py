@@ -193,8 +193,10 @@ def test_a_valid_template_is_stored_as_a_tenant_look_that_resolves_and_renders(t
     result = _import(client=client, title="Split hero")
     folder = TENANT.looks_dir / "landing" / "split-hero"
     assert result["folder"] == str(folder) and result["attempts"] == 1
-    assert sorted(p.name for p in folder.iterdir()) == ["library.json", "observation.json", "review.html",
+    # cycle 91: the open look includes the catalog faq block, so the stored look declares it in look.json
+    assert sorted(p.name for p in folder.iterdir()) == ["library.json", "look.json", "observation.json", "review.html",
                                                         "template.html"]
+    assert json.loads((folder / "look.json").read_text()) == {"blocks": ["faq"]}
     library = json.loads((folder / "library.json").read_text())
     assert library["name"] == "split-hero" and library["title"] == "Split hero" and library["cartridge"] == "landing"
     assert library["source"]["kind"] == "upload" and library["source"]["origin"] == FIXTURE.name
@@ -296,8 +298,9 @@ def test_the_validator_passes_the_approved_look_and_names_each_broken_rule():
     (lambda t: t.replace("{{ page.hero.subhead }}", "{{ page.hero.subhead | safe }}"), "`| safe` only"),
     (lambda t: t.replace("{{ ld.eyebrow }}", "{{ ld.eyebrow.__class__ }}"), "starts with an underscore"),
     (lambda t: t.replace("{% block content %}", "{% include 'x.html' %}{% block content %}"), "include"),
-    (lambda t: t.replace("<h2 class=\"ld-h2\">Questions before you buy</h2>",
-                         "<h2 class=\"ld-h2\">Questions before you buy from the team that has served 4000 owners</h2>"),
+    # cycle 91: the FAQ heading moved into blocks/faq.html; another label of the open look
+    (lambda t: t.replace("<h2 class=\"ld-h2\">What the ad said, and what the facts say</h2>",
+                         "<h2 class=\"ld-h2\">What the ad said, and what 4000 owners say</h2>"),
      "has a number"),
     (lambda t: t.replace('class="pk-lp adv-landing"', 'class="adv-landing"'), "wrapper element"),
 ])

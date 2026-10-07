@@ -1,0 +1,7 @@
+{
+  "blocks": ["stat_strip", "photo_essay", "feature_grid", "statement_band", "faq"],
+  "options": {
+    "stat_strip": {"layout": "inline"},
+    "photo_essay": {"layout": "contained"}
+  }
+}

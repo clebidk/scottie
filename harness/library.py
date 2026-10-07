@@ -55,6 +55,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .blocks import catalog as block_catalog
 from . import first_screen, listicle, looks, pipeline
 from . import tenant as tenant_mod
 from .config import REPO_ROOT
@@ -83,6 +84,10 @@ LOOK_NOTES = {
     ("landing", "open"): "Ad-first and mobile-first: headline, the ad's still, the price, checked claims, one CTA.",
     ("landing", "proof"): "The open page with the rating first, check-mark benefits, trust facts under the CTA "
                           "and an icon row.",
+    ("landing", "cinematic"): "Built from blocks: a full-bleed first screen with the stats inside it, a photo "
+                              "essay, a feature grid, a dark statement band, the FAQ.",
+    ("landing", "buybox"): "Built from blocks: a trust bar, the product with labelled hotspots beside a buy panel "
+                           "(price, every spec, one pill), checked claims, the FAQ.",
     ("listicle", "open"): "Boxless white page: centred headline with one red accent, numbered items with a "
                           "red-bar proof line, one dark closing band.",
     ("longform", "open"): "The listicle's boxless design on the long page: stats strip, red numerals, hairline "
@@ -306,7 +311,8 @@ def describe(tenant, version):
 def version_sha(tenant, version):
     """sha256 of what decides a version's page: the cartridge's template,
     cartridge.md and schema.json, and the look's template (+ library.json
-    for an imported look, and whether the harness can render it)."""
+    for an imported look, and whether the harness can render it); cycle 91:
+    + the look's look.json and its declared catalog blocks' files."""
     cdir = pipeline.CARTRIDGES_DIR / version.cartridge
     files = [cdir / "template.html", cdir / "cartridge.md", cdir / "schema.json"]
     if version.tenant_look:
@@ -314,6 +320,17 @@ def version_sha(tenant, version):
         files += [ldir / "template.html", ldir / "library.json"]
     elif version.look:
         files.append(cdir / "looks" / version.look / "template.html")
+    # Cycle 91: the look's look.json and the catalog blocks it declares (their
+    # module and partial), so a block change rebuilds the versions using it.
+    look_dir = files[-1].parent if version.look else None
+    if look_dir is not None:
+        files.append(look_dir / "look.json")
+        try:
+            declared = block_catalog.look_blocks(version.cartridge, version.look, tenant=tenant)
+        except ValueError:
+            declared = ()
+        for block_id in declared:
+            files += [block_catalog.CATALOG_DIR / f"{block_id}.py", block_catalog.CATALOG_DIR / f"{block_id}.html"]
     h = hashlib.sha256(f"{FORMAT}\n{version.key}\n".encode())
     if version.tenant_look:
         h.update(b"renderable" if _renderable(tenant, version) else b"listed")

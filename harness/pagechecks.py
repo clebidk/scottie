@@ -287,7 +287,9 @@ def find_block_violations(page, cartridge_name, block_slots=None):
     attach to blocks (docs/KIMI-LONG-RUN.md phase 3). Every slot must be one
     the cartridge's schema declares in "block_slots", and every chosen id a
     registered block that slot allows. Absent "blocks" is fine -- the
-    cartridge's defaults render."""
+    cartridge's defaults render. Cycle 91: an object value is a catalog
+    block's fields (`blocks.<id>: {...}`), not a slot pick; the catalog's
+    own gate (harness/blocks/catalog, via repair.check_page_gates) checks it."""
     blocks_map = page.get("blocks")
     if blocks_map is None:
         return []
@@ -298,6 +300,8 @@ def find_block_violations(page, cartridge_name, block_slots=None):
     registered = set(blocks_mod.block_names())
     problems = []
     for slot, block_id in blocks_map.items():
+        if isinstance(block_id, dict):
+            continue   # cycle 91: a catalog block's fields (blocks.<id>: {...}), gated by harness/blocks/catalog
         path = f"$.blocks.{slot}"
         slot_spec = (block_slots or {}).get(slot)
         if slot_spec is None:

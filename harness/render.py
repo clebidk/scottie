@@ -21,6 +21,7 @@ from PIL import Image
 from . import photo_library
 from . import ad_frames
 from . import blocks
+from .blocks import catalog as block_catalog
 from . import cutouts as cutouts_mod
 from . import first_screen as first_screen_mod
 from . import ground as ground_mod
@@ -954,6 +955,11 @@ def render_page(
         loader = jinja2.ChoiceLoader([
             loader, jinja2.PrefixLoader({"looks": jinja2.FileSystemLoader(str(tenant_looks))}, delimiter="/"),
         ])
+    # Cycle 91: the block catalog's partials, as "blocks/<id>.html" (a look's
+    # {% include %}); after everything else, so nothing shadows a template.
+    loader = jinja2.ChoiceLoader([
+        loader, jinja2.PrefixLoader({"blocks": jinja2.FileSystemLoader(str(block_catalog.CATALOG_DIR))}, delimiter="/"),
+    ])
     env = jinja2.Environment(
         # blocks.BLOCKS_DIR last: a cartridge's own template.html and the
         # shared templates win; block partials resolve as "<name>/block.html".
@@ -1247,6 +1253,27 @@ def render_page(
         if cutouts_mod.is_cutout_id(hero_id) and hero_id in assets_by_id:
             gallery_ids = ([hero_id] + [g for g in gallery_ids if g != hero_id])[: pdp_mod.GALLERY_MAX]
 
+    # Cycle 91: the block catalog (harness/blocks/catalog/). A look that
+    # declares blocks in its look.json gets each one's renderer-built
+    # context as `blocks.<id>`; images a block shows join the download set,
+    # and the claims it cites join Sources. A look that declares none gets
+    # an empty `blocks` and renders exactly as before.
+    block_ctx, block_asset_ids = {}, set()
+    block_spec = block_catalog.look_spec(cartridge_name, look, tenant=tenant, looks_dir=looks_dir) if look else None
+    if block_spec and block_spec["blocks"]:
+        rendered_blocks = block_catalog.render_blocks(block_spec, {
+            "page": page, "facts_pack": facts_pack, "tenant": tenant, "cartridge": cartridge_name, "look": look,
+            "assets": assets_by_id, "frame_asset": assets_by_id.get(ad_frames.FRAME_ID),
+            "asset_alt": lambda a, name=None: asset_alt(a, name or full_name, tenant=tenant),
+        })
+        block_ctx, block_asset_ids = rendered_blocks["blocks"], rendered_blocks["asset_ids"]
+        if rendered_blocks["claim_ids"] - used_claim_ids:
+            used_claim_ids |= rendered_blocks["claim_ids"]
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
     # so the page folder is self-contained. An asset that fails to download
@@ -1255,7 +1282,7 @@ def render_page(
     if download_assets:
         used_asset_ids = (
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
-            | ({promise_id} if promise_id else set()) | quiz_asset_ids
+            | ({promise_id} if promise_id else set()) | quiz_asset_ids | block_asset_ids
             | {a for a in assets_by_id if a.startswith(ad_frames.FRAME_ID)}
         )
         assets_dir = out_dir / "assets"
@@ -1373,6 +1400,9 @@ def render_page(
         # registered block (blocks.choice validates, so the include path can
         # never escape the blocks directory).
         block_choice=functools.partial(blocks.choice, page),
+        # Cycle 91: the catalog blocks this look declares, rendered ({} for a
+        # look that declares none); a partial reads its own `blocks.<id>`.
+        blocks=block_ctx,
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
         # Cycle 55: the header label ("Advertisement", "Sponsored", ...) is a
         # tenant decision, not a template literal. Empty or unset renders no

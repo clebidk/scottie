@@ -1,0 +1,29 @@
+{#- Block `stat_strip` (cycle 91, harness/blocks/catalog/stat_strip.py): 3-4
+    renderer-built stats, each a display-face value over a short accent rule
+    and a small label. layout "band": on the light ground, hairlines between
+    cells; "inline": inside a dark hero, light text. Two columns on a phone,
+    one row from 768px. -#}
+{%- set bk = blocks.stat_strip if blocks and blocks.stat_strip else none -%}
+{%- if bk and bk.stats %}
+<style>
+.bk-stat_strip{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--bk-line)}
+.bk-stat_strip .bk-stat_strip-cell{min-width:0;padding:14px 12px 14px 0;border-bottom:1px solid var(--bk-line)}
+.bk-stat_strip .bk-stat_strip-cell:nth-child(even){padding-left:14px;border-left:1px solid var(--bk-line)}
+.bk-stat_strip .bk-stat_strip-value{display:block;font:400 18px/1.15 var(--bk-display);letter-spacing:.01em;color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-stat_strip .bk-stat_strip-value::before{content:"";display:block;width:24px;height:3px;margin-bottom:10px;background:var(--bk-red)}
+.bk-stat_strip .bk-stat_strip-label{display:block;margin-top:6px;font:400 13px/1.35 var(--bk-sans);color:var(--bk-muted)}
+.bk-stat_strip.bk-stat_strip--inline{--bk-line:var(--bk-muted)}
+.bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-value{color:var(--bk-on-dark)}
+.bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-label{color:var(--bk-on-dark);opacity:.82}
+@media (min-width:768px){
+  .bk-stat_strip{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);border-bottom:1px solid var(--bk-line)}
+  .bk-stat_strip .bk-stat_strip-cell,.bk-stat_strip .bk-stat_strip-cell:nth-child(even){border-bottom:0;border-left:0;padding:20px 18px 22px}
+  .bk-stat_strip .bk-stat_strip-cell+.bk-stat_strip-cell{border-left:1px solid var(--bk-line)}
+  .bk-stat_strip .bk-stat_strip-cell:first-child{padding-left:0}
+  .bk-stat_strip .bk-stat_strip-value{font-size:24px}
+}
+</style>
+<ul class="bk-stat_strip bk-stat_strip--{{ bk.layout }}" data-look-pattern="stat_strip">
+{%- for s in bk.stats %}<li class="bk-stat_strip-cell"><b class="bk-stat_strip-value">{{ s.value }}</b><span class="bk-stat_strip-label">{{ s.label }}</span></li>{% endfor -%}
+</ul>
+{%- endif %}

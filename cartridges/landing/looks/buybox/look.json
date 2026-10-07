@@ -1,0 +1,7 @@
+{
+  "blocks": ["trust_bar", "hotspot_image", "model_card", "faq"],
+  "options": {
+    "hotspot_image": {"hero": true},
+    "model_card": {"variant": "panel"}
+  }
+}
