@@ -4724,6 +4724,75 @@ Branch `cycle82d/landing-adsaid-wording` from origin/master c252fe3 (the cycle 8
   said" line, and the `fact` next to it corrects them. That is the cartridge's design, but
   the owner has not seen it on a live page. The two prod runs were not run again here.
 
+### Cycle 82e (landing: other words for "dedicated circuit", 4 attempts, the rating is not a quote, 2026-10-07)
+Branch `cycle82e/power-synonyms` from origin/master 95d62ed.
+- **Problem 1.** Prod run 20261007-195142-...-rzvr (Mini) STOPped on attempt 3 with one item,
+  `$.faq.questions[1].answer` under `landing:power`: "... plugs into a standard 120V/15A household
+  outlet on its own 15A circuit." The sentence states the dedicated circuit, but
+  `pdp.states_dedicated` knew only the word "dedicated". Two repairs went to other fixes first, so
+  the writer saw this item once.
+- **Problem 2.** The first `--look proof` run (20261007-195303-...-ybme) showed the rating sentence
+  "Rated 4.8 out of 5 across 49 reviews ... (fetched 2026-10-07)." under the subhead as a customer
+  quote. The quote gate accepted any text inside `facts_pack.reviews_summary`, and that is the
+  rating claim. No facts source holds individual review texts (`ground.py` sets
+  `reviews_summary = {text, claim_ids}` only); the listicle's `facts_pack.review_quotes` is the
+  one field for them, and nothing fills it yet.
+- **Change.** `pdp.states_dedicated` also accepts "its own [15A|20A|N-amp] circuit/breaker/line/
+  outlet", "a separate [15A|20A] circuit/breaker/line", "dedicated ... breaker" and "single-purpose
+  circuit"; a negation just before ("not on its own circuit") still does not count. A
+  `landing:power` issue for a dedicated-circuit product now ends "Say 'dedicated circuit' in the
+  same sentence, for example: '<the product's own claim>'" (`pdp.dedicated_claim_text`).
+  `repair.REPAIR_ATTEMPTS_BY_CARTRIDGE = {"landing": 3}`: landing gets 4 attempts, every other
+  cartridge keeps 3 (`MAX_REPAIR_ATTEMPTS` is unchanged). `proof.quote` must now be word for word
+  inside one `facts_pack.review_quotes` text; a quote that looks like a rating ("out of 5",
+  "reviews on", "fetched", "rated 4", "4.8 stars", "/5") or sits inside the reviews_summary or
+  `reviews-live` text fails a new key `landing:quote_not_review`. The renderer
+  (`landing.review_quote`) shows only a quote that passes both, in the proof look AND the open
+  look (the open look rendered `page.proof.quote` unchecked before). Prompt line, cartridge.md and
+  schema description say the same.
+- **Verify.** 18 new tests (17 in `tests/test_landing_cycle82.py`, 1 in
+  `tests/test_landing_proof_cycle85.py`); 14 of them fail on 95d62ed (the "dedicated 15A" and
+  the three negation cases already held). Existing tests changed: the 82c quote test asserted
+  the rating sentence as a good quote; `_write_loop` feeds 4 responses and the subhead-trim test
+  now trims on attempt 4; the cycle 85 quote fixture moved from an invented
+  `reviews_summary.quotes` to `review_quotes`. Landing files: 109 passed. Full suite
+  `.venv/bin/python -m pytest -q`: 2594 passed, 0 failed.
+- **Open.** Until a facts source fills `review_quotes`, every landing page has no quote, only the
+  rating row. The fourth landing attempt costs one more write call on a failing page (the budget
+  guard still applies). The two prod runs were not run again here.
+
+### Cycle 82f (landing: an unverifiable quote is dropped; a degenerate repair is discarded, 2026-10-07)
+Branch `cycle82f/quote-drop` from origin/master e52bade.
+- **Problem.** Prod run 20261007-201051-...-tks7 (`--look proof`): `facts_pack.review_quotes` is
+  empty for this tenant. Attempt 3 failed only on `$.proof.quote.text` (`landing:quote_verbatim`;
+  the writer had copied a line from the ad transcript as a quote). Attempt 4 came back as a
+  near-empty page (48 words, 0 checked_claims, no FAQ, no closing headline, 2 benefits) and the run
+  STOPped. A quote the harness cannot verify cost a repair attempt, and the repair after it lost
+  the page.
+- **Change.** `landing.drop_unverifiable_quote` deletes `proof.quote` (the rest of `proof` stays)
+  when it fails `landing:quote_verbatim` or `landing:quote_not_review` (no review_quotes, not word
+  for word in one of them, or a rating line -- the 82e checks). `write_and_gate_page` calls it on
+  every landing attempt before the gate, and `apply_deterministic_fixes` does the same for those
+  two keys; both log "fix: dropped unverifiable proof.quote" and count it as a deterministic fix.
+  The gate check and the renderer safety net (`landing.review_quote`) stay. Writer prompt
+  (`landing.quote_writer_line`): with no review_quotes, the one line "There are no customer review
+  quotes in the facts pack: do not write proof.quote; the rating row is shown by the renderer.",
+  and the proof look's "proof.quote sits under the subhead" line is left out; with quotes, the
+  line lists them verbatim with their ids (or `review_quotes[i]`) and authors. Degenerate-repair
+  guard, all cartridges (`repair.degenerate_repair`): a repair page with under 60% of the previous
+  attempt's words, or that lost 4+ checked_claims, the FAQ questions or the closing headline, is
+  discarded; the previous page and its failures stay the working copy, the attempt counts, and the
+  next repair note starts with `repair.DEGENERATE_REPAIR_NOTE` ("Your last answer dropped most of
+  the page; return the full page with only the listed fixes applied.").
+- **Verify.** 7 new tests in `tests/test_landing_cycle82.py`; 6 of them fail on e52bade (the
+  verbatim-quote-survives test passes before and after). Full suite
+  `.venv/bin/python -m pytest -q`: 2638 passed, 9 failed. The 9 failures are on e52bade too
+  (2631 passed, 9 failed before this change) and come from c4d774d (peak-saunas warranty wording
+  is 7-year residential): the same six test files pass at ca1a21f (390 passed).
+- **Open.** The 60% word threshold also applies when a repair legitimately cuts an over-long page
+  by more than 40%; that repair is now discarded. The prod run was not run again here. The 9
+  failures from c4d774d are not fixed in this cycle.
+
 ## Cycle 85 (landing `proof` look: reviews first, checkmark benefits, trust under the CTA, icon row, 2026-10-07)
 Branch `cycle85/landing-proof-look` from origin/master 2dda94c, with `cycle82c/landing-power` merged
 in first (not yet on master; merged here so the two do not conflict later).
@@ -4869,6 +4938,23 @@ the upload form had no way to ask for a specific version.
   force; a second press opens the waiting job. `harness serve` queues a non-forced build at
   startup when `tenants/<t>/library/` does not exist (`library.queue_if_missing`), without
   waiting, and a queue error only prints a warning.
+- **Merge with master 34200a2 (cycles 82e, 82f, 82g, 87, 88, the 7-year wording).** Imported
+  looks now come from cycle 87's mechanism: `looks.imported_looks` lists them, `looks.resolve_look`
+  accepts the slug, render.py loads the template from the tenant folder, and the card reads cycle
+  87's `library.json` (`source` is `{kind, origin, imported_at}`). An imported listicle look is one
+  version (story first screen, reasons style) so "Generate with this" has a full build. The pin
+  works with cycle 88's destinations: `create_test(plan=..., pinned_arm=...)` makes the pin the
+  first generated arm (variant A; external arms take the last keys); a plan with no generated arm
+  (`pdp-only`, `home-only`) and a pin is refused on the upload form (400), by `create_test`, and by
+  `build_test_for_item` (the item fails with a reason). Job types: `look_import` and
+  `library_build` side by side.
+- **Owner note (2026-10-07): white background.** `harness/site_ui.py`: `--bg`, `--card` and
+  `--field` are `#FFFFFF` (were Stone `#EFE3D2`, `#F7F1E8`, `#FBF8F2`); cards keep their Cedar
+  hairline border; the sticky top bar is translucent white (was translucent Stone). The Fossil
+  sidebar is unchanged (it was never the page colour); Stone stays only as the sidebar's active
+  row, and the `--wash` `#E9DFCD` stays behind previews and table heads. Thumbnails need no border
+  change (they sit in the ink phone frame on the wash). `tests/test_post_live_cycle80.py` now
+  asserts the white tokens and the card hairline.
 - **Tenant / tests plumbing.** `Tenant.library_dir`, `Tenant.looks_dir`; conftest redirects
   `library_dir` into tmp_path and tracks `library/` in the leak backstop.
 
@@ -4884,6 +4970,13 @@ the upload form had no way to ask for a specific version.
   version failing the job, startup queueing and `harness serve` not waiting.
 - Full suite: 2595 passed, 0 failed (origin/master before this change: 2576 passed). `ruff` is not
   installed in this checkout's venv, so it was not run.
+- After the merge with master 34200a2: 2720 passed, 9 failed. Clean 34200a2 alone: 2698 passed,
+  9 failed -- the same 9 tests in `tests/test_look_import_cycle87.py` (the cycle 87 landing contract
+  still requires `page.proof` / `review_quote`, which cycle 82f changed). The merge adds 22 tests
+  and no failure. `harness library build --tenant peak-saunas --force` after the merge: 19 built,
+  5 not renderable offline, 0 failed; a temporary imported look under
+  `tenants/peak-saunas/looks/landing/` built and rendered (then removed). The Library, Ads and
+  generation pages screenshotted on the white background at 1280px and the Library at 390px.
 - `harness library build --tenant peak-saunas` on the Mac: 19 built, 5 not renderable offline,
   0 failed, about 12 s; second run: 24 up to date. With Chrome on PATH (a `chromium` shim to
   Google Chrome): 19 thumbnails, each 390x844, read back and checked by eye. No file appeared
@@ -4905,12 +4998,193 @@ the upload form had no way to ask for a specific version.
 - **The sha does not cover brand or renderer changes** (base.css, structure.css, harness code).
   After a brand import or a renderer change, rebuild with `--force` (the site button always
   forces).
-- **Imported looks.** Whether a cycle 87 look renders depends on `looks.resolve_look` and
-  `looks.requested_for` accepting its name; if the import path uses another mechanism, the
-  Library lists the look but keeps it as a text card. "Generate with this" is shown only when
-  `abtest.parse_arm` accepts the version.
+- **Imported looks** render with the canned demo page of their cartridge (the plain landing page,
+  not the proof page's extra blocks); a look built around other fields shows those parts empty.
+  "Generate with this" is shown only when `abtest.parse_arm` accepts the version.
 - **Nav label.** The Library page sits in the Review group; the older sidebar group named
   "Library" (Runs, Images) keeps its name, so the word appears twice in the sidebar.
 - **Server.** Not deployed. Whether the server has a Chromium binary is not known; without one
   the cards are text cards. `crons/` has no library rebuild timer; the startup queue and the
   button are the only triggers besides the CLI.
+
+## Cycle 88 (PDP / home page as A/B/C arms or sole destination, 2026-10-07)
+Branch `cycle88/control-arms` from origin/master 95d62ed (cycles 80-85).
+
+### Problem
+Every A/B/C test had three generated pages. There was no control arm: the team could not
+compare a generated page with the product's own page (PDP) or the store home page, and could
+not send an ad only to the PDP or the home page while the split link still counted the click.
+
+### Change
+- harness/abtest.py: destination PLANS (`generated`, `gen2-pdp`, `gen2-home`, `gen1-pdp-home`,
+  `pdp-only`, `home-only`), `parse_plan` / `validate_plan` (a preset, or a JSON list of arms
+  `{"kind": "external", "target": "pdp"|"home"|"url", "url": ...}`; allowed: 3 generated,
+  2 generated + 1 external, 1 generated + PDP + home, one external arm alone). An external
+  variant in the record: `kind`, `target`, `arm: external:<target>`, `url`.
+- PDP = `facts_pack.product.url` of the first built variant (what its CTA links to); with no
+  generated arm, `default_brief_runner` (`harness ingest`: one model call, spend recorded) and
+  the `claims/products.json` pick. An ad that names no product refuses the PDP arm with
+  ground's own words "product not named in ad" and fails the test (after one build, not three).
+  Home = `site_url` + `/`. A runner/brief error fails the test instead of leaving it building.
+- Split script: redirects to an external arm like to a generated one (store URLs as paths,
+  `?`/`&` join for a URL with a query). For ALL arms it now sets `utm_content=<test>_<key>`
+  (an incoming `utm_content` is replaced) and, only when missing, `utm_source=meta`,
+  `utm_medium=paid`, `utm_campaign=<test>`; before there was no UTM of its own. With
+  `beacon_url` it sends `{e: "assign"}` (same `pk_vid` id and cookie as the variant beacon).
+- harness/abevents.py: event `assign` (same receiver, validation, bot filter, 60/min per-IP
+  limit, one row per visitor and arm); `counts()` adds `assigns` only for keys that have them.
+- Results (`abtest.results` / `format_results`; abstats.py itself is unchanged): an
+  `assigned` column; external rows show `-` for views, CTA, CTR, P(best), orders, revenue, plus
+  "measure in GA4/Shopify by utm_content=<test>_<key>". P(best) only across two or more
+  generated arms. `finish` refuses with fewer than two; `--force` finishes with no winner.
+  External arms stay out of `pooled_arm_stats` (Thompson sampling).
+- CLI: `abtest create --destinations`, `abtest from-inbox --destinations` (an inbox item's own
+  `destinations` wins); `publish` skips external arms and builds the split from their URLs;
+  `status` / `orders` / `finish` print the external arms.
+- Site: "Destinations" select on the upload form (stored on the inbox item, audited), with
+  copy that the choice is for a new test only and that the harness never edits the ad in Meta
+  (said once). Test card: "Destinations: A = generated, B = generated, C = PDP (fixed when the
+  test was created)" and an external card (destination link, Assigned, the utm_content note).
+  Generation page: "Test destinations: A = this page, ...". Only shown for a test with an
+  external arm.
+
+### Verify
+- `tests/test_control_arms_cycle88.py` (46): presets and JSON plans, 12 refused shapes; home,
+  PDP from the facts pack and from the product map, the "product not named in ad" refusal,
+  `split_path`; builds for every preset (runner and brief-runner call counts), refusal after
+  one build, brief budget stop then resume, brief error, `default_brief_runner` wiring (fake
+  ingest and client) incl. its budget stop; CLI create; publish with PDP and home-only (Shopify
+  POSTs); the split script under node (external arm, assign ping, UTMs kept/added/replaced,
+  returning visitor, URL with a query, no ping without a beacon URL); assign events at `/e`
+  (dedupe, non-live test, unknown key, shared rate limit); results for mixed, external-only
+  and 1-generated tests, `finish` refusal and `--force`, pooled stats; from-inbox (item plan,
+  flag, refused PDP, bad flag); upload form, upload -> job -> plan, unknown plan 400, card and
+  generation-page labels, no label for a 3-generated test.
+- `tests/test_abtest_cycle67.py`: four split assertions updated for the new UTMs and the
+  assign ping; its script-size guard raised from 900 to 1500 characters (now about 1160 with a beacon URL).
+- Full suite `.venv/bin/python -m pytest -q`: 2622 passed, 0 failed (2576 before the 46 new tests).
+
+### Open
+- Not run against a live store, a real `harness ingest`, or a browser. The split script ran
+  under node with stubs only; that `sendBeacon` survives the `location.replace` on mobile
+  Safari/Chrome is not checked here.
+- `utm_content` on every arm replaces the ad's own `utm_content` (if the team sets one in Ads
+  Manager URL parameters). The default `utm_source=meta` / `utm_medium=paid` is a guess at the
+  team's convention; an ad's own values win.
+- Assignments count visitors the split page sent, not visitors who loaded the PDP or home
+  page; a visitor who leaves during the redirect is still counted.
+- Orders are not credited to an external arm (its cart attribute is set by the beacon), so
+  orders and revenue for a PDP/home arm must come from Shopify/GA4 by utm_content.
+- Changing the plan or the destination of a live test is not built (new test only), even
+  though the split link would allow it.
+- The plan is a select on the upload form only; a Meta-pulled ad gets the `from-inbox
+  --destinations` value (the cron passes none, so 3 generated).
+## Cycle 87 (import any landing page as a PEAK-style look, 2026-10-07)
+Branch `cycle87/look-import` from origin/master 95d62ed. Not merged, not pushed. Built in parallel
+with cycle 86 (the Library page, which lists `tenants/<t>/looks/*/*/library.json`); the button is
+on the Ads page here because the Library page is not in this branch.
+
+### Problem
+A new look (cycle 85's `proof`) took a hand-built template each time. The owner sees landing pages
+elsewhere whose structure he wants to test, but the harness had no way to learn a layout from a
+page: every look was hand-written, and nothing let a reviewer turn a page into an A/B/C option.
+
+### Change
+- **`harness/look_import.py`**: ingest (upload, paste, URL with a 10 s timeout, 2 MB cap, public
+  addresses only, every redirect hop checked, `text/html` only; same-origin CSS only, capped) ->
+  parse with html5lib and sanitise (scripts, frames, objects, event attributes, `javascript:` URLs
+  dropped; nothing is run) -> a deterministic BUILD OBSERVATION (sections in order with a role
+  guess, heading level, words, images and aspect ratios, lists, table, CTA count and type, light/
+  dark background, desktop columns from the CSS or the class names, repeated items; page-wide fonts,
+  content width, nav, sticky elements, images, CTA phrases, estimated weight). The observation holds
+  numbers and role names only. -> ONE call to the tenant's `write` model with the observation,
+  `harness/look_import_rules.md` (tokens, the exact render contract filled in per cartridge, the
+  boxless and mobile rules, the export constraints) and the cartridge's default look as the
+  reference; the model returns only `template.html`. -> validation: Jinja parses; only contract
+  names, schema fields and renderer keys; no `_` names, only allowed calls/filters, `| safe` only on
+  renderer markup; tokens only (no hex, colour function or named colour; only `--ps-*`/`--adv-*` or
+  look-defined custom properties); boxless (no four-sided border, no shadow, no gradient,
+  token-only backgrounds, one dark band, small radii); mobile first (min-width queries only, no
+  fixed width over 390px); no `@font-face`/`@import`/`url()`, no external URL, no literal link,
+  form, button or frame; one small inline script at most; at most short literal labels; every
+  renderer-owned block used; one wrapper `pk-lp adv-<cartridge>`. Then a render of the tenant's
+  demo page through `render_page` (its own backstops run), the brand lint on the review page and the
+  export, the `harness shopify-body` invariants, the one-CTA check (every CTA link has the page's
+  `cta_url` and exact `cta_text` on a beacon CTA class; the secondary text link once and never a
+  CTA class; no other link target), and the demo's renderer values and writer sections visible. On
+  failure one repair call with the errors, then a refusal listing them. Stored as a tenant look
+  (`template.html`, `library.json`, `observation.json`, `review.html`) through a hidden staging
+  folder renamed into place. The spend is reserved and recorded in the tenant's daily ledger.
+- **Tenant looks** (`harness/looks.py`): `LOOK_SLUG_RE`, `imported_looks`, `is_look_of`,
+  `look_arg`; `resolve_look` and `requested_for` accept a tenant look after the cartridge's own;
+  never a default. `render_page` adds a prefix loader on `tenants/<t>/looks/<cartridge>/` after the
+  cartridge folder (`looks_dir=` overrides it for the validation render). `Tenant.looks_dir`.
+  Wired through `pipeline.prepare_run` (all five look resolutions get the tenant; the listicle now
+  resolves through `looks.resolve_look`, same result for built-in looks), `abtest.parse_arm`
+  (`landing:<slug>`, `listicle:<style>:<slug>`), `harness run/rerender --look` (argparse `type=`
+  accepting built-in looks or any tenant's imported look; `brochure` is still refused).
+- **Collision**: a name that is a built-in look of any cartridge (retired listicle names included)
+  or an existing tenant look is refused before any model call, and again at the rename.
+- **Job** `look_import` (`harness/jobs.py`): progress steps in a new `progress` column (added to an
+  existing database with `ALTER TABLE`), set through `jobs.progress` for the running job; the
+  pending upload/paste file is always deleted; audit `look_import` and `look_import_done`.
+- **Site**: "Import a page" on the Ads page (a `<dialog>`; `/looks/import` without JS): name, page
+  type (landing default, listicle), URL / .html file / pasted HTML (exactly one). Login and form
+  token like every POST, 2 MB page cap, 6 imports in 10 minutes per reviewer, one active job per
+  name. The job page shows the step, then the summary, the sections, the validation result, the
+  model cost, a reference render link (`/looks/<c>/<slug>/review`) and the A/B/C entry; a failed job
+  lists the errors and says nothing was stored.
+- **CLI**: `harness look import --tenant <t> --cartridge landing|listicle (--file F | --url U |
+  --html -) --name <slug> [--title T] [--dry-run]`.
+- **Demo pages**: `tenants/peak-saunas/look-demo/{landing,listicle}/` (page, facts_pack, ad_brief)
+  from offline `evals.fake_run` runs of `founder-warranty-demo.txt` (listicle `--seed 42`).
+- `tenants/*/looks/` gitignored (runtime data, like `abtests/`); the isolation fixture redirects
+  `looks_dir` in tests; `look_import_rules.md` in package data.
+
+### Verify
+- The validator passes the approved landing `open` look and the listicle `open` look (with its one
+  legacy `rgba()` replaced by a token), and refuses the `proof` look as an imported look (it reads
+  proof-only context keys) -- as intended.
+- `tests/test_look_import_cycle87.py`: 60 tests (observation of the fixture page: roles nav, hero,
+  benefits, proof, faq, cta, footer, the 3-column grid, the dark band, the sticky header, counts,
+  none of its words; sanitiser; URL refusals: non-HTML, over the cap by body and by Content-Length,
+  five non-public addresses, a redirect to the metadata address, non-http schemes, credentials;
+  same-origin CSS only; a FakeClient import stored, resolved by looks.py, rendered by render_page,
+  accepted by the A/B/C library, never a default; a built-in name shadowing; the validator's 16
+  rules one by one; an unknown variable + colour literal + second CTA refused after one repair with
+  nothing stored; a second CTA phrase refused; repair success on attempt 2; collisions before any
+  model call; a listicle import; the contract names all passed by render_page (AST of render.py);
+  the rules file lists every landing key; the site dialog, login, form token, bad requests, the rate
+  limit, the job (progress steps, result page, reference render, pending file deleted) and a failed
+  job; the CLI dry run, a CLI import and a refusal; `--look <slug>` accepted by argparse).
+- Full suite: 2636 passed, 0 failed.
+- `harness look import --tenant peak-saunas --file tests/fixtures/look_import/sample-landing.html
+  --name split-hero --dry-run` exits 0 and prints the observation; nothing written. `--name open`
+  exits 1 with the collision message.
+
+### Open
+- **Model cost per import: estimated, not measured.** About 9.6k input / 5k output tokens for a
+  landing look (11k / 6.3k for a listicle) at claude-sonnet-5: about $0.07-0.09 per import, $0.15-0.18
+  when the repair call runs. No real-model import has been run; whether the model follows the
+  observation's layout (and how often the first answer passes) is unseen.
+- **Copy, images and scripts of the source page are never kept**: the observation has no text, the
+  model never sees the page, the stored files hold the observation (numbers and role names), the
+  template and the demo render. A literal-label limit (10 words a label, 80 in all, no numbers) keeps
+  the model's own section labels short; their wording is not checked against the tenant's vocab
+  beyond `render_page`'s visible-text backstops.
+- The observation is a heuristic: role guesses come from tags, counts and heading keywords; column
+  counts only from CSS the import could read (same origin) or utility class names; a page built by
+  client-side JavaScript observes as nearly empty (nothing is run).
+- An imported landing look gets the `open` render context, not the `proof` look's extra blocks
+  (benefits, icon row, proof trust line): the writer is told to omit those for any look but `proof`.
+- `brandcheck` in the brief: the pixel brandcheck (harness/brandcheck.py) is for images; a look has
+  none of its own, so the import runs the cycle 78/79 brand lint (no gradient, no shadow, no
+  uppercase heading outside the display face, one h1, the theme marker) on the review page and the
+  export instead. PEAK's retired colour list stays in the test suite; the import refuses every colour
+  literal, which covers it.
+- No way yet to delete or rename an imported look from the site (remove the folder by hand); the
+  Library page (cycle 86) only lists them.
+- A tenant other than peak-saunas needs its own `tenants/<t>/look-demo/<cartridge>/` before it can
+  import (the error says how to make one).
+- No linter ran: ruff is not installed in this checkout's `.venv` (an AST scan found no unused
+  imports in the changed files).

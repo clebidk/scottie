@@ -213,37 +213,76 @@ def test_cli_library_build(capsys):
 # ---------------------------------------------------------------------------
 
 def _tenant_looks(monkeypatch, tmp_path):
+    """A cycle 87 imported look as look_import.store_look leaves it: here the
+    landing open template stored under the slug "bold", with library.json in
+    the import's own shape."""
     root = tmp_path / "looks"
     bold = root / "landing" / "bold"
     bold.mkdir(parents=True)
-    (bold / "template.html").write_text("{% extends 'base.html' %}")
+    (bold / "template.html").write_text((pipeline.CARTRIDGES_DIR / "landing/looks/open/template.html").read_text())
     (bold / "library.json").write_text(json.dumps({
         "name": "bold", "title": "Bold storefront landing", "summary": "Imported from the store theme.",
-        "source": "https://example.com/theme", "added_at": "2026-10-07T10:00:00"}))
-    clash = root / "landing" / "proof"  # a harness look name: the harness look wins
+        "source": {"kind": "url", "origin": "https://example.com/theme", "imported_at": "2026-10-07T10:00:00"},
+        "cartridge": "landing", "abtest_entry": "landing:bold"}))
+    clash = root / "landing" / "proof"  # a built-in look name: the built-in look wins
     clash.mkdir()
     (clash / "template.html").write_text("x")
     (root / "landing" / "notemplate").mkdir()
+    (root / "landing" / "Bad_Name").mkdir()
+    (root / "landing" / "Bad_Name" / "template.html").write_text("x")
     monkeypatch.setattr(type(TENANT), "looks_dir", property(lambda self: root))
 
 
-def test_tenant_look_folders_are_listed_and_described(monkeypatch, tmp_path, client):  # noqa: F811
+def test_imported_looks_are_listed_rendered_and_described(monkeypatch, tmp_path, client):  # noqa: F811
     _tenant_looks(monkeypatch, tmp_path)
     landing = [v for v in library.versions(TENANT) if v.cartridge == "landing"]
     assert [v.key for v in landing] == ["landing/open", "landing/proof", "landing/bold"]
     assert landing[-1].tenant_look
     summary = _build(only=["landing"])
-    assert summary["unavailable"] == ["landing/bold"] and sorted(summary["built"]) == ["landing/open", "landing/proof"]
+    assert sorted(summary["built"]) == ["landing/bold", "landing/open", "landing/proof"]
+    assert summary["unavailable"] == [] and summary["failed"] == []
     meta = _meta("landing/bold")
     assert meta["title"] == "Bold storefront landing" and meta["notes"] == "Imported from the store theme."
     assert meta["summary"].startswith("A short, ad-first landing page") and meta["summary"].endswith(meta["notes"])
     assert meta["source"] == "tenant" and meta["imported_from"] == "https://example.com/theme"
-    assert meta["arm"] is None and "cannot render" in meta["unavailable"]
+    assert meta["added_at"] == "2026-10-07T10:00:00" and meta["arm"] == "landing:bold"
+    assert 'class="ld-' in (TENANT.library_dir / "landing/bold/index.html").read_text()
+    assert (TENANT.library_dir / "landing/bold/review.html").exists()
     body = client.get("/library", headers=_auth()).get_data(as_text=True)
     card = body[body.index('id="lib-landing-bold"'):]
     card = card[:card.index('id="lib-', 10)] if 'id="lib-' in card[10:] else card
-    assert "Bold storefront landing" in card and "Imported look" in card and "Generate with this" not in card
-    assert "Imported from the store theme." in card and "Not renderable offline" in card
+    assert "Bold storefront landing" in card and "Imported look" in card and "Imported from the store theme." in card
+    assert 'href="/library/landing/bold/review"' in card
+    assert 'href="/upload?cartridge=landing&amp;look=bold"' in card
+    form = client.get("/upload?cartridge=landing&look=bold", headers=_auth())
+    assert form.status_code == 200 and "landing:bold" in form.get_data(as_text=True)
+
+
+def test_an_imported_look_the_harness_does_not_accept_is_listed_not_rendered(monkeypatch, tmp_path):
+    _tenant_looks(monkeypatch, tmp_path)
+    real = library.looks.resolve_look
+
+    def refuse_bold(cartridge, requested=None, **kw):
+        if requested == "bold":
+            raise ValueError("not accepted")
+        return real(cartridge, requested, **kw)
+
+    monkeypatch.setattr(library.looks, "resolve_look", refuse_bold)
+    summary = _build(only=["landing"])
+    assert summary["unavailable"] == ["landing/bold"]
+    meta = _meta("landing/bold")
+    assert "does not accept" in meta["unavailable"] and meta["arm"] is None
+    assert not (TENANT.library_dir / "landing/bold/review.html").exists()
+
+
+def test_an_imported_listicle_look_is_one_complete_version(monkeypatch, tmp_path):
+    root = tmp_path / "looks"
+    (root / "listicle" / "tall-story").mkdir(parents=True)
+    (root / "listicle" / "tall-story" / "template.html").write_text("x")
+    monkeypatch.setattr(type(TENANT), "looks_dir", property(lambda self: root))
+    [version] = [v for v in library.versions(TENANT) if v.tenant_look]
+    assert version.key == "listicle/tall-story/story/reasons"
+    assert library.arm_for(version, TENANT) == "listicle:reasons:tall-story:story"
 
 
 # ---------------------------------------------------------------------------
@@ -393,3 +432,23 @@ def test_cmd_serve_queues_without_waiting(monkeypatch):
     [job] = jobs.list_jobs(TENANT)
     assert job["type"] == "library_build" and job["state"] == "queued"
     assert not TENANT.library_dir.exists()
+
+
+def test_a_pinned_version_needs_destinations_that_build_a_page(monkeypatch, client):  # noqa: F811
+    pin = {"cartridge": "landing", "look": "proof"}
+    refused = _upload(client, name="Pinned PDP", extra={**pin, "destinations": "pdp-only"})
+    assert refused.status_code == 400 and "builds no page" in refused.get_data(as_text=True)
+    assert meta_ingest.Inbox(TENANT.meta_inbox_dir).items() == []
+    with pytest.raises(abtest.AbtestError, match="build no page"):
+        abtest.create_test(TENANT, input_path="fixture.mov", name="x", plan="home-only", pinned_arm="landing:proof",
+                           runner=FakeRunner())
+    # 2 generated + PDP: the pin is variant A, the PDP takes the last key
+    monkeypatch.setitem(TENANT.config["abtest"], "auto_publish", False)
+    assert _upload(client, name="Pinned Mix", extra={**pin, "destinations": "gen2-pdp"}).status_code == 303
+    item = meta_ingest.Inbox(TENANT.meta_inbox_dir).items()[0]
+    assert item["pinned_arm"] == "landing:proof" and item["destinations"] == "gen2-pdp"
+    # an inbox item whose plan builds no page fails with a reason instead of stopping from-inbox
+    inbox = meta_ingest.Inbox(TENANT.meta_inbox_dir)
+    inbox.note(item["ad_id"], "test", destinations="pdp-only")
+    out = abtest_inbox.build_test_for_item(TENANT, item["ad_id"], by="caleb@peaksaunas.com", runner=FakeRunner())
+    assert out["outcome"] == "failed" and "cannot be used" in out["reason"]

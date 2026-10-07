@@ -22,6 +22,7 @@ import pytest
 
 from harness import quiz
 from harness import repair
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE
 from harness import simplicity
 from harness.claims import gate_page_json
 from harness.ground import LocalFactsSource
@@ -403,7 +404,7 @@ def test_render_script_is_inline_self_contained_and_sources_cite_the_cards(tmp_p
     assert "price-kilimanjaro" not in re.sub(r"<[^>]+>", " ", html.split("<body>", 1)[1])  # never visible copy
     assert sources.count("<li>") >= 3
     assert "Financing is available through Bread Pay at checkout." in html
-    assert "Limited lifetime warranty" in html
+    assert ALLOWED_WARRANTY_SENTENCE in html
 
 
 def test_rendered_check_catches_an_external_script_and_a_missing_card(tmp_path):

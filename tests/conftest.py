@@ -208,6 +208,8 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     monkeypatch.setattr(type(TENANT), "jobs_dir", property(lambda self: base / "jobs"))
     # Cycle 86: the review site's Library (harness library build).
     monkeypatch.setattr(type(TENANT), "library_dir", property(lambda self: base / "library"))
+    # Cycle 87: looks imported from other pages (harness/look_import.py).
+    monkeypatch.setattr(type(TENANT), "looks_dir", property(lambda self: base / "looks"))
     return base
 
 

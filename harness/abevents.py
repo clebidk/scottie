@@ -22,7 +22,11 @@ import time
 
 MAX_BODY_BYTES = 1024
 RATE_LIMIT_PER_MIN = 60
-EVENTS = ("view", "cta")
+# Cycle 88: "assign" comes from the split page itself, once per visitor and
+# arm, before it redirects -- the only count for an external arm (the PDP or
+# home page carries no beacon). Same receiver, same rate limit.
+EVENTS = ("view", "cta", "assign")
+_COUNT_FIELD = {"view": "views", "cta": "clicks", "assign": "assigns"}
 
 VID_RE = re.compile(r"^[a-z0-9]{8,40}$")
 # Crawlers, link previewers (Meta fetches every ad destination with
@@ -81,7 +85,8 @@ def record_event(conn, *, test_id, key, event, vid, iph, ts=None):
 
 def counts(path, test_id):
     """{key: {"views": n, "clicks": n}} of unique visitors per variant, or {}
-    when there is no database yet."""
+    when there is no database yet. Cycle 88: plus "assigns": n for a key
+    that has split-page assign events (absent otherwise)."""
     if not path.exists():
         return {}
     conn = sqlite3.connect(str(path), timeout=10)
@@ -96,8 +101,11 @@ def counts(path, test_id):
         conn.close()
     out = {}
     for variant, event, n in rows:
+        field = _COUNT_FIELD.get(event)
+        if field is None:
+            continue
         slot = out.setdefault(variant, {"views": 0, "clicks": 0})
-        slot["views" if event == "view" else "clicks"] = n
+        slot[field] = n
     return out
 
 

@@ -201,22 +201,24 @@ def prepare_run(state):
     # its style pairing.
     requested_look = getattr(args, "look", None)
     # Cycle 73: a pinned skeleton names its closest look; --look still wins.
-    listicle_look = looks.requested_for("listicle", requested_look)
+    listicle_look = looks.requested_for("listicle", requested_look, tenant)
     if requested_skeleton and not listicle_look:
         listicle_look = skeletons.load_skeleton(requested_skeleton)["look"]
-    state.listicle_look = listicle.resolve_look(listicle_look, style=state.listicle_style, tenant=tenant)
+    # Cycle 87: through looks.resolve_look, so a tenant's imported listicle
+    # look resolves too (the built-in looks resolve exactly as before).
+    state.listicle_look = looks.resolve_look("listicle", listicle_look, style=state.listicle_style, tenant=tenant)
     state.product_page_look = looks.resolve_look(
-        "product-page", looks.requested_for("product-page", requested_look), tenant=tenant
+        "product-page", looks.requested_for("product-page", requested_look, tenant), tenant=tenant
     )
     state.longform_look = looks.resolve_look(
-        "longform", looks.requested_for("longform", requested_look), tenant=tenant
+        "longform", looks.requested_for("longform", requested_look, tenant), tenant=tenant
     )
     # Cycle 85: the landing look. Unlike the other looks it reaches the
     # writer too: the proof look asks for benefits and icon_row.
     state.landing_look = looks.resolve_look(
-        "landing", looks.requested_for("landing", requested_look), tenant=tenant
+        "landing", looks.requested_for("landing", requested_look, tenant), tenant=tenant
     )
-    if requested_look and not any(looks.requested_for(c, requested_look) for c in selected):
+    if requested_look and not any(looks.requested_for(c, requested_look, tenant) for c in selected):
         state.log.event("run", f"--look {requested_look!r} is not a look of any selected cartridge; ignored")
     if "listicle" in selected:
         state.log.event("run", f"listicle style: {state.listicle_style}")

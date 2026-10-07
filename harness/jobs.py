@@ -29,6 +29,11 @@ Job types and handlers (each reuses the CLI's own code path):
   unpublish_live   set that page back to hidden
   library_build    cycle 86: library.build (= `harness library build`), the
                    Library page's reference renders; no model call
+  look_import      cycle 87: "Import a page" -- harness/look_import.py's
+                   import_look (= `harness look import`); progress states
+                   reading -> observing -> converting -> validating
+                   [-> repairing -> validating] -> storing, in the job's
+                   `progress` column
 """
 import argparse
 import contextlib
@@ -37,6 +42,7 @@ import fcntl
 import io
 import json
 import os
+import re
 import sqlite3
 import threading
 import traceback
@@ -47,7 +53,10 @@ from .errors import HarnessError
 
 STATES = ("queued", "running", "done", "failed")
 JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
-             "unpublish_live", "library_build")
+             "unpublish_live", "look_import", "library_build")
+# Cycle 87: the job the worker is running now, so a handler can report its
+# progress (set by run_one, one job at a time per worker).
+_RUNNING = {"id": None}
 POST_LIVE_ACTIONS = {"post_live": "post", "update_live": "update", "unpublish_live": "unpublish"}
 
 
@@ -79,6 +88,9 @@ def connect(tenant):
         " payload TEXT NOT NULL, result TEXT, reason TEXT NOT NULL DEFAULT '', by TEXT NOT NULL,"
         " created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, pid INTEGER)"
     )
+    # Cycle 87: a running job's current step (look_import reports its steps).
+    if "progress" not in {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}:
+        conn.execute("ALTER TABLE jobs ADD COLUMN progress TEXT NOT NULL DEFAULT ''")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS audit ("
         " id INTEGER PRIMARY KEY, at TEXT NOT NULL, by TEXT NOT NULL, action TEXT NOT NULL,"
@@ -179,6 +191,19 @@ def mark_failed(tenant, job_id, reason):
         conn.execute("UPDATE jobs SET state = 'failed', reason = ?, finished_at = ? WHERE id = ?",
                      (str(reason)[:2000] or "failed", _now(), job_id))
         conn.commit()
+
+
+def set_progress(tenant, job_id, step):
+    with _db(tenant) as conn:
+        conn.execute("UPDATE jobs SET progress = ? WHERE id = ?", (str(step)[:200], job_id))
+        conn.commit()
+
+
+def progress(tenant, step):
+    """Records `step` on the job the worker is running now (no-op outside
+    the worker, e.g. the CLI)."""
+    if _RUNNING["id"] is not None:
+        set_progress(tenant, _RUNNING["id"], step)
 
 
 def recover_stale(tenant):
@@ -375,6 +400,51 @@ def handle_post_live(tenant, payload, *, job_type="post_live"):
             "unlinked": True}
 
 
+LOOK_IMPORT_PENDING = "look-imports"
+_PENDING_RE = re.compile(r"^[a-f0-9]{16}\.html$")
+
+
+def pending_source_path(tenant, name):
+    """tenants/<t>/jobs/look-imports/<16 hex>.html -- an uploaded or pasted
+    page waiting for its look_import job. Deleted when the job ends."""
+    if not _PENDING_RE.match(str(name or "")):
+        raise JobFailed(f"bad pending source name {name!r}")
+    return Path(tenant.jobs_dir) / LOOK_IMPORT_PENDING / name
+
+
+def handle_look_import(tenant, payload):
+    """Cycle 87: one "Import a page" (harness/look_import.py). The pending
+    source file is deleted whatever happens; a refusal stores nothing."""
+    from . import look_import
+
+    pending = None
+    try:
+        kind = payload["kind"]
+        if kind == "url":
+            source = {"kind": "url", "url": payload["url"]}
+        else:
+            pending = pending_source_path(tenant, payload["pending"])
+            data = pending.read_bytes() if pending.exists() else None
+            if data is None:
+                raise JobFailed("the uploaded page is gone (was the job run twice?); import it again")
+            source = ({"kind": "upload", "data": data, "filename": payload.get("filename") or "page.html"}
+                      if kind == "upload" else {"kind": "paste", "html": data.decode("utf-8", errors="replace")})
+        try:
+            result = look_import.import_look(
+                tenant, cartridge=payload["cartridge"], name=payload["slug"], title=payload.get("title"),
+                source=source, progress=lambda step: progress(tenant, step),
+            )
+        except look_import.LookImportError as e:
+            raise JobFailed(look_import.format_errors(e)) from e
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
+    summary = look_import.job_summary(result)
+    audit(tenant, by=payload["by"], action="look_import_done", target=f"look:{payload['cartridge']}/{result['slug']}",
+          detail={"title": result["title"], "cost_usd": summary["cost_usd"], "validation": summary["validation"]})
+    return summary
+
+
 def handle_library_build(tenant, payload, log=print):
     """Cycle 86: (re)renders the Library (harness/library.py). Fails the job
     when a version failed to render; the other versions are still written."""
@@ -403,6 +473,7 @@ HANDLERS = {
     "update_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="update_live"),
     "unpublish_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="unpublish_live"),
     "library_build": handle_library_build,
+    "look_import": handle_look_import,
 }
 
 
@@ -425,6 +496,7 @@ def run_one(tenant, handlers=None, log=print):
         if job is None:
             return None
         log(f"job {job['id']} {job['type']} {job['target']} started")
+        _RUNNING["id"] = job["id"]
         try:
             handler = handlers.get(job["type"])
             if handler is None:
@@ -437,6 +509,8 @@ def run_one(tenant, handlers=None, log=print):
             mark_failed(tenant, job["id"], f"{type(e).__name__}: {e}")
         else:
             mark_done(tenant, job["id"], result)
+        finally:
+            _RUNNING["id"] = None
     job = get_job(tenant, job["id"])
     log(f"job {job['id']} {job['state']}" + (f": {job['reason']}" if job["reason"] else ""))
     return job

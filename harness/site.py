@@ -15,6 +15,10 @@ harness/site_ui.py. Pages:
                              (cycle 86: optionally with a pinned page version)
   /library                   cycle 86: a reference render of every page
                              version (harness/library.py), "Generate with this"
+  /looks/import              cycle 87: "Import a page" -> look_import job
+                             (harness/look_import.py); the form is also a
+                             dialog on the Ads page
+  /looks/<c>/<slug>/review   an imported look's reference render
   /jobs, /job/<id>           the job queue (harness/jobs.py)
   /audit                     who did what, when
 
@@ -38,6 +42,8 @@ from flask import Response, abort, current_app, g, redirect, request, send_file,
 from PIL import Image
 
 from . import abevents, abtest, ads as ads_mod, budget, jobs, library, meta_ingest, postlive, runstate, site_ui, textutil
+from . import look_import as look_import_mod
+from . import looks as looks_mod
 from . import serve as _serve
 from . import upload as upload_mod
 
@@ -46,9 +52,10 @@ ENDPOINTS = (
     "run_thumb", "ad_media", "upload_ad", "job_list", "job_detail", "audit_log",
     "gen_post_live", "gen_update_live", "gen_unpublish", "ad_frame", "site_favicon", "site_static", "site_manifest",
     "library_home", "library_review", "library_thumb", "library_rebuild",
+    "look_import", "look_review",
 )
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
-                            "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild"})
+                            "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import"})
 
 ADS_PER_PAGE = 20
 MAX_FEEDBACK_CHARS = 2000
@@ -57,6 +64,11 @@ UPLOADS_PER_WINDOW = 6
 UPLOAD_WINDOW_S = 600
 # The upload form's whole body: the 500 MB file plus the text fields.
 MAX_REQUEST_BYTES = 520 * 1024 * 1024
+# Cycle 87: "Import a page" -- rate limited like uploads; the page itself is
+# at most look_import.MAX_SOURCE_BYTES (a file and a paste are both refused
+# above it), plus room for the form's other fields.
+LOOK_IMPORTS_PER_WINDOW = UPLOADS_PER_WINDOW
+LOOK_IMPORT_MAX_REQUEST_BYTES = look_import_mod.MAX_SOURCE_BYTES + 256 * 1024
 
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
 LIVE_JOB_TYPES = ("post_live", "update_live", "unpublish_live")
@@ -64,7 +76,7 @@ PUBLISH_JOB_TYPES = ("publish_page", "replace_variant") + LIVE_JOB_TYPES
 FILTERS = (("all", "All"), ("review", "Needs review"), ("live", "Live"))
 JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "publish_page": "Publish new version",
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
-              "unpublish_live": "Unpublish", "library_build": "Rebuild library"}
+              "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page"}
 HERO_LABELS = {"face": "Face", "story": "Story", "display": "Display"}
 # Cycle 86: the upload form's pre-selected page version (the Library's
 # "Generate with this"), as query args on GET and hidden fields on POST.
@@ -441,7 +453,36 @@ def _status_chips(info, *, with_gate=True):
     return "".join(parts)
 
 
+def _pct(value, fmt):
+    return "-" if value is None else format(value, fmt)
+
+
+def _external_card(ad, v):
+    """Cycle 88: an external arm (PDP / home / URL) of the ad's test: where
+    the split page sends visitors, how many it sent (split-page assign
+    events), and where the rest of the numbers live."""
+    rec = ad["tests"][0] if ad["tests"] else {}
+    label = abtest.TARGET_LABELS.get(v.get("target"), "URL")
+    parts = [
+        '<div class="gen gen-ext"><div class="shot"></div><div class="gen-body"><div class="chips">'
+        + chip("Variant " + v["key"], "solid") + chip(label) + "</div>",
+        f'<div class="gen-title">{e(v["key"])} = {e(label)}</div>',
+        (f'<p class="small"><a href="{e(v["url"])}" rel="noopener" target="_blank">{e(v["url"])}</a></p>'
+         if v.get("url") else '<p class="muted small">Destination not resolved yet.</p>'),
+    ]
+    if "assigns" in v:
+        parts.append('<div class="abstats">'
+                     f'<div><span>Assigned</span><b>{v["assigns"]}</b></div><div><span>CTA</span><b>-</b></div>'
+                     '<div><span>CTR</span><b>-</b></div><div><span>P(best)</span><b>-</b></div></div>')
+    utm = abtest.utm_content(rec.get("test_id") or "", v["key"])
+    parts.append(f'<p class="muted small">No beacon on this page: {e(abtest.NO_BEACON_NOTE)}='
+                 f'<code>{e(utm)}</code>.</p></div></div>')
+    return "".join(parts)
+
+
 def _gen_card(tenant, ad, v, info, *, dom_id):
+    if v.get("kind") == "external":
+        return _external_card(ad, v)
     if info is None:
         return (f'<div class="gen"><div class="shot"></div><div class="gen-body"><div class="chips">'
                 f'{chip(v.get("key") or "", "solid") if v.get("key") else ""}{chip(v.get("status") or "pending")}</div>'
@@ -465,7 +506,8 @@ def _gen_card(tenant, ad, v, info, *, dom_id):
         parts.append(
             '<div class="abstats">'
             f'<div><span>Views</span><b>{v["views"]}</b></div><div><span>CTA</span><b>{v["clicks"]}</b></div>'
-            f'<div><span>CTR</span><b>{v["ctr"]:.1%}</b></div><div><span>P(best)</span><b>{v["p_best"]:.0%}</b></div></div>'
+            f'<div><span>CTR</span><b>{v["ctr"]:.1%}</b></div><div><span>P(best)</span><b>{_pct(v["p_best"], ".0%")}</b>'
+            "</div></div>"
         )
         if v.get("replacements"):
             parts.append(f'<div class="muted small">Stats since the page was replaced at '
@@ -524,6 +566,9 @@ def _ad_card(tenant, ad, index):
     if rec is not None:
         parts.append(f'<p class="muted small" style="margin:12px 0 0">A/B/C test {e(rec["test_id"])}'
                      + (f": {e(rec['reason'])}" if rec.get("reason") else "") + "</p>")
+        if any(abtest.is_external(v) for v in rec.get("variants") or []):
+            parts.append(f'<p class="small" style="margin:6px 0 0">Destinations: <b>{e(abtest.destinations_label(rec))}'
+                         '</b> <span class="muted">(fixed when the test was created)</span></p>')
         split = (rec.get("split") or {}).get("url")
         if split:
             parts.append(f'<div class="ad-split">{_copy_row(f"split-{index}", split)}</div>')
@@ -606,7 +651,9 @@ def render_home(tenant):
         '<div class="page-head"><div><h1>Ads</h1>'
         f'<p class="sub"><span class="num">{counts["all"]}</span> ads &middot; <span class="num">{len(all_gens)}</span> '
         f'generations &middot; <span class="num">{live_gens}</span> live</p></div>'
-        f'<div class="actions"><a class="btn" href="{url_for("upload_ad")}">{icon("upload")}Upload an ad</a></div></div>'
+        f'<div class="actions"><a class="btn ghost" href="{url_for("look_import")}" data-dialog="look-import">'
+        f'{icon("grid")}Import a page</a>'
+        f'<a class="btn" href="{url_for("upload_ad")}">{icon("upload")}Upload an ad</a></div></div>'
         + statline
         + f'<div class="toolbar"><nav class="seg" aria-label="Filter">{seg}</nav>'
         + (f'<span class="small muted">Results for &ldquo;{e(q)}&rdquo; &middot; <a href="{link(q=None, page=None)}">'
@@ -616,6 +663,7 @@ def render_home(tenant):
            if shown else "")
         + ("" if shown else f'<div class="empty">{e(empty)}</div>')
         + pager
+        + _look_import_form(dialog_id="look-import")
     )
     return _page("Ads", body)
 
@@ -860,6 +908,9 @@ def render_generation(tenant, run_dir, state, page, *, error=None, status_code=2
         f'<h1 class="gv-title">{e(info["title"] or page)}</h1>'
         + (f'<p class="sub muted small" style="margin:6px 0 0">Page title: {e(info["seo_title"])}</p>'
            if info["seo_title"] else "")
+        + (f'<p class="sub small" style="margin:6px 0 0">Test destinations: '
+           f'{e(abtest.destinations_label(status["test"], this_key=status["key"]))}</p>'
+           if status["test"] and any(abtest.is_external(v) for v in status["test"].get("variants") or []) else "")
         +
         f'<div class="chips" style="margin-top:12px">{_status_chips(info)}'
         + (chip(f"{hero} first screen") if hero else "") + chip(state["pages"][page])
@@ -950,9 +1001,12 @@ def _pin_box(arm, fields):
 def _upload_form(tenant, *, error=None, values=None, status=200, pin=None):
     values = values or {}
     auto = abtest.settings(tenant)["auto_publish"]
-    note = ("When the three pages are built, the test is published and the split link shows here and on the "
+    note = ("When the pages are built, the test is published and the split link shows here and on the "
             "Ads page. Paste it into the ad in Ads Manager." if auto else
-            "When the three pages are built, publish the test with <code>harness abtest publish</code>.")
+            "When the pages are built, publish the test with <code>harness abtest publish</code>.")
+    plan = values.get("destinations") or abtest.DEFAULT_PLAN
+    plan_options = "".join(f'<option value="{k}"{" selected" if k == plan else ""}>{e(label)}</option>'
+                           for k, (label, _shape) in abtest.PLANS.items())
 
     def field(name, label, *, area=False, hint=""):
         value = e(values.get(name) or "")
@@ -963,8 +1017,8 @@ def _upload_form(tenant, *, error=None, values=None, status=200, pin=None):
         return f'<label for="{name}">{label} <span class="opt">(optional)</span></label>{control}'
 
     body = (
-        '<div class="page-head"><div><h1>Upload an ad</h1><p class="sub">The harness builds three landing pages from '
-        'it (an A/B/C test).</p></div></div>'
+        '<div class="page-head"><div><h1>Upload an ad</h1><p class="sub">The harness builds landing pages from it '
+        'and puts them behind one split link (an A/B/C test).</p></div></div>'
         '<div class="two"><form class="card" method="post" enctype="multipart/form-data" '
         f'action="{url_for("upload_ad")}">{_csrf_field()}'
         + (f'<div class="error">{e(error)}</div>' if error else "")
@@ -977,6 +1031,13 @@ def _upload_form(tenant, *, error=None, values=None, status=200, pin=None):
         '<div class="small">mp4, mov, jpg, png, webp &middot; up to 500 MB</div><div class="file"></div>'
         '<input type="file" id="media" name="media" required '
         'accept="video/mp4,video/quicktime,.mp4,.mov,image/jpeg,image/png,image/webp"></div>'
+        # Cycle 88: the test's destination plan (abtest.PLANS).
+        f'<label for="destinations">Destinations</label><select id="destinations" name="destinations">{plan_options}'
+        '</select><p class="hint">Where the split link sends visitors: pages the harness builds, the product page '
+        '(PDP) of the product the ad names, or the store home page. PDP and home pages carry no tracking, so the '
+        'harness counts only the visitors it sends there; read the rest in GA4 or Shopify by utm_content. This '
+        'choice is for this new test only: the destinations of a live test cannot be changed here. The harness '
+        'never edits the ad in Meta; you paste the split link into the ad in Ads Manager by hand.</p>'
         '<hr class="hr" style="margin-top:24px"><p class="eyebrow" style="margin-bottom:0">Ad copy</p>'
         + field("primary_text", "Primary text", area=True)
         + field("headline", "Headline")
@@ -987,11 +1048,58 @@ def _upload_form(tenant, *, error=None, values=None, status=200, pin=None):
         '<div class="card"><h3 style="margin-bottom:10px">What happens next</h3>'
         '<ul class="timeline">'
         '<li><b>Saved to the inbox</b><div class="muted small">The type is read from the file itself.</div></li>'
-        '<li><b>Three pages are built</b><div class="muted small">One job in the queue; it takes a few minutes. '
+        '<li><b>The pages are built</b><div class="muted small">One job in the queue; it takes a few minutes. '
         'You land on the job page.</div></li>'
         f'<li><b>Published</b><div class="muted small">{note}</div></li></ul></div></div>'
     )
     return _page("Upload an ad", body, status=status)
+
+
+def _look_import_form(*, dialog_id=None, error=None, values=None):
+    """Cycle 87: the "Import a page" form -- a <dialog> on the Ads page, and
+    a page of its own without JS or after an error."""
+    values = values or {}
+    key = dialog_id or "li"
+    cartridge = values.get("cartridge") or "landing"
+    options = "".join(
+        f'<option value="{c}"{" selected" if c == cartridge else ""}>{label}</option>'
+        for c, label in (("landing", "Landing page"), ("listicle", "Listicle")))
+    form = (
+        f'<form method="post" enctype="multipart/form-data" action="{url_for("look_import")}">{_csrf_field()}'
+        f'<div class="dlg-h"><div><h2 id="{key}-t">Import a page</h2><p>Learn how a page is built and add its '
+        "layout as a new look, in our own design.</p></div>"
+        + (f'<button type="button" class="iconbtn" data-close aria-label="Close">{icon("x")}</button>' if dialog_id
+           else "")
+        + '</div><div class="dlg-b">' + (f'<div class="error">{e(error)}</div>' if error else "")
+        + f'<label for="{key}-name" style="margin-top:0">Name</label>'
+        f'<input type="text" id="{key}-name" name="name" required maxlength="{look_import_mod.MAX_TITLE_CHARS}" '
+        f'value="{e(values.get("name") or "")}" placeholder="e.g. Split hero" autocomplete="off">'
+        f'<label for="{key}-c">Page type</label><select id="{key}-c" name="cartridge">{options}</select>'
+        f'<label for="{key}-url">Page URL</label>'
+        f'<input type="text" id="{key}-url" name="url" maxlength="{look_import_mod.MAX_URL_CHARS}" '
+        f'value="{e(values.get("url") or "")}" placeholder="https://..." autocomplete="off" spellcheck="false">'
+        f'<label for="{key}-file">or an .html file</label>'
+        f'<input type="file" id="{key}-file" name="page_file" accept=".html,.htm,text/html">'
+        f'<label for="{key}-html">or paste the HTML</label>'
+        f'<textarea id="{key}-html" name="html" maxlength="{look_import_mod.MAX_SOURCE_BYTES}" '
+        f'style="min-height:96px" spellcheck="false">{e(values.get("html") or "")}</textarea>'
+        '<p class="hint">Use one of the three, up to 2 MB. Only the layout is learned: the page&rsquo;s words, '
+        "images, brand names and scripts are never kept. One model call, then the look is checked against our "
+        "rules and rendered with a demo page. A failed import keeps nothing.</p>"
+        '</div><div class="dlg-f">'
+        + ('<button type="button" class="btn ghost" data-close>Cancel</button>' if dialog_id else
+           f'<a class="btn ghost" href="{url_for("ads_home")}">Cancel</a>')
+        + f'<button class="btn" type="submit">{icon("upload")}Import</button></div></form>'
+    )
+    if dialog_id:
+        return f'<dialog id="{dialog_id}" aria-labelledby="{key}-t">{form}</dialog>'
+    return f'<div class="card" style="max-width:600px;padding:0">{form}</div>'
+
+
+def _look_import_page(*, error=None, values=None, status=200):
+    body = ('<div class="page-head"><div><h1>Import a page</h1><p class="sub">A new look for the landing page or '
+            "the listicle, learned from any page.</p></div></div>" + _look_import_form(error=error, values=values))
+    return _page("Import a page", body, status=status)
 
 
 def _job_result_html(tenant, job):
@@ -1023,6 +1131,26 @@ def _job_result_html(tenant, job):
             if not result.get("browser"):
                 parts.append('<p class="small muted">No headless browser on the server: the cards are text '
                              'cards.</p>')
+    elif job["type"] == "look_import":
+        if result.get("slug"):
+            obs = result.get("observation") or {}
+            parts.append(f'<p><b>{e(result.get("title") or "")}</b> <span class="muted">{e(result["cartridge"])} look '
+                         f'<code>{e(result["slug"])}</code></span></p>')
+            parts.append(f'<p>{e(result.get("summary") or "")}</p>')
+            parts.append('<p class="small muted">Sections: ' + e(" > ".join(result.get("sections") or []))
+                         + f' &middot; {int(obs.get("words") or 0)} words, {int(obs.get("images") or 0)} images, '
+                         f'about {int(obs.get("estimated_weight_kb") or 0)} KB</p>')
+            cost = result.get("cost_usd")
+            parts.append(f'<p>Validation: {e(result.get("validation") or "")}'
+                         + (f" &middot; model cost ${float(cost):.3f}" if cost is not None else "") + "</p>")
+            parts.append(f'<p><a class="btn ghost sm" href="{url_for("look_review", cartridge=result["cartridge"], slug=result["slug"])}" '
+                         f'target="_blank" rel="noopener">{icon("external")}Reference render</a></p>')
+            parts.append(f'<p class="hint">Use it in the A/B/C library as <code>{e(result.get("abtest_entry") or "")}'
+                         "</code>.</p>")
+        else:
+            source = payload.get("url") or payload.get("filename") or "pasted HTML"
+            parts.append(f'<p>{e(payload.get("title") or payload.get("slug") or "")} &middot; '
+                         f'{e(payload.get("cartridge") or "")} &middot; from {e(source)}</p>')
     elif payload.get("run_id") and payload.get("page"):
         parts.append(f'<p><a href="{url_for("generation", run_id=payload["run_id"], page=payload["page"])}">'
                      f'{e(payload["run_id"])} / {e(payload["page"])}</a></p>')
@@ -1045,6 +1173,9 @@ def _target_link(target):
     m = re.match(r"^run:([^/]+)/(.+)$", target or "")
     if m:
         return f'<a href="{url_for("generation", run_id=m.group(1), page=m.group(2))}">{e(target)}</a>'
+    m = re.match(r"^look:([a-z]+)/([a-z0-9-]+)$", target or "")
+    if m and m.group(1) in look_import_mod.CARTRIDGES and looks_mod.LOOK_SLUG_RE.match(m.group(2)):
+        return f'<a href="{url_for("look_review", cartridge=m.group(1), slug=m.group(2))}">{e(target)}</a>'
     return e(target or "")
 
 
@@ -1183,6 +1314,7 @@ def register(app, tenant):
     app.config["SITE_BRAND_DIR"] = str(tenant.brand_dir)
     feedback_limiter = abevents.RateLimiter(limit=FEEDBACK_PER_MIN, window_s=60.0)
     upload_limiter = abevents.RateLimiter(limit=UPLOADS_PER_WINDOW, window_s=UPLOAD_WINDOW_S)
+    look_import_limiter = abevents.RateLimiter(limit=LOOK_IMPORTS_PER_WINDOW, window_s=UPLOAD_WINDOW_S)
 
     @app.before_request
     def _site_csrf():
@@ -1451,11 +1583,19 @@ def register(app, tenant):
             return _upload_form(tenant, error=pin_error, pin=(arm, fields) if arm else None,
                                 status=400 if pin_error else 200)
         email = g.reviewer_email
-        values = {k: request.form.get(k) or "" for k in ("ad_name",) + upload_mod.COPY_FIELDS}
+        values = {k: request.form.get(k) or "" for k in ("ad_name", "destinations") + upload_mod.COPY_FIELDS}
+        plan = values["destinations"] or abtest.DEFAULT_PLAN
+        if plan not in abtest.PLANS:
+            return _upload_form(tenant, values={**values, "destinations": ""}, status=400,
+                                error="Choose one of the listed destinations.")
         arm, fields, pin_error = _pin_from(request.form)
         pin = (arm, fields) if arm else None
         if pin_error:
             return _upload_form(tenant, values=values, error=pin_error, status=400)
+        if arm and "gen" not in abtest.PLANS[plan][1]:
+            return _upload_form(tenant, values=values, pin=pin, status=400,
+                                error=f"{abtest.PLANS[plan][0]} builds no page, so the page version cannot be used. "
+                                      "Choose destinations with a generated page, or clear the page version.")
         if not upload_limiter.allow(email.lower()):
             return _upload_form(tenant, values=values, status=429, pin=pin,
                                 error=f"More than {UPLOADS_PER_WINDOW} uploads in {UPLOAD_WINDOW_S // 60} minutes. "
@@ -1469,11 +1609,13 @@ def register(app, tenant):
         except upload_mod.UploadRejected as exc:
             return _upload_form(tenant, values=values, error=str(exc), status=exc.status, pin=pin)
         ad_id = item["ad_id"]
-        meta_ingest.Inbox(tenant.meta_inbox_dir).set_state(ad_id, "queued", "uploaded; waiting for the worker")
+        inbox = meta_ingest.Inbox(tenant.meta_inbox_dir)
+        inbox.note(ad_id, f"destinations: {abtest.PLANS[plan][0]}", destinations=plan)
+        inbox.set_state(ad_id, "queued", "uploaded; waiting for the worker")
         job_id = jobs.enqueue(tenant, "create_test", {"ad_id": ad_id, "by": email}, by=email, target=f"ad:{ad_id}")
         jobs.audit(tenant, by=email, action="upload", target=f"ad:{ad_id}",
                    detail={"ad_name": item["ad_name"], "media_file": item["media_file"],
-                           "bytes": item["media_bytes"], "job_id": job_id,
+                           "bytes": item["media_bytes"], "job_id": job_id, "destinations": plan,
                            **({"pinned_arm": arm.id} if arm else {})})
         return redirect(url_for("job_detail", job_id=job_id), code=303)
 
@@ -1517,6 +1659,49 @@ def register(app, tenant):
             job_id = job["id"]
         return redirect(url_for("job_detail", job_id=job_id), code=303)
 
+    @app.route("/looks/import", methods=["GET", "POST"])
+    def look_import():
+        """Cycle 87: "Import a page" -> a look_import job."""
+        if request.method == "GET":
+            return _look_import_page()
+        email = g.reviewer_email
+        values = {k: request.form.get(k) or "" for k in ("name", "cartridge", "url", "html")}
+        if (request.content_length or 0) > LOOK_IMPORT_MAX_REQUEST_BYTES:
+            return _look_import_page(values={**values, "html": ""}, status=413,
+                                     error=f"The page is larger than {look_import_mod.MAX_SOURCE_BYTES // 1024} KB.")
+        if not look_import_limiter.allow(email.lower()):
+            return _look_import_page(values=values, status=429,
+                                     error=f"More than {LOOK_IMPORTS_PER_WINDOW} imports in "
+                                           f"{UPLOAD_WINDOW_S // 60} minutes. Wait a few minutes.")
+        cartridge = values["cartridge"] or "landing"
+        target = f"look:{cartridge}/{look_import_mod.slugify(values['name'])}"
+        if jobs.active_job(tenant, job_type="look_import", target=target):
+            return _look_import_page(values=values, status=409,
+                                     error="An import with this name is already waiting or running.")
+        upload = request.files.get("page_file")
+        file_bytes = upload.stream.read(look_import_mod.MAX_SOURCE_BYTES + 1) if upload and upload.filename else None
+        try:
+            payload = look_import_mod.queue_payload(
+                tenant, name=values["name"], cartridge=cartridge, title=values["name"], url=values["url"],
+                html_text=values["html"], file_bytes=file_bytes, filename=upload.filename if upload else None,
+                by=email)
+        except look_import_mod.LookImportError as exc:
+            return _look_import_page(values=values, error=str(exc), status=400)
+        job_id = jobs.enqueue(tenant, "look_import", payload, by=email, target=target)
+        jobs.audit(tenant, by=email, action="look_import", target=target,
+                   detail={"kind": payload["kind"], "source": payload.get("url") or payload.get("filename")
+                           or "pasted HTML", "job_id": job_id})
+        return redirect(url_for("job_detail", job_id=job_id), code=303)
+
+    @app.route("/looks/<cartridge>/<slug>/review")
+    def look_review(cartridge, slug):
+        if cartridge not in look_import_mod.CARTRIDGES or not looks_mod.LOOK_SLUG_RE.match(slug):
+            abort(404)
+        path = look_import_mod.look_folder(tenant, cartridge, slug) / "review.html"
+        if not path.is_file():
+            abort(404)
+        return send_file(path, mimetype="text/html")
+
     @app.route("/jobs")
     def job_list():
         listed = jobs.list_jobs(tenant, limit=100)
@@ -1552,7 +1737,19 @@ def register(app, tenant):
             f'<span class="muted">{who}</span><div class="t">{_when(at) if at else "&mdash;"}</div></li>'
             for name, who, at in steps)
         reason = f'<div class="error">Failed: {e(job["reason"])}</div>' if job["state"] == "failed" else ""
+        if job["state"] == "failed" and job["type"] == "look_import":
+            # Cycle 87: a refused import lists every validation error.
+            head, *lines = (job["reason"] or "").split("\n- ")
+            reason = (f'<div class="error">Failed: {e(head)}'
+                      + ("<ul>" + "".join(f"<li>{e(line)}</li>" for line in lines) + "</ul>" if lines else "")
+                      + "</div><p class=\"small muted\">Nothing was stored.</p>")
         wait = ('<p class="small muted">This page reloads every 10 seconds until the job ends.</p>' if busy else "")
+        if busy and job.get("progress"):
+            steps = look_import_mod.PROGRESS_STEPS
+            step = job["progress"]
+            wait = (f'<p>Step: <b>{e(step)}</b>'
+                    + (f' <span class="muted">({steps.index(step) + 1} of {len(steps)})</span>' if step in steps
+                       else "") + "</p>" + wait)
         body = (
             f'<a class="crumb" href="{url_for("job_list")}">{icon("back")}Jobs</a>'
             f'<div class="page-head"><div><p class="eyebrow">Job #{job["id"]} &middot; {e(job["type"])}</p>'

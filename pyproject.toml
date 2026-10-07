@@ -41,6 +41,7 @@ include = ["harness*"]
 [tool.setuptools.package-data]
 harness = [
     "structure.css",
+    "look_import_rules.md",
     "templates/*.html",
     "blocks/registry.json",
     "blocks/*/block.html",

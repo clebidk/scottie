@@ -51,6 +51,14 @@ from .write import parse_word_range, resolve_allowed_cta_texts, word_range_targe
 
 
 MAX_REPAIR_ATTEMPTS = 2
+# Cycle 82e: landing gets one more repair (4 attempts). Its gates are many and
+# narrow, and one Mini run spent two repairs on other fixes before the writer
+# saw the power sentence once.
+REPAIR_ATTEMPTS_BY_CARTRIDGE = {"landing": 3}
+
+
+def max_repair_attempts(cartridge_name):
+    return REPAIR_ATTEMPTS_BY_CARTRIDGE.get(cartridge_name, MAX_REPAIR_ATTEMPTS)
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +552,7 @@ def _format_gate_failure(item):
     return f"- {item.get('path', '')}: {item['issue']}{detail}"
 
 
-def build_revision_note(attempt, failures):
+def build_revision_note(attempt, failures, max_repairs=MAX_REPAIR_ATTEMPTS):
     """`failures` (fix cycle 6 item 3) is every failure seen across every
     attempt so far in this cartridge, deduplicated -- not just this attempt's
     -- so a repair that fixes one violation but reintroduces an earlier one
@@ -553,7 +561,7 @@ def build_revision_note(attempt, failures):
     near the top of this block and (via write.write_page) at the top of the
     system prompt, so a repair attempt can't claim it forgot the list."""
     lines = [
-        f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS})",
+        f"## REVISION REQUIRED (repair attempt {attempt} of {max_repairs})",
         vocab.forbidden_words_block(),
         "",
         "Your page.json failed the gate checks below (every failure seen across every attempt "
@@ -605,12 +613,12 @@ def _patch_roots(failures, page):
     return list(dict.fromkeys(roots)) or None
 
 
-def build_patch_revision_note(attempt, failures, roots):
+def build_patch_revision_note(attempt, failures, roots, max_repairs=MAX_REPAIR_ATTEMPTS):
     """The REVISION REQUIRED block for a patch repair: the page is in
     current_page, only the flagged fields change, and the answer is an edit
     list (harness/pagepatch.py)."""
     lines = [
-        f"## REVISION REQUIRED (repair attempt {attempt} of {MAX_REPAIR_ATTEMPTS}) -- patch the flagged fields only",
+        f"## REVISION REQUIRED (repair attempt {attempt} of {max_repairs}) -- patch the flagged fields only",
         vocab.forbidden_words_block(),
         "",
         "Your page.json is in current_page. It failed the gate checks below. Change only what these "
@@ -1217,6 +1225,15 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
                     log.event(f"write.{cartridge_name}", f"deterministic fix applied: {item.get('key')}")
             continue
 
+        # Cycle 82f: a proof.quote the harness cannot verify is dropped, not
+        # sent back to the writer (landing.drop_unverifiable_quote).
+        if cartridge_name == "landing" and item.get("key") in ("landing:quote_verbatim", "landing:quote_not_review"):
+            if landing.drop_unverifiable_quote(page, facts_pack):
+                fixed += 1
+                if log is not None:
+                    log.event(f"write.{cartridge_name}", "fix: dropped unverifiable proof.quote")
+            continue
+
         # Cycle 82b: a landing subhead or checked-claim fact over its word
         # limit, on the LAST attempt only (the writer had two chances): cut at
         # the last sentence end or clause break that fits, never mid-word,
@@ -1405,6 +1422,26 @@ def apply_deterministic_fixes(page, failures, valid_claim_ids, log=None, cartrid
     return fixed
 
 
+# Cycle 82f: a repair that comes back as a near-empty page (prod run
+# 20261007-201051-...-tks7: 48 words, no checked claims, no FAQ, no closing)
+# is discarded; the previous attempt's page stays the working copy.
+DEGENERATE_REPAIR_NOTE = ("Your last answer dropped most of the page; return the full page with only the "
+                          "listed fixes applied.")
+
+
+def degenerate_repair(prev, page):
+    """True when `page` (a repair) kept under 60% of `prev`'s words, or lost
+    a section `prev` had: 4+ checked_claims, the FAQ, the closing headline."""
+    def sub(p, key, inner):
+        node = p.get(key) if isinstance(p, dict) else None
+        return node.get(inner) if isinstance(node, dict) else None
+    if count_words(page) < 0.6 * count_words(prev):
+        return True
+    return ((len(prev.get("checked_claims") or []) >= 4 and not page.get("checked_claims"))
+            or (bool(sub(prev, "faq", "questions")) and not sub(page, "faq", "questions"))
+            or (bool(sub(prev, "closing", "headline")) and not sub(page, "closing", "headline")))
+
+
 def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant):
     """(schema, word_range, allowed_cta_texts) for one cartridge -- shared by
     write_and_gate_page below and harness/batch.py's --batch path, so both
@@ -1471,6 +1508,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         cartridge_name, cartridges_dir, facts_pack, ad_brief, tenant
     )
     valid_claim_ids = {c["id"] for c in facts_pack["verified_claims"]}
+    max_repairs = max_repair_attempts(cartridge_name)
 
     def _gate(page):
         return check_page_gates(
@@ -1510,6 +1548,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
     # made for THIS cartridge so far (initial write + repairs) -- used below
     # to estimate whether the budget remaining can afford another one.
     call_token_costs = []
+    prev_page = prev_problems = None
     attempt = 0
     while True:
         attempt += 1
@@ -1581,20 +1620,30 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 **({"on_started": on_write_started} if on_write_started is not None else {}),
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
-        problems = _gate(page)
-
-        fixed = (
-            apply_deterministic_fixes(
-                page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
-                financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
-                listicle_headline=listicle_headline, ad_brief=ad_brief,
-                last_attempt=attempt >= MAX_REPAIR_ATTEMPTS + 1,
-            )
-            if problems else 0
-        )
-        if fixed:
-            log.event(f"write.{cartridge_name}", f"deterministic fix applied: {fixed} field(s)")
+        # Cycle 82f: an unverifiable proof.quote never reaches the gate.
+        dropped = cartridge_name == "landing" and landing.drop_unverifiable_quote(page, facts_pack)
+        if dropped:
+            log.event(f"write.{cartridge_name}", "fix: dropped unverifiable proof.quote")
+        degenerate = prev_page is not None and degenerate_repair(prev_page, page)
+        if degenerate:
+            log.event(f"write.{cartridge_name}", f"attempt {attempt}: degenerate repair discarded "
+                      f"({count_words(page)} words, was {count_words(prev_page)}); kept attempt {attempt - 1}'s page")
+            page, problems, fixed = prev_page, prev_problems, 0
+        else:
             problems = _gate(page)
+            fixed = (
+                apply_deterministic_fixes(
+                    page, problems, valid_claim_ids, log=log, cartridge_name=cartridge_name,
+                    financing_lender=financing_lender, facts_pack=facts_pack, tenant=tenant,
+                    listicle_headline=listicle_headline, ad_brief=ad_brief,
+                    last_attempt=attempt >= max_repairs + 1,
+                )
+                if problems else 0
+            )
+            if fixed:
+                log.event(f"write.{cartridge_name}", f"deterministic fix applied: {fixed} field(s)")
+                problems = _gate(page)
+            fixed += int(dropped)
         deterministic_fix_counts.append(fixed)
         attempts.append(problems)
 
@@ -1608,7 +1657,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             dedup_key = item.get("key") or (item.get("path"), item.get("issue"))
             failures_seen_by_key[dedup_key] = item
 
-        if attempt >= MAX_REPAIR_ATTEMPTS + 1 or (
+        if attempt >= max_repairs + 1 or (
             attempt == 1 and on_first_failure is not None and not on_first_failure()
         ):
             err = ClaimsGateFailure(f"page_json:{cartridge_name}", problems)
@@ -1619,10 +1668,13 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         patch_roots = _patch_roots(problems, page) if cartridge_name == "listicle" else None
         if patch_roots:
             current_page = page
-            revision_note = build_patch_revision_note(attempt, problems, patch_roots)
+            revision_note = build_patch_revision_note(attempt, problems, patch_roots, max_repairs)
         else:
             current_page = None
-            revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()))
+            revision_note = build_revision_note(attempt, list(failures_seen_by_key.values()), max_repairs)
+        if degenerate:
+            revision_note = DEGENERATE_REPAIR_NOTE + "\n\n" + revision_note
+        prev_page, prev_problems = page, problems
 
 
 # ---------------------------------------------------------------------------

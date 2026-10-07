@@ -33,6 +33,8 @@ browser --> Caddy (listicle.peaksaunasteam.com) --> harness serve 127.0.0.1:4870
 | `/library` | Cycle 86: every page version the harness can generate, as reference cards grouped by cartridge (see **Library** below). |
 | `/library/<version>/review`, `/library/<version>/thumb` | Cycle 86: one version's self-contained reference page (framed like `/run/<run>/review/<page>`) and its thumbnail. |
 | `/library/rebuild` | Cycle 86: the POST of **Rebuild library** (queues a `library_build` job). |
+| `/looks/import` | Cycle 87: "Import a page" (also a dialog on the Ads page). |
+| `/looks/<cartridge>/<slug>/review` | Cycle 87: an imported look's reference render. |
 | `/jobs`, `/job/<id>` | The job queue and one job (state, reason, result, split link). |
 | `/audit` | Who did what, and when. |
 | `/runs` | The old run list (it was at `/` before cycle 69). |
@@ -53,7 +55,9 @@ no Solar Flare:
   the bottom;
 - a top bar with a search pill (ads by name; keeps the home filter) and the
   reviewer's name and email;
-- Stone `#EFE3D2` ground, cards `#F7F1E8`, Cedar-tinted hairlines, 8px radius,
+- white `#FFFFFF` ground and white cards with Cedar-tinted hairlines (owner
+  change 2026-10-07, cycle 86; it was Stone `#EFE3D2` with `#F7F1E8` cards),
+  a light wash `#E9DFCD` behind previews and table heads, 8px radius,
   flat surfaces, Basalt primary buttons, Red `#702B33` only for live and
   attention chips;
 - Acid Grotesk (the webfont the generator loads from the theme CDN) with a
@@ -230,13 +234,16 @@ real."
 (`face|story|display`, harness/first_screen.py) x its copy style
 (`reasons|mistakes|questions|myths|tested`). A cartridge with no looks
 (article, comparison, quiz) is one version. That is 24 versions today (15 of
-them listicles). A tenant-level imported look, a folder
-`tenants/<t>/looks/<cartridge>/<name>/` with a `template.html` and a
-`library.json` `{name, title, summary, source, added_at}`, is listed
-automatically as one more version of that cartridge (a name the harness
-already uses for its own look is ignored). It is rendered when the harness can
-resolve that look name; until then its card shows the library.json title and
-summary and says it cannot be rendered yet.
+them listicles). A look imported with **Import a page** (cycle 87,
+`tenants/<t>/looks/<cartridge>/<slug>/` with `template.html` and
+`library.json`) is found through `looks.imported_looks` and is one more
+version of that cartridge: it is rendered by the same offline run
+(`looks.resolve_look` accepts the slug and the renderer loads the template from
+the tenant folder), and its card takes the title, summary and source from
+`library.json` and carries an "Imported look" chip. An imported listicle look is
+one version, with the story first screen and the reasons style. A slug that is
+a built-in look name is ignored (the built-in look wins). If the harness does
+not accept an imported look, its card is a text card with the reason.
 
 **The build.** `harness library build --tenant <t> [--only landing,...]
 [--force]` (harness/library.py) renders each version with NO model call: the
@@ -286,6 +293,75 @@ Run it on a server: `cd ~/advertorial && .venv/bin/harness library build
 --tenant peak-saunas` (about 15 seconds without thumbnails; add a few seconds
 for each thumbnail when Chromium is installed).
 
+### Import a page (cycle 87)
+
+The Ads page has an **Import a page** button next to **Upload an ad**. It
+opens a dialog (without JS, the page `/looks/import`) with:
+
+- **Name**: the look's name, up to 60 characters. The look's slug is made
+  from it (lower-case letters, digits, hyphens, 3-40 characters). A slug
+  that is a built-in look of any cartridge (`open`, `proof`, `pdp`, a
+  retired listicle name, ...) or a look this tenant already imported for
+  that page type is refused at once, before any model call.
+- **Page type**: Landing page (the default) or Listicle.
+- **One source**: a page URL, an `.html` file, or pasted HTML -- exactly
+  one, up to 2 MB.
+
+The site checks these, writes an uploaded or pasted page to
+`tenants/<t>/jobs/look-imports/<16 hex>.html`, and queues a `look_import`
+job. The job page shows the step while it runs: reading, observing,
+converting, validating (repairing, validating again), storing. The worker
+deletes the pending file when the job ends, whatever the outcome.
+
+What the job does (`harness/look_import.py`, the same code as
+`harness look import`):
+
+1. **Reads** the page. A URL is fetched with a 10 s timeout and a 2 MB cap,
+   only from a public address (loopback, private, link-local and reserved
+   addresses are refused, also after a redirect; at most 3 redirects), and
+   only when the answer is `text/html`. Linked CSS is read only from the
+   same origin (at most 6 files, 512 KB each, 1.5 MB in all). The HTML is
+   parsed with html5lib and never run: `<script>`, `<iframe>`, `<object>`,
+   `<embed>`, `<noscript>`, `<template>`, a meta refresh, every `on...`
+   attribute and every `javascript:` URL are dropped.
+2. **Observes** how the page is built: the sections in order with a role
+   guess (nav, hero, benefits, proof, comparison, faq, gallery, cta,
+   content, footer); for each, the heading level, word count, images and
+   their aspect ratios, lists and list items, a table, CTA buttons and
+   links, light or dark background, the desktop column count where the CSS
+   or the class names say it, repeated items (a card grid); and for the
+   page, fonts, the content width, a nav, sticky elements, images, words,
+   CTA buttons and phrases, and an estimated weight (HTML + read CSS + 80 KB
+   per image + 40 KB per external script + 30 KB per stylesheet not read).
+   The observation holds numbers and role names only. **The page's words,
+   images, brand names and scripts are never kept**: they never reach the
+   model and never reach the stored look.
+3. **Converts**: one call to the tenant's `write` model with the
+   observation, `harness/look_import_rules.md` (tokens, the exact render
+   context, the boxless and mobile rules, the export constraints) and the
+   cartridge's default look as the reference. The model returns only
+   `template.html`.
+4. **Validates**: the template must parse; use only the render-context
+   names and keys; follow the tokens-only, boxless and mobile-first rules;
+   carry no external URL, literal link, form or button; keep every
+   renderer-owned block; have one CTA phrase plus the secondary text link.
+   Then it renders the tenant's demo page (`tenants/<t>/look-demo/
+   <cartridge>/`) in the new look -- `render_page`'s own backstops run --
+   and checks the storefront export and the brand lint. On failure the
+   model gets the errors once; a second failure refuses the import.
+5. **Stores** the look as `tenants/<t>/looks/<cartridge>/<slug>/`
+   (`template.html`, `library.json`, `observation.json`, `review.html`).
+   The Library page lists it from `library.json`.
+
+A done job shows the look's name, the two-sentence summary of what was
+learned, the sections, the validation result, the model cost, a
+**Reference render** link and the A/B/C library entry (`landing:<slug>`).
+A failed job lists every error and stores nothing. Model cost: an estimate
+of about $0.07-0.09 for one call and $0.15-0.18 with the repair (from the
+prompt and template sizes at the tenant's `write` model, claude-sonnet-5;
+not yet measured on a real run). Imports are rate limited like uploads: 6
+in 10 minutes for each reviewer.
+
 ### Security
 
 - Every route except `POST /e` needs the login (HTTP basic auth against
@@ -299,13 +375,18 @@ for each thumbnail when Chromium is installed).
   comes from the login. A new `REVIEW_PASSWORD` makes old tokens fail: reload
   the page.)
 - Feedback: 10 posts a minute for each reviewer. Uploads: 6 in 10 minutes
-  for each reviewer. Over the limit: 429.
+  for each reviewer. Imports of a page (cycle 87): 6 in 10 minutes for each
+  reviewer. Over the limit: 429.
 - All text from people or from disk is HTML-escaped. Responses have
   `X-Content-Type-Options: nosniff`; an uploaded image is served only as its
   detected image type.
 - The audit log (`jobs.sqlite`, table `audit`, page `/audit`) records the
   email and time of each feedback, upload, publish request, replace request,
   and each finished publish and replace.
+  Cycle 87: also each import request and each stored import.
+- Cycle 87: an import never runs the imported page. A URL import contacts
+  only public addresses (every redirect hop is checked) and reads only
+  HTML and same-origin CSS, capped.
 
 ## 2. Operator steps (not done in cycle 69)
 

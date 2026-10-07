@@ -8,7 +8,7 @@ Audience temperature: warm to hot.
 2. Checked claims (`checked_claims`): 4-6 items, each `{ad_said, fact, claim_ids}` -- what the ad said or implied (at most 18 words), and the verified fact behind it (at most 36 words) with at least one claim_id. Cover the buyer's logistics where facts exist: electrical requirement, footprint/dimensions, delivery and shipping, assembly, warranty. At least 3 items cite a product spec or benefit claim (not price, shipping, warranty terms or returns).
 3. One photo in a real room (`room_photo.asset_id`): an asset of kind lifestyle or installation, never a studio render or a cut-out. Omit it when the run has none.
 4. Spec strip: the renderer builds 4 cells from facts_pack.specs. Write nothing here.
-5. Proof (`proof.quote`, optional): the rating is rendered from facts_pack; a quote only when it exists word for word in facts_pack.reviews_summary, with its author and claim_ids.
+5. Proof (`proof.quote`, optional): the rating is rendered from facts_pack; a quote only when it is one customer's review copied word for word from facts_pack.review_quotes, with its author and claim_ids. The rating sentence in facts_pack.reviews_summary ("Rated ... out of 5 ...") is never a quote. No review_quotes: omit `proof`.
 6. FAQ (`faq.questions`): 3-5 entries from the ad's objections and the buyer's logistics. Each question at most 12 words; each answer first, at most 35 words; claim_ids on any number, price, spec or trigger word. Rendered with FAQPage JSON-LD.
 7. Closing band (`closing.headline`, at most 10 words). The renderer adds the same CTA pill and the financing and warranty sentences.
 8. Sticky bar: price + the CTA, rendered after the first screen scrolls out.

@@ -317,9 +317,10 @@ class Tenant:
 
     @property
     def looks_dir(self):
-        """Cycle 86: tenant-level imported looks,
-        looks/<cartridge>/<name>/template.html (+ library.json). The Library
-        lists every folder here; rendering one is up to the import path."""
+        """Cycle 87: looks imported from other pages ("Import a page",
+        harness/look_import.py), one folder per look:
+        looks/<cartridge>/<slug>/{template.html, library.json,
+        observation.json, review.html}. Runtime data, like abtests/."""
         return self.root / "looks"
 
     @property

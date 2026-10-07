@@ -16,6 +16,10 @@ harness/jobs.py). For one item:
 `from_inbox` checks the daily cap before each item. When the cap has no room
 for another run, it stops and leaves every item it did not reach "queued"
 with the reason "budget cap"; the next run (the next day) picks them up.
+
+Cycle 88: the test's destination plan (abtest.PLANS) is the item's own
+"destinations" (the upload form's choice), else the `plan` the caller
+passes (`from-inbox --destinations`), else 3 generated.
 """
 import argparse
 import contextlib
@@ -70,7 +74,7 @@ def publish_test(tenant, test_id, *, by):
     return (rec.get("split") or {}).get("url"), None
 
 
-def build_test_for_item(tenant, ad_id, *, by, runner=None):
+def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
     """Builds (or resumes) the A/B/C test for one inbox item. Returns
     {"outcome": "built"|"live"|"budget"|"failed", "test_id", "split_url",
     "reason"}."""
@@ -120,8 +124,17 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None):
         def link(new_rec):
             inbox.note(ad_id, f"building A/B/C test {new_rec['test_id']}", test_id=new_rec["test_id"])
 
+        try:
+            plan_name, specs = abtest.parse_plan(item.get("destinations") or plan)
+            if pinned and not any(s["kind"] == "generated" for s in specs):
+                raise abtest.AbtestError(f"destinations {plan_name!r} build no page, so the pinned page "
+                                         f"version {pinned} cannot be used")
+        except abtest.AbtestError as e:
+            inbox.set_state(ad_id, "failed", str(e))
+            return {"outcome": "failed", "test_id": None, "split_url": None, "reason": str(e)}
         rc, rec = abtest.create_test(tenant, input_path=media, name=item.get("ad_name") or ad_id,
-                                     source=source, runner=runner, on_record=link, pinned_arm=pinned)
+                                     source=source, runner=runner, on_record=link, plan=specs,
+                                     pinned_arm=pinned)
 
     test_id = rec["test_id"]
     if rc == exits.BUDGET:
@@ -172,7 +185,7 @@ def _leave_for_tomorrow(inbox, items):
             inbox.note(item["ad_id"], BUDGET_REASON)
 
 
-def from_inbox(tenant, *, by, limit=None, runner=None, log=print):
+def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
     """Builds a test for each pending inbox item until the daily cap stops
     it. Returns {"built": [...], "failed": [...], "left": [...], "stopped":
     None|"budget cap"}."""
@@ -191,7 +204,7 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print):
             log(f"daily budget cap reached: {len(rest)} item(s) left queued for the next run")
             break
         log(f"building an A/B/C test for inbox item {ad_id} ({item.get('ad_name')})")
-        outcome = build_test_for_item(tenant, ad_id, by=by, runner=runner)
+        outcome = build_test_for_item(tenant, ad_id, by=by, runner=runner, plan=plan)
         log(f"  {ad_id}: {outcome['outcome']} {outcome.get('test_id') or ''} {outcome.get('reason') or ''}".rstrip())
         if outcome["outcome"] == "budget":
             rest = todo[i + 1:]

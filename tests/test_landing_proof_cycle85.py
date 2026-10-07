@@ -15,7 +15,7 @@ from harness import abtest, landing, looks, repair, write
 from harness.page_body import build_shopify_body
 from tests.support import REPO_ROOT, TENANT
 from tests.test_brand_lint_cycle78 import _PAGE_SCOPED, _css, _lint, _rules
-from tests.test_landing_cycle82 import PHONE, SRC, _keys, _render
+from tests.test_landing_cycle82 import PHONE, SRC, WARRANTY_TERM, _keys, _render
 from tests.test_landing_cycle82 import _gates as _landing_gates
 from tests.test_landing_cycle82 import _facts_pack as _landing_facts_pack
 
@@ -49,7 +49,7 @@ def _gates(page, facts_pack=None):
 
 def _with_quote_source(fp, text=QUOTE):
     fp = copy.deepcopy(fp)
-    fp["reviews_summary"] = dict(fp.get("reviews_summary") or {}, quotes=[{"text": text, "author": "Dana R."}])
+    fp["review_quotes"] = [{"text": text, "author": "Dana R."}]
     return fp
 
 
@@ -125,7 +125,7 @@ def test_the_trust_line_sits_under_the_cta_and_the_text_link_under_it(tmp_path):
     act = re.search(r'<div class="ld-act ld-act--proof">(.*?)</div>', html, re.S).group(1)
     assert act.index('class="ld-btn"') < act.index('class="ld-trust"') < act.index('class="ld-text"')
     trust = re.findall(r"<li>([^<]*)</li>", re.search(r'<ul class="ld-trust">(.*?)</ul>', act).group(1))
-    assert trust[:2] == ["Free shipping", "Limited lifetime warranty"] and len(trust) <= landing.PROOF_TRUST_MAX
+    assert trust[:2] == ["Free shipping", WARRANTY_TERM] and len(trust) <= landing.PROOF_TRUST_MAX
     assert "secure" not in act.lower() and "guarantee" not in act.lower()
     # the financing sentence stays verbatim in the price block above the pill
     assert html.index("Financing is available through Bread Pay at checkout.") < html.index('class="ld-act ld-act--proof"')
@@ -141,7 +141,7 @@ def test_the_returns_term_only_from_a_short_verified_returns_clause():
     assert landing.returns_term(fp, TENANT) is None
     fp["verified_claims"] = [c for c in fp["verified_claims"] if c["id"] != "returns-policy"]
     assert landing.returns_term(fp, TENANT) is None
-    assert [t["text"] for t in landing.proof_trust_items(fp, TENANT)] == ["Free shipping", "Limited lifetime warranty"]
+    assert [t["text"] for t in landing.proof_trust_items(fp, TENANT)] == ["Free shipping", WARRANTY_TERM]
 
 
 def test_the_icon_row_draws_only_known_icon_keys(tmp_path):
@@ -334,3 +334,17 @@ def test_a_landing_ab_test_can_pit_open_against_proof_and_records_the_look(monke
         rec["variants"].append(variant)
         assert abtest._build_variant(TENANT, rec, variant, runner) == "built"
     assert [(v["cartridge"], v["look"]) for v in rec["variants"]] == [("landing", "open"), ("landing", "proof")]
+
+
+def test_the_proof_look_drops_the_rating_sentence_quote_and_keeps_the_rating_row(tmp_path):
+    """Cycle 82e: run 20261007-195303-...-ybme showed the reviews claim text
+    under the subhead, attributed to "Judge.me reviews"."""
+    fp = _with_quote_source(_facts_pack())
+    rating = fp["reviews_summary"]["text"]
+    proof = {"quote": {"text": rating, "author": "Judge.me reviews", "claim_ids": ["reviews-live"]}}
+    html = _html(tmp_path / "a", _proof_page(proof=proof), facts_pack=fp)
+    assert 'class="ld-hq"' not in html and "Judge.me reviews" not in html
+    assert 'class="ld-stars"' in html
+    real = {"quote": {"text": QUOTE, "author": "Dana R.", "claim_ids": ["reviews-live"]}}
+    assert landing.find_quote_violations(_proof_page(proof=real), fp) == []
+    assert QUOTE in _html(tmp_path / "b", _proof_page(proof=real), facts_pack=fp)

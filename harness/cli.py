@@ -19,6 +19,7 @@ from . import budget as budget_mod
 from . import brand_import
 from . import notify
 from . import listicle
+from . import look_import
 from . import looks
 from . import meta_ingest
 from . import pipeline
@@ -167,6 +168,56 @@ def cmd_tenant_list(args):
 # harness brand import
 # ---------------------------------------------------------------------------
 
+def cmd_look_import(args):
+    """`harness look import --tenant <t> --cartridge landing (--file F | --url U
+    | --html -) --name <slug> [--title T] [--dry-run]` -- cycle 87, the CLI
+    mirror of the site's "Import a page" (harness/look_import.py). A dry run
+    prints the build observation and makes no model call."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    if args.file:
+        path = Path(args.file)
+        try:
+            data = path.read_bytes()
+        except OSError as e:
+            print(f"cannot read {path}: {e}", file=sys.stderr)
+            return exits.USAGE
+        source = {"kind": "upload", "data": data, "filename": path.name}
+    elif args.url:
+        source = {"kind": "url", "url": args.url}
+    else:
+        source = {"kind": "paste", "html": sys.stdin.read() if args.html == "-" else args.html}
+    client = None
+    log = None
+    if not args.dry_run:
+        tenant.load_env()
+        client = make_client()
+        run_id = f"look-import-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    try:
+        result = look_import.import_look(
+            tenant, cartridge=args.cartridge, name=args.name, title=args.title, source=source, client=client,
+            dry_run=args.dry_run, log=log, progress=lambda step: print(f"  {step}", file=sys.stderr),
+        )
+    except look_import.LookImportError as e:
+        print(look_import.format_errors(e), file=sys.stderr)
+        return exits.USAGE
+    finally:
+        if log:
+            log.close()
+    if args.dry_run:
+        print(json.dumps(result["observation"], indent=2))
+        print(f"\n{result['summary']}\n(--dry-run: observation only; no model call, nothing written)",
+              file=sys.stderr)
+        return exits.OK
+    print(f"imported {args.cartridge} look {result['slug']!r} ({result['title']}): validation PASS on attempt "
+          f"{result['attempts']}, model cost ${result['cost_usd']:.4f}")
+    print(f"  {result['summary']}")
+    print(f"  {result['folder']}/review.html")
+    print(f"  A/B/C library entry: {args.cartridge}:{result['slug']}")
+    return exits.OK
+
+
 def cmd_brand_import(args):
     """`harness brand import --tenant <t> (--drive-folder <url-or-id> | --local
     <dir>) [--dry-run] [--force]`. See harness/brand_import.py's module
@@ -300,9 +351,10 @@ def cmd_rerender(args):
             print(f"--look applies to a cartridge with looks ({', '.join(looks.CARTRIDGE_LOOKS)}), "
                   f"not {cartridge_name}", file=sys.stderr)
             return 1
-        if requested_look not in looks.cartridge_looks(cartridge_name):
+        if not looks.is_look_of(cartridge_name, requested_look, tenant):
             print(f"--look {requested_look!r} is not a {cartridge_name} look; choose one of "
-                  f"{list(looks.cartridge_looks(cartridge_name))}", file=sys.stderr)
+                  f"{list(looks.cartridge_looks(cartridge_name) + looks.imported_looks(cartridge_name, tenant))}",
+                  file=sys.stderr)
             return 1
         page["look"] = looks.resolve_look(cartridge_name, requested_look, tenant=tenant)
     ad_brief_json = run_dir / "ad_brief.json"
@@ -954,7 +1006,8 @@ def _abtest_tenant(args):
 
 def _print_build_result(rc, rec):
     for v in rec["variants"]:
-        print(f"  {v['key']}  {v['arm']:32s} {v.get('run_dir') or '(not built)'}")
+        where = v.get("url") or "(not resolved)" if abtest.is_external(v) else v.get("run_dir") or "(not built)"
+        print(f"  {v['key']}  {v['arm']:32s} {where}")
     for failed in rec.get("failed_arms") or []:
         print(f"  (variant {failed['key']}: {failed['arm']} failed {failed['attempts']} attempts; replaced)")
     if rc == exits.BUDGET:
@@ -982,7 +1035,7 @@ def cmd_abtest_create(args):
         source = {"kind": "meta", **data}
     rc, rec = abtest.create_test(
         tenant, input_path=args.input, name=args.name, source=source, seed=args.seed,
-        runner=abtest.default_runner,
+        runner=abtest.default_runner, plan=args.destinations,
     )
     print(f"A/B/C test {rec['test_id']} ({rec['status']}):")
     return _print_build_result(rc, rec)
@@ -1021,8 +1074,14 @@ def cmd_abtest_publish(args):
         print(f"{args.by!r} is not a listed reviewer for tenant {tenant.name!r}", file=sys.stderr)
         return exits.USAGE
     live = not args.draft
+    unresolved = [v["key"] for v in rec["variants"] if abtest.is_external(v) and not v.get("url")]
+    if unresolved:
+        print(f"test {test_id}: external arm(s) {', '.join(unresolved)} have no destination URL", file=sys.stderr)
+        return exits.USAGE
 
     for v in rec["variants"]:
+        if abtest.is_external(v):  # cycle 88: nothing to publish; the split page sends visitors there
+            continue
         run_dir, page = Path(v["run_dir"]), v["cartridge"]
         runstate.record_abtest(run_dir, page=page, test_id=test_id, key=v["key"])
         runstate.approve(run_dir, tenant, by=args.by, pages=[page], note=f"abtest {test_id} variant {v['key']}")
@@ -1044,11 +1103,14 @@ def cmd_abtest_publish(args):
 
     variant_paths = {}
     for v in rec["variants"]:
+        if abtest.is_external(v):
+            variant_paths[v["key"]] = abtest.split_path(tenant, v["url"])
+            continue
         url = (v.get("shopify") or {}).get("url") or ""
         variant_paths[v["key"]] = urllib.parse.urlparse(url).path or f"/pages/{abtest.variant_handle(test_id, v['key'])}"
     payload = {
         "title": rec["name"],
-        "body_html": abtest.split_body(test_id, variant_paths),
+        "body_html": abtest.split_body(test_id, variant_paths, beacon_url=abtest.settings(tenant)["beacon_url"]),
         "storefront_host": tenant.get("site_host"),
         "handle": abtest.split_handle(test_id),
         "metafields": [dict(abtest.SEO_HIDDEN_METAFIELD)],
@@ -1081,11 +1143,18 @@ def cmd_abtest_status(args):
         if rec.get("reason"):
             print(f"  reason: {rec['reason']}")
         print(f"  source: {json.dumps(rec.get('source'))}  input: {rec.get('input')}")
+        print(f"  destinations: {abtest.destinations_label(rec)}")
         for v in rec["variants"]:
+            if abtest.is_external(v):
+                print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {v.get('url') or '-'}")
+                print(f"     no beacon: {abtest.NO_BEACON_NOTE}={abtest.utm_content(rec['test_id'], v['key'])}")
+                continue
             url = (v.get("shopify") or {}).get("url") or "-"
             print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {url}")
             print(f"     run: {v.get('run_dir') or '-'}")
         print(f"  split: {(rec.get('split') or {}).get('url') or '-'}")
+        if rec.get("status") == "finished" and not rec.get("winner"):
+            print("  winner: none (finished with --force; no two generated pages to compare)")
         if rec.get("winner"):
             w = rec["winner"]
             print(f"  winner: {w['key']} {w['arm']} (P(best) {w['p_best']:.3f}{', forced' if w.get('forced') else ''})")
@@ -1133,6 +1202,10 @@ def cmd_abtest_orders(args):
         print(f"orders unavailable: {why}", file=sys.stderr)
         return exits.USAGE
     for v in rec["variants"]:
+        if abtest.is_external(v):
+            print(f"{v['key']}  {v['arm']:32s} orders    -  revenue           -  ({abtest.NO_BEACON_NOTE}="
+                  f"{abtest.utm_content(rec['test_id'], v['key'])})")
+            continue
         o = orders[v["key"]]
         print(f"{v['key']}  {v['arm']:32s} orders {o['orders']:>4}  revenue {o['revenue']:>11}")
     return exits.OK
@@ -1148,6 +1221,10 @@ def cmd_abtest_finish(args):
             print(f"orders unavailable ({why}); finishing on CTA click-through alone", file=sys.stderr)
     rec = abtest.finish(tenant, rec, force=args.force, orders=orders)
     w = rec["winner"]
+    if w is None:
+        print(f"Test {rec['test_id']} finished with no winner: it has no two generated pages to compare "
+              f"(external arms: {abtest.NO_BEACON_NOTE}).")
+        return exits.OK
     print(f"Test {rec['test_id']} finished. Winner: {w['key']} {w['arm']} "
           f"(CTR {w['ctr']:.1%}, P(best) {w['p_best']:.3f}{', forced' if w['forced'] else ''})")
     return exits.OK
@@ -1199,6 +1276,7 @@ def cmd_abtest_from_inbox(args):
     from . import abtest_inbox, jobs
 
     tenant = _abtest_tenant(args)
+    abtest.parse_plan(args.destinations)  # refuse a bad value before any build
     by = args.by or abtest_inbox.default_by(tenant)
     if abtest.settings(tenant)["auto_publish"] and runstate.find_reviewer(tenant, by) is None:
         print(f"{by!r} is not a listed reviewer for tenant {tenant.name!r}; pass --by <reviewer email>",
@@ -1206,7 +1284,7 @@ def cmd_abtest_from_inbox(args):
         return exits.USAGE
     try:
         with jobs.build_lock(tenant, blocking=False):
-            summary = abtest_inbox.from_inbox(tenant, by=by, limit=args.limit)
+            summary = abtest_inbox.from_inbox(tenant, by=by, limit=args.limit, plan=args.destinations)
     except jobs.JobError as e:
         print(f"{e}; from-inbox skipped this run", file=sys.stderr)
         return exits.OK
@@ -1751,11 +1829,12 @@ def build_parser():
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
     p_run.add_argument("--seed", type=int)
     p_run.add_argument(
-        "--look", choices=list(looks.all_looks()),
+        "--look", type=looks.look_arg, metavar="LOOK",
         help="page look -- which of cartridges/<cartridge>/looks/ lays the page out, for the "
              "selected cartridge that has this look (listicle: editorial|cards|pillars|"
              "scorecard|lander; product-page: pdp|classic; landing: open|proof); default: the "
-             "listicle's style pairing, product-page's pdp, landing's open, or the tenant's own pins",
+             "listicle's style pairing, product-page's pdp, landing's open, or the tenant's own pins. "
+             "Cycle 87: also a look the tenant imported (harness look import)",
     )
     p_run.add_argument(
         "--style", choices=list(listicle.STYLES),
@@ -1812,7 +1891,7 @@ def build_parser():
     p_rerender.add_argument("run_dir", help="tenants/<t>/out/<run-id>")
     p_rerender.add_argument("--page", required=True, help="cartridge name, e.g. listicle")
     p_rerender.add_argument(
-        "--look", choices=list(looks.all_looks()), default=None,
+        "--look", type=looks.look_arg, metavar="LOOK", default=None,
         help="re-render the page in a different look of its own cartridge (listicle or "
              "product-page); the copy is untouched",
     )
@@ -1981,6 +2060,9 @@ def build_parser():
     p_ab_create.add_argument("--name", required=True, help="the ad's name; the test id is a slug of it")
     p_ab_create.add_argument("--source-json", help="JSON object of the ad's Meta fields (ad id, name, ...)")
     p_ab_create.add_argument("--seed", type=int, help="seeds build choice and run seeds; default random")
+    p_ab_create.add_argument("--destinations", default=None, metavar="PLAN",
+                             help=f"cycle 88: one of {', '.join(abtest.PLANS)} (default generated), or a JSON "
+                                  "list of arms ({\"kind\": \"external\", \"target\": \"url\", \"url\": ...})")
     _add_tenant_flag(p_ab_create)
     p_ab_create.set_defaults(func=cmd_abtest_create)
     p_ab_resume = ab_sub.add_parser("resume", help="build the variants a queued test is still missing")
@@ -2015,6 +2097,9 @@ def build_parser():
     p_ab_inbox = ab_sub.add_parser("from-inbox", help="build (and auto publish) a test for each new inbox item")
     p_ab_inbox.add_argument("--limit", type=int, help="work on at most N inbox items this run")
     p_ab_inbox.add_argument("--by", help="reviewer email recorded on auto publishes; default: the primary reviewer")
+    p_ab_inbox.add_argument("--destinations", default=None, metavar="PLAN",
+                            help=f"cycle 88: plan for items that name none (an upload's own choice wins); one of "
+                                 f"{', '.join(abtest.PLANS)}; default generated")
     _add_tenant_flag(p_ab_inbox)
     p_ab_inbox.set_defaults(func=cmd_abtest_from_inbox)
     p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")
@@ -2100,6 +2185,23 @@ def build_parser():
     p_tenant_init.set_defaults(func=cmd_tenant_init)
     p_tenant_list = tenant_sub.add_parser("list", help="every tenant and whether it is configured")
     p_tenant_list.set_defaults(func=cmd_tenant_list)
+
+    # Cycle 87: "Import a page" from the command line (harness/look_import.py).
+    p_look = sub.add_parser("look", help="looks learned from other pages (cycle 87)")
+    look_sub = p_look.add_subparsers(dest="look_command", required=True)
+    p_look_import = look_sub.add_parser(
+        "import", help="learn a page's layout and store it as a tenant look (one model call; --dry-run: none)")
+    p_look_import.add_argument("--cartridge", choices=list(look_import.CARTRIDGES), default="landing")
+    source = p_look_import.add_mutually_exclusive_group(required=True)
+    source.add_argument("--file", help="a saved .html page")
+    source.add_argument("--url", help="a page URL (http/https, public host, HTML, at most 2 MB)")
+    source.add_argument("--html", help="the page's HTML; '-' reads it from stdin")
+    p_look_import.add_argument("--name", required=True, help="the look's name (slug): letters, digits, hyphens")
+    p_look_import.add_argument("--title", help="a display title for the Library (default: from the name)")
+    p_look_import.add_argument("--dry-run", action="store_true",
+                               help="print the build observation only: no model call, nothing written")
+    _add_tenant_flag(p_look_import)
+    p_look_import.set_defaults(func=cmd_look_import)
 
     p_brand = sub.add_parser("brand", help="import a brand kit from a Drive folder or a local directory")
     brand_sub = p_brand.add_subparsers(dest="brand_command", required=True)

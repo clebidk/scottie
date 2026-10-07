@@ -554,7 +554,9 @@ def test_dashboard_layout_in_the_official_palette(client):
     css = site.site_ui.CSS
     root = re.search(r":root\{([^}]*)\}", css).group(1)
     assert "--side:#C0C8C3" in root and "--side-ink:#181918" in root and "--side-active:#EFE3D2" in root
-    assert "--bg:#EFE3D2" in root and "--card:#F7F1E8" in root and "--red:#702B33" in root and "--r:8px" in root
+    # owner change 2026-10-07 (cycle 86): white page and white cards
+    assert "--bg:#FFFFFF" in root and "--card:#FFFFFF" in root and "--red:#702B33" in root and "--r:8px" in root
+    assert re.search(r"\.card\{[^}]*border:1px solid var\(--line\)", css)
     for banned in ("#F27046", "#EF6E46", "#1B1B1B", "coral"):
         assert banned.lower() not in body.lower(), banned
     assert re.search(r"\.side\{[^}]*background:var\(--side\)", css)

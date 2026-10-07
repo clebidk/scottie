@@ -24,7 +24,7 @@ from harness.claims import (
     strip_leaked_claim_ids,
     validate_page_claim_ids,
 )
-from harness.vocab import ALLOWED_WARRANTY_SENTENCE
+from harness.vocab import ALLOWED_WARRANTY_SENTENCE, ALLOWED_WARRANTY_SPEC_VALUE
 
 VERIFIED_CLAIMS = [
     {"id": "price-fuji", "text": "The Peak Saunas Fuji is priced at $8250.00 (list/compare-at $14032.00).", "category": "price", "source": "https://peaksaunas.com/products/fuji"},
@@ -896,7 +896,7 @@ def test_find_warranty_violations_allows_the_exact_sentence():
 
 
 def test_find_warranty_violations_allows_the_spec_table_value():
-    page = {"specs_table": [{"label": "Warranty", "value": "Limited lifetime warranty (terms by component)"}]}
+    page = {"specs_table": [{"label": "Warranty", "value": ALLOWED_WARRANTY_SPEC_VALUE}]}
     assert find_warranty_violations(page, WARRANTY_VERIFIED_CLAIMS) == []
 
 

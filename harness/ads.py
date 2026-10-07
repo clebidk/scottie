@@ -146,10 +146,14 @@ def collect_ads(tenant, *, include_run=None):
 def _variants(g):
     if g["tests"]:
         rec = g["tests"][0]
+        # Cycle 88: an external arm (PDP / home / URL) has no run; its url is
+        # the destination the split page sends visitors to.
         return [{"key": v["key"], "arm": v["arm"], "status": v.get("status"),
                  "run_id": Path(v["run_dir"]).name if v.get("run_dir") else None,
-                 "page": v.get("cartridge"), "url": (v.get("shopify") or {}).get("url"),
-                 "replacements": v.get("replacements") or []}
+                 "page": v.get("cartridge"),
+                 "url": v.get("url") if abtest.is_external(v) else (v.get("shopify") or {}).get("url"),
+                 "replacements": v.get("replacements") or [],
+                 "kind": "external" if abtest.is_external(v) else "generated", "target": v.get("target")}
                 for v in rec.get("variants") or []]
     return [{"key": None, "arm": r["page"], "status": r["state"], "run_id": r["run_id"], "page": r["page"],
              "url": None, "replacements": []} for r in g["runs"][:VARIANTS_SHOWN_FOR_RUNS]]
@@ -179,10 +183,17 @@ def add_stats(tenant, ad):
     counts = abevents.counts(abevents.db_path(tenant), rec["test_id"])
     data = {}
     for v in ad["variants"]:
+        if v.get("kind") == "external":
+            continue
         c = counts.get(v["key"], {"views": 0, "clicks": 0})
         data[v["key"]] = (min(c["clicks"], c["views"]), c["views"])
-    pb = abstats.p_best(data, draws=5000)
+    # Cycle 88: P(best) only between two or more generated pages; an
+    # external arm shows its split-page assignments and nothing else.
+    pb = abstats.p_best(data, draws=5000) if len(data) >= 2 else {}
     for v in ad["variants"]:
+        v["assigns"] = counts.get(v["key"], {}).get("assigns", 0)
+        if v.get("kind") == "external":
+            continue
         clicks, views = data[v["key"]]
-        v.update(views=views, clicks=clicks, ctr=abstats.ctr(clicks, views), p_best=pb.get(v["key"], 0.0))
+        v.update(views=views, clicks=clicks, ctr=abstats.ctr(clicks, views), p_best=pb.get(v["key"]))
     return ad

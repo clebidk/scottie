@@ -3,10 +3,14 @@
 A "version" is a cartridge x one of its looks (looks.CARTRIDGE_LOOKS) and,
 for the listicle, x its first screen (first_screen.HERO_STYLES) x its copy
 style (listicle.STYLES). A cartridge with no looks is one version. A
-tenant-level imported look, tenants/<t>/looks/<cartridge>/<name>/
-(template.html + library.json {name, title, summary, source, added_at}), is
-one more version of that cartridge: listed always, rendered when the
-harness can render that look.
+tenant-level imported look (cycle 87, harness/look_import.py: "Import a
+page"), tenants/<t>/looks/<cartridge>/<slug>/ with template.html and
+library.json, is one more version of that cartridge: found through
+looks.imported_looks, rendered through the same fake run (looks.resolve_look
+accepts the slug and render.py loads the template from the tenant folder),
+and described from its library.json (title, summary, source). An imported
+listicle look is one version, with the story first screen and the reasons
+style, so "Generate with this" has a complete build to pin.
 
 `harness library build --tenant <t> [--only landing,...] [--force]` renders
 each version once with NO model call: evals/fake_run.py's canned page for
@@ -66,7 +70,10 @@ THUMB_SIZE = (390, 844)
 THUMB_TIMEOUT_S = 90
 JOB_TARGET = "library"
 NOTE = "Reference renders use a canned demo page and the tenant's brand; copy is not real."
-_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
+# Cycle 87 imported listicle looks: the first screen and style their one
+# Library version renders with (story needs no ad still; reasons is the
+# first style).
+IMPORTED_LISTICLE = ("story", "reasons")
 
 CARTRIDGE_LABELS = {
     "article": "Article", "comparison": "Comparison", "landing": "Landing page", "listicle": "Listicle",
@@ -117,22 +124,18 @@ class Version:
 # what exists
 # ---------------------------------------------------------------------------
 
-def _harness_look_dirs(cartridge):
-    folder = pipeline.CARTRIDGES_DIR / cartridge / "looks"
-    return {p.name for p in folder.iterdir() if p.is_dir()} if folder.is_dir() else set()
-
-
 def tenant_look_versions(tenant, cartridge):
-    """The tenant's imported looks for this cartridge: every folder
-    tenants/<t>/looks/<cartridge>/<name>/ with a template.html. A name the
-    harness already uses for its own look (or "default") is left out --
-    the harness look wins."""
-    folder = Path(tenant.looks_dir) / cartridge
-    if not folder.is_dir():
-        return []
-    taken = set(looks.cartridge_looks(cartridge)) | _harness_look_dirs(cartridge) | {DEFAULT_LOOK_DIR}
-    return [Version(cartridge, d.name, tenant_look=True) for d in sorted(folder.iterdir())
-            if d.is_dir() and _NAME_RE.match(d.name) and d.name not in taken and (d / "template.html").is_file()]
+    """The tenant's imported looks for this cartridge (looks.imported_looks:
+    every valid slug folder with a template.html). A slug that is, or is an
+    alias of, one of the cartridge's own looks is left out -- the built-in
+    look wins there, as in looks.resolve_look."""
+    out = []
+    for slug in looks.imported_looks(cartridge, tenant):
+        if slug == DEFAULT_LOOK_DIR or looks.canonical(cartridge, slug) in looks.cartridge_looks(cartridge):
+            continue
+        fs, style = IMPORTED_LISTICLE if cartridge == "listicle" else (None, None)
+        out.append(Version(cartridge, slug, fs, style, tenant_look=True))
+    return out
 
 
 def versions(tenant):
@@ -157,13 +160,12 @@ def find(tenant, key):
 
 
 def _renderable(tenant, version):
-    """True for a harness version. A tenant look renders only when the
-    harness resolves its name (the import path decides that, not this
-    module)."""
+    """True for a harness version. An imported look renders when
+    looks.resolve_look accepts its slug for this tenant (cycle 87)."""
     if not version.tenant_look:
         return True
     try:
-        return looks.resolve_look(version.cartridge, version.look, tenant=tenant) == version.look
+        return looks.resolve_look(version.cartridge, version.look, style=version.style, tenant=tenant) == version.look
     except ValueError:
         return False
 
@@ -236,7 +238,10 @@ def _audience(text):
 
 
 def _tenant_look_info(tenant, version):
-    path = Path(tenant.looks_dir) / version.cartridge / version.look / "library.json"
+    folder = looks.imported_looks_dir(version.cartridge, tenant)
+    if folder is None:
+        return {}
+    path = folder / version.look / "library.json"
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError):
@@ -278,8 +283,12 @@ def describe(tenant, version):
         lib = _tenant_look_info(tenant, version)
         info["title"] = str(lib.get("title") or "").strip() or info["title"]
         notes.append(str(lib.get("summary") or "").strip())
-        info["imported_from"] = str(lib.get("source") or "").strip() or None
-        info["added_at"] = str(lib.get("added_at") or "").strip() or None
+        # cycle 87 writes source as {kind, origin, imported_at}; a plain
+        # string and a top-level added_at are read too.
+        source = lib.get("source")
+        source = source if isinstance(source, dict) else {"origin": source}
+        info["imported_from"] = str(source.get("origin") or "").strip() or None
+        info["added_at"] = str(lib.get("added_at") or source.get("imported_at") or "").strip() or None
     else:
         notes.append(LOOK_NOTES.get((version.cartridge, version.look), ""))
     if version.first_screen:
@@ -301,7 +310,7 @@ def version_sha(tenant, version):
     cdir = pipeline.CARTRIDGES_DIR / version.cartridge
     files = [cdir / "template.html", cdir / "cartridge.md", cdir / "schema.json"]
     if version.tenant_look:
-        ldir = Path(tenant.looks_dir) / version.cartridge / version.look
+        ldir = looks.imported_looks_dir(version.cartridge, tenant) / version.look
         files += [ldir / "template.html", ldir / "library.json"]
     elif version.look:
         files.append(cdir / "looks" / version.look / "template.html")
@@ -548,7 +557,7 @@ def build(tenant, *, only=None, force=False, log=print):
             meta.update(sha=sha, built_at=datetime.datetime.now().isoformat(timespec="seconds"),
                         demo_input=fixture.name)
             if not _renderable(tenant, version):
-                reason = "an imported look this harness cannot render yet; listed from its library.json"
+                reason = "an imported look looks.resolve_look does not accept for this tenant; listed from its library.json"
                 _swap_in(_staged_meta(scratch, version, dict(meta, unavailable=reason)), dest)
                 summary["unavailable"].append(version.key)
                 log(f"[{i}/{len(todo)}] {version.key}: {reason}")

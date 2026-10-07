@@ -939,13 +939,25 @@ def render_page(
     fetch_url=http_fetch_bytes,
     drive_downloader=ingest.download_drive_file,
     tenant=None,
+    looks_dir=None,
 ):
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
+    loader = jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)])
+    # Cycle 87: the tenant's imported looks (harness/look_import.py) resolve
+    # AFTER the cartridge's own: the dispatcher's "looks/<look>/template.html"
+    # finds cartridges/<c>/looks/<look>/ first, else
+    # tenants/<t>/looks/<c>/<look>/. `looks_dir` overrides the tenant's folder
+    # (the import's validation render, before anything is stored).
+    tenant_looks = looks_mod.imported_looks_dir(cartridge_name, tenant, looks_dir)
+    if tenant_looks is not None:
+        loader = jinja2.ChoiceLoader([
+            loader, jinja2.PrefixLoader({"looks": jinja2.FileSystemLoader(str(tenant_looks))}, delimiter="/"),
+        ])
     env = jinja2.Environment(
         # blocks.BLOCKS_DIR last: a cartridge's own template.html and the
         # shared templates win; block partials resolve as "<name>/block.html".
-        loader=jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)]),
+        loader=loader,
         autoescape=jinja2.select_autoescape(["html"]),
     )
     # Cycle 31: the one shared image-markup helper (see render_image_slot's
@@ -1160,7 +1172,8 @@ def render_page(
     look = ""
     if looks_mod.has_looks(cartridge_name):
         try:
-            look = looks_mod.resolve_look(cartridge_name, page.get("look"), style=page.get("style"), tenant=tenant)
+            look = looks_mod.resolve_look(cartridge_name, page.get("look"), style=page.get("style"), tenant=tenant,
+                                          looks_dir=looks_dir)
         except ValueError as e:
             # Only reachable from a hand-edited page.json: `harness run
             # --look` / `harness rerender --look` are checked first. A page
