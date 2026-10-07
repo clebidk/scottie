@@ -46,7 +46,7 @@ def settings(tenant):
 
 def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pack, model, tenant,
                           ad_not_repeated=None, listicle_style=None, listicle_headline=None,
-                          listicle_skeleton=None, listicle_drafts=None):
+                          listicle_skeleton=None, listicle_drafts=None, landing_look=None):
     """(requests, schemas_by_cartridge). requests is ready to pass to
     client.messages.batches.create(requests=requests); schemas_by_cartridge
     is needed to validate_schema() each result the same way write_page does.
@@ -89,6 +89,7 @@ def build_batch_requests(*, cartridge_names, cartridges_dir, ad_brief, facts_pac
                 ad_not_repeated=ad_not_repeated,
                 tenant=tenant,
                 listicle_skeleton=skeleton,
+                landing_look=landing_look,
             )
             schemas[custom_id] = schema
             requests.append(Request(custom_id=custom_id, params=MessageCreateParamsNonStreaming(**kwargs)))

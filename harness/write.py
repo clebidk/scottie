@@ -559,10 +559,12 @@ def _append_product_page_guidance(hard_constraints, cartridge_name):
 
 # Cycle 82: the landing cartridge's writer lines -- the same constants
 # harness/landing.py's gate measures. No-op for every other cartridge.
-def _append_landing_guidance(hard_constraints, cartridge_name, facts_pack):
+# Cycle 85: `look` is the run's resolved landing look; the proof look adds
+# its benefits and icon_row lines.
+def _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=None):
     if cartridge_name != "landing":
         return
-    hard_constraints.extend(landing.writer_lines(facts_pack))
+    hard_constraints.extend(landing.writer_lines(facts_pack, look=look))
 
 
 def _warmup_window_words(tenant):
@@ -747,7 +749,7 @@ def _content_len(content):
 def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, model,
                                  word_range=None, allowed_cta_texts=None, ad_not_repeated=None,
                                  tenant=None, listicle_style=None, listicle_headline=None,
-                                 listicle_skeleton=None):
+                                 listicle_skeleton=None, landing_look=None):
     """(schema, kwargs) -- schema so the caller can validate_schema() the
     parsed response the same way write_page does; kwargs is ready to pass to
     client.messages.create(**kwargs) or wrap in a batch Request's params."""
@@ -766,7 +768,7 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
-    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack)
+    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=landing_look)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(
         ad_brief, facts_pack, exemplars, skeleton=skeleton,
@@ -810,7 +812,7 @@ def _create_message(client, on_started, **kwargs):
 def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                word_range=None, allowed_cta_texts=None, revision_note=None, ad_not_repeated=None,
                tenant=None, listicle_style=None, listicle_headline=None, listicle_skeleton=None,
-               current_page=None, patch_roots=None, on_started=None):
+               current_page=None, patch_roots=None, on_started=None, landing_look=None):
     """word_range (min, max), allowed_cta_texts (resolved, concrete strings),
     and revision_note (fix cycle 4 item 1: a "REVISION REQUIRED" block from a
     prior failed gate check on this same cartridge, appended to the user
@@ -860,7 +862,7 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
-    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack)
+    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=landing_look)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification

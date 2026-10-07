@@ -328,9 +328,9 @@ def _headline_template_id(run_dir):
         return None
 
 
-def _page_field(run_dir, field):
+def _page_field(run_dir, field, cartridge="listicle"):
     try:
-        return json.loads((Path(run_dir) / "listicle" / "page.json").read_text()).get(field)
+        return json.loads((Path(run_dir) / cartridge / "page.json").read_text()).get(field)
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -359,6 +359,10 @@ def _build_variant(tenant, rec, variant, runner):
                 # Cycle 79: the first screen it actually rendered (face falls
                 # back when the ad has no usable still).
                 variant["hero_style"] = _page_field(run_dir, "hero_style")
+            if looks.has_looks(arm.cartridge):
+                # Cycle 85: the look the page was actually stamped with (a
+                # landing test may pit `open` against `proof`).
+                variant["look"] = _page_field(run_dir, "look", arm.cartridge)
             save_test(tenant, rec)
             return "built"
         tries.append(attempt)

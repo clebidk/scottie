@@ -25,6 +25,7 @@ from pathlib import Path
 from harness import cli
 from harness import headlines
 from harness import listicle as listicle_mod
+from harness import looks
 from harness import pipeline
 from harness import skeletons
 from harness import tenant as tenant_mod
@@ -82,6 +83,27 @@ LANDING_PAGE = {
         ]
     },
     "closing": {"headline": "See the Fuji with every number on the page"},
+}
+
+# Cycle 85: the same page in the landing `proof` look -- plus the two blocks
+# that look asks the writer for, each citing claims the offline facts pack
+# verifies. No proof.quote: the offline facts pack has no reviews_summary.
+LANDING_PROOF_PAGE = {
+    **LANDING_PAGE,
+    "benefits": [
+        {"text": "Canadian red cedar, inside and out", "claim_ids": ["gbrain-fuji-wood"]},
+        {"text": "Room for two people side by side", "claim_ids": ["spec-fuji-capacity"]},
+        {"text": "Near, mid and far infrared heat", "claim_ids": ["spec-fuji-infrared-wavelength-range"]},
+        {"text": "Medical-grade red light therapy, included standard",
+         "claim_ids": ["gbrain-allowlist-red-light", "gbrain-fuji-rlt"]},
+        {"text": "Heaters placed all around you", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
+    ],
+    "icon_row": [
+        {"icon_key": "red_light", "label": "Red light therapy", "claim_ids": ["gbrain-allowlist-red-light"]},
+        {"icon_key": "full_spectrum", "label": "Full-spectrum heat", "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
+        {"icon_key": "wood", "label": "Canadian red cedar", "claim_ids": ["gbrain-fuji-wood"]},
+        {"icon_key": "us_owned", "label": "US-owned company", "claim_ids": ["gbrain-allowlist-us-owned"]},
+    ],
 }
 
 CANNED_PAGES = {
@@ -213,7 +235,8 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
     return page
 
 
-def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None, display_line=None):
+def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None, display_line=None,
+                 landing_look=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -232,6 +255,8 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_i
         return COMPARISON_PAGE
     if cartridge == "listicle":
         return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
+    if cartridge == "landing" and landing_look == "proof":
+        return LANDING_PROOF_PAGE
     return CANNED_PAGES[cartridge]
 
 
@@ -342,7 +367,7 @@ def _newest_run_dir(base_dir, pattern):
 
 
 def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
-             style=None, headline_template=None, skeleton=None):
+             style=None, headline_template=None, skeleton=None, look=None):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
     None, [page.json paths]). Shared by main() (the CLI) and evals/soak.py
     (the 200-generation dry run)."""
@@ -378,6 +403,14 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
             )
             canned_headline = headlines.example_headline(plan, 5)
 
+    # Cycle 85: the landing page's look decides which canned page the writer
+    # "returns" (the proof look's page carries benefits and icon_row), from
+    # the same rule the run uses.
+    landing_look = None
+    if "landing" in selected:
+        landing_look = looks.resolve_look("landing", looks.requested_for("landing", look),
+                                          tenant=tenant_mod.load_tenant(tenant, require=True))
+
     brief = _brief_for(input_arg)
     responses = [json_response(brief)]
     if brief.get("claims_made"):
@@ -388,7 +421,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     quotes = safe_quote_candidates(brief, None)
     hero_quote_id = quotes[0]["id"] if quotes else None
     responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id,
-                                             _display_line(brief)))
+                                             _display_line(brief), landing_look))
                   for c in selected]
     client = FakeClient(responses)
 
@@ -399,6 +432,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
         style=style,
         headline_template=headline_template,
         skeleton=skeleton,
+        look=look,
         product=product,
         ffmpeg_bin="/usr/bin/ffmpeg",
         whisper_bin="/nonexistent/whisper-cli",
@@ -430,13 +464,15 @@ def main(argv=None):
     parser.add_argument("--skeleton", choices=skeletons.skeleton_ids(), default=None,
                         help="listicle winner skeleton id; default: picked from the ad's angle")
     parser.add_argument("--product", default=None)
+    parser.add_argument("--look", choices=list(looks.all_looks()), default=None,
+                        help="a look of a selected cartridge (e.g. landing: open | proof); default: the cartridge's own")
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)
 
     exit_code, run_dir, pages = run_once(
         ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
-        style=ns.style, headline_template=ns.headline_template, skeleton=ns.skeleton,
+        style=ns.style, headline_template=ns.headline_template, skeleton=ns.skeleton, look=ns.look,
     )
     if exit_code != 0:
         return exit_code

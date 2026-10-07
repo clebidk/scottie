@@ -128,6 +128,9 @@ docs/LISTICLE-SITE.md.
 - Library: `tenant.yaml` `abtest.library`. An entry is `cartridge`,
   `cartridge:look`, or `listicle:style[:look]`. If the entry has no look, the
   tenant's style to look pairing supplies it.
+  Cycle 85: `landing:open` and `landing:proof` let a test compare the two
+  landing looks; each built variant records the `look` its page.json was
+  stamped with.
 - With a probability of `abtest.explore` (default 0.2), the harness picks 3
   builds at random. If no build has data yet, it also picks at random.
 - Otherwise it uses Thompson sampling: one draw per build from

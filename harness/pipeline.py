@@ -113,6 +113,7 @@ class RunState:
         self.selected = []
         self.listicle_style = None
         self.listicle_look = None
+        self.landing_look = None   # cycle 85
         self.listicle_headline = None
         self.listicle_skeleton = None
         # Cycle 76: listicle drafts this run writes (harness/drafts.py).
@@ -210,6 +211,11 @@ def prepare_run(state):
     state.longform_look = looks.resolve_look(
         "longform", looks.requested_for("longform", requested_look), tenant=tenant
     )
+    # Cycle 85: the landing look. Unlike the other looks it reaches the
+    # writer too: the proof look asks for benefits and icon_row.
+    state.landing_look = looks.resolve_look(
+        "landing", looks.requested_for("landing", requested_look), tenant=tenant
+    )
     if requested_look and not any(looks.requested_for(c, requested_look) for c in selected):
         state.log.event("run", f"--look {requested_look!r} is not a look of any selected cartridge; ignored")
     if "listicle" in selected:
@@ -219,6 +225,8 @@ def prepare_run(state):
         state.log.event("run", f"product-page look: {state.product_page_look}")
     if "longform" in selected:
         state.log.event("run", f"longform look: {state.longform_look}")
+    if "landing" in selected:
+        state.log.event("run", f"landing look: {state.landing_look}")
     # Cycle 76: best-of-N listicle drafts judged by Jev (tenant.yaml `jev`).
     # With --batch, every draft's first write goes in the one Message Batch.
     state.drafts = jev.drafts_for_run(tenant, selected)
@@ -439,6 +447,7 @@ def _write_initial_pages_via_batch(state, write_model, listicle_drafts=None):
         ad_not_repeated=state.ad_not_repeated,
         listicle_skeleton=state.listicle_skeleton,
         listicle_drafts=listicle_drafts,
+        landing_look=getattr(state, "landing_look", None),
     )
     created = state.client.messages.batches.create(requests=requests)
     state.log.event("write_pages", f"batch {created.id} submitted for {len(requests)} request(s)")
@@ -562,6 +571,7 @@ def write_pages(state):
             initial_page=initial_page,
             initial_call_tokens=initial_call_tokens,
             listicle_style=state.listicle_style,
+            landing_look=getattr(state, "landing_look", None),
         )
         try:
             if cartridge_name == "listicle" and draft_plan:
@@ -629,10 +639,14 @@ def render_pages(state):
         runstate.record_look(state.run_dir, "longform", state.longform_look)
         if state.longform_look == "open":
             first_screen.build_ad_still(state)
-    # Cycle 82: the landing page leads with the ad still too.
+    # Cycle 82: the landing page leads with the ad still too. Cycle 85: its
+    # look, stamped and recorded like the others.
     if "landing" in state.pages:
-        from . import first_screen
+        from . import first_screen, runstate
 
+        if getattr(state, "landing_look", None):
+            state.pages["landing"]["look"] = state.landing_look
+            runstate.record_look(state.run_dir, "landing", state.landing_look)
         first_screen.build_ad_still(state)
 
     # Cycle 79: the listicle's ad still and first-screen style.

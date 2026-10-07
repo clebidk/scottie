@@ -1205,7 +1205,7 @@ def render_page(
         frame_asset = ad_frames.page_assets(run_dir).get(ad_frames.FRAME_ID)
         if frame_asset:
             assets_by_id[ad_frames.FRAME_ID] = dict(frame_asset)
-        landing_context = landing_mod.render_context(page, facts_pack, ad_brief=ad_brief, tenant=tenant)
+        landing_context = landing_mod.render_context(page, facts_pack, ad_brief=ad_brief, tenant=tenant, look=look)
         if landing_context.get("accent_note") and log:
             log.event("render", landing_context["accent_note"])
         pronoun = first_screen_mod.speaker_pronoun(ad_brief=ad_brief, frame=frame_record, tenant=tenant)

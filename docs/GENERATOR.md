@@ -294,6 +294,20 @@ verified claims, alternating step rows, a hairline spec table, one Basalt closin
 The harness default is `classic`; peak-saunas pins `cartridges.longform.looks: [open]`.
 `harness rerender --look classic` switches back with no model call.
 
+**The landing `proof` look (cycle 85).** The landing cartridge has two looks: `open` (the
+cycle 82 page, the default) and `proof`, which applies six ideas from a Shopify product-page
+post the owner shared, 2026-10-07 (reported 1.2% -> 4.7% CVR), in the harness's rules: the
+verified rating + count is the first row of the first screen and a verbatim review quote sits
+under the subhead; trust facts (free shipping, the warranty term, a short verified returns
+clause) sit directly under the pill, with the financing sentence verbatim just above it; 4-6
+✓ benefit rows follow the first screen, then the room photo; a 3-4 cell icon row (inline line
+icons shipped in the look) comes before the closing band; the rest is the open page. The
+writer adds two optional fields only for this look -- `benefits` and `icon_row`
+(`landing.ICONS` keys) -- each with claim ids, gated only when present, and inside the same
+250-450 words. Select it with `harness run --cartridges landing --look proof`, a tenant pin
+(`cartridges.landing.looks`), or the A/B/C library entries `landing:open` / `landing:proof`;
+the variant record keeps the look. `--look proof` reaches the writer, unlike a rerender.
+
 ## Add a new cartridge type in under 10 minutes
 
 Copy an existing cartridge folder -- `product-page` or `longform` are the most complete

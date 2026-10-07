@@ -14,6 +14,12 @@ Audience temperature: warm to hot.
 8. Sticky bar: price + the CTA, rendered after the first screen scrolls out.
 9. Footer: byline, disclosure, sources.
 
+## The proof look (only when the hard constraints say so)
+The page may render in the `proof` look. Then the renderer puts the rating first, the quote (`proof.quote`) under the subhead and the shipping and warranty facts under the CTA, and the writer adds two blocks; for the `open` look, omit both.
+- `benefits`: 4-6 rows `{text, claim_ids}` shown with a check mark after the first screen. Each text is a plain noun phrase of at most 8 words. At least one claim_id per row is a product spec or benefit claim or a benefit allowlist id.
+- `icon_row`: 3-4 cells `{icon_key, label, claim_ids}` before the closing band. `icon_key` is one of the fixed keys the hard constraints list, each key once; the label is at most 3 words and its claim_ids state it.
+Both count toward the word range.
+
 ## Rules
 - 250-450 words. Short, concrete, product first. Second person where it reads naturally.
 - One CTA: `cta_text` is exactly one of schema.json's `allowed_cta_texts` with `{short_name}`/`{model_name}` filled in with the model name alone (facts_pack.product.name), and `cta_url` is the one destination. Never add a second url, link, button, phone number or offer anywhere in page.json -- the gate fails it.

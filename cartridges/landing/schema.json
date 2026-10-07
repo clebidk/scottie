@@ -54,6 +54,29 @@
       "description": "Optional: one photo of the product in a real room (asset kind lifestyle/installation). Omit when facts_pack has none -- never a render.",
       "properties": {"asset_id": {"type": "string"}}
     },
+    "benefits": {
+      "type": "array",
+      "description": "PROOF LOOK ONLY (write it only when the hard constraints say the page renders in the proof look; otherwise omit). 4-6 check-mark rows, each a plain noun phrase of at most 8 words with claim_ids; at least one id per row is a product spec or benefit claim or a benefit allowlist id.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string", "description": "A plain noun phrase, at most 8 words, no full stop."},
+          "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims."}
+        }
+      }
+    },
+    "icon_row": {
+      "type": "array",
+      "description": "PROOF LOOK ONLY (otherwise omit). 3-4 icon cells before the closing band, each {icon_key, label, claim_ids}. icon_key is one of the fixed keys the hard constraints list; no key twice.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "icon_key": {"type": "string", "description": "One of: shipping, warranty, red_light, full_spectrum, wood, us_owned, delivery, assembly."},
+          "label": {"type": "string", "description": "At most 3 words."},
+          "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims that states it."}
+        }
+      }
+    },
     "proof": {
       "type": "object",
       "description": "Optional. The rating is rendered from facts_pack; quote only if it exists verbatim in facts_pack.reviews_summary.",
