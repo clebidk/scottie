@@ -4523,3 +4523,90 @@ landing runs: 2 passed, 3 STOPped at `page_json:landing` after 3 attempts.
 - **Open.** (C) is not fully fixed by the exemption: the Mini headline itself repeated the
   ad's contradicted claim, which still fails (correctly); whether the writer now moves it to
   ad_said depends on the new prompt line and repair text, not yet seen on a real run.
+
+## Cycle 84 (one page template in both themes; publisher sets template_suffix, 2026-10-07)
+
+Branch `cycle84/storefront-template` from origin/master 2dda94c. Not merged, not pushed.
+
+### Problem
+The export carries all of its CSS in one body `<style>` block, and the publisher created
+every page with no `template_suffix`. The store runs an A/B test between two themes. One
+theme's default page template (`sections/page.liquid`, Aurora) prints the body inside its
+`.page__content.rte` container and the pages look right. The other theme's default
+(`templates/page.json` -> section `pkj-editorial-page`) strips every `<style>` block from
+page content in its fallback, so the same pages render as raw CSS text for every visitor in
+that bucket.
+
+### Change
+- **`deploy/shopify/templates/page.pk-harness.liquid`** (new): theme layout, then a
+  `<style id="pk-harness-hide-chrome">` with the header / footer / announcement-bar selectors
+  and the `#MainContent` padding reset from `templates/page.pk-regret-lp.liquid`, then
+  `{{ page.content }}` raw. No section, snippet, `.rte`, container or page title, so it is
+  theme-agnostic. The pk-regret-lp line that re-shows Replo's own header was not carried
+  over (no Replo element here). The element selectors `header` / `footer` cannot hide page
+  content: `page_body.strip_document_chrome` already turns every classed header/footer/nav
+  into a `<div>` and drops bare ones.
+- **`css_scope.STOREFRONT_FIT_CSS` unchanged**: it is page-scoped through `:has(.adv-wrap)`.
+  With no container it only resets the layout's own wrappers around the page (the same
+  ancestors it already reset in the theme that rendered correctly); the title-hiding rules
+  find nothing. The tenant's `theme.full_bleed_css` (`.section:has(.pk-lp) ...`) matches
+  nothing without a section. Both stay in the export for the default template.
+- **`tenant.yaml` `shopify_publish.template_suffix`**: `peak-saunas: pk-harness`,
+  `_template: null`. The brief named the key `publish.template_suffix`; it went into the
+  existing `shopify_publish:` block instead of a fourth top-level publish key.
+- **`harness/publishers/shopify.py`**: `ShopifyPublisher(template_suffix=...)`. `publish`
+  sends it on create; `update_page` sends it when the update carries a title or body (an
+  unpublish still sends only `published`, the cycle 80 contract); `dry_run` reports it. New
+  read `get_page(page_id)` (id, handle, template_suffix, published_at; None on 404) and
+  `set_template_suffix(page_id, suffix)` (PUTs only `template_suffix`).
+- **`harness/cli.py` `_make_publisher`** reads the key and passes it to `ShopifyPublisher`,
+  `LockedShopifyPublisher` and `ExportPublisher`, so `harness publish`, `harness post-live`
+  / the site's "Post live", and `harness abtest publish` (variants and split page) all
+  carry it with no per-path code. The export README gains step 6 (which theme template to
+  pick).
+- **`harness pages set-template --tenant <t> [--dry-run]`** (new): the one-off for pages
+  published before the key; walks `tenants/<t>/out/*/state.json` `published_pages[*]` with
+  a `page_id` (deduplicated), GETs each page, PUTs only `template_suffix` where it differs.
+  One line per page and a summary.
+- **`deploy/shopify/push_template.py`** (new): `--theme-id` (repeatable), `--dry-run`
+  (default) / `--apply` / `--rollback`, `--tenant` for the `.env`. Asset API on
+  `templates/page.pk-harness.liquid` only; prints absent / identical / different, the
+  `updated_at` after a PUT; `--rollback` deletes only a copy equal to the repo file.
+
+### Verify
+- New tests: `tests/test_storefront_template_cycle84.py` (22): template shape; payloads with
+  and without a suffix (byte-identical to before with none); `cmd_publish` create and
+  `--update`, `post_live` post / update / unpublish, `abtest publish` (three variants plus
+  split) each through the real `_make_publisher` over the fake transport; `pages
+  set-template` (one PUT with only `template_suffix`, unchanged / not-found lines, dry run
+  writes nothing, refusal without a suffix); `push_template.py` dry run / apply / rollback
+  and that no other asset key is ever sent. With `_make_publisher` forced to pass no suffix,
+  5 of the 22 fail (the factory and every path test).
+- Full suite: `.venv/bin/python -m pytest -q`: 2507 passed, 0 failed, 0 skipped (origin/master
+  2dda94c: 2485 passed).
+- `push_template.py --help` and a no-credentials run (`--tenant _template`) exit cleanly
+  with the publisher's "no SHOPIFY_STORE / SHOPIFY_TOKEN" line and no network call.
+- Not verified: anything on the live store. No theme was read or written, no page changed.
+
+### Open
+- **Operator steps, in order** (theme ids are operator input; they are not in the repo):
+  1. `.venv/bin/python deploy/shopify/push_template.py --tenant peak-saunas --theme-id <A>
+     --theme-id <B>` (dry run: expect `absent` in both), then the same with `--apply`.
+  2. `shopify_publish.template_suffix: pk-harness` in `tenants/peak-saunas/tenant.yaml`
+     (set on this branch; deploy it to the host that publishes).
+  3. `harness pages set-template --tenant peak-saunas --dry-run`, read the list, then run it
+     without `--dry-run`.
+  4. Open one harness page in each theme (`?preview_theme_id=<A>`, `?preview_theme_id=<B>`)
+     and confirm: no CSS text, no theme header/footer, full-bleed page.
+- The Admin token needs `read_themes` and `write_themes` for step 1; whether the current
+  `SHOPIFY_TOKEN` has them is not known.
+- If a theme ever gets `templates/page.pk-harness.json`, Shopify may refuse a `.liquid` of the
+  same name (not verified); the script then prints Shopify's error and stops.
+- Fallback when a page names a template its theme lacks (default page template) is the
+  expected Shopify behaviour, not verified on this store; it matters for the order above
+  and for `--rollback`.
+- The A/B split pages (`lp-<test>`) carry the suffix when published from now on, but `pages
+  set-template` walks run state only; split pages already live (page ids in
+  `tenants/<t>/abtests/*.json`) are not touched. They are a script plus a `<noscript>` link
+  list with no `<style>`; whether the other theme's fallback also strips `<script>` is not
+  known, and was not checked.

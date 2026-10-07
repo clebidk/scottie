@@ -138,6 +138,73 @@ fetches the new page's storefront URL 8 times, 2 seconds apart, and reports
 how many pulls returned the new body. `--live` is the only path that ever
 does this -- a draft publish has nothing live to verify yet.
 
+## Storefront template (cycle 84)
+
+The export (`harness/page_body.py`, `harness/css_scope.py`) carries all of its
+CSS in one body `<style>` block. The store runs an A/B test between two
+themes. One theme's default page template prints the body raw; the other
+routes it through a section whose fallback strips every `<style>` block, so a
+harness page shows its CSS as text to every visitor in that bucket. The fix
+is one page template, the same file in both themes:
+
+- **The template**: `deploy/shopify/templates/page.pk-harness.liquid` (theme
+  key `templates/page.pk-harness.liquid`). It uses the theme layout (head,
+  fonts, analytics and app scripts still load), prints `{{ page.content }}`
+  raw (no section, no `.rte` wrapper, no container, no theme page title) and
+  hides the theme header, announcement bar and footer with the same
+  selectors as `templates/page.pk-regret-lp.liquid`. It refers to no section
+  or snippet, so it renders the same in every theme. The body's own
+  storefront-fit CSS (`css_scope.STOREFRONT_FIT_CSS`) is page-scoped with
+  `:has(.adv-wrap)`; with no container around the page it only resets the
+  layout's own wrappers, which it already did in the theme that rendered the
+  pages correctly, so nothing in the export changed.
+- **The tenant key**: `tenant.yaml` `shopify_publish.template_suffix`
+  (`peak-saunas`: `pk-harness`; `_template`: `null`). `harness/cli.py`
+  `_make_publisher` passes it to the publisher, so every publish path gets it:
+  `harness publish` (create and `--update`), `harness post-live` and the
+  listicle site's "Post live" button (post and update), `harness abtest
+  publish` (the three variants and the split page). Shopify gets
+  `template_suffix` on every page create and on every update that carries a
+  title or body. An unpublish (`published: false` only) and a tenant with no
+  suffix send exactly the payloads they sent before. `harness publish
+  --dry-run` prints `template_suffix` in its report; the export adapter's
+  `README.md` tells the operator which theme template to pick.
+- **Pages published before the key**: `harness pages set-template --tenant
+  <t> [--dry-run]` walks every run's `state.json` `published_pages[*]` that
+  has a `page_id`, reads each page from Shopify and PUTs only
+  `template_suffix` (never the body, never `published`) where it differs. One
+  line per page (`handle: old -> new`, `unchanged`, or `not found`) and a
+  summary. `--dry-run` reads and writes nothing. It refuses when the tenant
+  has no suffix.
+- **Pushing the template**: `deploy/shopify/push_template.py --tenant <t>
+  --theme-id <id> [--theme-id <id> ...] [--dry-run | --apply | --rollback]`.
+  Default `--dry-run`: GET the asset from each theme, print `absent`,
+  `identical` or `different`. `--apply`: PUT the repo file where it is absent
+  or different and print the asset's `updated_at`. `--rollback`: DELETE the
+  asset only where it equals the repo file (exit 1 when a theme copy differs
+  and was left alone). It touches no other asset. Credentials come from the
+  tenant `.env` (`SHOPIFY_STORE`, `SHOPIFY_TOKEN`); the token also needs the
+  **`read_themes`, `write_themes`** scopes. The theme ids are operator input
+  (Online Store -> Themes -> "..." -> Edit code: the id is in the URL); they
+  are not in the repo.
+
+Order (the template must exist in both themes before any page names it):
+
+```
+.venv/bin/python deploy/shopify/push_template.py --tenant peak-saunas --theme-id <A> --theme-id <B>          # dry run
+.venv/bin/python deploy/shopify/push_template.py --tenant peak-saunas --theme-id <A> --theme-id <B> --apply
+# tenant.yaml: shopify_publish.template_suffix: pk-harness   (already set for peak-saunas)
+harness pages set-template --tenant peak-saunas --dry-run
+harness pages set-template --tenant peak-saunas
+# check one page in each theme: ?preview_theme_id=<A> and ?preview_theme_id=<B>
+```
+
+Rollback: set `shopify_publish.template_suffix: null` (new pages stop naming
+the template), then `push_template.py ... --rollback`. A page whose
+`template_suffix` names a template the theme does not have falls back to the
+theme's default page template (the expected Shopify behaviour; not verified
+on this store), which is the state before cycle 84.
+
 ## Notifications
 
 `harness/notify.py` sends on: a run reaching `needs_review` (tenant, run id,

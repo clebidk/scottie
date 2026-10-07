@@ -556,11 +556,16 @@ def _make_publisher(tenant, *, export_dir, unlinked_live=False):
     through. `unlinked_live` (cycle 80) is passed only by cmd_publish for
     harness/postlive.py; see LockedShopifyPublisher.__init__."""
     kind = tenant.get("publisher") or "export"
+    # Cycle 84: every page the harness creates or updates renders through this
+    # theme template (deploy/shopify/templates/page.pk-harness.liquid), the
+    # same in every theme of the store's A/B test. None: no template is sent.
+    template_suffix = tenant.get("shopify_publish.template_suffix") or None
     if kind == "shopify":
         if tenant.get("publish_locked") is True:
-            return LockedShopifyPublisher(unlinked_live=unlinked_live)
-        return ShopifyPublisher()  # reads SHOPIFY_STORE/SHOPIFY_TOKEN from the tenant's .env
-    return ExportPublisher(out_dir=export_dir)
+            return LockedShopifyPublisher(unlinked_live=unlinked_live, template_suffix=template_suffix)
+        # reads SHOPIFY_STORE/SHOPIFY_TOKEN from the tenant's .env
+        return ShopifyPublisher(template_suffix=template_suffix)
+    return ExportPublisher(out_dir=export_dir, template_suffix=template_suffix)
 
 
 def _read_asset_manifest_bytes(cartridge_dir, assets_manifest):
@@ -824,6 +829,67 @@ def cmd_post_live(args):
     state = "live" if record.get("live") else "hidden"
     print(f"{action}: {args.page} of {Path(args.run_dir).name} is {state} at {record.get('url')} "
           f"(unlinked: no ad, no test, no redirect)")
+    return exits.OK
+
+
+def cmd_pages_set_template(args):
+    """`harness pages set-template --tenant <t> [--dry-run]` (cycle 84): the
+    one-off for pages published before tenant.yaml had
+    shopify_publish.template_suffix. Walks every run's state.json
+    `published_pages[*]` that has a `page_id`, reads that page from Shopify
+    and PUTs only `template_suffix` when it differs (never the body, never
+    `published`). One line per page and a summary; `--dry-run` reads but
+    writes nothing."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    suffix = tenant.get("shopify_publish.template_suffix") or None
+    if not suffix:
+        print(f"tenant {tenant.name!r} has no shopify_publish.template_suffix in tenant.yaml; "
+              f"set it first (docs/PUBLISHING.md, \"Storefront template (cycle 84)\")", file=sys.stderr)
+        return exits.USAGE
+    publisher = _make_publisher(tenant, export_dir=Path(tenant.out_dir))
+    if not isinstance(publisher, ShopifyPublisher):
+        print("pages set-template needs the shopify publisher (tenant.yaml publisher: shopify)", file=sys.stderr)
+        return exits.USAGE
+
+    records, seen = [], set()
+    for state_file in sorted(Path(tenant.out_dir).glob("*/state.json")):
+        try:
+            data = json.loads(state_file.read_text())
+        except ValueError:
+            print(f"{state_file.parent.name}: state.json does not parse; skipped", file=sys.stderr)
+            continue
+        for page, record in sorted((data.get("published_pages") or {}).items()):
+            if isinstance(record, dict) and record.get("page_id") and record["page_id"] not in seen:
+                seen.add(record["page_id"])
+                records.append((state_file.parent.name, page, record))
+
+    verb = "would set" if args.dry_run else "set"
+    changed = same = missing = 0
+    try:
+        for run_name, page, record in records:
+            live = publisher.get_page(record["page_id"])
+            if live is None:
+                missing += 1
+                print(f"{record.get('handle') or '?'}: page {record['page_id']} not found on Shopify "
+                      f"({run_name}/{page}); skipped")
+                continue
+            handle = live.get("handle") or record.get("handle") or "?"
+            old = live.get("template_suffix") or None
+            if old == suffix:
+                same += 1
+                print(f"{handle}: {suffix} (unchanged)")
+                continue
+            if not args.dry_run:
+                publisher.set_template_suffix(record["page_id"], suffix)
+            changed += 1
+            print(f"{handle}: {old or '(default)'} -> {suffix}" + (" (dry run)" if args.dry_run else ""))
+    except ShopifyCredentialsMissing as e:
+        print(str(e), file=sys.stderr)
+        return exits.USAGE
+    print(f"{len(records)} published page(s): {verb} {changed}, already {suffix} {same}, not found {missing}"
+          + (" -- dry run, nothing written" if args.dry_run else ""))
     return exits.OK
 
 
@@ -1845,6 +1911,15 @@ def build_parser():
     p_post_live.add_argument("--note")
     _add_tenant_flag(p_post_live)
     p_post_live.set_defaults(func=cmd_post_live)
+
+    p_pages = sub.add_parser("pages", help="operations on the Shopify pages this tenant's runs published")
+    pages_sub = p_pages.add_subparsers(dest="pages_command", required=True)
+    p_pages_tpl = pages_sub.add_parser(
+        "set-template",
+        help="set tenant.yaml shopify_publish.template_suffix on every published page (cycle 84)")
+    p_pages_tpl.add_argument("--dry-run", action="store_true", help="read and report only; write nothing")
+    _add_tenant_flag(p_pages_tpl)
+    p_pages_tpl.set_defaults(func=cmd_pages_set_template)
 
     p_ab = sub.add_parser("abtest", help="A/B/C tests: three builds per ad behind one split link (docs/ABTEST.md)")
     ab_sub = p_ab.add_subparsers(dest="abtest_command", required=True)
