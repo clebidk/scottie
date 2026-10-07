@@ -1,0 +1,362 @@
+<!--
+  06 - Eight Sleep-style PDP buy box, rebuilt for PEAK.
+  Reference: Eight Sleep, Pod cover product page, https://www.eightsleep.com/product/pod-cover/
+  Kept: the high-AOV buy-box structure. A trust bar at the very top; a gallery with hotspot labels (CSS dots with
+    labels on the hero product image) and a thumbnail row; a buy panel with model name, rating line, price, a model
+    picker, spec bullets, one CTA and a "What size do you need?" helper; below it a feature grid, a model
+    comparison table, and delivery / returns / warranty details. On phones the buy panel sits under the gallery and
+    a sticky bar carries the selected model, its price and the CTA. On desktop the buy panel stays in view
+    (position: sticky) beside the gallery.
+  Changed for PEAK: the picker offers Fuji / Everest / Rainier with prices from FACTS.md. It is plain radio
+    inputs; the swap of name, price, image, hotspots, spec bullets, sticky bar and CTA text is done in CSS with
+    :has(), so it works with JavaScript off and needs no script. Fuji is checked by default. In a browser without
+    :has() support the picker is hidden and the page shows the Fuji only (see @supports rule). The CTA links to
+    the saunas collection for every model (FACTS.md has no product URLs). HSA/FSA is shown in the buy panel the
+    way the reference shows it, worded from FACTS ("may be eligible ... through Redo").
+  Dropped: Eight Sleep's subscription add-on (Autopilot), size/bundle upsells, strike-through "save $X" prices
+    and limited-time banners (no invented discounts or countdowns; FACTS compare-at prices are not shown), the
+    press quotes and the review carousel (no verified testimonials; the 4.8 out of 5, 49 reviews line stands in).
+    Fonts: DM Sans / Poppins are not loaded from Google Fonts (no external URLs), so they fall back to the system
+    sans; Peak Grotesk Wide loads from assets/brand/fonts-display/.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PEAK Fuji, Everest and Rainier infrared saunas</title>
+<meta name="description" content="Choose the PEAK Fuji, Everest or Rainier: full spectrum infrared saunas with red light therapy included, free shipping and a 7-year residential warranty.">
+<link rel="stylesheet" href="assets/brand/base.css">
+<style>
+@font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;
+  src:url("assets/brand/fonts-display/pk-peak-grotesk-wide.woff2") format("woff2");}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--ps-bg);overflow-x:hidden;padding-bottom:88px}
+img{display:block;max-width:100%;height:auto}
+.wrap{width:100%;max-width:1240px;margin:0 auto;padding-left:16px;padding-right:16px}
+.eyebrow{font-size:var(--ps-eyebrow-size);letter-spacing:var(--ps-eyebrow-spacing);text-transform:uppercase;color:var(--ps-eyebrow-color);margin:0 0 10px;font-weight:500}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---- model swap (CSS only) ---- */
+.v-everest,.v-rainier{display:none}
+body:has(#m-everest:checked) .v-fuji,body:has(#m-rainier:checked) .v-fuji,
+body:has(#m-fuji:checked) .v-everest,body:has(#m-rainier:checked) .v-everest,
+body:has(#m-fuji:checked) .v-rainier,body:has(#m-everest:checked) .v-rainier{display:none}
+body:has(#m-everest:checked) span.v-everest,body:has(#m-rainier:checked) span.v-rainier{display:inline}
+body:has(#m-everest:checked) div.v-everest,body:has(#m-rainier:checked) div.v-rainier,
+body:has(#m-everest:checked) ul.v-everest,body:has(#m-rainier:checked) ul.v-rainier{display:block}
+@supports not selector(:has(*)){.picker{display:none}}
+
+/* trust bar */
+.trust{background:var(--ps-band);color:var(--ps-on-dark);font-size:12.5px;line-height:1.4}
+.trust ul{list-style:none;margin:0 auto;padding:9px 16px;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;max-width:1240px;text-align:center}
+.trust li{color:rgba(255,255,255,.9);display:flex;align-items:center;gap:6px}
+.trust li::before{content:"";width:5px;height:5px;border-radius:50%;background:#FFFFFF;opacity:.55;flex:0 0 5px}
+.trust .fin{flex-basis:100%;justify-content:center}
+.trust .fin::before{display:none}
+.trust a{color:var(--ps-on-dark)}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;min-height:60px;border-bottom:1px solid var(--ps-hairline)}
+.top img{height:36px;width:auto}
+.textus{display:inline-flex;align-items:center;min-height:44px;color:var(--ps-text);font-size:15px;text-underline-offset:3px}
+.textus:hover{color:var(--ps-red)}
+
+/* product grid */
+.pdp{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;padding-top:16px;padding-bottom:48px}
+
+/* gallery */
+.stage{position:relative;border:1px solid var(--ps-hairline);border-radius:var(--ps-radius-box);background:#FFFFFF;padding:20px 12px 16px}
+.model-stage{position:relative;width:max-content;max-width:100%;margin:0 auto}
+.model-stage img{height:min(420px,92vw);width:auto;max-width:100%;margin:0 auto}
+.hs{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;pointer-events:none}
+.hs .dot{width:16px;height:16px;border-radius:50%;background:var(--ps-ink-dark);border:3px solid #FFFFFF;outline:1px solid var(--ps-ink-dark);flex:0 0 16px}
+.hs .lbl{background:#FFFFFF;border:1px solid var(--ps-border);border-radius:var(--ps-radius-box);padding:4px 8px;font-size:12px;line-height:1.3;color:var(--ps-text-strong);white-space:nowrap;font-weight:500}
+.hs.r{transform:translate(-8px,-50%)}            /* label to the right of the dot */
+.hs.l{transform:translate(calc(-100% + 8px),-50%);flex-direction:row-reverse} /* label to the left */
+.stage .cap{margin:12px 0 0;text-align:center;font-size:13px;color:var(--ps-muted)}
+.thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
+.thumbs img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--ps-radius-box)}
+
+/* buy panel */
+.buy h1{font-size:clamp(30px,7.6vw,44px);line-height:1.1;margin:0 0 8px}
+.rating{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:14px;color:var(--ps-muted)}
+.rating .stars{color:var(--ps-star-on);letter-spacing:2px;font-size:15px}
+.price{font-family:var(--ps-heading);font-weight:600;font-size:30px;color:var(--ps-text-strong);margin:0 0 6px;line-height:1.2}
+.pay{font-size:14px;color:var(--ps-muted);margin:0 0 4px}
+.pay b{color:var(--ps-text);font-weight:500}
+fieldset.picker{border:0;margin:22px 0 0;padding:0;min-width:0}
+.picker legend{font-family:var(--ps-heading);font-weight:600;font-size:15px;color:var(--ps-text-strong);padding:0;margin-bottom:10px}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.opts input{position:absolute;opacity:0;width:1px;height:1px}
+.opts label{display:flex;flex-direction:column;gap:2px;min-height:76px;padding:10px 10px;border:1px solid var(--ps-border);border-radius:var(--ps-radius-box);cursor:pointer;font-size:12.5px;color:var(--ps-muted);line-height:1.3}
+.opts label b{font-family:var(--ps-heading);font-weight:600;font-size:15px;color:var(--ps-text-strong)}
+.opts label .p{color:var(--ps-text);font-weight:500;font-size:14px;margin-top:auto}
+.opts label:hover{border-color:var(--ps-ink-dark)}
+.opts input:checked + label{border:2px solid var(--ps-ink-dark);padding:9px}
+.opts input:focus-visible + label{outline:2px solid var(--ps-focus);outline-offset:2px}
+.size{margin:14px 0 0;padding-left:12px;border-left:3px solid var(--ps-red);font-size:14px;color:var(--ps-muted)}
+.size b{color:var(--ps-text);font-weight:500}
+.specs{list-style:none;margin:20px 0 0;padding:0;border-top:1px solid var(--ps-hairline)}
+.specs li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--ps-hairline);font-size:14.5px;line-height:1.45}
+.specs li span:first-child{flex:0 0 108px;color:var(--ps-muted)}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;margin-top:20px;padding:0 24px;border-radius:var(--ps-radius-btn);
+  background:var(--ps-accent);color:var(--ps-on-accent);font-weight:500;font-size:16px;text-decoration:none;letter-spacing:.01em}
+.btn:hover{background:var(--ps-accent-hover);color:var(--ps-on-accent)}
+.under{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 16px;margin-top:8px;font-size:13.5px;color:var(--ps-muted)}
+
+/* sections below */
+.sec{border-top:1px solid var(--ps-hairline);padding-top:52px;padding-bottom:52px}
+.sec h2{font-size:clamp(25px,6vw,36px);margin-bottom:8px}
+.sec .sub{color:var(--ps-muted);max-width:36em;margin-bottom:28px}
+.feats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 12px}
+.feats figure{margin:0}
+.feats img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:var(--ps-radius-box)}
+.feats figcaption{margin-top:10px;font-size:14px;color:var(--ps-muted);line-height:1.45}
+.feats figcaption b{display:block;color:var(--ps-text-strong);font-family:var(--ps-heading);font-weight:600;font-size:15px;margin-bottom:2px}
+
+table.cmp{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13.5px;border:0;border-radius:0}
+.cmp th,.cmp td{padding:11px 6px;border-top:1px solid var(--ps-hairline);text-align:left;vertical-align:top;background:transparent;line-height:1.4}
+.cmp thead th{border-top:0;font-family:var(--ps-heading);font-weight:600;font-size:15px;color:var(--ps-text-strong)}
+.cmp tbody th{font-weight:400;color:var(--ps-muted);font-size:13px}
+.cmp col.k{width:27%}
+.cmp thead td{border-top:0}
+
+.info details{border-bottom:1px solid var(--ps-hairline)}
+.info details:first-of-type{border-top:1px solid var(--ps-hairline)}
+.info summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:58px;padding:12px 0;
+  font-family:var(--ps-heading);font-weight:600;font-size:16.5px;color:var(--ps-text-strong)}
+.info summary::-webkit-details-marker{display:none}
+.info summary::after{content:"+";font-family:var(--ps-sans);font-weight:400;font-size:24px;line-height:1;color:var(--ps-red)}
+.info details[open] summary::after{content:"\2013"}
+.info details p{color:var(--ps-muted);margin:0 0 16px;max-width:44em}
+
+.club{background:var(--ps-band);color:var(--ps-on-dark);padding:56px 0}
+.club h2{color:var(--ps-on-dark);font-size:clamp(25px,6vw,36px);margin-bottom:10px}
+.club p{color:rgba(255,255,255,.8);max-width:36em}
+.club .eyebrow{color:rgba(255,255,255,.7)}
+
+.foot{background:var(--ps-band);border-top:1px solid rgba(255,255,255,.14);padding:32px 0 44px;font-size:14px}
+.foot p,.foot li{color:rgba(255,255,255,.78)}
+.foot a{color:var(--ps-on-dark)}
+.foot h2{color:var(--ps-on-dark);font-size:14px;font-family:var(--ps-sans);font-weight:500;letter-spacing:.12em;text-transform:uppercase;margin:22px 0 8px}
+.foot ul{margin:0;padding:0;list-style:none;line-height:1.7;word-break:break-word}
+
+/* sticky bar (phones) */
+.sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--ps-bg);border-top:1px solid var(--ps-hairline);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+.sticky .lbl{margin:0;font-size:13px;color:var(--ps-muted);line-height:1.3}
+.sticky .lbl b{display:block;font-size:18px;color:var(--ps-text)}
+.sticky .btn{width:auto;margin:0;min-height:48px;padding:0 24px}
+
+@media (min-width:768px){
+  .wrap{padding-left:32px;padding-right:32px}
+  .trust ul{padding:10px 32px}
+  .trust .fin{flex-basis:auto}
+  .trust .fin::before{display:block}
+  .model-stage img{height:520px}
+  .feats{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+  table.cmp{font-size:15px}
+  .cmp th,.cmp td{padding:13px 12px}
+  .foot ul{columns:2;column-gap:40px}
+}
+@media (min-width:1024px){
+  body{padding-bottom:0}
+  .sticky{display:none}
+  .pdp{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:48px;padding-top:28px;align-items:start}
+  .buy{position:sticky;top:20px}
+  .model-stage img{height:600px}
+}
+</style>
+</head>
+<body>
+<div class="trust" role="region" aria-label="PEAK guarantees">
+  <ul>
+    <li>7-year residential warranty</li>
+    <li>Free shipping</li>
+    <li><a href="#delivery">Returns accepted, terms below</a></li>
+    <li class="fin">Financing is available through Bread Pay at checkout.</li>
+  </ul>
+</div>
+
+<header class="wrap top">
+  <a href="https://peaksaunas.com/collections/saunas" aria-label="PEAK saunas"><img src="assets/brand/logo.svg" alt="PEAK" width="88" height="36"></a>
+  <a class="textus" href="sms:+14706653747?&body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+</header>
+
+<main>
+  <div class="wrap pdp">
+    <!-- gallery -->
+    <section class="gallery" aria-label="Product images">
+      <div class="stage">
+        <div class="model-stage v-fuji">
+          <img src="assets/img/06-fuji.webp" width="731" height="1100" alt="The PEAK Fuji, a two-person Canadian red cedar sauna with black trim and a glass door, front view">
+          <span class="hs r" style="left:21%;top:52%"><span class="dot"></span><span class="lbl">Red cedar, inside and out</span></span>
+          <span class="hs l" style="left:74%;top:36%"><span class="dot"></span><span class="lbl">8 heater panels, 360°</span></span>
+          <span class="hs l" style="left:74%;top:89%"><span class="dot"></span><span class="lbl">Floor heater</span></span>
+        </div>
+        <div class="model-stage v-everest">
+          <img src="assets/img/06-everest.webp" width="732" height="1100" loading="lazy" alt="The PEAK Everest, a two-person Canadian hemlock sauna with a glass door, front view">
+          <span class="hs r" style="left:21%;top:52%"><span class="dot"></span><span class="lbl">Hemlock, inside and out</span></span>
+          <span class="hs l" style="left:74%;top:36%"><span class="dot"></span><span class="lbl">8 heater panels, 360°</span></span>
+        </div>
+        <div class="model-stage v-rainier">
+          <img src="assets/img/06-rainier.webp" width="648" height="1100" loading="lazy" alt="The PEAK Rainier, a one-person Canadian red cedar sauna with a glass door, front view">
+          <span class="hs r" style="left:14%;top:56%"><span class="dot"></span><span class="lbl">Canadian red cedar</span></span>
+          <span class="hs l" style="left:70%;top:36%"><span class="dot"></span><span class="lbl">7 heater panels</span></span>
+        </div>
+        <p class="cap">Full spectrum infrared, 700–25,000nm · up to 150°F</p>
+      </div>
+      <div class="thumbs">
+        <img src="assets/img/06-interior.jpg" width="800" height="1200" loading="lazy" alt="Sauna bench and slatted walls with a vertical red light panel">
+        <img src="assets/img/06-floor-heat.jpg" width="1400" height="933" loading="lazy" alt="Bench corner with glowing heater panels">
+        <img src="assets/img/06-speaker.jpg" width="800" height="1200" loading="lazy" alt="Built-in speaker in a pale wood sauna wall">
+        <img src="assets/img/06-control.jpg" width="1400" height="787" loading="lazy" alt="A hand adjusting the control on a red light therapy panel">
+      </div>
+    </section>
+
+    <!-- buy panel -->
+    <section class="buy" aria-labelledby="pname">
+      <p class="eyebrow">Indoor infrared sauna</p>
+      <h1 id="pname">PEAK <span class="v v-fuji">Fuji</span><span class="v v-everest">Everest</span><span class="v v-rainier">Rainier</span></h1>
+      <p class="rating"><span class="stars" aria-hidden="true">★★★★★</span><span>4.8 out of 5 · 49 reviews</span></p>
+      <p class="price"><span class="v v-fuji">$8,250</span><span class="v v-everest">$7,950</span><span class="v v-rainier">$7,250</span></p>
+      <p class="pay">Financing is available through Bread Pay at checkout.</p>
+      <p class="pay"><b>HSA/FSA:</b> PEAK saunas may be eligible for HSA/FSA purchase through Redo.</p>
+
+      <fieldset class="picker">
+        <legend>Choose your model</legend>
+        <div class="opts">
+          <input type="radio" name="model" id="m-fuji" value="fuji" checked>
+          <label for="m-fuji"><b>Fuji</b>2-person · red cedar<span class="p">$8,250</span></label>
+          <input type="radio" name="model" id="m-everest" value="everest">
+          <label for="m-everest"><b>Everest</b>2-person · hemlock<span class="p">$7,950</span></label>
+          <input type="radio" name="model" id="m-rainier" value="rainier">
+          <label for="m-rainier"><b>Rainier</b>1-person · red cedar<span class="p">$7,250</span></label>
+        </div>
+      </fieldset>
+
+      <p class="size"><b>What size do you need?</b> Two people, or one who wants room to stretch: Fuji or Everest (53" x 44" footprint). One person and a smaller footprint: Rainier (42" x 40"). Not sure? <a href="sms:+14706653747?&body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>.</p>
+
+      <ul class="specs v v-fuji" aria-label="Fuji specifications">
+        <li><span>Seats</span><span>2 people, indoor</span></li>
+        <li><span>Wood</span><span>Canadian red cedar, interior and exterior</span></li>
+        <li><span>Heat</span><span>8 full spectrum heater panels, 360°, plus floor heater; up to 150°F</span></li>
+        <li><span>Red light</span><span>1 medical-grade panel, included; seated 7–8 in away</span></li>
+        <li><span>Power</span><span>Dedicated 120V/20A outlet (~2,050W)</span></li>
+        <li><span>Size</span><span>53"W x 44"D x 75"H, 385 lbs</span></li>
+        <li><span>Audio</span><span>Two Bluetooth speakers</span></li>
+      </ul>
+      <ul class="specs v v-everest" aria-label="Everest specifications">
+        <li><span>Seats</span><span>2 people, indoor</span></li>
+        <li><span>Wood</span><span>Canadian hemlock, interior and exterior</span></li>
+        <li><span>Heat</span><span>8 full spectrum heater panels, 360°; up to 150°F</span></li>
+        <li><span>Red light</span><span>1 medical-grade panel, included; seated 7–8 in away</span></li>
+        <li><span>Power</span><span>Dedicated 120V/20A outlet (~2,050W)</span></li>
+        <li><span>Size</span><span>53"W x 44"D x 75"H, 305 lbs</span></li>
+        <li><span>Audio</span><span>Two Bluetooth speakers</span></li>
+      </ul>
+      <ul class="specs v v-rainier" aria-label="Rainier specifications">
+        <li><span>Seats</span><span>1 person</span></li>
+        <li><span>Wood</span><span>Canadian red cedar</span></li>
+        <li><span>Heat</span><span>7 full spectrum heater panels; up to 150°F; no floor heater</span></li>
+        <li><span>Red light</span><span>XL front-facing panel, included; seated 7–8 in away</span></li>
+        <li><span>Power</span><span>Standard 120V/15A outlet, no electrician needed (~1,800W)</span></li>
+        <li><span>Size</span><span>42"W x 40"D x 75"H, 305 lbs</span></li>
+        <li><span>Audio</span><span>Two Bluetooth speakers</span></li>
+      </ul>
+
+      <a class="btn" href="https://peaksaunas.com/collections/saunas">Shop the <span class="v v-fuji">&nbsp;Fuji</span><span class="v v-everest">&nbsp;Everest</span><span class="v v-rainier">&nbsp;Rainier</span></a>
+      <div class="under">
+        <span>Free shipping · 7-year residential warranty</span>
+        <a class="textus" href="sms:+14706653747?&body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+      </div>
+    </section>
+  </div>
+
+  <section class="wrap sec" aria-labelledby="feat-h">
+    <h2 id="feat-h">Built into every one of the three</h2>
+    <p class="sub">The Fuji, Everest and Rainier share the same core: full spectrum heat and red light therapy in one session.</p>
+    <div class="feats">
+      <figure><img src="assets/img/06-interior.jpg" width="800" height="1200" loading="lazy" alt="Sauna bench and slatted walls with a vertical red light panel"><figcaption><b>Red light, included</b>Medical-grade, standard on all three. You sit 7–8 inches from the panel.</figcaption></figure>
+      <figure><img src="assets/img/06-floor-heat.jpg" width="1400" height="933" loading="lazy" alt="Bench corner with glowing heater panels"><figcaption><b>Full spectrum heat</b>Near, mid and far infrared, 700–25,000nm, up to 150°F.</figcaption></figure>
+      <figure><img src="assets/img/06-wood.jpg" width="1400" height="933" loading="lazy" alt="Inside corner of a pale wood sauna with bench and backrest"><figcaption><b>Canadian wood</b>Red cedar in the Fuji and Rainier; hemlock in the Everest.</figcaption></figure>
+      <figure><img src="assets/img/06-speaker.jpg" width="800" height="1200" loading="lazy" alt="Built-in speaker in a pale wood sauna wall"><figcaption><b>Two Bluetooth speakers</b>Built into every cabin.</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="wrap sec" aria-labelledby="cmp-h">
+    <h2 id="cmp-h">Fuji, Everest or Rainier</h2>
+    <p class="sub">Every number on one screen.</p>
+    <table class="cmp">
+      <colgroup><col class="k"><col><col><col></colgroup>
+      <thead><tr><td></td><th scope="col">Fuji</th><th scope="col">Everest</th><th scope="col">Rainier</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Price</th><td>$8,250</td><td>$7,950</td><td>$7,250</td></tr>
+        <tr><th scope="row">Seats</th><td>2</td><td>2</td><td>1</td></tr>
+        <tr><th scope="row">Wood</th><td>Red cedar</td><td>Hemlock</td><td>Red cedar</td></tr>
+        <tr><th scope="row">Heater panels</th><td>8 + floor</td><td>8</td><td>7</td></tr>
+        <tr><th scope="row">Red light</th><td>Included</td><td>Included</td><td>XL, included</td></tr>
+        <tr><th scope="row">Outlet</th><td>120V/20A dedicated</td><td>120V/20A dedicated</td><td>120V/15A standard</td></tr>
+        <tr><th scope="row">Footprint</th><td>53" x 44"</td><td>53" x 44"</td><td>42" x 40"</td></tr>
+        <tr><th scope="row">Weight</th><td>385 lbs</td><td>305 lbs</td><td>305 lbs</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="wrap sec info" id="delivery" aria-labelledby="info-h">
+    <h2 id="info-h">Delivery, returns and warranty</h2>
+    <p class="sub">All of it, before you check out.</p>
+    <details>
+      <summary>Delivery</summary>
+      <p>Shipping is free on every order. In-stock saunas ship within 2 to 4 business days in a PeakGuard wooden crate from Ontario, California, by freight. The carrier calls 1 to 2 days before delivery to schedule a 4-hour window. Standard delivery is curbside; white-glove or garage delivery is available for an extra fee.</p>
+    </details>
+    <details>
+      <summary>Returns</summary>
+      <p>Returns are accepted with the sauna disassembled and repacked in its original crate. All returns carry a 25% restocking fee, and you pay return shipping. Orders cancelled before shipping carry a 5% cancellation fee.</p>
+    </details>
+    <details>
+      <summary>Warranty</summary>
+      <p>7-year residential warranty; full terms by component are published on the warranty page. Heating elements and cabinetry: 7 years. Control system, power supply and red light panel: 3 years. Chromotherapy lighting, audio, WiFi/app connectivity and accessories: 1 year. Original purchaser only, parts only, installation within 6 months of delivery.</p>
+    </details>
+    <details>
+      <summary>Paying</summary>
+      <p>Financing is available through Bread Pay at checkout. PEAK saunas may be eligible for HSA/FSA purchase through Redo. Every price is shown on the site; you do not need to talk to a salesperson to see it.</p>
+    </details>
+  </section>
+
+  <section class="club" aria-labelledby="club-h">
+    <div class="wrap">
+      <p class="eyebrow">Included free</p>
+      <h2 id="club-h">Peak Wellness Club comes with every sauna</h2>
+      <p>Protocols from athletes and longevity doctors with temperature, duration, timing and breathwork for each; a streak leaderboard; and the Sauna Lounge, a private owner community.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>PEAK sells the saunas described on this page.</p>
+    <h2>Sources</h2>
+    <ul>
+      <li>price-fuji, price-everest, price-rainier</li>
+      <li>spec-fuji-*, spec-everest-*, spec-rainier-* (capacity, cabin material, max temperature, wavelength, audio)</li>
+      <li>gbrain-fuji-wavelengths, gbrain-fuji-rlt, gbrain-fuji-wood, gbrain-fuji-dimensions, gbrain-fuji-persons, gbrain-fuji-power</li>
+      <li>gbrain-everest-wavelengths, gbrain-everest-rlt, gbrain-everest-wood, gbrain-everest-dimensions, gbrain-everest-persons, gbrain-everest-power</li>
+      <li>spec-rainier-electrical, spec-rainier-dimensions, spec-rainier-red-light, spec-rainier-heater</li>
+      <li>gbrain-allowlist-red-light, gbrain-allowlist-360-full-spectrum</li>
+      <li>shipping-policy, gbrain-shipping-free-crate-origin, gbrain-shipping-timing, returns-policy</li>
+      <li>warranty-terms, gbrain-warranty-component-coverage, gbrain-warranty-labor-exclusion, allowed_warranty_sentence</li>
+      <li>gbrain-financing-terms (Bread Pay), hsa-fsa-truemed (Redo), peak-saunas-shows-full-pricing-and-produ</li>
+      <li>pwc-included-free, pwc-expert-protocols, pwc-leaderboard-lounge</li>
+      <li>Rating 4.8 out of 5, 49 reviews (brief)</li>
+    </ul>
+  </div>
+</footer>
+
+<div class="sticky" role="region" aria-label="Selected model">
+  <p class="lbl"><span class="v v-fuji">Fuji</span><span class="v v-everest">Everest</span><span class="v v-rainier">Rainier</span><b><span class="v v-fuji">$8,250</span><span class="v v-everest">$7,950</span><span class="v v-rainier">$7,250</span></b></p>
+  <a class="btn" href="https://peaksaunas.com/collections/saunas">Shop the <span class="v v-fuji">&nbsp;Fuji</span><span class="v v-everest">&nbsp;Everest</span><span class="v v-rainier">&nbsp;Rainier</span></a>
+</div>
+</body>
+</html>

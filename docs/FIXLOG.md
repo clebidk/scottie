@@ -5202,3 +5202,129 @@ reference renders show the 7-year warranty wording (c4d774d); the listicle demo'
 `closing.warranty_line` is set to vocab.yaml's `allowed_warranty_sentence`, because
 evals/fake_run.py's canned listicle page still has the retired lifetime sentence (follow-up; one of
 two listicle fake runs on master exited 2).
+
+## Cycle 90 (import fidelity: design-level observation, exemplar, fidelity score, 2026-10-07)
+Branch `cycle90/import-fidelity` from origin/master c74c6bd. Not merged, not pushed.
+
+### Problem
+`harness look import` ran on six of the owner's pack pages (peak-lp-pack). Five passed, but every stored
+look was the default `open` layout: the Rivian-style "PE / AK" display letters around a pill-shaped hero
+image, the Ridge-style all-caps headline over a dark hero photo, the HexClad-style all-dark page and the
+Eight Sleep-style buy box with hotspot labels and a trust bar were all lost. The model saw only section
+roles and counts ("hero > content > cta ... 2/3-column grids, 1 dark band"), so it had nothing to
+reproduce. Page 03 was refused twice: the model printed the byline (with its founder link
+`/pages/austin-laudenslager`) inside the page, and the one-CTA check counted that link as a second CTA.
+
+### Change
+- **`harness/look_design.py`** (new; stdlib + html5lib, deterministic, nothing is run):
+  - `Css`: a small cascade over the page's own CSS -- tag/class/id/attribute compounds, the four
+    combinators, `:not(<simple>)`, specificity then order, inline styles, the inherited type properties,
+    `font` shorthand, `var()` resolved through the page's custom properties, then the tenant's `--ps-*`
+    tokens (brand/base.css), then the fallback, then a guess from the name. State selectors (`:hover`,
+    `:checked`, `:has()`) are skipped; structural ones (`:nth-of-type`) always match (approximation).
+  - Per section: `skeleton` (tag.class lines with xN for repeated siblings and the text length in
+    characters, at most 40 lines and 4 levels, never the words) and `style` (bg light/dark, text,
+    contrast, max_width, layout display + columns phone/desktop, pad tight/normal/roomy, radius
+    square/4px/pill/round, image full-bleed/contained/masked/overlay + scrim, pinned, headline type:
+    size px or clamp, desktop size, transform, spacing, weight, font token display-wide / display-acid /
+    heading / sans). A section's `background` now comes from this cascade (cycle 87 read only literal
+    colours on the section or its single wrapper, so `var(--ps-band)` read as light).
+  - 16 patterns by rule (`PATTERNS`), each with its section and evidence: display-letters, pill-image,
+    caps-headline, dark-hero, dark-page, big-numerals, alternating-rows, trust-bar, hotspots, sticky-bar,
+    check-rows, icon-row, stat-strip, model-picker, product-grid, faq-accordion.
+  - `design_brief`: one plain-English paragraph written from the observation (no model).
+  - The skeletons are shortened (40, 28, 20, 12, 6, 0 lines) until the observation JSON is at most 12 KB.
+  - `sanitised_css`: the page's CSS without comments, `@font-face`, `@import` or any `url()` declaration;
+    each colour literal becomes the tenant token it equals (`var(--ps-...)`) or `<light>`/`<dark>`/`<mid>`
+    with its alpha; cut at a rule boundary at 8 KB.
+  - Exemplars: tenant looks whose library.json has `source.kind == "pack"` (with `observation.json`, else
+    the page in the pack folder) and `<pack>/looks/<cartridge>/<slug>/`; `choose_exemplar` takes the
+    closest by 0.7 x pattern Jaccard + 0.3 x role order, or the slug named with `--exemplar`.
+    The pack folder is tenant.yaml `look_import.pack_dir` (peak-saunas: `../peak-lp-pack`; the template
+    declares the key empty).
+  - `fidelity(observation, review_html)`: 0.5 x share of observed patterns realised by an element with
+    `data-look-pattern="<name>"` (dark-page/dark-hero must sit on a dark ground, caps-headline must be an
+    upper-case h1) + 0.2 x role-order similarity + 0.1 x section-count similarity + 0.2 x dark/light band
+    similarity (difflib), on the demo render's wrapper children (fixed/sticky bars left out on both sides).
+- **`harness/look_import.py`**: `observe(..., tenant=)` / `observe_with_css` add the design level
+  (observation `version: 2`, `brief`, `patterns`, `global.dark_page`). The prompt: the system prompt is
+  the rules + contract + the exemplar (its page's observation and its template) or, with no exemplar,
+  the default look as before; the user message has the brief, the observation, the sanitised CSS, the
+  pattern list, the instruction to reproduce the composition in tokens, and the one-CTA rule with the
+  exact allowed hrefs (`allowed_links_text`). `convert`: at most `MAX_CALLS = 3` calls; a refused
+  template or a valid one below 0.7 fidelity gets a repair round (the fidelity round names each missing
+  pattern with its evidence, and the section order / bands when they differ); the valid template with
+  the best score is stored, even below 0.7; with no valid template the import is refused as before
+  ("after 2 repair(s)"). Validator: `byline_hrefs` (every href the tenant's byline markup renders) are
+  accepted by `cta_errors` and never count as a CTA; any other target is refused with the list of
+  allowed hrefs; `static_errors(max_dark=)` allows as many dark bands as the observed page's dark content
+  sections (`dark_allowance`, at least 1; a dark page has no limit). library.json adds `fidelity`,
+  `patterns`, `missing_patterns`, `exemplar`; the job summary adds `brief`, `fidelity`,
+  `missing_patterns`, `exemplar`, `patterns`.
+- **`harness/look_import_rules.md`**: the faithful-reproduction intro, the display-acid font, dark bands
+  as observed (a scrim is `::after` with `var(--pk-dark)` and opacity), the allowed-href list, and a
+  "Design fidelity (cycle 90)" section: the marker contract and which renderer data fills each pattern.
+- **CLI**: `harness look import ... --exemplar <slug>`; the dry run prints the brief and the exemplar it
+  would use; a done import prints the brief, the fidelity, the missing patterns and the exemplar.
+- **Site**: the import form has an optional "Exemplar look" field (`queue_payload(exemplar=)`, a look
+  slug or refused); the job page shows the design brief, "Fidelity 0.83", the exemplar and the missing
+  patterns; the Library card shows "fidelity 0.8" (small text) for a look whose library.json has it
+  (`library.describe` reads it).
+- **Tests**: `tests/fixtures/look_import/pack/` holds copies of the ten pack pages.
+  `tests/conftest.py`'s isolation fixture sets `look_design.PACK_DIR` to an empty folder, so no test reads
+  the real pack. `tests/test_look_import_cycle87.py`: `_valid_template()` marks the fixture's one
+  pattern (faq-accordion); the refusal tests give three bad answers and expect three calls and
+  "after 2 repair(s)".
+
+### Patterns detected on the pack pages
+- 01-ridge: caps-headline, dark-hero, big-numerals, alternating-rows, sticky-bar, stat-strip
+- 02-hexclad: dark-hero, dark-page, alternating-rows, sticky-bar
+- 03-bobbie: sticky-bar (its split hero shows only in the hero's `style.layout`, not as a pattern)
+- 04-caraway: big-numerals, alternating-rows, sticky-bar
+- 05-venus-et-fleur: caps-headline, alternating-rows, sticky-bar, check-rows, faq-accordion
+- 06-eight-sleep: trust-bar, hotspots, sticky-bar, stat-strip, model-picker, faq-accordion
+- 07-oura: caps-headline, dark-hero, dark-page, alternating-rows, sticky-bar, stat-strip
+- 08-function-health: dark-hero, big-numerals, sticky-bar, stat-strip
+- 09-rivian: display-letters, pill-image, sticky-bar, check-rows, stat-strip
+- 10-plunge: dark-hero, big-numerals, trust-bar, sticky-bar, product-grid, faq-accordion
+
+### Verify
+- `tests/test_look_import_cycle90.py`: 27 tests -- the patterns per pack page (01 caps headline + dark
+  hero + numerals; 02 dark page; 06 trust bar + hotspots + sticky; 09 display letters + pill image; 10
+  product grid + trust bar + FAQ) and where they must not appear; every observation under 12 KB with
+  none of the pages' words; the CSS summary fields; the brief; the cascade (specificity, `:not`, tenant
+  tokens); the sanitised CSS; the prompt holds the brief, the CSS and the closest exemplar, `--exemplar`
+  overrides it and an unknown one is refused before any call; the default look without an exemplar; a
+  hand-made tenant look as exemplar; fidelity of a marked template (0.87 on 09) vs the plain open look
+  (0.37); a marker on the wrong element does not count; a repair round below 0.7 that names the missing
+  patterns; three calls at most and the best valid template kept; the byline link accepted inside the
+  page, another href refused with the allowed list; dark bands as observed; the rules file; the Library
+  card; the job page; the import form's exemplar field; the CLI.
+- Full suite (`.venv/bin/python -m pytest -q`): 2755 passed, 1 failed -- the failure is
+  `tests/test_tenant_peak.py::test_hsa_fsa_truemed_text_and_category`, which fails on origin/master too
+  (see Open). The cycle 87 (60) and cycle 86 (22) test files pass.
+- The six hand-made landing conversions in peak-lp-pack/looks (other workers, not modified) pass
+  `validate_template`; without markers their fidelity is 0.34-0.42 (structure parts: order 0.5-0.77,
+  bands 0.83-0.92). With the real pack, `harness look import --dry-run` picks each page's own hand-made
+  look as exemplar when the cartridge matches (09 -> rivian-letters, 03 as listicle ->
+  bobbie-split-hero).
+
+### Open
+- **No real-model import was run** (no model calls in this cycle). Whether the model now reproduces the
+  compositions, and how often it passes 0.7 on the first call, is unseen. Cost per import is estimated
+  from prompt sizes only: about 16k input tokens a call with an exemplar, 5-8k output, about $0.10 a call
+  at claude-sonnet-5, $0.30-0.35 with both repair rounds.
+- **The score trusts markers.** A template can put `data-look-pattern` on an element that does not realise
+  the pattern; only dark-page, dark-hero and caps-headline are checked against the render's styles. The
+  role order is compared with the same heuristics on both sides, and the demo page's content shapes the
+  render's roles (its FAQ, its checked claims), so a faithful look still scores 0.5-0.9 on structure.
+- **The hand-made exemplars have no markers**, so as stored they score below 0.7; the prompt says so. If
+  they are re-imported or re-scored, add the markers to them first.
+- **On prod the exemplars need the pack**: either `../peak-lp-pack` next to the repo (tenant.yaml
+  `look_import.pack_dir`), or each hand-made tenant look with `library.json` `source.kind: "pack"` AND an
+  `observation.json` (write one with `harness look import --file <page> --name x --dry-run > observation.json`).
+- The cascade is an approximation (no `:has()`, structural pseudo-classes always match, custom
+  properties are global, no tenant base.css rules for the page's own elements); patterns are rules with
+  thresholds tuned on the ten pack pages and the cycle 87 fixture.
+- `tests/test_tenant_peak.py::test_hsa_fsa_truemed_text_and_category` fails on origin/master already
+  (c74c6bd moved HSA/FSA to Redo; the test still expects TrueMed). Not touched here.
