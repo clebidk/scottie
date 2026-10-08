@@ -344,24 +344,24 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 
 
 # ---------------------------------------------------------------------------
-# 4. The shipped looks print what they printed before (master bbc3ac4)
+# 4. The shipped looks print what they printed before (master c3be6ba)
 # ---------------------------------------------------------------------------
 
 # sha256[:16] of <main ...> up to <footer> -- the page body without the
-# tenant's head stylesheets -- rendered on master bbc3ac4 before this cycle.
+# tenant's head stylesheets -- rendered on master c3be6ba (brand fonts) without this cycle.
 # If one changes, the look (or something it prints) changed: re-record only
 # for an intended change, never to make this pass.
 SHIPPED = {
-    "landing-open-dry": "fd466f299ff73c7c",
-    "landing-open-frame": "74d435a888d199c8",
-    "landing-proof-dry": "a37964a856df7da2",
-    "landing-proof-frame": "b3fda395893fdec9",
-    "listicle-display-dry": "578d352eaab1709d",
-    "listicle-display-frame": "8a759f1cb050c89c",
-    "listicle-face-dry": "ffdf7fb7ab484d8e",     # no still: face falls back to story
-    "listicle-face-frame": "fb810ffb769d31b7",
-    "listicle-story-dry": "ffdf7fb7ab484d8e",
-    "listicle-story-frame": "6541f9d1ec96c3db",
+    "landing-open-dry": "fa54f71fb6cc8044",
+    "landing-open-frame": "26bec142bfcaa616",
+    "landing-proof-dry": "966183c33b1bde3a",
+    "landing-proof-frame": "aade52404688e797",
+    "listicle-display-dry": "82210181d7883749",
+    "listicle-display-frame": "357c14edaab33c17",
+    "listicle-face-dry": "362a467b6702176d",     # no still: face falls back to story
+    "listicle-face-frame": "032a6f545514ef35",
+    "listicle-story-dry": "362a467b6702176d",
+    "listicle-story-frame": "f99ea0d8c1846331",
 }
 
 
