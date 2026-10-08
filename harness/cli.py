@@ -33,7 +33,7 @@ from . import workflows
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from . import doctor as doctor_mod
-from . import first_screen
+from . import heroes
 from . import evals as evals_mod
 from . import exits
 from . import config as harness_config
@@ -170,7 +170,7 @@ def cmd_tenant_list(args):
 
 def cmd_look_import(args):
     """`harness look import --tenant <t> --cartridge landing (--file F | --url U
-    | --html -) --name <slug> [--title T] [--dry-run]` -- cycle 87, the CLI
+    | --html -) --name <slug> [--title T] [--exemplar SLUG] [--dry-run]` -- cycle 87, the CLI
     mirror of the site's "Import a page" (harness/look_import.py). A dry run
     prints the build observation and makes no model call."""
     tenant = tenant_mod.load_tenant(args.tenant)
@@ -198,6 +198,7 @@ def cmd_look_import(args):
         result = look_import.import_look(
             tenant, cartridge=args.cartridge, name=args.name, title=args.title, source=source, client=client,
             dry_run=args.dry_run, log=log, progress=lambda step: print(f"  {step}", file=sys.stderr),
+            exemplar=args.exemplar,
         )
     except look_import.LookImportError as e:
         print(look_import.format_errors(e), file=sys.stderr)
@@ -207,12 +208,16 @@ def cmd_look_import(args):
             log.close()
     if args.dry_run:
         print(json.dumps(result["observation"], indent=2))
-        print(f"\n{result['summary']}\n(--dry-run: observation only; no model call, nothing written)",
-              file=sys.stderr)
+        print(f"\n{result['summary']}\n\nDesign brief: {result['brief']}\nExemplar: {result['exemplar'] or 'none'}"
+              "\n(--dry-run: observation only; no model call, nothing written)", file=sys.stderr)
         return exits.OK
     print(f"imported {args.cartridge} look {result['slug']!r} ({result['title']}): validation PASS on attempt "
           f"{result['attempts']}, model cost ${result['cost_usd']:.4f}")
     print(f"  {result['summary']}")
+    print(f"  design brief: {result['brief']}")
+    print(f"  fidelity {result['fidelity']:.2f}"
+          + (f"; missing patterns: {', '.join(result['missing_patterns'])}" if result["missing_patterns"] else "")
+          + f"; exemplar: {result['exemplar'] or 'none'}")
     print(f"  {result['folder']}/review.html")
     print(f"  A/B/C library entry: {args.cartridge}:{result['slug']}")
     return exits.OK
@@ -274,10 +279,10 @@ def cmd_review(args):
     if not run_dir.is_dir():
         print(f"no such run dir: {run_dir}", file=sys.stderr)
         return 1
-    # Cycle 92: the tenant's local brand fonts go into the review html
-    # (relative files in <run>/review-fonts/, or inline with --inline-fonts).
+    # Cycle 92/95: the review html carries the tenant's local brand fonts
+    # (harness/fonts.py), so the run's own tenant is the one to read them from.
     tenant = tenant_mod.load_tenant(getattr(args, "tenant", None) or runstate.tenant_name_from_run_dir(run_dir))
-    written = build_reviews(run_dir, tenant=tenant, inline_fonts=getattr(args, "inline_fonts", False))
+    written = build_reviews(run_dir, tenant=tenant)
     if not written:
         print(f"no cartridge output (index.html) found under {run_dir}", file=sys.stderr)
         return 1
@@ -363,11 +368,17 @@ def cmd_rerender(args):
     ad_brief_json = run_dir / "ad_brief.json"
     ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
     # Cycle 79: `--hero-style` switches the listicle's first screen (harness/
-    # first_screen.py) -- a layout choice like --look, no model call.
+    # first_screen.py) -- a layout choice like --look, no model call. Cycle
+    # 94: any hero composition of the page's cartridge (harness/heroes/);
+    # the renderer still checks the look and the images, and stamps what it
+    # rendered.
     requested_hero = getattr(args, "hero_style", None)
     if requested_hero:
-        if cartridge_name != "listicle":
-            print(f"--hero-style applies to the listicle page, not {cartridge_name}", file=sys.stderr)
+        if not heroes.requested_for(cartridge_name, requested_hero):
+            print(f"--hero-style {requested_hero} is not a {cartridge_name} hero composition; choose one of "
+                  f"{list(heroes.ids(cartridge_name))}" if heroes.has_heroes(cartridge_name)
+                  else f"--hero-style applies to the {', '.join(heroes.cartridges())} pages, not {cartridge_name}",
+                  file=sys.stderr)
             return 1
         page["hero_style"] = requested_hero
 
@@ -390,7 +401,7 @@ def cmd_rerender(args):
     )
     print(f"Wrote {index_path}")
 
-    review_path = build_review_for_page(run_dir, cartridge_name)
+    review_path = build_review_for_page(run_dir, cartridge_name, tenant=tenant)
     if review_path:
         print(f"Wrote {review_path}")
 
@@ -406,10 +417,12 @@ def cmd_rerender(args):
         print(f"Wrote {shopify_body_path}")
         print(f"Wrote {assets_manifest_path}")
 
-    if cartridge_name == "listicle":
+    if heroes.has_heroes(cartridge_name):
         rendered_hero = json.loads(page_json.read_text()).get("hero_style")
-        if rendered_hero:
+        if rendered_hero and cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, hero_style=rendered_hero)
+        elif rendered_hero:
+            runstate.record_hero(run_dir, cartridge_name, rendered_hero)
     if requested_look:
         if cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, look=page["look"])
@@ -892,6 +905,13 @@ def cmd_publish(args):
     if args.dry_run:
         publisher = _make_publisher(tenant, export_dir=export_dir)
         report = publisher.dry_run({"body_html": shopify_body_html, "assets": assets_manifest})
+        # Cycle 95: which brand/fonts files the next real publish uploads
+        # (once per tenant; brand/fonts/cdn-manifest.json remembers them).
+        fonts = [f.name for f in shopify_pub.font_files(tenant)]
+        if fonts:
+            known = shopify_pub.load_font_cdn_manifest(tenant)
+            report["fonts"] = {"upload_on_next_publish": [n for n in fonts if n not in known],
+                               "already_on_cdn": [n for n in fonts if n in known]}
         print(json.dumps(report, indent=2))
         return 0 if report.get("ok") else 1
 
@@ -1734,6 +1754,8 @@ def cmd_photos_import(args):
 
 def cmd_photos_tag(args):
     """Vision tags, one call per photo, costed against the tenant's daily cap."""
+    if getattr(args, "only_missing", False):
+        return cmd_photos_tag_look(args)
     tenant = tenant_mod.load_tenant(args.tenant)
     manifest = photo_library.load_manifest(tenant)
     ids = set(args.id) if args.id else None
@@ -1767,6 +1789,90 @@ def cmd_photos_tag(args):
         return 0
     finally:
         log.close()
+
+
+def cmd_photos_tag_look(args):
+    """Cycle 93: `harness photos tag --only-missing` -- the look fields (shot,
+    quality, focal) for every photo that lacks them: one asset_describe
+    call per photo (models.vision, default Haiku), costed like `photos tag`."""
+    from . import images
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    manifest = photo_library.load_manifest(tenant)
+    ids = set(args.id) if args.id else None
+    todo = [p for p in manifest.get("photos", []) if photo_library._usable(p)
+            and ((ids is not None and p["id"] in ids) or (ids is None and images.needs_vision(p)))]
+    model = args.model or asset_describe.vision_model_for(tenant)
+    if args.dry_run or not todo:
+        estimate = len(todo) * asset_describe.ESTIMATED_COST_PER_IMAGE_USD
+        print(f"would tag {len(todo)} photo(s) (shot, quality, focal) with {model} (~${estimate:.3f}); no calls made")
+        return 0
+    run_id = f"{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}-photos-look"
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    budget = Budget(wall_s=3600, tokens=5_000_000, calls=len(todo) + 5)
+    today_iso = datetime.date.today().isoformat()
+    try:
+        try:
+            budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today_iso, log=log)
+        except BudgetExceeded as e:
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+        tenant.load_env()
+        client = make_client()
+        try:
+            result = images.tag_missing(tenant, client=client, model=model, budget=budget, log=log, ids=ids)
+        except BudgetExceeded as e:
+            pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, today_iso=today_iso,
+                                      stage="photos_tag")
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return 3
+        cost = log.cost_estimate()
+        budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today_iso, log=log)
+        print(f"tagged {result['tagged']}, failed {result['failed']}, skipped {result['skipped']}, cost ${cost:.4f}")
+        return 0
+    finally:
+        log.close()
+
+
+def cmd_photos_measure(args):
+    """Cycle 93: the deterministic image_tags (Pillow, no model call) for every
+    photo whose file is here, written into the manifest."""
+    from . import images
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    manifest = photo_library.load_manifest(tenant)
+    if not manifest.get("photos"):
+        print(f"no photos in {photo_library.manifest_path(tenant)}", file=sys.stderr)
+        return exits.USAGE
+    new, counts = images.measure_manifest(manifest, photo_library.files_dir(tenant), only_missing=args.only_missing)
+    if not args.dry_run:
+        photo_library.save_manifest(tenant, new)
+    print(f"measured {counts['measured']}, kept {counts['kept']}, no file {counts['missing_file']}"
+          + (" (dry run, nothing written)" if args.dry_run else f" -> {photo_library.manifest_path(tenant)}"))
+    return 0
+
+
+def cmd_photos_audit(args):
+    """Cycle 93: coverage per shot and mood, and the gaps. --manifest/--files
+    audit another copy (e.g. a pack); --measure fills missing measurements in
+    memory. Writes nothing."""
+    from . import images
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    if args.manifest:
+        try:
+            manifest = json.loads(Path(args.manifest).read_text())
+        except (OSError, ValueError) as e:
+            print(f"cannot read {args.manifest}: {e}", file=sys.stderr)
+            return exits.USAGE
+    else:
+        manifest = photo_library.load_manifest(tenant)
+    files = Path(args.files) if args.files else photo_library.files_dir(tenant)
+    if args.measure:
+        manifest, _counts = images.measure_manifest(manifest, files, only_missing=True)
+    for line in images.audit_lines(images.audit(manifest, files_dir=files if files.is_dir() else None)):
+        print(line)
+    return 0
 
 
 def cmd_photos_sheet(args):
@@ -1981,10 +2087,12 @@ def build_parser():
              "Default: picked from the skeletons that fit the style, by the ad's angle",
     )
     p_run.add_argument(
-        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES),
-        help="listicle first screen: face (a still from the ad + the speaker's words), story (text-first "
-             "open-loop lede) or display (wide display headline, product cut-out, stats). Default: seeded; "
-             "face falls back to story/display when the ad has no usable still",
+        "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO",
+        help="first-screen composition (harness/heroes/, docs/HEROES.md): listicle face | story | display | "
+             "caps_over_photo | split | dark_statement; landing ad_first | caps_over_photo | split | "
+             "letters_pill | dark_statement | buybox. Applies to each selected cartridge that has it. "
+             "Default: the look's own (seeded for the listicle); a composition whose image is missing falls "
+             "back, logged",
     )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)
@@ -2003,9 +2111,6 @@ def build_parser():
 
     p_review = sub.add_parser("review", help="write a self-contained review.html per cartridge (images inlined)")
     p_review.add_argument("run_dir")
-    p_review.add_argument("--inline-fonts", dest="inline_fonts", action="store_true",
-                          help="put the tenant's local brand fonts in the file as data: urls (a fully "
-                               "self-contained review file); default: <run>/review-fonts/ beside it")
     _add_tenant_flag(p_review)
     p_review.set_defaults(func=cmd_review)
 
@@ -2026,8 +2131,9 @@ def build_parser():
              "product-page); the copy is untouched",
     )
     p_rerender.add_argument(
-        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES), default=None,
-        help="re-render the listicle's first screen in another style (face|story|display); copy untouched",
+        "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO", default=None,
+        help="re-render the page's first screen in another hero composition of its cartridge (listicle or "
+             "landing; docs/HEROES.md); copy untouched",
     )
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)
@@ -2085,8 +2191,23 @@ def build_parser():
     p_photos_tag.add_argument("--model", help="vision model (default tenant photo_library.tag_model)")
     p_photos_tag.add_argument("--reference-cache", help="folder of cached storefront images (<asset id>-480.jpg)")
     p_photos_tag.add_argument("--dry-run", action="store_true")
+    p_photos_tag.add_argument("--only-missing", action="store_true",
+                              help="cycle 93: only the look fields (shot, quality, focal) of photos that lack them")
     _add_tenant_flag(p_photos_tag)
     p_photos_tag.set_defaults(func=cmd_photos_tag)
+    p_photos_measure = photos_sub.add_parser(
+        "measure", help="deterministic look tags (orientation, mood, full-bleed, focal, ...) from the files")
+    p_photos_measure.add_argument("--only-missing", action="store_true", help="skip photos already measured")
+    p_photos_measure.add_argument("--dry-run", action="store_true")
+    _add_tenant_flag(p_photos_measure)
+    p_photos_measure.set_defaults(func=cmd_photos_measure)
+    p_photos_audit = photos_sub.add_parser("audit", help="coverage per shot and mood, and the gaps")
+    p_photos_audit.add_argument("--manifest", help="audit this photo-library.json instead of the tenant's")
+    p_photos_audit.add_argument("--files", help="folder of the derivatives (default the tenant's)")
+    p_photos_audit.add_argument("--measure", action="store_true",
+                                help="measure photos that have no image_tags yet, in memory only")
+    _add_tenant_flag(p_photos_audit)
+    p_photos_audit.set_defaults(func=cmd_photos_audit)
     p_photos_sheet = photos_sub.add_parser("sheet", help="write a contact sheet JPEG of every photo and its tags")
     p_photos_sheet.add_argument("out")
     _add_tenant_flag(p_photos_sheet)
@@ -2353,6 +2474,8 @@ def build_parser():
     source.add_argument("--html", help="the page's HTML; '-' reads it from stdin")
     p_look_import.add_argument("--name", required=True, help="the look's name (slug): letters, digits, hyphens")
     p_look_import.add_argument("--title", help="a display title for the Library (default: from the name)")
+    p_look_import.add_argument("--exemplar", help="the hand-made look (slug) to show the model instead of the "
+                                                  "closest one (cycle 90)")
     p_look_import.add_argument("--dry-run", action="store_true",
                                help="print the build observation only: no model call, nothing written")
     _add_tenant_flag(p_look_import)

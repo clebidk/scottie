@@ -229,6 +229,10 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     monkeypatch.setattr(type(TENANT), "library_dir", property(lambda self: base / "library"))
     # Cycle 87: looks imported from other pages (harness/look_import.py).
     monkeypatch.setattr(type(TENANT), "looks_dir", property(lambda self: base / "looks"))
+    # Cycle 90: the hand-made exemplar pack (../peak-lp-pack) lives outside
+    # the repo and changes; a test that wants exemplars sets its own.
+    from harness import look_design
+    monkeypatch.setattr(look_design, "PACK_DIR", base / "no-pack")
     return base
 
 
@@ -406,3 +410,35 @@ def _module_environ_guard(_session_environ_guard):
         "in os.environ (names only) -- something called Tenant.load_env outside "
         "a test. The environment is restored; restore it in that fixture too."
     )
+
+
+# Cycle 95: the PEAK tenant ships webfonts in brand/fonts/, so every publish
+# path (`harness publish`, A/B/C, post-live) would first upload them to
+# Shopify Files -- a GraphQL call the publish tests' fake Shopify does not
+# expect. Give the real tenant a CDN manifest that already lists every font,
+# the steady state after its first real publish, in a temp file (never the
+# tenant tree). tests/test_fonts_cycle95.py exercises the upload itself on a
+# copy of brand/.
+@pytest.fixture(scope="session")
+def _real_tenant_font_manifest(tmp_path_factory):
+    from harness.publishers import shopify as shopify_pub
+    path = tmp_path_factory.mktemp("font-cdn") / "cdn-manifest.json"
+    path.write_text(json.dumps({f.name: f"https://cdn.shopify.com/s/files/test/{f.name}"
+                                for f in shopify_pub.font_files(TENANT)}))
+    return path
+
+
+@pytest.fixture(autouse=True)
+def _real_tenant_fonts_are_already_on_the_cdn(monkeypatch, _real_tenant_font_manifest):
+    from pathlib import Path
+    from harness.publishers import shopify as shopify_pub
+    real = shopify_pub.font_cdn_manifest_path
+    real_brand = Path(TENANT.brand_dir).resolve()
+
+    def manifest_path(tenant):
+        brand_dir = getattr(tenant, "brand_dir", None)
+        if brand_dir and Path(brand_dir).resolve() == real_brand:
+            return _real_tenant_font_manifest
+        return real(tenant)
+
+    monkeypatch.setattr(shopify_pub, "font_cdn_manifest_path", manifest_path)

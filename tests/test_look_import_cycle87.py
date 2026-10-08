@@ -11,7 +11,8 @@ What is asserted here, offline (FakeClient, fake HTTP transport, fake DNS):
   - a FakeClient template that passes is stored as a TENANT look that
     looks.py resolves, render_page renders and the A/B/C library accepts;
   - an invalid template (unknown variable, colour literal, a second CTA)
-    is repaired once, then refused with every message, storing nothing;
+    is repaired (twice since cycle 90: three calls at most), then refused
+    with every message, storing nothing;
   - name collisions are refused before any model call;
   - the look_import job (progress, result, failure) and the site's dialog
     and form (login, form token, one source, rate limit);
@@ -24,13 +25,16 @@ import json
 
 import pytest
 
-from harness import abtest, cli, jobs, look_import, looks, serve, site
+from harness import abtest, cli, heroes, jobs, look_import, looks, serve, site
 from harness.render import render_page
 from tests.conftest import FakeClient, FakeResponse
 from tests.support import REPO_ROOT, TENANT
 
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "look_import" / "sample-landing.html"
-OPEN_LOOK = (REPO_ROOT / "cartridges" / "landing" / "looks" / "open" / "template.html").read_text()
+# Cycle 94: the shipped look includes the shared hero partial (harness/heroes/);
+# an imported look is one file, so the reference is the look with it inline.
+OPEN_LOOK = heroes.standalone_source(
+    (REPO_ROOT / "cartridges" / "landing" / "looks" / "open" / "template.html").read_text(), "landing", "open")
 REVIEWER = "caleb@peaksaunas.com"
 PASSWORD = "pw-cycle-87"
 # Words that exist only in the fixture page's copy; none may survive.
@@ -39,8 +43,12 @@ SOURCE_WORDS = ("Glacierberry", "frostline", "Jordan", "plunge", "tracker.exampl
 
 def _valid_template():
     """The approved open look with an import marker: a template the
-    validator must accept."""
-    return OPEN_LOOK.replace('{% extends "base.html" %}', '{% extends "base.html" %}{# imported split layout #}', 1)
+    validator must accept. Cycle 90: it marks the fixture's one observed
+    pattern (the FAQ accordion), so its fidelity passes on the first call."""
+    return OPEN_LOOK.replace('{% extends "base.html" %}', '{% extends "base.html" %}{# imported split layout #}', 1) \
+        .replace('  {% include "blocks/faq.html" %}',
+                 # cycle 91: the FAQ markup lives in the catalog's faq block now; the marker goes round it
+                 '  <div data-look-pattern="faq-accordion">{% include "blocks/faq.html" %}</div>', 1)
 
 
 def _fixture_source():
@@ -193,8 +201,10 @@ def test_a_valid_template_is_stored_as_a_tenant_look_that_resolves_and_renders(t
     result = _import(client=client, title="Split hero")
     folder = TENANT.looks_dir / "landing" / "split-hero"
     assert result["folder"] == str(folder) and result["attempts"] == 1
-    assert sorted(p.name for p in folder.iterdir()) == ["library.json", "observation.json", "review.html",
+    # cycle 91: the open look includes the catalog faq block, so the stored look declares it in look.json
+    assert sorted(p.name for p in folder.iterdir()) == ["library.json", "look.json", "observation.json", "review.html",
                                                         "template.html"]
+    assert json.loads((folder / "look.json").read_text()) == {"blocks": ["faq"]}
     library = json.loads((folder / "library.json").read_text())
     assert library["name"] == "split-hero" and library["title"] == "Split hero" and library["cartridge"] == "landing"
     assert library["source"]["kind"] == "upload" and library["source"]["origin"] == FIXTURE.name
@@ -296,8 +306,9 @@ def test_the_validator_passes_the_approved_look_and_names_each_broken_rule():
     (lambda t: t.replace("{{ page.hero.subhead }}", "{{ page.hero.subhead | safe }}"), "`| safe` only"),
     (lambda t: t.replace("{{ ld.eyebrow }}", "{{ ld.eyebrow.__class__ }}"), "starts with an underscore"),
     (lambda t: t.replace("{% block content %}", "{% include 'x.html' %}{% block content %}"), "include"),
-    (lambda t: t.replace("<h2 class=\"ld-h2\">Questions before you buy</h2>",
-                         "<h2 class=\"ld-h2\">Questions before you buy from the team that has served 4000 owners</h2>"),
+    # cycle 91: the FAQ heading moved into blocks/faq.html; another label of the open look
+    (lambda t: t.replace("<h2 class=\"ld-h2\">What the ad said, and what the facts say</h2>",
+                         "<h2 class=\"ld-h2\">What the ad said, and what 4000 owners say</h2>"),
      "has a number"),
     (lambda t: t.replace('class="pk-lp adv-landing"', 'class="adv-landing"'), "wrapper element"),
 ])
@@ -306,14 +317,14 @@ def test_each_rule_is_enforced(change, needle):
     assert any(needle in e for e in errors), errors
 
 
-def test_an_invalid_template_is_repaired_once_then_refused_and_nothing_is_stored():
-    client = _client(BAD_TEMPLATE, BAD_TEMPLATE)
+def test_an_invalid_template_is_repaired_then_refused_and_nothing_is_stored():
+    client = _client(BAD_TEMPLATE, BAD_TEMPLATE, BAD_TEMPLATE)
     with pytest.raises(look_import.LookImportError) as info:
         _import(client=client)
     message = look_import.format_errors(info.value)
-    assert "after one repair" in message and "nothing was stored" in message
+    assert "after 2 repair(s)" in message and "nothing was stored" in message
     assert "'tagline' is not in the landing page schema" in message and "colour literal" in message
-    assert len(client.messages.calls) == 2
+    assert len(client.messages.calls) == 3
     repair = client.messages.calls[1]["messages"]
     assert repair[1] == {"role": "assistant", "content": BAD_TEMPLATE.strip() + "\n"}
     assert "The harness refused this template" in repair[2]["content"] and "tagline" in repair[2]["content"]
@@ -327,7 +338,7 @@ def test_a_second_cta_phrase_is_refused():
         '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n'
         '        <a class="ld-btn" href="{{ page.cta_url }}">Buy it now</a>\n        {% if ld.secondary %}', 1)
     with pytest.raises(look_import.LookImportError) as info:
-        _import(client=_client(second_cta, second_cta))
+        _import(client=_client(second_cta, second_cta, second_cta))
     assert any("one CTA phrase" in e and "Buy it now" in e for e in info.value.errors)
 
 
@@ -356,9 +367,12 @@ def test_name_collisions_are_refused_before_any_model_call():
 
 
 def test_a_listicle_look_can_be_imported_too():
-    listicle_open = (REPO_ROOT / "cartridges" / "listicle" / "looks" / "open" / "template.html").read_text()
+    listicle_open = heroes.standalone_source(
+        (REPO_ROOT / "cartridges" / "listicle" / "looks" / "open" / "template.html").read_text(), "listicle", "open")
     # the reference still has one legacy colour literal; an import may not
-    fixed = listicle_open.replace("rgba(255,255,255,.18)", "var(--pk-line)")
+    fixed = listicle_open.replace("rgba(255,255,255,.18)", "var(--pk-line)").replace(
+        '<section class="op-sec op-faq op-narrow">',
+        '<section class="op-sec op-faq op-narrow" data-look-pattern="faq-accordion">', 1)
     result = look_import.import_look(TENANT, cartridge="listicle", name="long-read", source=_fixture_source(),
                                      client=_client(listicle_open, fixed))
     assert result["attempts"] == 2
@@ -473,7 +487,7 @@ def test_the_job_imports_the_page_reports_progress_and_links_the_reference(clien
 
 
 def test_a_failed_job_shows_the_errors_and_keeps_nothing(client, monkeypatch):
-    fake = _client(BAD_TEMPLATE, BAD_TEMPLATE)
+    fake = _client(BAD_TEMPLATE, BAD_TEMPLATE, BAD_TEMPLATE)
     monkeypatch.setattr(look_import, "make_client", lambda: fake)
     assert _post(client, {"name": "split-hero", "html": FIXTURE.read_text()}).status_code == 303
     job = jobs.list_jobs(TENANT)[0]

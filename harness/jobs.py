@@ -432,7 +432,7 @@ def handle_look_import(tenant, payload):
         try:
             result = look_import.import_look(
                 tenant, cartridge=payload["cartridge"], name=payload["slug"], title=payload.get("title"),
-                source=source, progress=lambda step: progress(tenant, step),
+                source=source, progress=lambda step: progress(tenant, step), exemplar=payload.get("exemplar"),
             )
         except look_import.LookImportError as e:
             raise JobFailed(look_import.format_errors(e)) from e
@@ -441,7 +441,8 @@ def handle_look_import(tenant, payload):
             pending.unlink(missing_ok=True)
     summary = look_import.job_summary(result)
     audit(tenant, by=payload["by"], action="look_import_done", target=f"look:{payload['cartridge']}/{result['slug']}",
-          detail={"title": result["title"], "cost_usd": summary["cost_usd"], "validation": summary["validation"]})
+          detail={"title": result["title"], "cost_usd": summary["cost_usd"], "validation": summary["validation"],
+                  "fidelity": summary["fidelity"]})
     return summary
 
 

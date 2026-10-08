@@ -20,7 +20,8 @@
    orange, green, cyan, cream, stone, sage or grey panels; no gradients,
    glows or shadows.
 
-   Type: body DM Sans 400/500, headings Poppins 600 in sentence case. Both
+   Type: body DM Sans 400/500, headings Poppins 600 in sentence case (cycle
+   95: Montserrat first, Poppins is now its fallback). DM Sans and Poppins
    are loaded site-wide by the storefront theme; the review/standalone page
    loads them from Google Fonts (tenant.yaml brand.font_stylesheet, a
    <link> in the document head that the storefront export never carries).
@@ -29,10 +30,22 @@
    declared below with ABSOLUTE https URLs on the live theme's CDN (the
    theme serves both, CORS *). A page body has no Liquid, and a relative
    path would 404 on the storefront and in the review file; the export
-   carries these rules verbatim (harness/page_body.py font_face_css). Copies
-   of the files are in brand/fonts-display/ (not brand/fonts/, so publish
-   never re-uploads them). TODO (owner): the Acid Grotesk file is labelled
-   TRIAL -- confirm PEAK holds a commercial licence before wide use.
+   carries these rules verbatim (harness/page_body.py font_face_css). A copy
+   of Peak Grotesk Wide is in brand/fonts-display/ (not brand/fonts/, so
+   publish never re-uploads it).
+
+   Cycle 95 (2026-10-07, owner: "add Epika, Montserrat, Peak Grotesk and
+   Acid Grotesk"): four web families, roles in brand/tokens.json --
+     Peak Grotesk Wide  display headline, upper case   (theme CDN, absolute URL)
+     Acid Grotesk       second display face, licensed  (brand/fonts/)
+     Montserrat         headings, Poppins next          (brand/fonts/, OFL)
+     Epika              serif voice: quotes, statements (brand/fonts/, Superior Type)
+   A brand/fonts/ url is repo-relative on purpose: `harness publish` uploads
+   brand/fonts/* to Shopify Files once (brand/fonts/cdn-manifest.json) and
+   rewrites the url by filename; the review page and the thumbnails get
+   every face as a data: URI from the local file (harness/render.py
+   inline_font_face_urls). Licences: brand/fonts/LICENSES.md. Never rename,
+   subset or convert Epika or Acid Grotesk (Superior Type EULA).
 
    The "live theme layer" at the end of this file uses !important on
    purpose. The storefront theme's assets/pk-mono.css (html.pk-mono) sets
@@ -50,8 +63,12 @@
 
 @font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;
   src:url("https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/pk-peak-grotesk-wide.woff2") format("woff2");}
-@font-face{font-family:"PK Acid Grotesk";font-style:normal;font-weight:400;font-display:swap;
-  src:url("https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/pk-acid-grotesk-trial.otf") format("opentype");}
+@font-face{font-family:"Acid Grotesk";font-style:normal;font-weight:400;font-display:swap;
+  src:url("brand/fonts/FFF-AcidGrotesk-Regular.woff2") format("woff2");}
+@font-face{font-family:"Montserrat";font-style:normal;font-weight:100 900;font-display:swap;
+  src:url("brand/fonts/Montserrat-Variable.woff2") format("woff2");}
+@font-face{font-family:"Epika";font-style:normal;font-weight:400;font-display:swap;
+  src:url("brand/fonts/Epika-Regular.woff2") format("woff2");}
 
 :root{
   /* ---- palette, by role ---- */
@@ -86,11 +103,12 @@
   --ps-radius-box:4px;         /* every box, card, input */
   /* ---- type ---- */
   --ps-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --ps-heading:"Poppins","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --ps-serif:var(--ps-heading); /* no serif in the live theme: "display" moments use Poppins */
+  --ps-heading:"Montserrat","Poppins","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  /* cycle 95: Epika, the editorial serif -- pull quotes, review quotes, the founder line, statement lines */
+  --ps-serif:"Epika",Georgia,"Times New Roman",serif;
   /* cycle 79: the approved display faces (the "display" first screen) */
   --ps-display-wide:"Peak Grotesk Wide","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --ps-display-acid:"PK Acid Grotesk","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --ps-display-acid:"Acid Grotesk","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --ps-eyebrow-size:12px;
   --ps-eyebrow-spacing:.2em;
   --ps-eyebrow-color:#6B6B6B;
@@ -262,7 +280,7 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
    why these rules carry !important and doubled classes.
    =================================================================== */
 
-/* Headings: Poppins 600, sentence case, -.01em; H1 44-52px desktop,
+/* Headings: Montserrat 600 (Poppins fallback), sentence case, -.01em; H1 44-52px desktop,
    28-34px phone. One rule for every look, so no look can drift. */
 .adv-wrap h1,.adv-wrap h2,.adv-wrap h3,.adv-wrap h4{
   font-family:var(--ps-heading)!important;
@@ -275,7 +293,7 @@ td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
 /* No shadows, glows or gradients anywhere on the page. */
 .adv-wrap *,.adv-wrap *::before,.adv-wrap *::after{box-shadow:none!important;text-shadow:none!important}
 
-/* Primary CTA: Basalt pill, white text, Poppins 600 16px, 17px 44px;
+/* Primary CTA: Basalt pill, white text, Montserrat 600 16px (Poppins fallback), 17px 44px;
    hover brand red. */
 .adv-wrap .adv-cta.adv-cta,.adv-wrap .lst-btn.lst-btn,.adv-wrap .ed-btn.ed-btn,.adv-wrap .ld-btn.ld-btn,
 .adv-wrap .pil-btn.pil-btn,.adv-wrap .sc-btn.sc-btn,.adv-wrap .cmp-btn.cmp-btn,.adv-wrap .qz-btn.qz-btn,

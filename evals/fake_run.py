@@ -14,6 +14,7 @@ The exit code is the run's own: 0 pass, 2 gate STOP, 3 budget.
 from __future__ import annotations
 
 import argparse
+import copy
 import contextlib
 import datetime
 import json
@@ -25,6 +26,7 @@ from pathlib import Path
 
 from harness import cli
 from harness import headlines
+from harness import heroes
 from harness import listicle as listicle_mod
 from harness import looks
 from harness import pipeline
@@ -105,6 +107,31 @@ LANDING_PROOF_PAGE = {
         {"icon_key": "wood", "label": "Canadian red cedar", "claim_ids": ["gbrain-fuji-wood"]},
         {"icon_key": "us_owned", "label": "US-owned company", "claim_ids": ["gbrain-allowlist-us-owned"]},
     ],
+}
+
+# Cycle 91: the writer fields of the catalog blocks (harness/blocks/catalog/)
+# a block-built landing look asks for -- each line citing claims the offline
+# facts pack verifies. _canned_page adds the ones the run's look declares.
+LANDING_BLOCK_FIELDS = {
+    "photo_essay": {"lines": [
+        {"text": "Room for two people side by side on one cedar bench.",
+         "claim_ids": ["spec-fuji-capacity", "gbrain-fuji-wood"]},
+        {"text": "The red light panel faces you while the cabin heats.", "claim_ids": ["gbrain-fuji-rlt"]},
+        {"text": "Heaters sit all around you, so the warmth reaches your back and legs.",
+         "claim_ids": ["gbrain-allowlist-360-full-spectrum"]},
+        {"text": "A compact cabin that fits a spare corner of the house.", "claim_ids": ["gbrain-fuji-dimensions"]},
+    ]},
+    "feature_grid": {"cells": [
+        {"label": "Red light", "line": "Medical-grade red light therapy comes standard in the cabin.",
+         "claim_ids": ["gbrain-allowlist-red-light", "gbrain-fuji-rlt"]},
+        {"label": "Full-spectrum heat", "line": "Near, mid and far infrared heaters placed all around you.",
+         "claim_ids": ["spec-fuji-infrared-wavelength-range", "gbrain-allowlist-360-full-spectrum"]},
+        {"label": "Canadian red cedar", "line": "The cabin is red cedar on the inside and the outside.",
+         "claim_ids": ["gbrain-fuji-wood"]},
+        {"label": "Free shipping", "line": "Every order ships free, on a delivery appointment you schedule.",
+         "claim_ids": ["shipping-policy"]},
+    ]},
+    "statement_band": {"line": "A real sauna session at home, on your own schedule"},
 }
 
 CANNED_PAGES = {
@@ -258,6 +285,15 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_i
         return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
     if cartridge == "landing" and landing_look == "proof":
         return LANDING_PROOF_PAGE
+    if cartridge == "landing" and landing_look:
+        # Cycle 91: a block-built look (cinematic, buybox, a tenant look with a
+        # look.json) gets the writer fields of the blocks it declares.
+        from harness.blocks import catalog
+
+        wanted = [b for b in catalog.look_blocks("landing", landing_look, tenant=tenant_mod.load_tenant(tenant))
+                  if b in LANDING_BLOCK_FIELDS]
+        if wanted:
+            return {**LANDING_PAGE, "blocks": {b: copy.deepcopy(LANDING_BLOCK_FIELDS[b]) for b in wanted}}
     return CANNED_PAGES[cartridge]
 
 
@@ -419,8 +455,11 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     # the same rule the run uses.
     landing_look = None
     if "landing" in selected:
-        landing_look = looks.resolve_look("landing", looks.requested_for("landing", look),
-                                          tenant=tenant_mod.load_tenant(tenant, require=True))
+        # Cycle 91: requested_for with the tenant, so a tenant look (with its
+        # look.json blocks) gets the canned page it declares, as the run does.
+        tenant_obj_ = tenant_mod.load_tenant(tenant, require=True)
+        landing_look = looks.resolve_look("landing", looks.requested_for("landing", look, tenant_obj_),
+                                          tenant=tenant_obj_)
 
     brief = _brief_for(input_arg)
     responses = [json_response(brief)]
@@ -479,8 +518,9 @@ def main(argv=None):
     parser.add_argument("--product", default=None)
     parser.add_argument("--look", choices=list(looks.all_looks()), default=None,
                         help="a look of a selected cartridge (e.g. landing: open | proof); default: the cartridge's own")
-    parser.add_argument("--hero-style", choices=["face", "story", "display"], default=None,
-                        help="listicle first screen; default: seeded from --seed")
+    parser.add_argument("--hero-style", type=heroes.arg, metavar="HERO", default=None,
+                        help="first-screen hero composition (harness/heroes/); default: the look's own "
+                             "(the listicle's seeded from --seed)")
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)

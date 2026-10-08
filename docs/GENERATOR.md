@@ -117,6 +117,16 @@ words, from the ad's hook, never the answer), `accent_phrase` (a substring of th
 headline), `dek`, `lede` (opens the loop, no number), `scroll_cue`, `hero_quote_id` (an
 `ad_quotes` id) and `speaker_pronoun` -- so switching the style is a re-render, no model call.
 
+**Hero compositions (cycle 94).** The first screen is now a shared, pluggable part:
+`harness/heroes/` holds one module + one partial per composition, and every look includes
+`heroes/_pick.html`. Besides face, story and display (listicle) and ad_first (the landing
+page's own first screen), the listicle and landing looks render `caps_over_photo`,
+`dark_statement` and `split`; the landing looks also `letters_pill` and `buybox`.
+`--hero-style`, `harness rerender --hero-style`, the A/B/C arm (`listicle:<style>:<look>:<hero>`,
+`landing:<look>:<hero>`) and the Library's "Generate with this" take any of them; a
+composition whose image is missing falls back, logged, and page.json/state.json record what
+rendered. Catalog, image needs, selection and how to add one: `docs/HEROES.md`.
+
 **Page structure.** Header (the first screen above; the product hero is the model's cut-out,
 `harness/cutouts.py`) -> 5-7 numbered items, each with an H2, a short
 one-idea body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
@@ -313,6 +323,15 @@ writer adds two optional fields only for this look -- `benefits` and `icon_row`
 (`cartridges.landing.looks`), or the A/B/C library entries `landing:open` / `landing:proof`;
 the variant record keeps the look. `--look proof` reaches the writer, unlike a rerender.
 
+**Block-built looks (cycle 91).** The landing cartridge also has `cinematic` (pack page 08: a
+full-bleed first screen with the stats inside it, a photo essay, a feature grid, a dark statement
+band) and `buybox` (pack page 06: a trust bar, the cycle 94 `buybox` first screen, then the
+product with labelled hotspots). Their first screens are cycle 94 hero compositions. Both are composed from the block catalog (`harness/blocks/catalog/`): sections the harness
+owns from end to end, declared in a `look.json` next to the look's template. A declared block
+renders from facts_pack; only its writer fields (`page.json` `blocks.<id>`) reach the prompt; only
+its gates run. See docs/BLOCKS.md for the catalog, how a look declares blocks, and how to write a
+block. `--look cinematic|buybox`, A/B/C `landing:cinematic` / `landing:buybox`.
+
 ## Tenant looks (cycle 87, "Import a page")
 
 A look can also belong to a TENANT: `tenants/<t>/looks/<cartridge>/<slug>/`
@@ -357,6 +376,19 @@ tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant peak-saunas
 --cartridges landing`; the listicle one with `--cartridges listicle --seed
 42`). A tenant with no demo page for a cartridge cannot import a look for
 it (the error says how to make one).
+
+### Import fidelity (cycle 90)
+
+`harness/look_design.py` adds the design level to the import: per section a
+DOM skeleton and a style summary from the page's own CSS, the distinctive
+patterns (`look_design.PATTERNS`), a design brief, the page's sanitised CSS
+and the closest hand-made exemplar for the prompt, and the fidelity score of
+the rendered candidate (below `FIDELITY_THRESHOLD` = 0.7 a repair round names
+the missing patterns; `look_import.MAX_CALLS` = 3). A look marks each
+pattern it realises with `data-look-pattern="<name>"`; the score reads those
+markers from the demo render. `harness look import ... --exemplar <slug>`
+names the exemplar; `--dry-run` prints the observation (with `brief`) and
+the exemplar it would use. Details: docs/LISTICLE-SITE.md "Import fidelity".
 
 ## Add a new cartridge type in under 10 minutes
 
@@ -450,6 +482,11 @@ just as part of `harness/`); a `<script>` tag; an inline event handler; an
 `<img>` with no explicit size; a color that isn't a `var(--…)` token; and a
 fixed width over 390px (a block must never break the mobile-first layout).
 `tests/test_blocks.py` runs every registered block through this gate.
+
+These registry blocks are layout variants of one slot. The cycle 91 **block catalog**
+(`harness/blocks/catalog/`, snake_case ids, docs/BLOCKS.md) is a different tier: whole sections
+with their own data, writer fields, gates, markup and CSS, which a look declares in `look.json`
+and includes as `{% include "blocks/<id>.html" %}`.
 
 ## The comparison cartridge (v1.0.0, cycle 56; opt-in)
 

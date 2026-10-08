@@ -18,7 +18,8 @@ clutter; no generic card grids; 16 px side gutters on the phone; nothing that lo
 
 - hierarchy: the eye knows where to go; one dominant element per screen; the CTA is findable without
   competing; headings, body and proof read as distinct levels.
-- typography: the brand faces used as specified; a clear scale with real contrast between levels; line
+- typography: the brand's type system (the font families the brand section below names) used as specified,
+  each family in its role; a clear scale with real contrast between levels; line
   lengths 45-75 characters on desktop; comfortable leading; no orphan headings (a heading alone at the bottom
   of a screen or section with its content below), no widows in the display line.
 - imagery: real photographs large enough to matter; the hero image carries the first screen (or the page is

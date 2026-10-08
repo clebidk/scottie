@@ -240,7 +240,12 @@ def rewrite_font_face_urls(body_html, url_by_filename):
     block left with no src entry at all is dropped whole -- a family that is
     declared but cannot load is worse than one that was never declared,
     because the browser stops at it instead of walking on to the next name in
-    the fallback stack."""
+    the fallback stack.
+
+    Cycle 95: an absolute http(s) url is kept as it is. A tenant's base.css
+    may point a face at its live theme's CDN, a file we never upload;
+    matched by filename alone, that block was dropped from every page as
+    soon as brand/fonts held any file."""
 
     def rewrite_block(match):
         block = match.group(0)
@@ -248,6 +253,9 @@ def rewrite_font_face_urls(body_html, url_by_filename):
 
         def replace_entry(entry):
             nonlocal dropped_any
+            if re.match(r"https?://", entry.group("path"), re.IGNORECASE):
+                kept.append(entry.group("path"))
+                return entry.group(0)
             filename = Path(entry.group("path")).name
             url = url_by_filename.get(filename)
             if not url:

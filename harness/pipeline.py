@@ -358,6 +358,10 @@ def ground(state):
         include_product_page="product-page" in state.selected,
         live_price_claims=state.live_price_claims_by_slug,
         log=state.log,
+        # Cycle 91: the model_grid block's model rows, only for a landing look
+        # that declares that block (harness/blocks/catalog/); passed only then,
+        # so a facts source without the keyword is untouched.
+        **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
     if "quiz" in state.selected:
@@ -617,6 +621,17 @@ def write_pages(state):
         state.pages[cartridge_name] = page
 
 
+def _landing_look_uses(state, block_id):
+    """True when this run renders a landing page whose look declares the
+    catalog block `block_id` in its look.json."""
+    from .blocks import catalog as block_catalog
+
+    look = getattr(state, "landing_look", None)
+    if "landing" not in state.selected or not look:
+        return False
+    return block_id in block_catalog.look_blocks("landing", look, tenant=state.tenant)
+
+
 def render_pages(state):
     published = updated = state.today_iso
     # Cycle 51: stamp the run's resolved look onto the listicle page before
@@ -662,6 +677,13 @@ def render_pages(state):
             state.pages["landing"]["look"] = state.landing_look
             runstate.record_look(state.run_dir, "landing", state.landing_look)
         first_screen.build_ad_still(state)
+        # Cycle 94: --hero-style / an A/B/C arm's composition, as a request
+        # the renderer resolves (harness/heroes/); none -> the look's default.
+        from . import heroes
+
+        requested_hero = heroes.requested_for("landing", getattr(state.args, "hero_style", None))
+        if requested_hero:
+            state.pages["landing"]["hero_style"] = requested_hero
 
     # Cycle 79: the listicle's ad still and first-screen style.
     if "listicle" in state.pages:
@@ -687,6 +709,29 @@ def render_pages(state):
             tenant=state.tenant,
         )
         state.outputs.append(index_path)
+        _record_rendered_hero(state.run_dir, cartridge_name)
+
+
+def _record_rendered_hero(run_dir, cartridge_name):
+    """Cycle 94: the composition the page actually rendered (the renderer
+    stamps it on page.json after its image check, which may fall back from
+    the request) -> state.json, for every cartridge with hero compositions."""
+    import json as _json
+
+    from . import heroes, runstate
+
+    if not heroes.has_heroes(cartridge_name):
+        return
+    try:
+        rendered = _json.loads((Path(run_dir) / cartridge_name / "page.json").read_text()).get("hero_style")
+    except (OSError, ValueError):
+        return
+    if not rendered:
+        return
+    if cartridge_name == "listicle":
+        runstate.record_listicle_choice(run_dir, hero_style=rendered)
+    else:
+        runstate.record_hero(run_dir, cartridge_name, rendered)
 
 
 def _render_into_run(state, cartridge_name, page):
@@ -722,6 +767,7 @@ def design_gate(state):
     (exit 2) once every page has been scored. The time the gate takes is
     added to the run's wall-clock budget, like a batch wait: its own bound
     is max_usd_per_page and the variant count."""
+    from . import heroes as heroes_mod
     from . import runstate
 
     cfg = design_gate_mod.settings(state.tenant)
@@ -738,7 +784,7 @@ def design_gate(state):
             pinned = {
                 "look": looks.requested_for(cartridge_name, getattr(args, "look", None), state.tenant)
                 and base_page.get("look"),
-                "hero_style": getattr(args, "hero_style", None) if cartridge_name == "listicle" else None,
+                "hero_style": heroes_mod.requested_for(cartridge_name, getattr(args, "hero_style", None)),
             }
             result = design_gate_mod.run_for_page(
                 cartridge=cartridge_name, page_dir=page_dir, base_page=base_page,
@@ -749,10 +795,10 @@ def design_gate(state):
             if final_page is not None:
                 state.pages[cartridge_name] = final_page
                 if cartridge_name == "listicle":
-                    runstate.record_listicle_choice(state.run_dir, look=final_page.get("look"),
-                                                    hero_style=final_page.get("hero_style"))
+                    runstate.record_listicle_choice(state.run_dir, look=final_page.get("look"))
                 elif looks.has_looks(cartridge_name) and final_page.get("look"):
                     runstate.record_look(state.run_dir, cartridge_name, final_page["look"])
+                _record_rendered_hero(state.run_dir, cartridge_name)   # cycle 94: what actually rendered
             state.design[cartridge_name] = result
             print(f"{cartridge_name}: {design_gate_mod.summary_line(result)}")
     finally:

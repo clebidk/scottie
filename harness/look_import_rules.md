@@ -1,4 +1,4 @@
-# Look-authoring rules (cycle 87, "Import a page")
+# Look-authoring rules (cycle 87, "Import a page"; cycle 90, import fidelity)
 
 You write ONE file: the `template.html` of a new LOOK for a harness cartridge.
 A look is a LAYOUT. It never carries copy, prices, claims, images or links of
@@ -6,20 +6,30 @@ its own: the writer's page.json and the renderer's context fill it. You learn
 the layout from a BUILD OBSERVATION of another page -- its section order, the
 role of each section, heading levels, how many words and images each holds,
 lists and tables, where its CTAs sit, light or dark backgrounds, desktop
-column counts, density, sticky elements. Rebuild that STRUCTURE in this
-tenant's design language with the blocks below. Do not imitate the source
-page's colours, fonts, words or brand: the observation does not contain them
-and you must not invent them.
+column counts, density, sticky elements -- and (cycle 90) its DESIGN: per
+section a DOM skeleton (tag.class lines with text lengths), a style summary
+(ground, text contrast, width, grid/flex columns, padding scale, radius,
+image treatment, headline size/case/spacing/weight/face), the distinctive
+patterns found on the page, a design brief, and the page's own CSS with its
+colours mapped to tokens. Rebuild that page FAITHFULLY in this tenant's
+tokens with the blocks below: the same section order, the same hero
+composition, the same dark/light treatment, the same numerals, grids and
+type scale. Never copy the source page's words or brand (the observation
+does not contain them) and never a colour or font literal: every value is a
+token.
 
 The harness validates your template before anything is stored. A template
-that breaks any rule below is sent back once with the errors, then refused.
+that breaks any rule below is sent back with the errors (two repairs at
+most), then refused. A valid template whose fidelity score is below 0.7 is
+sent back too, with the patterns it misses.
 
 ## Output
 
 - Only the template text. No prose, no code fence.
 - First line: `{% extends "base.html" %}`. Blocks: `title`, `byline`,
-  `content` (exactly one `content`). No `{% include %}`, `{% import %}`, no
-  other `{% extends %}`.
+  `content` (exactly one `content`). No `{% import %}`, no other
+  `{% extends %}`, and no `{% include %}` except a catalog block's partial
+  (below).
 - Inside `content`: exactly one `<style>` block first, then exactly one
   wrapper element with the cartridge's wrapper classes (below), then the
   sections, then at most one small inline `<script>` (only an
@@ -66,6 +76,29 @@ image is `assets.get(page.hero.hero_image.asset_id)`; the room photo is
 `ld.room_kinds` and it is not `ai_generated`. Guard every optional value
 with `{% if ... %}`.
 
+## Catalog blocks (cycle 91)
+
+A look may compose whole sections from the harness's block catalog
+(`harness/blocks/catalog/`, docs/BLOCKS.md) with
+`{% include "blocks/<id>.html" %}` -- the literal name, one of: `stat_strip`
+(3-4 renderer stats), `photo_essay` (2-4 library photos with a writer line
+each), `hotspot_image` (the product image with labelled dots),
+`feature_grid` (3-6 icon cells), `model_card` (the product as a card with
+price, rating, specs and the CTA), `model_grid` (that card for every
+priced model), `statement_band` (a dark band with one display line and the
+CTA), `faq` (the page's FAQ as plain Q/A), `trust_bar` (warranty, shipping,
+financing, HSA/FSA). The partial brings its own markup and scoped CSS: do
+not restyle its `bk-*` classes and do not re-print what it shows. Its
+context is `blocks.<id>`; guard a section around it with
+`{% if blocks.<id> %}` (each block's own "nothing to show" key: `stats`,
+`photos`, `dots`, `cells`, `name`, `cards`, `line`, `questions`, `facts`).
+An included block counts as printing what it covers: `faq` covers
+`page.faq`, `trust_bar` the trust line, `stat_strip` the spec strip,
+`model_card` the price, rating and financing sentence. The harness writes
+the look's `look.json` (the blocks it includes) when it stores the look.
+Blocks that need writer words (`photo_essay`, `feature_grid`,
+`statement_band`) get them only on a new run in that look.
+
 ## Tokens (no colour literal, ever)
 
 Start the `<style>` with the reference look's token block on the root class
@@ -80,9 +113,17 @@ reference look below still has a colour literal, it is legacy: write a token
 - Ink `--pk-ink`, body `--pk-body`, muted `--pk-muted`, ground `--pk-bg`,
   the one accent `--pk-red`, hairline `--pk-line`, the dark band
   `--pk-dark` with `--pk-on-dark` on it.
-- Fonts: `var(--pk-sans)` (body), `var(--pk-heading)` (headings),
-  `var(--pk-display-wide)` (the display headline; the only face that may be
-  upper case). No other family, no quoted family name, no `@font-face`, no
+- Fonts (cycle 95: the tenant's four web families plus the body face):
+  `var(--pk-sans)` (DM Sans, body), `var(--pk-heading)` (Montserrat,
+  headings), `var(--pk-display-wide)` (the brand's own wide grotesk, the
+  display headline; the only face that may be upper case), `var(--ps-display-acid)`
+  (Acid Grotesk, a second display face, for big numerals),
+  `var(--ps-serif)` (Epika, the serif voice: a pull quote, a review quote,
+  the founder line, one statement line -- small, deliberate uses; never body
+  copy or the first-screen headline). Map the observation's font guess:
+  display-wide -> `--pk-display-wide`, display-acid -> `--ps-display-acid`,
+  heading -> `--pk-heading`, sans -> `--pk-sans`, serif -> `--ps-serif`. No
+  other family, no quoted family name, no `@font-face`, no
   `url()`, no `@import`: the tenant's fonts already load from its own CDN
   through its base.css.
 - Radii: `var(--pk-radius)` (4px), `0`, or a pill (`999px`).
@@ -92,9 +133,15 @@ reference look below still has a colour literal, it is legacy: write a token
 - White page; structure comes from hairlines (`border-top` /
   `border-bottom: 1px solid var(--pk-line)`) and white space only.
 - No boxes: no four-sided `border`, no filled panels or cards, no
-  backgrounds except `--pk-bg`, the ONE dark closing band, the pill CTA and
-  the sticky bar. A card grid in the source becomes columns separated by
-  space or hairlines.
+  backgrounds except `--pk-bg`, the dark bands, the pill CTA and the sticky
+  bar. A card grid in the source becomes columns separated by space or
+  hairlines.
+- Dark bands: as many as the observed page has (each section's
+  `style.bg`), at least the ONE dark closing band. A dark page (pattern
+  `dark-page`) sets the wrapper's ground to `var(--pk-dark)` with
+  `var(--pk-on-dark)` text and has no limit. A photo scrim is a `::after`
+  layer with `background:var(--pk-dark)` and `opacity`, never a colour
+  literal.
 - No gradients, no shadows (`box-shadow`, `text-shadow`, `drop-shadow`).
 - One accent span in the headline (`headline_html` already has it), accent
   colour used sparingly (numerals, a 2-3px rule).
@@ -113,14 +160,20 @@ reference look below still has a colour literal, it is legacy: write a token
 - A desktop column count from the observation applies from 768px or 1024px;
   the phone is one column.
 
-## One CTA phrase
+## One CTA phrase (the exact list of allowed hrefs)
 
 - Every CTA is `<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>`
   (listicle: class `op-btn`). Same href, same text, wherever it appears
   (first screen, after sections, the closing band, the sticky bar).
-- The only other links: the renderer's secondary text link (exactly once,
-  never a CTA class) and, on the listicle, the renderer's model links and
-  byline link. No literal `href`/`src` value, no other URL, no `<button>`,
+- The ONLY hrefs a rendered look may hold: (1) `{{ page.cta_url }}` on the
+  CTAs; (2) the renderer's secondary text link
+  `{{ cartridge_data.secondary.href }}`, exactly once, never a CTA class;
+  (3) the links inside `{{ byline_html | safe }}` -- byline_html is the ONLY
+  way to mention or link the founder or the author; never write a founder,
+  about or author link of your own; (4) on the listicle, the renderer's
+  model links (`cartridge_data.model_options[].url`) and the first-screen
+  byline link. Anything else is refused as a second CTA.
+- No literal `href`/`src` value, no other URL, no `<button>`,
   `<form>`, `<input>`, `<iframe>`, `<link>`; an `<img>` only for a renderer
   value (the listicle byline avatar), every other image through
   `render_image_slot`.
@@ -148,3 +201,58 @@ pricing table) maps to the closest block or is left out.
   `.adv-wrap:has(.adv-landing)`), so the export can scope it.
 - Class prefix: reuse the cartridge's prefix (`ld-` landing, `op-` listicle)
   so the tenant's live-theme CTA layer styles the pill.
+
+
+## Design fidelity (cycle 90)
+
+After validation the harness renders the demo page in your look and scores
+its FIDELITY to the observation (0-1): half of it is the share of the
+observed patterns your page realises, the rest the section order, the
+section count and the dark/light band order. Below 0.7 the template comes
+back with the missing patterns named.
+
+Mark the element that realises each observed pattern with
+`data-look-pattern="<name>"` (several names on one element are separated by
+spaces). The harness checks the marked element: `dark-page` and `dark-hero`
+must have a dark ground (their own or an ancestor's), `caps-headline` must
+be (or hold) an upper-case h1 in `var(--pk-display-wide)`. The patterns and
+the renderer data that fill them:
+
+- `display-letters`: two giant display letters set in `var(--pk-display-wide)`
+  on either side of the hero image (short literal letters, `aria-hidden`;
+  for example the first and last half of `tenant_name`); they shrink with
+  clamp() and stack on the phone.
+- `pill-image`: the hero image in a wide box with `border-radius:999px`
+  and `overflow:hidden` (render_image_slot inside it).
+- `caps-headline`: the h1 upper case in the display face (the reference's
+  `ld-h1--wide` rules).
+- `dark-hero`: the first screen on `var(--pk-dark)`; over a photo, the
+  photo fills the hero and a `::after` scrim of `var(--pk-dark)` with
+  opacity keeps the text legible.
+- `dark-page`: the wrapper on `var(--pk-dark)`, text `var(--pk-on-dark)`.
+- `big-numerals`: big numerals (`{{ "%02d" | format(loop.index) }}`) in a
+  display face beside the checked claims (landing) or the reasons
+  (listicle).
+- `alternating-rows`: rows of image + text whose sides alternate from
+  768px (`:nth-child(even)` with `order`).
+- `trust-bar`: a thin strip near the top made of `cartridge_data.trust`
+  (and the rating), before or right after the first screen.
+- `hotspots`: short labels placed over the hero/product image with
+  `position:absolute` and percentage offsets, filled from
+  `cartridge_data.specs` labels/values.
+- `sticky-bar`: the reference's fixed bottom bar with the price and the CTA.
+- `check-rows`: rows with a check mark (an inline SVG in `currentColor`)
+  from `page.checked_claims` or `cartridge_data.trust`.
+- `icon-row`: a row of small inline SVG icons (currentColor) with short
+  labels from renderer data.
+- `stat-strip`: big values with small labels from `cartridge_data.specs`
+  (listicle: `first_screen.stats`).
+- `model-picker`: option cells built from the renderer data there is
+  (landing: `cartridge_data.specs` and the price; listicle:
+  `cartridge_data.model_options`); never a form, input or literal link.
+- `product-grid`: a grid of cards made from renderer data (listicle: the
+  model options; landing: the specs or the checked claims), each card
+  without a four-sided border (space or hairlines).
+- `faq-accordion`: the FAQ as question/answer rows from `page.faq` (open
+  by default, no `<details>` script needed; `<details>`/`<summary>` are
+  allowed).

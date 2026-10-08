@@ -55,7 +55,9 @@ CARTRIDGE_LOOKS = {
     # Cycle 85: the landing page's "proof" look (rating first, checkmark
     # benefits, trust facts under the CTA, icon row). The default stays
     # "open", the one look landing had before.
-    "landing": ("open", "proof"),
+    # Cycle 91: two looks built from the block catalog (harness/blocks/
+    # catalog/): `cinematic` (pack page 08) and `buybox` (pack page 06).
+    "landing": ("open", "proof", "cinematic", "buybox"),
 }
 
 DEFAULT_LOOKS = {

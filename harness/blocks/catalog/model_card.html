@@ -1,0 +1,52 @@
+{#- Block `model_card` (cycle 91, harness/blocks/catalog/model_card.py): the
+    run's product -- cut-out, name, rating, price, the fixed financing
+    sentence, two specs, the page's one CTA. variant "card": compact, with
+    the cut-out; "panel": the buy panel beside a gallery (no image, every
+    verified spec row as a hairline list, a full-width pill). -#}
+{%- set bk = blocks.model_card if blocks and blocks.model_card else none -%}
+{%- set bk_cta = "op-btn" if cartridge == "listicle" else "ld-btn" -%}
+{%- if bk and bk.name %}
+<style>
+.bk-model_card{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));margin:0;color:var(--bk-body)}
+.bk-model_card .bk-model_card-img{margin:0 0 16px;text-align:center}
+.bk-model_card .bk-model_card-img .adv-img{width:auto;max-width:100%;max-height:300px;margin:0 auto;background:transparent}
+.bk-model_card .bk-model_card-name{margin:0 0 6px;font:400 24px/1.1 var(--bk-display);letter-spacing:.01em;color:var(--bk-ink);text-transform:uppercase}
+.bk-model_card .bk-model_card-rating{margin:0 0 12px;font-size:14px;color:var(--bk-muted)}
+.bk-model_card .bk-model_card-rating b{color:var(--bk-ink);font-weight:600}
+.bk-model_card .bk-model_card-rating span{color:var(--bk-red);padding-right:4px}
+.bk-model_card .bk-model_card-price{margin:0;font:600 30px/1.15 var(--bk-heading);color:var(--bk-ink)}
+.bk-model_card .bk-model_card-fin{margin:6px 0 0;font-size:14px;line-height:1.45;color:var(--bk-muted)}
+.bk-model_card .bk-model_card-specs{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.bk-model_card .bk-model_card-spec{border-top:2px solid var(--bk-red);padding-top:8px;min-width:0}
+.bk-model_card .bk-model_card-spec b{display:block;font:600 16px/1.25 var(--bk-heading);color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-model_card .bk-model_card-spec span{display:block;margin-top:4px;font:500 10.5px/1.35 var(--bk-sans);letter-spacing:.14em;text-transform:uppercase;color:var(--bk-muted)}
+.bk-model_card .bk-model_card-rows{list-style:none;margin:20px 0 0;padding:0;border-top:1px solid var(--bk-line)}
+.bk-model_card .bk-model_card-rows li{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--bk-line);font-size:14.5px;line-height:1.45}
+.bk-model_card .bk-model_card-rows li span:first-child{color:var(--bk-muted)}
+.bk-model_card .bk-model_card-rows li span:last-child{color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-model_card .bk-model_card-act{display:flex;margin-top:20px}
+.bk-model_card .bk-model_card-act a{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;text-align:center;text-decoration:none}
+@media (min-width:768px){.bk-model_card .bk-model_card-name{font-size:32px}}
+</style>
+<div class="bk-model_card bk-model_card--{{ bk.variant }}" data-look-pattern="model_card">
+  {%- if bk.variant != "panel" and bk.asset_id and assets.get(bk.asset_id) %}
+  <figure class="bk-model_card-img">{{ render_image_slot(assets.get(bk.asset_id)) }}</figure>
+  {%- endif %}
+  <p class="bk-model_card-name">{{ bk.name }}</p>
+  {%- if bk.rating %}
+  <p class="bk-model_card-rating"><span aria-hidden="true">&#9733;</span><b>{{ bk.rating.value }}</b> {{ bk.rating.label }}</p>
+  {%- endif %}
+  {%- if bk.price %}
+  <p class="bk-model_card-price">{{ bk.price.text }}</p>
+  {%- endif %}
+  {%- if bk.financing %}
+  <p class="bk-model_card-fin">{{ bk.financing }}</p>
+  {%- endif %}
+  {%- if bk.variant == "panel" and bk.spec_rows %}
+  <ul class="bk-model_card-rows">{% for r in bk.spec_rows %}<li><span>{{ r.label }}</span><span>{{ r.value }}</span></li>{% endfor %}</ul>
+  {%- elif bk.specs %}
+  <ul class="bk-model_card-specs">{% for s in bk.specs %}<li class="bk-model_card-spec"><b>{{ s.value }}</b><span>{{ s.label }}</span></li>{% endfor %}</ul>
+  {%- endif %}
+  <div class="bk-model_card-act"><a class="{{ bk_cta }}" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+</div>
+{%- endif %}

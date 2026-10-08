@@ -1,0 +1,67 @@
+{# Cycle 94 hero composition `buybox` (harness/heroes/buybox.py). Reference:
+   the owner's reference page 06 (eight-sleep). The buy box is the first screen: cut-out,
+   product name, headline, rating, price + financing, the pill, spec bullets,
+   trust facts. Landing only. Scoped CSS, prefix hr-buybox-, tokens only,
+   390px first. -#}
+{% import "heroes/_parts.html" as parts %}
+{% set hr = hero %}
+{% set p = "hr-buybox-" %}
+{% set img = assets.get(hr.image.id) if hr.image else None %}
+<style>
+.adv-wrap:has(.hr-bleed){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.hr-bleed) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.hr-buybox{
+  --hr-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));
+  --hr-body:var(--pk-body,var(--ps-text,var(--adv-fg)));
+  --hr-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));
+  --hr-red:var(--pk-red,var(--ps-red,var(--adv-accent)));
+  --hr-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));
+  box-sizing:border-box;max-width:var(--ps-max-width,1320px);margin:0 auto;padding:12px 16px 8px;text-align:left;color:var(--hr-body)
+}
+.hr-buybox .hr-buybox-media{margin:0;text-align:center}
+.hr-buybox .hr-buybox-media .adv-img{width:auto;height:auto;max-width:100%;max-height:340px;margin:0 auto;border-radius:0;object-fit:contain;background:transparent}
+.hr-buybox .hr-buybox-panel{padding-top:18px}
+.hr-buybox .hr-buybox-eyebrow{margin:0;font:500 11.5px/1.4 var(--pk-sans,inherit);letter-spacing:.2em;text-transform:uppercase;color:var(--hr-muted)}
+.hr-buybox .hr-buybox-eyebrow span{padding:0 6px}
+.hr-buybox .hr-buybox-name{margin:8px 0 0;font:600 15px/1.3 var(--pk-heading,inherit);color:var(--hr-ink)}
+.hr-buybox .hr-buybox-h1.hr-buybox-h1{margin:6px 0 0;color:var(--hr-ink)!important;font-family:var(--pk-heading,var(--ps-heading,inherit))!important;font-weight:600!important;font-size:26px!important;line-height:1.15!important;letter-spacing:-.015em!important;text-wrap:balance;overflow-wrap:break-word}
+.hr-buybox .hr-accent{color:var(--hr-red)}
+.hr-buybox .hr-buybox-stars{margin:10px 0 0;font-size:14px;line-height:1.4;color:var(--hr-ink)}
+.hr-buybox .hr-buybox-stars span{color:var(--hr-red);padding-right:6px}
+.hr-buybox .hr-buybox-stars b{font-weight:600}
+.hr-buybox .hr-buybox-price{margin:16px 0 0;padding-top:14px;border-top:1px solid var(--hr-line)}
+.hr-buybox .hr-buybox-price b{display:block;font:400 32px/1 var(--pk-display-wide);color:var(--hr-ink)}
+.hr-buybox .hr-buybox-price span{display:block;margin-top:6px;font-size:13.5px;line-height:1.45;color:var(--hr-muted)}
+.hr-buybox .hr-buybox-act{display:flex;flex-direction:column;align-items:stretch;gap:2px;margin:16px 0 0}
+.hr-buybox .hr-buybox-act .hr-cta{display:flex;align-items:center;justify-content:center;min-height:52px;width:100%;box-sizing:border-box}
+.hr-buybox a.hr-buybox-text{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 8px;font-size:15px;color:var(--hr-muted);text-decoration:underline;text-underline-offset:3px}
+.hr-buybox .hr-buybox-specs{list-style:none;margin:14px 0 0;padding:0}
+.hr-buybox .hr-buybox-specs li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:0 6px;padding:9px 0;border-top:1px solid var(--hr-line);font-size:14.5px;line-height:1.45;color:var(--hr-body)}
+.hr-buybox .hr-buybox-specs li:last-child{border-bottom:1px solid var(--hr-line)}
+.hr-buybox .hr-buybox-specs li::before{content:"\2713";font-weight:600;color:var(--hr-red)}
+.hr-buybox .hr-buybox-specs b{font-weight:600;color:var(--hr-ink);overflow-wrap:anywhere}
+.hr-buybox .hr-buybox-trust{display:flex;flex-wrap:wrap;gap:2px 0;margin:12px 0 0;padding:0;list-style:none;font-size:12.5px;line-height:1.5;color:var(--hr-muted)}
+.hr-buybox .hr-buybox-trust li+li::before{content:"\00b7";padding:0 8px}
+@media (min-width:900px){
+  .adv-wrap:has(.hr-bleed) .adv-footer{padding-left:32px;padding-right:32px}
+  .hr-buybox{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:56px;align-items:center;padding:48px 32px 16px}
+  .hr-buybox .hr-buybox-media .adv-img{max-height:600px}
+  .hr-buybox .hr-buybox-panel{padding-top:0}
+  .hr-buybox .hr-buybox-h1.hr-buybox-h1{font-size:34px!important}
+  .hr-buybox .hr-buybox-act{flex-direction:row;align-items:center;gap:16px}
+  .hr-buybox .hr-buybox-act .hr-cta{width:auto}
+}
+</style>
+<header class="hr-root hr-buybox hr-bleed" data-look-pattern="hero:buybox" data-hero-image="{{ hr.image.source if img else 'none' }}">
+  {% if img %}<figure class="{{ p }}media">{{ render_image_slot(img, hero=True, aspect_box=False) }}</figure>{% endif %}
+  <div class="{{ p }}panel">
+    {{ parts.eyebrow(p, hr, disclosure_label) }}
+    {% if hr.product_name %}<p class="{{ p }}name">{{ hr.product_name }}</p>{% endif %}
+    {{ parts.h1(p, hr, display=False) }}
+    {% if hr.rating %}<p class="{{ p }}stars"><span aria-hidden="true">★</span><b>{{ hr.rating.value }}</b> {{ hr.rating.label }}</p>{% endif %}
+    {{ parts.price(p, hr) }}
+    {{ parts.act(p, hr) }}
+    {% if hr.specs %}<ul class="{{ p }}specs">{% for s in hr.specs %}<li><span><b>{{ s.value }}</b> {{ s.label | lower }}</span></li>{% endfor %}</ul>{% endif %}
+    {{ parts.trust(p, hr) }}
+  </div>
+</header>

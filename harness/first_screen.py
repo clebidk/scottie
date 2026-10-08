@@ -33,7 +33,6 @@ quote is one of claims.safe_quote_candidates word for word.
 """
 import datetime
 import html
-import random
 import re
 
 from markupsafe import Markup
@@ -41,6 +40,9 @@ from markupsafe import Markup
 from . import tenant as tenant_mod
 from .textutil import product_name_slug, walk_page
 
+# The three cycle 79 styles. Cycle 94: they are hero compositions now
+# (harness/heroes/ face, story, display) next to the new ones; this tuple
+# stays the listicle `open` look's default pool and the name older code uses.
 HERO_STYLES = ("face", "story", "display")
 DISPLAY_FONTS = ("wide", "acid")
 READ_WPM = 230
@@ -51,32 +53,44 @@ PRONOUNS = ("she", "he", "they")
 # Which style
 # ---------------------------------------------------------------------------
 
-def tenant_hero_styles(tenant=None):
-    """tenant.yaml cartridges.listicle.hero_styles filtered to real styles,
-    else all three."""
-    tenant = tenant or tenant_mod.active()
-    pinned = tenant.get("cartridges.listicle.hero_styles") or ()
-    chosen = tuple(s for s in pinned if s in HERO_STYLES)
-    return chosen or HERO_STYLES
+def tenant_hero_styles(tenant=None, look="open"):
+    """The compositions a listicle run with no request is seeded among:
+    tenant.yaml cartridges.listicle.hero_styles filtered to what the look
+    renders (cycle 94: any composition the look's look.json lists), else
+    the look's default pool -- face, story, display for `open`."""
+    from . import heroes
+
+    return heroes.default_pool("listicle", look, tenant or tenant_mod.active())
 
 
-def seeded_hero_style(seed, tenant=None):
-    allowed = tenant_hero_styles(tenant)
-    return random.Random(f"listicle-hero-style:{seed}").choice(allowed)
+def seeded_hero_style(seed, tenant=None, look="open"):
+    from . import heroes
+
+    return heroes.seeded("listicle", seed, tenant_hero_styles(tenant, look))
 
 
-def resolve_hero_style(requested=None, *, seed=0, tenant=None, frame=False, quote=False):
+def resolve_hero_style(requested=None, *, seed=0, tenant=None, frame=False, quote=False, look="open"):
     """(style, note). `requested` (--hero-style, page.json's own value, an
-    A/B/C arm) wins when its inputs exist; else a seeded pick from the
-    tenant's allowed styles. Face with no ad still falls back to story when
-    the ad has a quotable speaker, else to display; note says why."""
-    if requested and requested not in HERO_STYLES:
-        raise ValueError(f"unknown hero style {requested!r}; choose one of {list(HERO_STYLES)}")
-    want = requested or seeded_hero_style(seed, tenant)
-    if want == "face" and not frame:
-        fallback = "story" if quote else "display"
-        return fallback, f"face needs a still from the ad; none usable, so {fallback}"
-    return want, ""
+    A/B/C arm) wins when the look renders it and its inputs exist; else a
+    seeded pick from the tenant's allowed styles. Face with no ad still
+    falls back to story when the ad has a quotable speaker, else to
+    display; note says why. Cycle 94: any hero composition the look
+    supports (harness/heroes/). Only the ad still is known here; the
+    renderer checks the other images and stamps what it rendered."""
+    from . import heroes
+
+    tenant = tenant or tenant_mod.active()
+
+    def _available(hero_id):
+        hero = heroes.get(hero_id)
+        spec = (hero.needs or {}).get("image") or {}
+        if (hero.needs or {}).get("required") and tuple(spec.get("sources") or ()) == ("ad_still",) and not frame:
+            return False, heroes.need_text(hero)
+        return True, ""
+
+    style, _reason, note = heroes.resolve("listicle", requested, look=look, seed=seed, tenant=tenant,
+                                          available=_available, quote=quote)
+    return style, note
 
 
 # ---------------------------------------------------------------------------
@@ -1158,10 +1172,13 @@ def prepare(state):
         return
     run_dir = state.run_dir
     _build_frame(state)   # a run that skipped write_pages (a workflow) still gets one
+    from . import heroes
+
     quote = hero_quote(page, state.ad_brief, state.facts_pack)
     style, note = resolve_hero_style(
-        getattr(state.args, "hero_style", None), seed=state.seed, tenant=state.tenant,
-        frame=ad_frames.load(run_dir) is not None, quote=quote is not None,
+        heroes.requested_for("listicle", getattr(state.args, "hero_style", None)), seed=state.seed,
+        tenant=state.tenant, frame=ad_frames.load(run_dir) is not None, quote=quote is not None,
+        look=getattr(state, "listicle_look", None) or "open",
     )
     if note:
         state.log.event("run", f"hero style: {note}")

@@ -1,8 +1,11 @@
 """Cycle 86: the Library -- one reference render of every page version.
 
 A "version" is a cartridge x one of its looks (looks.CARTRIDGE_LOOKS) and,
-for the listicle, x its first screen (first_screen.HERO_STYLES) x its copy
-style (listicle.STYLES). A cartridge with no looks is one version. A
+for the listicle, x its first screen x its copy style (listicle.STYLES).
+Cycle 94: the first screens are the hero compositions the look renders
+(harness/heroes/, the look's look.json); a landing look is one version for
+its own first screen plus one per other composition it renders
+(landing/<look>/<hero>). A cartridge with no looks is one version. A
 tenant-level imported look (cycle 87, harness/look_import.py: "Import a
 page"), tenants/<t>/looks/<cartridge>/<slug>/ with template.html and
 library.json, is one more version of that cartridge: found through
@@ -54,7 +57,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import first_screen, listicle, looks, pipeline
+from . import heroes, listicle, looks, pipeline
+from .blocks import catalog as block_catalog
 from . import tenant as tenant_mod
 from .config import REPO_ROOT
 from .errors import HarnessError
@@ -82,6 +86,10 @@ LOOK_NOTES = {
     ("landing", "open"): "Ad-first and mobile-first: headline, the ad's still, the price, checked claims, one CTA.",
     ("landing", "proof"): "The open page with the rating first, check-mark benefits, trust facts under the CTA "
                           "and an icon row.",
+    ("landing", "cinematic"): "Built from blocks: a dark full-bleed first screen with the stats under it, a "
+                              "photo essay, a feature grid, a dark statement band, the FAQ.",
+    ("landing", "buybox"): "Built from blocks: a trust bar, the buy box first screen (price, specs, one pill), "
+                           "the product with labelled hotspots, checked claims, the FAQ.",
     ("listicle", "open"): "Boxless white page: centred headline with one red accent, numbered items with a "
                           "red-bar proof line, one dark closing band.",
     ("longform", "open"): "The listicle's boxless design on the long page: stats strip, red numerals, hairline "
@@ -92,11 +100,13 @@ LOOK_NOTES = {
                              "band, what's included, specs, five FAQs.",
     ("product-page", "classic"): "The older, stripped product page.",
 }
-FIRST_SCREEN_NOTES = {
-    "face": "First screen: a still of the ad's creator with her own words as the caption.",
-    "story": "First screen: text first; the lede quotes the ad and item 01 starts on screen one.",
-    "display": "First screen: a wide display headline, the product cut-out and a stats strip.",
-}
+
+
+def first_screen_note(hero_id):
+    """The Library note for a first screen (cycle 94: every hero
+    composition's own summary, harness/heroes/)."""
+    hero = heroes.get(hero_id)
+    return f"First screen: {hero.summary[:1].lower()}{hero.summary[1:]}" if hero and hero.summary else ""
 
 
 class LibraryError(HarnessError):
@@ -145,9 +155,14 @@ def versions(tenant):
         for look in looks.cartridge_looks(cartridge) or (None,):
             if cartridge == "listicle":
                 out += [Version(cartridge, look, fs, style)
-                        for fs in first_screen.HERO_STYLES for style in listicle.STYLES]
+                        for fs in heroes.look_heroes(cartridge, look, tenant) for style in listicle.STYLES]
             else:
                 out.append(Version(cartridge, look))
+                # Cycle 94: one card per other composition the look renders.
+                if look and heroes.has_heroes(cartridge):
+                    spec = heroes.look_spec(cartridge, look, tenant)
+                    out += [Version(cartridge, look, hero_id) for hero_id in spec["heroes"]
+                            if hero_id not in spec["default_heroes"]]
         out += tenant_look_versions(tenant, cartridge)
     return out
 
@@ -180,7 +195,7 @@ def arm_for(version, tenant=None):
             return None
         text = ":".join(p for p in ("listicle", version.style, version.look, version.first_screen) if p)
     else:
-        text = version.cartridge + (f":{version.look}" if version.look else "")
+        text = ":".join(p for p in (version.cartridge, version.look, version.first_screen) if p)
     try:
         return abtest.parse_arm(text, tenant).id
     except abtest.AbtestError:
@@ -198,8 +213,11 @@ def arm_from_fields(cartridge, look=None, hero_style=None, style=None, tenant=No
         raise LibraryError("no page version given")
     if cartridge == "listicle":
         text = ":".join(p for p in ("listicle", style, look or listicle.DEFAULT_LOOK, hero_style) if p)
-    elif hero_style or style:
+    elif style or (hero_style and not heroes.has_heroes(cartridge)):
         raise LibraryError(f"{cartridge} has no first-screen or copy style")
+    elif hero_style:
+        # cycle 94: "<cartridge>:<look>:<hero>"; the look defaults to the cartridge's own
+        text = ":".join((cartridge, look or looks.resolve_look(cartridge, None, tenant=tenant), hero_style))
     else:
         text = cartridge + (f":{look}" if look else "")
     try:
@@ -253,9 +271,19 @@ def label(cartridge, look=None, first_screen_style=None, style=None):
     style, story first screen"."""
     name = CARTRIDGE_LABELS.get(cartridge, cartridge.replace("-", " ").capitalize())
     if cartridge == "listicle" and (style or first_screen_style):
-        bits = [f"{style} style" if style else "", f"{first_screen_style} first screen" if first_screen_style else ""]
+        bits = [f"{style} style" if style else "",
+                f"{_hero_name(first_screen_style)} first screen" if first_screen_style else ""]
         return f"{name}: " + ", ".join(b for b in bits if b)
+    if first_screen_style:
+        return f"{name}, {look} look, {_hero_name(first_screen_style)} first screen"
     return f"{name}, {look} look" if look else name
+
+
+def _hero_name(hero_id):
+    """The cycle 79 names stay as they were ("story"); a cycle 94
+    composition reads by its title in lower case ("caps over photo")."""
+    hero = heroes.get(hero_id)
+    return hero_id if hero is None or hero.adapter else hero.title.lower()
 
 
 def describe(tenant, version):
@@ -288,10 +316,13 @@ def describe(tenant, version):
         source = source if isinstance(source, dict) else {"origin": source}
         info["imported_from"] = str(source.get("origin") or "").strip() or None
         info["added_at"] = str(lib.get("added_at") or source.get("imported_at") or "").strip() or None
+        # cycle 90: the import's fidelity score (0-1), shown on the card
+        if isinstance(lib.get("fidelity"), (int, float)):
+            info["fidelity"] = round(float(lib["fidelity"]), 2)
     else:
         notes.append(LOOK_NOTES.get((version.cartridge, version.look), ""))
     if version.first_screen:
-        notes.append(FIRST_SCREEN_NOTES.get(version.first_screen, ""))
+        notes.append(first_screen_note(version.first_screen))
     if version.style:
         notes.append(f"Headline formula: {listicle.HEADLINE_FORMULAS[version.style]}.")
     # purpose: the cartridge's (the site shows it once per group); notes: this
@@ -305,7 +336,8 @@ def describe(tenant, version):
 def version_sha(tenant, version):
     """sha256 of what decides a version's page: the cartridge's template,
     cartridge.md and schema.json, and the look's template (+ library.json
-    for an imported look, and whether the harness can render it)."""
+    for an imported look, and whether the harness can render it); cycle 91:
+    + the look's look.json and its declared catalog blocks' files."""
     cdir = pipeline.CARTRIDGES_DIR / version.cartridge
     files = [cdir / "template.html", cdir / "cartridge.md", cdir / "schema.json"]
     if version.tenant_look:
@@ -313,6 +345,28 @@ def version_sha(tenant, version):
         files += [ldir / "template.html", ldir / "library.json"]
     elif version.look:
         files.append(cdir / "looks" / version.look / "template.html")
+    # Cycle 94: the look's look.json and the partials of the first screens
+    # this version can render (its own, or the look's default pool).
+    look_file = None
+    if version.look:
+        look_file = (looks.imported_looks_dir(version.cartridge, tenant) / version.look / heroes.LOOK_FILE
+                     if version.tenant_look else cdir / "looks" / version.look / heroes.LOOK_FILE)
+    if look_file is not None and heroes.has_heroes(version.cartridge):
+        files.append(look_file)
+        hero_ids = ([version.first_screen] if version.first_screen
+                    else heroes.look_spec(version.cartridge, version.look, tenant)["default_heroes"])
+        files += [heroes.PACKAGE_DIR / f"{h}.html" for h in hero_ids]
+    # Cycle 91: the catalog blocks the look declares (their module and
+    # partial), so a block change rebuilds the versions using it.
+    if look_file is not None:
+        if look_file not in files:
+            files.append(look_file)
+        try:
+            declared = block_catalog.look_blocks(version.cartridge, version.look, tenant=tenant)
+        except ValueError:
+            declared = ()
+        for block_id in declared:
+            files += [block_catalog.CATALOG_DIR / f"{block_id}.py", block_catalog.CATALOG_DIR / f"{block_id}.html"]
     h = hashlib.sha256(f"{FORMAT}\n{version.key}\n".encode())
     if version.tenant_look:
         h.update(b"renderable" if _renderable(tenant, version) else b"listed")
@@ -506,8 +560,14 @@ def _mismatch(version, page):
     """Why the rendered page is not this version, or None."""
     actual_fs = page.get("hero_style")
     if version.first_screen and actual_fs != version.first_screen:
-        why = (" -- the face first screen needs a still from the ad, and the demo ad is a text ad"
-               if version.first_screen == "face" else "")
+        hero = heroes.get(version.first_screen)
+        if version.first_screen == "face":
+            why = " -- the face first screen needs a still from the ad, and the demo ad is a text ad"
+        elif hero is not None and (hero.needs or {}).get("image"):
+            why = (f" -- the {version.first_screen} first screen needs {heroes.need_text(hero)}, and none was "
+                   "usable offline (a text ad has no still; the photo library files are not on this machine)")
+        else:
+            why = ""
         return f"not renderable offline: the run rendered the {actual_fs} first screen instead{why}"
     if version.look and page.get("look") and page["look"] != version.look:
         return f"not renderable offline: the run rendered the {page['look']} look instead of {version.look}"
@@ -565,9 +625,7 @@ def build(tenant, *, only=None, force=False, log=print):
                     summary["unavailable"].append(version.key)
                     log(f"[{i}/{len(todo)}] {version.key}: {reason}")
                     continue
-                # Cycle 92: fonts inline -- the Library serves review.html alone.
-                review_path = review.build_review_for_page(run_dir, version.cartridge, tenant=tenant,
-                                                           inline_fonts=True)
+                review_path = review.build_review_for_page(run_dir, version.cartridge, tenant=tenant)
                 if review_path is None:
                     error = "the run wrote no index.html"
             if error is not None:

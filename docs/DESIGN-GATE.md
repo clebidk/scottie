@@ -58,7 +58,8 @@ with no file of its own gets a brand section built from tenant.yaml `brand.palet
   full-bleed photography used with intent, a clear typographic scale, one accent, no clutter, no generic
   card grids, 16 px phone gutters.
 - PEAK (`tenants/peak-saunas/design-rubric.md`): white ground, basalt dark band and buttons, ONE red accent
-  (#702B34), DM Sans body, Poppins 600 sentence-case headings, Peak Grotesk Wide / Acid Grotesk display,
+  (#702B34); the type system is the four cycle 95 brand families -- Montserrat (headings), Epika (the serif:
+  pull quotes, review quotes, founder line), Peak Grotesk Wide and Acid Grotesk (display) -- with DM Sans body;
   boxless by default, 4 px radii, pill CTAs, one CTA phrase; the ten owner-approved pack pages (Ridge,
   HexClad, Bobbie, Caraway, Venus et Fleur, Eight Sleep, Oura, Function Health, Rivian, Plunge), one line
   each on what they get right.
@@ -69,18 +70,22 @@ with no file of its own gets a brand section built from tenant.yaml `brand.palet
 ## Variants and the revise round
 
 - Round 1: the page as rendered first, then the other layouts the tenant allows, up to `variants`:
-  look (tenant.yaml `cartridges.<c>.looks`, else all of the cartridge's looks) x first screen (listicle:
-  `cartridges.listicle.hero_styles`, else face / story / display) x block set (`design_gate.block_sets()`,
-  `(None,)` until cycle 91). An explicit `--look` / `--hero-style` (an A/B/C arm that names a look or a
-  first screen passes them) is never changed. A layout that renders as one already tried (face with no ad still falls back to story) is skipped
-  without a judge call.
+  look (tenant.yaml `cartridges.<c>.looks`, else all of the cartridge's looks: for the landing page open,
+  proof and the cycle 91 block looks cinematic and buybox) x hero composition (cycle 94, harness/heroes/:
+  each look's look.json `default_heroes`, narrowed by tenant.yaml `cartridges.<c>.hero_styles`) x block
+  set (`design_gate.block_sets()`, `(None,)`: a look's cycle 91 blocks come with the look). An explicit
+  `--look` / `--hero-style` (an A/B/C arm that names a look or a hero passes them) is never changed; a look
+  that does not render a pinned hero is not tried. A layout that renders as one already tried (a composition
+  whose image is missing falls back, e.g. face with no ad still) is skipped without a judge call.
 - Best = the highest judge score among variants with no failing hard check. Pass = score >= `min_score`
   and verdict is not "reject".
 - Below `min_score`: ONE revise round of up to `variants` untried layouts (the rest of the round-1 space,
-  plus the tenant's imported looks from cycle 87), ranked by the judge's top issues: an issue about the hero
+  every other hero each look's look.json `heroes` declares, and the tenant's imported looks from cycle 87),
+  ranked by the judge's top issues: an issue about the hero
   or first screen ranks a different first screen; one about layout / boxes / grid / structure ranks a
-  different look; "more photos" / "tiny hero image" ranks layouts with more photography (face > display >
-  story; an imported look counts as photo-led), "fewer photos" the reverse. Still below: **enforce** STOPs
+  different look; "more photos" / "tiny hero image" ranks layouts with more photography (face, caps over
+  photo, letters + pill and split > display, dark statement, ad first, buy box > story; an imported look
+  counts as photo-led), "fewer photos" the reverse. Still below: **enforce** STOPs
   the run (exit 2, after every page is scored); **warn** goes on. With nothing untried left, the revise round
   is skipped with a note.
 - The best layout is re-rendered into `out/<run>/<cartridge>/` (exactly `harness rerender --look
@@ -143,23 +148,25 @@ report` prints the average gate cost per page).
 - `harness library build --design-score [--force]`: score Library versions after the build.
 - `harness fonts fetch --tenant <t>`: download the body fonts (below).
 
-## Fonts
+## Fonts (cycle 92 merged with cycle 95: one module, harness/fonts.py)
 
 Previews and screenshots must show the real brand faces on a host that has none installed (prod's
-`fc-list` has none of them; the page's own @font-face rules point at the storefront CDN and Google Fonts).
+`fc-list` has none of them). The page's own @font-face rules point at `brand/fonts/<file>` (cycle 95's
+licensed Epika, Montserrat and Acid Grotesk; a path that only resolves after publish) or at the theme CDN
+(Peak Grotesk Wide), and the body face DM Sans comes from Google Fonts (a `<link>`, tenant.yaml
+`brand.font_stylesheet`). Local copies:
 
-- `tenants/<t>/brand/fonts-display/`: local copies of the display faces, named like the basename of the
-  `src` url of their `@font-face` rule in `brand/base.css` (PEAK: `pk-peak-grotesk-wide.woff2`,
-  `pk-acid-grotesk-trial.otf`, already in the repo).
-- `tenants/<t>/brand/fonts-body/`: the body faces, written by `harness fonts fetch --tenant <t>` from the
-  tenant's Google Fonts url (tenant.yaml `brand.font_stylesheet`; else `brand.fonts.body`/`headings`),
-  latin and latin-ext subsets as woff2, with `manifest.json` (family, weight, style, unicode range, file,
-  source url) and `LICENCE.md` (SIL Open Font License 1.1).
-- The capture path (design gate and Library thumbnails) injects `@font-face` rules for those files
-  (file:// urls) at the top of `<head>`, BEFORE the page's own CSS, waits for `document.fonts.ready`, asks
-  for one face of every declared family, and records per family whether a face loaded. Measured on Chrome
-  154: with the CDN unreachable the local face renders in both rule orders.
-- `harness review` injects the same rules with relative urls (`<run>/review-fonts/`, served by the review
-  site at `/run/<run>/review/review-fonts/<file>`), or as data: urls with `--inline-fonts`. The Library's
-  review pages are always inline (the Library serves the file alone).
-- The storefront export (`shopify-body.html`) is unchanged: it keeps the CDN urls.
+- `tenants/<t>/brand/fonts/` (cycle 95) and `tenants/<t>/brand/fonts-display/` (Peak Grotesk Wide): every
+  @font-face src whose file name is in one of these folders is rewritten to the local file
+  (`fonts.localize_font_faces`; cycle 95's rule, now shared).
+- `tenants/<t>/brand/fonts-body/`: the Google Fonts body faces, written by `harness fonts fetch --tenant <t>`
+  from `brand.font_stylesheet` (else `brand.fonts.body`/`headings`), latin and latin-ext subsets as woff2,
+  with `manifest.json` (family, weight, style, unicode range, file, source url) and `LICENCE.md` (SIL Open
+  Font License 1.1). Their @font-face rules are injected at the top of `<head>`, before the page's own CSS,
+  so the Google `<link>` still wins where the network works.
+- The review html (`harness review`, the review site, the Library's review pages) gets data: urls (cycle 95:
+  always self-contained). The capture path (design-gate screenshots of index.html, Library thumbnails of
+  the review html) stages a copy with file:// urls, waits for `document.fonts.ready`, asks for one face of
+  every declared family, and records per family whether a face loaded (scores.json, REVIEW.md, Library
+  meta.json `fonts`). Measured on Chrome 154: with the CDN unreachable the local face renders.
+- The storefront export (`shopify-body.html`) is unchanged: it keeps the publishable urls.

@@ -83,6 +83,14 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
     for a in facts_pack.get("assets", []):
         lines.append(f"- `{a['id']}`: {a['url']}")
 
+    # Cycle 93: every declared image slot's picks and the reasons
+    # (harness/images.py, <run>/.image-selection.json "slots").
+    from .images import review_lines as image_review_lines
+
+    lines.append("")
+    lines.append("## Images")
+    lines.extend(image_review_lines(run_dir, selected))
+
     lines.append("")
     lines.append("## Pages")
     for name in selected:

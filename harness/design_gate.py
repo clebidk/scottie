@@ -45,7 +45,7 @@ import shutil
 import statistics
 from pathlib import Path
 
-from . import capture, exits, first_screen, looks, pricing
+from . import capture, exits, heroes, looks, pricing
 from .anthropic_client import adaptive_kwargs
 from .errors import HarnessError
 from .jsonutil import extract_json
@@ -90,7 +90,8 @@ DESIGN_DIR = "design"
 
 # How much photography each first screen carries (the revise round's "more
 # / fewer photos" translation). An imported (pack) look is photo-led.
-HERO_PHOTO_WEIGHT = {"face": 2, "display": 1, "story": 0}
+HERO_PHOTO_WEIGHT = {"face": 2, "caps_over_photo": 2, "letters_pill": 2, "split": 2, "display": 1,
+                     "dark_statement": 1, "ad_first": 1, "buybox": 1, "story": 0}
 IMPORTED_LOOK_PHOTO_WEIGHT = 1
 _HERO_WORDS = ("hero", "first screen", "above the fold", "fold", "headline area", "opening")
 _LOOK_WORDS = ("layout", "look", "grid", "box", "card", "section", "structure", "template", "stacked", "rhythm")
@@ -618,36 +619,48 @@ def layout_key(layout):
     return (layout.get("look"), layout.get("hero_style"), layout.get("block_set"))
 
 
-def _heroes(cartridge, tenant, pinned):
-    if cartridge != "listicle":
+def _heroes(cartridge, look, tenant, pinned, *, every=False):
+    """The hero compositions (cycle 94) a variant may use in `look`: the
+    pinned one when the look renders it (else none: that look is skipped),
+    else the look's default pool (look.json default_heroes, narrowed by
+    tenant.yaml cartridges.<c>.hero_styles) -- or, with every=True (the
+    revise round), every composition the look.json declares."""
+    if not heroes.has_heroes(cartridge):
         return [None]
+    supported = heroes.look_heroes(cartridge, look, tenant)
     if pinned.get("hero_style"):
-        return [pinned["hero_style"]]
-    return list(first_screen.tenant_hero_styles(tenant))
+        return [pinned["hero_style"]] if pinned["hero_style"] in supported else []
+    return list(supported if every else heroes.default_pool(cartridge, look, tenant))
 
 
-def layout_space(cartridge, tenant, pinned=None):
-    """Every layout the first round may try: the tenant's looks for this
-    cartridge (or the pinned one) x first-screen styles (listicle) x block
-    sets."""
-    pinned = pinned or {}
+def _look_list(cartridge, tenant, pinned):
     if not looks.has_looks(cartridge):
-        look_list = [None]
-    elif pinned.get("look"):
-        look_list = [pinned["look"]]
-    else:
-        look_list = list(looks.tenant_looks(cartridge, tenant))
+        return [None]
+    if pinned.get("look"):
+        return [pinned["look"]]
+    return list(looks.tenant_looks(cartridge, tenant))
+
+
+def layout_space(cartridge, tenant, pinned=None, *, every=False):
+    """Every layout the first round may try: the tenant's looks for this
+    cartridge (or the pinned one) x each look's hero compositions (its
+    look.json default pool) x block sets. A look's own blocks (cycle 91
+    look.json "blocks") come with the look."""
+    pinned = pinned or {}
     return [{"look": lk, "hero_style": h, "block_set": b}
-            for lk in look_list for h in _heroes(cartridge, tenant, pinned) for b in block_sets(cartridge, tenant)]
+            for lk in _look_list(cartridge, tenant, pinned)
+            for h in _heroes(cartridge, lk, tenant, pinned, every=every)
+            for b in block_sets(cartridge, tenant)]
 
 
 def extra_layouts(cartridge, tenant, pinned=None):
-    """Layouts only the revise round tries: the tenant's imported looks
-    (cycle 87, e.g. the owner's pack looks) for this cartridge."""
+    """Layouts only the revise round tries: every other hero composition
+    each look's look.json declares, and the tenant's imported looks (cycle
+    87, e.g. the owner's pack looks) for this cartridge."""
     pinned = pinned or {}
+    out = layout_space(cartridge, tenant, pinned, every=True)
     if pinned.get("look") or not looks.has_looks(cartridge):
-        return []
-    out = []
+        return out
     for slug in looks.imported_looks(cartridge, tenant):
         try:
             if looks.resolve_look(cartridge, slug, tenant=tenant) != slug:
@@ -655,7 +668,7 @@ def extra_layouts(cartridge, tenant, pinned=None):
         except ValueError:
             continue
         out += [{"look": slug, "hero_style": h, "block_set": b, "imported": True}
-                for h in _heroes(cartridge, tenant, pinned) for b in block_sets(cartridge, tenant)]
+                for h in _heroes(cartridge, slug, tenant, pinned, every=True) for b in block_sets(cartridge, tenant)]
     return out
 
 
@@ -728,7 +741,7 @@ def _snapshot(page_dir, dest):
 
 def current_layout(cartridge, page):
     return {"look": page.get("look") if looks.has_looks(cartridge) else None,
-            "hero_style": page.get("hero_style") if cartridge == "listicle" else None,
+            "hero_style": page.get("hero_style") if heroes.has_heroes(cartridge) else None,
             "block_set": None}
 
 
@@ -798,8 +811,11 @@ def run_for_page(*, cartridge, page_dir, base_page, render, tenant, client, cfg,
     revise = []
     if best is not None and not passes(best, cfg) and not any(r.get("budget_stop") for r in records):
         tried = {layout_key(r) for r in records} | {layout_key(p) for p in plan}
-        candidates = [lay for lay in layout_space(cartridge, tenant, pinned) + extra_layouts(cartridge, tenant, pinned)
-                      if layout_key(lay) not in tried]
+        candidates = []
+        for lay in layout_space(cartridge, tenant, pinned) + extra_layouts(cartridge, tenant, pinned):
+            if layout_key(lay) not in tried:
+                tried.add(layout_key(lay))
+                candidates.append(lay)
         if not candidates:
             notes.append("revise round skipped: no untried layout left in this page's supported set")
         elif not scorer.can_afford_call():

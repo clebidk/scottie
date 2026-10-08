@@ -164,8 +164,7 @@ def stage_page(html_path, *, tenant=None, probe=False):
     module docstring). The caller deletes it."""
     html_path = Path(html_path)
     text = html_path.read_text(errors="ignore")
-    faces = fonts_mod.local_faces(tenant) if tenant is not None else []
-    text = fonts_mod.inject(text, fonts_mod.brand_font_css(faces, "file"))
+    text = fonts_mod.for_capture(text, tenant)
     script = "<script>" + PREP_JS + (PROBE_JS if probe else "") + "</script>"
     lower = text.lower()
     at = lower.rfind("</body>")

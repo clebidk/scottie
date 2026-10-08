@@ -239,6 +239,13 @@ simplicity_mode: warn
 # or brand names (see harness/design_skills/design-md/README.md).
 design_reference: [tesla, apple]
 
+# Cycle 90 (import fidelity): the owner's hand-made look pack -- the pages and
+# their hand-made looks (looks/<cartridge>/<slug>/) that "Import a page" shows
+# the model as its exemplar. Relative to the repo; a missing folder means no
+# pack exemplars (hand-made tenant looks with source.kind "pack" still count).
+look_import:
+  pack_dir: /home/deploy/lp-pack
+
 # Cycle 17 (cost reduction): which model each stage calls -- see
 # harness/config.py's DEFAULT_MODELS for what a key left out falls back to.
 # Peak Saunas runs the engine defaults explicitly here so a future default
@@ -425,9 +432,10 @@ brand:
     muted: "#616161"         # secondary text
   fonts:
     display_wide: Peak Grotesk Wide   # cycle 79, upper case, "display" first screen (theme CDN, base.css)
-    display_acid: Acid Grotesk        # cycle 79, approved alternative; TRIAL file -- confirm licence
+    display_acid: Acid Grotesk        # cycle 79, approved alternative; cycle 95: licensed file, brand/fonts/
     body: DM Sans            # 400/500, 16px, line-height 1.55
-    headings: Poppins        # 600, sentence case, letter-spacing -.01em
+    headings: Montserrat     # cycle 95; 600, sentence case, letter-spacing -.01em; Poppins next
+    serif: Epika             # cycle 95; pull quotes, review quotes, founder line (brand/fonts/LICENSES.md)
   logo:
     on_light: brand/logo.svg          # PEAK wordmark, Basalt; the renderer's default
     rule: "Never the legacy green/cyan mountain 'Peak Saunas' mark."
@@ -437,6 +445,15 @@ brand:
 # approved styles -- face | story | display -- picked per run (--hero-style,
 # an A/B/C build, else seeded from the run seed); pin a subset with
 # cartridges.listicle.hero_styles: [story, display].
+# Cycle 94: these are hero compositions now (harness/heroes/, docs/HEROES.md),
+# next to caps_over_photo, split, dark_statement (listicle and landing),
+# letters_pill and buybox (landing); `cartridges.<c>.hero_styles` may pin any
+# the look renders. With no pin a run keeps the look's own default.
+hero:
+  # letters_pill's two display letter pairs (default: first two and last two
+  # letters of the display name, which for PEAK is the same).
+  letters: ["PE", "AK"]
+
 first_screen:
   # No photo of the author yet: the byline shows the PEAK mark. Set a path
   # under this tenant folder (e.g. brand/austin.jpg) to show his photo.

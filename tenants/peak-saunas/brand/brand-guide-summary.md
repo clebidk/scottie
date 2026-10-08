@@ -19,6 +19,26 @@ No role text beyond the Primary/Secondary grouping.
 
 Single family: **Eina03**, three weights — Bold, SemiBold, Regular — shown as character sets only. No heading-vs-body rule, sizes, or line-height given.
 
+## Web typography (2026-10-07)
+
+The 2025 guide's Eina03 was never adopted on the live store. The generator's
+web faces (cycle 95, owner instruction "add Epika, Montserrat, Peak Grotesk
+and Acid Grotesk"):
+
+- **Body:** DM Sans 400/500 -- kept, because the live theme sets body copy in
+  it and loads it site-wide; changing the body face is a theme decision.
+- **Headings:** Montserrat 600, sentence case; Poppins (the theme's heading
+  face) is the next fallback.
+- **Serif voice:** Epika 400 (Superior Type) -- pull quotes, review quotes,
+  the founder line, large statement lines. Small, deliberate uses only.
+- **Display:** Peak Grotesk Wide, upper case, the first-screen headline;
+  Acid Grotesk (licensed), sentence case, the alternative display face and
+  big numerals.
+
+Tokens: `--ps-sans`, `--ps-heading`, `--ps-serif`, `--ps-display-wide`,
+`--ps-display-acid` in brand/base.css. Files and licences:
+brand/fonts/LICENSES.md.
+
 ## Logo
 
 **Variants:** master (gradient blue-to-green mountain + wordmark); three "Logo variations" fills — solid green, solid blue, white-on-transparent.

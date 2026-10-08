@@ -8,9 +8,11 @@ Appended by harness/design_gate.py to the engine rubric (harness/design_rubric.m
   #1A1A1A for text, muted grey (#616161) for secondary text, hairlines rgba(22,24,23,.14).
 - ONE accent: brand red #702B34, used sparingly (an accent phrase in the headline, numerals, a 3 px proof bar,
   button hover). No orange, green, cyan, cream, stone or grey panels. No gradients, glows or drop shadows.
-- Type: DM Sans for body (400/500, about 16 px, line-height about 1.55); Poppins 600 for headings in sentence
-  case; Peak Grotesk Wide (wide, upper case) for display moments; Acid Grotesk is the approved alternative
-  display face. No other faces; no all-caps headings outside the display face.
+- Type system (cycle 95 brand fonts): four brand families. Montserrat 600 for headings, in sentence case;
+  Epika (the serif) for pull quotes, review quotes and the founder line; Peak Grotesk Wide (wide, upper
+  case) for display moments; Acid Grotesk as the approved alternative display face. Body text stays in
+  DM Sans (400/500, about 16 px, line-height about 1.55). No other faces; no all-caps headings outside
+  the display faces; a heading in a system or fallback sans is a typography fault.
 - BOXLESS by default: sections separate by white space and one hairline, not by grey boxes or card borders.
   Any box that remains has a 4 px radius; only pill buttons are fully round (999 px).
 - One primary CTA phrase per page, a basalt pill button; at most one quiet secondary text link.
@@ -53,4 +55,5 @@ card grids; 16 px side gutters on the phone; nothing that looks like a template 
 - Any colour outside the palette above (orange, green, cyan, cream, stone or grey panels), a second accent,
   gradients or drop shadows.
 - The retired green/cyan mountain mark, or the old "Peak Saunas" wordmark used as a logo.
-- All-caps headings outside the display face; Poppins or DM Sans swapped for another face.
+- All-caps headings outside the display faces; Montserrat, Epika, Peak Grotesk Wide or Acid Grotesk swapped
+  for another face, or a fifth display or serif face.

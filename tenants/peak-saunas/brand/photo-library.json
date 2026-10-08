@@ -36,6 +36,27 @@
         "rule": "vision: cannot identify",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:43+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.8,
+        "mood": "dark",
+        "luminance": 50.8,
+        "warmth": 55.5,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.54,
+          "y": 0.46
+        },
+        "sharpness": 59.5,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -81,6 +102,27 @@
         "rule": "vision: cannot identify (candidates ['denali', 'el-capitan', 'kilimanjaro', 'matterhorn', 'patagonia'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:43+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.8,
+        "mood": "dark",
+        "luminance": 57.0,
+        "warmth": 27.4,
+        "white_edge": false,
+        "white_edge_share": 0.006,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.49,
+          "y": 0.4
+        },
+        "sharpness": 191.4,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -125,6 +167,27 @@
         "rule": "vision: cannot identify (candidates ['everest', 'mini', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:43+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.8,
+        "mood": "dark",
+        "luminance": 38.5,
+        "warmth": 20.5,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.58,
+          "y": 0.49
+        },
+        "sharpness": 123.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -164,6 +227,27 @@
         "rule": "vision: cannot identify",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:43+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.8,
+        "mood": "dark",
+        "luminance": 57.4,
+        "warmth": 28.7,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.54,
+          "y": 0.52
+        },
+        "sharpness": 31.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -210,6 +294,27 @@
         "rule": "vision matterhorn too unsure (0.4), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.671,
+        "mood": "warm",
+        "luminance": 138.8,
+        "warmth": 30.2,
+        "white_edge": false,
+        "white_edge_share": 0.026,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.53
+        },
+        "sharpness": 2344.5,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -254,6 +359,27 @@
         "rule": "vision mini too unsure (0.65), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.666,
+        "mood": "warm",
+        "luminance": 134.3,
+        "warmth": 37.0,
+        "white_edge": false,
+        "white_edge_share": 0.02,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.48,
+          "y": 0.5
+        },
+        "sharpness": 1896.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -299,6 +425,27 @@
         "rule": "vision mini too unsure (0.6), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.671,
+        "mood": "warm",
+        "luminance": 108.8,
+        "warmth": 41.3,
+        "white_edge": false,
+        "white_edge_share": 0.049,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.49,
+          "y": 0.5
+        },
+        "sharpness": 1549.4,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -343,6 +490,27 @@
         "rule": "vision fuji too unsure (0.55), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 110.9,
+        "warmth": 28.3,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.49,
+          "y": 0.49
+        },
+        "sharpness": 1542.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -388,6 +556,27 @@
         "rule": "vision rainier too unsure (0.45), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 107.1,
+        "warmth": 27.9,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.48,
+          "y": 0.48
+        },
+        "sharpness": 2522.9,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -433,6 +622,27 @@
         "rule": "vision everest too unsure (0.55), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 130.4,
+        "warmth": 46.9,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.46,
+          "y": 0.53
+        },
+        "sharpness": 1687.4,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -478,6 +688,27 @@
         "rule": "vision everest too unsure (0.55), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 125.6,
+        "warmth": 39.8,
+        "white_edge": false,
+        "white_edge_share": 0.078,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.55,
+          "y": 0.51
+        },
+        "sharpness": 1144.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -524,6 +755,27 @@
         "rule": "vision everest too unsure (0.5), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 140.0,
+        "warmth": 44.5,
+        "white_edge": false,
+        "white_edge_share": 0.037,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.56,
+          "y": 0.5
+        },
+        "sharpness": 1131.7,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -568,6 +820,27 @@
         "rule": "vision only (no folder label)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 114.2,
+        "warmth": 42.4,
+        "white_edge": false,
+        "white_edge_share": 0.015,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.53,
+          "y": 0.51
+        },
+        "sharpness": 1292.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "fuji",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -613,6 +886,27 @@
         "rule": "vision everest too unsure (0.65), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 143.4,
+        "warmth": 41.9,
+        "white_edge": false,
+        "white_edge_share": 0.091,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.53,
+          "y": 0.53
+        },
+        "sharpness": 2377.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -657,6 +951,27 @@
         "rule": "vision everest too unsure (0.68), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 140.3,
+        "warmth": 46.1,
+        "white_edge": false,
+        "white_edge_share": 0.091,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.52,
+          "y": 0.52
+        },
+        "sharpness": 1750.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -702,6 +1017,27 @@
         "rule": "vision everest too unsure (0.65), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 117.6,
+        "warmth": 48.0,
+        "white_edge": false,
+        "white_edge_share": 0.001,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.53,
+          "y": 0.53
+        },
+        "sharpness": 2651.9,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -747,6 +1083,27 @@
         "rule": "vision everest too unsure (0.55), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 145.4,
+        "warmth": 43.8,
+        "white_edge": false,
+        "white_edge_share": 0.058,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.51,
+          "y": 0.51
+        },
+        "sharpness": 1699.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -793,6 +1150,27 @@
         "rule": "vision rainier too unsure (0.65), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 142.9,
+        "warmth": 14.8,
+        "white_edge": false,
+        "white_edge_share": 0.054,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "sharpness": 1591.8,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -840,6 +1218,27 @@
         "rule": "vision: cannot identify (candidates ['denali', 'everest', 'fuji', 'matterhorn', 'rainier', 'shasta']); agnostic: detail fits 6 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 90.6,
+        "warmth": 19.5,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.48,
+          "y": 0.48
+        },
+        "sharpness": 760.5,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -884,6 +1283,27 @@
         "rule": "vision only (no folder label)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 130.5,
+        "warmth": 28.2,
+        "white_edge": false,
+        "white_edge_share": 0.017,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.48,
+          "y": 0.51
+        },
+        "sharpness": 1646.8,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "rainier",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -929,6 +1349,27 @@
         "rule": "vision rainier too unsure (0.62), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 127.4,
+        "warmth": 31.3,
+        "white_edge": false,
+        "white_edge_share": 0.081,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.45,
+          "y": 0.5
+        },
+        "sharpness": 1596.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -974,6 +1415,27 @@
         "rule": "vision fuji too unsure (0.6), no folder label",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 105.3,
+        "warmth": 40.4,
+        "white_edge": false,
+        "white_edge_share": 0.103,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.47,
+          "y": 0.52
+        },
+        "sharpness": 1420.8,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1020,6 +1482,27 @@
         "rule": "vision: cannot identify (candidates ['denali', 'el-capitan', 'kilimanjaro', 'matterhorn', 'patagonia']); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.778,
+        "mood": "dark",
+        "luminance": 62.1,
+        "warmth": 110.7,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.5,
+          "y": 0.55
+        },
+        "sharpness": 645.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1071,6 +1554,27 @@
         "rule": "vision: cannot identify (candidates ['crown', 'denali', 'el-capitan', 'everest', 'fuji', 'kilimanjaro', 'matterhorn', 'mini', 'patagonia', 'rainier', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.778,
+        "mood": "dark",
+        "luminance": 58.4,
+        "warmth": 116.5,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.46,
+          "y": 0.47
+        },
+        "sharpness": 172.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1115,6 +1619,27 @@
         "rule": "vision only (no folder label)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.558,
+        "mood": "warm",
+        "luminance": 148.1,
+        "warmth": 38.1,
+        "white_edge": false,
+        "white_edge_share": 0.012,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.57
+        },
+        "sharpness": 1991.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "el-capitan",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1162,6 +1687,27 @@
         "rule": "vision: cannot identify (candidates ['crown', 'everest', 'mini', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.75,
+        "mood": "warm",
+        "luminance": 90.4,
+        "warmth": 38.1,
+        "white_edge": false,
+        "white_edge_share": 0.012,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.52,
+          "y": 0.51
+        },
+        "sharpness": 848.5,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1205,6 +1751,27 @@
         "rule": "vision only (no folder label)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "square",
+        "aspect": 1.0,
+        "mood": "warm",
+        "luminance": 113.2,
+        "warmth": 15.0,
+        "white_edge": false,
+        "white_edge_share": 0.003,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.5,
+          "y": 0.52
+        },
+        "sharpness": 1912.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "patagonia",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1242,6 +1809,27 @@
         "rule": "vision: cannot identify",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "dark",
+        "luminance": 53.4,
+        "warmth": 94.3,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.57,
+          "y": 0.39
+        },
+        "sharpness": 121.4,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1288,6 +1876,27 @@
         "rule": "vision: cannot identify (candidates ['crown', 'everest', 'mini', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "dark",
+        "luminance": 61.8,
+        "warmth": 87.0,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.48,
+          "y": 0.52
+        },
+        "sharpness": 618.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1333,6 +1942,27 @@
         "rule": "vision: cannot identify (candidates ['crown', 'denali', 'everest', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "dark",
+        "luminance": 45.2,
+        "warmth": 74.3,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.57,
+          "y": 0.47
+        },
+        "sharpness": 550.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1379,6 +2009,27 @@
         "rule": "vision: cannot identify (candidates ['crown', 'denali', 'everest', 'mini', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "dark",
+        "luminance": 76.4,
+        "warmth": 67.7,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.49,
+          "y": 0.52
+        },
+        "sharpness": 1526.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1416,6 +2067,27 @@
         "rule": "vision: cannot identify",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "dark",
+        "luminance": 63.9,
+        "warmth": 64.7,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.53,
+          "y": 0.51
+        },
+        "sharpness": 367.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1468,6 +2140,27 @@
         "rule": "vision: cannot identify (candidates ['crown', 'denali', 'el-capitan', 'everest', 'fuji', 'kilimanjaro', 'matterhorn', 'mini', 'patagonia', 'rainier', 'shasta'])",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.778,
+        "mood": "dark",
+        "luminance": 36.2,
+        "warmth": 16.2,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.52,
+          "y": 0.53
+        },
+        "sharpness": 110.9,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1515,6 +2208,27 @@
         "rule": "vision narrowed to ['el-capitan', 'kilimanjaro', 'patagonia']; drive folder picked patagonia",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "warm",
+        "luminance": 142.3,
+        "warmth": -2.6,
+        "white_edge": true,
+        "white_edge_share": 0.631,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.55,
+          "y": 0.59
+        },
+        "sharpness": 1310.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "patagonia",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1565,6 +2279,27 @@
         "rule": "drive folder mini not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 146.9,
+        "warmth": 62.4,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.49,
+          "y": 0.52
+        },
+        "sharpness": 851.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1616,6 +2351,27 @@
         "rule": "drive folder rainier not confirmed (vision unknown 0.6)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 164.6,
+        "warmth": 79.5,
+        "white_edge": false,
+        "white_edge_share": 0.005,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.48,
+          "y": 0.46
+        },
+        "sharpness": 3023.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1668,6 +2424,27 @@
         "rule": "drive folder everest not confirmed (vision unknown 0.6)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:44+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "warm",
+        "luminance": 169.4,
+        "warmth": 85.0,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.51,
+          "y": 0.46
+        },
+        "sharpness": 2061.3,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1720,6 +2497,27 @@
         "rule": "drive folder mini not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 156.8,
+        "warmth": 72.3,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.48,
+          "y": 0.45
+        },
+        "sharpness": 743.5,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1765,6 +2563,27 @@
         "rule": "vision and drive folder agree",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 170.5,
+        "warmth": 16.1,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.52
+        },
+        "sharpness": 1510.9,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "fuji",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1812,6 +2631,27 @@
         "rule": "drive folder mini not confirmed (vision unknown 0.75)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 162.1,
+        "warmth": 27.9,
+        "white_edge": false,
+        "white_edge_share": 0.404,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.47,
+          "y": 0.51
+        },
+        "sharpness": 2235.7,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1861,6 +2701,27 @@
         "rule": "drive folder everest confirmed by vision check (pass 1 said denali (0.55))",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 203.5,
+        "warmth": 35.7,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.52,
+          "y": 0.51
+        },
+        "sharpness": 1882.9,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "everest",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1910,6 +2771,27 @@
         "rule": "drive folder everest not confirmed (vision unknown 0.6)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "warm",
+        "luminance": 110.7,
+        "warmth": 47.6,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.5,
+          "y": 0.53
+        },
+        "sharpness": 1179.3,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -1959,6 +2841,27 @@
         "rule": "drive folder patagonia not confirmed (vision unknown 0.75); agnostic: detail fits 4 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 118.4,
+        "warmth": -15.5,
+        "white_edge": false,
+        "white_edge_share": 0.035,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.44,
+          "y": 0.49
+        },
+        "sharpness": 1657.7,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2009,6 +2912,27 @@
         "rule": "drive folder matterhorn not confirmed (vision unknown 0.65)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "warm",
+        "luminance": 166.0,
+        "warmth": 86.4,
+        "white_edge": false,
+        "white_edge_share": 0.007,
+        "fullbleed_ok": true,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.51,
+          "y": 0.47
+        },
+        "sharpness": 2701.4,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2053,6 +2977,27 @@
         "rule": "vision and drive folder agree",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 179.1,
+        "warmth": 32.2,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.49,
+          "y": 0.52
+        },
+        "sharpness": 1548.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "rainier",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2110,6 +3055,27 @@
         "rule": "drive folder mini not confirmed (vision unknown 0.9); agnostic: detail fits 11 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 144.1,
+        "warmth": 43.2,
+        "white_edge": false,
+        "white_edge_share": 0.005,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.54
+        },
+        "sharpness": 1417.5,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2160,6 +3126,27 @@
         "rule": "drive folder everest not confirmed (vision unknown 0.95); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 188.8,
+        "warmth": 75.9,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.51,
+          "y": 0.5
+        },
+        "sharpness": 197.7,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2206,6 +3193,27 @@
         "rule": "vision and drive folder agree",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 207.3,
+        "warmth": 42.1,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.51
+        },
+        "sharpness": 833.3,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "mini",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2258,6 +3266,27 @@
         "rule": "drive folder fuji not confirmed (vision unknown 0.55); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 133.0,
+        "warmth": 58.6,
+        "white_edge": false,
+        "white_edge_share": 0.002,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.46,
+          "y": 0.51
+        },
+        "sharpness": 2342.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2308,6 +3337,27 @@
         "rule": "drive folder el-capitan not confirmed (vision unknown 0.75)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "bright",
+        "luminance": 161.0,
+        "warmth": 40.2,
+        "white_edge": false,
+        "white_edge_share": 0.001,
+        "fullbleed_ok": true,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.49,
+          "y": 0.48
+        },
+        "sharpness": 1914.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2357,6 +3407,27 @@
         "rule": "drive folder kilimanjaro confirmed by vision check (pass 1 said patagonia (0.55))",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.502,
+        "mood": "dark",
+        "luminance": 80.9,
+        "warmth": 1.7,
+        "white_edge": false,
+        "white_edge_share": 0.022,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.51,
+          "y": 0.48
+        },
+        "sharpness": 1426.8,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "kilimanjaro",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2401,6 +3472,27 @@
         "rule": "vision and drive folder agree",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "bright",
+        "luminance": 192.8,
+        "warmth": 5.5,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.46,
+          "y": 0.49
+        },
+        "sharpness": 997.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "patagonia",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2451,6 +3543,27 @@
         "rule": "drive folder patagonia not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "dark",
+        "luminance": 70.5,
+        "warmth": -11.2,
+        "white_edge": false,
+        "white_edge_share": 0.003,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.5,
+          "y": 0.49
+        },
+        "sharpness": 1411.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2499,6 +3612,27 @@
         "rule": "drive folder rainier rejected by vision check: This looks like a 2-person red cedar indoor cabin with no visible red light panel, unlike the 1-person rainier model.",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "bright",
+        "luminance": 179.0,
+        "warmth": 28.0,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.51,
+          "y": 0.48
+        },
+        "sharpness": 1307.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2560,7 +3694,28 @@
           "at": "2026-10-05",
           "why": "the photo shows a red light panel and an infrared heater; no outlet or plug is visible. The vision tag put it on the 'electrician' item of run 20261005-172955-meta-120258736871190746-cgkv."
         }
-      ]
+      ],
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 152.1,
+        "warmth": 68.6,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.46,
+          "y": 0.52
+        },
+        "sharpness": 2083.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
+      }
     },
     {
       "id": "asset-photo-c499570d7a6e",
@@ -2608,6 +3763,27 @@
         "rule": "drive folder kilimanjaro rejected by vision check: This outdoor cabin is small and narrow like a 2-person unit with no visible roof overhang, matching patagonia rather than the larger 5-person kiliman",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.502,
+        "mood": "warm",
+        "luminance": 121.8,
+        "warmth": 12.8,
+        "white_edge": false,
+        "white_edge_share": 0.024,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.52,
+          "y": 0.49
+        },
+        "sharpness": 3056.6,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2658,6 +3834,27 @@
         "rule": "drive folder kilimanjaro rejected by vision check: The panel shown is light-colored hemlock wood being installed outdoors, but it lacks the dark exterior cladding and roof overhang characteristic of k",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.666,
+        "mood": "warm",
+        "luminance": 109.2,
+        "warmth": 4.9,
+        "white_edge": false,
+        "white_edge_share": 0.046,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.5,
+          "y": 0.48
+        },
+        "sharpness": 3518.3,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2707,6 +3904,27 @@
         "rule": "drive folder kilimanjaro rejected by vision check: The photo shows a small single-door outdoor cabin consistent with a 2-person patagonia-style unit, not the larger 5-person kilimanjaro design.",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.502,
+        "mood": "warm",
+        "luminance": 111.7,
+        "warmth": 11.9,
+        "white_edge": false,
+        "white_edge_share": 0.006,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "sharpness": 2335.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2756,6 +3974,27 @@
         "rule": "drive folder el-capitan not confirmed (vision unknown 0.6); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "dark",
+        "luminance": 78.6,
+        "warmth": 16.6,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.46,
+          "y": 0.49
+        },
+        "sharpness": 2217.1,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2801,6 +4040,27 @@
         "rule": "vision and drive folder agree",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:45+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "bright",
+        "luminance": 176.3,
+        "warmth": 36.0,
+        "white_edge": true,
+        "white_edge_share": 0.999,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.5,
+          "y": 0.51
+        },
+        "sharpness": 1074.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "el-capitan",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2849,6 +4109,27 @@
         "rule": "drive folder matterhorn confirmed by vision check (pass 1 said el-capitan (0.75))",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:46+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "bright",
+        "luminance": 202.1,
+        "warmth": 25.7,
+        "white_edge": true,
+        "white_edge_share": 1.0,
+        "fullbleed_ok": false,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.52,
+          "y": 0.52
+        },
+        "sharpness": 1614.0,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": "matterhorn",
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2894,6 +4175,27 @@
         "rule": "drive folder matterhorn not confirmed (vision unknown 0.85)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:46+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.5,
+        "mood": "warm",
+        "luminance": 108.3,
+        "warmth": 15.4,
+        "white_edge": false,
+        "white_edge_share": 0.298,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.49,
+          "y": 0.49
+        },
+        "sharpness": 603.8,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2945,6 +4247,27 @@
         "rule": "drive folder kilimanjaro not confirmed (vision unknown 0.75)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:46+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.502,
+        "mood": "warm",
+        "luminance": 138.3,
+        "warmth": 5.3,
+        "white_edge": false,
+        "white_edge_share": 0.002,
+        "fullbleed_ok": true,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.52,
+          "y": 0.47
+        },
+        "sharpness": 2093.8,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -2994,6 +4317,27 @@
         "rule": "drive folder kilimanjaro rejected by vision check: The photo shows a small single-door outdoor cabin matching patagonia's 2-person size and shape, not the larger 5-person kilimanjaro with wider multi-",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:46+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.502,
+        "mood": "warm",
+        "luminance": 112.8,
+        "warmth": 12.5,
+        "white_edge": false,
+        "white_edge_share": 0.057,
+        "fullbleed_ok": true,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.52,
+          "y": 0.49
+        },
+        "sharpness": 3157.2,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -3045,6 +4389,27 @@
         "rule": "drive folder matterhorn not confirmed (vision unknown 0.75); agnostic: detail fits 5 models",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:46+00:00"
+      },
+      "image_tags": {
+        "orientation": "portrait",
+        "aspect": 0.667,
+        "mood": "warm",
+        "luminance": 109.6,
+        "warmth": 52.7,
+        "white_edge": false,
+        "white_edge_share": 0.008,
+        "fullbleed_ok": false,
+        "dark_ok": true,
+        "focal": {
+          "x": 0.45,
+          "y": 0.5
+        },
+        "sharpness": 891.4,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     },
     {
@@ -3093,6 +4458,27 @@
         "rule": "drive folder kilimanjaro not confirmed (vision unknown 0.6)",
         "model": "claude-sonnet-5",
         "at": "2026-10-05T16:28:46+00:00"
+      },
+      "image_tags": {
+        "orientation": "landscape",
+        "aspect": 1.502,
+        "mood": "bright",
+        "luminance": 153.1,
+        "warmth": 14.7,
+        "white_edge": false,
+        "white_edge_share": 0.0,
+        "fullbleed_ok": true,
+        "dark_ok": false,
+        "focal": {
+          "x": 0.54,
+          "y": 0.51
+        },
+        "sharpness": 1421.9,
+        "measured": "pillow-v1",
+        "focal_source": "edges",
+        "model": null,
+        "shot": null,
+        "quality": null
       }
     }
   ],

@@ -161,28 +161,29 @@ def test_hard_checks_on_three_synthetic_pages(tmp_path):
 @pytest.mark.real_browser
 @needs_browser
 def test_capture_injects_local_fonts_and_records_which_loaded(tmp_path):
-    """The tenant's local display face loads from its file:// copy; a
-    declared family whose file is broken (a tiny generated non-font) is
-    recorded as a fallback."""
+    """The page's own @font-face (a CDN url that cannot load here) is pointed
+    at the tenant's local copy, so the real face renders with no font
+    installed; a declared family whose local file is broken (a tiny generated
+    non-font) is recorded as a fallback."""
     brand = tmp_path / "brand"
     (brand / "fonts-display").mkdir(parents=True)
     real = TENANT.brand_dir / "fonts-display" / "pk-peak-grotesk-wide.woff2"
     (brand / "fonts-display" / "display.woff2").write_bytes(real.read_bytes())
     (brand / "fonts-display" / "broken.woff2").write_bytes(b"wOF2" + b"\x00" * 60)   # tiny generated, not a font
-    (brand / "base.css").write_text(
-        '@font-face{font-family:"Display Face";font-weight:400;src:url("https://cdn.invalid/display.woff2") format("woff2");}\n'
-        '@font-face{font-family:"Broken Face";font-weight:400;src:url("https://cdn.invalid/broken.woff2") format("woff2");}\n')
 
     class T:
         brand_dir = brand
 
+    faces = ('@font-face{font-family:"Display Face";font-weight:400;src:url("https://cdn.invalid/display.woff2") format("woff2");}'
+             '@font-face{font-family:"Broken Face";font-weight:400;src:url("https://cdn.invalid/broken.woff2") format("woff2");}')
     page = _write_page(tmp_path / "page", '<h1 style="font-family:\'Display Face\',monospace">Wide</h1>'
-                                          '<p style="font-family:\'Broken Face\',monospace">Body</p>')
+                                          '<p style="font-family:\'Broken Face\',monospace">Body</p>', style=faces)
     probe = capture.probe(REAL_BROWSER, page / "index.html", width=390, tenant=T())
     report = design_gate.font_report(probe)
     assert "Display Face" in report["loaded"]
     assert "Broken Face" in report["fallback"] and report["status"] == "fallback"
     assert not list(page.glob(".index.capture-*.html")), "the staged copy is removed"
+    assert "cdn.invalid" in (page / "index.html").read_text(), "the page itself is never changed"
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +314,7 @@ def test_face_fallback_is_not_judged_twice(tmp_path, fake_shots):
 
 
 def test_revise_round_translates_fixes_into_a_new_layout(tmp_path, fake_shots):
-    page_dir, page = _page_dir(tmp_path, "landing", {"headline": "h", "look": "open"})
+    page_dir, page = _page_dir(tmp_path, "landing", {"headline": "h", "look": "open", "hero_style": "ad_first"})
     render, calls = _renderer(page_dir)
     issues = [{"what": "Stacked boxes and a generic layout", "where": "middle",
                "fix_as_layout_choice": "use a different look with stronger structure"}]
@@ -321,10 +322,26 @@ def test_revise_round_translates_fixes_into_a_new_layout(tmp_path, fake_shots):
     result = design_gate.run_for_page(cartridge="landing", page_dir=page_dir, base_page=page, render=render,
                                       tenant=TENANT, client=client, cfg=_cfg(variants=1), log=Log())
     assert [r["round"] for r in result["rounds"]] == [1, 2]
-    assert result["rounds"][1]["choices"][0]["look"] == "proof"
-    assert "a different look (proof)" in result["rounds"][1]["choices"][0]["reasons"]
+    choice = result["rounds"][1]["choices"][0]
+    assert choice["look"] == "proof" and "a different look (proof)" in choice["reasons"]
     assert result["status"] == "pass" and result["look"] == "proof" and result["chosen"] == 2
-    assert calls == [("proof", None)]
+    assert calls == [("proof", "ad_first")]
+
+
+def test_revise_round_tries_the_other_heroes_the_look_json_declares(tmp_path, fake_shots):
+    """Cycle 94: a first-screen fix picks a composition the look declares but
+    does not seed among (look.json "heroes" beyond "default_heroes")."""
+    page_dir, page = _page_dir(tmp_path, "landing", {"headline": "h", "look": "open", "hero_style": "ad_first"})
+    render, calls = _renderer(page_dir)
+    issues = [{"what": "Tiny hero image", "where": "first screen", "fix_as_layout_choice": "a full-bleed photo hero"}]
+    client = FakeClient([_judge_json(60, issues=issues)] + [_judge_json(70)] * 3)
+    result = design_gate.run_for_page(cartridge="landing", page_dir=page_dir, base_page=page, render=render,
+                                      tenant=TENANT, client=client, cfg=_cfg(), log=Log())
+    round2 = [v for v in result["variants"] if v["round"] == 2]
+    from harness import heroes
+    for v in round2:
+        assert v["hero_style"] in heroes.look_heroes("landing", v["look"], TENANT)
+    assert any(v["hero_style"] not in ("ad_first",) for v in round2)
 
 
 def test_still_below_after_the_revise_round_stops_or_warns(tmp_path, fake_shots):
@@ -339,12 +356,11 @@ def test_still_below_after_the_revise_round_stops_or_warns(tmp_path, fake_shots)
 
 
 def test_no_untried_layout_skips_the_revise_round_with_a_note(tmp_path, fake_shots):
-    page_dir, page = _page_dir(tmp_path)
-    render, _calls = _renderer(page_dir)
-    client = FakeClient([_judge_json(60), _judge_json(61), _judge_json(59)])
-    result = design_gate.run_for_page(cartridge="listicle", page_dir=page_dir, base_page=page, render=render,
-                                      tenant=TENANT, client=client, cfg=_cfg(), log=Log())
-    assert result["status"] == "stop"
+    page_dir, page = _page_dir(tmp_path, "article", {"headline": "h"})
+    render, calls = _renderer(page_dir)
+    result = design_gate.run_for_page(cartridge="article", page_dir=page_dir, base_page=page, render=render,
+                                      tenant=TENANT, client=FakeClient([_judge_json(60)]), cfg=_cfg(), log=Log())
+    assert result["status"] == "stop" and calls == []
     assert any("no untried layout" in n for n in result["notes"])
 
 
@@ -385,10 +401,15 @@ def test_no_browser_leaves_the_page_unscored_never_a_crash(tmp_path, monkeypatch
 
 def test_pinned_look_and_hero_are_never_changed():
     space = design_gate.layout_space("listicle", TENANT, {"hero_style": "story"})
-    assert {(s["look"], s["hero_style"]) for s in space} == {("open", "story")}
-    assert design_gate.extra_layouts("landing", TENANT, {"look": "open"}) == []
-    assert len(design_gate.layout_space("landing", TENANT)) == 2
-    assert design_gate.block_sets("listicle") == (None,)   # the cycle 91 hook
+    assert {(x["look"], x["hero_style"]) for x in space} == {("open", "story")}
+    assert {x["look"] for x in design_gate.extra_layouts("landing", TENANT, {"look": "open"})} == {"open"}
+    assert {x["hero_style"] for x in design_gate.extra_layouts("landing", TENANT, {"hero_style": "split"})} == {"split"}
+    # every look the tenant allows, each with its look.json default heroes
+    from harness import heroes
+    for lay in design_gate.layout_space("landing", TENANT):
+        assert lay["hero_style"] in heroes.default_pool("landing", lay["look"], TENANT)
+    assert {x["look"] for x in design_gate.layout_space("landing", TENANT)} >= {"open", "proof", "cinematic", "buybox"}
+    assert design_gate.block_sets("listicle") == (None,)   # a look's blocks come with the look (cycle 91)
 
 
 # ---------------------------------------------------------------------------
@@ -416,14 +437,16 @@ def test_review_md_design_section(tmp_path, fake_shots):
 # the pipeline: enforce STOP, warn, and off is byte-identical
 # ---------------------------------------------------------------------------
 
-def _run(monkeypatch, mode, judge_answers, **kw):
+def _run(monkeypatch, mode, judge_answers, *, variants=1, **kw):
     monkeypatch.setenv("HARNESS_DESIGN_GATE", mode)
+    real_settings = design_gate.settings
+    monkeypatch.setattr(design_gate, "settings", lambda tenant: dict(real_settings(tenant), variants=variants))
     return fake_run.run_once(FIXTURE, tenant=TENANT.name, cartridges="landing", seed=42,
                              extra_responses=judge_answers, **kw)
 
 
 def test_pipeline_enforce_stops_with_exit_2_and_writes_the_design_section(monkeypatch, fake_shots, capsys):
-    rc, _run_dir, _pages = _run(monkeypatch, "enforce", [_judge_json(55), _judge_json(58)])
+    rc, _run_dir, _pages = _run(monkeypatch, "enforce", [_judge_json(55, issues=[]), _judge_json(58, issues=[])])
     assert rc == 2
     run_dir = max(TENANT.out_dir.iterdir(), key=lambda p: p.stat().st_mtime)
     scores = json.loads((run_dir / "landing" / "design" / "scores.json").read_text())
@@ -442,18 +465,18 @@ def test_pipeline_enforce_stops_with_exit_2_and_writes_the_design_section(monkey
 
 
 def test_pipeline_warn_goes_on_and_pass_records_the_choice(monkeypatch, fake_shots):
-    rc, run_dir, _pages = _run(monkeypatch, "warn", [_judge_json(55), _judge_json(58)])
+    rc, run_dir, _pages = _run(monkeypatch, "warn", [_judge_json(55, issues=[]), _judge_json(58, issues=[])])
     assert rc == 0
     assert json.loads((run_dir / "landing" / "design" / "scores.json").read_text())["status"] == "warn"
     assert "WARN" in (run_dir / "REVIEW.md").read_text()
 
-    rc, run_dir, _pages = _run(monkeypatch, "enforce", [_judge_json(91, "ship"), _judge_json(80)])
+    rc, run_dir, _pages = _run(monkeypatch, "enforce", [_judge_json(80), _judge_json(91, "ship")], variants=2)
     assert rc == 0
     scores = json.loads((run_dir / "landing" / "design" / "scores.json").read_text())
-    # landing has two looks (open, proof): both are judged, the better one stays
-    assert scores["status"] == "pass" and scores["judge_calls"] == 2 and scores["chosen"] == 1
-    assert scores["look"] == "open" and json.loads((run_dir / "landing" / "page.json").read_text())["look"] == "open"
-    assert json.loads((run_dir / "state.json").read_text())["landing"]["look"] == "open"
+    # landing open (as rendered) and proof: both judged, the better one stays in the folder
+    assert scores["status"] == "pass" and scores["judge_calls"] == 2 and scores["chosen"] == 2
+    assert scores["look"] == "proof" and json.loads((run_dir / "landing" / "page.json").read_text())["look"] == "proof"
+    assert json.loads((run_dir / "state.json").read_text())["landing"]["look"] == "proof"
     assert json.loads((run_dir / "state.json").read_text())["state"] == "needs_review"
 
 
@@ -590,8 +613,6 @@ def _font_tenant(tmp_path):
     brand = tmp_path / "brand"
     (brand / "fonts-display").mkdir(parents=True)
     (brand / "fonts-display" / "wide.woff2").write_bytes(b"wOF2tiny-generated-font")
-    (brand / "base.css").write_text('@font-face{font-family:"Wide Face";font-weight:400;'
-                                    'src:url("https://cdn.example/x/wide.woff2") format("woff2");}')
 
     class T:
         brand_dir = brand
@@ -606,6 +627,9 @@ def _font_tenant(tmp_path):
             return node
 
     return T()
+
+
+PAGE_FACE = '@font-face{font-family:"Wide Face";font-weight:400;src:url("https://cdn.example/x/wide.woff2") format("woff2");}'
 
 
 GOOGLE_CSS = """/* latin-ext */
@@ -650,49 +674,54 @@ def test_fonts_fetch_writes_files_manifest_and_licence(tmp_path):
     assert (folder / "body-sans-400-normal-latin.woff2").read_bytes().endswith(b"latin.woff2")
     assert json.loads((folder / "manifest.json").read_text())["licence"].startswith("SIL Open Font License")
     assert "Body+Sans/license" in (folder / "LICENCE.md").read_text()
-    faces = fonts.local_faces(tenant)
-    assert [f["family"] for f in faces] == ["Wide Face", "Body Sans", "Body Sans"]
-    assert faces[1]["unicode_range"] == "U+0100-02BA"
+    faces = fonts.body_faces(tenant)
+    assert [f["family"] for f in faces] == ["Body Sans", "Body Sans"]
+    assert faces[0]["unicode_range"] == "U+0100-02BA"
     with pytest.raises(fonts.FontFetchError):
         fonts.fetch_body_fonts(tenant, get=lambda url, headers=None: (_ for _ in ()).throw(OSError("offline")))
 
 
-def test_font_css_modes_and_injection_before_the_page_css(tmp_path):
+def test_localize_and_body_faces_in_both_modes_injected_before_the_page_css(tmp_path):
     tenant = _font_tenant(tmp_path)
-    faces = fonts.local_faces(tenant)
-    assert fonts.brand_font_css(faces, "file").count("file://") == 1
-    assert 'url("review-fonts/wide.woff2")' in fonts.brand_font_css(faces, "relative", relative_dir="review-fonts")
-    inline = fonts.brand_font_css(faces, "inline")
+    folder = tenant.brand_dir / "fonts-body"
+    folder.mkdir()
+    (folder / "body-400.woff2").write_bytes(b"wOF2body")
+    (folder / "manifest.json").write_text(json.dumps({"faces": [
+        {"family": "Body Sans", "weight": "400", "style": "normal", "file": "body-400.woff2"}]}))
+    as_file = fonts.localize_font_faces(PAGE_FACE, tenant.brand_dir, "file")
+    assert (tenant.brand_dir / "fonts-display" / "wide.woff2").resolve().as_uri() in as_file
+    inline = fonts.localize_font_faces(PAGE_FACE, tenant.brand_dir, "inline")
     assert "data:font/woff2;base64," + base64.b64encode(b"wOF2tiny-generated-font").decode() in inline
-    html = '<html><head><link rel="stylesheet" href="x.css"><style>h1{}</style></head><body></body></html>'
-    injected = fonts.inject(html, inline)
-    assert injected.index("data-brand-fonts") < injected.index('<link rel="stylesheet"')
-    assert fonts.inject(injected, inline) == injected and fonts.inject(html, "") == html
+    keep = '@font-face{font-family:"X";src:url("https://cdn.example/none.woff2")}'
+    assert fonts.localize_font_faces(keep, tenant.brand_dir) == keep
+    assert "file://" in fonts.body_font_css(tenant, "file") and "data:font/woff2" in fonts.body_font_css(tenant)
+    html = f'<html><head><link rel="stylesheet" href="x.css"><style>{PAGE_FACE}</style></head><body></body></html>'
+    staged = fonts.for_capture(html, tenant)
+    assert staged.index("data-brand-fonts") < staged.index('<link rel="stylesheet"')
+    assert "cdn.example" not in staged and fonts.inject(staged, "x") == staged
 
 
-def test_review_html_carries_local_fonts_relative_or_inline(tmp_path, monkeypatch):
+def test_review_html_inlines_local_fonts(tmp_path):
     tenant = _font_tenant(tmp_path)
+    folder = tenant.brand_dir / "fonts-body"
+    folder.mkdir()
+    (folder / "body-400.woff2").write_bytes(b"wOF2body")
+    (folder / "manifest.json").write_text(json.dumps({"faces": [
+        {"family": "Body Sans", "weight": "400", "style": "normal", "file": "body-400.woff2"}]}))
     run_dir = tmp_path / "out" / "r1"
     (run_dir / "landing").mkdir(parents=True)
-    (run_dir / "landing" / "index.html").write_text("<html><head><title>t</title></head><body>x</body></html>")
-    path = review.build_review_for_page(run_dir, "landing", tenant=tenant)
-    text = path.read_text()
-    assert 'url("review-fonts/wide.woff2")' in text and (run_dir / "review-fonts" / "wide.woff2").is_file()
-    path = review.build_review_for_page(run_dir, "landing", tenant=tenant, inline_fonts=True)
-    assert "data:font/woff2;base64," in path.read_text()
+    (run_dir / "landing" / "index.html").write_text(f"<html><head><style>{PAGE_FACE}</style></head><body>x</body></html>")
+    text = review.build_review_for_page(run_dir, "landing", tenant=tenant).read_text()
+    assert "cdn.example" not in text and text.count("data:font/woff2;base64,") == 2
+    assert "cdn.example" in (run_dir / "landing" / "index.html").read_text()
 
 
-def test_cli_review_inline_fonts_and_the_site_serves_review_fonts(monkeypatch, web):
+def test_cli_review_carries_the_local_display_face(monkeypatch):
     rc, run_dir, _ = _run(monkeypatch, "off", [])
     assert rc == 0
     assert cli.main(["review", str(run_dir), "--tenant", TENANT.name]) == 0
     text = (run_dir / "landing-review.html").read_text()
-    assert 'url("review-fonts/pk-peak-grotesk-wide.woff2")' in text
-    resp = web.get(f"/run/{run_dir.name}/review/review-fonts/pk-peak-grotesk-wide.woff2", headers=_auth())
-    assert resp.status_code == 200 and resp.mimetype == "font/woff2"
-    assert web.get(f"/run/{run_dir.name}/review/review-fonts/state.json", headers=_auth()).status_code == 404
-    assert cli.main(["review", str(run_dir), "--tenant", TENANT.name, "--inline-fonts"]) == 0
-    assert "data:font/woff2;base64," in (run_dir / "landing-review.html").read_text()
+    assert "pk-peak-grotesk-wide.woff2" not in text and "data:font/woff2;base64," in text
 
 
 def test_storefront_export_keeps_the_cdn_font_urls(monkeypatch):

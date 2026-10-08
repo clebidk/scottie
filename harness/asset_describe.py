@@ -78,6 +78,16 @@ Output ONLY a single JSON object with exactly these keys, no markdown fences, no
 Output valid JSON only. No prose before or after, no markdown fences."""
 
 
+# Cycle 93: the photo library's look fields (harness/images.py), asked in the
+# same per-photo call when `look_fields` is set (`harness photos tag
+# --only-missing`).
+LOOK_FIELDS_LINES = """
+Also include these keys:
+- shot: one of {shots} ("hero-wide" = a wide establishing view that works as a full-width banner; "room" = the product placed in a real room or yard, no person; "detail-macro" = a close-up of one part or material; "exterior" = the whole product seen from outside on a plain or studio background; "lifestyle-person" = a person using or beside the product; "cutout" = the product alone on a plain or transparent background)
+- quality: an integer 1-5, how well the photo would work large on a premium web page (5 = sharp, well lit, well composed; 1 = blurry, dark, cluttered or awkward)
+- focal: [x, y], each 0 to 1, the point the eye goes to first ([0, 0] = top left)"""
+
+
 class VisionResponseInvalid(Exception):
     """The model's response wasn't the strict JSON shape this stage needs --
     caught by describe_assets, which skips the asset and keeps going rather
@@ -132,7 +142,7 @@ def strip_forbidden_terms(text, forbidden_terms):
     return re.sub(r"\s{2,}", " ", cleaned).strip(" ,.")
 
 
-def build_vision_system_prompt(product, forbidden_terms):
+def build_vision_system_prompt(product, forbidden_terms, *, look_fields=False):
     """Tenant-neutral: built only from the product's own name/title (every
     tenant's claims/products.json carries both -- there is no separate
     "category" field in this schema) and the tenant's own vocab.yaml
@@ -140,12 +150,18 @@ def build_vision_system_prompt(product, forbidden_terms):
     forbidden_line = ""
     if forbidden_terms:
         forbidden_line = f" Additionally, never use any of these words: {', '.join(forbidden_terms)}."
-    return VISION_SYSTEM_TEMPLATE.format(
+    system = VISION_SYSTEM_TEMPLATE.format(
         name=product.get("name") or "the product",
         title=product.get("title") or product.get("name") or "the product",
         forbidden_line=forbidden_line,
         tag_list=", ".join(ALLOWED_TAGS),
     )
+    if look_fields:
+        from .images import SHOTS
+
+        system = system.replace("\n\nOutput valid JSON only.",
+                                LOOK_FIELDS_LINES.format(shots=", ".join(SHOTS)) + "\n\nOutput valid JSON only.")
+    return system
 
 
 def candidates_for(tenant, product, *, force=False):
@@ -167,7 +183,28 @@ def candidates_for(tenant, product, *, force=False):
     return result
 
 
-def _parse_vision_response(text):
+def _parse_look_fields(data):
+    """Cycle 93: shot / quality / focal from a look_fields response."""
+    from .images import SHOTS
+
+    shot = data.get("shot")
+    if shot not in SHOTS:
+        raise VisionResponseInvalid(f"shot {shot!r} not in {SHOTS}")
+    quality = data.get("quality")
+    if isinstance(quality, float) and quality.is_integer():
+        quality = int(quality)
+    if not isinstance(quality, int) or isinstance(quality, bool) or not 1 <= quality <= 5:
+        raise VisionResponseInvalid(f"quality {quality!r} is not 1-5")
+    focal = data.get("focal")
+    try:
+        x, y = (round(min(1.0, max(0.0, float(v))), 2) for v in focal)
+        focal = {"x": x, "y": y}
+    except (TypeError, ValueError):
+        focal = None   # optional: the measured focal stays
+    return {"shot": shot, "quality": quality, "focal": focal}
+
+
+def _parse_vision_response(text, *, look_fields=False):
     data = extract_json(text)
     if not isinstance(data, dict):
         raise VisionResponseInvalid(f"response is not a JSON object: {text!r}")
@@ -181,7 +218,10 @@ def _parse_vision_response(text):
     if not isinstance(tags, list):
         raise VisionResponseInvalid(f"'tags' is not a list: {data!r}")
     tags = [t for t in tags if isinstance(t, str) and t in ALLOWED_TAGS]
-    return {"name": name.strip(), "alt": alt.strip(), "tags": tags}
+    parsed = {"name": name.strip(), "alt": alt.strip(), "tags": tags}
+    if look_fields:
+        parsed.update(_parse_look_fields(data))
+    return parsed
 
 
 def _image_bytes_for_vision(asset, cache_dir, *, log=None):
@@ -202,18 +242,24 @@ def _image_bytes_for_vision(asset, cache_dir, *, log=None):
         return buf.getvalue()
 
 
-def describe_one(asset, *, product, forbidden_terms, client, model, budget, log, cache_dir):
+def describe_one(asset, *, product, forbidden_terms, client, model, budget, log, cache_dir, image_bytes=None,
+                 look_fields=False):
     """Vision-describe one asset. Returns a parsed {"name", "alt", "tags"}
     dict (forbidden terms already stripped from name/alt), or None if the
     image couldn't be downloaded/decoded or the model's response wasn't
     usable JSON -- either way logged, never raised, so one bad asset never
-    stops the batch (describe_assets keeps going)."""
-    image_bytes = _image_bytes_for_vision(asset, cache_dir, log=log)
+    stops the batch (describe_assets keeps going).
+
+    Cycle 93: `image_bytes` skips the download (a photo-library derivative
+    already on disk); `look_fields` also asks for shot / quality / focal
+    (harness/images.py, `harness photos tag --only-missing`)."""
+    if image_bytes is None:
+        image_bytes = _image_bytes_for_vision(asset, cache_dir, log=log)
     if image_bytes is None:
         log.event("images_describe", f"asset {asset['id']}: could not download/decode image, skipping")
         return None
 
-    system = build_vision_system_prompt(product, forbidden_terms)
+    system = build_vision_system_prompt(product, forbidden_terms, look_fields=look_fields)
     budget.check()
     response = client.messages.create(
         model=model,
@@ -241,7 +287,7 @@ def describe_one(asset, *, product, forbidden_terms, client, model, budget, log,
 
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     try:
-        parsed = _parse_vision_response(text)
+        parsed = _parse_vision_response(text, look_fields=look_fields)
     except Exception as e:
         log.event("images_describe", f"asset {asset['id']}: invalid vision response, skipping: {e}")
         return None

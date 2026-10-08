@@ -1,36 +1,37 @@
-"""Cycle 92: local copies of the tenant's brand fonts, for previews and screenshots.
+"""Cycle 92 (merged with cycle 95): the tenant's brand fonts from local files,
+for previews and screenshots -- the one font module.
 
 The review html, the Library thumbnails and the design gate's screenshots
 must show the real brand faces on any host. A headless browser on a server
-has none of them installed, and the page's own @font-face rules point at the
-storefront CDN (display faces, brand/base.css) and at Google Fonts (body
-faces, tenant.yaml brand.font_stylesheet). So the tenant keeps local copies:
+has none installed, and the page's own @font-face rules point at the
+storefront CDN or at brand/fonts/<file> (a path that only resolves after
+publish); the body face comes from Google Fonts (tenant.yaml
+brand.font_stylesheet, a <link>). The tenant keeps local copies:
 
-    tenants/<t>/brand/fonts-display/   the display faces (files named like the
-                                       basename of the base.css @font-face src)
-    tenants/<t>/brand/fonts-body/      the body faces, written by
-                                       `harness fonts fetch` with manifest.json
-                                       and LICENCE.md
+    tenants/<t>/brand/fonts/           cycle 95: the licensed brand files, also
+                                       uploaded at publish
+    tenants/<t>/brand/fonts-display/   display faces the page loads from the theme
+                                       CDN, named like the url's file name
+    tenants/<t>/brand/fonts-body/      the Google Fonts body faces, written by
+                                       `harness fonts fetch` with manifest.json + LICENCE.md
 
-`brand_font_css` writes @font-face rules for those files (file:// urls for a
-screenshot, a relative folder for `harness review`, or base64 data: urls for a
-self-contained file). `inject` puts them in a <style> at the top of <head>,
-BEFORE the page's own CSS: the page's own rules (CDN / Google urls) come later,
-so where the network works the page loads as on the store; where it does not,
-Chrome falls back to the earlier, local face of the same family (measured
-2026-10-07 on Chrome 154: both orders render the local face when the CDN
-fails). The storefront export never calls this module -- it keeps the CDN urls.
+`localize_font_faces` rewrites every @font-face src in a document to its
+local file (cycle 95's rule: the first url whose file name is in one of the
+folders above): data: urls for the self-contained review html, file:// urls
+for a screenshot. `body_font_css` + `inject` add @font-face rules for the
+fonts-body faces at the top of <head>, before the page's own CSS, so the
+Google <link> still wins where the network works and the local face is there
+where it does not. The storefront export never calls this module.
 """
 import base64
 import datetime
 import json
 import re
-import shutil
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
-DISPLAY_DIR = "fonts-display"
+LOCAL_DIRS = ("fonts", "fonts-display", "fonts-body")
 BODY_DIR = "fonts-body"
 MANIFEST = "manifest.json"
 LICENCE = "LICENCE.md"
@@ -45,8 +46,10 @@ GOOGLE_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 FETCH_TIMEOUT_S = 30
 
 _FONT_FACE_RE = re.compile(r"@font-face\s*\{([^}]*)\}", re.DOTALL)
+_FONT_FACE_BLOCK_RE = re.compile(r"@font-face\s*\{[^}]*\}", re.DOTALL)
+_FONT_SRC_RE = re.compile(r"src\s*:[^;}]*", re.IGNORECASE)
 _DESC_RE = re.compile(r"([a-z-]+)\s*:\s*([^;]+);?", re.IGNORECASE)
-_URL_RE = re.compile(r"url\(\s*['\"]?([^'\")]+)['\"]?\s*\)")
+_URL_RE = re.compile(r"""url\(\s*['"]?([^'")]+)['"]?\s*\)""", re.IGNORECASE)
 _SUBSET_COMMENT_RE = re.compile(r"/\*\s*([a-z0-9-]+)\s*\*/\s*@font-face\s*\{([^}]*)\}", re.DOTALL | re.IGNORECASE)
 _HEAD_RE = re.compile(r"<head\b[^>]*>", re.IGNORECASE)
 
@@ -66,31 +69,54 @@ def _unquote(value):
     return (value or "").strip().strip("'\"").strip()
 
 
-def _display_faces(brand_dir):
-    """base.css @font-face rules whose src file has a local copy in
-    fonts-display/ (matched by file name)."""
-    css_path = brand_dir / "base.css"
-    folder = brand_dir / DISPLAY_DIR
-    if not css_path.is_file() or not folder.is_dir():
+def _url(path, mode):
+    if mode == "file":
+        return path.resolve().as_uri()
+    if mode == "inline":
+        return f"data:{MIME.get(path.suffix.lower(), 'application/octet-stream')};base64," + \
+            base64.b64encode(path.read_bytes()).decode("ascii")
+    raise ValueError(f"unknown font url mode {mode!r}")
+
+
+def local_font_file(brand_dir, url):
+    """The tenant's local copy of a font url (by file name), or None."""
+    name = Path(urllib.parse.urlparse(url).path).name
+    if not name:
+        return None
+    for folder in LOCAL_DIRS:
+        path = Path(brand_dir) / folder / name
+        if path.is_file():
+            return path
+    return None
+
+
+def localize_font_faces(css, brand_dir, mode="inline"):
+    """Every @font-face src in `css` (a stylesheet or a whole document) whose
+    url names a local file, rewritten to that file: a data: url ("inline") or
+    a file:// url ("file"). A face with no local file keeps its url."""
+    brand_dir = Path(brand_dir)
+
+    def localize(match):
+        block = match.group(0)
+        src = _FONT_SRC_RE.search(block)
+        if not src:
+            return block
+        path = next((p for p in (local_font_file(brand_dir, u) for u in _URL_RE.findall(src.group(0))) if p), None)
+        if path is None:
+            return block
+        fmt = FORMATS.get(path.suffix.lower())
+        new_src = f'src:url("{_url(path, mode)}")' + (f' format("{fmt}")' if mode == "file" and fmt else "")
+        return block[:src.start()] + new_src + block[src.end():]
+
+    return _FONT_FACE_BLOCK_RE.sub(localize, css)
+
+
+def body_faces(tenant):
+    """brand/fonts-body/manifest.json faces whose file exists."""
+    brand_dir = getattr(tenant, "brand_dir", None)
+    if not brand_dir:
         return []
-    faces = []
-    for block in _FONT_FACE_RE.findall(css_path.read_text()):
-        desc = _descriptors(block)
-        family = _unquote(desc.get("font-family"))
-        urls = _URL_RE.findall(desc.get("src", ""))
-        for url in urls:
-            name = Path(urllib.parse.urlparse(url).path).name
-            local = folder / name
-            if family and local.is_file() and local.suffix.lower() in FONT_SUFFIXES:
-                faces.append({"family": family, "weight": desc.get("font-weight", "400"),
-                              "style": desc.get("font-style", "normal"), "path": local, "kind": "display"})
-                break
-    return faces
-
-
-def _body_faces(brand_dir):
-    """fonts-body/manifest.json faces whose file exists."""
-    folder = brand_dir / BODY_DIR
+    folder = Path(brand_dir) / BODY_DIR
     try:
         data = json.loads((folder / MANIFEST).read_text())
     except (OSError, ValueError):
@@ -102,45 +128,20 @@ def _body_faces(brand_dir):
             continue
         faces.append({"family": face["family"], "weight": str(face.get("weight") or "400"),
                       "style": face.get("style") or "normal", "unicode_range": face.get("unicode_range"),
-                      "path": path, "kind": "body"})
+                      "path": path})
     return faces
 
 
-def local_faces(tenant):
-    """Every brand face with a local file: display faces first, then body."""
-    brand_dir = getattr(tenant, "brand_dir", None)
-    if not brand_dir:
-        return []
-    brand_dir = Path(brand_dir)
-    return _display_faces(brand_dir) + _body_faces(brand_dir)
-
-
-def _rule(face, url):
-    ext = face["path"].suffix.lower()
-    parts = [f'font-family:"{face["family"]}"', f"font-style:{face['style']}", f"font-weight:{face['weight']}",
-             "font-display:swap", f'src:url("{url}") format("{FORMATS.get(ext, "woff2")}")']
-    if face.get("unicode_range"):
-        parts.append(f"unicode-range:{face['unicode_range']}")
-    return "@font-face{" + ";".join(parts) + "}"
-
-
-def brand_font_css(faces, mode="file", *, relative_dir=None):
-    """@font-face rules for `faces`. mode "file": file:// urls (a screenshot
-    in a local browser); "relative": url("<relative_dir>/<file name>") (the
-    caller copies the files there); "inline": data: urls."""
+def body_font_css(tenant, mode="inline"):
+    """@font-face rules for the fonts-body faces ("" when there are none)."""
     rules = []
-    for face in faces:
-        path = face["path"]
-        if mode == "file":
-            url = path.resolve().as_uri()
-        elif mode == "relative":
-            url = f"{relative_dir}/{path.name}"
-        elif mode == "inline":
-            url = f"data:{MIME.get(path.suffix.lower(), 'font/woff2')};base64," + \
-                  base64.b64encode(path.read_bytes()).decode("ascii")
-        else:
-            raise ValueError(f"unknown font css mode {mode!r}")
-        rules.append(_rule(face, url))
+    for face in body_faces(tenant):
+        parts = [f'font-family:"{face["family"]}"', f"font-style:{face['style']}", f"font-weight:{face['weight']}",
+                 "font-display:swap",
+                 f'src:url("{_url(face["path"], mode)}") format("{FORMATS.get(face["path"].suffix.lower(), "woff2")}")']
+        if face.get("unicode_range"):
+            parts.append(f"unicode-range:{face['unicode_range']}")
+        rules.append("@font-face{" + ";".join(parts) + "}")
     return "\n".join(rules)
 
 
@@ -157,24 +158,13 @@ def inject(html_text, css):
     return block + html_text
 
 
-def copy_faces(faces, dest_dir):
-    """Copy each face's file into dest_dir (once). Returns dest_dir."""
-    dest_dir = Path(dest_dir)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    for face in faces:
-        target = dest_dir / face["path"].name
-        if not target.exists() or target.stat().st_size != face["path"].stat().st_size:
-            shutil.copy2(face["path"], target)
-    return dest_dir
-
-
-def families(faces):
-    """The distinct family names, in order."""
-    seen = []
-    for face in faces:
-        if face["family"] not in seen:
-            seen.append(face["family"])
-    return seen
+def for_capture(html_text, tenant):
+    """A document ready for a local screenshot: @font-face srcs on local
+    files (file:// urls) and the body faces injected."""
+    brand_dir = getattr(tenant, "brand_dir", None) if tenant is not None else None
+    if not brand_dir:
+        return html_text
+    return inject(localize_font_faces(html_text, brand_dir, "file"), body_font_css(tenant, "file"))
 
 
 # ---------------------------------------------------------------------------

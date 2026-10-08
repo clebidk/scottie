@@ -1,0 +1,302 @@
+<!--
+  01 Ridge -> PEAK
+  Reference: Ridge, listicle, https://ridge.com/pages/wallets-listicle-a1-original
+  Kept from its structure: dark full-bleed hero photo with a big ALL-CAPS display headline; six numbered
+    image-and-text blocks (big numeral, photo, 2-3 sentences); a CTA after every two reasons; a "the sauna,
+    redefined" product strip; a closing dark band; a sticky price + CTA bar on phones.
+  Changed for PEAK: condensed caps -> Peak Grotesk Wide caps; Ridge colours -> PEAK tokens (white page, basalt
+    bands, brand red numerals); product is the Fuji ($8,250); every number comes from FACTS.md (ids listed in
+    the footer). The flat basalt scrim on the hero photo is a solid rgba fill for text contrast, not a gradient.
+  Dropped and why: press logos, customer quotes and "as seen in" (none verified for PEAK); the sale banner,
+    countdown and compare-at strike price (no discounts on these pages); email capture (no forms).
+  Notes: CTA links to /collections/saunas because FACTS.md has no Fuji product URL. The brief's financing
+    sentence names Bread Pay, but FACTS (gbrain-financing-terms) says the only providers are Affirm and Shop Pay
+    Installments, so this page uses the verified no-lender sentence "Financing is available through Bread Pay at checkout."
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6 reasons to switch to PEAK | The Fuji infrared sauna</title>
+<meta name="description" content="Six reasons people choose the PEAK Fuji: full spectrum infrared, red light therapy standard, Canadian red cedar, free shipping and a 7-year residential warranty.">
+<link rel="stylesheet" href="assets/brand/base.css">
+<style>
+@font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;
+  src:url("assets/brand/fonts-display/pk-peak-grotesk-wide.woff2") format("woff2");}
+
+.r-wrap{overflow-x:clip}
+.r-in{width:100%;max-width:1180px;margin:0 auto;padding:0 16px}
+@media (min-width:768px){.r-in{padding:0 32px}}
+
+/* buttons */
+.r-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:16px 36px;
+  border-radius:var(--ps-radius-btn);background:var(--ps-ink-dark);color:var(--ps-on-dark);
+  border:1.5px solid var(--ps-ink-dark);font-family:var(--ps-heading);font-weight:600;font-size:16px;
+  line-height:1.2;text-decoration:none}
+.r-btn:hover{background:var(--ps-red);border-color:var(--ps-red);color:#fff}
+.r-btn--light{background:#fff;color:var(--ps-ink-dark);border-color:#fff}
+.r-btn--light:hover{background:var(--ps-red);border-color:var(--ps-red);color:#fff}
+.r-text{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-weight:500;color:inherit}
+.r-text:hover{color:var(--ps-red)}
+.r-dark .r-text:hover{color:#fff;text-decoration-color:var(--ps-red)}
+.r-cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px}
+
+/* hero */
+.r-hero{position:relative;min-height:92svh;display:flex;flex-direction:column;color:#fff;background:var(--ps-ink-dark)}
+.r-hero__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% 30%}
+.r-hero::after{content:"";position:absolute;inset:0;background:rgba(22,24,23,.58)}
+.r-hero > *:not(.r-hero__img){position:relative;z-index:1}
+.r-top{padding-top:14px;padding-bottom:14px}
+.r-top img{display:block;height:52px;width:auto}
+.r-hero__body{margin-top:auto;padding-bottom:44px}
+.r-eyebrow{font-size:var(--ps-eyebrow-size);letter-spacing:var(--ps-eyebrow-spacing);text-transform:uppercase;
+  font-weight:500;margin:0 0 14px}
+.r-hero h1,.r-display{font-family:var(--ps-display-wide);font-weight:400;text-transform:uppercase;letter-spacing:0;
+  line-height:1.02}
+.r-hero h1{color:#fff;font-size:clamp(31px,8.4vw,78px);margin:0 0 18px;max-width:15ch}
+.r-hero h1 em{font-style:normal;color:#fff;text-decoration:underline;text-decoration-color:var(--ps-red);
+  text-decoration-thickness:.09em;text-underline-offset:.1em}
+.r-hero p{color:#fff;font-size:17px;max-width:34em}
+.r-rating{display:flex;align-items:center;gap:8px;font-size:15px;margin:0 0 22px}
+.r-hero .pk-stars{color:rgba(255,255,255,.35)}
+.r-hero .pk-stars-on{color:#fff}
+
+/* intro */
+.r-intro{padding-top:44px;padding-bottom:8px;border-bottom:1px solid var(--ps-hairline)}
+.r-intro p{font-size:18px;max-width:40em}
+.r-by{font-size:14px;color:var(--ps-muted)}
+
+/* reasons */
+.r-reason{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;padding:44px 0;border-bottom:1px solid var(--ps-hairline)}
+.r-reason .r-num{font-family:var(--ps-display-wide);color:var(--ps-red);font-size:clamp(56px,14vw,120px);line-height:.9;margin:0}
+.r-reason h2{font-size:clamp(24px,6vw,34px);line-height:1.18;margin:6px 0 12px}
+.r-reason p{font-size:17px;margin:0 0 12px}
+.r-reason img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:var(--ps-radius-box)}
+.r-src{font-size:13px;color:var(--ps-muted)}
+@media (min-width:900px){
+  .r-reason{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center;padding:72px 0}
+  .r-reason:nth-of-type(even) .r-reason__media{order:2}
+}
+
+/* CTA after every two reasons */
+.r-break{padding:36px 0;text-align:left;border-bottom:1px solid var(--ps-hairline)}
+.r-break p{margin:0 0 14px;font-size:17px}
+.r-break strong{font-weight:500}
+@media (min-width:900px){.r-break{display:flex;align-items:center;justify-content:space-between;gap:32px}.r-break p{margin:0}}
+
+/* sauna redefined strip */
+.r-strip{padding-top:56px;padding-bottom:56px;display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:center}
+.r-strip h2{font-family:var(--ps-display-wide);font-weight:400;text-transform:uppercase;letter-spacing:0;
+  font-size:clamp(26px,6.6vw,52px);line-height:1.04;margin:0 0 10px}
+.r-strip__img{display:block;width:min(100%,320px);height:auto;margin:0 auto}
+.r-specs{list-style:none;margin:20px 0 24px;padding:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  border-top:1px solid var(--ps-hairline)}
+.r-specs li{padding:14px 10px 14px 0;border-bottom:1px solid var(--ps-hairline)}
+.r-specs b{display:block;font-family:var(--ps-display-wide);font-weight:400;font-size:clamp(20px,5vw,28px);line-height:1.1;color:var(--ps-text-strong)}
+.r-specs span{font-size:14px;color:var(--ps-muted)}
+.r-price{font-family:var(--ps-heading);font-weight:600;font-size:24px;margin:0 0 6px}
+.r-note{font-size:14px;color:var(--ps-muted);margin:12px 0 0}
+@media (min-width:900px){.r-strip{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:64px;padding-top:88px;padding-bottom:88px}.r-specs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* closing dark band */
+.r-dark{background:var(--ps-band);color:#fff;padding:64px 0}
+.r-dark h2{color:#fff;font-family:var(--ps-display-wide);font-weight:400;text-transform:uppercase;letter-spacing:0;
+  font-size:clamp(28px,7.4vw,64px);line-height:1.04;margin:0 0 16px;max-width:16ch}
+.r-dark p{color:#fff}
+.r-dark .r-mutedline{color:rgba(255,255,255,.72);font-size:14px}
+.r-proof{list-style:none;margin:28px 0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-top:1px solid rgba(255,255,255,.18)}
+.r-proof li{padding:14px 0 14px 14px;border-bottom:1px solid rgba(255,255,255,.18);border-left:3px solid var(--ps-red);margin-top:10px}
+@media (min-width:768px){.r-proof{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;border-top:0}.r-proof li{border-bottom:0}}
+
+/* footer */
+.r-foot{padding-top:36px;padding-bottom:40px;font-size:14px;color:var(--ps-muted)}
+.r-foot img{height:34px;width:auto;display:block;margin-bottom:16px}
+.r-foot p{color:var(--ps-muted);font-size:14px}
+.r-foot .r-sources{font-size:12px;line-height:1.6;word-break:break-word}
+
+/* sticky phone bar */
+.r-sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--ps-hairline);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.r-sticky__t{font-size:14px;line-height:1.25;color:var(--ps-muted)}
+.r-sticky__t b{display:block;color:var(--ps-text-strong);font-family:var(--ps-heading);font-weight:600;font-size:16px}
+.r-sticky .r-btn{min-height:48px;padding:12px 22px;font-size:15px}
+body{padding-bottom:76px}
+@media (min-width:768px){.r-sticky{display:none}body{padding-bottom:0}}
+</style>
+</head>
+<body>
+<div class="r-wrap">
+
+<header class="r-hero">
+  <img class="r-hero__img" src="assets/img/01-hero.jpg" width="1600" height="1067"
+       alt="A man with a towel around his neck sits inside an infrared sauna, lit by the glow of the heater panels behind him">
+  <div class="r-in r-top"><img src="assets/img/01-logo-white.svg" width="127" height="52" alt="PEAK"></div>
+  <div class="r-in r-hero__body">
+    <p class="r-eyebrow">The Fuji &middot; 2-person infrared sauna</p>
+    <h1>6 reasons home-sauna buyers are switching to <em>PEAK</em></h1>
+    <div class="r-rating">
+      <span class="pk-stars" aria-hidden="true"><span class="pk-stars-on" style="width:96%">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>
+      <span>4.8 out of 5 &middot; 49 reviews</span>
+    </div>
+    <div class="r-cta-row">
+      <a class="r-btn r-btn--light" href="https://peaksaunas.com/collections/saunas">Shop the Fuji</a>
+      <a class="r-text" href="sms:+14706653747?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="r-in r-intro">
+    <p>The Fuji is a 2-person indoor infrared sauna, built entirely from Canadian red cedar. It is $8,250, and the full price and specs are on our website. You do not have to fill in a form or talk to a salesperson to see them.</p>
+    <p class="r-by">From the PEAK team &middot; Austin Laudenslager, founder</p>
+  </section>
+
+  <div class="r-in">
+    <article class="r-reason">
+      <div class="r-reason__media"><img src="assets/img/01-heat.jpg" width="1200" height="800" loading="lazy"
+        alt="Inside corner of an infrared sauna: a wood bench with infrared heater panels on the walls and under the bench"></div>
+      <div>
+        <p class="r-num" aria-hidden="true">01</p>
+        <h2>Heat from every side, not only your back</h2>
+        <p>The Fuji has eight infrared heater panels in a 360° layout, plus a floor heater. Together they cover the full spectrum: near, mid and far infrared, 700&ndash;25,000nm.</p>
+        <p>It reaches up to 150°F.</p>
+      </div>
+    </article>
+
+    <article class="r-reason">
+      <div class="r-reason__media"><img src="assets/img/01-redlight.jpg" width="1200" height="675" loading="lazy"
+        alt="A hand adjusts the control on a red light therapy panel glowing inside a sauna"></div>
+      <div>
+        <p class="r-num" aria-hidden="true">02</p>
+        <h2>Red light therapy comes standard</h2>
+        <p>Every Fuji includes a medical-grade red light therapy panel. It is not an add-on and it does not cost extra.</p>
+        <p>Sit 7&ndash;8 inches from the panel, and you get red light and infrared heat in the same session.</p>
+      </div>
+    </article>
+  </div>
+
+  <div class="r-in">
+    <div class="r-break">
+      <p><strong>The Fuji: $8,250, with free shipping.</strong> Financing is available through Bread Pay at checkout.</p>
+      <div class="r-cta-row">
+        <a class="r-btn" href="https://peaksaunas.com/collections/saunas">Shop the Fuji</a>
+        <a class="r-text" href="sms:+14706653747?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="r-in">
+    <article class="r-reason">
+      <div class="r-reason__media"><img src="assets/img/01-cedar.jpg" width="800" height="1200" loading="lazy"
+        alt="A solid cedar door handle on a glass sauna door, with red light glowing inside the cabin"></div>
+      <div>
+        <p class="r-num" aria-hidden="true">03</p>
+        <h2>Canadian red cedar, inside and out</h2>
+        <p>The Fuji is made entirely from Canadian red cedar. That is the interior and the exterior, not a veneer on the outside only.</p>
+        <p>You see and touch real wood on every surface.</p>
+      </div>
+    </article>
+
+    <article class="r-reason">
+      <div class="r-reason__media"><img src="assets/img/01-home.jpg" width="805" height="1200" loading="lazy"
+        alt="An indoor wood sauna with a glass door and a red light panel, set in the entry of a bright modern home"></div>
+      <div>
+        <p class="r-num" aria-hidden="true">04</p>
+        <h2>Fits a room, plugs into a wall</h2>
+        <p>Assembled, the Fuji is 53"&nbsp;W &times; 44"&nbsp;D &times; 75"&nbsp;H. It runs on a dedicated 120V/20A outlet at about 2,050W. A standard 15A outlet is not sufficient, so check your circuit first.</p>
+        <p>Two Bluetooth speakers are built in.</p>
+      </div>
+    </article>
+  </div>
+
+  <div class="r-in">
+    <div class="r-break">
+      <p><strong>Questions about the 20A outlet or the space?</strong> Text us before you order.</p>
+      <div class="r-cta-row">
+        <a class="r-btn" href="https://peaksaunas.com/collections/saunas">Shop the Fuji</a>
+        <a class="r-text" href="sms:+14706653747?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="r-in">
+    <article class="r-reason">
+      <div class="r-reason__media"><img src="assets/img/01-delivery.jpg" width="1200" height="798" loading="lazy"
+        alt="Two men carry a wood sauna wall panel across a yard for assembly"></div>
+      <div>
+        <p class="r-num" aria-hidden="true">05</p>
+        <h2>Free shipping, in a wooden crate, on a schedule</h2>
+        <p>Shipping is free, always, in the continental US. The Fuji leaves our Ontario, California warehouse in a PeakGuard custom wooden crate.</p>
+        <p>In-stock orders ship within 2&ndash;4 business days. The carrier calls 1&ndash;2 days before delivery to set a 4-hour window.</p>
+      </div>
+    </article>
+
+    <article class="r-reason">
+      <div class="r-reason__media"><img src="assets/img/01-owner.jpg" width="800" height="1200" loading="lazy"
+        alt="A man sits on the bench inside a wood-paneled infrared sauna"></div>
+      <div>
+        <p class="r-num" aria-hidden="true">06</p>
+        <h2>Seven years of cover, and a club to go with it</h2>
+        <p>Every Fuji has a 7-year residential warranty; full terms by component are published on the warranty page. Heating elements and cabinetry are covered for 7 years from delivery.</p>
+        <p>Peak Wellness Club is included free. It gives you expert protocols with the temperature, duration, timing and breathwork for each one, plus a leaderboard for your streak.</p>
+      </div>
+    </article>
+  </div>
+
+  <section class="r-in r-strip" aria-labelledby="r-strip-h">
+    <img class="r-strip__img" src="assets/img/01-fuji.webp" width="589" height="900" loading="lazy"
+         alt="The PEAK Fuji, a 2-person red cedar infrared sauna with a glass door">
+    <div>
+      <h2 id="r-strip-h">The sauna, redefined</h2>
+      <p>The Fuji, in six numbers.</p>
+      <ul class="r-specs">
+        <li><b>2</b><span>person, indoor</span></li>
+        <li><b>150°F</b><span>max temperature</span></li>
+        <li><b>700&ndash;25,000nm</b><span>near, mid, far infrared</span></li>
+        <li><b>8</b><span>infrared heater panels</span></li>
+        <li><b>1</b><span>red light therapy panel</span></li>
+        <li><b>120V</b><span>20A dedicated outlet</span></li>
+      </ul>
+      <p class="r-price">$8,250</p>
+      <div class="r-cta-row">
+        <a class="r-btn" href="https://peaksaunas.com/collections/saunas">Shop the Fuji</a>
+        <a class="r-text" href="sms:+14706653747?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+      </div>
+      <p class="r-note">Free shipping. 7-year residential warranty. Financing is available through Bread Pay at checkout.</p>
+    </div>
+  </section>
+
+  <section class="r-dark" aria-labelledby="r-close-h">
+    <div class="r-in">
+      <h2 id="r-close-h">The Fuji, in your home</h2>
+      <p>The Fuji is $8,250 with free shipping. In-stock orders ship within 2&ndash;4 business days.</p>
+      <ul class="r-proof">
+        <li>4.8 out of 5 from 49 reviews</li>
+        <li>7-year residential warranty</li>
+        <li>US-owned company &middot; Austin Laudenslager, founder</li>
+      </ul>
+      <div class="r-cta-row">
+        <a class="r-btn r-btn--light" href="https://peaksaunas.com/collections/saunas">Shop the Fuji</a>
+        <a class="r-text" href="sms:+14706653747?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+      </div>
+      <p class="r-mutedline" style="margin-top:18px">Financing is available through Bread Pay at checkout. HSA/FSA purchase may be available through Redo.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="r-in r-foot">
+  <img src="assets/brand/logo.svg" width="83" height="34" alt="PEAK">
+  <p>PEAK sells the saunas described on this page.</p>
+  <p>7-year residential warranty; full terms by component are published on the warranty page.</p>
+  <p class="r-sources">Sources (FACTS.md ids): price-fuji, spec-fuji-capacity, spec-fuji-cabin-material, spec-fuji-max-temperature, spec-fuji-infrared-wavelength-range, spec-fuji-electrical-requirement, spec-fuji-audio, gbrain-fuji-wavelengths, gbrain-fuji-rlt, gbrain-fuji-wood, gbrain-fuji-dimensions, gbrain-fuji-persons, gbrain-fuji-power, gbrain-allowlist-red-light, gbrain-allowlist-360-full-spectrum, gbrain-allowlist-free-shipping, gbrain-allowlist-us-owned, gbrain-allowlist-lifetime-warranty, warranty-terms, gbrain-shipping-free-crate-origin, gbrain-shipping-timing, shipping-policy, pwc-included-free, pwc-expert-protocols, pwc-leaderboard-lounge, hsa-fsa-truemed, founder-ceo, peak-saunas-shows-full-pricing-and-produ, vocab allowed_financing_sentence_no_lender, vocab allowed_warranty_sentence. Rating line per BRIEF.md.</p>
+</footer>
+
+<div class="r-sticky" role="region" aria-label="Buy the Fuji">
+  <div class="r-sticky__t"><b>Fuji &middot; $8,250</b>Free shipping</div>
+  <a class="r-btn" href="https://peaksaunas.com/collections/saunas">Shop the Fuji</a>
+</div>
+
+</div>
+</body>
+</html>
