@@ -418,9 +418,9 @@ def font_token(raw):
         return "display-wide"
     if "acid" in low or "display" in low:
         return "display-acid"
-    if "heading" in low or "poppins" in low:
+    if "heading" in low or "poppins" in low or "montserrat" in low:
         return "heading"
-    if "serif" in low and "sans" not in low:
+    if ("serif" in low and "sans" not in low) or "epika" in low:
         return "serif"
     if re.search(r"sans|inter|helvetica|arial|system-ui|-apple-system|dm ", low):
         return "sans"

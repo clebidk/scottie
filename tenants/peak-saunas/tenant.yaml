@@ -410,9 +410,10 @@ brand:
     muted: "#616161"         # secondary text
   fonts:
     display_wide: Peak Grotesk Wide   # cycle 79, upper case, "display" first screen (theme CDN, base.css)
-    display_acid: Acid Grotesk        # cycle 79, approved alternative; TRIAL file -- confirm licence
+    display_acid: Acid Grotesk        # cycle 79, approved alternative; cycle 95: licensed file, brand/fonts/
     body: DM Sans            # 400/500, 16px, line-height 1.55
-    headings: Poppins        # 600, sentence case, letter-spacing -.01em
+    headings: Montserrat     # cycle 95; 600, sentence case, letter-spacing -.01em; Poppins next
+    serif: Epika             # cycle 95; pull quotes, review quotes, founder line (brand/fonts/LICENSES.md)
   logo:
     on_light: brand/logo.svg          # PEAK wordmark, Basalt; the renderer's default
     rule: "Never the legacy green/cyan mountain 'Peak Saunas' mark."

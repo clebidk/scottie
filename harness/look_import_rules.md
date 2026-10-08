@@ -89,12 +89,17 @@ reference look below still has a colour literal, it is legacy: write a token
 - Ink `--pk-ink`, body `--pk-body`, muted `--pk-muted`, ground `--pk-bg`,
   the one accent `--pk-red`, hairline `--pk-line`, the dark band
   `--pk-dark` with `--pk-on-dark` on it.
-- Fonts: `var(--pk-sans)` (body), `var(--pk-heading)` (headings),
-  `var(--pk-display-wide)` (the display headline; the only face that may be
-  upper case), `var(--ps-display-acid)` (a second display face, for big
-  numerals). Map the observation's font guess: display-wide ->
-  `--pk-display-wide`, display-acid -> `--ps-display-acid`, heading ->
-  `--pk-heading`, sans -> `--pk-sans`. No other family, no quoted family name, no `@font-face`, no
+- Fonts (cycle 95: the tenant's four web families plus the body face):
+  `var(--pk-sans)` (DM Sans, body), `var(--pk-heading)` (Montserrat,
+  headings), `var(--pk-display-wide)` (the brand's own wide grotesk, the
+  display headline; the only face that may be upper case), `var(--ps-display-acid)`
+  (Acid Grotesk, a second display face, for big numerals),
+  `var(--ps-serif)` (Epika, the serif voice: a pull quote, a review quote,
+  the founder line, one statement line -- small, deliberate uses; never body
+  copy or the first-screen headline). Map the observation's font guess:
+  display-wide -> `--pk-display-wide`, display-acid -> `--ps-display-acid`,
+  heading -> `--pk-heading`, sans -> `--pk-sans`, serif -> `--ps-serif`. No
+  other family, no quoted family name, no `@font-face`, no
   `url()`, no `@import`: the tenant's fonts already load from its own CDN
   through its base.css.
 - Radii: `var(--pk-radius)` (4px), `0`, or a pill (`999px`).
