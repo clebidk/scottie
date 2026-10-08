@@ -1,7 +1,7 @@
 """hotspot_image: one product image with 3-5 labelled dots.
 
-The image is the run's product cut-out (harness/cutouts.py), else the best
-exterior photo the photo library offers this run. Every label is built by
+The image is the run's product cut-out, else the best exterior photo of the
+model -- cycle 93's slot resolver (images.fill_slots) chooses it. Every label is built by
 the renderer from this model's verified spec rows and claims -- never by
 the writer -- with the claim ids that back it:
 
@@ -109,21 +109,19 @@ def _even(n):
 
 
 def image_asset(ctx, slug):
-    """(asset dict, id) of the cut-out, else the first exterior library photo."""
-    from ... import cutouts, photo_library
+    """The asset dict of the product cut-out, else the best exterior library
+    photo of this model -- chosen by cycle 93's slot resolver
+    (images.fill_slots), like every other image on the page."""
+    from ... import images
+    from ...render import collect_asset_ids
 
-    asset = cutouts.cutout_for_product(ctx.tenant, (ctx.facts_pack or {}).get("product"))
-    if asset is not None:
-        return asset
-    try:
-        manifest = photo_library.photos_by_id(photo_library.load_manifest(ctx.tenant))
-    except Exception:  # noqa: BLE001 -- no library: no photo fallback
-        manifest = {}
-    for a in (ctx.facts_pack or {}).get("assets") or []:
-        tags = (manifest.get(a.get("id")) or {}).get("tags") or {}
-        if tags.get("shot") == "exterior" and tags.get("product") == slug and not a.get("ai_generated"):
-            return dict(a)
-    return None
+    slot = {"name": "hotspot", "want": {"shot": ["cutout"], "model": "own"}, "n": 1, "fallback": ["exterior"],
+            "above_fold": bool(ctx.options.get("hero")), "last_resort": None}
+    picks = images.fill_slots([slot], ctx.facts_pack or {}, ctx.tenant, seed=0,
+                              used=collect_asset_ids({k: v for k, v in (ctx.page or {}).items() if k != "blocks"}))[0]["picks"]
+    if not picks or not picks[0].get("asset"):
+        return None
+    return dict(picks[0]["asset"], focal=picks[0].get("focal"))
 
 
 def render(ctx):
@@ -131,7 +129,7 @@ def render(ctx):
 
     product = (ctx.facts_pack or {}).get("product") or {}
     slug = product_name_slug(product.get("name") or "")
-    asset = image_asset(ctx, slug) if slug else None
+    asset = image_asset(ctx, slug) if slug and ctx.tenant is not None else None
     if asset is None:
         return {}
     if asset["id"] not in ctx.assets:

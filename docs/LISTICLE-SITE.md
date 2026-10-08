@@ -354,13 +354,71 @@ What the job does (`harness/look_import.py`, the same code as
    The Library page lists it from `library.json`.
 
 A done job shows the look's name, the two-sentence summary of what was
-learned, the sections, the validation result, the model cost, a
+learned, the sections, the validation result, the model cost, the design
+brief, the fidelity score (and the exemplar), the missing patterns if any, a
 **Reference render** link and the A/B/C library entry (`landing:<slug>`).
-A failed job lists every error and stores nothing. Model cost: an estimate
-of about $0.07-0.09 for one call and $0.15-0.18 with the repair (from the
-prompt and template sizes at the tenant's `write` model, claude-sonnet-5;
-not yet measured on a real run). Imports are rate limited like uploads: 6
-in 10 minutes for each reviewer.
+A failed job lists every error and stores nothing. Imports are rate limited
+like uploads: 6 in 10 minutes for each reviewer.
+
+#### Import fidelity (cycle 90)
+
+Cycle 87's observation held roles and counts only, so the model rebuilt
+the default layout. Since cycle 90 (`harness/look_design.py`):
+
+- **The observation has the design.** For each section: a DOM skeleton
+  (tag + class names + text length, at most 40 lines, 4 levels; never the
+  words) and a style summary computed from the page's own CSS (a small
+  cascade: tag/class/id/attribute selectors, the four combinators,
+  specificity and order, inherited type properties, `var()` resolved
+  through the page's custom properties and the tenant's `--ps-*` tokens):
+  ground light/dark, text contrast, max-width, grid/flex columns (phone and
+  desktop), padding scale, radius class (square / 4px / pill / round), image
+  treatment (full-bleed / contained / masked / overlay, and a scrim), the
+  headline's size (px or clamp), case, spacing, weight and face (display-
+  wide / display-acid / heading / sans). State selectors (`:hover`,
+  `:checked`, `:has()`) are skipped and structural ones (`:nth-of-type`)
+  always match: an approximation. Then the PATTERNS found by rules, each
+  with its section and its evidence: `display-letters`, `pill-image`,
+  `caps-headline`, `dark-hero`, `dark-page`, `big-numerals`,
+  `alternating-rows`, `trust-bar`, `hotspots`, `sticky-bar`, `check-rows`,
+  `icon-row`, `stat-strip`, `model-picker`, `product-grid`,
+  `faq-accordion`; and a one-paragraph design brief the harness writes
+  from all of it. The observation stays under 12 KB (the skeletons are
+  shortened until it fits).
+- **The prompt** adds the brief, the page's own CSS sanitised (no
+  `@font-face`, `@import`, `url()`, comments; every colour literal is
+  written as the tenant token it equals or as a `<light>`/`<dark>`/`<mid>`
+  placeholder; at most 8 KB), and ONE exemplar instead of the default look:
+  the closest hand-made look of the same cartridge (shared patterns, then
+  section order), with the observation of the page it was made from. An
+  exemplar is a tenant look whose `library.json` says `"source": {"kind":
+  "pack", "origin": "<page>.html"}` (its `observation.json`, else the page
+  in `../peak-lp-pack/`), or a folder `../peak-lp-pack/looks/<cartridge>/
+  <slug>/`. **Exemplar look** on the form (or `--exemplar <slug>`) names
+  one. The model is told to reproduce the composition (section order, hero,
+  dark/light treatment, numerals, grids, type scale) in tokens, and the
+  exact allowed hrefs: `page.cta_url`, `cartridge_data.secondary.href`, and
+  the links inside `byline_html` -- the only way to mention the founder.
+- **Fidelity.** After validation the demo render is scored 0-1: 0.5 x the
+  share of observed patterns realised (an element with
+  `data-look-pattern="<name>"`; `dark-page`/`dark-hero` must sit on a dark
+  ground, `caps-headline` must be an upper-case h1), 0.2 x role-order
+  similarity, 0.1 x section-count similarity, 0.2 x dark/light band
+  similarity. Below 0.7 the model gets a repair round that names the
+  missing patterns; three model calls at most (a refused template gets the
+  same repair rounds). The valid template with the best score is stored;
+  `library.json` keeps `fidelity`, `patterns`, `missing_patterns` and
+  `exemplar`, and the Library card shows "fidelity 0.8".
+- **Validator.** The byline's own links (whatever `byline_html` renders,
+  e.g. `/pages/austin-laudenslager`) are allowed anywhere in the page and
+  never count as a second CTA; any other extra href is refused, and the
+  message lists the allowed hrefs. A look may have as many dark bands as
+  the observed page's dark content sections (at least one); a dark page has
+  no limit.
+- **Model cost** (estimated from prompt sizes, not measured): about 16k
+  input tokens a call with an exemplar (the observation and CSS 19 KB, the
+  rules + contract + exemplar 40-50 KB), 5-8k output; about $0.10 a call at
+  claude-sonnet-5, $0.30-0.35 when both repair rounds run.
 
 ### Security
 

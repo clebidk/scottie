@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from harness import abtest, abtest_inbox, cli, jobs, library, meta_ingest, pipeline
+from harness import abtest, abtest_inbox, cli, heroes, jobs, library, meta_ingest, pipeline
 from harness import tenant as tenant_mod
 from tests.support import TENANT
 from tests.test_abtest_cycle67 import FakeRunner
@@ -30,6 +30,21 @@ META_FIELDS = ("cartridge", "look", "first_screen", "style", "title", "summary",
 def _no_browser(monkeypatch):
     """No test depends on whether this machine has Chromium."""
     monkeypatch.setattr(library, "find_browser", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _landing_looks_without_extra_heroes(monkeypatch):
+    """Cycle 94 adds a landing card per hero composition a look renders
+    (landing/<look>/<hero>, covered in tests/test_heroes_cycle94.py); these
+    build-mechanics tests keep the landing looks to their own first screen."""
+    real = heroes.look_spec
+
+    def spec(cartridge, look, tenant=None):
+        if cartridge == "landing":
+            return {"heroes": ("ad_first",), "default_heroes": ("ad_first",)}
+        return real(cartridge, look, tenant)
+
+    monkeypatch.setattr(heroes, "look_spec", spec)
 
 
 def _build(**kw):
@@ -52,7 +67,7 @@ def test_versions_cover_every_cartridge_look_first_screen_and_style():
     assert {"landing/open", "landing/proof", "longform/open", "longform/classic", "product-page/pdp",
             "product-page/classic", "article/default", "comparison/default", "quiz/default"} <= set(keys)
     listicle_keys = [k for k in keys if k.startswith("listicle/")]
-    assert len(listicle_keys) == 3 * 5
+    assert len(listicle_keys) == len(heroes.look_heroes("listicle", "open")) * 5   # cycle 94: 6 first screens
     assert "listicle/open/face/myths" in listicle_keys and "listicle/open/display/reasons" in listicle_keys
 
 

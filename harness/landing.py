@@ -283,22 +283,32 @@ def review_quote(page, facts_pack):
     return q if ok else None
 
 
-def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
-    """Everything the landing template renders that the writer did not
-    write, plus the first screen's eyebrow and headline markup. Cycle 85:
-    look "proof" adds its trust line and checked writer blocks."""
-    tenant = tenant or tenant_mod.active()
+def headline_view(page):
+    """The landing headline as first_screen's helpers read it: {"headline",
+    "accent_phrase" (the span the renderer colours), "eyebrow", "phrase"
+    (the writer's own accent_phrase)}. Cycle 94: shared by the look's first
+    screen and every hero composition (harness/heroes/)."""
     hero = (page or {}).get("hero") or {}
     headline = str(hero.get("headline") or "")
     phrase = str(hero.get("accent_phrase") or "").strip()
     span = accent_span(headline, phrase)
-    view = {
+    return {
         "headline": headline,
         # no phrase given: the longform rule picks one; a phrase that is not
         # in the headline: no accent at all (render.py logs it)
         "accent_phrase": span if phrase else first_screen.longform_accent(headline),
         "eyebrow": hero.get("eyebrow") or "",
+        "phrase": phrase,
     }
+
+
+def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
+    """Everything the landing template renders that the writer did not
+    write, plus the first screen's eyebrow and headline markup. Cycle 85:
+    look "proof" adds its trust line and checked writer blocks."""
+    tenant = tenant or tenant_mod.active()
+    view = headline_view(page)
+    headline, phrase, span = view["headline"], view["phrase"], view["accent_phrase"]
     ctx = {
         "eyebrow": first_screen.eyebrow(view, ad_brief),
         "headline_html": first_screen.headline_markup(view, accent_class="ld-accent"),

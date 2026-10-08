@@ -18,7 +18,7 @@
   .bk-trust_bar .bk-trust_bar-item--financing::before,.bk-trust_bar .bk-trust_bar-item--hsa::before{display:block}
 }
 </style>
-<div class="bk-trust_bar" data-look-pattern="trust_bar">
+<div class="bk-trust_bar" data-look-pattern="trust_bar trust-bar">
   <ul class="bk-trust_bar-list">{% for t in bk.facts %}<li class="bk-trust_bar-item bk-trust_bar-item--{{ t.kind }}">{{ t.text }}</li>{% endfor %}</ul>
 </div>
 {%- endif %}

@@ -24,7 +24,9 @@ from . import blocks
 from .blocks import catalog as block_catalog
 from . import cutouts as cutouts_mod
 from . import first_screen as first_screen_mod
+from . import heroes as heroes_mod
 from . import ground as ground_mod
+from . import images as images_mod
 from . import ingest
 from . import comparison as comparison_mod
 from . import listicle as listicle_mod
@@ -732,7 +734,7 @@ def image_fit(asset, *, frame=None):
 
 
 def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=None, aspect_box=True, frame=None,
-                      eager=False):
+                      eager=False, crop=None):
     """The one function that builds an <img>/<picture> tag from an asset
     dict -- registered as a Jinja global in render_page's env (see below) so
     every cartridge template and every image-bearing block calls this
@@ -769,9 +771,30 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     other slot gets loading="lazy" and IMAGE_SIZES_DEFAULT. When Pillow
     could generate WebP variants, the tag is wrapped in a <picture> with a
     WebP <source>, JPEG <img> fallback (harness/review.py's inliner only
-    ever needs to touch that <img>'s plain src -- see docs/IMAGES.md)."""
+    ever needs to touch that <img>'s plain src -- see docs/IMAGES.md).
+
+    Cycle 93: `crop` ("16:9", "3:2", "4:3", "1:1", "4:5", "3:4", "2:3",
+    "pill" -- images.CROPS) cuts the window round the image's focal point
+    (images.crop_asset: its own variants, cached by source sha + crop) and the
+    box is that window's ratio. When no cut can be made (no source file), the
+    same window is shown with CSS (the crop ratio, object-fit cover,
+    object-position at the focal point). "pill" is an 11:5 window whose round
+    ends are border-radius in CSS, never pixels. `frame` still wins the box
+    when both are given."""
     if not asset:
         return Markup("")
+    css_box = crop_ratio = None
+    if crop:
+        if crop in images_mod.CROPS:
+            cut = images_mod.crop_asset(asset, crop)
+            cw, ch = images_mod.CROPS[crop]
+            if cut is asset:
+                css_box = (f"{cw} / {ch}", asset.get("focal") or {"x": 0.5, "y": 0.5})
+            else:
+                crop_ratio = f"{cw} / {ch}"
+            asset = cut
+        else:
+            crop = None
     variants = asset.get("variants") or []
     width, height = asset.get("width"), asset.get("height")
     alt = asset.get("alt", "")
@@ -793,15 +816,20 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
         if frame in IMAGE_FRAMES:
             fw, fh = IMAGE_FRAMES[frame]
             ratio = f"{fw} / {fh}"
+        elif css_box is not None:
+            ratio = css_box[0]
+        elif crop_ratio is not None:
+            ratio = crop_ratio
         else:
             ratio = aspect_ratio_css(width, height)
-        fit = image_fit(asset, frame=frame)
+        fit = "cover" if (css_box is not None and frame not in IMAGE_FRAMES) else image_fit(asset, frame=frame)
 
     classes = " ".join(
         c for c in (
             "adv-img",
             f"adv-img--{fit}" if fit else "",
             "adv-img--hero" if hero else "",
+            "adv-img--pill" if crop == "pill" else "",
             css_class,
         )
         if c
@@ -824,7 +852,15 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
         # per-image, and inline wins over a storefront theme's own `img`
         # rules once `harness shopify-body` drops this markup into a
         # Shopify page body.
-        attrs.append(f'style="aspect-ratio:{ratio}"')
+        style = f"aspect-ratio:{ratio}"
+        if css_box is not None and frame not in IMAGE_FRAMES:
+            focal = css_box[1]
+            style += f";object-position:{round(focal.get('x', 0.5) * 100)}% {round(focal.get('y', 0.5) * 100)}%"
+        if crop == "pill":
+            style += ";border-radius:999px"
+        attrs.append(f'style="{style}"')
+    elif crop == "pill":
+        attrs.append('style="border-radius:999px"')
     img_tag = f"<img {' '.join(attrs)}>"
 
     if webp_srcset:
@@ -945,6 +981,11 @@ def render_page(
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     loader = jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)])
+    # Cycle 94: the shared hero compositions, "heroes/<id>.html" (harness/
+    # heroes/), which every look includes through heroes/_pick.html.
+    loader = jinja2.ChoiceLoader([
+        loader, jinja2.PrefixLoader({"heroes": jinja2.FileSystemLoader(str(heroes_mod.PACKAGE_DIR))}, delimiter="/"),
+    ])
     # Cycle 87: the tenant's imported looks (harness/look_import.py) resolve
     # AFTER the cartridge's own: the dispatcher's "looks/<look>/template.html"
     # finds cartridges/<c>/looks/<look>/ first, else
@@ -1023,23 +1064,10 @@ def render_page(
         frame_record = ad_frames.load(run_dir)
         for frame_id, frame_asset in ad_frames.page_assets(run_dir).items():
             assets_by_id[frame_id] = dict(frame_asset)
-        quote = first_screen_mod.hero_quote(page, ad_brief, facts_pack)
-        requested_style = page.get("hero_style")
-        try:
-            hero_style, note = first_screen_mod.resolve_hero_style(
-                requested_style, seed=run_dir.name, tenant=tenant,
-                frame=frame_record is not None, quote=quote is not None,
-            )
-        except ValueError as e:
-            hero_style, note = first_screen_mod.resolve_hero_style(
-                None, seed=run_dir.name, tenant=tenant, frame=frame_record is not None, quote=quote is not None,
-            )
-            note = str(e)
-        if note and log:
-            log.event("render", f"hero style: {note}")
-        page["hero_style"] = hero_style
+        # Cycle 94: the composition is resolved below, once the look and the
+        # page's images are known (harness/heroes/); hero_style is set there.
         first_screen = first_screen_mod.render_context(
-            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=hero_style,
+            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=page.get("hero_style"),
             frame=frame_record, updated=updated,
         )
         used_claim_ids |= first_screen["claim_ids"]
@@ -1188,6 +1216,29 @@ def render_page(
             if log:
                 log.event("render", f"{e}; falling back to {look!r}")
 
+    # Cycle 93: the look's declared image slots (harness/images.py), filled
+    # after every existing matcher ran. A shipped look's slots are bind slots
+    # plus the ad still: recorded (.image-selection.json "slots", REVIEW.md),
+    # never changing what the page shows. Real renders only, like the matchers.
+    image_slots, slot_results = {}, []
+    if download_assets:
+        image_slots, slot_results = images_mod.resolve_page_images(
+            page, facts_pack, cartridge_name, look, tenant=tenant, run_dir=run_dir, seed=run_dir.name,
+            looks_dir=looks_dir, allow_ai_renders=bool(tenant.claims_config.get("allow_ai_renders")), log=log,
+        )
+        if slot_results:
+            images_mod.record_slots(run_dir, cartridge_name, slot_results)
+        for slot_assets in image_slots.values():
+            for slot_asset in slot_assets:
+                assets_by_id.setdefault(slot_asset["id"], dict(
+                    slot_asset, alt=slot_asset.get("alt") or asset_alt(slot_asset, full_name, tenant=tenant)))
+        if image_slots:
+            ground_mod.record_used_asset_ids(
+                run_dir, cartridge_name,
+                set(ground_mod.load_used_asset_ids(run_dir).get(cartridge_name) or [])
+                | {a["id"] for v in image_slots.values() for a in v},
+            )
+
     # Cycle 82: the longform `open` look leads with the ad -- the same
     # first-screen context the listicle gets (harness/first_screen.py): the
     # ad still when the run has one, else the product cut-out already in the
@@ -1236,6 +1287,42 @@ def render_page(
             used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
         )
 
+    # Cycle 94: the hero composition (harness/heroes/) -- resolved from the
+    # request (page.json's hero_style: --hero-style, an A/B/C arm, or the
+    # pipeline's seeded pick), the look's supported compositions
+    # (look.json), the ad (its still, its quote) and the images the page
+    # can show (heroes.pick_image -> cycle 93's images.fill_slots), then
+    # stamped on page.json. The listicle
+    # keeps its cycle 79 note ("hero style: face needs a still ...").
+    hero_ctx = None
+    if heroes_mod.has_heroes(cartridge_name):
+        hero_base = first_screen if cartridge_name == "listicle" else (landing_context or {})
+        hero_ctx, hero_note = heroes_mod.render_context(
+            cartridge_name, page, look=look, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant,
+            base=hero_base, assets=assets_by_id, frame=ad_frames.load(run_dir), seed=run_dir.name,
+            exclude_ids=collect_asset_ids(page), quote=hero_base.get("quote") is not None,
+        )
+        hero_image = hero_ctx.get("image")
+        if hero_image and not assets_by_id[hero_image["id"]].get("alt"):
+            # a library photo the facts pack did not offer: the same derived alt
+            assets_by_id[hero_image["id"]]["alt"] = asset_alt(assets_by_id[hero_image["id"]], full_name, tenant=tenant)
+        if log:
+            if hero_note:
+                log.event("render", f"hero style: {hero_note}")
+            image = hero_ctx.get("image")
+            log.event("render", f"hero composition: {hero_ctx['id']} ({hero_ctx['reason']}; image: "
+                                f"{image['why'] + ' ' + image['id'] if image else 'none'})")
+        page["hero_style"] = hero_ctx["id"]
+        if cartridge_name == "listicle":
+            first_screen["hero_style"] = hero_ctx["id"]
+        hero_claims = set(hero_ctx.get("claim_ids") or ())
+        if not hero_claims <= used_claim_ids:
+            used_claim_ids |= hero_claims
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+
     # Cycle 54: the product-page `pdp` look's gallery (the product's own
     # storefront images) and the promise band's one image, chosen from the
     # page's FINAL asset picks (after the slot plan and the paragraph-image
@@ -1264,6 +1351,7 @@ def render_page(
         rendered_blocks = block_catalog.render_blocks(block_spec, {
             "page": page, "facts_pack": facts_pack, "tenant": tenant, "cartridge": cartridge_name, "look": look,
             "assets": assets_by_id, "frame_asset": assets_by_id.get(ad_frames.FRAME_ID),
+            "frame_record": ad_frames.load(run_dir),
             "asset_alt": lambda a, name=None: asset_alt(a, name or full_name, tenant=tenant),
         })
         block_ctx, block_asset_ids = rendered_blocks["blocks"], rendered_blocks["asset_ids"]
@@ -1284,6 +1372,8 @@ def render_page(
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
             | ({promise_id} if promise_id else set()) | quiz_asset_ids | block_asset_ids
             | {a for a in assets_by_id if a.startswith(ad_frames.FRAME_ID)}
+            | ({hero_ctx["image"]["id"]} if hero_ctx and hero_ctx.get("image") else set())
+            | {a["id"] for v in image_slots.values() for a in v}
         )
         assets_dir = out_dir / "assets"
         photo_library.attach_local_paths(assets_by_id, tenant)
@@ -1312,6 +1402,17 @@ def render_page(
                 assets_by_id[asset_id]["variants"] = downloaded["variants"]
                 if downloaded["cutout"] is not None:
                     assets_by_id[asset_id]["cutout"] = downloaded["cutout"]
+                # Cycle 93: the full-size variant, the source a focal crop
+                # cuts from (render_image_slot crop=).
+                assets_by_id[asset_id]["src_path"] = str(assets_dir / Path(downloaded["variants"][-1]["jpg"]).name)
+        # Cycle 93: the slot pictures as the template sees them -- the
+        # downloaded asset plus the slot's crop, focal point and reasons.
+        image_slots = {
+            name: [dict(assets_by_id[a["id"]], slot_crop=a.get("slot_crop"), slot_reasons=a.get("slot_reasons"),
+                        focal=a.get("focal") or assets_by_id[a["id"]].get("focal"))
+                   for a in slot_assets if a["id"] in assets_by_id]
+            for name, slot_assets in image_slots.items()
+        }
 
     json_ld = build_json_ld(cartridge_name, page, facts_pack, published, updated, tenant=tenant)
 
@@ -1390,6 +1491,8 @@ def render_page(
         cartridge_data=cartridge_data,
         look=look,
         first_screen=first_screen,
+        hero=hero_ctx or {},
+        image_slots=image_slots,
         micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
         tenant_name=tenant.display_name,

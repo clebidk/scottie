@@ -136,18 +136,43 @@ section, unless the gate told the writer to remove it.
    table above, and tests. `tests/test_blocks_cycle91.py` already checks
    every partial for the marker, the scope, the tokens and the widths.
 
+## Blocks, hero compositions and images (merge with cycles 93-95)
+
+- One `look.json` holds both lists: cycle 94's `"heroes"` / `"default_heroes"`
+  (harness/heroes/, read by `heroes.look_spec`) and this catalog's `"blocks"` /
+  `"options"` (read by `catalog.look_spec`). Each reader ignores the other's keys.
+- The first screen is a hero composition (`{% include "heroes/_pick.html" %}`),
+  never a block: no block prints a hero of its own. A block that sits on the
+  first screen (the cinematic look's `stat_strip`) goes directly under the
+  hero partial.
+- Every image a block shows comes from cycle 93's slot resolver,
+  `images.fill_slots`: `photo_essay` (one slot per group: room/lifestyle-person,
+  detail-macro, exterior/hero-wide; its ad still is an `ad-still` slot),
+  `hotspot_image` (the cut-out, else an exterior of the page's model) and
+  `model_card` (the cut-out). Only `model_grid` reads `cutouts.cutout_asset`
+  directly: the resolver serves the page's own model, and the grid needs the
+  other models' cut-outs.
+
+- Cycle 90's fidelity score reads `data-look-pattern`. A block root carries its
+  id first, then the cycle 90 pattern name when one exists
+  (`look_design.PATTERNS`): `stat_strip stat-strip`, `hotspot_image hotspots`,
+  `model_grid product-grid`, `trust_bar trust-bar`, `feature_grid icon-row`.
+
 ## The two block-built looks
 
-- `cartridges/landing/looks/cinematic/` (pack page 08): a full-bleed first
-  screen with `stat_strip` inside it. The ground is dark behind the ad
-  still or the real-room photo; with no photo it is light with the
-  cut-out. Then the checked claims as numbered steps, then `photo_essay`,
-  `feature_grid` and `statement_band`, then proof, a large price, `faq`,
-  and the closing section.
-- `cartridges/landing/looks/buybox/` (pack page 06): `trust_bar`, then
-  `hotspot_image` beside a buy panel (eyebrow, headline, subhead and
-  `model_card` in its `panel` variant), then the checked claims, the room
-  photo, `faq`, and the dark closing band.
+- `cartridges/landing/looks/cinematic/` (pack page 08): the first screen is a
+  hero composition (default `caps_over_photo`, falling back to
+  `dark_statement` with no photo; `split` and `letters_pill` on request)
+  with `stat_strip` directly under it, on the same dark ground. Then the
+  checked claims as numbered steps, then `photo_essay`, `feature_grid` and
+  `statement_band`, then proof, a large price, `faq`, and the closing
+  section.
+- `cartridges/landing/looks/buybox/` (pack page 06): `trust_bar`, then the
+  cycle 94 `buybox` hero composition (the cut-out beside the buy panel:
+  price, financing, rating, pill, spec bullets, trust facts), then
+  `hotspot_image`, then the checked claims, the room photo, `faq`, and the
+  dark closing band. This look does not use `model_card`: the buy panel is
+  the hero composition's.
 
 Select one with `--look cinematic|buybox`, or with the A/B/C entries
 `landing:cinematic` and `landing:buybox`. Copies of both are tenant looks

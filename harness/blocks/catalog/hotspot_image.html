@@ -24,7 +24,7 @@
 }
 @media (min-width:1024px){.bk-hotspot_image .bk-hotspot_image-stage .adv-img{height:600px}}
 </style>
-<figure class="bk-hotspot_image{{ ' bk-hotspot_image--dots' if bk.show_dots else '' }}" data-look-pattern="hotspot_image">
+<figure class="bk-hotspot_image{{ ' bk-hotspot_image--dots' if bk.show_dots else '' }}" data-look-pattern="hotspot_image hotspots">
   <div class="bk-hotspot_image-stage">{{ render_image_slot(assets.get(bk.asset_id), hero=bk.hero) }}
   {%- if bk.show_dots %}{% for d in bk.dots %}<span class="bk-hotspot_image-dot bk-hotspot_image-dot--{{ d.side }}" style="left:{{ d.x }}%;top:{{ d.y }}%" aria-hidden="true"><i>{{ d.n }}</i><em>{{ d.label }}</em></span>{% endfor %}{% endif -%}
   </div>

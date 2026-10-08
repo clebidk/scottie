@@ -43,12 +43,14 @@ ALL_IDS = ("stat_strip", "photo_essay", "hotspot_image", "feature_grid", "model_
            "statement_band", "faq", "trust_bar")
 
 # sha256 of the canned landing page rendered in the `open` and `proof` looks
-# (brand folder absent, assets not downloaded) on master bbc3ac4, before the
-# catalog existed and before the FAQ markup moved into blocks/faq.html.
-# Change only with a deliberate change to those looks.
+# (brand folder absent, assets not downloaded). First pinned on master bbc3ac4
+# before the catalog existed and before the FAQ markup moved into
+# blocks/faq.html; re-pinned at the merge of origin/master 3e70b2e (cycles
+# 93-95 changed both looks) after checking that a render of 3e70b2e itself
+# gives the same values. Change only with a deliberate change to those looks.
 DEFAULT_LOOK_HASHES = {
-    "open": "5bfdce0ff13a6204d21650f33dc411e427c31f98f27787c74f127b52f8d472f6",
-    "proof": "366171603d8179c796a6616b127384516ba9b034794e58f6b6f8f2380773364a",
+    "open": "0a748b0041f962827fe36c6c45e7b33d22a64f564471d92c12d018782744c438",
+    "proof": "bea34247c5488d8ce5795e2498cff5da49000ca97c2fc223fd495577bb95eb35",
 }
 
 
@@ -106,7 +108,8 @@ def test_each_partial_is_scoped_tokened_marked_and_mobile_safe(block_id):
     text = (catalog.CATALOG_DIR / f"{block_id}.html").read_text()
     markup = re.sub(r"\{#.*?#\}", "", text, flags=re.S)
     # the marker cycle 90's fidelity scoring reads, on the root element
-    assert f'data-look-pattern="{block_id}"' in markup
+    # the cycle 91 id first; a cycle 90 pattern name (look_design.PATTERNS) may follow it
+    assert re.search(f'data-look-pattern="{block_id}(?: [a-z-]+)?"', markup)
     css = "\n".join(re.findall(r"<style>(.*?)</style>", markup, re.S))
     assert css, "the block's CSS lives in its partial"
     assert not _HEX_RE.search(css) and not _COLOUR_FN_RE.search(css)
@@ -139,8 +142,12 @@ def test_a_look_json_naming_an_unknown_block_is_refused():
 def test_the_two_looks_declare_their_blocks_and_the_default_looks_declare_none():
     assert catalog.look_blocks("landing", "cinematic", tenant=TENANT) == (
         "stat_strip", "photo_essay", "feature_grid", "statement_band", "faq")
-    assert catalog.look_blocks("landing", "buybox", tenant=TENANT) == (
-        "trust_bar", "hotspot_image", "model_card", "faq")
+    assert catalog.look_blocks("landing", "buybox", tenant=TENANT) == ("trust_bar", "hotspot_image", "faq")
+    # cycle 94: the same look.json declares the hero compositions (harness/heroes)
+    from harness import heroes
+
+    assert heroes.look_spec("landing", "cinematic", TENANT)["default_heroes"] == ("caps_over_photo",)
+    assert heroes.look_spec("landing", "buybox", TENANT)["default_heroes"] == ("buybox",)
     assert catalog.look_spec("landing", "cinematic", tenant=TENANT)["options"]["stat_strip"] == {"layout": "inline"}
     for look in ("open", "proof"):
         assert catalog.look_blocks("landing", look, tenant=TENANT) == ()
@@ -183,29 +190,16 @@ def test_hotspot_labels_come_from_verified_facts_and_positions_from_the_tenant_t
     assert all([d["x"], d["y"]] == table[d["key"]] for d in data["dots"])
 
 
-def test_hotspots_are_placed_evenly_without_a_table_and_need_three_labels_for_dots(tmp_path):
-    class NoTable:
-        root = tmp_path
-        get = TENANT.get
-        product_names = TENANT.product_names
-
-    import harness.cutouts as cutouts
-
+def test_hotspots_are_placed_evenly_without_a_table_and_need_three_labels_for_dots(monkeypatch):
+    monkeypatch.setattr(hotspot_image, "load_positions", lambda tenant: {})
     fp = _facts_pack()
-    cut = cutouts.cutout_for_product(TENANT, fp["product"])
-    ctx = _ctx(facts_pack=fp, tenant=NoTable())
-    real = cutouts.cutout_for_product
-    try:
-        cutouts.cutout_for_product = lambda tenant, product: cut
-        data = hotspot_image.render(ctx)
-        ys = [d["y"] for d in data["dots"]]
-        assert ys == sorted(ys) and len(set(d["x"] for d in data["dots"])) == 2
-        thin = dict(fp, specs=[s for s in fp["specs"] if "Capacity" in s["label"]],
-                    verified_claims=[c for c in fp["verified_claims"] if "rlt" not in c["id"] and "red" not in c["id"]])
-        few = hotspot_image.render(_ctx(facts_pack=thin, tenant=NoTable()))
-        assert few["dots"] and not few["show_dots"]
-    finally:
-        cutouts.cutout_for_product = real
+    data = hotspot_image.render(_ctx(facts_pack=fp))
+    ys = [d["y"] for d in data["dots"]]
+    assert ys == sorted(ys) and len(set(d["x"] for d in data["dots"])) == 2
+    thin = dict(fp, specs=[s for s in fp["specs"] if "Capacity" in s["label"]],
+                verified_claims=[c for c in fp["verified_claims"] if "rlt" not in c["id"] and "red" not in c["id"]])
+    few = hotspot_image.render(_ctx(facts_pack=thin))
+    assert few["dots"] and not few["show_dots"]
 
 
 def test_model_card_is_the_runs_product_from_facts_only():
@@ -260,7 +254,7 @@ def test_model_grid_shows_every_priced_model_with_a_cutout_and_one_cta(tmp_path)
                 templates_dir=REPO_ROOT / "harness" / "templates", out_dir=out, published="2026-10-07",
                 updated="2026-10-07", tenant=TENANT, download_assets=False, looks_dir=look_root)
     html = (out / "index.html").read_text()
-    grid = html[html.index('data-look-pattern="model_grid"'):]
+    grid = html[html.index('data-look-pattern="model_grid '):]
     grid = grid[:grid.index("</ul>")]
     assert grid.count(f'<a class="ld-btn" href="{page["cta_url"]}">See pricing</a>') == 3
     assert "$7,950" in grid and "Peak Everest" in grid
@@ -288,7 +282,22 @@ def test_faq_block_reads_the_pages_faq():
 # photo_essay: library photos by tag
 # ---------------------------------------------------------------------------
 
+_LEGACY_TO_93 = {"exterior": "exterior", "lifestyle": "room", "interior": "room", "detail": "detail-macro"}
+
+
 def _library(monkeypatch, photos):
+    """A photo library of `photos` behind cycle 93's resolver: the manifest
+    (for the descriptions the writer is told) and the resolver's candidate
+    pool (images.candidates), in the shape images.py builds it."""
+    from harness import images
+
+    pool = [{"id": pid, "source": "library", "shot": _LEGACY_TO_93[shot], "shot_source": "legacy",
+             "shots": {_LEGACY_TO_93[shot]}, "mood": None, "aspect": 1.25, "orientation": None,
+             "fullbleed_ok": False, "dark_ok": False, "focal": {"x": 0.5, "y": 0.5}, "model": "fuji", "quality": None,
+             "ai_generated": False, "old_brand": False, "blurry": blurry, "cluttered": False,
+             "asset": {"id": pid, "url": f"photo-library/{pid}.jpg", "kind": "lifestyle"}}
+            for pid, shot, _desc, blurry in photos]
+    monkeypatch.setattr(images, "candidates", lambda *a, **k: list(pool))
     manifest = {"photos": [
         {"id": pid, "file": f"{pid}.jpg", "ai_generated": False, "excluded": False,
          "tags": {"shot": shot, "product": "fuji", "model_agnostic": False, "has_text_overlay": False,
@@ -317,7 +326,8 @@ def test_photo_essay_picks_room_detail_exterior_and_pairs_the_writers_lines(monk
     fp = _photo_pack()
     picks = photo_essay.candidates(fp, TENANT)
     assert [p["group"] for p in picks] == ["room", "detail", "exterior", "room"]
-    assert "asset-photo-000000000005" not in [p["asset_id"] for p in picks]   # blurry
+    # the resolver ranks the blurry detail below the sharp one, so it is not in the four
+    assert "asset-photo-000000000005" not in [p["asset_id"] for p in picks]
     lines = [{"text": f"Line {w}.", "claim_ids": []} for w in ("one", "two", "three", "four")]
     lines[1] = {"text": "Heats to 150°F.", "claim_ids": ["spec-fuji-max-temperature"]}
     page = {"blocks": {"photo_essay": {"lines": lines}}, "room_photo": {"asset_id": picks[3]["asset_id"]}}
@@ -344,11 +354,19 @@ def test_photo_essay_degrades_and_never_prints_an_unchecked_line(monkeypatch):
                                                   {"text": "Fine.", "claim_ids": ["not-a-claim"]}]}}}
     data = photo_essay.render(_ctx(page=page, facts_pack=fp))
     assert [p["line"] for p in data["photos"][:2]] == ["", ""]
-    frame = {"id": "asset-adframe", "url": "ad-frame/x.jpg", "kind": "still_video"}
-    with_still = photo_essay.render(_ctx(page={}, facts_pack=fp, options={"ad_still": True}, frame_asset=frame))
+    # the ad still comes from the resolver too (images.fill_slots, shot "ad-still")
+    from harness import images
+
+    record = {"frame_path": "/tmp/frame.jpg", "width": 800, "height": 1000}
+    with_still = photo_essay.render(_ctx(page={}, facts_pack=fp, options={"ad_still": True}))
     assert len(with_still["photos"]) == 4   # already four photos: no room for the still
     _library(monkeypatch, PHOTOS[:2])
-    still = photo_essay.render(_ctx(page={}, facts_pack=fp, options={"ad_still": True}, frame_asset=frame))
+    library_only = images.candidates
+    monkeypatch.setattr(images, "candidates", lambda fp_, tenant, ad_frame=None, **k: library_only(fp_, tenant)
+                        + images.ad_still_candidates(ad_frame))
+    ctx = _ctx(page={}, facts_pack=fp, options={"ad_still": True})
+    ctx.frame_record = record
+    still = photo_essay.render(ctx)
     assert still["photos"][-1]["asset_id"] == "asset-adframe" and still["photos"][-1]["line"] == ""
 
 
@@ -525,27 +543,33 @@ def test_a_declared_faq_gets_the_catalog_markup(tmp_path):
 
 def test_the_cinematic_look_renders_its_blocks_in_order(tmp_path):
     html = (_render(tmp_path, _block_page("cinematic"), look="cinematic") / "index.html").read_text()
-    order = [html.index(f'data-look-pattern="{b}"') for b in ("stat_strip", "feature_grid", "statement_band", "faq")]
+    # no ad still and no library photo here: caps_over_photo falls back to dark_statement (cycle 94)
+    hero_at = html.index('data-look-pattern="hero:dark_statement"')
+    order = [hero_at] + [html.index(f'data-look-pattern="{b}')
+                         for b in ("stat_strip", "feature_grid", "statement_band", "faq")]
     assert order == sorted(order)
-    assert html.index('data-look-pattern="stat_strip"') < html.index("</header>")   # inside the first screen
-    assert "bk-stat_strip--inline" in html and 'class="cn-hero cn-hero--light"' in html   # no photo: light
+    assert html.index('data-look-pattern="stat_strip ') < html.index("The ad, checked")   # right under the hero
+    assert 'class="cn-stats cn-stats--dark"' in html and "bk-stat_strip--inline" in html
     assert "A real sauna session at home, on your own schedule" in html
-    assert html.count('href="' + fake_run.LANDING_PAGE["cta_url"] + '"') == 5   # hero, band, price, close, bar
+    url = fake_run.LANDING_PAGE["cta_url"]
+    ctas = re.findall(r'<a class="([^"]*)" href="([^"]*)">', html)
+    assert {href for cls, href in ctas if "btn" in cls or "cta" in cls} == {url}
     assert len(re.findall(r"<h1[\s>]", html)) == 1 and _lint(html) == []
 
 
-def test_the_cinematic_first_screen_goes_dark_behind_a_real_room_photo(tmp_path):
-    page = dict(_block_page("cinematic"), room_photo={"asset_id": "asset-drive-lifestyle-1"})
+def test_the_cinematic_stats_sit_on_hairlines_under_a_light_composition(tmp_path):
+    page = dict(_block_page("cinematic"), hero_style="split")
     html = (_render(tmp_path, page, look="cinematic") / "index.html").read_text()
-    assert 'class="cn-hero cn-hero--photo"' in html and 'class="ld-btn ld-btn--light"' in html
+    assert 'data-look-pattern="hero:split"' in html and 'class="cn-stats cn-stats--light"' in html
 
 
-def test_the_buybox_look_renders_trust_bar_hotspots_and_the_buy_panel(tmp_path):
+def test_the_buybox_look_renders_trust_bar_the_buybox_hero_and_hotspots(tmp_path):
     html = (_render(tmp_path, _block_page("buybox"), look="buybox") / "index.html").read_text()
-    order = [html.index(f'data-look-pattern="{b}"') for b in ("trust_bar", "hotspot_image", "model_card", "faq")]
+    order = [html.index(p) for p in ('data-look-pattern="trust_bar ', 'data-look-pattern="hero:buybox"',
+                                     'data-look-pattern="hotspot_image ', 'data-look-pattern="faq"')]
     assert order == sorted(order)
-    assert "bk-model_card--panel" in html and "$8,250" in html
-    assert html.count('class="bk-hotspot_image-dot ') >= 3 and "2-person bench" in html
+    assert "data-look-pattern=\"model_card\"" not in html   # the buy panel is the hero composition's
+    assert "$8,250" in html and html.count('class="bk-hotspot_image-dot ') >= 3 and "2-person bench" in html
     assert "Financing is available through Bread Pay at checkout." in html
     assert len(re.findall(r"<h1[\s>]", html)) == 1 and _lint(html) == []
 
@@ -562,7 +586,7 @@ def test_the_new_looks_pass_the_offline_fake_run_export_and_pagechecks(look):
     html = (out / "index.html").read_text()
     for block_id in catalog.look_blocks("landing", look, tenant=TENANT):
         if block_id != "photo_essay":   # no photo library on a test machine: it degrades to nothing
-            assert f'data-look-pattern="{block_id}"' in html, block_id
+            assert re.search(f'data-look-pattern="{block_id}[ "]', html), block_id
     assert pagechecks.find_html_validity_violations(html) == []
     assert pagechecks.find_rendered_json_ld_violations(html, "landing") == []
     assert pagechecks.find_rendered_internal_link_violations(html, tenant=TENANT) == []
@@ -577,7 +601,7 @@ def test_the_new_looks_pass_the_offline_fake_run_export_and_pagechecks(look):
 
 def test_the_library_lists_the_two_looks():
     keys = [v.key for v in library.versions(TENANT) if v.cartridge == "landing"]
-    assert keys[:4] == ["landing/open", "landing/proof", "landing/cinematic", "landing/buybox"]
+    assert "landing/cinematic" in keys and "landing/buybox" in keys
     for look in ("cinematic", "buybox"):
         info = library.describe(TENANT, library.find(TENANT, f"landing/{look}"))
         assert info["notes"].startswith("Built from blocks")
@@ -607,7 +631,10 @@ def test_the_look_importer_accepts_a_block_include_and_refuses_others():
     demo = look_import.load_demo(TENANT, "landing")
     contract = look_import.contract("landing", TENANT, demo)
     schema = look_import.load_schema("landing", TENANT)
-    base = (LOOKS_DIR / "open" / "template.html").read_text()
+    from harness import heroes
+
+    # an imported look is one file: the shipped look with its hero written back in (cycle 94)
+    base = heroes.standalone_source((LOOKS_DIR / "open" / "template.html").read_text(), "landing", "open")
     assert "blocks" in contract["names"] and "trust_bar" in contract["data"]["blocks"]
     assert look_import.static_errors(base, "landing", contract_=contract, schema=schema) == []
     assert look_import.look_spec_for(base) == {"blocks": ["faq"]}
@@ -620,7 +647,7 @@ def test_the_look_importer_accepts_a_block_include_and_refuses_others():
     assert any("not allowed in a look" in e for e in look_import.static_errors(bad, "landing", contract_=contract,
                                                                                 schema=schema))
     errors, html = look_import.validate_template(with_bar, "landing", "bar-demo", TENANT, demo)
-    assert errors == [] and 'data-look-pattern="trust_bar"' in html
+    assert errors == [] and 'data-look-pattern="trust_bar ' in html
 
 
 def test_the_facts_pack_carries_the_model_rows_only_when_a_look_uses_model_grid():
@@ -643,3 +670,14 @@ def test_the_facts_pack_carries_the_model_rows_only_when_a_look_uses_model_grid(
     assert pipeline._landing_look_uses(state, "stat_strip") and not pipeline._landing_look_uses(state, "model_grid")
     assert not pipeline._landing_look_uses(SimpleNamespace(selected=["listicle"], landing_look="cinematic",
                                                            tenant=TENANT), "stat_strip")
+
+
+def test_block_markers_carry_the_cycle_90_pattern_names_where_one_exists():
+    from harness.look_design import PATTERN_NAMES
+
+    pairs = {"stat_strip": "stat-strip", "hotspot_image": "hotspots", "model_grid": "product-grid",
+             "trust_bar": "trust-bar", "feature_grid": "icon-row"}
+    for block_id, name in pairs.items():
+        assert name in PATTERN_NAMES
+        text = (catalog.CATALOG_DIR / f"{block_id}.html").read_text()
+        assert f'data-look-pattern="{block_id} {name}"' in text

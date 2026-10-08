@@ -124,6 +124,14 @@ simplicity_mode: warn
 # which stay this tenant's own brand layer. Safe to leave empty.
 design_reference: []
 
+# Cycle 90 (import fidelity): a folder of hand-made looks and the pages they
+# were made from (<pack_dir>/<page>.html, <pack_dir>/looks/<cartridge>/<slug>/
+# with template.html + library.json, source.kind "pack"), relative to the
+# repo. "Import a page" shows the closest one to the model as its exemplar.
+# Leave pack_dir empty for none.
+look_import:
+  pack_dir:
+
 # Cycle 17 (cost reduction): which model each stage calls. Any key left out
 # falls back to harness/config.py's DEFAULT_MODELS -- a new tenant can delete
 # this whole block and get the same defaults. write: the three cartridge
@@ -290,6 +298,14 @@ first_screen: {}
 #   # the ad speaker's pronoun is never guessed: evidence is the ad-still
 #   # check (when unambiguous) or this per-ad override (ad id or file stem)
 #   speaker_pronouns: {"1234567890": she}
+
+# Cycle 94: hero compositions (harness/heroes/, docs/HEROES.md) -- the first
+# screen every look shares. `cartridges.<c>.hero_styles` pins the ones a run
+# with no --hero-style is seeded among (only ids the look renders). letters:
+# letters_pill's two display letter pairs; default: the first two and the
+# last two letters of display_name.
+hero: {}
+#   letters: ["AB", "CD"]
 
 # Cycle 79: product cut-outs, one per model (harness/cutouts.py). The
 # product hero and every per-model image the renderer owns use them.

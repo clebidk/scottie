@@ -506,3 +506,116 @@ matches renders WITHOUT an image (`asset_id: null`, logged), never an unrelated 
 storefront image. Without a cut-out for the product, a whole-unit item may still take a room
 photo. The hero and the first two item images load eagerly.
 
+
+## 11. Image pipeline (cycle 93)
+
+`harness/images.py`. Images are a pipeline of their own now: richer tags on every
+library photo, slots that state what picture they need, a resolver that fills them,
+focal-point crops, and more ad stills. The shipped looks render exactly as before
+(tests/test_images_cycle93.py renders them with and without the resolver and compares
+the HTML hashes).
+
+### Tags (`image_tags` on each photo-library.json entry)
+
+Additive: every cycle 75 field (`tags`, `decision`, ...) stays as it is. The old
+`tags.shot` keeps its own vocabulary; `image_tags.shot` is the new one.
+
+| Field | From | Meaning |
+|---|---|---|
+| `orientation`, `aspect` | Pillow | landscape (> 1.05) / portrait (< 0.95) / square; width / height |
+| `mood`, `luminance`, `warmth` | Pillow | dark (mean luminance < 85); bright (>= 175, or >= 150 with red-minus-blue < 50); else warm |
+| `white_edge`, `white_edge_share` | Pillow | share of edge-strip pixels with every channel >= 235; >= 0.6 is a white studio ground |
+| `fullbleed_ok` | Pillow | width >= 1600 and no white studio edge |
+| `dark_ok` | Pillow | usable on a dark page: no white edge and luminance < 130 |
+| `focal` {x, y}, `focal_source` | Pillow (`edges`) or vision | centre of mass of edge density, pulled half way to the centre, clamped 0.15-0.85; the vision answer replaces it |
+| `sharpness` | Pillow | Laplacian variance on a 256 px grey copy |
+| `model` | `tags.product` | the cycle 75 product decision (null for `unknown`); never guessed again by the look call |
+| `shot` | vision | `hero-wide`, `room`, `detail-macro`, `exterior`, `lifestyle-person`, `cutout` |
+| `quality` | vision | 1-5, how well it works large on a premium page |
+
+Until the vision part exists, the resolver reads the old shot through `LEGACY_SHOT`
+(exterior -> exterior, interior/lifestyle -> room, detail -> detail-macro,
+people-in-use -> lifestyle-person) and also offers a wide (aspect >= 1.3), full-bleed
+room or exterior photo as `hero-wide`. An invalid `image_tags` object is treated as
+missing; it never disables the library (`validate_manifest` does not read it).
+
+### Commands
+
+```
+harness photos measure --tenant <t> [--only-missing] [--dry-run]   # Pillow part, no model call
+harness photos tag --tenant <t> --only-missing [--id ID]... [--dry-run]   # vision part: shot, quality, focal
+harness photos audit --tenant <t> [--manifest P --files D] [--measure]    # coverage per shot x mood, gaps
+```
+
+`photos tag --only-missing` is one `asset_describe.describe_one` call per photo with
+`look_fields=True` (the cycle 42 per-image call, the same prompt plus three keys),
+model `models.vision` (default Haiku, about $0.002 a photo), reserved against the daily
+cap like every model stage. Plain `photos tag` (the cycle 75 product tagging) is
+unchanged. `photos audit --manifest/--files` reads any copy (a pack) and writes nothing;
+`--measure` measures photos without `image_tags` in memory.
+
+### The slot API (for blocks and heroes)
+
+A look declares its slots in its `library.json` (tenant looks:
+`tenants/<t>/looks/<cartridge>/<slug>/library.json`, key `image_slots`); the
+cartridge's own looks are declared in `images.SHIPPED_LOOK_SLOTS`. A slot:
+
+```json
+{"name": "hero", "want": {"shot": ["hero-wide", "room"], "mood": "any", "fullbleed_ok": true,
+ "aspect_min": 1.3}, "n": 1, "fallback": ["detail-macro", "room"], "crop": "16:9", "above_fold": true}
+```
+
+- `want` (all optional): `shot` (a list in order of preference, or "any"; also
+  `ad-still` and `storefront`), `mood` (list or "any"), `fullbleed_ok`, `dark_ok`,
+  `aspect_min`, `aspect_max`, `orientation`, `model: "own"` (only the page's model,
+  no agnostic photo), `min_quality`.
+- `n` 1-12 pictures. `fallback`: further shots tried in order when `want` cannot fill
+  `n`; on a fallback stage the frame filters (full-bleed, aspect, orientation, quality)
+  are relaxed, mood and dark_ok are kept. `last_resort`: "cutout" (default -- the
+  product cut-out) or null (leave the slot short).
+- `crop`: `16:9`, `3:2`, `4:3`, `1:1`, `4:5`, `3:4`, `2:3`, `pill` (11:5, round ends in
+  CSS). `above_fold` (default: the first slot, or a slot named `hero`): no photo with the
+  retired mark (`tags.old_logo_visible`).
+- `{"name": "items", "bind": "reasons[].image"}`: the slot takes what the page already
+  shows at that path (the cycle 75/79 matchers chose it) and records it.
+
+`images.fill_slots(slots, facts_pack, tenant, *, ad_frames, prefer_model, seed, page,
+used)` returns, per slot, ordered picks `{"id", "score", "reasons", "via"}` (`via`:
+`want`, `fallback <shot>`, `last resort`, `bind`). Rules: never another model's photo;
+the page's model +5, model-agnostic +1; real +2, AI-generated -3 (and only when the
+tenant allows AI renders); quality (q - 3) x 1.5; blurry -3, cluttered -2; retired mark
+-4 below the fold, never above it; a crop that cuts away a lot costs up to 2; the
+face-checked first-screen still +5; `seed` only breaks ties. A photo is used once per
+page (the page's own `asset_id`s count as used); the cut-out up to 3 times.
+
+In `render_page` (real renders only) the look's slots are filled after every existing
+matcher; the picks are downloaded with the page's other images, recorded in
+`<run>/.image-selection.json` under `slots` (and in the cartridge's used ids, so
+another page of the run avoids them), logged (`images` events), and listed in REVIEW.md
+under "## Images". A template reads them from `image_slots`:
+
+```jinja
+{% for img in image_slots.essay %}{{ render_image_slot(img, crop=img.slot_crop) }}{% endfor %}
+```
+
+Each picture carries `slot_crop`, `slot_reasons` and `focal`.
+
+### Crops
+
+`render_image_slot(asset, crop="16:9")` cuts the largest window of that ratio round the
+asset's `focal` point (`images.crop_window`) from its full-size variant (`src_path`,
+set at download), writes the usual JPEG + WebP width variants named
+`<id>-<crop>-<sha of source + crop + focal>-<w>`, and sets the box to the crop ratio. A
+second call or a rerender finds the files and only reads. With no source file the same
+window is shown in CSS (crop ratio, cover, `object-position` at the focal point). `pill`
+adds `adv-img--pill` and an inline `border-radius:999px`; its pixels stay square.
+
+### Ad stills
+
+A video ad still gives the cycle 79 first-screen frame, chosen exactly as before, plus
+up to 3 stills for `shot: ad-still` slots: the 8 even frames and up to 6 scene-change
+frames (ffmpeg `select='gt(scene,0.3)'`, `-vsync vfr`; skipped when the call fails),
+scored by `ad_frames.still_score` (log Laplacian sharpness, exposure, +3 for a face the
+vision call saw, -2 for none, -2 for a large caption), saved as `ad-frame/still-N.jpg`
+with their scores in `ad-frame.json` `stills`. Ids `asset-adframe-still-N`.
+`ad_frames.page_assets` still returns only the frame and the avatar.

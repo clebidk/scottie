@@ -1,7 +1,5 @@
 {
-  "blocks": ["trust_bar", "hotspot_image", "model_card", "faq"],
-  "options": {
-    "hotspot_image": {"hero": true},
-    "model_card": {"variant": "panel"}
-  }
+  "heroes": ["buybox", "split", "dark_statement"],
+  "default_heroes": ["buybox"],
+  "blocks": ["trust_bar", "hotspot_image", "faq"]
 }

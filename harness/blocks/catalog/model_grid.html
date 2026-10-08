@@ -24,7 +24,7 @@
 }
 @media (min-width:1024px){.bk-model_grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style>
-<ul class="bk-model_grid" data-look-pattern="model_grid">
+<ul class="bk-model_grid" data-look-pattern="model_grid product-grid">
 {%- for c in bk.cards %}
   <li class="bk-model_grid-card">
     {%- if assets.get(c.asset_id) %}<figure class="bk-model_grid-img">{{ render_image_slot(assets.get(c.asset_id)) }}</figure>{% endif %}

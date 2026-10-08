@@ -25,6 +25,7 @@ from pathlib import Path
 
 from harness import cli
 from harness import headlines
+from harness import heroes
 from harness import listicle as listicle_mod
 from harness import looks
 from harness import pipeline
@@ -507,8 +508,9 @@ def main(argv=None):
     parser.add_argument("--product", default=None)
     parser.add_argument("--look", choices=list(looks.all_looks()), default=None,
                         help="a look of a selected cartridge (e.g. landing: open | proof); default: the cartridge's own")
-    parser.add_argument("--hero-style", choices=["face", "story", "display"], default=None,
-                        help="listicle first screen; default: seeded from --seed")
+    parser.add_argument("--hero-style", type=heroes.arg, metavar="HERO", default=None,
+                        help="first-screen hero composition (harness/heroes/); default: the look's own "
+                             "(the listicle's seeded from --seed)")
     parser.add_argument("--baseline-dir", default=None,
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)

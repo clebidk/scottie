@@ -107,7 +107,8 @@ class BlockContext:
     """What a block's render() gets. `assets` is render_page's assets_by_id:
     a block that shows an image the page.json does not name (a cut-out, a
     library photo) adds the asset here and returns its id in `asset_ids`, so
-    render_page downloads it with the rest."""
+    render_page downloads it with the rest. Images come from cycle 93's slot
+    resolver (harness/images.py fill_slots), never a block's own matcher."""
     page: dict
     facts_pack: dict
     tenant: object
@@ -117,6 +118,9 @@ class BlockContext:
     assets: dict
     frame_asset: dict = None
     asset_alt: Callable = None
+    # cycle 94/93: the run's ad-frame record (ad_frames.load), for a block that
+    # asks images.fill_slots for an ad still
+    frame_record: dict = None
 
 
 _REGISTRY = {}

@@ -1,0 +1,4 @@
+{
+  "heroes": ["face", "story", "display", "caps_over_photo", "split", "dark_statement"],
+  "default_heroes": ["face", "story", "display"]
+}

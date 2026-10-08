@@ -5,17 +5,18 @@
 
    Order: the trust_bar block (warranty term, free shipping, the financing
    sentence, the HSA/FSA claim -- a thin dark strip, the page's only dark
-   strip above the fold); then the buy box: the hotspot_image block (the
-   product cut-out with numbered dots, labels built from verified specs)
-   and, beside it from 1024px (under it on a phone), the buy panel -- the
-   eyebrow, the headline, the subhead and the model_card block in its
-   "panel" variant (name, rating, price, the financing sentence, every
-   verified spec row as a bullet, one full-width pill), the "Text us" link
-   and the trust line under it. Below: the checked claims on hairlines, the
-   real-room photo, the faq block, the dark closing band, the sticky bar.
+   strip above the fold); then the first screen, a cycle 94 hero
+   composition (harness/heroes/, `{% include "heroes/_pick.html" %}`;
+   look.json "heroes"), by default `buybox` -- the cut-out beside the buy
+   panel: name, headline, rating, price + financing, the pill, the text
+   link, spec bullets, trust facts. Below: the hotspot_image block (the
+   cut-out with numbered dots whose labels the renderer built from verified
+   specs), the checked claims on hairlines, the real-room photo, the faq
+   block, the dark closing band, the sticky bar.
 
    No writer block: every block on this look is renderer-only (look.json
-   beside this file), so the writer writes the plain landing page.
+   beside this file), so the writer writes the plain landing page. The buy
+   panel is the hero composition's, so this look does not use model_card.
    Mobile first (390px), widened at 768px and 1024px, where the buy panel
    stays in view beside the image. Prefix `ld-` for the shared pieces,
    `bb-` for this look's layout, all under .adv-landing. Colours are the
@@ -24,11 +25,9 @@
 {% block byline %}<div class="adv-byline ld-about">{{ byline_html | safe }}</div>{% endblock %}
 {% block content %}
 {% set ld = cartridge_data %}
-{% set hero_asset = assets.get(page.hero.hero_image.asset_id) if page.hero and page.hero.hero_image else None %}
 {% set room_asset = assets.get(page.room_photo.asset_id) if page.room_photo and page.room_photo.asset_id else None %}
 {% set show_room = room_asset and room_asset.kind in ld.room_kinds and not room_asset.ai_generated %}
 {% set has_hotspots = blocks.hotspot_image and blocks.hotspot_image.asset_id and assets.get(blocks.hotspot_image.asset_id) %}
-{% set h1_cls = "ld-h1--wide" if ld.headline_fits else "ld-h1--long" %}
 <style>
 .adv-wrap:has(.adv-landing){max-width:none;padding-top:0;padding-left:0;padding-right:0}
 .adv-wrap:has(.adv-landing) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
@@ -61,25 +60,9 @@
 .adv-landing .bb-eyebrow{font:500 11.5px/1.4 var(--pk-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--pk-muted);margin:0 0 10px}
 .adv-landing .bb-eyebrow span{padding:0 6px}
 .adv-landing .bb-h2{margin:0 0 24px;font:600 25px/1.18 var(--pk-heading);letter-spacing:-.015em;color:var(--pk-ink);text-wrap:balance}
-.adv-landing .bb-sub{margin:0 0 24px;color:var(--pk-muted);max-width:36em}
 .adv-landing .bb-sec{border-top:1px solid var(--pk-line);padding:var(--bb-gap) 0;margin:0}
-/* buy box */
-.adv-landing .bb-box{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;padding:16px 0 var(--bb-gap)}
-.adv-landing .bb-gallery{min-width:0}
-.adv-landing .bb-cut{margin:0;text-align:center}
-.adv-landing .bb-cut .adv-img{width:auto;max-width:100%;max-height:420px;margin:0 auto;background:transparent}
-.adv-landing .bb-buy{min-width:0}
-.adv-landing .ld-accent{color:var(--pk-red)}
-/* The display face must beat the tenant's live-theme heading rule. */
-.adv-landing .ld-h1.ld-h1--wide{margin:0 0 10px;color:var(--pk-ink);font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:26px!important;line-height:1.1!important;letter-spacing:.01em!important;text-transform:uppercase!important;text-wrap:balance}
-.adv-landing .ld-h1.ld-h1--long{margin:0 0 10px;color:var(--pk-ink);font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:22px!important;line-height:1.18!important;letter-spacing:0!important;text-wrap:balance}
-.adv-landing .bb-dek{margin:0 0 20px;font-size:16px;line-height:1.5;color:var(--pk-muted);max-width:44ch}
-.adv-landing .bb-panel{padding-top:18px;border-top:1px solid var(--pk-line)}
-.adv-landing .bb-under{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0 16px;margin-top:6px}
-.adv-landing .ld-text{display:inline-flex;align-items:center;min-height:44px;font-size:15px;color:var(--pk-muted);text-decoration:underline;text-underline-offset:3px}
-.adv-landing .ld-text:hover{color:var(--pk-red)}
-.adv-landing .bb-trust{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;font-size:13px;line-height:1.5;color:var(--pk-muted)}
-.adv-landing .bb-trust li+li::before{content:"\00b7";padding:0 8px}
+/* the hotspot section */
+.adv-landing .bb-parts{padding:var(--bb-gap) 0 0}
 .adv-landing .ld-btn{display:inline-flex;align-items:center;justify-content:center;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:var(--ps-radius-btn,999px);padding:15px 36px;min-height:52px;font:600 16px/1.2 var(--pk-heading);text-decoration:none;text-align:center}
 .adv-landing .ld-btn:hover{background:var(--pk-red)}
 /* checked claims */
@@ -108,8 +91,6 @@
   .adv-landing{--bb-gap:72px;font-size:17px}
   .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
   .adv-landing .bb-c{padding-left:32px;padding-right:32px}
-  .adv-landing .ld-h1.ld-h1--wide{font-size:36px!important}
-  .adv-landing .ld-h1.ld-h1--long{font-size:30px!important}
   .adv-landing .bb-h2{font-size:34px}
   .adv-landing .bb-checks{display:grid;grid-template-columns:1fr 1fr;column-gap:48px;border-top:0}
   .adv-landing .bb-check{border-top:1px solid var(--pk-line)}
@@ -118,8 +99,6 @@
   .adv-landing .ld-bar{justify-content:center;gap:24px}
 }
 @media (min-width:1024px){
-  .adv-landing .bb-box{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:56px;padding-top:32px;align-items:start}
-  .adv-landing .bb-buy{position:sticky;top:20px}
   .adv-landing .bb-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
   .adv-landing .ld-bar{display:none}
 }
@@ -127,27 +106,14 @@
 <div class="pk-lp adv-landing">
   {% include "blocks/trust_bar.html" %}
 
-  <div class="bb-c">
-    <div class="bb-box">
-      <section class="bb-gallery">
-        {% if has_hotspots %}{% include "blocks/hotspot_image.html" %}
-        {% elif hero_asset %}<figure class="bb-cut">{{ render_image_slot(hero_asset, hero=True) }}</figure>{% endif %}
-      </section>
-      <section class="bb-buy">
-        {% if disclosure_label or ld.eyebrow %}<p class="bb-eyebrow">{{ disclosure_label }}{% if disclosure_label and ld.eyebrow %}<span aria-hidden="true">&middot;</span>{% endif %}{{ ld.eyebrow }}</p>{% endif %}
-        <h1 class="ld-h1 {{ h1_cls }}">{{ ld.headline_html }}</h1>
-        {% if page.hero.subhead %}<p class="bb-dek">{{ page.hero.subhead }}</p>{% endif %}
-        <div class="bb-panel">
-          {% if blocks.model_card and blocks.model_card.name %}{% include "blocks/model_card.html" %}
-          {% else %}<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% endif %}
-          <div class="bb-under">
-            {% if ld.trust %}<ul class="bb-trust">{% for t in ld.trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}
-            {% if ld.secondary %}<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>{% endif %}
-          </div>
-        </div>
-      </section>
-    </div>
-  </div>
+  {% include "heroes/_pick.html" %}
+
+  {% if has_hotspots %}
+  <section class="bb-c bb-parts">
+    <p class="bb-eyebrow">{{ product.full_name or product.name }}, part by part</p>
+    {% include "blocks/hotspot_image.html" %}
+  </section>
+  {% endif %}
 
   {% if page.checked_claims %}
   <section class="bb-c">
@@ -196,6 +162,5 @@
   </div>
 </div>
 <script>
-(function(){var h=document.querySelector(".adv-landing .bb-box"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
 </script>
 {% endblock %}

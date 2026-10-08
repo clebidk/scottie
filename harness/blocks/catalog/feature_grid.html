@@ -22,7 +22,7 @@
 }
 @media (min-width:1024px){.bk-feature_grid.bk-feature_grid--n4{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style>
-<ul class="bk-feature_grid bk-feature_grid--n{{ bk.cells | length }}" data-look-pattern="feature_grid">
+<ul class="bk-feature_grid bk-feature_grid--n{{ bk.cells | length }}" data-look-pattern="feature_grid icon-row">
 {%- for c in bk.cells %}<li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon">{% if c.icon_svg %}{{ c.icon_svg }}{% else %}<span class="bk-feature_grid-rule"></span>{% endif %}</span><p class="bk-feature_grid-label">{{ c.label }}</p>{% if c.line %}<p class="bk-feature_grid-line">{{ c.line }}</p>{% endif %}</li>{% endfor -%}
 </ul>
 {%- endif %}

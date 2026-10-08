@@ -1,10 +1,13 @@
 """photo_essay: 2-4 photos, each with one short line from the writer.
 
-The renderer picks the photos (never the writer): facts_pack's photo-library
-photos, by their tags -- a room shot (interior / lifestyle / people in use),
-a detail, an exterior, then the next best of each -- best first by the
-library's own quality rank, never an AI render, a blurry photo or one with
-a text overlay. The pick depends on facts_pack and the tenant only, so the
+The renderer picks the photos (never the writer), through cycle 93's slot
+resolver (harness/images.py fill_slots): one slot per group -- a room shot
+(room, lifestyle-person), a detail (detail-macro), an exterior (exterior,
+hero-wide) -- two picks each, then interleaved room, detail, exterior, room
+... up to MAX_PHOTOS. The resolver applies the library rules (the page's
+model first, never a photo twice, real photos over AI renders, quality,
+blur, clutter); the cut-out is never a last resort here. The pick depends
+on facts_pack and the tenant only, so the
 writer is told the same photos, in the same order, and writes line i for
 photo i. A photo the page already shows elsewhere (hero, room photo) is
 dropped with its line at render time. Fewer photos: fewer pairs; none: the
@@ -25,39 +28,34 @@ MIN_PHOTOS = 2
 MAX_PHOTOS = 4
 LINE_MAX_WORDS = 14
 LAYOUTS = ("contained", "bleed")
-# photo library shot -> the essay's three groups
-GROUPS = {"interior": "room", "lifestyle": "room", "people-in-use": "room", "detail": "detail",
-          "exterior": "exterior"}
-GROUP_ORDER = ("room", "detail", "exterior")
+# the essay's three groups, as cycle 93 shots, in the order they interleave
+GROUPS = (("room", ["room", "lifestyle-person"]), ("detail", ["detail-macro"]), ("exterior", ["exterior", "hero-wide"]))
+
+
+def _slots():
+    return [{"name": f"essay-{g}", "want": {"shot": shots}, "n": 2, "above_fold": False, "last_resort": None}
+            for g, shots in GROUPS]
 
 
 def candidates(facts_pack, tenant):
-    """The photos the essay shows, in order: [{asset_id, group, description}],
-    at most MAX_PHOTOS. Only facts_pack assets that are photo-library photos
-    (their tags come from the library manifest)."""
-    from ... import photo_library
+    """The photos the essay shows, in order: [{asset_id, group, description,
+    asset, focal}], at most MAX_PHOTOS; [] with fewer than MIN_PHOTOS."""
+    from ... import images, photo_library
 
     try:
+        results = images.fill_slots(_slots(), facts_pack or {}, tenant, seed=0)
         manifest = photo_library.photos_by_id(photo_library.load_manifest(tenant))
     except Exception:  # noqa: BLE001 -- no library for this tenant: no essay
         return []
-    groups = {g: [] for g in GROUP_ORDER}
-    for asset in (facts_pack or {}).get("assets") or []:
-        photo = manifest.get(asset.get("id")) if isinstance(asset, dict) else None
-        tags = (photo or {}).get("tags") or {}
-        if not photo or asset.get("ai_generated") or photo.get("ai_generated") or photo.get("excluded"):
-            continue
-        if tags.get("has_text_overlay") or tags.get("blurry") or tags.get("shot") not in GROUPS:
-            continue
-        groups[GROUPS[tags["shot"]]].append((photo_library.quality_rank(photo), photo["id"], tags))
-    for g in groups.values():
-        g.sort(key=lambda t: (-t[0], t[1]))
+    groups = {g: [p for p in r["picks"] if p.get("asset")] for (g, _shots), r in zip(GROUPS, results)}
     out = []
     while len(out) < MAX_PHOTOS and any(groups.values()):
-        for g in GROUP_ORDER:
+        for g, _shots in GROUPS:
             if groups[g] and len(out) < MAX_PHOTOS:
-                _rank, pid, tags = groups[g].pop(0)
-                out.append({"asset_id": pid, "group": g, "description": tags.get("description") or ""})
+                pick = groups[g].pop(0)
+                desc = ((manifest.get(pick["id"]) or {}).get("tags") or {}).get("description") or ""
+                out.append({"asset_id": pick["id"], "group": g, "description": desc, "asset": pick["asset"],
+                            "focal": pick.get("focal")})
     return out if len(out) >= MIN_PHOTOS else []
 
 
@@ -85,21 +83,26 @@ def render(ctx):
             text, ids = "", []   # the gate fails this; never print an unverified line
         if text and number_reason(text, ctx.facts_pack) and not ids:
             text = ""
-        asset = ctx.assets.get(cand["asset_id"])
-        if asset is None:
-            asset = next((dict(a) for a in (ctx.facts_pack or {}).get("assets") or []
-                          if a.get("id") == cand["asset_id"]), None)
-            if asset is None:
-                continue
+        if cand["asset_id"] not in ctx.assets:
+            asset = dict(cand["asset"])
+            asset.setdefault("focal", cand.get("focal"))
             if ctx.asset_alt:
                 asset["alt"] = ctx.asset_alt(asset)
             ctx.assets[cand["asset_id"]] = asset
         items.append({"asset_id": cand["asset_id"], "line": text, "group": cand["group"]})
         asset_ids.append(cand["asset_id"])
         claim_ids |= set(ids)
-    if ctx.options.get("ad_still") and ctx.frame_asset and len(items) < MAX_PHOTOS:
-        items.append({"asset_id": ctx.frame_asset["id"], "line": "", "group": "ad_still"})
-        asset_ids.append(ctx.frame_asset["id"])
+    if ctx.options.get("ad_still") and ctx.frame_record and len(items) < MAX_PHOTOS:
+        from ... import images
+
+        still = images.fill_slots([{"name": "essay-still", "want": {"shot": ["ad-still"]}, "n": 1,
+                                    "above_fold": False, "last_resort": None}],
+                                  ctx.facts_pack or {}, ctx.tenant, ad_frames=ctx.frame_record, seed=0,
+                                  used=tuple(used) + tuple(asset_ids))[0]["picks"]
+        if still:
+            ctx.assets.setdefault(still[0]["id"], dict(still[0]["asset"]))
+            items.append({"asset_id": still[0]["id"], "line": "", "group": "ad_still"})
+            asset_ids.append(still[0]["id"])
     if len(items) < MIN_PHOTOS:
         return {"layout": layout, "photos": [], "asset_ids": [], "claim_ids": []}
     return {"layout": layout, "photos": items, "asset_ids": asset_ids, "claim_ids": sorted(claim_ids)}

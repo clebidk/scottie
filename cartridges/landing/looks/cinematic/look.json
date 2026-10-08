@@ -1,4 +1,6 @@
 {
+  "heroes": ["caps_over_photo", "dark_statement", "split", "letters_pill"],
+  "default_heroes": ["caps_over_photo"],
   "blocks": ["stat_strip", "photo_essay", "feature_grid", "statement_band", "faq"],
   "options": {
     "stat_strip": {"layout": "inline"},

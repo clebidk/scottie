@@ -17,14 +17,19 @@ SPEC_ROWS_MAX = 7
 
 
 def card_for_run(ctx):
-    from ... import cutouts, first_screen, landing, pdp
+    from ... import first_screen, landing, pdp
 
     fp = ctx.facts_pack or {}
     product = fp.get("product") or {}
     if not product.get("name"):
         return {}
     names = ctx.tenant.product_names(product)
-    asset = cutouts.cutout_for_product(ctx.tenant, product)
+    # the cut-out through cycle 93's slot resolver (images.fill_slots)
+    from ... import images
+
+    picks = images.fill_slots([{"name": "model-card", "want": {"shot": ["cutout"]}, "n": 1, "above_fold": False,
+                                "last_resort": "cutout"}], fp, ctx.tenant, seed=0)[0]["picks"]
+    asset = dict(picks[0]["asset"]) if picks and picks[0].get("asset") else None
     asset_ids = []
     if asset is not None:
         if asset["id"] not in ctx.assets:

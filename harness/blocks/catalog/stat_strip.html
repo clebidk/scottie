@@ -23,7 +23,7 @@
   .bk-stat_strip .bk-stat_strip-value{font-size:24px}
 }
 </style>
-<ul class="bk-stat_strip bk-stat_strip--{{ bk.layout }}" data-look-pattern="stat_strip">
+<ul class="bk-stat_strip bk-stat_strip--{{ bk.layout }}" data-look-pattern="stat_strip stat-strip">
 {%- for s in bk.stats %}<li class="bk-stat_strip-cell"><b class="bk-stat_strip-value">{{ s.value }}</b><span class="bk-stat_strip-label">{{ s.label }}</span></li>{% endfor -%}
 </ul>
 {%- endif %}

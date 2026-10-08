@@ -27,6 +27,13 @@ no retired brand mark and no claim text the page cannot verify (a rating,
 a review count, a price, a percentage). The 2026-10-05 "regret" still shows
 the retired mark and a third-party review count: rejected,
 and the record keeps the reason.
+Cycle 93: a video also gives up to STILLS extra stills for image slots that
+ask for `shot: ad-still` (harness/images.py): the CANDIDATES even frames plus
+up to SCENE_MAX scene-change frames (ffmpeg's scene filter; skipped when that
+call fails), scored without a model -- Laplacian sharpness, exposure, and the
+vision call's face answer where that frame was shown -- and saved as
+still-1.jpg .. still-3.jpg with their scores in ad-frame.json "stills". The
+first-screen frame above is chosen exactly as before.
 Text ad, or nothing usable: no frame. The first screen then falls back
 (harness/first_screen.py: face -> story without a face, or display).
 """
@@ -57,6 +64,13 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 
 FRAME_ID = "asset-adframe"
 AVATAR_ID = "asset-adframe-avatar"
+# Cycle 93: the extra stills (asset-adframe-still-1 ..), offered to image
+# slots only; page_assets() keeps returning the frame and the avatar.
+STILL_ID_PREFIX = "asset-adframe-still-"
+STILL_FILE = "still-{n}.jpg"
+STILLS = 3
+SCENE_MAX = 6
+SCENE_THRESHOLD = 0.3
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +97,12 @@ def load(run_dir):
     avatar = frame_dir(run_dir) / AVATAR_FILE
     if not frame.exists():
         return None
-    return dict(record, frame_path=str(frame), avatar_path=str(avatar) if avatar.exists() else None)
+    stills = []
+    for still in record.get("stills") or []:
+        path = frame_dir(run_dir) / str(still.get("file") or "")
+        if still.get("file") and path.is_file():
+            stills.append(dict(still, path=str(path)))
+    return dict(record, frame_path=str(frame), avatar_path=str(avatar) if avatar.exists() else None, stills=stills)
 
 
 def page_assets(run_dir):
@@ -142,6 +161,73 @@ def extract_candidates(video, out_dir, ffmpeg_bin, *, n=CANDIDATES, run=subproce
     return frames
 
 
+_PTS_RE = re.compile(r"pts_time:([0-9.]+)")
+
+
+def extract_scene_frames(video, out_dir, ffmpeg_bin, *, n=SCENE_MAX, threshold=SCENE_THRESHOLD,
+                         run=subprocess.run):
+    """[(time, path)] for up to n frames where the picture changes (ffmpeg's
+    scene filter). [] when ffmpeg cannot do it (old build, odd codec, a test
+    double): the even frames are then the only candidates."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pattern = out_dir / "scene-%02d.jpg"
+    try:
+        result = run([ffmpeg_bin, "-hide_banner", "-y", "-i", str(video), "-vf",
+                      f"select='gt(scene,{threshold})',showinfo", "-vsync", "vfr", "-q:v", "3",
+                      "-frames:v", str(n), str(pattern)], capture_output=True, text=True)
+        times = [float(t) for t in _PTS_RE.findall((result.stderr or "") + (result.stdout or ""))]
+    except Exception:
+        return []
+    frames = []
+    for i in range(1, n + 1):
+        path = out_dir / f"scene-{i:02d}.jpg"
+        if path.exists() and path.stat().st_size > 0:
+            frames.append((times[i - 1] if i <= len(times) else None, path))
+    return frames
+
+
+def still_score(scores, face=None, caption=None):
+    """Cycle 93: one number for an extra still: log Laplacian sharpness (0-~9),
+    exposure (0-3, best at mid grey), +3 for a face the vision call saw, -2
+    when it saw none, -2 for a large burned-in caption."""
+    import math
+
+    score = math.log1p(scores.get("laplacian") or 0) + 3 * (1 - abs((scores.get("brightness") or 0) - 128) / 128)
+    if face is True:
+        score += 3
+    elif face is False:
+        score -= 2
+    if caption == "large":
+        score -= 2
+    return round(score, 2)
+
+
+def _save_stills(ranked, out_dir, *, skip=None):
+    """Writes the best STILLS candidates (not `skip`, the first-screen frame)
+    as still-N.jpg; returns their records."""
+    stills = []
+    for c in ranked:
+        if len(stills) >= STILLS:
+            break
+        if skip is not None and Path(c["_path"]) == Path(skip):
+            continue
+        name = STILL_FILE.format(n=len(stills) + 1)
+        with Image.open(c["_path"]) as im:
+            im = flatten(im)
+            im.thumbnail((FRAME_MAX_EDGE, FRAME_MAX_EDGE), Image.LANCZOS)
+            im.save(out_dir / name, format="JPEG", quality=85)
+            w, h = im.size
+            grey = im.convert("L")
+            grey.thumbnail((256, 256))
+            luma = ImageStat.Stat(grey).mean[0]
+        mood = "dark" if luma < 85 else ("bright" if luma >= 175 else "warm")
+        stills.append({"file": name, "t": c.get("t"), "source": c["source"], "score": c["score"],
+                       "laplacian": c.get("laplacian"), "brightness": c.get("brightness"), "face": c.get("face"),
+                       "width": w, "height": h, "mood": mood})
+    return stills
+
+
 def frame_scores(path):
     """{"sharpness", "brightness"}: edge variance on a 320px grey copy (a
     blurry or motion-smeared frame scores low) and mean grey level."""
@@ -151,8 +237,11 @@ def frame_scores(path):
         edges = grey.filter(ImageFilter.FIND_EDGES)
         w, h = edges.size
         edges = edges.crop((2, 2, max(w - 2, 3), max(h - 2, 3)))  # the filter's own border is not detail
+        from .images import laplacian_variance
+
         return {"sharpness": round(ImageStat.Stat(edges).stddev[0], 2),
-                "brightness": round(ImageStat.Stat(grey).mean[0], 1)}
+                "brightness": round(ImageStat.Stat(grey).mean[0], 1),
+                "laplacian": laplacian_variance(grey)}
 
 
 def usable_by_scores(scores):
@@ -398,6 +487,7 @@ def build_from_video(video, run_dir, *, ffmpeg_bin, client=None, model=DEFAULT_V
     scored.sort(key=lambda x: -x[2]["sharpness"])
     shown = scored[:VISION_MAX]
     pick, face_center = 0, None
+    vision = None
     if client is not None and budget is not None and log is not None:
         content = []
         for i, (t, path, _s) in enumerate(shown, 1):
@@ -431,6 +521,24 @@ def build_from_video(video, run_dir, *, ffmpeg_bin, client=None, model=DEFAULT_V
     record.update(usable=True, chosen={"t": t, "file": f"candidates/{path.name}", **s},
                   face_center=face_center, object_position=object_position(face_center),
                   width=w, height=h, face_checked=record["method"] == "vision")
+    # Cycle 93: the extra stills, from the even frames plus the scene cuts.
+    seen = {}
+    if vision is not None:
+        for i, (_t, shown_path, _s) in enumerate(shown, 1):
+            seen[str(shown_path)] = vision["frames"].get(i) or {}
+    pool = [{"t": ft, "_path": fpath, "source": "even", **fs} for ft, fpath, fs in scored]
+    for ft, fpath in extract_scene_frames(video, cand_dir, ffmpeg_bin, run=run):
+        fs = frame_scores(fpath)
+        record.setdefault("scene_candidates", []).append(
+            {"t": ft, "file": f"candidates/{fpath.name}", **fs, "usable": usable_by_scores(fs)})
+        if usable_by_scores(fs):
+            pool.append({"t": ft, "_path": fpath, "source": "scene", **fs})
+    for c in pool:
+        answer = seen.get(str(c["_path"])) or {}
+        c["face"] = answer.get("face") if answer else None
+        c["score"] = still_score(c, face=c["face"], caption=answer.get("caption"))
+    pool.sort(key=lambda c: (-c["score"], str(c["_path"])))
+    record["stills"] = _save_stills(pool, out_dir, skip=path)
     if log:
         log.event("ad_frame", f"frame at {t:.1f}s ({record['method']}); cost ${record['cost_usd'] or 0:.4f}")
     return _write_record(out_dir, record)
