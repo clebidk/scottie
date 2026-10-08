@@ -13,9 +13,11 @@ import json
 import os
 import random
 import sys
+import time
 from pathlib import Path
 
 from . import budget as budget_mod
+from . import design_gate as design_gate_mod
 from . import drafts as drafts_mod
 from . import jev
 from . import pagechecks
@@ -138,6 +140,8 @@ class RunState:
         self.gate_log = {}
         self.outputs = []
         self.cost = 0.0
+        # Cycle 92: {cartridge: design-gate result} (harness/design_gate.py).
+        self.design = {}
 
 
 # ---------------------------------------------------------------------------
@@ -270,8 +274,16 @@ def prepare_run(state):
     # (K2: the old check-then-record-later design let two runs starting at
     # once both bypass the cap). Uncapped when the tenant sets no
     # budget.daily_usd -- the default.
+    # Cycle 92: the design gate's judge may spend up to max_usd_per_page per
+    # page on top of the run itself; reserve that too (never under).
+    gate = design_gate_mod.settings(tenant)
+    extra = gate["max_usd_per_page"] * len(selected) if gate["mode"] != "off" else 0.0
+    if gate["mode"] != "off":
+        state.log.event("run", f"design gate: {gate['mode']}, {gate['variants']} variant(s) per page, judge "
+                               f"{gate['model']}, min score {gate['min_score']:g}, "
+                               f"cap ${gate['max_usd_per_page']:.2f}/page")
     budget_mod.reserve_spend(tenant, run_id=state.run_id, today_iso=state.today_iso, log=state.log,
-                             drafts=state.drafts)
+                             drafts=state.drafts, extra_usd=extra)
 
 
 def refresh_prices(state):
@@ -346,6 +358,10 @@ def ground(state):
         include_product_page="product-page" in state.selected,
         live_price_claims=state.live_price_claims_by_slug,
         log=state.log,
+        # Cycle 91: the model_grid block's model rows, only for a landing look
+        # that declares that block (harness/blocks/catalog/); passed only then,
+        # so a facts source without the keyword is untouched.
+        **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
     if "quiz" in state.selected:
@@ -605,6 +621,17 @@ def write_pages(state):
         state.pages[cartridge_name] = page
 
 
+def _landing_look_uses(state, block_id):
+    """True when this run renders a landing page whose look declares the
+    catalog block `block_id` in its look.json."""
+    from .blocks import catalog as block_catalog
+
+    look = getattr(state, "landing_look", None)
+    if "landing" not in state.selected or not look:
+        return False
+    return block_id in block_catalog.look_blocks("landing", look, tenant=state.tenant)
+
+
 def render_pages(state):
     published = updated = state.today_iso
     # Cycle 51: stamp the run's resolved look onto the listicle page before
@@ -650,6 +677,13 @@ def render_pages(state):
             state.pages["landing"]["look"] = state.landing_look
             runstate.record_look(state.run_dir, "landing", state.landing_look)
         first_screen.build_ad_still(state)
+        # Cycle 94: --hero-style / an A/B/C arm's composition, as a request
+        # the renderer resolves (harness/heroes/); none -> the look's default.
+        from . import heroes
+
+        requested_hero = heroes.requested_for("landing", getattr(state.args, "hero_style", None))
+        if requested_hero:
+            state.pages["landing"]["hero_style"] = requested_hero
 
     # Cycle 79: the listicle's ad still and first-screen style.
     if "listicle" in state.pages:
@@ -675,6 +709,107 @@ def render_pages(state):
             tenant=state.tenant,
         )
         state.outputs.append(index_path)
+        _record_rendered_hero(state.run_dir, cartridge_name)
+
+
+def _record_rendered_hero(run_dir, cartridge_name):
+    """Cycle 94: the composition the page actually rendered (the renderer
+    stamps it on page.json after its image check, which may fall back from
+    the request) -> state.json, for every cartridge with hero compositions."""
+    import json as _json
+
+    from . import heroes, runstate
+
+    if not heroes.has_heroes(cartridge_name):
+        return
+    try:
+        rendered = _json.loads((Path(run_dir) / cartridge_name / "page.json").read_text()).get("hero_style")
+    except (OSError, ValueError):
+        return
+    if not rendered:
+        return
+    if cartridge_name == "listicle":
+        runstate.record_listicle_choice(run_dir, hero_style=rendered)
+    else:
+        runstate.record_hero(run_dir, cartridge_name, rendered)
+
+
+def _render_into_run(state, cartridge_name, page):
+    """Cycle 92: render one page dict into the run's own folder for this
+    cartridge (exactly what render_pages and `harness rerender` do) and
+    return the page.json it wrote."""
+    out_dir = state.run_dir / cartridge_name
+    render_page(
+        cartridge_name=cartridge_name,
+        page=page,
+        ad_brief=state.ad_brief,
+        facts_pack=state.facts_pack,
+        cartridges_dir=CARTRIDGES_DIR,
+        brand_dir=state.tenant.brand_dir,
+        templates_dir=TEMPLATES_DIR,
+        out_dir=out_dir,
+        published=state.today_iso,
+        updated=state.today_iso,
+        log=state.log,
+        fetch_url=http_fetch_bytes,
+        drive_downloader=download_drive_file,
+        tenant=state.tenant,
+    )
+    return json.loads((out_dir / "page.json").read_text())
+
+
+def design_gate(state):
+    """Cycle 92: the design-quality gate (harness/design_gate.py,
+    docs/DESIGN-GATE.md) for every rendered page. Off: returns at once and
+    changes nothing. Warn / enforce: N layouts per page, each screenshotted,
+    hard-checked and judged; the best stays in the run folder. A page under
+    min_score after the revise round raises DesignGateStop in enforce mode
+    (exit 2) once every page has been scored. The time the gate takes is
+    added to the run's wall-clock budget, like a batch wait: its own bound
+    is max_usd_per_page and the variant count."""
+    from . import heroes as heroes_mod
+    from . import runstate
+
+    cfg = design_gate_mod.settings(state.tenant)
+    if cfg["mode"] == "off":
+        return
+    started = time.monotonic()
+    args = state.args
+    try:
+        for cartridge_name in list(state.pages):
+            page_dir = state.run_dir / cartridge_name
+            if not (page_dir / "index.html").exists():
+                continue
+            base_page = json.loads((page_dir / "page.json").read_text())
+            pinned = {
+                "look": looks.requested_for(cartridge_name, getattr(args, "look", None), state.tenant)
+                and base_page.get("look"),
+                "hero_style": heroes_mod.requested_for(cartridge_name, getattr(args, "hero_style", None)),
+            }
+            result = design_gate_mod.run_for_page(
+                cartridge=cartridge_name, page_dir=page_dir, base_page=base_page,
+                render=lambda page, c=cartridge_name: _render_into_run(state, c, page),
+                tenant=state.tenant, client=state.client, cfg=cfg, log=state.log, pinned=pinned,
+            )
+            final_page = result.pop("final_page", None)
+            if final_page is not None:
+                state.pages[cartridge_name] = final_page
+                if cartridge_name == "listicle":
+                    runstate.record_listicle_choice(state.run_dir, look=final_page.get("look"))
+                elif looks.has_looks(cartridge_name) and final_page.get("look"):
+                    runstate.record_look(state.run_dir, cartridge_name, final_page["look"])
+                _record_rendered_hero(state.run_dir, cartridge_name)   # cycle 94: what actually rendered
+            state.design[cartridge_name] = result
+            print(f"{cartridge_name}: {design_gate_mod.summary_line(result)}")
+    finally:
+        state.budget.wall_s += time.monotonic() - started
+    total = sum(float(r.get("cost_usd") or 0) for r in state.design.values())
+    calls = sum(int(r.get("judge_calls") or 0) for r in state.design.values())
+    variants = sum(len(r.get("variants") or []) for r in state.design.values())
+    state.log.event("design_gate", f"design gate: {variants} variants, {calls} judge calls, ${total:.4f}")
+    stops = [c for c, r in state.design.items() if r["status"] == "stop"]
+    if stops:
+        raise design_gate_mod.DesignGateStop(stops, state.design)
 
 
 def review_notify(state):
@@ -715,6 +850,7 @@ def write_review(state):
         product_warning=state.product_warning,
         ad_not_repeated=state.ad_not_repeated,
         ad_alternative_claims=state.ad_alternative_claims,
+        design=state.design,
     )
 
 
@@ -726,6 +862,7 @@ STAGES = {
     "gate_ad_claims": gate_ad_claims,
     "write_pages": write_pages,
     "render_pages": render_pages,
+    "design_gate": design_gate,
     "review_notify": review_notify,
     "write_review": write_review,
 }
@@ -738,6 +875,7 @@ DEFAULT_STAGES = (
     "gate_ad_claims",
     "write_pages",
     "render_pages",
+    "design_gate",
     "review_notify",
     "write_review",
 )
@@ -802,6 +940,22 @@ def execute(state, stage_names=DEFAULT_STAGES):
         except UnknownCartridge as e:
             print(str(e), file=sys.stderr)
             return 1
+        except design_gate_mod.DesignGateStop as e:
+            # Cycle 92: the page is rendered (the best layout found), but it is
+            # under min_score: no review notification, exit 2 like the claims
+            # gate. REVIEW.md is still written so the Design section says why.
+            state.log.gate_result("STOP", f"stage=design_gate pages={','.join(e.cartridges)}")
+            state.log.event("run", str(e))
+            state.cost = state.log.cost_estimate()
+            budget_mod.record_spend(state.tenant, run_id=state.run_id, cost=state.cost,
+                                    today_iso=state.today_iso, log=state.log, drafts=_drafts_spent(state))
+            state.log.budget_summary(state.budget.summary())
+            write_review(state)
+            review_md.log_run_result(state.log, "STOP", state.gate_log)
+            print(f"Design gate STOPPED: {e}", file=sys.stderr)
+            for c in e.cartridges:
+                print(f"See {state.run_dir / c / 'design' / 'scores.json'}", file=sys.stderr)
+            return 2
         except ClaimsGateFailure as e:
             (state.run_dir / "unmatched_claims.json").write_text(
                 json.dumps({"stage": e.stage, "items": e.items}, indent=2)

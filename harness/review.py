@@ -34,6 +34,9 @@ import re
 import sys
 from pathlib import Path
 
+from . import fonts as fonts_mod
+from . import tenant as tenant_mod
+
 _ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
 _PICTURE_SOURCE_RE = re.compile(r"<source\b[^>]*>\s*", re.IGNORECASE)
 _SRCSET_ATTR_RE = re.compile(r'\s+srcset="[^"]*"', re.IGNORECASE)
@@ -74,7 +77,23 @@ def inline_assets_as_data_uris(html_text, assets_dir):
     return _ASSET_SRC_RE.sub(replace, html_text)
 
 
-def build_review_for_page(run_dir, page_name):
+def inline_font_face_urls(css, brand_dir):
+    """Cycle 95: every `@font-face` src in the review document, as a data:
+    URI of the tenant's own local file -- the first url whose filename is in
+    brand/fonts/, brand/fonts-display/ or (cycle 92) brand/fonts-body/.
+
+    base.css writes brand/fonts/<file> (uploaded and rewritten at publish)
+    or the theme's CDN url, and neither loads on the review page or in the
+    offline library thumbnail (which screenshots this file): a relative url
+    resolves against the run folder. Only the review file gets this --
+    index.html and the export keep the publishable urls, and no text check
+    on index.html ever reads 400 KB of base64. A face with no local file
+    keeps its url. Cycle 92: the one implementation lives in harness/fonts.py
+    (the design gate's screenshots use it too, with file:// urls)."""
+    return fonts_mod.localize_font_faces(css, brand_dir, "inline")
+
+
+def build_review_for_page(run_dir, page_name, tenant=None):
     """Write <page_name>-review.html for one cartridge under `run_dir`, if it
     has a rendered index.html. Returns the path written, or None if that
     cartridge has no index.html yet (the caller decides what that means --
@@ -88,6 +107,14 @@ def build_review_for_page(run_dir, page_name):
     if not index_path.exists():
         return None
     review_html = inline_assets_as_data_uris(index_path.read_text(), cartridge_dir / "assets")
+    tenant = tenant or tenant_mod.active()
+    brand_dir = getattr(tenant, "brand_dir", None)
+    if brand_dir:
+        review_html = inline_font_face_urls(review_html, brand_dir)
+        # Cycle 92: the body faces the page loads from Google Fonts (a <link>,
+        # not an @font-face in the document), from brand/fonts-body/ when
+        # `harness fonts fetch` has filled it.
+        review_html = fonts_mod.inject(review_html, fonts_mod.body_font_css(tenant, "inline"))
     review_path = run_dir / f"{page_name}-review.html"
     review_path.write_text(review_html)
     size = review_path.stat().st_size
@@ -100,13 +127,13 @@ def build_review_for_page(run_dir, page_name):
     return review_path
 
 
-def build_reviews(run_dir):
+def build_reviews(run_dir, *, tenant=None):
     """Write <cartridge>-review.html for every cartridge under `run_dir` that
     has a rendered index.html. Returns the list of paths written."""
     run_dir = Path(run_dir)
     written = []
     for cartridge_dir in sorted(p for p in run_dir.iterdir() if p.is_dir()):
-        path = build_review_for_page(run_dir, cartridge_dir.name)
+        path = build_review_for_page(run_dir, cartridge_dir.name, tenant=tenant)
         if path is not None:
             written.append(path)
     return written

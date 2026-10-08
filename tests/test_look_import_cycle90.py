@@ -20,14 +20,17 @@ import shutil
 
 import pytest
 
-from harness import cli, jobs, library, look_design, look_import
+from harness import cli, heroes, jobs, library, look_design, look_import
 from tests.conftest import FakeClient, FakeResponse
 from tests.support import REPO_ROOT, TENANT
 from tests.test_look_import_cycle87 import _auth, _post, client  # noqa: F401 (client is a fixture)
 
 PACK = REPO_ROOT / "tests" / "fixtures" / "look_import" / "pack"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "look_import" / "sample-landing.html"
-OPEN_LOOK = (REPO_ROOT / "cartridges" / "landing" / "looks" / "open" / "template.html").read_text()
+# Cycle 94: the shipped look includes the shared hero partial (harness/heroes/);
+# an imported look is one file, so the reference is the look with it inline.
+OPEN_LOOK = heroes.standalone_source(
+    (REPO_ROOT / "cartridges" / "landing" / "looks" / "open" / "template.html").read_text(), "landing", "open")
 
 
 def _src(name):

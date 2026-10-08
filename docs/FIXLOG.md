@@ -5328,6 +5328,267 @@ reproduce. Page 03 was refused twice: the model printed the byline (with its fou
   thresholds tuned on the ten pack pages and the cycle 87 fixture.
 - `tests/test_tenant_peak.py::test_hsa_fsa_truemed_text_and_category` fails on origin/master already
   (c74c6bd moved HSA/FSA to Redo; the test still expects TrueMed). Not touched here.
+
+## Cycle 91 (block catalog: photo essay, hotspot image, stat strip, feature grid, model card/grid, statement band, trust bar, FAQ; two block-built looks, 2026-10-07)
+Branch `cycle91/block-catalog` from master bbc3ac4. Not merged, not pushed.
+
+### Problem
+Owner: "all the themes in library are uber simplified; we need to make them cooler and more like
+the 10 examples". A look could only arrange the few fields its cartridge writes. No look could show
+a photo essay, a hotspot image, stats inside the hero, a feature grid, a model card or a dark
+statement band, because no renderer value and no writer field existed for them.
+
+### Change
+- **`harness/blocks/catalog/`** (docs/BLOCKS.md): nine blocks, each one module that calls
+  `register(Block(...))` plus one partial `<id>.html`. The partial uses tokens only, `bk-<id>-*`
+  classes, has its scoped CSS in the same file, and puts `data-look-pattern="<id>"` on its root
+  element for cycle 90. The blocks:
+  - `stat_strip`: `first_screen.stats` filled from `landing.spec_strip`, 3-4 stats, layout
+    `inline`/`band`.
+  - `photo_essay`: photo-library photos by tag (room, detail, exterior, best first), with a writer
+    line for each photo (14 words or fewer, claim ids when the line has a number). Option `ad_still`.
+  - `hotspot_image`: the cut-out with dots. The labels come from verified specs and claims of the
+    model. The positions come from the new `tenants/peak-saunas/brand/hotspots.json` (11 cut-outs,
+    keys heater/bench/panel/glass/control/wood), else the dots are placed evenly. Fewer than 3
+    labels gives a list with no dots.
+  - `feature_grid`: writer `{label, line, claim_ids}` with the icon_row gates plus the line rule.
+    The renderer picks the icon from the cited claims' topic, so the cycle 85 open issue (an icon
+    that contradicts its claim) cannot happen here.
+  - `model_card` (variants `card`/`panel`) and `model_grid` (every priced model with a cut-out;
+    `facts_pack.models` from `_quiz_models`, joined only when the look declares the block). Every
+    card links to the one CTA, and a `page_gate` refuses a `cta_text` that names a model.
+  - `statement_band`: a writer line of 12 words or fewer, no number, and the pill.
+  - `faq`: the FAQ markup that the landing `open` and `proof` looks repeated now lives here. A look
+    that includes the partial without declaring it gets the old markup byte for byte.
+  - `trust_bar`: the warranty term, free shipping, the fixed financing sentence, the HSA/FSA claim.
+- **Looks declare blocks** in `look.json` next to the template (built-in or tenant look). The
+  loader is a `blocks/` prefix loader; the template context is `blocks` ({} for a look with no
+  blocks). The rendered blocks' images join the download set and their claims join Sources
+  (`render.py`). `catalog.look_spec` refuses an unknown id.
+- **Writer**: `write._append_landing_guidance` adds only the declared blocks' lines and schema
+  fragments. `repair.check_page_gates(look=...)` (the run's landing look, else `page.look`) runs
+  `catalog.find_violations`: an unknown block, an undeclared block, fields for a renderer-only
+  block, a declared writer block left out, and each block's own field gates, with keys
+  `blocks:<id>:*` and paths `$.blocks.<id>.<field>`. `pagechecks.find_block_violations` now skips
+  object values: a string value is still a cycle 34 slot pick. `degenerate_repair` counts a dropped
+  block, except one the gate asked the writer to remove. The generic gates and the deterministic
+  fixes already walk block fields.
+- **Two looks**: `cartridges/landing/looks/cinematic/` (pack 08) and `.../buybox/` (pack 06),
+  `looks.CARTRIDGE_LOOKS["landing"]` = open, proof, cinematic, buybox (the default stays `open`).
+  Both are mobile first with no colour literal. Copies are tenant looks `block-cinematic` and
+  `block-buybox` under `tenants/peak-saunas/looks/landing/` (gitignored, with library.json).
+- **fake_run**: `LANDING_BLOCK_FIELDS`, added to the canned landing page for the blocks a look
+  declares. `run_once` now resolves the landing look with the tenant, so a tenant look gets its
+  blocks' canned fields.
+- **Library**: notes for the two looks. The sha now also covers `look.json` and the files of the
+  declared blocks.
+- **Look import**: `{% include "blocks/<id>.html" %}` (a literal catalog id) and `blocks` are now
+  part of the contract. An included block counts as printing what it `covers` (faq: `page.faq`,
+  trust_bar: the trust line, stat_strip: the specs, model_card: the price, rating and financing).
+  The stored look gets a `look.json` for the blocks it includes. `look_import_rules.md` documents
+  the constructs.
+
+### Verify
+- Default looks byte-identical: the canned page rendered in `open` and `proof` (with no brand
+  folder) has the same sha256 as on master (5bfdce0f..., 36617160...). The values are pinned in
+  `tests/test_blocks_cycle91.py`.
+- `tests/test_blocks_cycle91.py`: 43 tests. They cover: the partials (marker, scope, tokens,
+  width, own classes); look.json errors; each renderer-only block from a fixture facts pack;
+  photo_essay picks, pairing, degradation and the ad still; the gates of the three writer blocks
+  and the claim-topic icons (identical to the proof look's icons); the catalog gate in
+  `check_page_gates`; the degenerate guard; the prompt for each look; both looks rendered in order,
+  passing the brand lint, with one h1; the fake runs (exit 0, pagechecks, the Shopify export
+  invariants); the Library listing and sha; model rows in facts_pack; a look import with a block
+  include. Changed tests: `test_library_cycle86.py` (four landing versions) and
+  `test_look_import_cycle87.py` (the stored look now has look.json; the "has a number" mutation
+  targets another heading, because the FAQ heading moved into the partial).
+- Full suite: `.venv/bin/python -m pytest -q` passed 2774 tests, 0 failed (master bbc3ac4: 2729).
+- `python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant
+  peak-saunas --cartridges landing --look cinematic` and `--look buybox`: exit 0 for both.
+  `harness shopify-body` and `harness review` succeeded on both runs.
+  `harness library build --tenant peak-saunas --only landing --force`: 6 built (open, proof,
+  cinematic, buybox, block-buybox, block-cinematic) with 6 thumbnails (Chrome shim), 0 failed.
+- Headless Chrome at 390px and 1440px. The cinematic look was also shot with the pack's photo
+  library linked as `HARNESS_PHOTO_LIBRARY_DIR`, which showed the photo essay with 4 photos (the
+  test conftest turns the library off, so fake runs on this Mac show no essay).
+
+### Open
+- **Listicle writer**: blocks render and are gated on any cartridge with looks, but only the
+  landing look reaches the writer prompt. No listicle look declares blocks yet, and the run's
+  listicle look is not passed to the writer (`landing_look` is the only look parameter there).
+- **Cinematic first screen**: the screen is dark only behind the ad still or a writer-picked
+  real-room photo. An image ad with no room photo gets the light version with the cut-out, because
+  the cut-out is flattened onto white and cannot sit on the dark ground.
+- **Buybox on a phone**: as on pack page 06, the image and its label list come before the headline,
+  so the headline sits below the first 844px screen.
+- **Canned essay lines** in fake runs do not describe the photos the library picks. A real run
+  tells the writer each photo's description, in order.
+- `harness rerender --look cinematic` on a page written for another look shows no writer blocks
+  (no model call), the same as cycle 85's proof look.
+- The hotspot positions were set by eye from the 2026-10-05 cut-outs. The glass and control dots
+  show only when a claim of the model names them; the offline Fuji pack has neither claim.
+- No real-model run.
+
+### Cycle 91b (merge with origin/master 3e70b2e: cycles 90, 93, 94, 95, 2026-10-08)
+- Conflicts: `docs/FIXLOG.md` (both sides kept, cycles in number order) and `harness/library.py`
+  (the version sha keeps cycle 94's look.json and hero partials, and adds the declared catalog
+  blocks' files; look.json is counted once).
+- Blocks and hero compositions: one `look.json` now declares both (`heroes`/`default_heroes` and
+  `blocks`/`options`). The two looks no longer draw their own first screen. `cinematic` includes
+  `heroes/_pick.html` (default `caps_over_photo` -> `dark_statement`; `split`, `letters_pill`)
+  with `stat_strip` directly under it. `buybox` uses the cycle 94 `buybox` composition as its buy
+  box, with `hotspot_image` below it, and no longer declares `model_card` (the composition is
+  the buy panel). The sticky bar anchors on `hero.anchor`.
+- Images in blocks go through `images.fill_slots`: `photo_essay` (three group slots and an
+  `ad-still` slot; `BlockContext.frame_record`), `hotspot_image` and `model_card` (the cut-out
+  slot). `model_grid` still reads other models' cut-outs from `harness/cutouts.py` (the resolver
+  serves the page's own model only).
+- Tests: the open/proof render pins in `tests/test_blocks_cycle91.py` were re-pinned to the merge.
+  A render of 3e70b2e itself gives the same two hashes, so the catalog does not change master's
+  output. The pins in `tests/test_heroes_cycle94.py` were not touched and pass. The block tests
+  give the resolver a candidate pool, and the importer test uses `heroes.standalone_source`.
+- Cycle 90: block roots now carry the cycle 90 pattern name after the block id where one exists
+  (`stat_strip stat-strip`, `hotspot_image hotspots`, `model_grid product-grid`, `trust_bar
+  trust-bar`, `feature_grid icon-row`). The cycle 87/90 import fixture marks the FAQ with a wrapper
+  around the faq block include, because the FAQ markup moved into blocks/faq.html.
+
+## Cycle 92 (design-quality gate: screenshots, hard checks, vision judge, best-of-3 design variants, 2026-10-07)
+Branch `cycle92/design-gate` from prod master bbc3ac4.
+
+### Problem
+Owner rule 2026-10-07: "Visual design needs to be top tier. Better generation is preferred over lower cost;
+prioritise quality while optimising both." Nothing judged the rendered page as a design: the claims gates
+check facts, Jev (cycle 76) scores the copy, and one layout per page shipped as the renderer picked it. On
+prod the Library thumbnails rendered in fallback fonts (the display faces load from the Shopify CDN, the body
+faces from Google Fonts, and the server has none installed), so any judge looking at them would mark
+typography wrong for the wrong reason.
+
+### Change
+- `harness/design_gate.py`, a stage after `render_pages` (also in workflows/ad-to-pages.yaml), tenant.yaml
+  `design_gate: mode off|warn|enforce, model (default claude-opus-5-5), effort (high), min_score (75),
+  variants (3), max_usd_per_page (1.00)`; PEAK: enforce. `HARNESS_DESIGN_GATE` overrides the mode (the suite
+  sets off in conftest, like HARNESS_JEV_DRAFTS).
+  - Screenshots (phone 390 full page capped at 6000 px, desktop 1280x900 fold, desktop full page) and a DOM
+    probe through `harness/capture.py`. Hard checks without a model: overflow at 390, contrast of first-screen
+    text over photos (WCAG AA, measured on the screenshot), empty image slots, cut-off text, tap targets
+    < 44 px, page weight, fonts loaded. A hard-check failure is never chosen over a clean variant and never
+    passes.
+  - Vision judge through the harness's Anthropic client (`client.messages.create`; thinking left on, as Opus
+    5.5 cannot disable it; `output_config.effort`): phone page in tiles of <= 2400 px plus the desktop fold;
+    JSON `{score_0_100, subscores{7}, top_issues[{what, where, fix_as_layout_choice}], verdict}`. Refusal, API
+    error, cut-off or bad JSON: that variant is not judged (logged), never a crash. No browser: UNSCORED.
+  - Variants: the page as rendered, then look x first screen (x block set: `block_sets()` hook for cycle 91)
+    within the tenant's allowed set, never against an explicit `--look`/`--hero-style`; a layout that renders
+    as one already tried (face with no still) is skipped without a call. Below min_score: one revise round of
+    untried layouts (plus the tenant's imported looks) ranked by the judge's fixes (first screen / look / more
+    or fewer photos); still below: exit 2 (enforce, after every page is scored; REVIEW.md still written, state
+    stays "generated") or a warning (warn). The best layout is re-rendered into the run folder and recorded in
+    page.json / state.json. Copy is never rewritten.
+  - `max_usd_per_page` stops further variants/rounds with a note in the run log and REVIEW.md; a page left
+    under the bar or never judged because of it is not a pass. `harness run` reserves max_usd_per_page x pages
+    on top of its daily-cap reservation (`budget.reserve_spend(extra_usd=...)`). The gate's time is added to
+    the wall-clock budget, like a batch wait.
+  - Everything under `out/<run>/<cartridge>/design/`: `variant-<n>.png`, `-desktop.png`, `-desktop-full.png`,
+    `scores.json`. Run log: per call `design_gate.<cartridge>: model=claude-opus-5-5 ...`, per page and in total
+    `design gate: N variants, M judge calls, $X`.
+- Rubric: `harness/design_rubric.md` (tenant-neutral: dimensions, score bands, verdicts, anti-patterns) +
+  `tenants/peak-saunas/design-rubric.md` (PEAK tokens, fonts, boxless, 4 px radii, one accent, and the ten
+  owner-approved pack pages, one line each). Split because tests/test_tenant.py forbids tenant words in
+  harness/; a tenant with no file gets a brand section from tenant.yaml.
+- harness/pricing.py: `claude-opus-5-5` $4/$20 per M tokens; `family_id()`. harness/anthropic_client.py:
+  `adaptive_kwargs()` (no thinking param, effort in output_config; Haiku takes neither).
+- REVIEW.md "## Design": result, chosen variant, score, subscores, top issues, hard checks, fonts
+  (loaded/fallback), notes, a table of every variant with cost and shot links, the chosen shots inline, the
+  gate's total cost. Nothing when the gate is off.
+- Review site: "Design <score>" on the generation card (Jev stays separate), a Design card with the "Design
+  variants" strip on the generation page, a "Design score" row in Details; shots at
+  `/run/<run>/design/<page>/<file>` (`?thumb=1`: first screen, 240 px) behind the same login. Library card:
+  the score from `harness library build --design-score`.
+- A/B/C: every variant runs the gate as a stage; `design_score` / `design_status` on the variant and on each
+  attempt (abtest.py `_design_record`).
+- CLI: `harness design score <run-dir>/<cartridge>`, `harness design report`, `harness library build
+  --design-score`, `harness fonts fetch`, `harness review --inline-fonts`.
+- Fonts (coordinator/owner instruction mid-cycle): `harness/fonts.py`. Display faces from
+  `brand/fonts-display/` (matched to base.css @font-face by file name), body faces from `brand/fonts-body/`
+  (`harness fonts fetch` downloads the tenant's Google Fonts css2 families as woff2, latin + latin-ext, with
+  manifest.json and LICENCE.md). Injected at the top of `<head>` (before the page's CSS): file:// urls in
+  the capture path, `review-fonts/` relative urls in `harness review` (served by the site at
+  `/run/<run>/review/review-fonts/<file>`), data: urls with `--inline-fonts` and in the Library's review
+  pages. The capture waits for `document.fonts.ready`, asks for one face of every declared family and records
+  per family whether a face loaded (scores.json, REVIEW.md, Library meta.json `fonts`). Library thumbnails
+  now go through the same `harness/capture.py` path (library.capture_thumb delegates). The storefront export
+  is unchanged (CDN urls).
+- harness/capture.py starts the browser in its own session and kills the whole process group when it
+  stops it (a left-over Chrome helper kept writing into the profile folder and broke a temp-dir cleanup in
+  one full-suite run); the scratch folder's cleanup ignores errors.
+- tests/conftest.py: autouse `_no_real_browser` (capture.find_browser now also finds the macOS Chrome app;
+  only tests marked `real_browser` may drive it).
+
+### Verify
+- `tests/test_design_gate_cycle92.py` (30): hard checks on three synthetic pages in real headless Chrome
+  (overflowing, low-contrast hero, good) and the font record (a real local display face loads from file://, a
+  tiny generated non-font is recorded as fallback); synthetic-probe hard checks; judge JSON parsing and
+  verdicts; the judge request (opus-5-5, effort high, no thinking key, images, the PEAK rubric) and its cost
+  in the log; refusal / API error; settings; best of 3 picks the best, records every variant and leaves the
+  best layout in the folder; face fallback not judged twice; revise round (landing open -> proof from a
+  "different look" fix); STOP and warn after the revise round; no untried layout; a hard-check failure never
+  ships; the cost cap; no browser = UNSCORED; pinned layouts; the REVIEW.md section; the pipeline through
+  `evals/fake_run.py` (enforce exit 2 with REVIEW.md + log + state, warn, pass); mode off byte-identical to a
+  run without the stage (hash of every html/json/md artifact, run id and clock normalised); the A/B/C
+  record; site card / generation page / strip / shot route (login, traversal); Library card; CLI score and
+  report; fonts fetch (fake HTTP), css modes and injection order, review html relative/inline, the site's
+  review-fonts route, the export keeps CDN urls.
+- Real Chrome on this Mac: a fake listicle run with the gate in enforce and canned judge answers (52 s,
+  2 variants: face fell back and was skipped), shots checked by eye, REVIEW.md section read; `harness library
+  build --only landing --force` with real thumbnails, meta.json `fonts: loaded` (Peak Grotesk Wide from the
+  local file).
+- Full suite `.venv/bin/python -m pytest -q`: 2759 passed, 0 failed (2729 before the 30 new tests).
+
+### Open
+- No real judge call was made (worker rule: FakeClient only). The per-page cost is an estimate (docs/
+  DESIGN-GATE.md: about $0.06-$0.13 per call on Opus 5.5 at effort high, $0.18-$0.40 for best of 3, up to
+  about $0.80 with a revise round); the thinking-token share is the unknown. Measure with `harness design
+  report` after the first real runs, and check that the judge's scores separate good from bad pages before
+  trusting enforce on every build.
+- `brand/fonts-body/` is empty in this commit: `harness fonts fetch --tenant peak-saunas` was not run here (it
+  downloads from Google). Until it runs, the body faces come from Google Fonts in a browser that has network,
+  and the record says "fallback" where it does not.
+- The listicle has one look ("open"), so its round-1 variants are its three default first screens; a text ad
+  (no still) gets two. (After the merge below, the revise round also tries the other heroes the look.json
+  declares, and prod's imported pack looks.)
+- "More / fewer photos" is translated into first-screen and imported-look choices; no look has a photo-count
+  knob yet.
+- The full-page phone shot is capped at 6000 px; a longer listicle is judged on its first 6000 px.
+- A design-gate STOP leaves a rendered page with state "generated"; the site shows it as a draft with its
+  design score below the bar.
+
+### Merge with master (cycles 90, 91, 93, 94, 95; 2026-10-08)
+`git merge origin/master` (9e6925c) into `cycle92/design-gate`. Conflicts: docs/FIXLOG.md (both kept, cycles
+in number order), harness/library.py, harness/review.py, harness/site.py.
+- Fonts, one module: cycle 95 inlines every @font-face src of the review html from `brand/fonts/` or
+  `brand/fonts-display/` (review.py `inline_font_face_urls`); cycle 92 had its own injection in
+  harness/fonts.py. Now harness/fonts.py holds the one rule (`localize_font_faces`, data: urls for the
+  review html, file:// urls for a screenshot) plus the fonts-body faces (`harness fonts fetch`) and
+  `for_capture`; review.py's `inline_font_face_urls` is a wrapper over it. The cycle 92 "review-fonts/"
+  relative mode, its site route and `harness review --inline-fonts` are gone: since cycle 95 the review html
+  is always self-contained, so there is one behaviour.
+- Heroes (cycle 94): the gate's layouts are look x hero composition within each look's look.json: round 1
+  uses `default_heroes` (narrowed by tenant.yaml `cartridges.<c>.hero_styles`), the revise round every
+  other id in `heroes`, for every cartridge with heroes (landing too, not only the listicle). A pinned
+  `--hero-style` is kept and a look that does not render it is skipped. The rendered composition is recorded
+  with cycle 94's `_record_rendered_hero` after the gate leaves the best layout in place.
+- Blocks (cycle 91): a look's blocks come with the look, so the landing page's variants now include the block
+  looks cinematic and buybox; `design_gate.block_sets()` stays `(None,)` (no separate block-set dimension).
+- Rubric: the PEAK type system is the four cycle 95 families (Montserrat headings, Epika serif, Peak Grotesk
+  Wide and Acid Grotesk display), DM Sans body -- in tenants/peak-saunas/design-rubric.md (harness/ must not
+  name a tenant word such as "Peak"; the engine rubric points at the brand section).
+- tests/test_design_gate_cycle92.py: font tests rewritten for the one module; a test that revise-round heroes
+  stay within the look.json; landing pipeline tests pinned to `variants` 1-2 so the layout order is known.
+  The cycle 94 and cycle 91 hash pins were not touched and pass.
+- Full suite `.venv/bin/python -m pytest -q -p no:cacheprovider`: 2942 passed, 0 failed. One earlier run
+  had a setup error in tests/test_write.py while a real headless Chrome ran beside the suite; it did not
+  recur in isolation or in the final run.
+
 ## Cycle 93 (image pipeline: richer tags, slot resolver, focal crops, better ad stills, 2026-10-07)
 
 Branch `cycle93/image-pipeline` from master bbc3ac4. Not merged, not pushed.
@@ -5397,9 +5658,253 @@ cycle 75 tags say what a photo shows, not how it can be used on a page.
   product-only video gives no stills.
 - 35 of 66 photos carry the old mark, so above-the-fold slots have about half the library.
 
+## Cycle 94 (pluggable hero compositions: caps over photo, dark statement, split, letters + pill, buy box, 2026-10-07)
+Branch `cycle94/hero-compositions` from origin/master bbc3ac4. Not merged, not pushed. Local build
+only (no model call, no server).
+
+### Problem
+The first screen had three listicle styles (face, story, display) and the landing page its own
+hero, each written inside the look that used it. The owner wants pages like the ten approved
+references (peak-lp-pack, 2026-10-07); most of what tells them apart is the hero composition. A
+new first screen meant editing every look, and nothing let an ad pick one.
+
+### Change
+- **`harness/heroes/`** (docs/HEROES.md): one module + one Jinja partial per composition, found by
+  package discovery. A module registers `Hero(id, title, supports, needs, fallbacks, context,
+  summary)`; `context(...)` builds what the partial prints from what the renderer already computed
+  (`_common.fields`: eyebrow, the writer's headline with its accent span as `hr-accent`, the short
+  display line, dek/subhead, byline, verified rating, price + the fixed financing sentence, trust
+  facts, CTA, the tenant's secondary text link, spec rows, product name). No new writer field.
+- **Five new compositions**, each `<header class="hr-root hr-<id> hr-bleed"
+  data-look-pattern="hero:<id>">` with one scoped `<style>` (prefix `hr-<id>-`, colours only from
+  `--pk-*`/`--ps-*` tokens, dark grounds by token, 390px first, widened at 900px, CTA 52px, text link
+  44px): `caps_over_photo` (01 Ridge: all-caps wide display headline over a dark full-bleed photo,
+  a flat basalt overlay = the token at opacity .58, no gradient; white pill), `dark_statement`
+  (02/07: dark ground, one display line, white pill, an optional dark macro photo below / beside),
+  `split` (03: photo one side, headline + pill + trust row the other; photo first on a phone),
+  `letters_pill` (09: the display name's first and last two letters, or tenant.yaml
+  `hero.letters`, flanking a pill-shaped photo window; the pill and the text link as an outline
+  pill), `buybox` (06, landing only: cut-out, product name, headline, rating row, price +
+  financing, full-width pill, spec bullets from the landing spec strip, trust facts without the
+  rating).
+- **Adapters.** `face`, `story`, `display` (listicle) and `ad_first` (the landing looks' own first
+  screen; the proof look's rating row, review quote and trust line under the pill are a branch on
+  `look`) are compositions too. Their partials are the exact text sliced out of the looks, the CSS
+  stays in the look, and the landing sticky bar observes `{{ hero.anchor }}` (`.adv-landing
+  .ld-hero` for ad_first, `.adv-landing .hr-root` otherwise). They carry no `data-look-pattern`:
+  adding it would change the shipped output.
+- **Looks.** The three shipped looks print `{% include "heroes/_pick.html" %}` where their first
+  screen was; `_pick.html` includes `heroes/<hero.id>.html` (render.py adds a `heroes/` prefix
+  loader on the package). `look.json` beside each look: `{"heroes": [...], "default_heroes":
+  [...]}` -- cycle 91's look metadata is not in this clone, so this is the format until it lands
+  (one reader, `heroes.look_spec`). Listicle `open`: face, story, display, caps_over_photo, split,
+  dark_statement (default pool face/story/display). Landing `open` and `proof`: ad_first,
+  caps_over_photo, split, letters_pill, dark_statement, buybox (default ad_first). A look with no
+  look.json (an imported cycle 87 look) renders its cartridge's legacy screens only.
+- **Selection** (`heroes.resolve`): the request when the look renders it and its image exists,
+  else its fallbacks (caps_over_photo/letters_pill -> dark_statement, buybox -> ad_first, the
+  cycle 79 face rule word for word), else the rest of the pool; with no request a pick seeded from
+  the run (the cycle 79 key, so a listicle run picks what it picked before) among the look's
+  default pool, narrowed by tenant.yaml `cartridges.<c>.hero_styles`. `render_page` resolves once
+  the look and the page's images are known, logs `hero composition: <id> (<reason>; image: ...)`
+  plus the old `hero style: <note>` on a fallback, and stamps `hero_style` on page.json (landing
+  page.json now carries it too). `first_screen.resolve_hero_style` / `prepare` delegate to it.
+- **Images** go through one call, `heroes.pick_image(needs, ...)`. Before the merge with cycle
+  93 it was a local tag matcher; after it (see "Merge with master" below) it asks cycle 93's
+  `images.fill_slots`.
+- **Plumbing.** `harness run --hero-style` / `harness rerender --hero-style` take any composition
+  (`heroes.arg`); a run-wide flag applies to each cartridge that has it (`heroes.requested_for`);
+  the pipeline stamps the landing request and records what rendered (`listicle.hero_style`,
+  `landing.hero_style` via `runstate.record_hero`). A/B/C: `listicle:<style>:<look>:<hero>` with
+  any composition the look renders and `landing:<look>:<hero>`; the variant records the rendered
+  composition for every cartridge with heroes. Library: a card per composition a look renders
+  (listicle x copy style: 30 listicle versions; landing `landing/<look>/<hero>`, 12), notes from
+  each composition's summary, the version sha covers look.json and the partial; "Generate with
+  this" / the upload form pin `landing:<look>:<hero>` (`library.arm_from_fields`). Site hero chips
+  read every composition's title (a landing card now shows "Ad first"). `evals/fake_run.py
+  --hero-style` takes any composition.
+- **Look import (cycle 87).** An imported look is one file, so the model's reference and the
+  validator tests use `heroes.standalone_source(...)`, which writes the legacy first screen back
+  inline; for the three shipped looks it returns their pre-cycle-94 source byte for byte.
+- tenant.yaml `hero.letters: ["PE", "AK"]` (PEAK), documented in tenants/_template/tenant.yaml;
+  pyproject package data `heroes/*.html`.
+
+### Verify
+- Shipped looks unchanged: 10 renders (listicle face/story/display with and without an ad still,
+  landing open/proof dry and with a still) have the same sha256 of the whole index.html as on
+  master bbc3ac4 (recorded before any change, twice, deterministic). The committed test pins the
+  `<main>`...`<footer>` part (`SHIPPED` in tests/test_heroes_cycle94.py) so a brand stylesheet
+  edit does not trip it.
+- `tests/test_heroes_cycle94.py`: 60 tests -- registry, needs, partial scoping / tokens / prefix,
+  look.json; every new composition rendered with and without an ad still (16 cases, including the
+  caps_over_photo -> dark_statement fallback with its log line); letters from the tenant setting
+  and the display name; landing price/financing/text link/trust and the sticky-bar anchor; buy box
+  spec bullets and one rating; resolver (request, fallbacks, the face rule, refusals, a look that
+  does not render a request), default = the look's own, the tenant pin and availability;
+  pick_image on the committed manifest with generated files (wide people/lifestyle/exterior, no
+  retired mark, page exclusion, ad still first, dark macro, no file = no pick); caps_over_photo
+  with a library photo; the 10 shipped hashes; offline fake runs (landing x 5, listicle x 3) exit
+  0, stamp page.json and state.json, pass html validity / JSON-LD / internal links / image markup
+  / brand lint and the shopify-body invariants; a static 390px CSS check per partial (no fixed
+  width over 390px without max-width, no 100vw, no negative side margin, 52px/44px targets,
+  contained root); arms, variant record, CLI flags, rerender of a landing page, Library cards and
+  the upload pre-selection.
+- Changed older tests: `tests/test_library_cycle86.py` (listicle count from look.json; the build-
+  mechanics tests keep the landing looks to their own first screen, since the extra landing cards
+  are cycle 94's and are tested there), `tests/test_look_import_cycle87.py` (reference = the
+  standalone source).
+- Full suite `.venv/bin/python -m pytest -q`: 2789 passed, 0 failed, 0 skipped (master bbc3ac4 in a
+  worktree: 2729 passed, 0 failed; +60 new).
+- Headless Chrome (390x844 and 1280x900, the owner's real photo derivatives from
+  peak-lp-pack/assets/photo-library through `HARNESS_PHOTO_LIBRARY_DIR`, fake runs in the Library's
+  offline scratch world): every new composition plus ad_first and display, read back by eye; a
+  390px probe in Chrome measured scrollWidth = 390 and no first-screen element outside 0-390px on
+  all ten pages. Screenshots (`<cartridge>-<hero>-390.png` / `-1280.png`, `sheet-390.png`,
+  `sheet-1280.png`): `c94-shots/` beside the clone (not in the repo).
+
+### Open
+- **Photo choice.** Almost every exterior/lifestyle library photo carries `old_logo_visible`, so
+  above the fold the picker falls back to the ad still or the cut-out: letters_pill shows the
+  cut-out in the pill on Fuji pages, and dark_statement's "macro" is a bright heater close-up
+  (dark is a preference, not a rule). New-mark photos would change both.
+- `caps_over_photo` needs a photo: with a text ad and no library files on the host (this Mac
+  without the derivatives) it renders dark_statement, and the Library marks it not renderable
+  offline, like face.
+- `harness revise` does not re-stamp `hero_style` (nor `look`, cycle 85), so a revised page goes
+  back to the look's default unless the writer echoes the field.
+- Adapters carry no `data-look-pattern` (shipped output pinned); only the five new compositions do.
+- Not deployed; no real-model run. The Library on prod will build 25 more versions than before
+  (30 listicle, 12 landing).
+
+### Merge with master 090e498 (cycles 90 and 93, same day)
+`git merge origin/master` into this branch. Three conflicts, each resolved keeping both sides:
+- `docs/FIXLOG.md`: cycle 90 and cycle 93 sections kept as master has them; this cycle 94 section
+  moved after them (cycle order).
+- `harness/look_import.py` `build_system_prompt`: cycle 90's `rules` (with the exemplar block)
+  kept; the reference look still goes through `heroes.standalone_source(...)` (an imported look is
+  one file).
+- `harness/render.py`: the download set unions cycle 93's slot picks and the hero image; the
+  template gets both `image_slots=` and `hero=`.
+- **Hero images through cycle 93's resolver.** `heroes.pick_image` now builds one cycle 93 slot per
+  source (ad still, library, cut-out) and calls `images.fill_slots` with the page's asset ids as
+  `used` and `above_fold`; the candidate pool is built once per render. The compositions' image
+  specs use the resolver's vocabulary: caps_over_photo shots hero-wide / lifestyle-person /
+  exterior / room with `fullbleed_ok` (strict pass, then relaxed); dark_statement detail-macro with
+  `dark_ok` (a hard filter: no dark-page-ok macro photo means no photo); split room /
+  lifestyle-person / exterior / hero-wide, portrait or square preferred; letters_pill exterior /
+  hero-wide / room cut to the `pill` window (`render_image_slot(crop="pill")`). A pick carries its
+  focal point (CSS object-position, and the crop centre); a library photo the facts pack did not
+  offer gets the renderer's derived alt. Adapters no longer pick an image (they print the look's
+  own). The local matcher (`_library_candidates`, `_luma`, `_orient`) is gone.
+- Verify: the 10 shipped-look renders are byte-identical (whole index.html) between this merge
+  and origin/master 090e498 (and still equal to bbc3ac4); `SHIPPED` passes. `tests/test_heroes_cycle94.py`
+  (60): the needs assertions use the cycle 93 vocabulary, and the pick test now checks the
+  resolver's behaviour (shot, focal position, full-bleed on the strict pass, page exclusion,
+  dark_ok macro, pill crop, ad still first, cut-out only where allowed, nothing without files).
+  `tests/test_look_import_cycle90.py` builds its fake model answers by editing the shipped landing
+  look's source, so it now reads `heroes.standalone_source(...)` like the cycle 87 tests (11 of its
+  tests failed against the include before). Full suite: MERGE_COUNTS.
+- 390px probe (fake runs with the owner's photo derivatives, headless Chrome): scrollWidth 390 and
+  no first-screen element outside 0-390px for caps_over_photo, dark_statement, split,
+  letters_pill and buybox (and ad_first, display). Shots in `c94-shots/merge/`. With the resolver,
+  dark_statement now gets a dark heater-grille macro (dark_ok) instead of the bright close-up.
+- **Open (resolver ranking).** caps_over_photo's library pick on a Fuji landing page is
+  asset-photo-7f49a0eae69d: tagged `blurry`, but the only fullbleed_ok people photo, and the
+  resolver's strict pass filters on fullbleed_ok while blur is only a -3 score. Until the cycle 93
+  vision tagger sets `quality` (or fill_slots filters blur above the fold), a blurry full-bleed
+  photo can win the first screen. The ad still still wins when the run has one.
+## Cycle 95 (brand fonts: Epika, Montserrat, licensed Acid Grotesk, Peak Grotesk Wide, 2026-10-07)
+
+Branch `cycle95/brand-fonts` from master 090e498. Not merged, not pushed.
+
+### Problem
+Owner: "We need to add Epika, Montserrat, Peak Grotesk and Acid Grotesk to the
+generator." Peak Grotesk Wide was wired (cycle 79, theme CDN). Acid Grotesk was
+wired only as the unlicensed evaluation file on the theme CDN. Epika and Montserrat
+were not wired at all. `--ps-serif` was only an alias for the heading face.
+
+### Fix
+1. **Font files** (`tenants/peak-saunas/brand/fonts/`, the folder `harness publish`
+   uploads to Shopify Files): `Epika-Regular.woff2` (Superior Type webfont, as
+   delivered), `FFF-AcidGrotesk-Regular.woff2` (licensed, as delivered),
+   `Montserrat-Variable.woff2` (OFL, converted from the Google Fonts variable TTF with
+   fontTools, weights 100-900), `OFL-Montserrat.txt`, and `LICENSES.md` (each face,
+   its licence, the Drive folder and file ids). `brand/fonts-display/` keeps
+   `pk-peak-grotesk-wide.woff2`. The evaluation Acid Grotesk file is deleted.
+2. **`brand/base.css`**: four `@font-face` rules. Peak Grotesk Wide keeps its absolute
+   theme-CDN url. Acid Grotesk, Montserrat and Epika use `brand/fonts/<file>`, the form
+   the publisher rewrites. Tokens: `--ps-heading` = Montserrat, then Poppins, then DM Sans;
+   `--ps-serif` = Epika, then Georgia; `--ps-display-acid` = "Acid Grotesk" (was "PK Acid
+   Grotesk"); `--ps-display-wide` and `--ps-sans` (DM Sans) unchanged. `tokens.json`,
+   `NOTES.md`, `brand-guide-summary.md` ("Web typography (2026-10-07)") and the
+   `tenant.yaml` `brand.fonts` block now show these roles.
+3. **Publisher** (`harness/publishers/shopify.py` `rewrite_font_face_urls`): an absolute
+   http(s) url is kept. Before this change, entries were matched by filename only, so the
+   theme-CDN Peak Grotesk Wide block would have been dropped from every published page as
+   soon as `brand/fonts/` held a file. `FONT_SUFFIXES` already accepted woff2.
+4. **`harness publish --dry-run`** (`harness/cli.py`): the JSON report gains
+   `fonts: {upload_on_next_publish: [...], already_on_cdn: [...]}`.
+5. **Review page and thumbnails** (`harness/review.py` `inline_font_face_urls`, called by
+   `build_review_for_page`): every `@font-face` src in the review file becomes a data:
+   URI of the local file (brand/fonts/ or brand/fonts-display/, matched by filename). The
+   library thumbnail screenshots that file, so it renders offline. `index.html` and the
+   export keep the publishable urls. A first attempt that inlined at render time put
+   about 400 KB of base64 into `index.html`, and a raw-text check found "HSA" in the
+   font data (test_product_page_looks), so the inlining moved to the review build. The
+   review file grows by about 550 KB (budget 12 MB).
+6. **Looks**: the two landing looks and the listicle `open` look define
+   `--pk-serif:var(--ps-serif,var(--pk-heading))` and set Epika 400 on the review quote
+   (`.ld-quote p`, `.ld-hq p`) and the pull quote (`.op-pull blockquote`). The open
+   landing look's `.ld-who` attribution is set to DM Sans, so that it does not inherit
+   Epika. The first-screen display styles keep Peak Grotesk Wide and Acid Grotesk.
+7. **Import rules** (`harness/look_import_rules.md`) list the families and their roles,
+   with `var(--ps-serif)` for one quote or statement line. The validator message in
+   `harness/look_import.py` names the five tokens. `look_design.font_token` maps Epika to
+   `serif` and Montserrat to `heading`. `harness/design_rubric.md` does not exist in
+   this checkout: the cycle 92 rubric must list the same four families and their roles.
+8. **Brand lint** (`tests/test_brand_lint_cycle78.py`): the declared Acid Grotesk family
+   is now "Acid Grotesk". Any other spelling ("PK Acid Grotesk", "FFF Acid Grotesk") is
+   still flagged.
+9. **Tests**: `tests/test_fonts_cycle95.py` (19); suite 2805 passed (master 2786 collected). `tests/conftest.py` gives the real
+   PEAK tenant a temporary CDN manifest that already lists its fonts (the steady state
+   after the first real publish). Without it, every publish test against the fake
+   Shopify would attempt a GraphQL font upload. `tests/test_brand_tokens_cycle52.py`
+   now asserts the four-face contract.
+
+### Operator steps
+- Nothing to run now. The next `harness publish` (or A/B/C publish, or post-live) with
+  credentials uploads the three `brand/fonts/` files once, writes
+  `brand/fonts/cdn-manifest.json` and rewrites the urls. Commit that manifest on prod.
+  `harness publish <run> --page <p> --dry-run` shows the upload list first.
+- `harness rerender` re-applies cached CDN urls only. A page rerendered before the first
+  upload falls back to Poppins (headings), Georgia (quotes) and Poppins (Acid display).
+
+### Licence notes
+- Superior Type webfont EULA (Epika): web use via `@font-face` only, up to the monthly
+  pageviews on the invoice, on domains of the same company. Never modify, rename,
+  convert or subset the files (subsetting is allowed only for load time). Never upload
+  them to a publicly accessible server, cloud service or git repository. This repo's
+  origin is PEAK's own server: never push it to a public host. The desktop EULA does not
+  permit `@font-face`, so Epika Light (desktop .otf only) is NOT shipped.
+- Open for the owner: (a) is Shopify's `cdn.shopify.com` within "domains of the same
+  company"? (b) The EULA forbids use "in any automated document composition systems"
+  installed on a server. The generator only writes `@font-face` rules, but the library
+  thumbnails are rendered with Epika by headless Chrome on prod. (c) The Acid Grotesk
+  licence text (Drive folder `1LkMYVrbbN72DlEwnr-YajA55mSnVL31u`) was not read in this
+  cycle.
+- Montserrat: SIL OFL 1.1, no Reserved Font Name. The woff2 conversion and the file name
+  are allowed. The licence travels as `OFL-Montserrat.txt`.
+
+### Open
+- `harness/site_ui.py` (the generator's own site UI) still loads the evaluation Acid
+  Grotesk file from the theme CDN (`ACID_GROTESK_URL`). This cycle did not change it.
+- Montserrat Italic was converted (in the pack folder) but is not shipped: no heading
+  style sets italic.
+
 ## Cycle 96 (Photos page: upload, tag, curate and use library photos from the review site, 2026-10-07)
 
-Branch `cycle96/photos-page` from master 090e498. Not merged, not pushed.
+Branch `cycle96/photos-page` from master 090e498; origin/master (cycles 91, 92, 94, 95) merged in
+2026-10-08. Not merged to master.
 
 ### Problem
 Owner: "I want to be able to add photos on the web page dashboard at
@@ -5454,6 +5959,11 @@ image pool, not the photo library.
    in all, so kept.
 
 ### Result
+- 2026-10-08, after merging origin/master (cycles 91, 92, 94, 95): two more
+  tests -- the cycle 94 hero picker (`heroes.pick_image`) and the cycle 91
+  photo essay (`photo_essay.candidates`) return uploaded photos as soon as
+  the job has tagged them; a real HEIC (made with pillow-heif) is imported as
+  a JPEG derivative. 21 tests in the file.
 - tests/test_photos_page_cycle96.py: 19 tests (upload -> job -> measured and
   tagged row; resolver pick; duplicate upload; daily cap; rate limit; file,
   batch and HEIC refusals; grid, filters and "Used in"; every edit + audit;
@@ -5469,7 +5979,9 @@ image pool, not the photo library.
 ### Open
 - `brand/photo-library.json` is in git and is now written on the server.
   Commit or copy the server's copy before merging a branch that changes it.
-- HEIC needs `pillow-heif` on the server (not added as a dependency); until
-  then the page refuses HEIC with an "export as JPEG" message.
+- HEIC: `pillow-heif` became a project dependency (9d94e5a). The server
+  needs `pip install -e .` (or `pip install pillow-heif`) in its venv after
+  the merge; until then the page refuses HEIC with an "export as JPEG"
+  message.
 - The worker must have the Anthropic key in its environment, as for every
   other model job.

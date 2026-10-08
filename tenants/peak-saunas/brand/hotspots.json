@@ -1,0 +1,292 @@
+{
+  "version": 1,
+  "note": "Cycle 91: hotspot dot positions per product cut-out (brand/cutouts/), as [x%, y%] of the image box, for the hotspot_image block (harness/blocks/catalog/hotspot_image.py). Keys: heater, bench, panel (red light), glass, control, wood. A dot shows only when a verified claim or spec of the model backs its label; a key left out of a model is never shown on it. Defaults set by eye from the 2026-10-05 old-mark cut-outs; adjust per model as needed.",
+  "models": {
+    "crown": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        30,
+        33
+      ]
+    },
+    "denali": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        17,
+        38
+      ]
+    },
+    "el-capitan": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        30,
+        33
+      ]
+    },
+    "everest": {
+      "control": [
+        73,
+        12
+      ],
+      "panel": [
+        73,
+        27
+      ],
+      "heater": [
+        73,
+        45
+      ],
+      "bench": [
+        73,
+        69
+      ],
+      "glass": [
+        53,
+        57
+      ],
+      "wood": [
+        22,
+        38
+      ]
+    },
+    "fuji": {
+      "control": [
+        71,
+        12
+      ],
+      "panel": [
+        71,
+        27
+      ],
+      "heater": [
+        71,
+        45
+      ],
+      "bench": [
+        71,
+        69
+      ],
+      "glass": [
+        51,
+        57
+      ],
+      "wood": [
+        22,
+        38
+      ]
+    },
+    "kilimanjaro": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        22,
+        38
+      ]
+    },
+    "matterhorn": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        17,
+        38
+      ]
+    },
+    "mini": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        30,
+        33
+      ]
+    },
+    "patagonia": {
+      "control": [
+        50,
+        12
+      ],
+      "panel": [
+        50,
+        27
+      ],
+      "heater": [
+        50,
+        45
+      ],
+      "bench": [
+        50,
+        69
+      ],
+      "glass": [
+        67,
+        57
+      ],
+      "wood": [
+        30,
+        33
+      ]
+    },
+    "rainier": {
+      "control": [
+        68,
+        12
+      ],
+      "panel": [
+        68,
+        27
+      ],
+      "heater": [
+        68,
+        45
+      ],
+      "bench": [
+        68,
+        69
+      ],
+      "glass": [
+        48,
+        57
+      ],
+      "wood": [
+        20,
+        38
+      ]
+    },
+    "shasta": {
+      "control": [
+        68,
+        12
+      ],
+      "panel": [
+        68,
+        27
+      ],
+      "heater": [
+        68,
+        45
+      ],
+      "bench": [
+        68,
+        69
+      ],
+      "glass": [
+        48,
+        57
+      ],
+      "wood": [
+        20,
+        38
+      ]
+    }
+  }
+}

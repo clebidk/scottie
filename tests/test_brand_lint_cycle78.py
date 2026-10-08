@@ -167,7 +167,11 @@ def _lint(doc):
     upper = doc.upper()
     problems += [f"banned colour {c}" for c in BANNED_COLOURS if c in upper]
     for m in re.finditer(r"font-family\s*:\s*([^;}]*)", doc, re.I):
-        if "ACID GROTESK" in m.group(1).upper() and "PK ACID GROTESK" not in m.group(1).upper():
+        # cycle 95: the licensed face's declared family is "Acid Grotesk";
+        # any other spelling (the trial's "PK Acid Grotesk", the file's own
+        # "FFF Acid Grotesk") is a face nothing declares.
+        names = [n.strip().strip("'\"") for n in m.group(1).split(",")]
+        if any("ACID GROTESK" in n.upper() and n != "Acid Grotesk" for n in names):
             problems.append("Acid Grotesk outside its declared family")
     css = _css(doc)
     if re.search(r"gradient\s*\(", css, re.I) or re.search(r"gradient\s*\(", doc, re.I):

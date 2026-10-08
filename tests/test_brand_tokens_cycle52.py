@@ -304,16 +304,19 @@ def test_the_tenant_uses_the_theme_faces_and_only_the_approved_display_faces():
     storefront theme, and by a head <link> on the review page. Cycle 79: the
     owner approved two display faces for the "display" first screen; they
     are the only @font-face rules, each an absolute https URL on the theme's
-    CDN (a page body has no Liquid; a relative path would 404)."""
+    CDN (a page body has no Liquid; a relative path would 404). Cycle 95:
+    four families -- Peak Grotesk Wide stays on the theme CDN; licensed Acid
+    Grotesk, Montserrat (headings, Poppins next) and Epika (serif) are
+    brand/fonts/ files the publisher uploads and rewrites
+    (tests/test_fonts_cycle95.py)."""
     css = (TENANT.brand_dir / "base.css").read_text()
     faces = re.findall(r"@font-face\s*\{[^}]*\}", css)
-    assert len(faces) == 2
-    assert all(re.search(r'src:url\("https://cdn\.shopify\.com/[^"]+"\)', f) for f in faces)
+    assert len(faces) == 4
+    assert all(re.search(r'src:url\("(https://cdn\.shopify\.com/|brand/fonts/)[^"]+"\)', f) for f in faces)
     families = sorted(re.search(r'font-family:"([^"]+)"', f).group(1) for f in faces)
-    assert families == ["PK Acid Grotesk", "Peak Grotesk Wide"]
-    assert "Epika" not in css
+    assert families == ["Acid Grotesk", "Epika", "Montserrat", "Peak Grotesk Wide"]
     assert '--ps-sans:"DM Sans"' in css
-    assert '--ps-heading:"Poppins"' in css
+    assert '--ps-heading:"Montserrat","Poppins"' in css
     assert TENANT.get("brand.font_stylesheet").startswith("https://fonts.googleapis.com/")
 
 
@@ -334,8 +337,8 @@ def test_the_export_carries_only_the_display_font_faces_and_no_font_link(tmp_pat
     ).read_text()
     assert TENANT.get("brand.font_stylesheet") in html.replace("&amp;", "&")
     body, _manifest = build_shopify_body(tmp_path / "listicle")
-    assert font_face_css(TENANT).count("@font-face") == 2
-    assert body.count("@font-face") == 2
+    assert font_face_css(TENANT).count("@font-face") == 4  # cycle 95
+    assert body.count("@font-face") == 4
     assert "https://cdn.shopify.com/s/files/" in body
     assert "fonts.googleapis.com" not in body
 

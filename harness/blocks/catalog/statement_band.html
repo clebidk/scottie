@@ -1,0 +1,26 @@
+{#- Block `statement_band` (cycle 91, harness/blocks/catalog/statement_band.py):
+    a full-bleed dark band (include it outside any container) with the
+    writer's one display line and the page's CTA as a light pill. Its own
+    16px/32px gutters. -#}
+{%- set bk = blocks.statement_band if blocks and blocks.statement_band else none -%}
+{%- set bk_cta = "op-btn" if cartridge == "listicle" else "ld-btn ld-btn--light" -%}
+{%- if bk and bk.line %}
+<style>
+.bk-statement_band{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));background:var(--bk-dark);color:var(--bk-on-dark);padding:64px 16px 72px}
+.bk-statement_band .bk-statement_band-in{max-width:1200px;margin:0 auto}
+.bk-statement_band .bk-statement_band-line{margin:0 0 28px;max-width:16ch;font:400 30px/1.1 var(--bk-display);letter-spacing:.01em;text-transform:uppercase;color:var(--bk-on-dark);text-wrap:balance}
+.bk-statement_band .bk-statement_band-act a{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:15px 36px;border-radius:999px;background:var(--bk-on-dark);color:var(--bk-dark);font:600 16px/1.2 var(--bk-heading);text-decoration:none}
+.bk-statement_band .bk-statement_band-act a:hover{background:var(--bk-red);color:var(--bk-on-dark)}
+@media (min-width:768px){
+  .bk-statement_band{padding:96px 32px 104px}
+  .bk-statement_band .bk-statement_band-line{font-size:48px;max-width:18ch}
+}
+@media (min-width:1024px){.bk-statement_band .bk-statement_band-line{font-size:60px}}
+</style>
+<section class="bk-statement_band" data-look-pattern="statement_band">
+  <div class="bk-statement_band-in">
+    <p class="bk-statement_band-line">{{ bk.line }}</p>
+    <div class="bk-statement_band-act"><a class="{{ bk_cta }}" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+  </div>
+</section>
+{%- endif %}

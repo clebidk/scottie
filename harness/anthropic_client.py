@@ -23,3 +23,14 @@ def thinking_kwargs(model):
     if "haiku" in model:
         return {}
     return {"thinking": {"type": "disabled"}}
+
+
+# Cycle 92: the design gate's judge runs on Claude Opus 5.5, where thinking
+# cannot be disabled (`{"type": "disabled"}` is a 400 at every effort), so
+# thinking_kwargs above must not be used for it. Thinking stays on (adaptive,
+# the default when the parameter is omitted) and its depth is set by
+# output_config.effort. Haiku takes neither parameter.
+def adaptive_kwargs(model, effort=None):
+    if "haiku" in model or not effort:
+        return {}
+    return {"output_config": {"effort": effort}}

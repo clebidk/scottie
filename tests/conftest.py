@@ -28,6 +28,11 @@ os.environ["HARNESS_PHOTO_LIBRARY_DIR"] = "/nonexistent/photo-library-off-in-tes
 # (tests/test_jev_cycle76.py). No test ever sees a real TypeSafe key.
 os.environ["HARNESS_JEV_DRAFTS"] = "1"
 os.environ.pop("TYPESAFE_API_KEY", None)
+# Cycle 92: PEAK runs the design gate in enforce mode (tenant.yaml
+# design_gate). The suite's canned runs have no judge answers and should not
+# drive a browser, so every test runs with the gate off unless it sets
+# HARNESS_DESIGN_GATE itself (tests/test_design_gate_cycle92.py).
+os.environ["HARNESS_DESIGN_GATE"] = "off"
 
 
 class FakeUsage:
@@ -146,6 +151,20 @@ def _no_network(request, monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", _blocked)
     monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
     monkeypatch.setattr(socket, "create_connection", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_browser(request, monkeypatch):
+    """Cycle 92: harness/capture.py finds Chrome in the macOS application
+    folder too, so a test that renders a Library or runs the design gate
+    would drive a real browser on a developer Mac (slow, and not what the
+    test is about). Every test sees no browser unless it is marked
+    `real_browser`."""
+    if request.node.get_closest_marker("real_browser"):
+        return
+    from harness import capture
+
+    monkeypatch.setattr(capture, "find_browser", lambda: None)
 
 
 # ---------------------------------------------------------------------------
@@ -391,3 +410,35 @@ def _module_environ_guard(_session_environ_guard):
         "in os.environ (names only) -- something called Tenant.load_env outside "
         "a test. The environment is restored; restore it in that fixture too."
     )
+
+
+# Cycle 95: the PEAK tenant ships webfonts in brand/fonts/, so every publish
+# path (`harness publish`, A/B/C, post-live) would first upload them to
+# Shopify Files -- a GraphQL call the publish tests' fake Shopify does not
+# expect. Give the real tenant a CDN manifest that already lists every font,
+# the steady state after its first real publish, in a temp file (never the
+# tenant tree). tests/test_fonts_cycle95.py exercises the upload itself on a
+# copy of brand/.
+@pytest.fixture(scope="session")
+def _real_tenant_font_manifest(tmp_path_factory):
+    from harness.publishers import shopify as shopify_pub
+    path = tmp_path_factory.mktemp("font-cdn") / "cdn-manifest.json"
+    path.write_text(json.dumps({f.name: f"https://cdn.shopify.com/s/files/test/{f.name}"
+                                for f in shopify_pub.font_files(TENANT)}))
+    return path
+
+
+@pytest.fixture(autouse=True)
+def _real_tenant_fonts_are_already_on_the_cdn(monkeypatch, _real_tenant_font_manifest):
+    from pathlib import Path
+    from harness.publishers import shopify as shopify_pub
+    real = shopify_pub.font_cdn_manifest_path
+    real_brand = Path(TENANT.brand_dir).resolve()
+
+    def manifest_path(tenant):
+        brand_dir = getattr(tenant, "brand_dir", None)
+        if brand_dir and Path(brand_dir).resolve() == real_brand:
+            return _real_tenant_font_manifest
+        return real(tenant)
+
+    monkeypatch.setattr(shopify_pub, "font_cdn_manifest_path", manifest_path)

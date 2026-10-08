@@ -19,7 +19,7 @@ def log_run_result(log, result, gate_log):
     log.result(result, total_attempts, total_repairs)
 
 
-def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, forbidden_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None):
+def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pages, budget, cost, gate_matched, forbidden_urls=None, gate_log=None, product_warning=None, ad_not_repeated=None, ad_alternative_claims=None, design=None):
     forbidden_urls = forbidden_urls or []
     lines = [
         f"# REVIEW: {run_dir.name}",
@@ -180,6 +180,12 @@ def write_review_md(run_dir, *, ad_brief, facts_pack, product_name, selected, pa
         )
         det_str = "; ".join(f"attempt {i + 1}: {n}" for i, n in enumerate(det_fixes)) or "0"
         lines.append(f"| {name} | {len(attempts)} | {per_attempt} | {det_str} | PASS |")
+
+    # Cycle 92: the design gate's section; nothing at all when the gate is off.
+    if design:
+        from .design_gate import review_lines
+
+        lines.extend(review_lines(design))
 
     lines.append("")
     lines.append("## Budget use")

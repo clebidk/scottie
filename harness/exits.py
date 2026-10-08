@@ -8,7 +8,9 @@ literals scattered through cli.py and pipeline.py.
     0  the command did what it was asked
     1  bad usage, or an operator-level refusal (unknown tenant flag combination,
        a run directory that is not one, a publish refused by the approval gate)
-    2  a claims-gate STOP -- see unmatched_claims.json in the run directory
+    2  a claims-gate STOP -- see unmatched_claims.json in the run directory --
+       or (cycle 92) a design-gate STOP in enforce mode -- see
+       <run>/<cartridge>/design/scores.json and REVIEW.md's Design section
     3  a budget cap was hit
     4  the tenant exists but has not been configured yet
 
@@ -28,7 +30,8 @@ TENANT_NOT_CONFIGURED = 4
 HELP_EPILOG = """exit codes:
   0  done
   1  bad usage, or a refused operation
-  2  claims-gate STOP (see unmatched_claims.json in the run directory)
+  2  claims-gate STOP (see unmatched_claims.json in the run directory), or a
+     design-gate STOP (see <run>/<cartridge>/design/scores.json)
   3  budget cap exceeded
   4  tenant not configured yet
 """

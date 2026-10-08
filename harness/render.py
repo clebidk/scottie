@@ -21,8 +21,10 @@ from PIL import Image
 from . import photo_library
 from . import ad_frames
 from . import blocks
+from .blocks import catalog as block_catalog
 from . import cutouts as cutouts_mod
 from . import first_screen as first_screen_mod
+from . import heroes as heroes_mod
 from . import ground as ground_mod
 from . import images as images_mod
 from . import ingest
@@ -979,6 +981,11 @@ def render_page(
     tenant = tenant or tenant_mod.active()
     cartridge_dir = Path(cartridges_dir) / cartridge_name
     loader = jinja2.FileSystemLoader([str(cartridge_dir), str(templates_dir), str(blocks.BLOCKS_DIR)])
+    # Cycle 94: the shared hero compositions, "heroes/<id>.html" (harness/
+    # heroes/), which every look includes through heroes/_pick.html.
+    loader = jinja2.ChoiceLoader([
+        loader, jinja2.PrefixLoader({"heroes": jinja2.FileSystemLoader(str(heroes_mod.PACKAGE_DIR))}, delimiter="/"),
+    ])
     # Cycle 87: the tenant's imported looks (harness/look_import.py) resolve
     # AFTER the cartridge's own: the dispatcher's "looks/<look>/template.html"
     # finds cartridges/<c>/looks/<look>/ first, else
@@ -989,6 +996,11 @@ def render_page(
         loader = jinja2.ChoiceLoader([
             loader, jinja2.PrefixLoader({"looks": jinja2.FileSystemLoader(str(tenant_looks))}, delimiter="/"),
         ])
+    # Cycle 91: the block catalog's partials, as "blocks/<id>.html" (a look's
+    # {% include %}); after everything else, so nothing shadows a template.
+    loader = jinja2.ChoiceLoader([
+        loader, jinja2.PrefixLoader({"blocks": jinja2.FileSystemLoader(str(block_catalog.CATALOG_DIR))}, delimiter="/"),
+    ])
     env = jinja2.Environment(
         # blocks.BLOCKS_DIR last: a cartridge's own template.html and the
         # shared templates win; block partials resolve as "<name>/block.html".
@@ -1052,23 +1064,10 @@ def render_page(
         frame_record = ad_frames.load(run_dir)
         for frame_id, frame_asset in ad_frames.page_assets(run_dir).items():
             assets_by_id[frame_id] = dict(frame_asset)
-        quote = first_screen_mod.hero_quote(page, ad_brief, facts_pack)
-        requested_style = page.get("hero_style")
-        try:
-            hero_style, note = first_screen_mod.resolve_hero_style(
-                requested_style, seed=run_dir.name, tenant=tenant,
-                frame=frame_record is not None, quote=quote is not None,
-            )
-        except ValueError as e:
-            hero_style, note = first_screen_mod.resolve_hero_style(
-                None, seed=run_dir.name, tenant=tenant, frame=frame_record is not None, quote=quote is not None,
-            )
-            note = str(e)
-        if note and log:
-            log.event("render", f"hero style: {note}")
-        page["hero_style"] = hero_style
+        # Cycle 94: the composition is resolved below, once the look and the
+        # page's images are known (harness/heroes/); hero_style is set there.
         first_screen = first_screen_mod.render_context(
-            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=hero_style,
+            page, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant, hero_style=page.get("hero_style"),
             frame=frame_record, updated=updated,
         )
         used_claim_ids |= first_screen["claim_ids"]
@@ -1288,6 +1287,42 @@ def render_page(
             used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"), tenant=tenant,
         )
 
+    # Cycle 94: the hero composition (harness/heroes/) -- resolved from the
+    # request (page.json's hero_style: --hero-style, an A/B/C arm, or the
+    # pipeline's seeded pick), the look's supported compositions
+    # (look.json), the ad (its still, its quote) and the images the page
+    # can show (heroes.pick_image -> cycle 93's images.fill_slots), then
+    # stamped on page.json. The listicle
+    # keeps its cycle 79 note ("hero style: face needs a still ...").
+    hero_ctx = None
+    if heroes_mod.has_heroes(cartridge_name):
+        hero_base = first_screen if cartridge_name == "listicle" else (landing_context or {})
+        hero_ctx, hero_note = heroes_mod.render_context(
+            cartridge_name, page, look=look, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant,
+            base=hero_base, assets=assets_by_id, frame=ad_frames.load(run_dir), seed=run_dir.name,
+            exclude_ids=collect_asset_ids(page), quote=hero_base.get("quote") is not None,
+        )
+        hero_image = hero_ctx.get("image")
+        if hero_image and not assets_by_id[hero_image["id"]].get("alt"):
+            # a library photo the facts pack did not offer: the same derived alt
+            assets_by_id[hero_image["id"]]["alt"] = asset_alt(assets_by_id[hero_image["id"]], full_name, tenant=tenant)
+        if log:
+            if hero_note:
+                log.event("render", f"hero style: {hero_note}")
+            image = hero_ctx.get("image")
+            log.event("render", f"hero composition: {hero_ctx['id']} ({hero_ctx['reason']}; image: "
+                                f"{image['why'] + ' ' + image['id'] if image else 'none'})")
+        page["hero_style"] = hero_ctx["id"]
+        if cartridge_name == "listicle":
+            first_screen["hero_style"] = hero_ctx["id"]
+        hero_claims = set(hero_ctx.get("claim_ids") or ())
+        if not hero_claims <= used_claim_ids:
+            used_claim_ids |= hero_claims
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+
     # Cycle 54: the product-page `pdp` look's gallery (the product's own
     # storefront images) and the promise band's one image, chosen from the
     # page's FINAL asset picks (after the slot plan and the paragraph-image
@@ -1305,6 +1340,28 @@ def render_page(
         if cutouts_mod.is_cutout_id(hero_id) and hero_id in assets_by_id:
             gallery_ids = ([hero_id] + [g for g in gallery_ids if g != hero_id])[: pdp_mod.GALLERY_MAX]
 
+    # Cycle 91: the block catalog (harness/blocks/catalog/). A look that
+    # declares blocks in its look.json gets each one's renderer-built
+    # context as `blocks.<id>`; images a block shows join the download set,
+    # and the claims it cites join Sources. A look that declares none gets
+    # an empty `blocks` and renders exactly as before.
+    block_ctx, block_asset_ids = {}, set()
+    block_spec = block_catalog.look_spec(cartridge_name, look, tenant=tenant, looks_dir=looks_dir) if look else None
+    if block_spec and block_spec["blocks"]:
+        rendered_blocks = block_catalog.render_blocks(block_spec, {
+            "page": page, "facts_pack": facts_pack, "tenant": tenant, "cartridge": cartridge_name, "look": look,
+            "assets": assets_by_id, "frame_asset": assets_by_id.get(ad_frames.FRAME_ID),
+            "frame_record": ad_frames.load(run_dir),
+            "asset_alt": lambda a, name=None: asset_alt(a, name or full_name, tenant=tenant),
+        })
+        block_ctx, block_asset_ids = rendered_blocks["blocks"], rendered_blocks["asset_ids"]
+        if rendered_blocks["claim_ids"] - used_claim_ids:
+            used_claim_ids |= rendered_blocks["claim_ids"]
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+
     # Fix 8: download each asset the page actually references, into
     # out_dir/assets/, and rewrite its url to a path relative to index.html
     # so the page folder is self-contained. An asset that fails to download
@@ -1313,8 +1370,9 @@ def render_page(
     if download_assets:
         used_asset_ids = (
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
-            | ({promise_id} if promise_id else set()) | quiz_asset_ids
+            | ({promise_id} if promise_id else set()) | quiz_asset_ids | block_asset_ids
             | {a for a in assets_by_id if a.startswith(ad_frames.FRAME_ID)}
+            | ({hero_ctx["image"]["id"]} if hero_ctx and hero_ctx.get("image") else set())
             | {a["id"] for v in image_slots.values() for a in v}
         )
         assets_dir = out_dir / "assets"
@@ -1433,6 +1491,7 @@ def render_page(
         cartridge_data=cartridge_data,
         look=look,
         first_screen=first_screen,
+        hero=hero_ctx or {},
         image_slots=image_slots,
         micro_cta_after=listicle_mod.MICRO_CTA_AFTER_ITEMS,
         tenant=tenant,
@@ -1444,6 +1503,9 @@ def render_page(
         # registered block (blocks.choice validates, so the include path can
         # never escape the blocks directory).
         block_choice=functools.partial(blocks.choice, page),
+        # Cycle 91: the catalog blocks this look declares, rendered ({} for a
+        # look that declares none); a partial reads its own `blocks.<id>`.
+        blocks=block_ctx,
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
         # Cycle 55: the header label ("Advertisement", "Sponsored", ...) is a
         # tenant decision, not a template literal. Empty or unset renders no

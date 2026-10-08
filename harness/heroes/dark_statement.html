@@ -1,0 +1,63 @@
+{# Cycle 94 hero composition `dark_statement` (harness/heroes/dark_statement.py).
+   References: the owner's reference page 02 (hexclad), 07-oura.html. Dark ground, one
+   display line, one white pill, an optional dark macro photo. Scoped CSS,
+   prefix hr-dark_statement-, tokens only, written for 390px first. -#}
+{% import "heroes/_parts.html" as parts %}
+{% set hr = hero %}
+{% set p = "hr-dark_statement-" %}
+{% set img = assets.get(hr.image.id) if hr.image else None %}
+<style>
+.adv-wrap:has(.hr-bleed){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.hr-bleed) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.hr-dark_statement{
+  --hr-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));
+  --hr-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));
+  --hr-red:var(--pk-red,var(--ps-red,var(--adv-accent)));
+  --hr-sans:var(--pk-sans,var(--ps-sans,inherit));
+  --hr-ground:var(--hr-dark);
+  --hr-text:var(--hr-on-dark);
+  margin:0;background:var(--hr-ground);color:var(--hr-text);text-align:left;overflow:hidden;
+}
+.hr-dark_statement .hr-dark_statement-in{box-sizing:border-box;width:100%;max-width:var(--ps-max-width,1320px);margin:0 auto;padding:56px 16px 40px}
+.hr-dark_statement .hr-dark_statement-eyebrow{margin:0;font:500 12px/1.4 var(--hr-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--hr-text);opacity:.72}
+.hr-dark_statement .hr-dark_statement-eyebrow span{padding:0 6px}
+.hr-dark_statement .hr-dark_statement-h1.hr-dark_statement-h1{margin:14px 0 0;max-width:14ch;color:var(--hr-text)!important;font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:34px!important;line-height:1.04!important;letter-spacing:.01em!important;text-transform:uppercase!important;text-wrap:balance;overflow-wrap:break-word}
+.hr-dark_statement .hr-dark_statement-h1.hr-dark_statement-h1--long{max-width:22ch;font-size:25px!important;line-height:1.12!important}
+.hr-dark_statement .hr-accent{color:inherit;text-decoration:underline;text-decoration-color:var(--hr-red);text-decoration-thickness:.08em;text-underline-offset:.14em}
+.hr-dark_statement .hr-dark_statement-dek{margin:16px 0 0;max-width:34em;font-size:17px;line-height:1.5;color:var(--hr-text);opacity:.82}
+.hr-dark_statement .hr-dark_statement-price{margin:18px 0 0;color:var(--hr-text)}
+.hr-dark_statement .hr-dark_statement-price b{display:block;font:400 26px/1.05 var(--pk-display-wide);color:var(--hr-text)}
+.hr-dark_statement .hr-dark_statement-price span{display:block;margin-top:6px;font-size:13.5px;line-height:1.45;opacity:.78}
+.hr-dark_statement .hr-dark_statement-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:24px 0 0}
+.hr-dark_statement .hr-dark_statement-act .hr-cta{display:inline-flex;align-items:center;justify-content:center;min-height:52px}
+.hr-dark_statement .hr-cta.hr-cta.hr-cta{background:var(--hr-on-dark)!important;color:var(--hr-dark)!important;border-color:var(--hr-on-dark)!important}
+.hr-dark_statement .hr-cta.hr-cta.hr-cta:hover{background:var(--hr-red)!important;color:var(--hr-on-dark)!important;border-color:var(--hr-red)!important}
+.hr-dark_statement .hr-dark_statement-text{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-size:15px;color:var(--hr-text);text-decoration:underline;text-underline-offset:3px}
+.hr-dark_statement .hr-dark_statement-trust{display:flex;flex-wrap:wrap;gap:2px 0;margin:16px 0 0;padding:0;list-style:none;font-size:12.5px;line-height:1.5;color:var(--hr-text);opacity:.72}
+.hr-dark_statement .hr-dark_statement-trust li+li::before{content:"\00b7";padding:0 8px}
+.hr-dark_statement .hr-dark_statement-by{margin:16px 0 0;font-size:13px;line-height:1.45;color:var(--hr-text);opacity:.72}
+.hr-dark_statement .hr-dark_statement-by b{font-weight:500}
+.hr-dark_statement .hr-dark_statement-media{margin:0;aspect-ratio:4/3;overflow:hidden}
+.hr-dark_statement .hr-dark_statement-media .adv-img{width:100%;height:100%;max-width:none;margin:0;border-radius:0;object-fit:cover;object-position:var(--hr-pos,50% 50%)}
+@media (min-width:900px){
+  .adv-wrap:has(.hr-bleed) .adv-footer{padding-left:32px;padding-right:32px}
+  .hr-dark_statement.hr-dark_statement--photo{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);align-items:stretch}
+  .hr-dark_statement .hr-dark_statement-in{padding:112px 32px 96px;align-self:center}
+  .hr-dark_statement.hr-dark_statement--photo .hr-dark_statement-in{max-width:none;padding-left:max(32px,calc((100vw - var(--ps-max-width,1320px)) / 2 + 32px))}
+  .hr-dark_statement .hr-dark_statement-h1.hr-dark_statement-h1{font-size:64px!important}
+  .hr-dark_statement .hr-dark_statement-h1.hr-dark_statement-h1--long{font-size:42px!important}
+  .hr-dark_statement .hr-dark_statement-media{aspect-ratio:auto;min-height:100%}
+}
+</style>
+<header class="hr-root hr-dark_statement hr-bleed{{ ' hr-dark_statement--photo' if img else '' }}" data-look-pattern="hero:dark_statement" data-hero-image="{{ hr.image.source if img else 'none' }}">
+  <div class="{{ p }}in">
+    {{ parts.eyebrow(p, hr, disclosure_label) }}
+    {{ parts.h1(p, hr) }}
+    {% if hr.dek %}<p class="{{ p }}dek">{{ hr.dek }}</p>{% endif %}
+    {{ parts.price(p, hr) }}
+    {{ parts.act(p, hr) }}
+    {{ parts.trust(p, hr) }}
+    {{ parts.byline(p, hr) }}
+  </div>
+  {% if img %}<figure class="{{ p }}media" style="--hr-pos:{{ hr.image.position }}">{{ render_image_slot(img, hero=True, aspect_box=False) }}</figure>{% endif %}
+</header>

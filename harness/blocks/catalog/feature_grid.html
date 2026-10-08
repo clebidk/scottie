@@ -1,0 +1,28 @@
+{#- Block `feature_grid` (cycle 91, harness/blocks/catalog/feature_grid.py): 3-6
+    cells, each a line icon the renderer picked from the cell's claims (or a
+    short accent rule), the writer's label and line. Hairline rows on a
+    phone; 2-3 columns from 768px, 4 columns for four cells from 1024px. -#}
+{%- set bk = blocks.feature_grid if blocks and blocks.feature_grid else none -%}
+{%- if bk and bk.cells %}
+<style>
+.bk-feature_grid{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.bk-feature_grid .bk-feature_grid-cell{display:grid;grid-template-columns:36px minmax(0,1fr);gap:2px 12px;padding:18px 0;border-top:1px solid var(--bk-line);min-width:0}
+.bk-feature_grid .bk-feature_grid-cell:last-child{border-bottom:1px solid var(--bk-line)}
+.bk-feature_grid .bk-feature_grid-icon{grid-row:span 2;color:var(--bk-red);padding-top:2px}
+.bk-feature_grid .bk-feature_grid-icon svg{display:block;width:24px;height:24px}
+.bk-feature_grid .bk-feature_grid-rule{display:block;width:20px;height:3px;margin-top:10px;background:var(--bk-red)}
+.bk-feature_grid .bk-feature_grid-label{margin:0;font:600 17px/1.3 var(--bk-heading);color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-feature_grid .bk-feature_grid-line{margin:4px 0 0;font-size:15px;line-height:1.5;color:var(--bk-muted);max-width:44ch}
+@media (min-width:768px){
+  .bk-feature_grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:40px}
+  .bk-feature_grid.bk-feature_grid--n3,.bk-feature_grid.bk-feature_grid--n5,.bk-feature_grid.bk-feature_grid--n6{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bk-feature_grid .bk-feature_grid-cell{grid-template-columns:minmax(0,1fr);padding:24px 0 28px}
+  .bk-feature_grid .bk-feature_grid-cell:last-child{border-bottom:0}
+  .bk-feature_grid .bk-feature_grid-icon{grid-row:auto;margin-bottom:12px}
+}
+@media (min-width:1024px){.bk-feature_grid.bk-feature_grid--n4{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+<ul class="bk-feature_grid bk-feature_grid--n{{ bk.cells | length }}" data-look-pattern="feature_grid icon-row">
+{%- for c in bk.cells %}<li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon">{% if c.icon_svg %}{{ c.icon_svg }}{% else %}<span class="bk-feature_grid-rule"></span>{% endif %}</span><p class="bk-feature_grid-label">{{ c.label }}</p>{% if c.line %}<p class="bk-feature_grid-line">{{ c.line }}</p>{% endif %}</li>{% endfor -%}
+</ul>
+{%- endif %}

@@ -431,3 +431,44 @@ def test_the_sidebar_names_one_photos_page():
     assert len(photos) == 1 and photos[0][0] == "photos_home"
     assert {"photos_home", "image_library", "image_library_product"} <= set(photos[0][3])
     assert not [item for _section, items in site_ui.NAV for item in items if item[1] == "Images"]
+
+
+def test_hero_compositions_and_the_photo_essay_see_an_upload_once_it_is_tagged(client, monkeypatch):
+    """Cycle 94 heroes and the cycle 91 photo essay read the library through
+    images.fill_slots: no restart, no cache."""
+    from harness import heroes
+    from harness.blocks.catalog import photo_essay
+
+    facts = {"product": {"name": "Fuji", "slug": FUJI}, "assets": []}
+    needs = {"image": {"sources": ["library"], "shots": ["hero-wide"], "fullbleed_ok": True}}
+    assert heroes.pick_image(needs, facts_pack=facts, tenant=TENANT) is None
+    assert photo_essay.candidates(facts, TENANT) == []
+    room, detail = _jpeg(seed=21), _jpeg(seed=22)
+    assert _upload(client, [("a-room.jpg", room), ("b-detail.jpg", detail)], model="fuji").status_code == 303
+    job, seen, _fake = _run_job(monkeypatch, _tag_answer(shot="interior"), _look_answer(shot="room"),
+                                _tag_answer(shot="detail"), _look_answer(shot="detail-macro"))
+    assert job["state"] == "done", job["reason"]
+    assert seen[-1] == "2 of 2 tagged"
+    essay = photo_essay.candidates(facts, TENANT)
+    assert {(c["asset_id"], c["group"]) for c in essay} == {(pl.photo_id(room), "room"),
+                                                            (pl.photo_id(detail), "detail")}
+    hero_photo = _jpeg(seed=23)
+    assert _upload(client, [("c-hero.jpg", hero_photo)], model="fuji").status_code == 303
+    assert _run_job(monkeypatch, _tag_answer(), _look_answer())[0]["state"] == "done"
+    picked = heroes.pick_image(needs, facts_pack=facts, tenant=TENANT)
+    assert picked["id"] == pl.photo_id(hero_photo) and picked["source"] == "library"
+    assert picked["focal"] == {"x": 0.4, "y": 0.55}
+
+
+def test_a_real_heic_upload_is_imported_as_a_jpeg(client, monkeypatch, library):
+    pillow_heif = pytest.importorskip("pillow_heif")
+    pillow_heif.register_heif_opener()
+    buf = io.BytesIO()
+    Image.new("RGB", (1800, 1200), (120, 80, 40)).save(buf, format="HEIF")
+    data = buf.getvalue()
+    pid, job, _seen = _added(client, monkeypatch, name="IMG_0001.HEIC", data=data)
+    assert job["result"]["added"] == 1
+    row = _row(pid)
+    assert row["source_name"] == "IMG_0001.HEIC" and (row["width"], row["height"]) == (1600, 1067)
+    with Image.open(library / f"{pid}.jpg") as im:
+        assert im.format == "JPEG"

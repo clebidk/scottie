@@ -1,8 +1,11 @@
 """Cycle 86: the Library -- one reference render of every page version.
 
 A "version" is a cartridge x one of its looks (looks.CARTRIDGE_LOOKS) and,
-for the listicle, x its first screen (first_screen.HERO_STYLES) x its copy
-style (listicle.STYLES). A cartridge with no looks is one version. A
+for the listicle, x its first screen x its copy style (listicle.STYLES).
+Cycle 94: the first screens are the hero compositions the look renders
+(harness/heroes/, the look's look.json); a landing look is one version for
+its own first screen plus one per other composition it renders
+(landing/<look>/<hero>). A cartridge with no looks is one version. A
 tenant-level imported look (cycle 87, harness/look_import.py: "Import a
 page"), tenants/<t>/looks/<cartridge>/<slug>/ with template.html and
 library.json, is one more version of that cartridge: found through
@@ -51,11 +54,11 @@ import socket
 import subprocess
 import sys
 import tempfile
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import first_screen, listicle, looks, pipeline
+from . import heroes, listicle, looks, pipeline
+from .blocks import catalog as block_catalog
 from . import tenant as tenant_mod
 from .config import REPO_ROOT
 from .errors import HarnessError
@@ -83,6 +86,10 @@ LOOK_NOTES = {
     ("landing", "open"): "Ad-first and mobile-first: headline, the ad's still, the price, checked claims, one CTA.",
     ("landing", "proof"): "The open page with the rating first, check-mark benefits, trust facts under the CTA "
                           "and an icon row.",
+    ("landing", "cinematic"): "Built from blocks: a dark full-bleed first screen with the stats under it, a "
+                              "photo essay, a feature grid, a dark statement band, the FAQ.",
+    ("landing", "buybox"): "Built from blocks: a trust bar, the buy box first screen (price, specs, one pill), "
+                           "the product with labelled hotspots, checked claims, the FAQ.",
     ("listicle", "open"): "Boxless white page: centred headline with one red accent, numbered items with a "
                           "red-bar proof line, one dark closing band.",
     ("longform", "open"): "The listicle's boxless design on the long page: stats strip, red numerals, hairline "
@@ -93,11 +100,13 @@ LOOK_NOTES = {
                              "band, what's included, specs, five FAQs.",
     ("product-page", "classic"): "The older, stripped product page.",
 }
-FIRST_SCREEN_NOTES = {
-    "face": "First screen: a still of the ad's creator with her own words as the caption.",
-    "story": "First screen: text first; the lede quotes the ad and item 01 starts on screen one.",
-    "display": "First screen: a wide display headline, the product cut-out and a stats strip.",
-}
+
+
+def first_screen_note(hero_id):
+    """The Library note for a first screen (cycle 94: every hero
+    composition's own summary, harness/heroes/)."""
+    hero = heroes.get(hero_id)
+    return f"First screen: {hero.summary[:1].lower()}{hero.summary[1:]}" if hero and hero.summary else ""
 
 
 class LibraryError(HarnessError):
@@ -146,9 +155,14 @@ def versions(tenant):
         for look in looks.cartridge_looks(cartridge) or (None,):
             if cartridge == "listicle":
                 out += [Version(cartridge, look, fs, style)
-                        for fs in first_screen.HERO_STYLES for style in listicle.STYLES]
+                        for fs in heroes.look_heroes(cartridge, look, tenant) for style in listicle.STYLES]
             else:
                 out.append(Version(cartridge, look))
+                # Cycle 94: one card per other composition the look renders.
+                if look and heroes.has_heroes(cartridge):
+                    spec = heroes.look_spec(cartridge, look, tenant)
+                    out += [Version(cartridge, look, hero_id) for hero_id in spec["heroes"]
+                            if hero_id not in spec["default_heroes"]]
         out += tenant_look_versions(tenant, cartridge)
     return out
 
@@ -181,7 +195,7 @@ def arm_for(version, tenant=None):
             return None
         text = ":".join(p for p in ("listicle", version.style, version.look, version.first_screen) if p)
     else:
-        text = version.cartridge + (f":{version.look}" if version.look else "")
+        text = ":".join(p for p in (version.cartridge, version.look, version.first_screen) if p)
     try:
         return abtest.parse_arm(text, tenant).id
     except abtest.AbtestError:
@@ -199,8 +213,11 @@ def arm_from_fields(cartridge, look=None, hero_style=None, style=None, tenant=No
         raise LibraryError("no page version given")
     if cartridge == "listicle":
         text = ":".join(p for p in ("listicle", style, look or listicle.DEFAULT_LOOK, hero_style) if p)
-    elif hero_style or style:
+    elif style or (hero_style and not heroes.has_heroes(cartridge)):
         raise LibraryError(f"{cartridge} has no first-screen or copy style")
+    elif hero_style:
+        # cycle 94: "<cartridge>:<look>:<hero>"; the look defaults to the cartridge's own
+        text = ":".join((cartridge, look or looks.resolve_look(cartridge, None, tenant=tenant), hero_style))
     else:
         text = cartridge + (f":{look}" if look else "")
     try:
@@ -254,9 +271,19 @@ def label(cartridge, look=None, first_screen_style=None, style=None):
     style, story first screen"."""
     name = CARTRIDGE_LABELS.get(cartridge, cartridge.replace("-", " ").capitalize())
     if cartridge == "listicle" and (style or first_screen_style):
-        bits = [f"{style} style" if style else "", f"{first_screen_style} first screen" if first_screen_style else ""]
+        bits = [f"{style} style" if style else "",
+                f"{_hero_name(first_screen_style)} first screen" if first_screen_style else ""]
         return f"{name}: " + ", ".join(b for b in bits if b)
+    if first_screen_style:
+        return f"{name}, {look} look, {_hero_name(first_screen_style)} first screen"
     return f"{name}, {look} look" if look else name
+
+
+def _hero_name(hero_id):
+    """The cycle 79 names stay as they were ("story"); a cycle 94
+    composition reads by its title in lower case ("caps over photo")."""
+    hero = heroes.get(hero_id)
+    return hero_id if hero is None or hero.adapter else hero.title.lower()
 
 
 def describe(tenant, version):
@@ -295,7 +322,7 @@ def describe(tenant, version):
     else:
         notes.append(LOOK_NOTES.get((version.cartridge, version.look), ""))
     if version.first_screen:
-        notes.append(FIRST_SCREEN_NOTES.get(version.first_screen, ""))
+        notes.append(first_screen_note(version.first_screen))
     if version.style:
         notes.append(f"Headline formula: {listicle.HEADLINE_FORMULAS[version.style]}.")
     # purpose: the cartridge's (the site shows it once per group); notes: this
@@ -309,7 +336,8 @@ def describe(tenant, version):
 def version_sha(tenant, version):
     """sha256 of what decides a version's page: the cartridge's template,
     cartridge.md and schema.json, and the look's template (+ library.json
-    for an imported look, and whether the harness can render it)."""
+    for an imported look, and whether the harness can render it); cycle 91:
+    + the look's look.json and its declared catalog blocks' files."""
     cdir = pipeline.CARTRIDGES_DIR / version.cartridge
     files = [cdir / "template.html", cdir / "cartridge.md", cdir / "schema.json"]
     if version.tenant_look:
@@ -317,6 +345,28 @@ def version_sha(tenant, version):
         files += [ldir / "template.html", ldir / "library.json"]
     elif version.look:
         files.append(cdir / "looks" / version.look / "template.html")
+    # Cycle 94: the look's look.json and the partials of the first screens
+    # this version can render (its own, or the look's default pool).
+    look_file = None
+    if version.look:
+        look_file = (looks.imported_looks_dir(version.cartridge, tenant) / version.look / heroes.LOOK_FILE
+                     if version.tenant_look else cdir / "looks" / version.look / heroes.LOOK_FILE)
+    if look_file is not None and heroes.has_heroes(version.cartridge):
+        files.append(look_file)
+        hero_ids = ([version.first_screen] if version.first_screen
+                    else heroes.look_spec(version.cartridge, version.look, tenant)["default_heroes"])
+        files += [heroes.PACKAGE_DIR / f"{h}.html" for h in hero_ids]
+    # Cycle 91: the catalog blocks the look declares (their module and
+    # partial), so a block change rebuilds the versions using it.
+    if look_file is not None:
+        if look_file not in files:
+            files.append(look_file)
+        try:
+            declared = block_catalog.look_blocks(version.cartridge, version.look, tenant=tenant)
+        except ValueError:
+            declared = ()
+        for block_id in declared:
+            files += [block_catalog.CATALOG_DIR / f"{block_id}.py", block_catalog.CATALOG_DIR / f"{block_id}.html"]
     h = hashlib.sha256(f"{FORMAT}\n{version.key}\n".encode())
     if version.tenant_look:
         h.update(b"renderable" if _renderable(tenant, version) else b"listed")
@@ -353,59 +403,35 @@ def entries(tenant):
 # ---------------------------------------------------------------------------
 
 def find_browser():
-    """A headless-capable Chromium on PATH, or None."""
-    for name in BROWSERS:
-        path = shutil.which(name)
-        if path:
-            return path
-    return None
+    """A headless-capable Chromium, or None (harness/capture.py: $HARNESS_CHROME,
+    PATH, then the macOS application bundle)."""
+    from . import capture
+
+    return capture.find_browser()
 
 
-def capture_thumb(browser, html_path, png_path, *, popen=subprocess.Popen, timeout_s=THUMB_TIMEOUT_S):
-    """A 390x844 screenshot at scale 1 of html_path. True when thumb.png
-    was written; any browser failure is False (never raised). Headless
-    Chrome on some hosts writes the file and then does not exit, so the
-    browser is stopped as soon as the file is complete. The page is framed
-    at exactly 390x844 inside a wrapper page, because a headless window can
-    keep a wider layout viewport than --window-size asks for."""
-    png_path = Path(png_path)
-    png_path.unlink(missing_ok=True)  # never report an older file as this capture
+def thumb_fonts(browser, html_path, tenant):
+    """Cycle 92: {"status": loaded|fallback|unknown, "loaded", "fallback", ...}
+    for the families the reference page's text uses, from the same capture
+    path (harness/capture.py's probe) the thumbnail went through."""
+    from . import capture, design_gate
+
     w, h = THUMB_SIZE
-    # The frame page and the profile sit next to the PNG, never in /tmp: a snap-
-    # packaged Chromium (prod) has a private /tmp and sees neither a page nor a
-    # PNG path there (it reported the PNG written, but nothing arrived).
-    with tempfile.TemporaryDirectory(prefix="harness-thumb-", dir=png_path.parent) as work:
-        frame = Path(work) / "frame.html"
-        frame.write_text(
-            f'<!doctype html><html><body style="margin:0;background:#fff">'
-            f'<iframe src="{Path(html_path).resolve().as_uri()}" scrolling="no" '
-            f'style="position:fixed;top:0;left:0;width:{w}px;height:{h}px;border:0"></iframe></body></html>')
-        cmd = [browser, "--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars", "--mute-audio",
-               "--no-first-run", "--no-default-browser-check", f"--user-data-dir={Path(work) / 'profile'}",
-               f"--window-size={w},{h}", "--force-device-scale-factor=1",
-               f"--screenshot={png_path}", frame.as_uri()]
-        try:
-            proc = popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
-            return False
-        deadline = time.monotonic() + timeout_s
-        last_size = -1
-        try:
-            while time.monotonic() < deadline and proc.poll() is None:
-                size = png_path.stat().st_size if png_path.is_file() else 0
-                if size and size == last_size:
-                    break
-                last_size = size
-                time.sleep(0.3)
-        finally:
-            if proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait()
-    return png_path.is_file() and png_path.stat().st_size > 0
+    return design_gate.font_report(capture.probe(browser, html_path, width=w, height=h, tenant=tenant))
+
+
+def capture_thumb(browser, html_path, png_path, *, popen=subprocess.Popen, timeout_s=THUMB_TIMEOUT_S, tenant=None):
+    """A 390x844 screenshot at scale 1 of html_path. True when thumb.png
+    was written; any browser failure is False (never raised). Cycle 92: the
+    shared capture path (harness/capture.py) -- the tenant's local brand
+    fonts are injected and the page waits for document.fonts.ready, so a
+    thumbnail never shows a fallback face because the host has no fonts."""
+    from . import capture
+
+    w, h = THUMB_SIZE
+    tenant = tenant or tenant_mod.active_or_none()
+    return capture.screenshot(browser, html_path, png_path, width=w, height=h, tenant=tenant, popen=popen,
+                              timeout_s=timeout_s)
 
 
 # ---------------------------------------------------------------------------
@@ -432,12 +458,17 @@ def offline_run_env(base_dir=None):
     props = {"out_dir": scratch / "out", "runs_dir": scratch / "runs", "evals_path": scratch / "evals" / "scores.jsonl"}
     saved_props = {name: cls.__dict__[name] for name in props}
     saved_env = os.environ.get("HARNESS_JEV_DRAFTS")
+    saved_gate = os.environ.get("HARNESS_DESIGN_GATE")
     saved_notify = notify.notify_needs_review
     saved_socket = (socket.socket.connect, socket.socket.connect_ex, socket.create_connection)
     try:
         for name, path in props.items():
             setattr(cls, name, property(lambda _self, _p=path: _p))
         os.environ["HARNESS_JEV_DRAFTS"] = "1"
+        # Cycle 92: no design gate inside the offline fake runs (no model call
+        # is possible here); `harness library build --design-score` scores the
+        # versions afterwards.
+        os.environ["HARNESS_DESIGN_GATE"] = "off"
         notify.notify_needs_review = lambda *_a, **_k: None
         socket.socket.connect = _blocked_connect
         socket.socket.connect_ex = _blocked_connect
@@ -450,6 +481,10 @@ def offline_run_env(base_dir=None):
             os.environ.pop("HARNESS_JEV_DRAFTS", None)
         else:
             os.environ["HARNESS_JEV_DRAFTS"] = saved_env
+        if saved_gate is None:
+            os.environ.pop("HARNESS_DESIGN_GATE", None)
+        else:
+            os.environ["HARNESS_DESIGN_GATE"] = saved_gate
         for name, prop in saved_props.items():
             setattr(cls, name, prop)
         shutil.rmtree(scratch, ignore_errors=True)
@@ -525,8 +560,14 @@ def _mismatch(version, page):
     """Why the rendered page is not this version, or None."""
     actual_fs = page.get("hero_style")
     if version.first_screen and actual_fs != version.first_screen:
-        why = (" -- the face first screen needs a still from the ad, and the demo ad is a text ad"
-               if version.first_screen == "face" else "")
+        hero = heroes.get(version.first_screen)
+        if version.first_screen == "face":
+            why = " -- the face first screen needs a still from the ad, and the demo ad is a text ad"
+        elif hero is not None and (hero.needs or {}).get("image"):
+            why = (f" -- the {version.first_screen} first screen needs {heroes.need_text(hero)}, and none was "
+                   "usable offline (a text ad has no still; the photo library files are not on this machine)")
+        else:
+            why = ""
         return f"not renderable offline: the run rendered the {actual_fs} first screen instead{why}"
     if version.look and page.get("look") and page["look"] != version.look:
         return f"not renderable offline: the run rendered the {page['look']} look instead of {version.look}"
@@ -584,7 +625,7 @@ def build(tenant, *, only=None, force=False, log=print):
                     summary["unavailable"].append(version.key)
                     log(f"[{i}/{len(todo)}] {version.key}: {reason}")
                     continue
-                review_path = review.build_review_for_page(run_dir, version.cartridge)
+                review_path = review.build_review_for_page(run_dir, version.cartridge, tenant=tenant)
                 if review_path is None:
                     error = "the run wrote no index.html"
             if error is not None:
@@ -602,6 +643,9 @@ def build(tenant, *, only=None, force=False, log=print):
             thumb = bool(browser) and capture_thumb(browser, staging / "review.html", staging / "thumb.png")
             summary["thumbs"] += int(thumb)
             meta["thumb"] = thumb
+            if thumb:
+                # Cycle 92: which brand fonts the thumbnail browser actually loaded.
+                meta["fonts"] = thumb_fonts(browser, staging / "review.html", tenant)
             _write_meta(staging, meta)
             _swap_in(staging, dest)
             summary["built"].append(version.key)
@@ -613,6 +657,47 @@ def _staged_meta(scratch, version, meta):
     staging = scratch / "staging" / version.key
     _write_meta(staging, meta)
     return staging
+
+
+# ---------------------------------------------------------------------------
+# cycle 92: design scores on the Library cards
+# ---------------------------------------------------------------------------
+
+def versions_to_score(tenant, *, force=False):
+    """Built versions with a page (index.html) and, unless force, no design
+    score yet."""
+    from . import design_gate
+
+    out = []
+    for version in versions(tenant):
+        folder = Path(tenant.library_dir) / version.key
+        if not (folder / "index.html").is_file():
+            continue
+        if not force and design_gate.load_scores(folder) is not None:
+            continue
+        out.append(version)
+    return out
+
+
+def score_versions(tenant, todo, *, client, cfg, log=None, say=print):
+    """Scores each version folder with the design gate's judge (no
+    variants) and puts design_score / design_status / design_cost_usd in
+    its meta.json. Returns how many got a score."""
+    from . import design_gate
+
+    scored = 0
+    for i, version in enumerate(todo, 1):
+        folder = Path(tenant.library_dir) / version.key
+        layout = {"look": version.look, "hero_style": version.first_screen, "block_set": None}
+        result = design_gate.score_folder(folder, cartridge=version.cartridge, tenant=tenant, client=client,
+                                          cfg=cfg, log=log, layout=layout)
+        meta = read_meta(tenant, version) or describe(tenant, version)
+        meta.update(design_score=result["score"], design_status=result["status"],
+                    design_cost_usd=result["cost_usd"], design_scored_at=result["scored_at"])
+        _write_meta(folder, meta)
+        scored += int(result["score"] is not None)
+        say(f"[{i}/{len(todo)}] {version.key}: {design_gate.summary_line(result)}")
+    return scored
 
 
 def queue_if_missing(tenant, *, by="harness serve"):

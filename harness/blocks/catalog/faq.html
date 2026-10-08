@@ -1,0 +1,34 @@
+{#- Block `faq` (cycle 91, harness/blocks/catalog/faq.py): the page's FAQ as
+    plain Q/A on hairlines.
+
+    Two markups, one owner. A look that DECLARES the block (look.json) gets
+    the catalog markup: `bk-faq-*` classes, data-look-pattern="faq", no
+    heading of its own (the look labels the section). A look that includes
+    this partial without declaring it -- the landing `open` and `proof`
+    looks, which used to repeat this markup inline -- gets that markup
+    exactly as before, byte for byte (tests/test_blocks_cycle91.py pins the
+    render hash); keep the second branch's text and whitespace unchanged. -#}
+{%- if blocks and blocks.faq -%}
+{%- if blocks.faq.questions %}
+<style>
+.bk-faq{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));margin:0;border-bottom:1px solid var(--bk-line)}
+.bk-faq .bk-faq-qa{padding:18px 0;border-top:1px solid var(--bk-line)}
+.bk-faq .bk-faq-q{margin:0 0 6px;font:600 17px/1.35 var(--bk-heading);color:var(--bk-ink)}
+.bk-faq .bk-faq-a{margin:0;max-width:65ch;color:var(--bk-muted)}
+</style>
+<div class="bk-faq" data-look-pattern="faq">
+{%- for q in blocks.faq.questions %}<div class="bk-faq-qa"><h3 class="bk-faq-q">{{ q.question }}</h3><p class="bk-faq-a">{{ q.answer }}</p></div>{% endfor -%}
+</div>
+{%- endif -%}
+{%- else -%}
+{% if page.faq and page.faq.questions %}
+  <section class="ld-sec">
+    <div class="ld-narrow">
+      <h2 class="ld-h2">Questions before you buy</h2>
+      {% for entry in page.faq.questions %}
+      <div class="ld-qa"><h3>{{ entry.question }}</h3><p>{{ entry.answer }}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{%- endif %}

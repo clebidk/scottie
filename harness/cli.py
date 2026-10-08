@@ -33,7 +33,7 @@ from . import workflows
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded
 from . import doctor as doctor_mod
-from . import first_screen
+from . import heroes
 from . import evals as evals_mod
 from . import exits
 from . import config as harness_config
@@ -279,7 +279,10 @@ def cmd_review(args):
     if not run_dir.is_dir():
         print(f"no such run dir: {run_dir}", file=sys.stderr)
         return 1
-    written = build_reviews(run_dir)
+    # Cycle 92/95: the review html carries the tenant's local brand fonts
+    # (harness/fonts.py), so the run's own tenant is the one to read them from.
+    tenant = tenant_mod.load_tenant(getattr(args, "tenant", None) or runstate.tenant_name_from_run_dir(run_dir))
+    written = build_reviews(run_dir, tenant=tenant)
     if not written:
         print(f"no cartridge output (index.html) found under {run_dir}", file=sys.stderr)
         return 1
@@ -365,11 +368,17 @@ def cmd_rerender(args):
     ad_brief_json = run_dir / "ad_brief.json"
     ad_brief = json.loads(ad_brief_json.read_text()) if ad_brief_json.exists() else {}
     # Cycle 79: `--hero-style` switches the listicle's first screen (harness/
-    # first_screen.py) -- a layout choice like --look, no model call.
+    # first_screen.py) -- a layout choice like --look, no model call. Cycle
+    # 94: any hero composition of the page's cartridge (harness/heroes/);
+    # the renderer still checks the look and the images, and stamps what it
+    # rendered.
     requested_hero = getattr(args, "hero_style", None)
     if requested_hero:
-        if cartridge_name != "listicle":
-            print(f"--hero-style applies to the listicle page, not {cartridge_name}", file=sys.stderr)
+        if not heroes.requested_for(cartridge_name, requested_hero):
+            print(f"--hero-style {requested_hero} is not a {cartridge_name} hero composition; choose one of "
+                  f"{list(heroes.ids(cartridge_name))}" if heroes.has_heroes(cartridge_name)
+                  else f"--hero-style applies to the {', '.join(heroes.cartridges())} pages, not {cartridge_name}",
+                  file=sys.stderr)
             return 1
         page["hero_style"] = requested_hero
 
@@ -392,7 +401,7 @@ def cmd_rerender(args):
     )
     print(f"Wrote {index_path}")
 
-    review_path = build_review_for_page(run_dir, cartridge_name)
+    review_path = build_review_for_page(run_dir, cartridge_name, tenant=tenant)
     if review_path:
         print(f"Wrote {review_path}")
 
@@ -408,10 +417,12 @@ def cmd_rerender(args):
         print(f"Wrote {shopify_body_path}")
         print(f"Wrote {assets_manifest_path}")
 
-    if cartridge_name == "listicle":
+    if heroes.has_heroes(cartridge_name):
         rendered_hero = json.loads(page_json.read_text()).get("hero_style")
-        if rendered_hero:
+        if rendered_hero and cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, hero_style=rendered_hero)
+        elif rendered_hero:
+            runstate.record_hero(run_dir, cartridge_name, rendered_hero)
     if requested_look:
         if cartridge_name == "listicle":
             runstate.record_listicle_choice(run_dir, look=page["look"])
@@ -565,6 +576,88 @@ def cmd_serve(args):
     return 0
 
 
+def cmd_design_score(args):
+    """`harness design score <run-dir>/<cartridge> --tenant <t>` (cycle 92):
+    screenshots, hard checks and one judge call for a page that is already
+    rendered (a run's page or a Library version); writes <page>/design/.
+    No re-render, no variants. The judge call is costed in the run log and
+    the spend ledger and gated by the daily cap like every model call."""
+    from . import design_gate
+
+    page_dir = Path(args.page_dir)
+    tenant = tenant_mod.load_tenant(args.tenant or runstate.tenant_name_from_run_dir(page_dir), require=True)
+    tenant_mod.activate(tenant)
+    if not (page_dir / "index.html").is_file():
+        print(f"no index.html under {page_dir}; nothing to score", file=sys.stderr)
+        return exits.USAGE
+    cfg = design_gate.settings(tenant)
+    cartridge = page_dir.name
+    meta_path = page_dir / "meta.json"
+    if meta_path.is_file():   # a Library version folder is named by its look
+        try:
+            cartridge = json.loads(meta_path.read_text()).get("cartridge") or cartridge
+        except ValueError:
+            pass
+    run_id = f"design-score-{pipeline.slugify(cartridge)}-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    today_iso = datetime.date.today().isoformat()
+    budget = Budget(wall_s=1800, tokens=5_000_000, calls=5)
+    try:
+        try:
+            budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today_iso, log=log,
+                                     extra_usd=cfg["max_usd_per_page"])
+        except BudgetExceeded as e:
+            pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, today_iso=today_iso,
+                                      stage="design_gate")
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return exits.BUDGET
+        tenant.load_env()
+        result = design_gate.score_folder(page_dir, cartridge=cartridge, tenant=tenant, client=make_client(),
+                                          cfg=cfg, log=log)
+        cost = log.cost_estimate()
+        budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today_iso, log=log)
+        log.result("PASS" if result["status"] == "pass" else result["status"].upper(), 0, 0)
+    finally:
+        log.close()
+    print(design_gate.summary_line(result))
+    for issue in result.get("top_issues") or []:
+        print(f"  - {issue['what']} ({issue['where']}). Fix: {issue['fix_as_layout_choice']}")
+    for name, check in (result.get("hard_checks") or {}).items():
+        print(f"  {name}: {check['status']} ({check['detail']})")
+    print(f"Wrote {page_dir / 'design' / 'scores.json'}")
+    return exits.OK
+
+
+def cmd_design_report(args):
+    """`harness design report --tenant <t>` (cycle 92): scores by look and
+    by first screen over every scored page (runs and Library), the average
+    gate cost per page, and the most common judge issues."""
+    from . import design_gate
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    print(design_gate.format_report(design_gate.report(tenant)))
+    return exits.OK
+
+
+def cmd_fonts_fetch(args):
+    """`harness fonts fetch --tenant <t>` (cycle 92): download the tenant's
+    Google Fonts body families into brand/fonts-body/ (woff2, manifest.json,
+    LICENCE.md), so previews and screenshots never depend on fonts installed
+    on the host."""
+    from . import fonts as fonts_mod
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    try:
+        manifest = fonts_mod.fetch_body_fonts(tenant, get=fonts_mod.http_get)
+    except fonts_mod.FontFetchError as e:
+        print(str(e), file=sys.stderr)
+        return exits.USAGE
+    families = sorted({f["family"] for f in manifest["faces"]})
+    files = sorted({f["file"] for f in manifest["faces"]})
+    print(f"fonts: {len(files)} file(s) for {', '.join(families)} -> {Path(tenant.brand_dir) / fonts_mod.BODY_DIR}")
+    return exits.OK
+
+
 def cmd_library_build(args):
     """`harness library build --tenant <t> [--only landing,...] [--force]`
     (cycle 86): one offline reference render per page version, for the
@@ -580,9 +673,51 @@ def cmd_library_build(args):
     print(f"library: {len(summary['built'])} built, {len(summary['skipped'])} up to date, "
           f"{len(summary['unavailable'])} not renderable offline, {len(summary['failed'])} failed, "
           f"{summary['thumbs']} thumbnail(s) -> {tenant.library_dir}")
+    if getattr(args, "design_score", False):
+        rc = _library_design_score(tenant, force=args.force)
+        if rc != exits.OK:
+            return rc
     for key, why in summary["failed"]:
         print(f"FAILED {key}: {why}", file=sys.stderr)
     return exits.USAGE if summary["failed"] else exits.OK
+
+
+def _library_design_score(tenant, *, force=False):
+    """Cycle 92: `library build --design-score` -- one judge call per
+    Library version that has a page and no design score yet (every version
+    with --force); the score goes on the Library card. Outside the offline
+    build (that one makes no model call by contract); daily-capped and
+    costed like `harness design score`."""
+    from . import design_gate, library
+
+    cfg = design_gate.settings(tenant)
+    todo = library.versions_to_score(tenant, force=force)
+    if not todo:
+        print("library design score: nothing to score")
+        return exits.OK
+    run_id = f"library-design-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    log = RunLog(run_id, tenant.runs_dir / f"{run_id}.log")
+    today_iso = datetime.date.today().isoformat()
+    budget = Budget(wall_s=7200, tokens=50_000_000, calls=len(todo) + 5)
+    try:
+        try:
+            budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today_iso, log=log,
+                                     extra_usd=cfg["max_usd_per_page"] * len(todo))
+        except BudgetExceeded as e:
+            pipeline.abort_budget_run(log, budget, e, tenant=tenant, run_id=run_id, today_iso=today_iso,
+                                      stage="design_gate")
+            print(f"budget exceeded: {e}", file=sys.stderr)
+            return exits.BUDGET
+        tenant.load_env()
+        scored = library.score_versions(tenant, todo, client=make_client(), cfg=cfg, log=log,
+                                        say=lambda m: print(m, flush=True))
+        cost = log.cost_estimate()
+        budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today_iso, log=log)
+        log.result("PASS", 0, 0)
+    finally:
+        log.close()
+    print(f"library design score: {scored} version(s) scored, ${cost:.4f}")
+    return exits.OK
 
 
 def cmd_packet(args):
@@ -770,6 +905,13 @@ def cmd_publish(args):
     if args.dry_run:
         publisher = _make_publisher(tenant, export_dir=export_dir)
         report = publisher.dry_run({"body_html": shopify_body_html, "assets": assets_manifest})
+        # Cycle 95: which brand/fonts files the next real publish uploads
+        # (once per tenant; brand/fonts/cdn-manifest.json remembers them).
+        fonts = [f.name for f in shopify_pub.font_files(tenant)]
+        if fonts:
+            known = shopify_pub.load_font_cdn_manifest(tenant)
+            report["fonts"] = {"upload_on_next_publish": [n for n in fonts if n not in known],
+                               "already_on_cdn": [n for n in fonts if n in known]}
         print(json.dumps(report, indent=2))
         return 0 if report.get("ok") else 1
 
@@ -1950,10 +2092,12 @@ def build_parser():
              "Default: picked from the skeletons that fit the style, by the ad's angle",
     )
     p_run.add_argument(
-        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES),
-        help="listicle first screen: face (a still from the ad + the speaker's words), story (text-first "
-             "open-loop lede) or display (wide display headline, product cut-out, stats). Default: seeded; "
-             "face falls back to story/display when the ad has no usable still",
+        "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO",
+        help="first-screen composition (harness/heroes/, docs/HEROES.md): listicle face | story | display | "
+             "caps_over_photo | split | dark_statement; landing ad_first | caps_over_photo | split | "
+             "letters_pill | dark_statement | buybox. Applies to each selected cartridge that has it. "
+             "Default: the look's own (seeded for the listicle); a composition whose image is missing falls "
+             "back, logged",
     )
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)
@@ -1992,8 +2136,9 @@ def build_parser():
              "product-page); the copy is untouched",
     )
     p_rerender.add_argument(
-        "--hero-style", dest="hero_style", choices=list(first_screen.HERO_STYLES), default=None,
-        help="re-render the listicle's first screen in another style (face|story|display); copy untouched",
+        "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO", default=None,
+        help="re-render the page's first screen in another hero composition of its cartridge (listicle or "
+             "landing; docs/HEROES.md); copy untouched",
     )
     p_rerender.add_argument("--note", default="", help="free text for the state.json history entry")
     _add_tenant_flag(p_rerender)
@@ -2121,8 +2266,33 @@ def build_parser():
         "build", help="render every page version offline (no model call) into tenants/<t>/library/")
     p_library_build.add_argument("--only", help="comma-separated cartridge names, e.g. landing,listicle")
     p_library_build.add_argument("--force", action="store_true", help="rebuild versions that are up to date")
+    p_library_build.add_argument(
+        "--design-score", dest="design_score", action="store_true",
+        help="after the offline build, score each version with the design gate's judge (one paid call per "
+             "version without a score; every version with --force); the score shows on the Library card")
     _add_tenant_flag(p_library_build)
     p_library_build.set_defaults(func=cmd_library_build)
+
+    # Cycle 92: the design gate (harness/design_gate.py, docs/DESIGN-GATE.md).
+    p_design = sub.add_parser("design", help="the design-quality gate: score a rendered page, report scores")
+    design_sub = p_design.add_subparsers(dest="design_command", required=True)
+    p_design_score = design_sub.add_parser(
+        "score", help="screenshots, hard checks and one judge call for <run-dir>/<cartridge>; writes design/")
+    p_design_score.add_argument("page_dir", help="tenants/<t>/out/<run-id>/<cartridge> (or a Library version folder)")
+    _add_tenant_flag(p_design_score)
+    p_design_score.set_defaults(func=cmd_design_score)
+    p_design_report = design_sub.add_parser(
+        "report", help="scores by look and first screen over all runs and the Library, cost, worst issues")
+    _add_tenant_flag(p_design_report)
+    p_design_report.set_defaults(func=cmd_design_report)
+
+    # Cycle 92: local brand fonts for previews and screenshots (harness/fonts.py).
+    p_fonts = sub.add_parser("fonts", help="the tenant's local brand fonts (previews and screenshots)")
+    fonts_sub = p_fonts.add_subparsers(dest="fonts_command", required=True)
+    p_fonts_fetch = fonts_sub.add_parser(
+        "fetch", help="download the Google Fonts body families into brand/fonts-body/ with a manifest")
+    _add_tenant_flag(p_fonts_fetch)
+    p_fonts_fetch.set_defaults(func=cmd_fonts_fetch)
 
     p_publish = sub.add_parser("publish", help="publish one cartridge's page via the tenant's publisher adapter")
     p_publish.add_argument("run_dir")

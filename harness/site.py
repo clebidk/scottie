@@ -45,6 +45,8 @@ from flask import Response, abort, current_app, g, redirect, request, send_file,
 from PIL import Image
 
 from . import abevents, abtest, ads as ads_mod, budget, jobs, library, meta_ingest, postlive, runstate, site_ui, textutil
+from . import design_gate as design_gate_mod
+from . import heroes
 from . import look_import as look_import_mod
 from . import looks as looks_mod
 from . import serve as _serve
@@ -56,6 +58,8 @@ ENDPOINTS = (
     "gen_post_live", "gen_update_live", "gen_unpublish", "ad_frame", "site_favicon", "site_static", "site_manifest",
     "library_home", "library_review", "library_thumb", "library_rebuild",
     "look_import", "look_review",
+    # cycle 92: the design gate's shots
+    "design_shot",
     # cycle 96: the Photos page (harness/site_photos.py)
     "photos_home", "photo_thumb", "photos_upload", "photo_edit", "photos_pull_drive",
 )
@@ -84,7 +88,8 @@ JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "pu
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
               "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page",
               "photos_import": "Add photos"}
-HERO_LABELS = {"face": "Face", "story": "Story", "display": "Display"}
+# Cycle 94: every hero composition by its title (harness/heroes/).
+HERO_LABELS = {hero_id: heroes.get(hero_id).title for hero_id in heroes.ids()}
 # Cycle 86: the upload form's pre-selected page version (the Library's
 # "Generate with this"), as query args on GET and hidden fields on POST.
 PIN_FIELDS = ("cartridge", "look", "hero_style", "style")
@@ -350,6 +355,7 @@ def _gen_info(tenant, run_id, page, *, test=None, variant=None, taken=None):
         "template": choice.get("headline_template_id") or page_json.get("headline_template_id") or "",
         "skeleton": choice.get("skeleton_id") or "",
         "jev": _jev_composite(shipped), "jev_note": _jev_note(jev), "jev_record": jev, "gate": gate,
+        "design": design_gate_mod.load_scores(run_dir / page),
         "created": _first_at(state), "rendered": rendered, "can_post": bool(can_post),
         "gen_url": url_for("generation", run_id=run_id, page=page),
         "review_url": url_for("page_review", run_id=run_id, page=page),
@@ -450,7 +456,24 @@ def _facts(info):
         bits.append(f'<span title="Not scored: {e(info["jev_note"])}">Jev <b>&mdash;</b></span>')
     if info["look"] and info["look"] != "open":
         bits.append(f'<span>Look <b>{e(info["look"])}</b></span>')
+    design = info.get("design")
+    if design:
+        bits.append(_design_fact(design))
     return '<div class="facts">' + "".join(bits) + "</div>"
+
+
+DESIGN_STATUS_LABELS = {"pass": "passed", "warn": "below min score (warn)", "stop": "below min score (STOP)",
+                        "unscored": "not scored", "below": "below min score"}
+
+
+def _design_fact(design):
+    """Cycle 92: the design gate's score on a card (Jev's copy score is a
+    separate fact)."""
+    score = design.get("score")
+    status = DESIGN_STATUS_LABELS.get(design.get("status"), design.get("status") or "")
+    title = f"Design gate: {status}; min {design.get('min_score', '-')}; judge {design.get('model', '')}"
+    value = f"{score}" if score is not None else "&mdash;"
+    return f'<span title="{e(title)}">Design <b>{value}</b></span>'
 
 
 def _status_chips(info, *, with_gate=True):
@@ -856,6 +879,59 @@ def _jev_card(state, page):
     )
 
 
+def _design_card(run_id, page, design):
+    """Cycle 92: the design gate on the generation page -- result, score and
+    subscores, the judge's top issues, the hard checks, the fonts, the cost,
+    and the "Design variants" strip (every variant's phone shot and score)."""
+    if not design:
+        return ""
+    status = DESIGN_STATUS_LABELS.get(design.get("status"), design.get("status") or "")
+    kind = "pass" if design.get("status") == "pass" else "fail" if design.get("status") in ("stop", "warn", "below") else ""
+    subs = design.get("subscores") or {}
+    sub_html = "".join(f'<span>{e(k.replace("_", " "))} <b>{e(str(subs.get(k)) if subs.get(k) is not None else "-")}</b></span>'
+                       for k in design_gate_mod.SUBSCORES)
+    issues = "".join(f'<li>{e(i.get("what", ""))} <span class="muted">({e(i.get("where", ""))})</span><br>'
+                     f'<span class="small">Fix: {e(i.get("fix_as_layout_choice", ""))}</span></li>'
+                     for i in design.get("top_issues") or [])
+    checks = "".join(f'<li>{e(name)}: {chip(c.get("status", ""), "pass" if c.get("status") == "pass" else "fail" if c.get("status") == "fail" else "")}'
+                     f' <span class="small muted">{e(c.get("detail", ""))}</span></li>'
+                     for name, c in (design.get("hard_checks") or {}).items())
+    fonts = design.get("fonts") or {}
+    font_line = ("fallback (" + ", ".join(fonts.get("fallback") or []) + ")") if fonts.get("fallback") else \
+        ("loaded" if fonts else "unknown")
+    notes = "".join(f'<p class="small">{e(n)}</p>' for n in design.get("notes") or [])
+    strip = []
+    for v in design.get("variants") or []:
+        judged = v.get("judge") or {}
+        shot = (v.get("shots") or {}).get("phone")
+        label = ", ".join(x for x in (v.get("look"), v.get("hero_style")) if x) or "page as written"
+        img = (f'<a href="{url_for("design_shot", run_id=run_id, page=page, name=shot)}" target="_blank" rel="noopener">'
+               f'<img loading="lazy" src="{url_for("design_shot", run_id=run_id, page=page, name=shot, thumb=1)}" '
+               f'alt="variant {v["n"]} phone screenshot" style="width:120px;height:260px;object-fit:cover;'
+               f'object-position:top;border:1px solid var(--line);border-radius:4px;display:block"></a>') if shot else \
+            '<div style="width:120px;height:260px;border:1px dashed var(--line);border-radius:4px"></div>'
+        chosen = v["n"] == design.get("chosen")
+        strip.append(
+            f'<figure style="margin:0;flex:0 0 auto;width:120px">{img}<figcaption class="small">'
+            f'<b>{e(str(judged.get("score", "-")) if judged else "-")}</b>{" chosen" if chosen else ""}<br>'
+            f'<span class="muted">#{v["n"]} {e(label)}</span></figcaption></figure>')
+    return (
+        '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Design</h3>'
+        + (chip(status, kind) if status else "") + "</div>"
+        + f'<p class="small muted">Score {e(str(design.get("score")) if design.get("score") is not None else "-")} '
+        f'(min {e(str(design.get("min_score", "-")))}), verdict {e(design.get("verdict") or "-")}; '
+        f'judge {e(design.get("model", ""))}, {e(str(design.get("judge_calls", 0)))} call(s), '
+        f'${float(design.get("cost_usd") or 0):.4f}; fonts {e(font_line)}. Jev scores the copy; this scores the layout.</p>'
+        + notes
+        + f'<div class="facts">{sub_html}</div>'
+        + (f'<h4 style="margin:12px 0 4px">Top issues</h4><ul class="small">{issues}</ul>' if issues else "")
+        + f'<h4 style="margin:12px 0 4px">Design variants</h4><div class="design-strip" '
+          f'style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">{"".join(strip)}</div>'
+        + (f'<h4 style="margin:12px 0 4px">Hard checks</h4><ul class="small">{checks}</ul>' if checks else "")
+        + "</div>"
+    )
+
+
 _JEV_COLUMNS = (("hook", "Hook"), ("specificity", "Specific"), ("proof", "Proof"), ("objections", "Objections"),
                 ("offer", "Offer"), ("flow", "Flow"), ("voice", "Voice"), ("message_match", "Ad match"),
                 ("overall", "Overall"))
@@ -876,6 +952,8 @@ def _details_card(tenant, run_dir, info, name):
         ("Jev composite", e(f"{float(jev):.2f}") if jev is not None
          else f'<span class="muted">not scored ({e(info["jev_note"])})</span>'),
         ("Gate", chip(info["gate"], "pass" if info["gate"] == "PASS" else "fail") if info["gate"] else "-"),
+        ("Design score", e(str(info["design"].get("score")) if info["design"].get("score") is not None else "not scored")
+         if info.get("design") else '<span class="muted">gate off</span>'),
         ("Cost", e(f"${cost:.4f}") if cost is not None else "-"),
         ("Run", f'<code>{e(run_dir.name)}</code>'),
         ("Created", _when(info["created"])),
@@ -960,6 +1038,7 @@ def render_generation(tenant, run_dir, state, page, *, error=None, status_code=2
         + ready
         + _version_frames(run_dir, page, superseded)
         + _jev_card(state, page)
+        + _design_card(run_id, page, info.get("design"))
         + '<div style="margin-top:16px">' + _feedback_list(state, page) + "</div>"
         + '</div><div class="gv-top">' + status_card + "</div>"
         + '<div class="gv-rest stack">' + form + _details_card(tenant, run_dir, info, name)
@@ -1235,6 +1314,25 @@ def _cached_thumb(tenant, source, name, size):
         return _thumb_placeholder()
 
 
+def _design_thumb(tenant, source, name):
+    """Cycle 92: the first phone screen (390x844) of a design-gate shot at
+    240 px wide, cached like the run thumbnails."""
+    cache = Path(tenant.runs_dir) / "thumb-cache"
+    thumb = cache / (textutil.safe_filename(name).rsplit(".", 1)[0] + ".jpg")
+    try:
+        if not thumb.exists() or thumb.stat().st_mtime < source.stat().st_mtime:
+            cache.mkdir(parents=True, exist_ok=True)
+            with Image.open(source) as im:
+                im = im.convert("RGB").crop((0, 0, min(im.size[0], 390), min(im.size[1], 844)))
+                im.thumbnail((240, 520), Image.LANCZOS)
+                im.save(thumb, format="JPEG", quality=80)
+        resp = send_file(thumb, mimetype="image/jpeg")
+        resp.headers["Cache-Control"] = "max-age=300"
+        return resp
+    except Exception:  # noqa: BLE001 -- a broken shot shows the placeholder
+        return _thumb_placeholder()
+
+
 def _run_thumb(tenant, run_dir, page):
     assets = run_dir / textutil.safe_filename(page) / "assets"
     if not assets.is_dir():
@@ -1281,10 +1379,14 @@ def _lib_card(item):
         shot = (f'<div class="shot lib-text"><div><p class="eyebrow">{e(library.CARTRIDGE_LABELS.get(item["cartridge"], item["cartridge"]))}</p>'
                 f'<b>{e(text)}</b></div></div>')
     words = item.get("word_range")
+    design_fact = ""
+    if item.get("design_status"):   # cycle 92: `library build --design-score`
+        design_fact = _design_fact({"score": item.get("design_score"), "status": item.get("design_status"),
+                                    "min_score": "-", "model": ""})
     facts = (f'<div class="facts"><span>Audience <b>{e(item.get("audience_temperature") or "-")}</b></span>'
              f'<span>Words <b>{f"{words[0]}-{words[1]}" if words else "no band"}</b></span>'
              + (f'<span>Added <b>{_date(item.get("added_at"))}</b></span>' if item.get("added_at") else "")
-             + "</div>")
+             + design_fact + "</div>")
     if item.get("fidelity") is not None:
         facts += f'<p class="small muted lib-fidelity">fidelity {round(float(item["fidelity"]), 2):g}</p>'
     actions = ""
@@ -1582,6 +1684,21 @@ def register(app, tenant):
             return Response(_serve._page_shell("No such version", "<p>No such version.</p>", chrome=False),
                             mimetype="text/html")
         return send_file(path, mimetype="text/html")
+
+    @app.route("/run/<run_id>/design/<page>/<name>")
+    def design_shot(run_id, page, name):
+        """Cycle 92: a design-gate screenshot (out/<run>/<page>/design/*.png);
+        ?thumb=1 is the top of the phone page, small."""
+        run_dir = _serve._run_dir_or_404(tenant, run_id)
+        safe_page, safe_name = textutil.safe_filename(page), textutil.safe_filename(name)
+        path = _serve._safe_path(run_dir, f"{safe_page}/design/{safe_name}")
+        if path is None or not safe_name.endswith(".png"):
+            abort(404)
+        if request.args.get("thumb"):
+            return _design_thumb(tenant, path, f"design-{run_id}-{safe_page}-{safe_name}")
+        resp = send_file(path, mimetype="image/png")
+        resp.headers["Cache-Control"] = "max-age=300"
+        return resp
 
     @app.route("/run/<run_id>/thumb/<page>")
     def run_thumb(run_id, page):

@@ -169,6 +169,26 @@ jev:
   # it below this composite (a batch always writes both). Unset: always both.
   # second_draft_below: 0.70
 
+# Cycle 92: the design-quality gate (harness/design_gate.py, docs/DESIGN-GATE.md).
+# After render: phone + desktop screenshots, hard checks (overflow at 390,
+# contrast over photos, empty image slots, cut-off text, tap targets, page
+# weight, fonts) and a vision judge scoring against harness/design_rubric.md.
+# mode: off (nothing runs, every output as before) | warn (score, build the
+# variants, never stop) | enforce (a page under min_score after the revise
+# round STOPs the run, exit 2). variants: layouts tried per page (look x
+# first screen), best kept. model: the judge (the strongest vision model the
+# harness prices). effort: the judge's thinking depth. max_usd_per_page: the
+# judge spend per page; reaching it stops further rounds with a note, it
+# never lowers min_score. HARNESS_DESIGN_GATE in the environment overrides
+# mode for one run.
+design_gate:
+  mode: "off"
+  model: claude-opus-5-5
+  effort: high
+  min_score: 75
+  variants: 3
+  max_usd_per_page: 1.00
+
 # Cycle 76: Message Batches API (half price) for builds nobody waits on:
 # A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta
 # ads) send every draft's first write in one batch. The review site's
@@ -298,6 +318,14 @@ first_screen: {}
 #   # the ad speaker's pronoun is never guessed: evidence is the ad-still
 #   # check (when unambiguous) or this per-ad override (ad id or file stem)
 #   speaker_pronouns: {"1234567890": she}
+
+# Cycle 94: hero compositions (harness/heroes/, docs/HEROES.md) -- the first
+# screen every look shares. `cartridges.<c>.hero_styles` pins the ones a run
+# with no --hero-style is seeded among (only ids the look renders). letters:
+# letters_pill's two display letter pairs; default: the first two and the
+# last two letters of display_name.
+hero: {}
+#   letters: ["AB", "CD"]
 
 # Cycle 79: product cut-outs, one per model (harness/cutouts.py). The
 # product hero and every per-model image the renderer owns use them.

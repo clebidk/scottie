@@ -1,0 +1,66 @@
+{# Cycle 94 hero composition `caps_over_photo` (harness/heroes/caps_over_photo.py).
+   Reference: the owner's reference page 01 (ridge). Dark full-bleed photo, a flat basalt
+   overlay (token fill + opacity, no gradient), an all-caps display headline in
+   the wide face, the pill in white. Scoped CSS, prefix hr-caps_over_photo-,
+   tokens only, written for 390px first. -#}
+{% import "heroes/_parts.html" as parts %}
+{% set hr = hero %}
+{% set p = "hr-caps_over_photo-" %}
+{% set img = assets.get(hr.image.id) if hr.image else None %}
+<style>
+.adv-wrap:has(.hr-bleed){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.hr-bleed) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.hr-caps_over_photo{
+  --hr-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));
+  --hr-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));
+  --hr-red:var(--pk-red,var(--ps-red,var(--adv-accent)));
+  --hr-sans:var(--pk-sans,var(--ps-sans,inherit));
+  --hr-heading:var(--pk-heading,var(--ps-heading,inherit));
+  --hr-ground:var(--hr-dark);
+  --hr-text:var(--hr-on-dark);
+  position:relative;display:flex;flex-direction:column;justify-content:flex-end;
+  min-height:88svh;margin:0;background:var(--hr-ground);color:var(--hr-text);overflow:hidden;text-align:left;
+}
+.hr-caps_over_photo .hr-caps_over_photo-media{position:absolute;inset:0;margin:0}
+.hr-caps_over_photo .hr-caps_over_photo-media .adv-img{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;border-radius:0;object-fit:cover;object-position:var(--hr-pos,50% 30%)}
+.hr-caps_over_photo .hr-caps_over_photo-media::after{content:"";position:absolute;inset:0;background:var(--hr-dark);opacity:.58}
+.hr-caps_over_photo .hr-caps_over_photo-body{position:relative;z-index:1;box-sizing:border-box;width:100%;max-width:var(--ps-max-width,1320px);margin:0 auto;padding:96px 16px 36px}
+.hr-caps_over_photo .hr-caps_over_photo-eyebrow{margin:0;font:500 12px/1.4 var(--hr-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--hr-text);opacity:.82}
+.hr-caps_over_photo .hr-caps_over_photo-eyebrow span{padding:0 6px}
+.hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1{margin:12px 0 0;max-width:15ch;color:var(--hr-text)!important;font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:31px!important;line-height:1.06!important;letter-spacing:.01em!important;text-transform:uppercase!important;text-wrap:balance;overflow-wrap:break-word}
+.hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1--long{max-width:22ch;font-size:24px!important;line-height:1.12!important}
+.hr-caps_over_photo .hr-accent{color:inherit;text-decoration:underline;text-decoration-color:var(--hr-red);text-decoration-thickness:.08em;text-underline-offset:.14em}
+.hr-caps_over_photo .hr-caps_over_photo-dek{margin:14px 0 0;max-width:36em;font-size:17px;line-height:1.5;color:var(--hr-text);opacity:.88}
+.hr-caps_over_photo .hr-caps_over_photo-price{margin:16px 0 0;color:var(--hr-text)}
+.hr-caps_over_photo .hr-caps_over_photo-price b{display:block;font:400 26px/1.05 var(--pk-display-wide);color:var(--hr-text)}
+.hr-caps_over_photo .hr-caps_over_photo-price span{display:block;margin-top:6px;font-size:13.5px;line-height:1.45;opacity:.82}
+.hr-caps_over_photo .hr-caps_over_photo-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:20px 0 0}
+.hr-caps_over_photo .hr-caps_over_photo-act .hr-cta{display:inline-flex;align-items:center;justify-content:center;min-height:52px}
+.hr-caps_over_photo .hr-cta.hr-cta.hr-cta{background:var(--hr-on-dark)!important;color:var(--hr-dark)!important;border-color:var(--hr-on-dark)!important}
+.hr-caps_over_photo .hr-cta.hr-cta.hr-cta:hover{background:var(--hr-red)!important;color:var(--hr-on-dark)!important;border-color:var(--hr-red)!important}
+.hr-caps_over_photo .hr-caps_over_photo-text{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-size:15px;color:var(--hr-text);text-decoration:underline;text-underline-offset:3px}
+.hr-caps_over_photo .hr-caps_over_photo-trust{display:flex;flex-wrap:wrap;gap:2px 0;margin:14px 0 0;padding:0;list-style:none;font-size:12.5px;line-height:1.5;color:var(--hr-text);opacity:.82}
+.hr-caps_over_photo .hr-caps_over_photo-trust li+li::before{content:"\00b7";padding:0 8px}
+.hr-caps_over_photo .hr-caps_over_photo-by{margin:14px 0 0;font-size:13px;line-height:1.45;color:var(--hr-text);opacity:.8}
+.hr-caps_over_photo .hr-caps_over_photo-by b{font-weight:500}
+@media (min-width:900px){
+  .adv-wrap:has(.hr-bleed) .adv-footer{padding-left:32px;padding-right:32px}
+  .hr-caps_over_photo{min-height:min(92svh,880px)}
+  .hr-caps_over_photo .hr-caps_over_photo-body{padding:160px 32px 72px}
+  .hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1{font-size:58px!important}
+  .hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1--long{font-size:40px!important}
+  .hr-caps_over_photo .hr-caps_over_photo-dek{font-size:19px}
+}
+</style>
+<header class="hr-root hr-caps_over_photo hr-bleed" data-look-pattern="hero:caps_over_photo" data-hero-image="{{ hr.image.source if img else 'none' }}">
+  {% if img %}<figure class="{{ p }}media" style="--hr-pos:{{ hr.image.position }}">{{ render_image_slot(img, hero=True, aspect_box=False) }}</figure>{% endif %}
+  <div class="{{ p }}body">
+    {{ parts.eyebrow(p, hr, disclosure_label) }}
+    {{ parts.h1(p, hr) }}
+    {% if hr.dek %}<p class="{{ p }}dek">{{ hr.dek }}</p>{% endif %}
+    {{ parts.price(p, hr) }}
+    {{ parts.act(p, hr) }}
+    {{ parts.trust(p, hr) }}
+    {{ parts.byline(p, hr) }}
+  </div>
+</header>

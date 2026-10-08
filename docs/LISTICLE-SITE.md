@@ -430,9 +430,9 @@ sections 9, 11 and 12). The second tab, "Product images (alt text)", is the
 older per-product review at `/images` (alt text and exclusions for every
 image a product page could use), unchanged.
 
-**How to add photos.** Drop up to 30 photos (jpg, png, webp; heic only when
-the server has `pillow-heif`, else the page says to export JPEG) on "Add
-photos", at most 40 MB each and 400 MB together. Choose the model in the
+**How to add photos.** Drop up to 30 photos (jpg, png, webp, heic; HEIC is
+read with `pillow-heif`, a project dependency -- without it installed the page
+says to export JPEG) on "Add photos", at most 40 MB each and 400 MB together. Choose the model in the
 photos when you know it ("Model in these photos"); leave "Mixed or not sure"
 for a mixed set. Press "Upload and tag". Same login, form token and rate
 limit as "Upload an ad" (6 uploads in 10 minutes per person). The type is read

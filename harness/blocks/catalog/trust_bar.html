@@ -1,0 +1,24 @@
+{#- Block `trust_bar` (cycle 91, harness/blocks/catalog/trust_bar.py): the
+    top-of-page trust facts on a dark strip (include it first, outside any
+    container): warranty term, free shipping, the fixed financing sentence,
+    the HSA/FSA claim -- each only when the facts state it. Wraps on a
+    phone; the financing and HSA/FSA sentences take their own line there. -#}
+{%- set bk = blocks.trust_bar if blocks and blocks.trust_bar else none -%}
+{%- if bk and bk.facts %}
+<style>
+.bk-trust_bar{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));background:var(--bk-dark);color:var(--bk-on-dark)}
+.bk-trust_bar .bk-trust_bar-list{list-style:none;margin:0 auto;padding:9px 16px;max-width:1240px;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;font:400 12.5px/1.45 var(--bk-sans);text-align:center}
+.bk-trust_bar .bk-trust_bar-item{display:flex;align-items:center;gap:7px;color:var(--bk-on-dark)}
+.bk-trust_bar .bk-trust_bar-item::before{content:"";flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:var(--bk-red)}
+.bk-trust_bar .bk-trust_bar-item--financing,.bk-trust_bar .bk-trust_bar-item--hsa{flex-basis:100%;justify-content:center;opacity:.85}
+.bk-trust_bar .bk-trust_bar-item--financing::before,.bk-trust_bar .bk-trust_bar-item--hsa::before{display:none}
+@media (min-width:768px){
+  .bk-trust_bar .bk-trust_bar-list{padding:10px 32px}
+  .bk-trust_bar .bk-trust_bar-item--financing,.bk-trust_bar .bk-trust_bar-item--hsa{flex-basis:auto}
+  .bk-trust_bar .bk-trust_bar-item--financing::before,.bk-trust_bar .bk-trust_bar-item--hsa::before{display:block}
+}
+</style>
+<div class="bk-trust_bar" data-look-pattern="trust_bar trust-bar">
+  <ul class="bk-trust_bar-list">{% for t in bk.facts %}<li class="bk-trust_bar-item bk-trust_bar-item--{{ t.kind }}">{{ t.text }}</li>{% endfor %}</ul>
+</div>
+{%- endif %}

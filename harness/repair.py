@@ -431,7 +431,7 @@ def resolve_warmup_window(tenant, schema_default=None):
     return default_warmup_window_words()
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, listicle_headline=None, log=None):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, listicle_headline=None, log=None, look=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
     decides what to do with the result."""
@@ -537,6 +537,11 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # keys, power wording) -- harness/landing.py. Keys are "landing:*".
     if cartridge_name == "landing":
         problems += landing.find_landing_violations(page, facts_pack)
+    # Cycle 91: the catalog blocks (harness/blocks/catalog/) -- the fields of
+    # the blocks this page's look declares (`look`: the run's resolved look;
+    # else the page's own recorded one), an unknown or undeclared block, a
+    # declared writer block left out. Keys are "blocks:<id>:*".
+    problems += _block_catalog_violations(page, facts_pack, cartridge_name, look, tenant or tenant_mod.active())
     # Cycle 32: simplicity gate (above-fold links, headline word band, one
     # offer element) -- hard gate only when this tenant's simplicity_mode is
     # "enforce" (default "warn": advisory REVIEW.md line only, see
@@ -545,6 +550,24 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     if tenant.get("simplicity_mode", "warn") == "enforce":
         problems += simplicity.find_simplicity_violations(page, cartridge_name)
     return problems
+
+
+def _block_catalog_violations(page, facts_pack, cartridge_name, look, tenant):
+    from .blocks import catalog as block_catalog
+    from . import looks as looks_mod
+
+    look = look or (page.get("look") if isinstance(page, dict) else None)
+    has_fields = isinstance(page, dict) and isinstance(page.get("blocks"), dict) and any(
+        isinstance(v, dict) for v in page["blocks"].values())
+    if not look and not has_fields:
+        return []
+    declared = ()
+    if look and looks_mod.has_looks(cartridge_name):
+        try:
+            declared = block_catalog.look_blocks(cartridge_name, look, tenant=tenant)
+        except ValueError as e:
+            return [{"path": "$.blocks", "key": "blocks:look_spec", "issue": f"the look's block list is broken: {e}"}]
+    return block_catalog.find_violations(page, facts_pack, declared, tenant=tenant)
 
 
 def _format_gate_failure(item):
@@ -1429,13 +1452,24 @@ DEGENERATE_REPAIR_NOTE = ("Your last answer dropped most of the page; return the
                           "listed fixes applied.")
 
 
-def degenerate_repair(prev, page):
+def degenerate_repair(prev, page, prev_problems=None):
     """True when `page` (a repair) kept under 60% of `prev`'s words, or lost
-    a section `prev` had: 4+ checked_claims, the FAQ, the closing headline."""
+    a section `prev` had: 4+ checked_claims, the FAQ, the closing headline,
+    a catalog block's fields (cycle 91)."""
     def sub(p, key, inner):
         node = p.get(key) if isinstance(p, dict) else None
         return node.get(inner) if isinstance(node, dict) else None
     if count_words(page) < 0.6 * count_words(prev):
+        return True
+    # Cycle 91: a catalog block (page.json `blocks.<id>`) the last attempt had
+    # and this one dropped is a lost section too -- unless the gate told the
+    # writer to remove it (a block the look does not use, or an unknown one).
+    told_to_drop = {str(p.get("path") or "")[len("$.blocks."):] for p in (prev_problems or [])
+                    if re.match(r"^blocks:(?:unknown:|[a-z0-9_]+:(?:not_in_look|renderer_owned)$)", str(p.get("key") or ""))}
+    prev_blocks = prev.get("blocks") if isinstance(prev.get("blocks"), dict) else {}
+    page_blocks = page.get("blocks") if isinstance(page.get("blocks"), dict) else {}
+    if any(isinstance(v, dict) and v and not page_blocks.get(k) and k not in told_to_drop
+           for k, v in prev_blocks.items()):
         return True
     return ((len(prev.get("checked_claims") or []) >= 4 and not page.get("checked_claims"))
             or (bool(sub(prev, "faq", "questions")) and not sub(page, "faq", "questions"))
@@ -1522,6 +1556,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             listicle_style=listicle_style,
             listicle_headline=listicle_headline,
             log=log,
+            look=landing_look if cartridge_name == "landing" else None,
         )
 
     revision_note = None
@@ -1624,7 +1659,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         dropped = cartridge_name == "landing" and landing.drop_unverifiable_quote(page, facts_pack)
         if dropped:
             log.event(f"write.{cartridge_name}", "fix: dropped unverifiable proof.quote")
-        degenerate = prev_page is not None and degenerate_repair(prev_page, page)
+        degenerate = prev_page is not None and degenerate_repair(prev_page, page, prev_problems)
         if degenerate:
             log.event(f"write.{cartridge_name}", f"attempt {attempt}: degenerate repair discarded "
                       f"({count_words(page)} words, was {count_words(prev_page)}); kept attempt {attempt - 1}'s page")

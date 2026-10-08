@@ -1,0 +1,78 @@
+{# Cycle 94 hero composition `letters_pill` (harness/heroes/letters_pill.py).
+   Reference: the owner's reference page 09 (rivian). Two display letter pairs flank a
+   pill-shaped photo window (border-radius on the image box); stacked on a
+   phone. Scoped CSS, prefix hr-letters_pill-, tokens only, 390px first. -#}
+{% import "heroes/_parts.html" as parts %}
+{% set hr = hero %}
+{% set p = "hr-letters_pill-" %}
+{% set img = assets.get(hr.image.id) if hr.image else None %}
+{% set cut = hr.image and hr.image.fit == "contain" %}
+<style>
+.adv-wrap:has(.hr-bleed){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.hr-bleed) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.hr-letters_pill{
+  --hr-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));
+  --hr-body:var(--pk-body,var(--ps-text,var(--adv-fg)));
+  --hr-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));
+  --hr-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));
+  --hr-red:var(--pk-red,var(--ps-red,var(--adv-accent)));
+  --hr-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));
+  --hr-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));
+  box-sizing:border-box;max-width:var(--ps-max-width,1320px);margin:0 auto;padding:16px 16px 8px;overflow:hidden;text-align:left;color:var(--hr-body)
+}
+.hr-letters_pill .hr-letters_pill-mark{display:grid;grid-template-columns:minmax(0,1fr);row-gap:10px;margin:0}
+.hr-letters_pill .hr-letters_pill-l{display:block;font-family:var(--pk-display-wide);font-weight:400;font-size:clamp(88px,30vw,300px);line-height:.8;letter-spacing:-.02em;color:var(--hr-dark);white-space:nowrap}
+.hr-letters_pill .hr-letters_pill-l1{justify-self:start}
+.hr-letters_pill .hr-letters_pill-l2{justify-self:end}
+.hr-letters_pill .hr-letters_pill-pill{position:relative;width:100%;aspect-ratio:2.2/1;margin:0;overflow:hidden;border-radius:var(--ps-radius-pill,999px);background:var(--hr-dark)}
+.hr-letters_pill .hr-letters_pill-pill .adv-img{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;border-radius:0;object-fit:cover;object-position:var(--hr-pos,50% 50%)}
+.hr-letters_pill .hr-letters_pill-pill--cut{background:var(--hr-bg);border:1px solid var(--hr-line)}
+.hr-letters_pill .hr-letters_pill-pill--cut .adv-img{object-fit:contain;padding:8px 0;box-sizing:border-box;background:transparent}
+.hr-letters_pill .hr-letters_pill-copy{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:28px}
+.hr-letters_pill .hr-letters_pill-copy>div>*+*{margin-top:14px}
+.hr-letters_pill .hr-letters_pill-eyebrow{margin:0;font:500 12px/1.4 var(--pk-sans,inherit);letter-spacing:.2em;text-transform:uppercase;color:var(--hr-muted)}
+.hr-letters_pill .hr-letters_pill-eyebrow span{padding:0 6px}
+.hr-letters_pill .hr-letters_pill-h1.hr-letters_pill-h1{margin:8px 0 0;color:var(--hr-ink)!important;font-family:var(--pk-heading,var(--ps-heading,inherit))!important;font-weight:600!important;font-size:30px!important;line-height:1.1!important;letter-spacing:-.02em!important;text-wrap:balance;overflow-wrap:break-word}
+.hr-letters_pill .hr-accent{color:var(--hr-red)}
+.hr-letters_pill .hr-letters_pill-dek{margin:0;font-size:17px;line-height:1.5;color:var(--hr-muted)}
+.hr-letters_pill .hr-letters_pill-price{margin:0}
+.hr-letters_pill .hr-letters_pill-price b{font-weight:600;color:var(--hr-ink)}
+.hr-letters_pill .hr-letters_pill-price span{display:block;margin-top:4px;font-size:13.5px;line-height:1.45;color:var(--hr-muted)}
+.hr-letters_pill .hr-letters_pill-act{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin:4px 0 0}
+.hr-letters_pill .hr-letters_pill-act .hr-cta{display:inline-flex;align-items:center;justify-content:center;min-height:52px}
+.hr-letters_pill a.hr-letters_pill-ghost{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 28px;box-sizing:border-box;border:1.5px solid var(--hr-ink);border-radius:var(--ps-radius-btn,999px);font:600 16px var(--pk-heading,inherit);color:var(--hr-ink);text-decoration:none}
+.hr-letters_pill a.hr-letters_pill-ghost:hover{border-color:var(--hr-red);color:var(--hr-red)}
+.hr-letters_pill .hr-letters_pill-trust{display:flex;flex-wrap:wrap;gap:2px 0;margin:0;padding:0;list-style:none;font-size:12.5px;line-height:1.5;color:var(--hr-muted)}
+.hr-letters_pill .hr-letters_pill-trust li+li::before{content:"\00b7";padding:0 8px}
+.hr-letters_pill .hr-letters_pill-by{margin:0;font-size:13px;line-height:1.45;color:var(--hr-muted)}
+.hr-letters_pill .hr-letters_pill-by b{font-weight:500;color:var(--hr-body)}
+@media (min-width:900px){
+  .adv-wrap:has(.hr-bleed) .adv-footer{padding-left:32px;padding-right:32px}
+  .hr-letters_pill{padding:28px 32px 16px}
+  .hr-letters_pill .hr-letters_pill-mark{grid-template-columns:auto minmax(0,1fr) auto;column-gap:clamp(16px,2vw,32px);align-items:center}
+  .hr-letters_pill .hr-letters_pill-l{font-size:clamp(120px,15vw,250px)}
+  .hr-letters_pill .hr-letters_pill-pill{aspect-ratio:auto;height:clamp(100px,12vw,206px)}
+  .hr-letters_pill .hr-letters_pill-copy{grid-template-columns:minmax(0,7fr) minmax(0,5fr);align-items:end;gap:48px;margin-top:40px}
+  .hr-letters_pill .hr-letters_pill-h1.hr-letters_pill-h1{font-size:52px!important}
+}
+</style>
+<header class="hr-root hr-letters_pill hr-bleed" data-look-pattern="hero:letters_pill" data-hero-image="{{ hr.image.source if img else 'none' }}">
+  <div class="{{ p }}mark">
+    <span class="{{ p }}l {{ p }}l1" aria-hidden="true">{{ hr.letters[0] }}</span>
+    <figure class="{{ p }}pill{{ ' ' ~ p ~ 'pill--cut' if cut else '' }}" style="--hr-pos:{{ hr.image.position if hr.image else '50% 50%' }}">{% if img %}{{ render_image_slot(img, hero=True, aspect_box=False, crop=hr.image.crop) }}{% endif %}</figure>
+    <span class="{{ p }}l {{ p }}l2" aria-hidden="true">{{ hr.letters[1] }}</span>
+  </div>
+  <div class="{{ p }}copy">
+    <div>
+      {{ parts.eyebrow(p, hr, disclosure_label) }}
+      {{ parts.h1(p, hr, display=False) }}
+    </div>
+    <div>
+      {% if hr.dek %}<p class="{{ p }}dek">{{ hr.dek }}</p>{% endif %}
+      {{ parts.price(p, hr) }}
+      {{ parts.act(p, hr, ghost=True) }}
+      {{ parts.trust(p, hr) }}
+      {{ parts.byline(p, hr) }}
+    </div>
+  </div>
+</header>

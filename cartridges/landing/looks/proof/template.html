@@ -58,6 +58,7 @@
   --pk-sans:var(--ps-sans,inherit);
   --pk-heading:var(--ps-heading,var(--pk-sans));
   --pk-display-wide:var(--ps-display-wide,var(--pk-heading));
+  --pk-serif:var(--ps-serif,var(--pk-heading));
   --pk-radius:var(--ps-radius-box,4px);
   --pk-max:var(--ps-max-width,1320px);
   --pk-gap:48px;
@@ -141,7 +142,7 @@
 .adv-landing .ld-stars span{color:var(--pk-red);padding-right:6px}
 .adv-landing .ld-stars b{font-weight:600}
 .adv-landing .ld-hq{margin:14px 0 0;padding:10px 0 0 14px;border-left:2px solid var(--pk-red);max-width:44ch}
-.adv-landing .ld-hq p{margin:0;font:500 15.5px/1.45 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-hq p{margin:0;font:400 16.5px/1.4 var(--pk-serif);color:var(--pk-ink)}
 .adv-landing .ld-hq .ld-who{margin:4px 0 0;font:400 12.5px/1.4 var(--pk-sans);color:var(--pk-muted)}
 .adv-landing .ld-act--proof{gap:0}
 .adv-landing .ld-act--proof .ld-trust{margin:10px 0 0}
@@ -194,31 +195,7 @@
 </style>
 <div class="pk-lp adv-landing">
 
-  <header class="ld-hero">
-    <div class="ld-hero-text">
-      {% if ld.rating %}<p class="ld-stars"><span aria-hidden="true">★</span><b>{{ ld.rating.value }}</b> {{ ld.rating.label }}</p>{% endif %}
-      {% if disclosure_label or ld.eyebrow %}<p class="ld-eyebrow">{{ disclosure_label }}{% if disclosure_label and ld.eyebrow %}<span aria-hidden="true">&middot;</span>{% endif %}{{ ld.eyebrow }}</p>{% endif %}
-      <h1 class="ld-h1 {{ h1_cls }}">{{ ld.headline_html }}</h1>
-      {% if page.hero.subhead %}<p class="ld-dek">{{ page.hero.subhead }}</p>{% endif %}
-      {% if ld.review_quote %}<blockquote class="ld-hq"><p>&ldquo;{{ ld.review_quote.text }}&rdquo;</p>{% if ld.review_quote.author %}<p class="ld-who">{{ ld.review_quote.author }}</p>{% endif %}</blockquote>{% endif %}
-      {% if ld.price or ld.financing %}
-      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
-      {% endif %}
-      <div class="ld-act ld-act--proof">
-        <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-        {% if ld.proof_trust %}<ul class="ld-trust">{% for t in ld.proof_trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}
-        {% if ld.secondary %}<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>{% endif %}
-      </div>
-    </div>
-    {% if frame_asset %}
-    <figure class="ld-visual ld-visual--still" style="--ld-pos:{{ ld.frame.object_position if ld.frame and ld.frame.object_position else '50% 30%' }}">
-      {{ render_image_slot(frame_asset, hero=True, frame="4x5") }}
-      {% if ld.quote %}<figcaption>&ldquo;{{ ld.quote.text }}&rdquo;<small>{{ ld.made_for }}</small></figcaption>{% endif %}
-    </figure>
-    {% elif hero_asset %}
-    <figure class="ld-visual ld-visual--cut">{{ render_image_slot(hero_asset, hero=True) }}</figure>
-    {% endif %}
-  </header>
+  {% include "heroes/_pick.html" %}
 
   {% if ld.benefits or show_room %}
   <section class="ld-sec ld-sec--first">
@@ -264,16 +241,7 @@
   </section>
   {% endif %}
 
-  {% if page.faq and page.faq.questions %}
-  <section class="ld-sec">
-    <div class="ld-narrow">
-      <h2 class="ld-h2">Questions before you buy</h2>
-      {% for entry in page.faq.questions %}
-      <div class="ld-qa"><h3>{{ entry.question }}</h3><p>{{ entry.answer }}</p></div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
+  {% include "blocks/faq.html" %}
 
   {% if ld.icon_row %}
   <section class="ld-sec">
@@ -299,6 +267,6 @@
   </div>
 </div>
 <script>
-(function(){var h=document.querySelector(".adv-landing .ld-hero"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
+(function(){var h=document.querySelector("{{ hero.anchor }}"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
 </script>
 {% endblock %}

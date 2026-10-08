@@ -1,0 +1,38 @@
+{#- Block `model_grid` (cycle 91, harness/blocks/catalog/model_grid.py): one
+    card per model with a verified price and a cut-out -- cut-out, name,
+    price, capacity, and the page's one CTA (same url, same phrase on every
+    card). Two columns on a phone, three from 768px, four from 1024px;
+    cards are separated by space and a hairline, never boxed. -#}
+{%- set bk = blocks.model_grid if blocks and blocks.model_grid else none -%}
+{%- set bk_cta = "op-btn" if cartridge == "listicle" else "ld-btn" -%}
+{%- if bk and bk.cards %}
+<style>
+.bk-model_grid{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px 16px}
+.bk-model_grid .bk-model_grid-card{display:flex;flex-direction:column;min-width:0;padding-top:16px;border-top:1px solid var(--bk-line)}
+.bk-model_grid .bk-model_grid-img{margin:0 0 12px;text-align:center}
+.bk-model_grid .bk-model_grid-img .adv-img{width:auto;max-width:100%;height:180px;margin:0 auto;background:transparent}
+.bk-model_grid .bk-model_grid-name{margin:0;font:400 15px/1.2 var(--bk-display);letter-spacing:.01em;text-transform:uppercase;color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-model_grid .bk-model_grid-meta{margin:4px 0 0;font-size:13px;line-height:1.4;color:var(--bk-muted)}
+.bk-model_grid .bk-model_grid-meta span{color:var(--bk-red)}
+.bk-model_grid .bk-model_grid-price{margin:8px 0 0;font:600 18px/1.2 var(--bk-heading);color:var(--bk-ink)}
+.bk-model_grid .bk-model_grid-act{margin-top:auto;padding-top:14px}
+.adv-wrap .bk-model_grid .bk-model_grid-act a{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px!important;padding:10px 12px!important;font-size:14px!important;text-align:center;text-decoration:none}
+@media (min-width:768px){
+  .bk-model_grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px 28px}
+  .bk-model_grid .bk-model_grid-img .adv-img{height:240px}
+  .bk-model_grid .bk-model_grid-name{font-size:18px}
+}
+@media (min-width:1024px){.bk-model_grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+<ul class="bk-model_grid" data-look-pattern="model_grid product-grid">
+{%- for c in bk.cards %}
+  <li class="bk-model_grid-card">
+    {%- if assets.get(c.asset_id) %}<figure class="bk-model_grid-img">{{ render_image_slot(assets.get(c.asset_id)) }}</figure>{% endif %}
+    <p class="bk-model_grid-name">{{ c.name }}</p>
+    {%- if c.specs or c.rating %}<p class="bk-model_grid-meta">{% for s in c.specs %}{{ s.value }}{% endfor %}{% if c.rating %}{% if c.specs %} &middot; {% endif %}<span aria-hidden="true">&#9733;</span> {{ c.rating.value }}{% endif %}</p>{% endif %}
+    <p class="bk-model_grid-price">{{ c.price.text }}</p>
+    <div class="bk-model_grid-act"><a class="{{ bk_cta }}" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+  </li>
+{%- endfor %}
+</ul>
+{%- endif %}
