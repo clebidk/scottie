@@ -37,7 +37,9 @@ Selection rules (facts_pack_assets / assign_page_images):
     of X left; the older Drive indexes are dropped for X.
 """
 import base64
+import contextlib
 import datetime
+import fcntl
 import hashlib
 import io
 import json
@@ -59,6 +61,9 @@ UNKNOWN = "unknown"
 DERIVATIVE_MAX_EDGE = 1600
 DERIVATIVE_JPEG_QUALITY = 80
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+# Cycle 96: what import_paths takes (HEIC is read only when pillow-heif is
+# installed and registered -- photo_uploads.heic_supported -- else skipped).
+IMPORT_EXTS = IMAGE_EXTS | {".heic", ".heif"}
 
 SETTINGS = ("indoor", "outdoor", "studio")
 SHOTS = ("exterior", "interior", "detail", "lifestyle", "people-in-use", "ad-still-with-text")
@@ -163,6 +168,63 @@ def save_manifest(tenant, data):
     return path
 
 
+# Cycle 96: the review site edits the manifest while a worker job may be
+# tagging photos. Every read-modify-write (import, a tag, a site edit) holds
+# this lock and changes only the rows and fields it owns, so neither side
+# loses the other's change. The lock file sits next to the manifest
+# (gitignored).
+LOCK_FILENAME = ".photo-library.lock"
+
+
+class PhotoNotFound(KeyError):
+    pass
+
+
+class ManifestInvalid(ValueError):
+    pass
+
+
+@contextlib.contextmanager
+def manifest_lock(tenant):
+    path = Path(tenant.brand_dir) / LOCK_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a+") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        yield
+
+
+def _read_for_write(tenant):
+    """The manifest as it is on disk (not validated), for a locked write."""
+    path = manifest_path(tenant)
+    if not path.exists():
+        return {"version": MANIFEST_VERSION, "photos": []}
+    return json.loads(path.read_text())
+
+
+def update_photo(tenant, photo_id_, fn, *, validate=False):
+    """Under the lock: reads the manifest from disk, calls fn(row) on the row
+    of `photo_id_` (fn changes it in place), and writes the manifest
+    atomically. With `validate`, a result that fails validate_manifest (or
+    the row's image_tags check) raises ManifestInvalid and nothing is
+    written. Raises PhotoNotFound for an unknown id. Returns the new row."""
+    from .images import FIELD, validate_image_tags
+
+    with manifest_lock(tenant):
+        data = _read_for_write(tenant)
+        row = photos_by_id(data).get(photo_id_)
+        if row is None:
+            raise PhotoNotFound(photo_id_)
+        fn(row)
+        if validate:
+            errors = validate_manifest(data, features=features_for(tenant), models=model_slugs(tenant))
+            if row.get(FIELD) is not None:
+                errors += [f"image_tags.{e}" for e in validate_image_tags(row[FIELD])]
+            if errors:
+                raise ManifestInvalid("; ".join(errors[:3]))
+        save_manifest(tenant, data)
+        return row
+
+
 def photos_by_id(manifest):
     return {p["id"]: p for p in manifest.get("photos", [])}
 
@@ -213,8 +275,16 @@ def validate_tags(tags, *, features, models):
 
 def apply_corrections(photo, tags):
     """`tags` with the photo's recorded human corrections applied (cycle 79):
-    each {"field": "features_visible", "removed": [...], "added": [...]}."""
+    each {"field": "features_visible", "removed": [...], "added": [...]}.
+    Cycle 96: {"field": "product", "value": <slug>|"unknown", "agnostic":
+    bool} -- a person set the model on the Photos page; it wins over the
+    vision decision, so a re-tag keeps it."""
     for c in photo.get("corrections") or []:
+        if isinstance(c, dict) and c.get("field") == "product" and "product" in tags:
+            tags["product"] = c.get("value") or UNKNOWN
+            tags["model_agnostic"] = bool(c.get("agnostic")) and tags["product"] == UNKNOWN
+            tags["product_confidence"] = 1.0
+            continue
         if not isinstance(c, dict) or c.get("field") != "features_visible":
             continue
         feats = [f for f in tags.get("features_visible") or [] if f not in set(c.get("removed") or [])]
@@ -291,19 +361,30 @@ def import_folder(tenant, src_dir, *, log=print):
     keeps its tags) and writes each derivative. Byte-identical files share
     one id, so a duplicate download is imported once. Returns
     {"added", "existing", "duplicates", "skipped"}."""
-    manifest = load_manifest(tenant)
-    by_id = photos_by_id(manifest)
+    paths = [p for p in sorted(Path(src_dir).iterdir()) if p.suffix.lower() in IMAGE_EXTS and p.is_file()]
+    counts, _results = import_paths(tenant, paths, log=log, source=str(src_dir))
+    return counts
+
+
+def import_paths(tenant, paths, *, log=print, source=None, restore_removed=False):
+    """The import of `paths` (image files): derivatives first (no lock held),
+    then one locked merge into the manifest as it is on disk. A photo a
+    person moved to the trash (cycle 96 "removed") stays there -- its file
+    is not written back -- unless `restore_removed` (the person uploaded it
+    again). Returns (counts, [{"path", "id", "status"}]) with status
+    added | existing | duplicate | skipped."""
     out_dir = files_dir(tenant)
     out_dir.mkdir(parents=True, exist_ok=True)
     counts = {"added": 0, "existing": 0, "duplicates": 0, "skipped": 0}
-    seen_this_run = set()
-    for src in sorted(Path(src_dir).iterdir()):
-        if src.suffix.lower() not in IMAGE_EXTS or not src.is_file():
-            continue
+    removed = {p["id"] for p in load_manifest(tenant).get("photos", []) if p.get("removed")}
+    results, ready, seen_this_run = [], [], set()
+    for src in paths:
+        src = Path(src)
         data = src.read_bytes()
         pid = photo_id(data)
         if pid in seen_this_run:
             counts["duplicates"] += 1
+            results.append({"path": src, "id": pid, "status": "duplicate"})
             log(f"duplicate of {pid}: {src.name}")
             continue
         seen_this_run.add(pid)
@@ -311,35 +392,50 @@ def import_folder(tenant, src_dir, *, log=print):
             jpeg, width, height = make_derivative(data)
         except Exception as e:  # not an image Pillow can open
             counts["skipped"] += 1
+            results.append({"path": src, "id": None, "status": "skipped"})
             log(f"skipped {src.name}: {e}")
             continue
-        (out_dir / f"{pid}.jpg").write_bytes(jpeg)
-        if pid in by_id:
-            m = _DRIVE_ID_RE.match(by_id[pid]["source_name"])
-            by_id[pid].update(width=width, height=height, drive_id=m.group(1) if m else None)
-            counts["existing"] += 1
-            continue
-        m = _DRIVE_ID_RE.match(src.name)
-        entry = {
-            "id": pid,
-            "file": f"{pid}.jpg",
-            "source_name": src.name,
-            "drive_id": m.group(1) if m else None,
-            "sha256": hashlib.sha256(data).hexdigest(),
-            "width": width,
-            "height": height,
-            "ai_generated": bool(_AI_FILENAME_RE.search(src.name)),
-            "excluded": False,
-            "tags": None,
-            "decision": None,
-        }
-        manifest.setdefault("photos", []).append(entry)
-        by_id[pid] = entry
-        counts["added"] += 1
-    manifest["version"] = MANIFEST_VERSION
-    manifest["source"] = str(src_dir)
-    save_manifest(tenant, manifest)
-    return counts
+        if pid not in removed or restore_removed:
+            (out_dir / f"{pid}.jpg").write_bytes(jpeg)
+        ready.append((src, pid, data, width, height))
+    added_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    with manifest_lock(tenant):
+        manifest = _read_for_write(tenant)
+        by_id = photos_by_id(manifest)
+        for src, pid, data, width, height in ready:
+            if pid in by_id:
+                row = by_id[pid]
+                m = _DRIVE_ID_RE.match(row["source_name"])
+                row.update(width=width, height=height, drive_id=m.group(1) if m else None)
+                if restore_removed and row.get("removed"):
+                    row["excluded"] = bool(row.pop("removed").get("was_excluded"))
+                counts["existing"] += 1
+                results.append({"path": src, "id": pid, "status": "existing"})
+                continue
+            m = _DRIVE_ID_RE.match(src.name)
+            entry = {
+                "id": pid,
+                "file": f"{pid}.jpg",
+                "source_name": src.name,
+                "drive_id": m.group(1) if m else None,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "width": width,
+                "height": height,
+                "ai_generated": bool(_AI_FILENAME_RE.search(src.name)),
+                "excluded": False,
+                "tags": None,
+                "decision": None,
+                "added_at": added_at,
+            }
+            manifest.setdefault("photos", []).append(entry)
+            by_id[pid] = entry
+            counts["added"] += 1
+            results.append({"path": src, "id": pid, "status": "added"})
+        manifest["version"] = MANIFEST_VERSION
+        if source:
+            manifest["source"] = source
+        save_manifest(tenant, manifest)
+    return counts, results
 
 
 # ---------------------------------------------------------------------------
@@ -735,7 +831,9 @@ def tag_photos(tenant, *, client, model, budget, log, refs, ids=None, force=Fals
                 failed += 1
                 log.event("photos_tag", f"{photo['id']}: invalid response, left untagged: {e}")
                 continue
-        folder = folders.get(photo.get("drive_id") or "")
+        # Cycle 96: the model a person chose when uploading on the Photos page
+        # counts as the folder label (same verify rules).
+        folder = folders.get(photo.get("drive_id") or "") or photo.get("label_model")
         verify = (photo.get("decision") or {}).get("verify") if reuse_vision else None
         if folder and not (vision["product"] == folder and vision["confidence"] >= MIN_AGREED_CONFIDENCE) and verify is None:
             _ref_system, ref_messages = build_tag_request(photo_bytes, refs, features=features, models=models)
@@ -757,15 +855,34 @@ def tag_photos(tenant, *, client, model, budget, log, refs, ids=None, force=Fals
         # Cycle 79: a person's correction of a feature tag (photo
         # "corrections") is kept too.
         tags = apply_corrections(photo, tags)
-        photo["tags"] = tags
-        photo["decision"] = {
+        decision = {
             "vision_product": vision["product"], "vision_confidence": vision["confidence"],
             "vision_reason": vision["reason"], "vision_candidates": vision.get("candidates") or [],
             "vision_agnostic": bool(vision.get("agnostic")),
             "folder_model": folder, "verify": verify, "rule": rule, "model": model,
             "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         }
-        save_manifest(tenant, manifest)
+
+        def store(row, tags=tags, decision=decision):
+            # Cycle 96: write only this photo's tags and decision, with the
+            # person fields as they are on disk NOW (a Photos page edit may
+            # have landed while this call ran).
+            fresh = dict(tags)
+            fresh.pop("old_logo_visible", None)
+            if "old_logo_visible" in (row.get("tags") or {}):
+                fresh["old_logo_visible"] = row["tags"]["old_logo_visible"]
+            row["tags"], row["decision"] = apply_corrections(row, fresh), decision
+            # the cycle 93 image_tags copy of the product (images.merge_image_tags)
+            if isinstance(row.get("image_tags"), dict):
+                product = row["tags"]["product"]
+                row["image_tags"]["model"] = None if product == UNKNOWN else product
+
+        try:
+            photo.update({k: v for k, v in update_photo(tenant, photo["id"], store).items()
+                          if k in ("tags", "decision")})
+        except PhotoNotFound:
+            continue
+        tags = photo["tags"]
         tagged += 1
         log.event("photos_tag", f"{photo['id']}: {product} ({rule}); {tags['shot']}; {','.join(tags['features_visible'])}")
     return {"tagged": tagged, "failed": failed, "verified": verified}

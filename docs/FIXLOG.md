@@ -5900,3 +5900,88 @@ were not wired at all. `--ps-serif` was only an alias for the heading face.
   Grotesk file from the theme CDN (`ACID_GROTESK_URL`). This cycle did not change it.
 - Montserrat Italic was converted (in the pack folder) but is not shipped: no heading
   style sets italic.
+
+## Cycle 96 (Photos page: upload, tag, curate and use library photos from the review site, 2026-10-07)
+
+Branch `cycle96/photos-page` from master 090e498; origin/master (cycles 91, 92, 94, 95) merged in
+2026-10-08. Not merged to master.
+
+### Problem
+Owner: "I want to be able to add photos on the web page dashboard at
+listicle.peaksaunasteam.com which are then actually used." Photos reached the
+library only through `harness photos import|measure|tag` on the server. The
+review site's "Images" page edited alt text and exclusions of the product
+image pool, not the photo library.
+
+### Fix (docs/LISTICLE-SITE.md "Photos", docs/IMAGES.md section 12)
+1. **Photos page** (`/photos`, `harness/site_photos.py`): replaces the
+   "Images" sidebar item; the old per-product review is its second tab
+   ("Product images (alt text)", `/images`, unchanged). Coverage panel (the
+   cycle 93 audit, photos per model, "what to shoot next", the owner's rules),
+   "Add photos" (many files, drag and drop, optional model label), and the
+   grid (thumbnail + focal dot, shot / mood / model / quality, flags, tags,
+   "Used in" from `.image-selection.json`; filters, sort, 60 a page).
+2. **Upload -> `photos_import` job** (`harness/photo_uploads.py`): type from
+   the bytes (jpg/png/webp; heic only with pillow-heif, else refused with a
+   message), 40 MB a file, 30 files and 400 MB a batch, all or nothing; same
+   login, form token and rate limit as the ad upload. The job imports
+   (`photo_library.import_paths`, the cycle 75 import), measures (cycle 93),
+   then per photo runs the cycle 75 product tag and the cycle 93 look tag,
+   with progress "k of n tagged" on the job page and the Photos page; cost
+   reserved and recorded against the daily cap.
+3. **Why both tag steps.** The brief named only the cycle 93 `--only-missing`
+   step, but a freshly imported photo has `tags: null`, and the matcher and
+   the resolver never offer an untagged photo (`photo_library._usable`). The
+   job therefore runs the cycle 75 product tag first. The uploader's model
+   choice is used like a Drive folder label (same verify rules), because
+   without a label the vision call left 53 of the first 66 photos "unknown"
+   (cycle 75), and an unknown, non-agnostic photo is never used.
+4. **Edits** (one audit line each): tags (`features_visible`, from the
+   vocabulary, stored as a cycle 79 correction), shot, mood, model (a new
+   `product` correction), exclude, old mark, focal point by clicking the
+   photo, delete to `photo-library/.trash/` (row marked `removed`), restore.
+   Person values survive a re-tag (`apply_corrections`, `tag_missing`) and a
+   re-measure (`merge_image_tags`).
+5. **No lost writes.** The site edits the manifest while the worker tags.
+   `photo_library.manifest_lock` + `update_photo` (locked, atomic, row-level,
+   optional validation); `tag_photos` and `images.tag_missing` now write only
+   their own row and fields; `import_paths` builds derivatives outside the
+   lock and merges once; `photos measure` holds the lock. A change that would
+   invalidate the manifest is refused.
+6. **Resolver sees uploads at once**: nothing caches the manifest; a test
+   uploads a photo through the Flask client, runs the job and gets it back
+   from `images.fill_slots` for a hero slot (and from
+   `photos_for_product`); excluding it on the page drops it from the next call.
+7. **Pull from Drive** (only when tenant.yaml `photo_library.drive_folder`
+   is set): the brand import's public-folder listing and download, new files
+   only (by Drive id), at most 60 a pull, named `asset-drive-<id>__...` so
+   the Drive id (and its cycle 75 folder label) is recorded. About 60 lines
+   in all, so kept.
+
+### Result
+- 2026-10-08, after merging origin/master (cycles 91, 92, 94, 95): two more
+  tests -- the cycle 94 hero picker (`heroes.pick_image`) and the cycle 91
+  photo essay (`photo_essay.candidates`) return uploaded photos as soon as
+  the job has tagged them; a real HEIC (made with pillow-heif) is imported as
+  a JPEG derivative. 21 tests in the file.
+- tests/test_photos_page_cycle96.py: 19 tests (upload -> job -> measured and
+  tagged row; resolver pick; duplicate upload; daily cap; rate limit; file,
+  batch and HEIC refusals; grid, filters and "Used in"; every edit + audit;
+  refused edits write nothing; focal click kept by re-measure; trash and
+  restore; an edit during a tag job is kept; Drive pull; one Photos nav item).
+- Tagging cost from harness/pricing.py: about $0.01 a photo (product tag
+  ~$0.008 with the reference strips cached, look tag ~$0.003; first photo of
+  a batch ~$0.026). Estimated from prompt sizes, not measured; cycle 75
+  measured $0.0066 a product call.
+- Screenshots of a local demo (the pack's 66 photos + one upload): Photos
+  page at 1280 and 390.
+
+### Open
+- `brand/photo-library.json` is in git and is now written on the server.
+  Commit or copy the server's copy before merging a branch that changes it.
+- HEIC: `pillow-heif` became a project dependency (9d94e5a). The server
+  needs `pip install -e .` (or `pip install pillow-heif`) in its venv after
+  the merge; until then the page refuses HEIC with an "export as JPEG"
+  message.
+- The worker must have the Anthropic key in its environment, as for every
+  other model job.

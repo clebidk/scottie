@@ -34,6 +34,9 @@ Job types and handlers (each reuses the CLI's own code path):
                    reading -> observing -> converting -> validating
                    [-> repairing -> validating] -> storing, in the job's
                    `progress` column
+  photos_import    cycle 96: photos added on the Photos page (or pulled from
+                   Drive) -- harness/photo_uploads.py's run_import: import,
+                   measure, tag; progress "k of n tagged"
 """
 import argparse
 import contextlib
@@ -53,7 +56,7 @@ from .errors import HarnessError
 
 STATES = ("queued", "running", "done", "failed")
 JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
-             "unpublish_live", "look_import", "library_build")
+             "unpublish_live", "look_import", "library_build", "photos_import")
 # Cycle 87: the job the worker is running now, so a handler can report its
 # progress (set by run_one, one job at a time per worker).
 _RUNNING = {"id": None}
@@ -465,6 +468,16 @@ def handle_library_build(tenant, payload, log=print):
     return result
 
 
+def handle_photos_import(tenant, payload, log=print):
+    """Cycle 96: one Photos page upload (or Drive pull) into the library."""
+    from . import photo_uploads
+
+    result = photo_uploads.run_import(tenant, payload, progress=lambda step: progress(tenant, step), log=log)
+    audit(tenant, by=payload.get("by") or "", action="photos_import_done", target=photo_uploads.JOB_TARGET,
+          detail={k: result.get(k) for k in ("added", "existing", "skipped", "tagged", "untagged", "cost_usd")})
+    return result
+
+
 HANDLERS = {
     "regenerate": handle_regenerate,
     "create_test": handle_create_test,
@@ -475,6 +488,7 @@ HANDLERS = {
     "unpublish_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="unpublish_live"),
     "library_build": handle_library_build,
     "look_import": handle_look_import,
+    "photos_import": handle_photos_import,
 }
 
 

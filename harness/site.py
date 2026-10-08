@@ -19,6 +19,9 @@ harness/site_ui.py. Pages:
                              (harness/look_import.py); the form is also a
                              dialog on the Ads page
   /looks/<c>/<slug>/review   an imported look's reference render
+  /photos                    cycle 96: the photo library -- coverage, add
+                             photos (photos_import job), curate each photo
+                             (harness/site_photos.py)
   /jobs, /job/<id>           the job queue (harness/jobs.py)
   /audit                     who did what, when
 
@@ -57,9 +60,12 @@ ENDPOINTS = (
     "look_import", "look_review",
     # cycle 92: the design gate's shots
     "design_shot",
+    # cycle 96: the Photos page (harness/site_photos.py)
+    "photos_home", "photo_thumb", "photos_upload", "photo_edit", "photos_pull_drive",
 )
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
-                            "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import"})
+                            "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import",
+                            "photos_upload", "photo_edit", "photos_pull_drive"})
 
 ADS_PER_PAGE = 20
 MAX_FEEDBACK_CHARS = 2000
@@ -80,7 +86,8 @@ PUBLISH_JOB_TYPES = ("publish_page", "replace_variant") + LIVE_JOB_TYPES
 FILTERS = (("all", "All"), ("review", "Needs review"), ("live", "Live"))
 JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "publish_page": "Publish new version",
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
-              "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page"}
+              "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page",
+              "photos_import": "Add photos"}
 # Cycle 94: every hero composition by its title (harness/heroes/).
 HERO_LABELS = {hero_id: heroes.get(hero_id).title for hero_id in heroes.ids()}
 # Cycle 86: the upload form's pre-selected page version (the Library's
@@ -1244,6 +1251,18 @@ def _job_result_html(tenant, job):
             source = payload.get("url") or payload.get("filename") or "pasted HTML"
             parts.append(f'<p>{e(payload.get("title") or payload.get("slug") or "")} &middot; '
                          f'{e(payload.get("cartridge") or "")} &middot; from {e(source)}</p>')
+    elif job["type"] == "photos_import":
+        what = (f'{int(payload["files"])} photo{"s" if payload["files"] != 1 else ""} uploaded'
+                if payload.get("files") else "new photos from the Drive folder")
+        parts.append(f'<p>{e(what)} &middot; <a href="{url_for("photos_home")}">Open Photos</a></p>')
+        if result:
+            parts.append(f'<p>{int(result.get("added") or 0)} added, {int(result.get("existing") or 0)} already in '
+                         f'the library, {int(result.get("skipped") or 0)} not readable &middot; '
+                         f'<b>{int(result.get("tagged") or 0)} of {int(result.get("photos") or 0)} tagged</b> '
+                         f'&middot; model cost ${float(result.get("cost_usd") or 0):.3f}</p>')
+            if result.get("untagged"):
+                parts.append('<p class="small muted">An untagged photo is not used yet. Upload it again to tag it.'
+                             '</p>')
     elif payload.get("run_id") and payload.get("page"):
         parts.append(f'<p><a href="{url_for("generation", run_id=payload["run_id"], page=payload["page"])}">'
                      f'{e(payload["run_id"])} / {e(payload["page"])}</a></p>')
@@ -1261,6 +1280,8 @@ def _job_result_html(tenant, job):
 
 
 def _target_link(target):
+    if target == "photos:library":
+        return f'<a href="{url_for("photos_home")}">{e(target)}</a>'
     if target == library.JOB_TARGET:
         return f'<a href="{url_for("library_home")}">{e(target)}</a>'
     m = re.match(r"^run:([^/]+)/(.+)$", target or "")
@@ -1835,6 +1856,11 @@ def register(app, tenant):
             abort(404)
         return send_file(path, mimetype="text/html")
 
+    # Cycle 96: the Photos page (harness/site_photos.py).
+    from . import site_photos
+
+    site_photos.register(app, tenant)
+
     @app.route("/jobs")
     def job_list():
         listed = jobs.list_jobs(tenant, limit=100)
@@ -1878,7 +1904,7 @@ def register(app, tenant):
                       + "</div><p class=\"small muted\">Nothing was stored.</p>")
         wait = ('<p class="small muted">This page reloads every 10 seconds until the job ends.</p>' if busy else "")
         if busy and job.get("progress"):
-            steps = look_import_mod.PROGRESS_STEPS
+            steps = look_import_mod.PROGRESS_STEPS if job["type"] == "look_import" else ()
             step = job["progress"]
             wait = (f'<p>Step: <b>{e(step)}</b>'
                     + (f' <span class="muted">({steps.index(step) + 1} of {len(steps)})</span>' if step in steps

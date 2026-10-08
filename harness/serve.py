@@ -428,6 +428,13 @@ def _image_sort_key(asset):
     return (_SOURCE_DISPLAY_ORDER.get(asset["source"], 9), kind_rank)
 
 
+def _photo_tabs():
+    """Cycle 96: these pages are the second tab of the Photos page."""
+    from . import site_ui
+
+    return site_ui.photo_tabs("image_library")
+
+
 def _render_image_library(tenant):
     source = _asset_source(tenant)
     config = tenant.claims_config
@@ -448,7 +455,7 @@ def _render_image_library(tenant):
         "<div class=\"table-wrap\"><table><thead><tr><th>Product</th><th>Total</th><th>Reviewed</th><th>Excluded</th></tr>"
         "</thead><tbody>" + ("".join(rows) or "<tr><td colspan=4>No active products.</td></tr>") + "</tbody></table></div>"
     )
-    return _page_shell(f"{tenant.display_name} image library", body)
+    return _page_shell(f"{tenant.display_name} image library", _photo_tabs() + body)
 
 
 def _image_card(asset, override):
@@ -521,7 +528,7 @@ def _render_image_library_product(tenant, product_slug, *, page, source_filter, 
         + submit
         + "</form>"
     )
-    return _page_shell(f"{product['name']} images", body)
+    return _page_shell(f"{product['name']} images", _photo_tabs() + body)
 
 
 def _save_image_library(tenant, product_slug):

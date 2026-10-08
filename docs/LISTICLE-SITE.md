@@ -5,7 +5,8 @@ Cycle 69. The team uses this site to:
 - see every ad and its landing pages, grouped by ad name;
 - give feedback on a page, which makes a new version of that page;
 - upload an ad, which builds an A/B/C test from it (and, when
-  `abtest.auto_publish` is on, publishes the test and shows the split link).
+  `abtest.auto_publish` is on, publishes the test and shows the split link);
+- add photos to the photo library and curate them (cycle 96, "Photos" below).
 
 The site is part of `harness serve` (`harness/serve.py`, `harness/site.py`).
 It uses the same login as the reviewer app. Long work does not run in the web
@@ -420,6 +421,96 @@ the default layout. Since cycle 90 (`harness/look_design.py`):
   rules + contract + exemplar 40-50 KB), 5-8k output; about $0.10 a call at
   claude-sonnet-5, $0.30-0.35 when both repair rounds run.
 
+### Photos (cycle 96)
+
+`/photos` (sidebar: Library > Photos; `harness/site_photos.py`,
+`harness/photo_uploads.py`). One place for the tenant photo library
+(`tenants/<t>/photo-library/` + `brand/photo-library.json`, docs/IMAGES.md
+sections 9, 11 and 12). The second tab, "Product images (alt text)", is the
+older per-product review at `/images` (alt text and exclusions for every
+image a product page could use), unchanged.
+
+**How to add photos.** Drop up to 30 photos (jpg, png, webp, heic; HEIC is
+read with `pillow-heif`, a project dependency -- without it installed the page
+says to export JPEG) on "Add photos", at most 40 MB each and 400 MB together. Choose the model in the
+photos when you know it ("Model in these photos"); leave "Mixed or not sure"
+for a mixed set. Press "Upload and tag". Same login, form token and rate
+limit as "Upload an ad" (6 uploads in 10 minutes per person). The type is read
+from each file's bytes and must match its extension; one bad file refuses the
+whole upload and keeps nothing.
+
+**What happens.** The upload writes one `photos_import` job (the files wait
+in `jobs/photo-uploads/<batch>/`). The worker then, for the whole batch:
+
+1. imports the photos exactly like `harness photos import`: a 1600 px JPEG
+   derivative (EXIF orientation applied, metadata dropped), one manifest row
+   per photo, id from the bytes, so the same photo uploaded twice is one row;
+2. measures them (cycle 93: orientation, mood, full-bleed ok, dark-page ok,
+   white studio edge, focal guess, sharpness; no model call);
+3. tags them one at a time: the cycle 75 product tag (which model; the model
+   you chose is used like a Drive folder label, so the vision check must agree)
+   and the cycle 93 look tag (shot, quality 1-5, focal point). Progress is
+   "3 of 12 tagged" on the job page and on the Photos page (which reloads
+   every 10 s while that job runs). Cost: about $0.01 a photo
+   (claude-sonnet-5 product tag about $0.008 with the reference strips read
+   from the prompt cache, claude-haiku-4-5 look tag about $0.003; the first
+   photo of a batch about $0.026), reserved against and recorded in the
+   daily cap. When the cap stops the tagging, the photos stay in the library
+   untagged (not used yet); upload the same photos again later to tag them.
+
+There is no cache: every page render reads `photo-library.json` from disk,
+so a tagged photo is offered to the next generated page (the cycle 75
+matcher, the cycle 93 slot resolver and the first screen). A photo is used
+on a page about model X when it is tagged X (or "any model"), not excluded,
+has no text overlay, and its file is on the server.
+
+**The grid.** Every photo as a card: thumbnail with its focal point, id,
+size, shot (and where it came from: vision, person, or the cycle 75 tags),
+mood, model, quality, flags (excluded, AI-generated, old mark, text overlay,
+full-bleed ok, dark ok, white studio edge, not tagged yet), the tags
+(`features_visible`), the description, and "Used in" (the last 5 runs that
+picked it, from `<run>/.image-selection.json`). Filters: shot, mood, model,
+flag (including "In the trash"); sort newest or by quality; 60 a page.
+
+**Per photo** (each a form with the token; each change is one audit-log line
+`photo_tags`, `photo_shot`, `photo_mood`, `photo_model`, `photo_excluded`,
+`photo_old_mark`, `photo_focal`, `photo_delete`, `photo_restore`):
+
+- Edit: tags as a comma list from the tenant vocabulary (an unknown word is
+  refused with the list), shot, mood and model from menus. Stored as a
+  person's value (`corrections`, `shot_source`/`mood_source: "person"`), so a
+  later re-tag or re-measure keeps it.
+- Click the photo to set its focal point (`image_tags.focal`, the point every
+  crop keeps); the Edit panel also has x/y fields.
+- Exclude / Include, Old mark / No old mark (cycle 78: never at the top of a
+  page).
+- Delete moves the file to `photo-library/.trash/` and marks the row
+  `removed` (and excluded); nothing is ever hard-deleted. Restore (filter
+  "In the trash") brings it back; uploading the same photo again restores it
+  too.
+
+Every write holds the manifest lock (`brand/.photo-library.lock`) and
+changes only its own row and fields, so an edit made while a tag job runs is
+not lost; a change that would make the manifest invalid is refused and
+nothing is written.
+
+**Coverage panel.** The cycle 93 audit (photos per shot x mood), the flag
+counts, the photos per model, a "What to shoot next" list (models with no
+photo first, then each audit want with fewer than 3 photos, in plain
+words), and the rules: real photos only; at least 1600 px wide (landscape)
+for a full-width hero; no white studio background for a full-width hero; the
+new mark or no mark.
+
+**Pull from Drive** (shown only when tenant.yaml `photo_library.drive_folder`
+is set to a public Drive folder id or URL): the same job, after downloading
+the files of that folder (and its subfolders) that are not in the library yet,
+at most 60 a pull, with the brand import's public-folder download.
+
+**Deploy note.** `brand/photo-library.json` is in git and the site now
+writes it on the server. Before merging a branch that changes that file on
+the server, commit (or copy) the server's version first, or the merge
+refuses or the site's edits are lost.
+
 ### Security
 
 - Every route except `POST /e` needs the login (HTTP basic auth against
@@ -565,7 +656,11 @@ you give them the link. They all use the same `REVIEW_PASSWORD`.
 | `tenants/<t>/runs/thumb-cache/` | Page thumbnails for the Ads page. |
 | `tenants/<t>/library/` | Cycle 86: the Library's reference renders (`harness library build`). Gitignored. |
 | `tenants/<t>/looks/<cartridge>/<name>/` | Cycle 86: tenant-level imported looks the Library lists (template.html + library.json). |
+| `tenants/<t>/jobs/photo-uploads/<batch>/` | Cycle 96: photos waiting for their `photos_import` job; removed when the job ends. |
+| `tenants/<t>/photo-library/.trash/` | Cycle 96: photos deleted on the Photos page (the row stays, marked `removed`). |
+| `tenants/<t>/brand/.photo-library.lock` | Cycle 96: the manifest write lock. Gitignored. |
 
 Job states: `queued`, `running`, `done`, `failed` (always with a reason).
 Job types: `regenerate`, `create_test`, `publish_page`, `replace_variant`,
-`post_live`, `update_live`, `unpublish_live`, `library_build` (cycle 86).
+`post_live`, `update_live`, `unpublish_live`, `library_build` (cycle 86),
+`look_import` (cycle 87), `photos_import` (cycle 96).

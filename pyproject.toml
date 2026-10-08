@@ -14,6 +14,9 @@ dependencies = [
     "python-dotenv",
     "jinja2",
     "pillow",
+    # Cycle 96: iPhone uploads on the Photos page arrive as HEIC; Pillow
+    # needs this opener to read them (photo_uploads.heic_supported).
+    "pillow-heif",
     "pyyaml",
     # harness/pagechecks.py's rendered-HTML validity backstop: a real HTML5
     # parser (strict mode reports unclosed tags / bad nesting), where the
