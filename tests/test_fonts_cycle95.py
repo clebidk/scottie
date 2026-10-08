@@ -229,7 +229,7 @@ def test_the_review_page_carries_every_face_from_the_local_files(tmp_path):
     review_path = review.build_review_for_page(tmp_path, "listicle", tenant=TENANT)
     html = review_path.read_text()
     faces = _faces(html)
-    assert set(faces) == FAMILIES
+    assert set(faces) >= FAMILIES   # fonts-body (harness fonts fetch) may add body faces
     assert all("data:font/woff2;base64," in f for f in faces.values())
     assert not re.search(r"url\(\"?brand/fonts", html)
     # index.html (what text checks and the export read) keeps the publishable urls
@@ -258,7 +258,7 @@ def test_the_thumbnail_capture_frames_a_page_that_loads_the_local_fonts(tmp_path
         return FakeProc()
 
     assert library.capture_thumb("chromium", review_path, tmp_path / "thumb.png", popen=fake_popen)
-    assert set(seen["faces"]) == FAMILIES
+    assert set(seen["faces"]) >= FAMILIES   # fonts-body may add body faces
     assert all("data:font/woff2;base64," in f for f in seen["faces"].values())
 
 
