@@ -19,6 +19,11 @@ A run either **PASSes** (writes `tenants/peak-saunas/out/<run-id>/listicle/index
 -- wall clock / tokens / Claude calls -- was hit). A STOP or a budget exit is never a
 partial page; there is nothing to review in either case except the log.
 
+With `design_gate.mode: enforce` (PEAK's setting since cycle 92) a run can also STOP with exit
+code 2 at the **design gate**: the page is rendered, but the best of its layout variants scored under
+`design_gate.min_score`. See `<run>/<cartridge>/design/scores.json`, REVIEW.md's "Design" section and
+[DESIGN-GATE.md](DESIGN-GATE.md) (how the gate judges, the rubric, the knobs, the cost).
+
 Next, review the run:
 
 ```

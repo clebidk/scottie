@@ -280,7 +280,7 @@ def reservation_estimate_usd(tenant, drafts=1):
     return DEFAULT_RESERVATION_USD * drafts
 
 
-def reserve_spend(tenant, *, run_id, today_iso, log=None, drafts=1):
+def reserve_spend(tenant, *, run_id, today_iso, log=None, drafts=1, extra_usd=0.0):
     """K2(a): reserve this run's estimated cost against the tenant's daily
     cap BEFORE any model call. Called once, from pipeline.prepare_run, in
     place of the old check-then-record-later check_daily_cap.
@@ -294,7 +294,9 @@ def reserve_spend(tenant, *, run_id, today_iso, log=None, drafts=1):
     cap = daily_cap_usd(tenant)
     if cap is None:
         return
-    reservation = reservation_estimate_usd(tenant, drafts)
+    # Cycle 92: extra_usd -- the design gate's per-page judge cap, reserved on
+    # top of the run's own estimate.
+    reservation = reservation_estimate_usd(tenant, drafts) + float(extra_usd or 0.0)
     with _locked_ledger(tenant):
         entries = [e for e in _read_ledger_entries(tenant) if e.get("date") == today_iso]
         finalized_total, reserved_total = _committed_and_reserved(entries)

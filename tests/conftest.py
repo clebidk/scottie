@@ -28,6 +28,11 @@ os.environ["HARNESS_PHOTO_LIBRARY_DIR"] = "/nonexistent/photo-library-off-in-tes
 # (tests/test_jev_cycle76.py). No test ever sees a real TypeSafe key.
 os.environ["HARNESS_JEV_DRAFTS"] = "1"
 os.environ.pop("TYPESAFE_API_KEY", None)
+# Cycle 92: PEAK runs the design gate in enforce mode (tenant.yaml
+# design_gate). The suite's canned runs have no judge answers and should not
+# drive a browser, so every test runs with the gate off unless it sets
+# HARNESS_DESIGN_GATE itself (tests/test_design_gate_cycle92.py).
+os.environ["HARNESS_DESIGN_GATE"] = "off"
 
 
 class FakeUsage:
@@ -146,6 +151,20 @@ def _no_network(request, monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", _blocked)
     monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
     monkeypatch.setattr(socket, "create_connection", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_browser(request, monkeypatch):
+    """Cycle 92: harness/capture.py finds Chrome in the macOS application
+    folder too, so a test that renders a Library or runs the design gate
+    would drive a real browser on a developer Mac (slow, and not what the
+    test is about). Every test sees no browser unless it is marked
+    `real_browser`."""
+    if request.node.get_closest_marker("real_browser"):
+        return
+    from harness import capture
+
+    monkeypatch.setattr(capture, "find_browser", lambda: None)
 
 
 # ---------------------------------------------------------------------------

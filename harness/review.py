@@ -33,8 +33,8 @@ import mimetypes
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
 
+from . import fonts as fonts_mod
 from . import tenant as tenant_mod
 
 _ASSET_SRC_RE = re.compile(r'src="assets/([^"]+)"')
@@ -77,16 +77,10 @@ def inline_assets_as_data_uris(html_text, assets_dir):
     return _ASSET_SRC_RE.sub(replace, html_text)
 
 
-_FONT_FACE_BLOCK_RE = re.compile(r"@font-face\s*\{[^}]*\}", re.DOTALL)
-_FONT_SRC_RE = re.compile(r"src\s*:[^;}]*", re.IGNORECASE)
-_FONT_URL_RE = re.compile(r"""url\(\s*['"]?([^'")]+)['"]?\s*\)""", re.IGNORECASE)
-_FONT_MIME = {".woff2": "font/woff2", ".woff": "font/woff", ".otf": "font/otf", ".ttf": "font/ttf"}
-
-
 def inline_font_face_urls(css, brand_dir):
     """Cycle 95: every `@font-face` src in the review document, as a data:
     URI of the tenant's own local file -- the first url whose filename is in
-    brand/fonts/ or brand/fonts-display/.
+    brand/fonts/, brand/fonts-display/ or (cycle 92) brand/fonts-body/.
 
     base.css writes brand/fonts/<file> (uploaded and rewritten at publish)
     or the theme's CDN url, and neither loads on the review page or in the
@@ -94,30 +88,9 @@ def inline_font_face_urls(css, brand_dir):
     resolves against the run folder. Only the review file gets this --
     index.html and the export keep the publishable urls, and no text check
     on index.html ever reads 400 KB of base64. A face with no local file
-    keeps its url."""
-    brand_dir = Path(brand_dir)
-
-    def local_file(url):
-        name = Path(urlparse(url).path).name
-        for folder in ("fonts", "fonts-display"):
-            path = brand_dir / folder / name
-            if name and path.is_file():
-                return path
-        return None
-
-    def inline_block(match):
-        block = match.group(0)
-        src = _FONT_SRC_RE.search(block)
-        if not src:
-            return block
-        path = next((p for p in map(local_file, _FONT_URL_RE.findall(src.group(0))) if p), None)
-        if path is None:
-            return block
-        mime = _FONT_MIME.get(path.suffix.lower(), "application/octet-stream")
-        data = base64.b64encode(path.read_bytes()).decode("ascii")
-        return block[:src.start()] + f'src:url("data:{mime};base64,{data}")' + block[src.end():]
-
-    return _FONT_FACE_BLOCK_RE.sub(inline_block, css)
+    keeps its url. Cycle 92: the one implementation lives in harness/fonts.py
+    (the design gate's screenshots use it too, with file:// urls)."""
+    return fonts_mod.localize_font_faces(css, brand_dir, "inline")
 
 
 def build_review_for_page(run_dir, page_name, tenant=None):
@@ -134,9 +107,14 @@ def build_review_for_page(run_dir, page_name, tenant=None):
     if not index_path.exists():
         return None
     review_html = inline_assets_as_data_uris(index_path.read_text(), cartridge_dir / "assets")
-    brand_dir = getattr(tenant or tenant_mod.active(), "brand_dir", None)
+    tenant = tenant or tenant_mod.active()
+    brand_dir = getattr(tenant, "brand_dir", None)
     if brand_dir:
         review_html = inline_font_face_urls(review_html, brand_dir)
+        # Cycle 92: the body faces the page loads from Google Fonts (a <link>,
+        # not an @font-face in the document), from brand/fonts-body/ when
+        # `harness fonts fetch` has filled it.
+        review_html = fonts_mod.inject(review_html, fonts_mod.body_font_css(tenant, "inline"))
     review_path = run_dir / f"{page_name}-review.html"
     review_path.write_text(review_html)
     size = review_path.stat().st_size
@@ -149,13 +127,13 @@ def build_review_for_page(run_dir, page_name, tenant=None):
     return review_path
 
 
-def build_reviews(run_dir):
+def build_reviews(run_dir, *, tenant=None):
     """Write <cartridge>-review.html for every cartridge under `run_dir` that
     has a rendered index.html. Returns the list of paths written."""
     run_dir = Path(run_dir)
     written = []
     for cartridge_dir in sorted(p for p in run_dir.iterdir() if p.is_dir()):
-        path = build_review_for_page(run_dir, cartridge_dir.name)
+        path = build_review_for_page(run_dir, cartridge_dir.name, tenant=tenant)
         if path is not None:
             written.append(path)
     return written
