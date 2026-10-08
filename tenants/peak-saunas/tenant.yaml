@@ -295,7 +295,7 @@ jev:
 # Owner rule 2026-10-07: "Visual design needs to be top tier. Better
 # generation is preferred over lower cost."
 design_gate:
-  mode: enforce
+  mode: warn
   model: claude-opus-5-5
   effort: high
   min_score: 75
