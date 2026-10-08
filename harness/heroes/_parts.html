@@ -1,0 +1,21 @@
+{# Cycle 94: the small pieces every new hero composition prints, each with the
+   composition's own class prefix `p` (hr-<id>-). Values come from the hero
+   context only (harness/heroes/_common.py); nothing here is copy. -#}
+{% macro eyebrow(p, hr, disclosure_label) -%}
+{% if disclosure_label or hr.eyebrow %}<p class="{{ p }}eyebrow">{{ disclosure_label }}{% if disclosure_label and hr.eyebrow %}<span aria-hidden="true">&middot;</span>{% endif %}{{ hr.eyebrow }}</p>{% endif %}
+{%- endmacro %}
+{% macro h1(p, hr, display=True) -%}
+{% if display %}<h1 class="{{ p }}h1{{ '' if hr.display_fits else ' ' ~ p ~ 'h1--long' }}">{{ hr.display_html }}</h1>{% else %}<h1 class="{{ p }}h1">{{ hr.headline_html }}</h1>{% endif %}
+{%- endmacro %}
+{% macro price(p, hr) -%}
+{% if hr.price or hr.financing %}<p class="{{ p }}price">{% if hr.price %}<b>{{ hr.price.text }}</b>{% endif %}{% if hr.financing %}<span>{{ hr.financing }}</span>{% endif %}</p>{% endif %}
+{%- endmacro %}
+{% macro act(p, hr, ghost=False) -%}
+<div class="{{ p }}act"><a class="{{ hr.cta.cls }} hr-cta" href="{{ hr.cta.url }}">{{ hr.cta.text }}</a>{% if hr.secondary %}<a class="{{ hr.secondary.cls }} {{ p }}{{ 'ghost' if ghost else 'text' }}" href="{{ hr.secondary.href }}">{{ hr.secondary.text }}</a>{% endif %}</div>
+{%- endmacro %}
+{% macro trust(p, hr) -%}
+{% if hr.trust %}<ul class="{{ p }}trust">{% for t in hr.trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}
+{%- endmacro %}
+{% macro byline(p, hr) -%}
+{% if hr.byline %}<p class="{{ p }}by">By <b>{{ hr.byline.name }}</b>{% if hr.byline.verified %} &#10003;{% endif %}{% if hr.byline.title %}, {{ hr.byline.title }}{% endif %} &middot; Updated {{ hr.byline.updated }} &middot; {{ hr.byline.minutes }} min read</p>{% endif %}
+{%- endmacro %}

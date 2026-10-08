@@ -1,0 +1,18 @@
+{# Cycle 94 adapter: the story first screen exactly as cartridges/listicle/looks/open printed it
+   before hero compositions (harness/heroes/story.py). Its CSS stays in the look.
+   No whitespace may change below this comment: the shipped look's output is
+   pinned by a hash test (tests/test_heroes_cycle94.py). #}
+  <header class="op-hero op-hero--story op-narrow">
+    {% if disclosure_label %}<p class="op-eyebrow">{{ disclosure_label }}</p>{% endif %}
+    {% if fs.eyebrow %}<p class="op-eyebrow">{{ fs.eyebrow }}</p>{% endif %}
+    <h1 class="op-h1">{{ fs.headline_html }}</h1>
+    {{ byline_line() }}
+    <div class="op-lede">
+      {% if fs.quote %}
+      {% set avatar_asset = assets.get("asset-adframe-avatar") %}
+      <p class="op-said">{% if avatar_asset %}<span class="op-avatar">{{ render_image_slot(avatar_asset, frame="1x1", sizes="52px") }}</span>{% endif %}<span>{{ fs.quote_frame }} &ldquo;{{ fs.quote.text }}&rdquo;</span></p>
+      {% endif %}
+      {% if fs.lede %}<p>{{ fs.lede }}</p>{% endif %}
+    </div>
+  </header>
+  

@@ -43,6 +43,7 @@ harness = [
     "structure.css",
     "look_import_rules.md",
     "templates/*.html",
+    "heroes/*.html",
     "blocks/registry.json",
     "blocks/*/block.html",
     "blocks/*/block.css",

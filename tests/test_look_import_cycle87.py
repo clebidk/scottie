@@ -25,13 +25,16 @@ import json
 
 import pytest
 
-from harness import abtest, cli, jobs, look_import, looks, serve, site
+from harness import abtest, cli, heroes, jobs, look_import, looks, serve, site
 from harness.render import render_page
 from tests.conftest import FakeClient, FakeResponse
 from tests.support import REPO_ROOT, TENANT
 
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "look_import" / "sample-landing.html"
-OPEN_LOOK = (REPO_ROOT / "cartridges" / "landing" / "looks" / "open" / "template.html").read_text()
+# Cycle 94: the shipped look includes the shared hero partial (harness/heroes/);
+# an imported look is one file, so the reference is the look with it inline.
+OPEN_LOOK = heroes.standalone_source(
+    (REPO_ROOT / "cartridges" / "landing" / "looks" / "open" / "template.html").read_text(), "landing", "open")
 REVIEWER = "caleb@peaksaunas.com"
 PASSWORD = "pw-cycle-87"
 # Words that exist only in the fixture page's copy; none may survive.
@@ -361,7 +364,8 @@ def test_name_collisions_are_refused_before_any_model_call():
 
 
 def test_a_listicle_look_can_be_imported_too():
-    listicle_open = (REPO_ROOT / "cartridges" / "listicle" / "looks" / "open" / "template.html").read_text()
+    listicle_open = heroes.standalone_source(
+        (REPO_ROOT / "cartridges" / "listicle" / "looks" / "open" / "template.html").read_text(), "listicle", "open")
     # the reference still has one legacy colour literal; an import may not
     fixed = listicle_open.replace("rgba(255,255,255,.18)", "var(--pk-line)").replace(
         '<section class="op-sec op-faq op-narrow">',

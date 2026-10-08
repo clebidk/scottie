@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from . import abevents, abstats, exits, first_screen, listicle, looks, pipeline
+from . import abevents, abstats, exits, heroes, listicle, looks, pipeline
 from .errors import HarnessError
 
 # The builds every tenant gets when tenant.yaml names none. Cycle 79: the
@@ -103,7 +103,9 @@ def parse_arm(text, tenant=None):
     pairing, so the id always names the build that actually renders; a
     retired look name resolves to the look it renders in now (cycle 79).
     Cycle 79: the optional 4th part is the first-screen style (face | story
-    | display); without it the run seeds one."""
+    | display); without it the run seeds one. Cycle 94: any hero
+    composition the look renders (harness/heroes/), and the landing page
+    takes one as "landing:<look>:<hero>"."""
     parts = [p.strip() for p in str(text).split(":")]
     cartridge, rest = parts[0], parts[1:]
     if cartridge not in pipeline.discover_cartridges():
@@ -119,16 +121,29 @@ def parse_arm(text, tenant=None):
         if (look not in listicle.LOOKS and not looks.is_look_of("listicle", look, tenant)) or len(rest) > 3:
             raise AbtestError(f"abtest library entry {text!r}: unknown listicle look")
         hero = rest[2] if len(rest) > 2 else None
-        if hero is not None and hero not in first_screen.HERO_STYLES:
-            raise AbtestError(f"abtest library entry {text!r}: unknown hero style {hero!r}, one of "
-                              f"{list(first_screen.HERO_STYLES)}")
+        _check_hero(text, "listicle", look, hero, tenant)
         arm_id = f"listicle:{style}:{look}" + (f":{hero}" if hero else "")
         return Arm(arm_id, "listicle", style, look, hero)
     # Cycle 87: a tenant's imported look ("Import a page") is a look too.
-    if len(rest) > 1 or (rest and not looks.is_look_of(cartridge, rest[0], tenant)):
+    # Cycle 94: a cartridge with hero compositions takes "<cartridge>:<look>:<hero>".
+    max_parts = 2 if heroes.has_heroes(cartridge) else 1
+    if len(rest) > max_parts or (rest and not looks.is_look_of(cartridge, rest[0], tenant)):
         raise AbtestError(f"abtest library entry {text!r}: {cartridge} has no such look")
     look = rest[0] if rest else None
-    return Arm(f"{cartridge}:{look}" if look else cartridge, cartridge, None, look)
+    hero = rest[1] if len(rest) > 1 else None
+    _check_hero(text, cartridge, look, hero, tenant)
+    arm_id = ":".join(p for p in (cartridge, look, hero) if p)
+    return Arm(arm_id, cartridge, None, look, hero)
+
+
+def _check_hero(text, cartridge, look, hero, tenant):
+    """Cycle 94: an arm's hero must be a composition the look renders."""
+    if hero is None:
+        return
+    supported = heroes.look_heroes(cartridge, looks.canonical(cartridge, look), tenant)
+    if hero not in supported:
+        raise AbtestError(f"abtest library entry {text!r}: unknown hero style {hero!r} for the {look} look, "
+                          f"one of {list(supported)}")
 
 
 def library(tenant):
@@ -553,9 +568,11 @@ def _build_variant(tenant, rec, variant, runner):
             variant.update(run_dir=str(run_dir), cartridge=arm.cartridge, status="built")
             if arm.cartridge == "listicle":
                 variant["headline_template_id"] = _headline_template_id(run_dir)
+            if heroes.has_heroes(arm.cartridge):
                 # Cycle 79: the first screen it actually rendered (face falls
-                # back when the ad has no usable still).
-                variant["hero_style"] = _page_field(run_dir, "hero_style")
+                # back when the ad has no usable still). Cycle 94: any
+                # composition, for every cartridge that has them.
+                variant["hero_style"] = _page_field(run_dir, "hero_style", arm.cartridge)
             if looks.has_looks(arm.cartridge):
                 # Cycle 85: the look the page was actually stamped with (a
                 # landing test may pit `open` against `proof`).

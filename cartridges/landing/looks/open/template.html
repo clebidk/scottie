@@ -160,31 +160,7 @@
 </style>
 <div class="pk-lp adv-landing">
 
-  <header class="ld-hero">
-    <div class="ld-hero-text">
-      {% if disclosure_label or ld.eyebrow %}<p class="ld-eyebrow">{{ disclosure_label }}{% if disclosure_label and ld.eyebrow %}<span aria-hidden="true">&middot;</span>{% endif %}{{ ld.eyebrow }}</p>{% endif %}
-      <h1 class="ld-h1 {{ h1_cls }}">{{ ld.headline_html }}</h1>
-      {% if page.hero.subhead %}<p class="ld-dek">{{ page.hero.subhead }}</p>{% endif %}
-      {% if ld.price or ld.financing %}
-      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
-      {% endif %}
-      <div class="ld-act">
-        <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
-        {% if ld.secondary %}<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>{% endif %}
-      </div>
-      {% if ld.trust %}
-      <ul class="ld-trust">{% for t in ld.trust %}<li>{{ t.text }}</li>{% endfor %}</ul>
-      {% endif %}
-    </div>
-    {% if frame_asset %}
-    <figure class="ld-visual ld-visual--still" style="--ld-pos:{{ ld.frame.object_position if ld.frame and ld.frame.object_position else '50% 30%' }}">
-      {{ render_image_slot(frame_asset, hero=True, frame="4x5") }}
-      {% if ld.quote %}<figcaption>&ldquo;{{ ld.quote.text }}&rdquo;<small>{{ ld.made_for }}</small></figcaption>{% endif %}
-    </figure>
-    {% elif hero_asset %}
-    <figure class="ld-visual ld-visual--cut">{{ render_image_slot(hero_asset, hero=True) }}</figure>
-    {% endif %}
-  </header>
+  {% include "heroes/_pick.html" %}
 
   {% if page.checked_claims %}
   <section class="ld-sec">
@@ -258,6 +234,6 @@
   </div>
 </div>
 <script>
-(function(){var h=document.querySelector(".adv-landing .ld-hero"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
+(function(){var h=document.querySelector("{{ hero.anchor }}"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
 </script>
 {% endblock %}

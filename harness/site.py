@@ -42,6 +42,7 @@ from flask import Response, abort, current_app, g, redirect, request, send_file,
 from PIL import Image
 
 from . import abevents, abtest, ads as ads_mod, budget, jobs, library, meta_ingest, postlive, runstate, site_ui, textutil
+from . import heroes
 from . import look_import as look_import_mod
 from . import looks as looks_mod
 from . import serve as _serve
@@ -77,7 +78,8 @@ FILTERS = (("all", "All"), ("review", "Needs review"), ("live", "Live"))
 JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "publish_page": "Publish new version",
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
               "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page"}
-HERO_LABELS = {"face": "Face", "story": "Story", "display": "Display"}
+# Cycle 94: every hero composition by its title (harness/heroes/).
+HERO_LABELS = {hero_id: heroes.get(hero_id).title for hero_id in heroes.ids()}
 # Cycle 86: the upload form's pre-selected page version (the Library's
 # "Generate with this"), as query args on GET and hidden fields on POST.
 PIN_FIELDS = ("cartridge", "look", "hero_style", "style")

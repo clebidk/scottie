@@ -124,6 +124,18 @@ def record_look(run_dir, cartridge, look):
     return data
 
 
+def record_hero(run_dir, cartridge, hero_style):
+    """Cycle 94: the hero composition a non-listicle page rendered
+    (harness/heroes/), under state.json's "<cartridge>" key next to its
+    look -- the listicle keeps it in record_listicle_choice."""
+    data = load_state(run_dir)
+    entry = dict(data.get(cartridge) or {})
+    entry["hero_style"] = hero_style
+    data[cartridge] = entry
+    save_state(run_dir, data)
+    return data
+
+
 def load_state(run_dir):
     path = state_path(run_dir)
     if not path.exists():
