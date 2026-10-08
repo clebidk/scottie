@@ -48,15 +48,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.54,
-          "y": 0.46
+          "x": 0.5,
+          "y": 0.4
         },
         "sharpness": 59.5,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 2,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -114,15 +115,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.49,
-          "y": 0.4
+          "x": 0.5,
+          "y": 0.45
         },
         "sharpness": 191.4,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 3,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -179,15 +181,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.58,
-          "y": 0.49
+          "x": 0.6,
+          "y": 0.5
         },
         "sharpness": 123.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 3,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -239,15 +242,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.54,
-          "y": 0.52
+          "x": 0.5,
+          "y": 0.4
         },
         "sharpness": 31.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 3,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -307,14 +311,15 @@
         "dark_ok": false,
         "focal": {
           "x": 0.5,
-          "y": 0.53
+          "y": 0.5
         },
         "sharpness": 2344.5,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -371,15 +376,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.48,
+          "x": 0.5,
           "y": 0.5
         },
         "sharpness": 1896.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -437,15 +443,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.49,
+          "x": 0.5,
           "y": 0.5
         },
         "sharpness": 1549.4,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -502,15 +509,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.49,
-          "y": 0.49
+          "x": 0.55,
+          "y": 0.5
         },
         "sharpness": 1542.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -568,15 +576,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.48,
-          "y": 0.48
+          "x": 0.65,
+          "y": 0.5
         },
         "sharpness": 2522.9,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -634,15 +643,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.46,
-          "y": 0.53
+          "x": 0.5,
+          "y": 0.4
         },
         "sharpness": 1687.4,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -700,15 +710,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.55,
-          "y": 0.51
+          "x": 0.6,
+          "y": 0.5
         },
         "sharpness": 1144.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -767,15 +778,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.56,
+          "x": 0.68,
           "y": 0.5
         },
         "sharpness": 1131.7,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -832,15 +844,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.53,
-          "y": 0.51
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1292.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "fuji",
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -898,15 +911,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.53,
-          "y": 0.53
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 2377.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -963,15 +977,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.52,
-          "y": 0.52
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1750.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1029,15 +1044,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.53,
-          "y": 0.53
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 2651.9,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1095,15 +1111,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.51,
-          "y": 0.51
+          "x": 0.7,
+          "y": 0.5
         },
         "sharpness": 1699.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1167,10 +1184,11 @@
         },
         "sharpness": 1591.8,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1230,15 +1248,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.48,
-          "y": 0.48
+          "x": 0.6,
+          "y": 0.4
         },
         "sharpness": 760.5,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1295,15 +1314,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.48,
-          "y": 0.51
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1646.8,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "rainier",
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1361,15 +1381,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.45,
-          "y": 0.5
+          "x": 0.5,
+          "y": 0.4
         },
         "sharpness": 1596.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1427,15 +1448,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.47,
-          "y": 0.52
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1420.8,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1494,15 +1516,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.5,
+          "x": 0.55,
           "y": 0.55
         },
         "sharpness": 645.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1566,15 +1589,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.46,
-          "y": 0.47
+          "x": 0.5,
+          "y": 0.25
         },
         "sharpness": 172.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 3,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1632,14 +1656,15 @@
         "dark_ok": false,
         "focal": {
           "x": 0.5,
-          "y": 0.57
+          "y": 0.45
         },
         "sharpness": 1991.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "el-capitan",
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1699,15 +1724,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.52,
-          "y": 0.51
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 848.5,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1764,14 +1790,15 @@
         "dark_ok": true,
         "focal": {
           "x": 0.5,
-          "y": 0.52
+          "y": 0.5
         },
         "sharpness": 1912.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "patagonia",
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1821,15 +1848,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.57,
-          "y": 0.39
+          "x": 0.5,
+          "y": 0.45
         },
         "sharpness": 121.4,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1888,15 +1916,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.48,
-          "y": 0.52
+          "x": 0.35,
+          "y": 0.4
         },
         "sharpness": 618.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -1954,15 +1983,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.57,
-          "y": 0.47
+          "x": 0.6,
+          "y": 0.5
         },
         "sharpness": 550.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2021,15 +2051,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.49,
-          "y": 0.52
+          "x": 0.5,
+          "y": 0.35
         },
         "sharpness": 1526.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2079,15 +2110,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.53,
-          "y": 0.51
+          "x": 0.5,
+          "y": 0.45
         },
         "sharpness": 367.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2152,15 +2184,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.52,
-          "y": 0.53
+          "x": 0.65,
+          "y": 0.48
         },
         "sharpness": 110.9,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2220,15 +2253,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.55,
-          "y": 0.59
+          "x": 0.65,
+          "y": 0.35
         },
         "sharpness": 1310.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "patagonia",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2291,15 +2325,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.49,
-          "y": 0.52
+          "x": 0.6,
+          "y": 0.5
         },
         "sharpness": 851.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2363,15 +2398,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.48,
-          "y": 0.46
+          "x": 0.65,
+          "y": 0.5
         },
         "sharpness": 3023.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2509,15 +2545,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.48,
-          "y": 0.45
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 743.5,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2576,14 +2613,15 @@
         "dark_ok": false,
         "focal": {
           "x": 0.5,
-          "y": 0.52
+          "y": 0.5
         },
         "sharpness": 1510.9,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "fuji",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2643,15 +2681,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.47,
-          "y": 0.51
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 2235.7,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2713,15 +2752,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.52,
-          "y": 0.51
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1882.9,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "everest",
-        "shot": null,
-        "quality": null
+        "shot": "cutout",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2784,14 +2824,15 @@
         "dark_ok": true,
         "focal": {
           "x": 0.5,
-          "y": 0.53
+          "y": 0.45
         },
         "sharpness": 1179.3,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2853,15 +2894,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.44,
-          "y": 0.49
+          "x": 0.5,
+          "y": 0.45
         },
         "sharpness": 1657.7,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -2989,15 +3031,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.49,
-          "y": 0.52
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1548.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "rainier",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3068,14 +3111,15 @@
         "dark_ok": false,
         "focal": {
           "x": 0.5,
-          "y": 0.54
+          "y": 0.5
         },
         "sharpness": 1417.5,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3138,15 +3182,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.51,
+          "x": 0.5,
           "y": 0.5
         },
         "sharpness": 197.7,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3206,14 +3251,15 @@
         "dark_ok": false,
         "focal": {
           "x": 0.5,
-          "y": 0.51
+          "y": 0.4
         },
         "sharpness": 833.3,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "mini",
-        "shot": null,
-        "quality": null
+        "shot": "cutout",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3278,15 +3324,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.46,
-          "y": 0.51
+          "x": 0.3,
+          "y": 0.35
         },
         "sharpness": 2342.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3349,15 +3396,16 @@
         "fullbleed_ok": true,
         "dark_ok": false,
         "focal": {
-          "x": 0.49,
-          "y": 0.48
+          "x": 0.5,
+          "y": 0.55
         },
         "sharpness": 1914.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3419,15 +3467,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.51,
-          "y": 0.48
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1426.8,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "kilimanjaro",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3484,15 +3533,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.46,
-          "y": 0.49
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 997.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "patagonia",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3556,14 +3606,15 @@
         "dark_ok": true,
         "focal": {
           "x": 0.5,
-          "y": 0.49
+          "y": 0.5
         },
         "sharpness": 1411.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3624,15 +3675,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.51,
-          "y": 0.48
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1307.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3775,15 +3827,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.52,
-          "y": 0.49
+          "x": 0.5,
+          "y": 0.45
         },
         "sharpness": 3056.6,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3847,14 +3900,15 @@
         "dark_ok": true,
         "focal": {
           "x": 0.5,
-          "y": 0.48
+          "y": 0.45
         },
         "sharpness": 3518.3,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3921,10 +3975,11 @@
         },
         "sharpness": 2335.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -3986,15 +4041,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.46,
-          "y": 0.49
+          "x": 0.45,
+          "y": 0.5
         },
         "sharpness": 2217.1,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4053,14 +4109,15 @@
         "dark_ok": false,
         "focal": {
           "x": 0.5,
-          "y": 0.51
+          "y": 0.5
         },
         "sharpness": 1074.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "el-capitan",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4121,15 +4178,16 @@
         "fullbleed_ok": false,
         "dark_ok": false,
         "focal": {
-          "x": 0.52,
-          "y": 0.52
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 1614.0,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": "matterhorn",
-        "shot": null,
-        "quality": null
+        "shot": "exterior",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4187,15 +4245,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.49,
-          "y": 0.49
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 603.8,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4259,15 +4318,16 @@
         "fullbleed_ok": true,
         "dark_ok": false,
         "focal": {
-          "x": 0.52,
-          "y": 0.47
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 2093.8,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4329,15 +4389,16 @@
         "fullbleed_ok": true,
         "dark_ok": true,
         "focal": {
-          "x": 0.52,
-          "y": 0.49
+          "x": 0.5,
+          "y": 0.5
         },
         "sharpness": 3157.2,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "room",
+        "quality": 5,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4401,15 +4462,16 @@
         "fullbleed_ok": false,
         "dark_ok": true,
         "focal": {
-          "x": 0.45,
-          "y": 0.5
+          "x": 0.5,
+          "y": 0.4
         },
         "sharpness": 891.4,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "detail-macro",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     },
     {
@@ -4470,15 +4532,16 @@
         "fullbleed_ok": true,
         "dark_ok": false,
         "focal": {
-          "x": 0.54,
-          "y": 0.51
+          "x": 0.55,
+          "y": 0.5
         },
         "sharpness": 1421.9,
         "measured": "pillow-v1",
-        "focal_source": "edges",
+        "focal_source": "vision",
         "model": null,
-        "shot": null,
-        "quality": null
+        "shot": "lifestyle-person",
+        "quality": 4,
+        "tagged_by": "claude-haiku-4-5-20251001"
       }
     }
   ],
