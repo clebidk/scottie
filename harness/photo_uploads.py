@@ -109,7 +109,7 @@ def sniff_photo(head):
 
 def heic_supported():
     """True when Pillow can open HEIC here: pillow-heif is installed (it is
-    not a dependency of this project) and registered as Pillow's opener."""
+    a project dependency since cycle 96) and registered as Pillow's opener."""
     try:
         import pillow_heif
 
