@@ -274,6 +274,22 @@ def _check(status, detail, items=None):
     return {"status": status, "detail": detail, "items": items or []}
 
 
+def first_screen_cta(probe_phone):
+    """Cycle 97: on a 390 x 844 phone, the primary CTA's top edge is inside
+    the first screen. Only for a page whose first screen carries the pill (a
+    landing page, a cycle 94 composition: the probe's `cta_expected`); an
+    article first screen (listicle face/story/display) passes with a note."""
+    if not probe_phone.get("cta_expected"):
+        return _check("pass", "no first-screen CTA by design (article first screen)")
+    cta = probe_phone.get("cta")
+    if not cta:
+        return _check("fail", "no primary CTA found on the page")
+    top = cta.get("top") or 0
+    if top >= PHONE[1]:
+        return _check("fail", f"the primary CTA starts at {top}px, below the first {PHONE[1]}px screen", [cta])
+    return _check("pass", f"the primary CTA starts at {top}px, inside the first {PHONE[1]}px screen")
+
+
 def hard_checks(probe_phone, phone_png, page_dir):
     """Every hard check, each {"status": pass|warn|fail|unknown, "detail",
     "items"}. A missing probe makes the DOM checks "unknown"."""
@@ -285,7 +301,7 @@ def hard_checks(probe_phone, phone_png, page_dir):
         f"{mb:.2f} MB (aim under {WEIGHT_WARN_BYTES / 1e6:.1f} MB on a phone)")
     if not probe_phone or probe_phone.get("error"):
         why = (probe_phone or {}).get("error") or "no DOM probe (browser missing or failed)"
-        for name in ("overflow_390", "contrast_hero", "empty_images", "text_cut", "tap_targets"):
+        for name in ("overflow_390", "first_screen_cta", "contrast_hero", "empty_images", "text_cut", "tap_targets"):
             checks[name] = _check("unknown", why)
         checks["fonts"] = _check("unknown", why)
         return checks
@@ -294,6 +310,7 @@ def hard_checks(probe_phone, phone_png, page_dir):
         "fail" if sw > vw + 1 else "pass",
         f"page is {sw}px wide in a {vw}px viewport" if sw > vw + 1 else "no horizontal scroll at 390",
         probe_phone.get("overflow") if sw > vw + 1 else [])
+    checks["first_screen_cta"] = first_screen_cta(probe_phone)
     low = contrast_issues(probe_phone.get("hero_text"), phone_png)
     checks["contrast_hero"] = _check(
         "fail" if low else "pass",
@@ -344,7 +361,9 @@ def take_shots(page_dir, design_dir, n, *, tenant, browser):
             ("desktop", f"variant-{n}-desktop.png", DESKTOP[0], DESKTOP[1]),
             ("desktop_full", f"variant-{n}-desktop-full.png", DESKTOP[0], desk_h))
     for name, filename, w, h in plan:
-        if capture.screenshot(browser, html, Path(design_dir) / filename, width=w, height=h, tenant=tenant):
+        screen = PHONE[1] if name == "phone" else DESKTOP[1]
+        if capture.screenshot(browser, html, Path(design_dir) / filename, width=w, height=h, tenant=tenant,
+                              screen_height=screen):
             shots[name] = filename
     return shots, probe_phone, probe_desk
 
@@ -559,6 +578,12 @@ class PageScorer:
         record["hard_checks"] = hard_checks(probe_phone, phone_png, page_dir)
         record["hard_fail"] = hard_fail(record["hard_checks"])
         record["fonts"] = font_report(probe_phone)
+        if record["hard_checks"].get("first_screen_cta", {}).get("status") == "fail":
+            # cycle 97: a variant whose pill is below the first phone screen
+            # can never be chosen, so it is not worth a judge call
+            record["judge_error"] = f"not judged: {record['hard_checks']['first_screen_cta']['detail']}"
+            self._event(f"{cartridge} variant {n}: {record['judge_error']}")
+            return record
         if not shots.get("phone"):
             record["judge_error"] = "the phone screenshot failed: unscored"
             return record
@@ -584,6 +609,16 @@ class PageScorer:
         record["judge"] = result
         record["cost_usd"] = round(cost, 6)
         return record
+
+
+# Cycle 97: what the revise round is told when no variant was judged because
+# every pill was below the first phone screen (ranks a different first screen).
+CTA_BELOW_FOLD_ISSUE = {"what": "the primary CTA is below the first phone screen", "where": "first screen",
+                        "fix_as_layout_choice": "a different first screen"}
+
+
+def _cta_below_fold(records):
+    return bool(records) and all("first_screen_cta" in (r.get("hard_fail") or []) for r in records)
 
 
 def eligible(record):
@@ -809,7 +844,8 @@ def run_for_page(*, cartridge, page_dir, base_page, render, tenant, client, cfg,
     rounds.append({"round": 1, "variants": [r["n"] for r in records]})
     best = best_variant(records)
     revise = []
-    if best is not None and not passes(best, cfg) and not any(r.get("budget_stop") for r in records):
+    if (best is not None and not passes(best, cfg) or _cta_below_fold(records)) \
+            and not any(r.get("budget_stop") for r in records):
         tried = {layout_key(r) for r in records} | {layout_key(p) for p in plan}
         candidates = []
         for lay in layout_space(cartridge, tenant, pinned) + extra_layouts(cartridge, tenant, pinned):
@@ -822,7 +858,8 @@ def run_for_page(*, cartridge, page_dir, base_page, render, tenant, client, cfg,
             notes.append(f"revise round skipped: max_usd_per_page ${cfg['max_usd_per_page']:.2f} "
                          f"(${scorer.cost:.4f} spent)")
         else:
-            revise = revise_choices(candidates, best["judge"]["top_issues"], best, cfg["variants"])
+            issues = best["judge"]["top_issues"] if best else [CTA_BELOW_FOLD_ISSUE]
+            revise = revise_choices(candidates, issues, best, cfg["variants"])
             start = len(records)
             for layout, reasons in revise:
                 rec = build(dict(layout, round=2))
@@ -863,6 +900,10 @@ def run_for_page(*, cartridge, page_dir, base_page, render, tenant, client, cfg,
         # A page never judged because of the money cap is not a pass.
         status = "stop" if cfg["mode"] == "enforce" else "warn"
         notes.append("not one variant was judged within max_usd_per_page")
+    if status == "unscored" and _cta_below_fold(records):
+        # cycle 97: never judged because every pill sat below the first screen
+        status = "stop" if cfg["mode"] == "enforce" else "warn"
+        notes.append("every variant has its primary CTA below the first phone screen (first_screen_cta)")
     result = {
         "cartridge": cartridge, "mode": cfg["mode"], "model": cfg["model"], "effort": cfg["effort"],
         "min_score": cfg["min_score"], "variants_asked": cfg["variants"],

@@ -1506,6 +1506,8 @@ def render_page(
         # Cycle 91: the catalog blocks this look declares, rendered ({} for a
         # look that declares none); a partial reads its own `blocks.<id>`.
         blocks=block_ctx,
+        # Cycle 97: the look.json "palette" ("light" / "dark" / None).
+        palette=looks_mod.palette(cartridge_name, look, tenant=tenant, looks_dir=looks_dir) if look else None,
         disclosure_text=tenant.format("disclosure_text") or tenant.get("disclosure_text", ""),
         # Cycle 55: the header label ("Advertisement", "Sponsored", ...) is a
         # tenant decision, not a template literal. Empty or unset renders no

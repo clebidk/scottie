@@ -248,6 +248,29 @@ def _position(focal):
     return f"{round(focal.get('x', 0.5) * 100)}% {round(focal.get('y', 0.5) * 100)}%"
 
 
+def _source_order(spec):
+    """[(source, extra want for an ad still)] in the order pick_image tries
+    them. Cycle 97: for a full-bleed hero (`fullbleed_ok`) the ad still
+    comes first only when it is a product/room shot of at least
+    images.HERO_STILL_MIN_SHORT px (images.product_still); otherwise a
+    matching library photo wins and any ad still is the fallback after it.
+    The owner's first graded page (2026-10-08) had a low-resolution
+    talking-head still as the full-bleed hero."""
+    sources = list(spec.get("sources") or ())
+    if not (spec.get("fullbleed_ok") and "ad_still" in sources and "library" in sources
+            and sources.index("ad_still") < sources.index("library")):
+        return [(s, {}) for s in sources]
+    out = []
+    for s in sources:
+        if s == "ad_still":
+            out.append((s, {"product_still": True}))
+        elif s == "library":
+            out += [(s, {}), ("ad_still", {})]
+        else:
+            out.append((s, {}))
+    return out
+
+
 def pick_image(needs, *, facts_pack=None, tenant=None, assets=None, frame=None, exclude_ids=(), seed=0,
                page=None, pool=None):
     """The image a composition shows, or None.
@@ -275,9 +298,9 @@ def pick_image(needs, *, facts_pack=None, tenant=None, assets=None, frame=None, 
     if pool is None:
         pool = images.candidates(facts_pack, tenant, ad_frame=frame)
     want = {k: spec[k] for k in _WANT_KEYS if k in spec}
-    for source in spec.get("sources") or ():
+    for source, still_want in _source_order(spec):
         shots = _SOURCE_SHOTS.get(source) or list(spec.get("shots") or images.SHOTS)
-        slot = {"name": "hero", "want": dict(want if source == "library" else {}, shot=shots), "n": 1,
+        slot = {"name": "hero", "want": dict(want if source == "library" else still_want, shot=shots), "n": 1,
                 "above_fold": True, "last_resort": None}
         if source == "library":
             slot["fallback"] = list(shots)   # the same shots, frame filters relaxed

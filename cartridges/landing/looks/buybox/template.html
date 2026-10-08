@@ -84,8 +84,8 @@
 /* sticky bar: name + price + the pill, after the buy box scrolls out */
 .adv-landing .ld-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--pk-bg);border-top:1px solid var(--pk-line);transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility .25s}
 .adv-landing .ld-bar.ld-bar--on{transform:none;visibility:visible}
-.adv-landing .ld-bar p{margin:0;font-size:12.5px;line-height:1.3;color:var(--pk-muted)}
-.adv-landing .ld-bar b{display:block;font:600 18px/1.1 var(--pk-heading);color:var(--pk-ink);white-space:nowrap}
+.adv-landing .ld-bar .ld-bar-name{margin:0;min-width:0;font:600 16px/1.2 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-bar .ld-bar-name span{display:block;margin-top:2px;font:400 12.5px/1.3 var(--pk-sans);color:var(--pk-muted);white-space:nowrap}
 .adv-landing .ld-bar .ld-btn.ld-btn{min-height:46px!important;padding:10px 24px!important;font-size:15px!important}
 @media (min-width:768px){
   .adv-landing{--bb-gap:72px;font-size:17px}
@@ -157,10 +157,11 @@
   </section>
 
   <div class="ld-bar">
-    <p>{{ product.full_name or product.name }}{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}</p>
-    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}</span>{% endif %}</p>
+    <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>
 <script>
+(function(){var h=document.querySelector("{{ hero.anchor }}"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
 </script>
 {% endblock %}

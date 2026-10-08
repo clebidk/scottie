@@ -321,14 +321,17 @@ def test_pick_image_asks_the_cycle_93_resolver(tmp_path, monkeypatch):
     # letters_pill cuts its photo to the pill window
     pill = heroes.pick_image(heroes.get("letters_pill").needs, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={})
     assert pill["crop"] == ("pill" if pill["source"] == "library" else None)
-    # the ad still wins when the run has one
+    # cycle 97: a face (talking-head) still loses the full-bleed hero to a
+    # matching library photo, and is its fallback (tests/test_grading_cycle97.py)
     run_dir = _run_dir(tmp_path / "still", with_frame=True)
     record = ad_frames.load(run_dir)
+    assert heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={}, frame=record)["source"] == \
+        "library"
+    # no file on this machine: no library photo, and only the cut-out where the need allows it
+    monkeypatch.setenv(pl.FILES_DIR_ENV, str(tmp_path / "empty"))
     assets = {}
     still = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets=assets, frame=record)
     assert still["source"] == "ad_still" and still["id"].startswith(ad_frames.FRAME_ID) and still["id"] in assets
-    # no file on this machine: no library photo, and only the cut-out where the need allows it
-    monkeypatch.setenv(pl.FILES_DIR_ENV, str(tmp_path / "empty"))
     assert heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={}) is None
     split = heroes.pick_image(heroes.get("split").needs, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={})
     assert split["source"] == "cutout" and split["fit"] == "contain"
@@ -351,11 +354,14 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 # tenant's head stylesheets -- rendered on master c3be6ba (brand fonts) without this cycle.
 # If one changes, the look (or something it prints) changed: re-record only
 # for an intended change, never to make this pass.
+# Cycle 97 re-pin of the four landing keys (owner grading pass): the sticky bar
+# shows the model name with the price beneath and its button reads "Shop now";
+# the body diff against master ee2bd55 is that bar only.
 SHIPPED = {
-    "landing-open-dry": "fa54f71fb6cc8044",
-    "landing-open-frame": "26bec142bfcaa616",
-    "landing-proof-dry": "966183c33b1bde3a",
-    "landing-proof-frame": "aade52404688e797",
+    "landing-open-dry": "5cc974a404bce141",
+    "landing-open-frame": "6b819b8d2ec88c85",
+    "landing-proof-dry": "c72dbdbc5bf76140",
+    "landing-proof-frame": "bbaeab40adc7a476",
     "listicle-display-dry": "82210181d7883749",
     "listicle-display-frame": "357c14edaab33c17",
     "listicle-face-dry": "362a467b6702176d",     # no still: face falls back to story

@@ -48,9 +48,13 @@ ALL_IDS = ("stat_strip", "photo_essay", "hotspot_image", "feature_grid", "model_
 # blocks/faq.html; re-pinned at the merge of origin/master 3e70b2e (cycles
 # 93-95 changed both looks) after checking that a render of 3e70b2e itself
 # gives the same values. Change only with a deliberate change to those looks.
+# Cycle 97 re-pin (owner grading pass): the sticky bar now shows the model name
+# with the price beneath and its button reads "Shop now"; nothing else in the
+# render changed (diffed against master ee2bd55, which gave the old values
+# 0a748b00... and bea34247...).
 DEFAULT_LOOK_HASHES = {
-    "open": "0a748b0041f962827fe36c6c45e7b33d22a64f564471d92c12d018782744c438",
-    "proof": "bea34247c5488d8ce5795e2498cff5da49000ca97c2fc223fd495577bb95eb35",
+    "open": "d07bea208d336af7dae06ee670fceac3c6f5d8da9df626e75b015d5efae13597",
+    "proof": "a497c8324284544d3b1d5c6154f1e2100bec9688b3f75f0fb8fbaa4955186f89",
 }
 
 
@@ -151,7 +155,7 @@ def test_the_two_looks_declare_their_blocks_and_the_default_looks_declare_none()
     assert catalog.look_spec("landing", "cinematic", tenant=TENANT)["options"]["stat_strip"] == {"layout": "inline"}
     for look in ("open", "proof"):
         assert catalog.look_blocks("landing", look, tenant=TENANT) == ()
-    assert looks.cartridge_looks("landing") == ("open", "proof", "cinematic", "buybox")
+    assert looks.cartridge_looks("landing") == ("open", "proof", "cinematic", "buybox", "cinematic-light")  # cycle 97
     assert looks.DEFAULT_LOOKS["landing"] == "open"
 
 

@@ -1657,6 +1657,13 @@ def _norm(text):
     return " ".join(html_mod.unescape(str(text or "")).replace("→", " ").split()).strip()
 
 
+# Cycle 97 (owner, 2026-10-08): the landing page's sticky bar (`ld-bar`) names
+# the model and its button reads exactly this, like the store's own product
+# page bar; every other CTA keeps the page's cta_text.
+BAR_CTA_TEXT = "Shop now"
+BAR_CLASS = "ld-bar"
+
+
 def byline_hrefs(tenant, cartridge):
     """Every link target the tenant's byline markup renders (byline_html,
     and about_author_html on the listicle): a look may print them through
@@ -1704,6 +1711,8 @@ def cta_errors(html_text, cartridge, page, ctx, byline_links=()):
         allowed.append("the byline's own links, printed only through byline_html ("
                        + ", ".join(sorted(byline_links)) + ")")
     errors, ctas = [], 0
+    in_bar = {id(a) for bar in wrapper.iter() if BAR_CLASS in (bar.get("class") or "").split()
+              for a in bar.iter() if _tag(a) == "a"}
     for a in wrapper.iter():
         if _tag(a) != "a":
             continue
@@ -1711,7 +1720,7 @@ def cta_errors(html_text, cartridge, page, ctx, byline_links=()):
         classes = set((a.get("class") or "").split())
         if href == cta_url:
             ctas += 1
-            if _norm(_text(a)) != cta_text:
+            if _norm(_text(a)) != cta_text and not (id(a) in in_bar and _norm(_text(a)) == BAR_CTA_TEXT):
                 errors.append(f"one CTA phrase: a CTA link reads {_norm(_text(a))[:40]!r}, not the page's "
                               f"cta_text {cta_text!r}")
             if not classes & set(abtest.CTA_CLASSES):
@@ -1900,6 +1909,9 @@ def allowed_links_text(cartridge):
             f"`{{{{ cartridge_data.secondary.href }}}}`, exactly once, class `{rules['secondary_class']}`, never a "
             "CTA class; (3) the links inside `{{ byline_html | safe }}` -- byline_html is the ONLY way to mention "
             "or link the founder or the author.")
+    if cartridge == "landing":
+        text += (f" The one exception to the CTA text: the CTA inside the sticky bar `{BAR_CLASS}` reads exactly "
+                 f"`{BAR_CTA_TEXT}`, beside the model name (`product.full_name`) with the price beneath it.")
     if cartridge == "listicle":
         text += (" On the listicle also the renderer's model links (`cartridge_data.model_options[].url`) and "
                  "the first-screen byline link.")
