@@ -1,0 +1,360 @@
+<!--
+  10 / Reference: Plunge, category landing page, https://plunge.com/
+  KEPT from its structure: a full-bleed hero with the headline and two CTAs ("Shop indoor" / "Shop outdoor",
+  both to the saunas collection as the brief says); a trust row right under the hero (rating, free shipping,
+  warranty, financing); a product-picker grid of every model with a price; a three-step "how it works" row;
+  an FAQ; a closing band.
+  CHANGED for PEAK: the grid holds all eleven PEAK models that have a price claim in FACTS.md, sorted by price,
+  each with its approved cut-out (assets/brand/cutouts, old mark), capacity, and the cabin material from FACTS.
+  The "Indoor" / "Outdoor" line appears only where a FACTS claim states the placement (Fuji and Everest indoor;
+  Patagonia, Kilimanjaro and El Capitan outdoor); the other six cards omit it. List / compare-at prices are left
+  out on purpose: the brief says no promo badges and no discounts.
+  DROPPED: sale and promo badges, the "as seen in" press bar and the athlete endorsements (none verified for
+  PEAK), the email sign-up and the chat widget (no forms, no chat), the cold-plunge water-chiller specs. The
+  brief's Bread Pay financing sentence conflicts with FACTS.md (gbrain-financing-terms names Affirm / Shop Pay
+  Installments only), so the page uses the vocab sentence without a lender: "Financing is available through Bread Pay at checkout."
+  The shipping FAQ leaves out a transit-time number because the two FACTS shipping claims disagree on it
+  (3-7 vs 5-14 business days); it states only the handling time and the delivery-window call.
+  The hero photo (a Patagonia on a deck) shows the old PEAK mark; the owner approved the old mark on the
+  cut-outs "in all generations for now", so I kept it. Swap assets/img/10-hero-*.jpg if that does not extend
+  to photos.
+  Sticky bottom bar on phones: yes (price + both CTAs).
+  Fonts: Peak Grotesk Wide / PK Acid Grotesk from assets/brand/fonts-display (local, declared after base.css).
+  DM Sans / Poppins are not in the pack and no external font URL is loaded; they fall back to the system sans.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEAK infrared saunas: every model and price</title>
+<meta name="description" content="PEAK infrared saunas, from the 1-person Mini to the 5-person Kilimanjaro. $4,950 to $16,750, free shipping, 7-year residential warranty.">
+<link rel="stylesheet" href="assets/brand/base.css">
+<style>
+@font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;src:url("assets/brand/fonts-display/pk-peak-grotesk-wide.woff2") format("woff2");}
+@font-face{font-family:"PK Acid Grotesk";font-style:normal;font-weight:400;font-display:swap;src:url("assets/brand/fonts-display/pk-acid-grotesk-trial.otf") format("opentype");}
+
+html{-webkit-text-size-adjust:100%}
+body{overflow-x:hidden}
+img{display:block;max-width:100%;height:auto}
+figure{margin:0}
+.wrap{width:100%;max-width:1280px;margin:0 auto;padding:0 16px}
+@media (min-width:768px){.wrap{padding:0 32px}}
+@media (min-width:1280px){.wrap{padding:0 48px}}
+.eyebrow{font-size:var(--ps-eyebrow-size);font-weight:500;letter-spacing:var(--ps-eyebrow-spacing);text-transform:uppercase;color:var(--ps-eyebrow-color);margin:0 0 12px}
+h2{font-size:clamp(28px,5vw,46px);line-height:1.12;letter-spacing:-.02em}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:15px 30px;border-radius:var(--ps-radius-btn);font-family:var(--ps-heading);font-size:16px;font-weight:600;line-height:1.2;text-decoration:none;border:1.5px solid var(--ps-ink-dark);background:var(--ps-ink-dark);color:#fff;white-space:nowrap}
+.btn:hover{background:var(--ps-accent-hover);border-color:var(--ps-accent-hover);color:#fff}
+.btn--light{background:#fff;color:var(--ps-ink-dark);border-color:#fff}
+.btn--light:hover{background:var(--ps-red);border-color:var(--ps-red);color:#fff}
+.btn--ghost-light{background:transparent;color:#fff;border-color:#fff}
+.btn--ghost-light:hover{background:#fff;color:var(--ps-ink-dark);border-color:#fff}
+.btn--ghost{background:transparent;color:var(--ps-ink-dark)}
+.btn--ghost:hover{background:transparent;color:var(--ps-red);border-color:var(--ps-red)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
+.ctas .btn{flex:1 1 140px}
+@media (min-width:600px){.ctas .btn{flex:0 0 auto}}
+.textlink{display:inline-flex;align-items:center;min-height:44px;font-weight:500;color:inherit;text-decoration:underline;text-underline-offset:3px}
+.textlink:hover{color:var(--ps-red)}
+.on-dark :focus-visible{outline-color:#fff}
+.on-dark .textlink:hover{color:#fff;text-decoration-color:var(--ps-red)}
+
+/* header over hero */
+.top{position:absolute;inset:0 0 auto 0;z-index:3;color:#fff}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{display:block;width:92px;height:auto}
+
+/* hero */
+.hero{position:relative;color:#fff;background:var(--ps-ink-dark);min-height:min(88svh,820px);display:flex;align-items:flex-end;overflow:hidden}
+.hero picture,.hero picture img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%}
+.hero::after{content:"";position:absolute;inset:0;background:rgba(22,24,23,.46)} /* flat scrim, not a gradient */
+.hero__body{position:relative;z-index:2;padding-top:110px;padding-bottom:40px}
+.hero .eyebrow{color:rgba(255,255,255,.85)}
+.hero h1{color:#fff;font-size:clamp(34px,8.4vw,72px);line-height:1.04;letter-spacing:-.02em;max-width:14ch;margin:0 0 16px}
+.hero p.sub{color:rgba(255,255,255,.9);font-size:17px;max-width:44ch;margin:0 0 24px}
+@media (min-width:1024px){.hero__body{padding-bottom:64px}}
+
+/* trust row */
+.trust{border-bottom:1px solid var(--ps-hairline)}
+.trust ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.trust li{padding:18px 10px 18px 0;font-size:14px;line-height:1.35;color:var(--ps-muted)}
+.trust li:nth-child(even){padding-left:14px;border-left:1px solid var(--ps-hairline)}
+.trust li:nth-child(-n+2){border-bottom:1px solid var(--ps-hairline)}
+.trust b{display:block;font-family:var(--ps-heading);font-weight:600;font-size:15px;color:var(--ps-text-strong);margin-bottom:2px}
+.trust .pk-stars{font-size:13px;margin-bottom:4px}
+@media (min-width:900px){
+  .trust ul{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .trust li{padding:24px 20px;border-bottom:0!important}
+  .trust li + li{border-left:1px solid var(--ps-hairline)}
+  .trust li:first-child{padding-left:0}
+}
+
+/* sections */
+.sec{padding:64px 0}
+@media (min-width:1024px){.sec{padding:96px 0}}
+.sec__head{display:grid;gap:12px;margin-bottom:32px}
+@media (min-width:900px){.sec__head{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:48px}}
+.sec__head p{color:var(--ps-muted);margin:0}
+
+/* product picker */
+.grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (min-width:768px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}}
+@media (min-width:1100px){.grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}}
+.card{display:flex;flex-direction:column;height:100%;padding:14px 14px 16px;border:1px solid var(--ps-hairline);border-radius:var(--ps-radius-card);color:inherit;text-decoration:none;background:#fff}
+.card:hover{border-color:var(--ps-red)}
+.card:hover .card__name{color:var(--ps-red)}
+.card__img{position:relative;aspect-ratio:1/1;margin-bottom:12px}
+.card__img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:50% 100%}
+.card__name{font-family:var(--ps-heading);font-weight:600;font-size:17px;line-height:1.25;color:var(--ps-text-strong);margin:0 0 4px}
+.card__meta{font-size:13px;line-height:1.4;color:var(--ps-muted);margin:0 0 10px}
+.card__price{margin-top:auto;font-family:var(--ps-display-wide);font-size:clamp(15px,3.8vw,19px);color:var(--ps-red);margin-bottom:0}
+@media (min-width:768px){.card{padding:18px 18px 20px}.card__name{font-size:19px}.card__meta{font-size:14px}}
+.grid-note{font-size:14px;color:var(--ps-muted);margin:20px 0 0}
+
+/* how it works */
+.how{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:36px}
+@media (min-width:768px){.how{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}}
+.how img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--ps-radius-box)}
+.how .n{display:block;font-family:var(--ps-display-acid);font-size:30px;line-height:1;color:var(--ps-red);margin:18px 0 8px}
+.how h3{font-size:20px;margin:0 0 6px}
+.how p{color:var(--ps-muted);margin:0}
+
+/* faq */
+.faq-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+@media (min-width:900px){.faq-wrap{grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:64px}}
+.faq{border-top:1px solid var(--ps-hairline)}
+.faq details{border-bottom:1px solid var(--ps-hairline)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:60px;padding:14px 0;font-family:var(--ps-heading);font-weight:600;font-size:17px;color:var(--ps-text-strong)}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-family:var(--ps-sans);font-weight:400;font-size:26px;line-height:1;color:var(--ps-red);flex:0 0 auto}
+.faq details[open] summary::after{content:"\2013"}
+.faq summary:hover{color:var(--ps-red)}
+.faq .a{padding:0 0 20px;color:var(--ps-muted);max-width:62ch}
+.faq .a p{color:var(--ps-muted);margin:0 0 10px}
+
+/* closing */
+.close{background:var(--ps-band);color:#fff;padding:72px 0}
+.close h2{color:#fff;max-width:20ch}
+.close p{color:rgba(255,255,255,.82);max-width:52ch}
+.close .ctas{margin-top:24px;align-items:center}
+
+/* footer */
+.foot{padding:40px 0 120px;font-size:14px;color:var(--ps-muted)}
+.foot .logo{color:var(--ps-ink-dark);margin-bottom:20px}
+.foot p{color:var(--ps-muted);font-size:14px;line-height:1.5}
+.foot h2{font-family:var(--ps-sans);font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--ps-muted-alt);margin:24px 0 8px}
+.sources{margin:0;padding:0;list-style:none;column-gap:24px;font-size:13px;line-height:1.7}
+@media (min-width:768px){.foot{padding-bottom:48px}.sources{columns:2}}
+@media (min-width:1024px){.sources{columns:3}}
+
+/* sticky, phones only */
+.sticky{position:fixed;left:0;right:0;bottom:0;z-index:10;background:#fff;border-top:1px solid var(--ps-hairline);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.sticky .in{display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:600px;margin:0 auto}
+.sticky small{display:block;color:var(--ps-muted);font-size:12px;line-height:1.2}
+.sticky strong{font-family:var(--ps-heading);font-weight:600;font-size:17px;color:var(--ps-text-strong)}
+.sticky .b{display:flex;gap:6px}
+.sticky .btn{min-height:46px;padding:10px 14px;font-size:14px}
+@media (min-width:768px){.sticky{display:none}}
+</style>
+</head>
+<body>
+
+<header class="top on-dark">
+  <div class="wrap">
+    <a href="https://peaksaunas.com/collections/saunas" aria-label="PEAK home" style="color:#fff"><svg class="logo" viewBox="98 98 554 112" role="img" aria-label="PEAK" fill="currentColor"><path d="M205.65,102.83h-102.18c-.35,0-.64.29-.64.64v101.5c0,.35.29.64.64.64h19.72c.35,0,.64-.29.64-.64v-31.44c0-4.99,4.04-9.03,9.03-9.03h72.78c11.26,0,20.41-9.06,20.55-20.29h.05v-21h-.05c-.1-11.27-9.26-20.38-20.55-20.38ZM194.97,143.94h-71.13v-20.56h70.69c5.37,0,10.16,3.93,10.67,9.27.58,6.13-4.22,11.29-10.23,11.29Z"/><path d="M647.41,204.63l-31.77-50.27c-1.71-2.71-1.71-6.16,0-8.87l26.34-41.67c.27-.43-.04-.98-.54-.98h-23.18c-.22,0-.42.11-.54.3l-21.91,34.68c-2.42,3.82-6.62,6.14-11.14,6.14h-31.02c-4.99,0-9.04-4.05-9.04-9.04v-31.43c0-.35-.29-.64-.64-.64h-19.72c-.35,0-.64.29-.64.64v101.5c0,.35.29.64.64.64h19.72c.35,0,.64-.29.64-.64v-31.44c0-4.99,4.04-9.03,9.03-9.03h29.6c8.79,0,16.97,4.51,21.67,11.94l18.25,28.88c.12.19.32.3.54.3h23.18c.5,0,.81-.56.54-.98Z"/><path d="M356.96,102.83h-97.84c-11.29,0-20.46,9.11-20.55,20.38h0v61.4c0,11.6,9.4,21,21,21h97.4c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64h-86.68c-5.37,0-10.16-3.92-10.67-9.27-.58-6.13,4.22-11.29,10.23-11.29h60.56c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64h-60.13c-5.37,0-10.16-3.92-10.67-9.27-.58-6.13,4.22-11.29,10.23-11.29h87.12c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64Z"/><path d="M479.53,144.53c-.24-.37-.64-.6-1.08-.6h-75.7c-.44,0-.85.23-1.08.6l-37.99,60.12c-.27.43.04.98.54.98h23.19c.22,0,.42-.11.54-.3l18.26-28.9c4.7-7.43,12.88-11.93,21.67-11.93h25.44c8.79,0,16.97,4.5,21.67,11.93l18.26,28.9c.12.19.32.3.54.3h23.19c.5,0,.81-.56.54-.98l-37.99-60.12Z"/><path d="M415.87,123.28c.1.06.21.1.34.1h48.78c.38,0,.65-.32.63-.66,0-.11-.03-.23-.1-.33l-12.19-19.29c-.19-.11-.35-.19-.54-.3h-24.42s-.07.04-.1.06c-.13.03-.24.09-.33.18-.04.02-.07.04-.11.06l-12.19,19.29c-.2.32-.07.72.22.89Z"/></svg></a>
+    <a class="textlink" href="sms:+14706653747?&body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a>
+  </div>
+</header>
+
+<main>
+<section class="hero on-dark" aria-labelledby="h1">
+  <picture>
+    <source media="(min-width:768px)" srcset="assets/img/10-hero-wide.jpg" width="1600" height="900">
+    <img src="assets/img/10-hero-tall.jpg" width="815" height="1000" alt="A PEAK outdoor sauna with slatted panels and a sloped roof stands on a wooden deck in a misty forest">
+  </picture>
+  <div class="wrap hero__body">
+    <p class="eyebrow">PEAK infrared saunas</p>
+    <h1 id="h1">Find the sauna that fits your space</h1>
+    <p class="sub">From the 1-person Mini to the 5-person Kilimanjaro, $4,950 to $16,750, with every price on the site.</p>
+    <div class="ctas">
+      <a class="btn btn--light" href="https://peaksaunas.com/collections/saunas">Shop indoor</a>
+      <a class="btn btn--ghost-light" href="https://peaksaunas.com/collections/saunas">Shop outdoor</a>
+    </div>
+  </div>
+</section>
+
+<section class="trust" aria-label="Why buy from PEAK">
+  <div class="wrap">
+    <ul>
+      <li><span class="pk-stars" aria-hidden="true"><span class="pk-stars-on" style="width:96%">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span><b>4.8 out of 5</b>49 reviews</li>
+      <li><b>Free shipping</b>On every order</li>
+      <li><b>7-year</b>Residential warranty</li>
+      <li><b>Financing</b>Available at checkout</li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="pick">
+  <div class="wrap">
+    <div class="sec__head">
+      <div>
+        <p class="eyebrow">The lineup</p>
+        <h2 id="pick">Pick your model</h2>
+      </div>
+      <p>Every model includes near, mid and far infrared (700–25,000nm), medical-grade red light therapy and two Bluetooth speakers.</p>
+    </div>
+    <ul class="grid">
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Crown, 2-person, $4,950">
+        <div class="card__img"><img src="assets/img/10-cutout-crown.webp" width="323" height="520" loading="lazy" alt="PEAK Crown sauna"></div>
+        <p class="card__name">Crown</p><p class="card__meta">2-person<br>Canadian hemlock</p><p class="card__price">$4,950</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Mini, 1-person, $5,450">
+        <div class="card__img"><img src="assets/img/10-cutout-mini.webp" width="251" height="520" loading="lazy" alt="PEAK Mini sauna"></div>
+        <p class="card__name">Mini</p><p class="card__meta">1-person<br>Canadian hemlock</p><p class="card__price">$5,450</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Shasta, 1-person, $6,950">
+        <div class="card__img"><img src="assets/img/10-cutout-shasta.webp" width="306" height="520" loading="lazy" alt="PEAK Shasta sauna"></div>
+        <p class="card__name">Shasta</p><p class="card__meta">1-person<br>Canadian hemlock</p><p class="card__price">$6,950</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Rainier, 1-person, $7,250">
+        <div class="card__img"><img src="assets/img/10-cutout-rainier.webp" width="306" height="520" loading="lazy" alt="PEAK Rainier sauna"></div>
+        <p class="card__name">Rainier</p><p class="card__meta">1-person<br>Canadian red cedar</p><p class="card__price">$7,250</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Everest, 2-person, indoor, $7,950">
+        <div class="card__img"><img src="assets/img/10-cutout-everest.webp" width="346" height="520" loading="lazy" alt="PEAK Everest sauna"></div>
+        <p class="card__name">Everest</p><p class="card__meta">2-person · Indoor<br>Canadian hemlock</p><p class="card__price">$7,950</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Fuji, 2-person, indoor, $8,250">
+        <div class="card__img"><img src="assets/img/10-cutout-fuji.webp" width="346" height="520" loading="lazy" alt="PEAK Fuji sauna"></div>
+        <p class="card__name">Fuji</p><p class="card__meta">2-person · Indoor<br>Canadian red cedar</p><p class="card__price">$8,250</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Denali, 3-person, $9,750">
+        <div class="card__img"><img src="assets/img/10-cutout-denali.webp" width="435" height="520" loading="lazy" alt="PEAK Denali sauna"></div>
+        <p class="card__name">Denali</p><p class="card__meta">3-person<br>Canadian hemlock</p><p class="card__price">$9,750</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Matterhorn, 3-person, $10,750">
+        <div class="card__img"><img src="assets/img/10-cutout-matterhorn.webp" width="435" height="520" loading="lazy" alt="PEAK Matterhorn sauna"></div>
+        <p class="card__name">Matterhorn</p><p class="card__meta">3-person<br>Canadian red cedar</p><p class="card__price">$10,750</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Patagonia, 2-person, outdoor, $10,950">
+        <div class="card__img"><img src="assets/img/10-cutout-patagonia.webp" width="402" height="520" loading="lazy" alt="PEAK Patagonia outdoor sauna"></div>
+        <p class="card__name">Patagonia</p><p class="card__meta">2-person · Outdoor<br>Aluminum shell, hemlock inside</p><p class="card__price">$10,950</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="Kilimanjaro, 5-person, outdoor, $13,450">
+        <div class="card__img"><img src="assets/img/10-cutout-kilimanjaro.webp" width="480" height="496" loading="lazy" alt="PEAK Kilimanjaro outdoor sauna"></div>
+        <p class="card__name">Kilimanjaro</p><p class="card__meta">5-person · Outdoor<br>Aluminum shell, hemlock inside</p><p class="card__price">$13,450</p></a></li>
+      <li><a class="card" href="https://peaksaunas.com/collections/saunas" aria-label="El Capitan, 4-person, outdoor, $16,750">
+        <div class="card__img"><img src="assets/img/10-cutout-el-capitan.webp" width="477" height="520" loading="lazy" alt="PEAK El Capitan outdoor sauna"></div>
+        <p class="card__name">El Capitan</p><p class="card__meta">4-person · Outdoor<br>Aluminum shell, hemlock inside</p><p class="card__price">$16,750</p></a></li>
+    </ul>
+    <p class="grid-note">Not sure which size? <a class="textlink" href="sms:+14706653747?&body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a></p>
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="how" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec__head">
+      <div>
+        <p class="eyebrow">How it works</p>
+        <h2 id="how">Order to first session</h2>
+      </div>
+      <p>No consultation and no quote request: every price is on the site, and shipping is free.</p>
+    </div>
+    <ol class="how">
+      <li>
+        <img src="assets/img/10-interior.jpg" width="667" height="1000" loading="lazy" alt="Inside a pale wood sauna: a slatted bench, wall slats and a vertical red light panel">
+        <span class="n" aria-hidden="true">01</span>
+        <h3>Choose and order</h3>
+        <p>Every price and spec is on the site, with no name or phone number needed. Financing is available through Bread Pay at checkout, and PEAK saunas may be eligible for HSA/FSA purchase through Redo.</p>
+      </li>
+      <li>
+        <img src="assets/img/10-delivery.jpg" width="1000" height="665" loading="lazy" alt="Two men carry an unassembled pale wood sauna panel across a yard">
+        <span class="n" aria-hidden="true">02</span>
+        <h3>Free delivery</h3>
+        <p>It ships in a PeakGuard custom wooden crate. In-stock orders ship within 2–4 business days, and the carrier calls 1–2 days ahead to book a 4-hour window.</p>
+      </li>
+      <li>
+        <img src="assets/img/10-control.jpg" width="1000" height="562" loading="lazy" alt="A hand adjusts the touchscreen control on a glowing red light therapy panel">
+        <span class="n" aria-hidden="true">03</span>
+        <h3>Plug in and start</h3>
+        <p>The Mini, Rainier and Shasta use a standard 120V/15A outlet. Then Peak Wellness Club, included free, gives you expert protocols with temperature, duration and timing.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="faq" style="padding-top:0">
+  <div class="wrap faq-wrap">
+    <div>
+      <p class="eyebrow">Questions</p>
+      <h2 id="faq">Before you buy</h2>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>What does the warranty cover?</summary>
+        <div class="a"><p>PEAK has a 7-year residential warranty. From the date of delivery: heating elements and cabinetry, 7 years; the control system, power supply and red light therapy panels, 3 years; chromotherapy lighting, audio, WiFi/app connectivity and accessories, 1 year.</p><p>It covers the original purchaser and requires installation within 6 months of delivery.</p></div>
+      </details>
+      <details>
+        <summary>How does delivery work?</summary>
+        <div class="a"><p>Shipping is free on every order in the continental US. Saunas ship by freight in a PeakGuard custom wooden crate from Ontario, California. In-stock orders ship within 2–4 business days, and the carrier calls 1–2 days before delivery to schedule a 4-hour window.</p><p>Standard delivery is curbside; white-glove or garage delivery is available for an extra fee.</p></div>
+      </details>
+      <details>
+        <summary>What outlet do I need?</summary>
+        <div class="a"><p>Mini, Rainier and Shasta: a standard 120V/15A outlet, no electrician needed. Fuji and Everest: a dedicated 120V/20A outlet (a standard 15A outlet is not enough). Denali and Matterhorn: a 240V outlet. Patagonia: a dedicated 240V/20A outdoor-rated circuit; Kilimanjaro and El Capitan: a dedicated 240V/30A outdoor-rated circuit, each installed by an electrician.</p></div>
+      </details>
+      <details>
+        <summary>Can I pay over time?</summary>
+        <div class="a"><p>Financing is available through Bread Pay at checkout. PEAK saunas may also be eligible for HSA/FSA purchase through Redo.</p></div>
+      </details>
+      <details>
+        <summary>What comes after the sauna arrives?</summary>
+        <div class="a"><p>Peak Wellness Club is included free with every PEAK sauna: protocols from athletes and other experts with the temperature, duration, timing and breathwork for each, a streak leaderboard, and a private owner community. You also get lifetime U.S.-based support.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="close on-dark" aria-labelledby="close">
+  <div class="wrap">
+    <h2 id="close">Every model, one place to compare them</h2>
+    <p>From $4,950, with free shipping and a 7-year residential warranty.</p>
+    <div class="ctas">
+      <a class="btn btn--light" href="https://peaksaunas.com/collections/saunas">Shop indoor</a>
+      <a class="btn btn--ghost-light" href="https://peaksaunas.com/collections/saunas">Shop outdoor</a>
+    </div>
+    <p style="margin-top:12px"><a class="textlink" href="sms:+14706653747?&body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20saunas.">Text us</a></p>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <svg class="logo" viewBox="98 98 554 112" role="img" aria-label="PEAK" fill="currentColor"><path d="M205.65,102.83h-102.18c-.35,0-.64.29-.64.64v101.5c0,.35.29.64.64.64h19.72c.35,0,.64-.29.64-.64v-31.44c0-4.99,4.04-9.03,9.03-9.03h72.78c11.26,0,20.41-9.06,20.55-20.29h.05v-21h-.05c-.1-11.27-9.26-20.38-20.55-20.38ZM194.97,143.94h-71.13v-20.56h70.69c5.37,0,10.16,3.93,10.67,9.27.58,6.13-4.22,11.29-10.23,11.29Z"/><path d="M647.41,204.63l-31.77-50.27c-1.71-2.71-1.71-6.16,0-8.87l26.34-41.67c.27-.43-.04-.98-.54-.98h-23.18c-.22,0-.42.11-.54.3l-21.91,34.68c-2.42,3.82-6.62,6.14-11.14,6.14h-31.02c-4.99,0-9.04-4.05-9.04-9.04v-31.43c0-.35-.29-.64-.64-.64h-19.72c-.35,0-.64.29-.64.64v101.5c0,.35.29.64.64.64h19.72c.35,0,.64-.29.64-.64v-31.44c0-4.99,4.04-9.03,9.03-9.03h29.6c8.79,0,16.97,4.51,21.67,11.94l18.25,28.88c.12.19.32.3.54.3h23.18c.5,0,.81-.56.54-.98Z"/><path d="M356.96,102.83h-97.84c-11.29,0-20.46,9.11-20.55,20.38h0v61.4c0,11.6,9.4,21,21,21h97.4c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64h-86.68c-5.37,0-10.16-3.92-10.67-9.27-.58-6.13,4.22-11.29,10.23-11.29h60.56c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64h-60.13c-5.37,0-10.16-3.92-10.67-9.27-.58-6.13,4.22-11.29,10.23-11.29h87.12c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64Z"/><path d="M479.53,144.53c-.24-.37-.64-.6-1.08-.6h-75.7c-.44,0-.85.23-1.08.6l-37.99,60.12c-.27.43.04.98.54.98h23.19c.22,0,.42-.11.54-.3l18.26-28.9c4.7-7.43,12.88-11.93,21.67-11.93h25.44c8.79,0,16.97,4.5,21.67,11.93l18.26,28.9c.12.19.32.3.54.3h23.19c.5,0,.81-.56.54-.98l-37.99-60.12Z"/><path d="M415.87,123.28c.1.06.21.1.34.1h48.78c.38,0,.65-.32.63-.66,0-.11-.03-.23-.1-.33l-12.19-19.29c-.19-.11-.35-.19-.54-.3h-24.42s-.07.04-.1.06c-.13.03-.24.09-.33.18-.04.02-.07.04-.11.06l-12.19,19.29c-.2.32-.07.72.22.89Z"/></svg>
+    <p>PEAK sells the saunas described on this page.</p>
+    <p>7-year residential warranty; full terms by component are published on the warranty page.</p>
+    <h2>Sources</h2>
+    <ul class="sources">
+      <li>price-crown</li><li>price-mini</li><li>price-shasta</li><li>price-rainier</li><li>price-everest</li><li>price-fuji</li>
+      <li>price-denali</li><li>price-matterhorn</li><li>price-patagonia</li><li>price-kilimanjaro</li><li>price-el-capitan</li>
+      <li>spec-crown-capacity</li><li>spec-mini-capacity</li><li>spec-shasta-capacity</li><li>spec-rainier-capacity</li>
+      <li>spec-everest-capacity</li><li>spec-fuji-capacity</li><li>spec-denali-capacity</li><li>spec-matterhorn-capacity</li>
+      <li>spec-patagonia-capacity</li><li>spec-kilimanjaro-capacity</li><li>spec-el-capitan-capacity</li>
+      <li>gbrain-fuji-persons</li><li>gbrain-everest-persons</li><li>spec-patagonia-placement</li><li>spec-kilimanjaro-placement</li><li>spec-el-capitan-placement</li>
+      <li>spec-crown-cabin-material</li><li>spec-mini-cabin-material</li><li>spec-shasta-cabin-material</li><li>spec-rainier-cabin-material</li>
+      <li>spec-everest-cabin-material</li><li>spec-fuji-cabin-material</li><li>spec-denali-cabin-material</li><li>spec-matterhorn-cabin-material</li>
+      <li>spec-patagonia-wood</li><li>spec-kilimanjaro-wood</li><li>spec-el-capitan-wood</li>
+      <li>spec-crown-infrared-wavelength-range</li><li>gbrain-allowlist-red-light</li><li>spec-crown-audio</li>
+      <li>gbrain-allowlist-free-shipping</li><li>gbrain-shipping-free-crate-origin</li><li>gbrain-shipping-timing</li>
+      <li>gbrain-allowlist-lifetime-warranty</li><li>warranty-terms</li><li>gbrain-warranty-lifetime-definition</li>
+      <li>spec-mini-electrical</li><li>spec-rainier-electrical</li><li>spec-shasta-electrical</li><li>gbrain-fuji-power</li><li>gbrain-everest-power</li>
+      <li>spec-denali-electrical-requirement</li><li>spec-matterhorn-electrical-requirement</li><li>spec-patagonia-electrical</li>
+      <li>spec-kilimanjaro-electrical</li><li>spec-el-capitan-electrical</li>
+      <li>peak-saunas-shows-full-pricing-and-produ</li><li>hsa-fsa-truemed</li><li>pwc-included-free</li><li>pwc-expert-protocols</li><li>pwc-leaderboard-lounge</li>
+      <li>vocab: allowed_financing_sentence_no_lender</li><li>vocab: allowed_warranty_sentence</li><li>brief: rating line 4.8 / 49 reviews</li>
+    </ul>
+  </div>
+</footer>
+
+<div class="sticky" role="region" aria-label="Shop">
+  <div class="in">
+    <div><small>From</small><strong>$4,950</strong></div>
+    <div class="b">
+      <a class="btn" href="https://peaksaunas.com/collections/saunas">Shop indoor</a>
+      <a class="btn btn--ghost" href="https://peaksaunas.com/collections/saunas">Shop outdoor</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

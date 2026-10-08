@@ -5203,6 +5203,200 @@ reference renders show the 7-year warranty wording (c4d774d); the listicle demo'
 evals/fake_run.py's canned listicle page still has the retired lifetime sentence (follow-up; one of
 two listicle fake runs on master exited 2).
 
+## Cycle 90 (import fidelity: design-level observation, exemplar, fidelity score, 2026-10-07)
+Branch `cycle90/import-fidelity` from origin/master c74c6bd. Not merged, not pushed.
+
+### Problem
+`harness look import` ran on six of the owner's pack pages (peak-lp-pack). Five passed, but every stored
+look was the default `open` layout: the Rivian-style "PE / AK" display letters around a pill-shaped hero
+image, the Ridge-style all-caps headline over a dark hero photo, the HexClad-style all-dark page and the
+Eight Sleep-style buy box with hotspot labels and a trust bar were all lost. The model saw only section
+roles and counts ("hero > content > cta ... 2/3-column grids, 1 dark band"), so it had nothing to
+reproduce. Page 03 was refused twice: the model printed the byline (with its founder link
+`/pages/austin-laudenslager`) inside the page, and the one-CTA check counted that link as a second CTA.
+
+### Change
+- **`harness/look_design.py`** (new; stdlib + html5lib, deterministic, nothing is run):
+  - `Css`: a small cascade over the page's own CSS -- tag/class/id/attribute compounds, the four
+    combinators, `:not(<simple>)`, specificity then order, inline styles, the inherited type properties,
+    `font` shorthand, `var()` resolved through the page's custom properties, then the tenant's `--ps-*`
+    tokens (brand/base.css), then the fallback, then a guess from the name. State selectors (`:hover`,
+    `:checked`, `:has()`) are skipped; structural ones (`:nth-of-type`) always match (approximation).
+  - Per section: `skeleton` (tag.class lines with xN for repeated siblings and the text length in
+    characters, at most 40 lines and 4 levels, never the words) and `style` (bg light/dark, text,
+    contrast, max_width, layout display + columns phone/desktop, pad tight/normal/roomy, radius
+    square/4px/pill/round, image full-bleed/contained/masked/overlay + scrim, pinned, headline type:
+    size px or clamp, desktop size, transform, spacing, weight, font token display-wide / display-acid /
+    heading / sans). A section's `background` now comes from this cascade (cycle 87 read only literal
+    colours on the section or its single wrapper, so `var(--ps-band)` read as light).
+  - 16 patterns by rule (`PATTERNS`), each with its section and evidence: display-letters, pill-image,
+    caps-headline, dark-hero, dark-page, big-numerals, alternating-rows, trust-bar, hotspots, sticky-bar,
+    check-rows, icon-row, stat-strip, model-picker, product-grid, faq-accordion.
+  - `design_brief`: one plain-English paragraph written from the observation (no model).
+  - The skeletons are shortened (40, 28, 20, 12, 6, 0 lines) until the observation JSON is at most 12 KB.
+  - `sanitised_css`: the page's CSS without comments, `@font-face`, `@import` or any `url()` declaration;
+    each colour literal becomes the tenant token it equals (`var(--ps-...)`) or `<light>`/`<dark>`/`<mid>`
+    with its alpha; cut at a rule boundary at 8 KB.
+  - Exemplars: tenant looks whose library.json has `source.kind == "pack"` (with `observation.json`, else
+    the page in the pack folder) and `<pack>/looks/<cartridge>/<slug>/`; `choose_exemplar` takes the
+    closest by 0.7 x pattern Jaccard + 0.3 x role order, or the slug named with `--exemplar`.
+    The pack folder is tenant.yaml `look_import.pack_dir` (peak-saunas: `../peak-lp-pack`; the template
+    declares the key empty).
+  - `fidelity(observation, review_html)`: 0.5 x share of observed patterns realised by an element with
+    `data-look-pattern="<name>"` (dark-page/dark-hero must sit on a dark ground, caps-headline must be an
+    upper-case h1) + 0.2 x role-order similarity + 0.1 x section-count similarity + 0.2 x dark/light band
+    similarity (difflib), on the demo render's wrapper children (fixed/sticky bars left out on both sides).
+- **`harness/look_import.py`**: `observe(..., tenant=)` / `observe_with_css` add the design level
+  (observation `version: 2`, `brief`, `patterns`, `global.dark_page`). The prompt: the system prompt is
+  the rules + contract + the exemplar (its page's observation and its template) or, with no exemplar,
+  the default look as before; the user message has the brief, the observation, the sanitised CSS, the
+  pattern list, the instruction to reproduce the composition in tokens, and the one-CTA rule with the
+  exact allowed hrefs (`allowed_links_text`). `convert`: at most `MAX_CALLS = 3` calls; a refused
+  template or a valid one below 0.7 fidelity gets a repair round (the fidelity round names each missing
+  pattern with its evidence, and the section order / bands when they differ); the valid template with
+  the best score is stored, even below 0.7; with no valid template the import is refused as before
+  ("after 2 repair(s)"). Validator: `byline_hrefs` (every href the tenant's byline markup renders) are
+  accepted by `cta_errors` and never count as a CTA; any other target is refused with the list of
+  allowed hrefs; `static_errors(max_dark=)` allows as many dark bands as the observed page's dark content
+  sections (`dark_allowance`, at least 1; a dark page has no limit). library.json adds `fidelity`,
+  `patterns`, `missing_patterns`, `exemplar`; the job summary adds `brief`, `fidelity`,
+  `missing_patterns`, `exemplar`, `patterns`.
+- **`harness/look_import_rules.md`**: the faithful-reproduction intro, the display-acid font, dark bands
+  as observed (a scrim is `::after` with `var(--pk-dark)` and opacity), the allowed-href list, and a
+  "Design fidelity (cycle 90)" section: the marker contract and which renderer data fills each pattern.
+- **CLI**: `harness look import ... --exemplar <slug>`; the dry run prints the brief and the exemplar it
+  would use; a done import prints the brief, the fidelity, the missing patterns and the exemplar.
+- **Site**: the import form has an optional "Exemplar look" field (`queue_payload(exemplar=)`, a look
+  slug or refused); the job page shows the design brief, "Fidelity 0.83", the exemplar and the missing
+  patterns; the Library card shows "fidelity 0.8" (small text) for a look whose library.json has it
+  (`library.describe` reads it).
+- **Tests**: `tests/fixtures/look_import/pack/` holds copies of the ten pack pages.
+  `tests/conftest.py`'s isolation fixture sets `look_design.PACK_DIR` to an empty folder, so no test reads
+  the real pack. `tests/test_look_import_cycle87.py`: `_valid_template()` marks the fixture's one
+  pattern (faq-accordion); the refusal tests give three bad answers and expect three calls and
+  "after 2 repair(s)".
+
+### Patterns detected on the pack pages
+- 01-ridge: caps-headline, dark-hero, big-numerals, alternating-rows, sticky-bar, stat-strip
+- 02-hexclad: dark-hero, dark-page, alternating-rows, sticky-bar
+- 03-bobbie: sticky-bar (its split hero shows only in the hero's `style.layout`, not as a pattern)
+- 04-caraway: big-numerals, alternating-rows, sticky-bar
+- 05-venus-et-fleur: caps-headline, alternating-rows, sticky-bar, check-rows, faq-accordion
+- 06-eight-sleep: trust-bar, hotspots, sticky-bar, stat-strip, model-picker, faq-accordion
+- 07-oura: caps-headline, dark-hero, dark-page, alternating-rows, sticky-bar, stat-strip
+- 08-function-health: dark-hero, big-numerals, sticky-bar, stat-strip
+- 09-rivian: display-letters, pill-image, sticky-bar, check-rows, stat-strip
+- 10-plunge: dark-hero, big-numerals, trust-bar, sticky-bar, product-grid, faq-accordion
+
+### Verify
+- `tests/test_look_import_cycle90.py`: 27 tests -- the patterns per pack page (01 caps headline + dark
+  hero + numerals; 02 dark page; 06 trust bar + hotspots + sticky; 09 display letters + pill image; 10
+  product grid + trust bar + FAQ) and where they must not appear; every observation under 12 KB with
+  none of the pages' words; the CSS summary fields; the brief; the cascade (specificity, `:not`, tenant
+  tokens); the sanitised CSS; the prompt holds the brief, the CSS and the closest exemplar, `--exemplar`
+  overrides it and an unknown one is refused before any call; the default look without an exemplar; a
+  hand-made tenant look as exemplar; fidelity of a marked template (0.87 on 09) vs the plain open look
+  (0.37); a marker on the wrong element does not count; a repair round below 0.7 that names the missing
+  patterns; three calls at most and the best valid template kept; the byline link accepted inside the
+  page, another href refused with the allowed list; dark bands as observed; the rules file; the Library
+  card; the job page; the import form's exemplar field; the CLI.
+- Full suite (`.venv/bin/python -m pytest -q`): 2755 passed, 1 failed -- the failure is
+  `tests/test_tenant_peak.py::test_hsa_fsa_truemed_text_and_category`, which fails on origin/master too
+  (see Open). The cycle 87 (60) and cycle 86 (22) test files pass.
+- The six hand-made landing conversions in peak-lp-pack/looks (other workers, not modified) pass
+  `validate_template`; without markers their fidelity is 0.34-0.42 (structure parts: order 0.5-0.77,
+  bands 0.83-0.92). With the real pack, `harness look import --dry-run` picks each page's own hand-made
+  look as exemplar when the cartridge matches (09 -> rivian-letters, 03 as listicle ->
+  bobbie-split-hero).
+
+### Open
+- **No real-model import was run** (no model calls in this cycle). Whether the model now reproduces the
+  compositions, and how often it passes 0.7 on the first call, is unseen. Cost per import is estimated
+  from prompt sizes only: about 16k input tokens a call with an exemplar, 5-8k output, about $0.10 a call
+  at claude-sonnet-5, $0.30-0.35 with both repair rounds.
+- **The score trusts markers.** A template can put `data-look-pattern` on an element that does not realise
+  the pattern; only dark-page, dark-hero and caps-headline are checked against the render's styles. The
+  role order is compared with the same heuristics on both sides, and the demo page's content shapes the
+  render's roles (its FAQ, its checked claims), so a faithful look still scores 0.5-0.9 on structure.
+- **The hand-made exemplars have no markers**, so as stored they score below 0.7; the prompt says so. If
+  they are re-imported or re-scored, add the markers to them first.
+- **On prod the exemplars need the pack**: either `../peak-lp-pack` next to the repo (tenant.yaml
+  `look_import.pack_dir`), or each hand-made tenant look with `library.json` `source.kind: "pack"` AND an
+  `observation.json` (write one with `harness look import --file <page> --name x --dry-run > observation.json`).
+- The cascade is an approximation (no `:has()`, structural pseudo-classes always match, custom
+  properties are global, no tenant base.css rules for the page's own elements); patterns are rules with
+  thresholds tuned on the ten pack pages and the cycle 87 fixture.
+- `tests/test_tenant_peak.py::test_hsa_fsa_truemed_text_and_category` fails on origin/master already
+  (c74c6bd moved HSA/FSA to Redo; the test still expects TrueMed). Not touched here.
+## Cycle 93 (image pipeline: richer tags, slot resolver, focal crops, better ad stills, 2026-10-07)
+
+Branch `cycle93/image-pipeline` from master bbc3ac4. Not merged, not pushed.
+
+### Problem
+Generated pages look plain partly because the image supply is thin: one hero (the
+cut-out) and a few tag-matched item photos. The ten owner-approved pack pages use 5-15
+strong images each (full-bleed heroes, detail macros, dark shots, deliberate crops).
+The harness could not ask for "a dark wide photo" or "two close-ups cropped 4:3": the
+cycle 75 tags say what a photo shows, not how it can be used on a page.
+
+### Fix (docs/IMAGES.md section 11)
+1. **Tags** (`harness/images.py`, `harness photos measure`): `image_tags` on each
+   photo-library.json entry, additive. Pillow measures orientation, aspect, mood,
+   luminance, warmth, white studio edge, full-bleed ok, dark-page ok, a focal guess and
+   sharpness; `model` is copied from the cycle 75 product decision. The 66 PEAK photos
+   are measured and committed (purely additive: the manifest minus `image_tags` equals
+   master's). The mood rule was calibrated on them: cedar gives every photo a red cast,
+   so the first rule (cast decides) called the white studio shots "warm"; luminance now
+   decides first.
+2. **Vision part** (`harness photos tag --only-missing`): one
+   `asset_describe.describe_one(..., look_fields=True)` call per photo adds `shot`
+   (hero-wide / room / detail-macro / exterior / lifestyle-person / cutout), `quality`
+   1-5 and a focal point. Not run this cycle (no model calls on this build); dry run: 66
+   photos, about $0.13 with Haiku. Until it runs, the old `tags.shot` is read through
+   `LEGACY_SHOT`. `model` is deliberately not asked again: a second guess would bypass
+   the cycle 75 folder and verify rules.
+3. **Audit** (`harness photos audit`): coverage per shot x mood and the gaps.
+4. **Slots and the resolver** (`images.fill_slots`): a look declares slots in its
+   library.json `image_slots`; picks come back ordered with scores and reasons, no repeat
+   on a page, the run's model first, real over AI, exclusions (manifest and
+   asset-review.json) honoured, no retired-mark photo above the fold, down the declared
+   fallback chain, then the product cut-out. `render_page` fills them after the existing
+   matchers, downloads the picks, records them in `.image-selection.json` `slots`, logs
+   them and lists them in REVIEW.md "## Images". Templates read `image_slots`.
+5. **Crops**: `render_image_slot(..., crop=)` cuts round the focal point, reuses
+   `generate_image_variants`, caches by source sha + crop + focal; `pill` is rounded in CSS.
+6. **Ad stills** (`harness/ad_frames.py`): scene-change frames join the 8 even frames;
+   Laplacian sharpness + exposure + the vision call's face answer rank them; the best 3
+   are saved as `ad-frame/still-N.jpg` with their scores; slots ask for `shot: ad-still`.
+   The first-screen frame is chosen exactly as before.
+7. **Shipped looks**: listicle `open` and landing `open`/`proof` declare their images as
+   bind slots plus the ad still (`images.SHIPPED_LOOK_SLOTS`). Their templates do not read
+   `image_slots`, so the resolver records and checks their images without changing them.
+
+### Result
+- Shipped looks identical: 7 renders (listicle face/story/display, landing open/proof
+  with and without a still, real downloads) hash the same on master and on this branch;
+  the suite pins it by rendering 4 of them with and without the resolver.
+- Audit of the 66-photo library (pack copy, measured in memory, nothing written there):
+  66 usable, 17 full-bleed ok, 34 dark-page ok, 9 white studio edges, 35 with the old
+  mark, 17 AI-generated; by shot (legacy mapping) hero-wide 5, room 22, detail-macro 19,
+  exterior 11, lifestyle-person 14; gaps: only 1 dark full-bleed hero, no dark room, only
+  1 bright room, only 1 dark exterior.
+- The focal guesses on real photos sit near the centre (x 0.44-0.58, y 0.39-0.59): edge
+  density is spread across these frames. Crops are near-centre until the vision focal is in.
+- Tests: tests/test_images_cycle93.py (30); suite 2759 passed (master 2729).
+
+### Open
+- The vision part (`photos tag --only-missing`) has not run; `shot`/`quality` are null on
+  every photo. Run it on prod after merge (about $0.13).
+- The first-screen still and the shipped hero/item images go THROUGH the resolver only as
+  recorded bind/ad-still slots; the shipped templates still read `assets["asset-adframe"]`
+  and the page fields directly. Moving those templates onto `image_slots` is the cycle 94
+  hero work.
+- Stills are saved only when the video gives a usable first-screen frame (a face); a
+  product-only video gives no stills.
+- 35 of 66 photos carry the old mark, so above-the-fold slots have about half the library.
+
 ## Cycle 94 (pluggable hero compositions: caps over photo, dark statement, split, letters + pill, buy box, 2026-10-07)
 Branch `cycle94/hero-compositions` from origin/master bbc3ac4. Not merged, not pushed. Local build
 only (no model call, no server).
@@ -5254,11 +5448,9 @@ new first screen meant editing every look, and nothing let an ad pick one.
   the look and the page's images are known, logs `hero composition: <id> (<reason>; image: ...)`
   plus the old `hero style: <note>` on a fallback, and stamps `hero_style` on page.json (landing
   page.json now carries it too). `first_screen.resolve_hero_style` / `prepare` delegate to it.
-- **Images** go through one call, `heroes.pick_image(needs, ...)`: the ad still, then the
-  library photos the facts pack offers ranked by tags (shot, setting, orientation, a measured dark
-  mean luminance for `dark_ok`), never a text overlay, the retired mark, blur or a photo already on
-  the page, a real render only with the file on disk; then the cut-out. Cycle 93's resolver
-  replaces the matcher behind the same call.
+- **Images** go through one call, `heroes.pick_image(needs, ...)`. Before the merge with cycle
+  93 it was a local tag matcher; after it (see "Merge with master" below) it asks cycle 93's
+  `images.fill_slots`.
 - **Plumbing.** `harness run --hero-style` / `harness rerender --hero-style` take any composition
   (`heroes.arg`); a run-wide flag applies to each cartridge that has it (`heroes.requested_for`);
   the pipeline stamps the landing request and records what rendered (`listicle.hero_style`,
@@ -5322,3 +5514,41 @@ new first screen meant editing every look, and nothing let an ad pick one.
 - Adapters carry no `data-look-pattern` (shipped output pinned); only the five new compositions do.
 - Not deployed; no real-model run. The Library on prod will build 25 more versions than before
   (30 listicle, 12 landing).
+
+### Merge with master 090e498 (cycles 90 and 93, same day)
+`git merge origin/master` into this branch. Three conflicts, each resolved keeping both sides:
+- `docs/FIXLOG.md`: cycle 90 and cycle 93 sections kept as master has them; this cycle 94 section
+  moved after them (cycle order).
+- `harness/look_import.py` `build_system_prompt`: cycle 90's `rules` (with the exemplar block)
+  kept; the reference look still goes through `heroes.standalone_source(...)` (an imported look is
+  one file).
+- `harness/render.py`: the download set unions cycle 93's slot picks and the hero image; the
+  template gets both `image_slots=` and `hero=`.
+- **Hero images through cycle 93's resolver.** `heroes.pick_image` now builds one cycle 93 slot per
+  source (ad still, library, cut-out) and calls `images.fill_slots` with the page's asset ids as
+  `used` and `above_fold`; the candidate pool is built once per render. The compositions' image
+  specs use the resolver's vocabulary: caps_over_photo shots hero-wide / lifestyle-person /
+  exterior / room with `fullbleed_ok` (strict pass, then relaxed); dark_statement detail-macro with
+  `dark_ok` (a hard filter: no dark-page-ok macro photo means no photo); split room /
+  lifestyle-person / exterior / hero-wide, portrait or square preferred; letters_pill exterior /
+  hero-wide / room cut to the `pill` window (`render_image_slot(crop="pill")`). A pick carries its
+  focal point (CSS object-position, and the crop centre); a library photo the facts pack did not
+  offer gets the renderer's derived alt. Adapters no longer pick an image (they print the look's
+  own). The local matcher (`_library_candidates`, `_luma`, `_orient`) is gone.
+- Verify: the 10 shipped-look renders are byte-identical (whole index.html) between this merge
+  and origin/master 090e498 (and still equal to bbc3ac4); `SHIPPED` passes. `tests/test_heroes_cycle94.py`
+  (60): the needs assertions use the cycle 93 vocabulary, and the pick test now checks the
+  resolver's behaviour (shot, focal position, full-bleed on the strict pass, page exclusion,
+  dark_ok macro, pill crop, ad still first, cut-out only where allowed, nothing without files).
+  `tests/test_look_import_cycle90.py` builds its fake model answers by editing the shipped landing
+  look's source, so it now reads `heroes.standalone_source(...)` like the cycle 87 tests (11 of its
+  tests failed against the include before). Full suite: MERGE_COUNTS.
+- 390px probe (fake runs with the owner's photo derivatives, headless Chrome): scrollWidth 390 and
+  no first-screen element outside 0-390px for caps_over_photo, dark_statement, split,
+  letters_pill and buybox (and ad_first, display). Shots in `c94-shots/merge/`. With the resolver,
+  dark_statement now gets a dark heater-grille macro (dark_ok) instead of the bright close-up.
+- **Open (resolver ranking).** caps_over_photo's library pick on a Fuji landing page is
+  asset-photo-7f49a0eae69d: tagged `blurry`, but the only fullbleed_ok people photo, and the
+  resolver's strict pass filters on fullbleed_ok while blur is only a -3 score. Until the cycle 93
+  vision tagger sets `quality` (or fill_slots filters blur above the fold), a blurry full-bleed
+  photo can win the first screen. The ad still still wins when the run has one.

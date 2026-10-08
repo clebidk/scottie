@@ -2,7 +2,7 @@
 that structure into a new look for the landing (or listicle) cartridge, in
 the tenant's own design language.
 
-Three steps, one model call (plus at most one repair call):
+Three steps, one model call (plus at most two repair calls, cycle 90):
 
   1. Ingest + observe (deterministic, stdlib + html5lib, no model). The
      page comes from an uploaded .html file, pasted HTML or a URL. A URL is
@@ -34,6 +34,15 @@ Three steps, one model call (plus at most one repair call):
      {template.html, library.json, observation.json, review.html}.
      harness/looks.py resolves it after the cartridge's own looks; the
      A/B/C library accepts `<cartridge>:<slug>`.
+
+Cycle 90 (import fidelity): the observation also holds the DESIGN level --
+per section a DOM skeleton and a style summary from the page's own CSS, the
+distinctive patterns found by rules, a plain-English design brief
+(harness/look_design.py). The prompt adds the brief, the page's sanitised
+CSS and the closest hand-made exemplar. After validation a fidelity score
+compares the render with the observation; below 0.7 a repair round names
+the missing patterns (three model calls at most). The byline's own links
+are allowed; the look may have as many dark bands as the observed page.
 """
 import copy
 import datetime
@@ -891,9 +900,17 @@ def _sticky(tree, index):
     return sorted(found)
 
 
-def observe(source, *, transport=None, resolver=None):
+def observe(source, *, transport=None, resolver=None, tenant=None):
     """The build observation (a JSON-ready dict) of a loaded source. Holds
-    counts and role names only, never the page's words."""
+    counts, role names, class names and style values only, never the page's
+    words (cycle 90: plus the design level, harness/look_design.py)."""
+    return observe_with_css(source, transport=transport, resolver=resolver, tenant=tenant)[0]
+
+
+def observe_with_css(source, *, transport=None, resolver=None, tenant=None):
+    """(observation, the page's sanitised CSS for the prompt)."""
+    from . import look_design
+
     tree = parse_html(source["html"])
     hrefs = _stylesheet_hrefs(tree)
     external_css, css_notes, css_bytes, not_fetched = fetch_same_origin_css(
@@ -954,7 +971,8 @@ def observe(source, *, transport=None, resolver=None):
         "dropped": dropped,
         "notes": css_notes,
     }
-    return obs
+    look_design.annotate(obs, tree, body, nodes_, css_texts, tenant=tenant)
+    return obs, look_design.sanitised_css(css_texts, look_design.tenant_tokens(tenant))
 
 
 def observation_sha(observation):
@@ -1294,9 +1312,11 @@ def _literal_text_errors(static_html):
     return errors
 
 
-def static_errors(text, cartridge, *, contract_, schema):
+def static_errors(text, cartridge, *, contract_, schema, max_dark=1):
     """Every rule a template must meet before it is rendered. Returns a list
-    of error strings (empty = pass)."""
+    of error strings (empty = pass). `max_dark`: how many dark bands the
+    look may have (cycle 90: as many as the observed page; None = a dark
+    page, no limit)."""
     rules = CARTRIDGE_RULES[cartridge]
     errors = []
     if len(text.encode("utf-8")) > MAX_TEMPLATE_BYTES:
@@ -1478,8 +1498,11 @@ def static_errors(text, cartridge, *, contract_, schema):
     defined = set(re.findall(r"(--[\w-]+)\s*:", css + ";".join(attr_css)))
     css_errs, dark = _css_errors(css, rules, defined)
     errors += css_errs
-    if len(dark) > 1:
-        errors.append(f"{len(dark)} dark bands ({', '.join(sorted(dark))}): the look has ONE dark closing band")
+    if max_dark is not None and len(dark) > max_dark:
+        errors.append(f"{len(dark)} dark bands ({', '.join(sorted(dark))}): the look has ONE dark closing band"
+                      if max_dark == 1 else
+                      f"{len(dark)} dark bands ({', '.join(sorted(dark))}): the observed page has {max_dark}; "
+                      "the look may not have more")
     for value in attr_css:
         for prop, val in ((m.group(1).strip().lower(), m.group(2)) for m in _DECL_RE.finditer(value)):
             errors += _css_value_errors(prop, val, "a style attribute", defined, rules, False)
@@ -1587,11 +1610,27 @@ def _norm(text):
     return " ".join(html_mod.unescape(str(text or "")).replace("→", " ").split()).strip()
 
 
-def cta_errors(html_text, cartridge, page, ctx):
+def byline_hrefs(tenant, cartridge):
+    """Every link target the tenant's byline markup renders (byline_html,
+    and about_author_html on the listicle): a look may print them through
+    `byline_html | safe`, and they never count as a second CTA (cycle 90:
+    page 03 was refused for the founder link its own byline carries)."""
+    from .render import load_byline_html
+
+    today = datetime.date.today().isoformat()
+    try:
+        markup = load_byline_html(tenant.brand_dir, today, today, tenant=tenant)
+    except Exception:  # noqa: BLE001 -- no byline file: no byline links
+        return set()
+    return {a.get("href") for a in parse_html(markup or "").iter() if _tag(a) == "a" and a.get("href")}
+
+
+def cta_errors(html_text, cartridge, page, ctx, byline_links=()):
     """One CTA phrase: inside the page wrapper every link is the page's
     cta_url (with exactly the page's cta_text, on a CTA class the A/B beacon
     counts) or a renderer-owned link (the secondary text link, the
-    listicle's model links and byline); the secondary link is never a CTA."""
+    listicle's model links and byline, the byline_html links); the
+    secondary link is never a CTA."""
     from . import abtest
 
     rules = CARTRIDGE_RULES[cartridge]
@@ -1607,6 +1646,16 @@ def cta_errors(html_text, cartridge, page, ctx):
             renderer.add(option["url"])
     if (ctx.get("byline") or {}).get("url"):
         renderer.add(ctx["byline"]["url"])
+    byline_links = set(byline_links or ())
+    renderer |= byline_links
+    allowed = [f"page.cta_url ({cta_url})"]
+    if ctx.get("secondary"):
+        allowed.append(f"the secondary text link cartridge_data.secondary.href ({ctx['secondary']['href']})")
+    if cartridge == "listicle":
+        allowed.append("the renderer's model links and byline link")
+    if byline_links:
+        allowed.append("the byline's own links, printed only through byline_html ("
+                       + ", ".join(sorted(byline_links)) + ")")
     errors, ctas = [], 0
     for a in wrapper.iter():
         if _tag(a) != "a":
@@ -1625,8 +1674,8 @@ def cta_errors(html_text, cartridge, page, ctx):
             if ctx.get("secondary") and href == ctx["secondary"]["href"] and classes & set(abtest.CTA_CLASSES):
                 errors.append("the secondary text link must not carry a CTA class")
         elif not href.startswith("#"):
-            errors.append(f"a second link target {href[:60]!r} -- a look has ONE CTA (plus the renderer's "
-                          "secondary text link)")
+            errors.append(f"a second link target {href[:60]!r} -- a look has ONE CTA; the only hrefs allowed are "
+                          + "; ".join(allowed))
     if not ctas:
         errors.append("the rendered page has no CTA link to page.cta_url")
     if ctx.get("secondary"):
@@ -1711,7 +1760,7 @@ def render_errors(text, cartridge, slug, tenant, demo):
         errors += [f"review page {p}" for p in brand_lint(html_text, tenant)]
         errors += [f"export {p}" for p in brand_lint(export, tenant)]
         errors += export_errors(export, tenant)
-        errors += cta_errors(html_text, cartridge, demo_page, ctx)
+        errors += cta_errors(html_text, cartridge, demo_page, ctx, byline_hrefs(tenant, cartridge))
         visible = _norm(" ".join(_text(el) for el in [_wrapper_element(html_text)] if el is not None))
         for key, value in expected_texts(cartridge, demo_page, ctx):
             if _norm(value) not in visible:
@@ -1723,19 +1772,19 @@ def render_errors(text, cartridge, slug, tenant, demo):
     return list(dict.fromkeys(errors)), html_text
 
 
-def validate_template(text, cartridge, slug, tenant, demo, *, contract_=None, schema=None):
+def validate_template(text, cartridge, slug, tenant, demo, *, contract_=None, schema=None, max_dark=1):
     """(errors, rendered review html or None). Static rules first; the render
     runs only when they pass."""
     contract_ = contract_ or contract(cartridge, tenant, demo)
     schema = schema or load_schema(cartridge, tenant)
-    errors = static_errors(text, cartridge, contract_=contract_, schema=schema)
+    errors = static_errors(text, cartridge, contract_=contract_, schema=schema, max_dark=max_dark)
     if errors:
         return errors, None
     return render_errors(text, cartridge, slug, tenant, demo)
 
 
 # ---------------------------------------------------------------------------
-# Convert (the one model call, plus at most one repair)
+# Convert (one model call, plus at most two repairs)
 # ---------------------------------------------------------------------------
 
 def contract_markdown(cartridge, contract_, schema):
@@ -1768,26 +1817,102 @@ def contract_markdown(cartridge, contract_, schema):
     return "\n".join(parts)
 
 
-def build_system_prompt(cartridge, contract_, schema):
-    rules = RULES_PATH.read_text()
+def build_system_prompt(cartridge, contract_, schema, exemplar=None):
+    """The rules file with the contract filled in, then ONE look to learn
+    the contract's use from: the closest hand-made exemplar (its page's
+    observation + its template) when there is one, else the cartridge's
+    default look."""
+    rules = RULES_PATH.read_text().replace("{{CONTRACT}}", contract_markdown(cartridge, contract_, schema))
+    if exemplar:
+        return (rules + f"\n\n## Exemplar: the hand-made look `{exemplar['slug']}`\n\n"
+                + "A person converted a page into a look by hand; this is the standard to meet. First the build "
+                  "observation of the page it was made from, then the template made from it. Notice how each "
+                  "observed section, the hero composition, the dark/light treatment and the type scale became "
+                  "token-only CSS and renderer data. It may lack the data-look-pattern markers: yours must have "
+                  "them.\n\n### Its page's observation\n\n"
+                + json.dumps(exemplar["observation"], separators=(",", ":"))
+                + "\n\n### Its template.html\n\n" + exemplar["template"])
     default = looks.DEFAULT_LOOKS.get(cartridge, "open")
     # Cycle 94: the shipped look includes the shared hero partial; an imported
     # look is one file, so the model sees the look with its first screen inline.
     reference = heroes.standalone_source(
         (REPO_ROOT / "cartridges" / cartridge / "looks" / default / "template.html").read_text(), cartridge, default)
-    return (rules.replace("{{CONTRACT}}", contract_markdown(cartridge, contract_, schema))
-            + f"\n\n## Reference look: cartridges/{cartridge}/looks/{default}/template.html\n\n"
+    return (rules + f"\n\n## Reference look: cartridges/{cartridge}/looks/{default}/template.html\n\n"
             + "This is the tenant's approved look for this cartridge. Keep its tokens, its renderer-owned blocks "
-            + "and its CTA markup; change the LAYOUT to follow the observation.\n\n" + reference)
+            + "and its CTA markup; change the LAYOUT and the design to follow the observation.\n\n" + reference)
 
 
-def build_user_message(cartridge, slug, observation):
-    return (f"Cartridge: {cartridge}. Look name: {slug}.\n\n"
-            "Build observation of the page to learn from (layout only: the page's words, images, brand names and "
-            "scripts are not included and must not be invented):\n\n"
-            + json.dumps(observation, indent=1)
-            + "\n\nWrite the complete template.html for this look. Output the template only: no prose, no code "
-              "fence.")
+def allowed_links_text(cartridge):
+    """The one-CTA rule with the exact list of allowed hrefs."""
+    rules = CARTRIDGE_RULES[cartridge]
+    text = (f"Links (the one-CTA rule): the ONLY hrefs allowed are (1) `{{{{ page.cta_url }}}}` on every CTA, "
+            f"class `{rules['cta_class']}`, text `{{{{ page.cta_text }}}}`; (2) the renderer's secondary text link "
+            f"`{{{{ cartridge_data.secondary.href }}}}`, exactly once, class `{rules['secondary_class']}`, never a "
+            "CTA class; (3) the links inside `{{ byline_html | safe }}` -- byline_html is the ONLY way to mention "
+            "or link the founder or the author.")
+    if cartridge == "listicle":
+        text += (" On the listicle also the renderer's model links (`cartridge_data.model_options[].url`) and "
+                 "the first-screen byline link.")
+    return text + " No other href: no founder, about, review, phone or shop link of your own."
+
+
+def build_user_message(cartridge, slug, observation, css_text=""):
+    names = [p["name"] for p in observation.get("patterns") or []]
+    parts = [f"Cartridge: {cartridge}. Look name: {slug}.", ""]
+    if observation.get("brief"):
+        parts += ["Design brief (written by the harness from the observation):", observation["brief"], ""]
+    parts += ["Build observation of the page to learn from (layout and style values only: the page's words, "
+              "images, brand names and scripts are not included and must not be invented):", "",
+              json.dumps(observation, separators=(",", ":")), ""]
+    if css_text:
+        parts += ["The page's own CSS, sanitised (no fonts, URLs or scripts; a colour literal is shown as the "
+                  "tenant token it equals, var(--ps-...), or as a <light>/<dark>/<mid> placeholder -- write a "
+                  "token, never a placeholder or a literal):", "", css_text, ""]
+    parts.append("Reproduce the composition faithfully: the same section order, the same hero composition, the "
+                 "same dark/light treatment, the same numerals, grids and type scale. Express every value with "
+                 "tokens.")
+    if names:
+        parts.append("Distinctive patterns to reproduce, each on the element that realises it with "
+                     "data-look-pattern=\"<name>\": " + ", ".join(names) + ".")
+    parts += [allowed_links_text(cartridge), "",
+              "Write the complete template.html for this look. Output the template only: no prose, no code fence."]
+    return "\n".join(parts)
+
+
+def dark_allowance(observation):
+    """How many dark bands an imported look may have: None (no limit) for a
+    dark page, else as many as the page's content sections that are dark,
+    at least one (the closing band)."""
+    if (observation.get("global") or {}).get("dark_page"):
+        return None
+    dark = [s for s in observation["sections"] if s.get("background") == "dark"
+            and s["role"] not in ("nav", "footer") and not (s.get("style") or {}).get("pinned")]
+    return max(1, len(dark))
+
+
+def fidelity_feedback(fid, observation):
+    from . import look_design
+
+    lines = [f"The harness accepted this template, but its fidelity to the observed page is {fid['score']} "
+             f"(below {look_design.FIDELITY_THRESHOLD})."]
+    by_name = {p["name"]: p for p in observation.get("patterns") or []}
+    if fid["missing"]:
+        lines.append("Missing patterns -- realise each one and mark the element that realises it with "
+                     "data-look-pattern=\"<name>\" (dark-page / dark-hero on an element with a dark ground; "
+                     "caps-headline on the upper-case h1):")
+        for name in fid["missing"]:
+            p = by_name.get(name) or {}
+            where = f"section {p['section']}" if p.get("section") is not None else "the whole page"
+            lines.append(f"- {name}: {look_design.PATTERNS.get(name, name)} (observed in {where}: "
+                         f"{p.get('evidence', '')})")
+    secs = fid.get("sections") or {}
+    if fid.get("order", 1) < 0.8:
+        lines.append("Section order observed: " + " > ".join(secs.get("source") or []) + "; your render: "
+                     + " > ".join(secs.get("render") or []) + ".")
+    if fid.get("bands", 1) < 0.8:
+        lines.append("Follow the observed dark/light treatment section by section (each section's style.bg).")
+    lines.append("Return the corrected complete template.html only.")
+    return "\n".join(lines)
 
 
 def extract_template(text):
@@ -1813,41 +1938,61 @@ def _call(client, model, system, messages, budget, log):
     return text, cost
 
 
-def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, progress=None, log=None):
-    """(template text, {"attempts", "cost_usd", "model"}) or LookImportError
-    with the validation errors of the last attempt."""
+MAX_CALLS = 3
+
+
+def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, progress=None, log=None, css_text="",
+            exemplar=None):
+    """(template text, review html, {"attempts", "cost_usd", "model",
+    "fidelity"}) or LookImportError with the validation errors of the last
+    attempt. Up to MAX_CALLS calls: a refused template, or a valid one whose
+    fidelity is below look_design.FIDELITY_THRESHOLD, gets a repair round
+    (two at most). The valid template with the best fidelity is kept."""
+    from . import look_design
     from .budget import Budget, BudgetExceeded
 
     progress = progress or (lambda _s: None)
     model = model or tenant.model_for(MODEL_STAGE)
     contract_ = contract(cartridge, tenant, demo)
     schema = load_schema(cartridge, tenant)
-    system = build_system_prompt(cartridge, contract_, schema)
-    messages = [{"role": "user", "content": build_user_message(cartridge, slug, observation)}]
-    budget = Budget(wall_s=600, tokens=120_000, calls=2)
-    cost, errors, text = 0.0, [], ""
-    for attempt in (1, 2):
+    system = build_system_prompt(cartridge, contract_, schema, exemplar=exemplar)
+    messages = [{"role": "user", "content": build_user_message(cartridge, slug, observation, css_text)}]
+    budget = Budget(wall_s=900, tokens=260_000, calls=MAX_CALLS)
+    max_dark = dark_allowance(observation)
+    cost, errors, text, best, attempt = 0.0, [], "", None, 0
+    for attempt in range(1, MAX_CALLS + 1):
         try:
             raw, call_cost = _call(client, model, system, messages, budget, log)
         except BudgetExceeded as e:
+            if best:
+                attempt -= 1
+                break
             raise LookImportError(f"import stopped by its budget: {e}", errors) from e
         cost += call_cost
         text = extract_template(raw)
         progress("validating")
         errors, review_html = validate_template(text, cartridge, slug, tenant, demo, contract_=contract_,
-                                                schema=schema)
+                                                schema=schema, max_dark=max_dark)
         if not errors:
-            return text, review_html, {"attempts": attempt, "cost_usd": round(cost, 4), "model": model}
-        if attempt == 1:
+            fid = look_design.fidelity(observation, review_html, tenant)
+            if best is None or fid["score"] > best["fidelity"]["score"]:
+                best = {"template": text, "review_html": review_html, "fidelity": fid}
+            if fid["score"] >= look_design.FIDELITY_THRESHOLD:
+                break
+            feedback = fidelity_feedback(fid, observation)
+        else:
+            feedback = ("The harness refused this template:\n" + "\n".join(f"- {e}" for e in errors[:MAX_ERRORS_SHOWN])
+                        + "\n\nReturn the corrected complete template.html only.")
+        if attempt < MAX_CALLS:
             progress("repairing")
-            messages += [{"role": "assistant", "content": text},
-                         {"role": "user", "content": "The harness refused this template:\n"
-                          + "\n".join(f"- {e}" for e in errors[:MAX_ERRORS_SHOWN])
-                          + "\n\nReturn the corrected complete template.html only."}]
-    exc = LookImportError(f"import refused: the {cartridge} look failed validation after one repair "
-                          f"({len(errors)} problem(s)); nothing was stored", errors)
-    exc.cost_usd = round(cost, 4)
-    raise exc
+            messages += [{"role": "assistant", "content": text}, {"role": "user", "content": feedback}]
+    if best is None:
+        exc = LookImportError(f"import refused: the {cartridge} look failed validation after {attempt - 1} "
+                              f"repair(s) ({len(errors)} problem(s)); nothing was stored", errors)
+        exc.cost_usd = round(cost, 4)
+        raise exc
+    return best["template"], best["review_html"], {"attempts": attempt, "cost_usd": round(cost, 4), "model": model,
+                                                   "fidelity": best["fidelity"]}
 
 
 # ---------------------------------------------------------------------------
@@ -1882,20 +2027,26 @@ def store_look(tenant, cartridge, slug, *, template, library, observation, revie
 
 
 def import_look(tenant, *, cartridge, name, source, title=None, client=None, model=None, dry_run=False,
-                progress=None, log=None, transport=None, resolver=None):
+                progress=None, log=None, transport=None, resolver=None, exemplar=None):
     """The whole import. dry_run: the observation only (no model call,
-    nothing written). Returns a JSON-ready result dict; raises
+    nothing written). `exemplar`: a hand-made look's slug to show the model
+    instead of the closest one. Returns a JSON-ready result dict; raises
     LookImportError (nothing stored) on any refusal."""
+    from . import look_design
+
     progress = progress or (lambda _s: None)
     slug = check_name(tenant, cartridge, name)
     title = " ".join(str(title or "").split())[:MAX_TITLE_CHARS] or slug.replace("-", " ").capitalize()
     progress("reading")
     src = load_source(source, transport=transport, resolver=resolver)
     progress("observing")
-    observation = observe(src, transport=transport, resolver=resolver)
+    observation, css_text = observe_with_css(src, transport=transport, resolver=resolver, tenant=tenant)
     sha = observation_sha(observation)
+    chosen = look_design.choose_exemplar(observation, look_design.exemplars(tenant, cartridge), exemplar)
     result = {"slug": slug, "cartridge": cartridge, "title": title, "observation": observation,
-              "observation_sha": sha, "summary": summarise(observation)}
+              "observation_sha": sha, "summary": summarise(observation), "brief": observation.get("brief"),
+              "patterns": [p["name"] for p in observation.get("patterns") or []],
+              "exemplar": chosen["slug"] if chosen else None}
     if dry_run:
         return result
     demo = load_demo(tenant, cartridge)
@@ -1910,7 +2061,8 @@ def import_look(tenant, *, cartridge, name, source, title=None, client=None, mod
     cost = 0.0
     try:
         template, review_html, outcome = convert(observation, cartridge=cartridge, slug=slug, tenant=tenant,
-                                                 demo=demo, client=client, model=model, progress=progress, log=log)
+                                                 demo=demo, client=client, model=model, progress=progress, log=log,
+                                                 css_text=css_text, exemplar=chosen)
         cost = outcome["cost_usd"]
     except LookImportError as e:
         cost = getattr(e, "cost_usd", 0.0)
@@ -1931,11 +2083,16 @@ def import_look(tenant, *, cartridge, name, source, title=None, client=None, mod
         "validation": {"result": "PASS", "attempts": outcome["attempts"]},
         "model": outcome["model"],
         "cost_usd": outcome["cost_usd"],
+        "fidelity": outcome["fidelity"]["score"],
+        "patterns": result["patterns"],
+        "missing_patterns": outcome["fidelity"]["missing"],
+        "exemplar": result["exemplar"],
     }
     folder = store_look(tenant, cartridge, slug, template=template, library=library, observation=observation,
                         review_html=review_html)
     result.update({"library": library, "folder": str(folder), "attempts": outcome["attempts"],
-                   "cost_usd": outcome["cost_usd"]})
+                   "cost_usd": outcome["cost_usd"], "fidelity": outcome["fidelity"]["score"],
+                   "fidelity_detail": outcome["fidelity"], "missing_patterns": outcome["fidelity"]["missing"]})
     return result
 
 
@@ -1953,11 +2110,16 @@ def job_summary(result):
         "validation": f"PASS on attempt {result.get('attempts', 1)}",
         "cost_usd": result.get("cost_usd"),
         "abtest_entry": f"{result['cartridge']}:{result['slug']}",
+        "brief": result.get("brief"),
+        "patterns": result.get("patterns") or [],
+        "fidelity": result.get("fidelity"),
+        "missing_patterns": result.get("missing_patterns") or [],
+        "exemplar": result.get("exemplar"),
     }
 
 
 def queue_payload(tenant, *, name, cartridge, by, title=None, url=None, html_text=None, file_bytes=None,
-                  filename=None):
+                  filename=None, exemplar=None):
     """The quick checks of a site request (name, collision, exactly one
     source, size, an HTML upload/paste, an http(s) URL) and the look_import
     job payload. An upload or paste is written to
@@ -1974,6 +2136,11 @@ def queue_payload(tenant, *, name, cartridge, by, title=None, url=None, html_tex
     kind = given[0]
     payload = {"kind": kind, "slug": slug, "cartridge": cartridge, "by": by,
                "title": " ".join(str(title or name or "").split())[:MAX_TITLE_CHARS]}
+    exemplar = (exemplar or "").strip()
+    if exemplar:
+        if not looks.LOOK_SLUG_RE.match(exemplar):
+            raise LookImportError(f"exemplar {exemplar!r} is not a look name")
+        payload["exemplar"] = exemplar
     if kind == "url":
         parts = urllib.parse.urlsplit(url)
         if parts.scheme.lower() not in ("http", "https") or not parts.hostname:

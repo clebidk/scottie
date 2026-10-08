@@ -59,7 +59,7 @@
 <header class="hr-root hr-letters_pill hr-bleed" data-look-pattern="hero:letters_pill" data-hero-image="{{ hr.image.source if img else 'none' }}">
   <div class="{{ p }}mark">
     <span class="{{ p }}l {{ p }}l1" aria-hidden="true">{{ hr.letters[0] }}</span>
-    <figure class="{{ p }}pill{{ ' ' ~ p ~ 'pill--cut' if cut else '' }}" style="--hr-pos:{{ hr.image.position if hr.image else '50% 50%' }}">{% if img %}{{ render_image_slot(img, hero=True, aspect_box=False) }}{% endif %}</figure>
+    <figure class="{{ p }}pill{{ ' ' ~ p ~ 'pill--cut' if cut else '' }}" style="--hr-pos:{{ hr.image.position if hr.image else '50% 50%' }}">{% if img %}{{ render_image_slot(img, hero=True, aspect_box=False, crop=hr.image.crop) }}{% endif %}</figure>
     <span class="{{ p }}l {{ p }}l2" aria-hidden="true">{{ hr.letters[1] }}</span>
   </div>
   <div class="{{ p }}copy">

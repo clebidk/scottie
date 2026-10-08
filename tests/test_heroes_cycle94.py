@@ -17,7 +17,7 @@ import pytest
 from PIL import Image
 
 from evals import fake_run
-from harness import abtest, ad_frames, cli, heroes, library, pagechecks, runstate
+from harness import abtest, ad_frames, cli, heroes, images, library, pagechecks, runstate
 from harness import photo_library as pl
 from harness import render as render_mod
 from harness.page_body import build_shopify_body
@@ -86,14 +86,19 @@ def test_every_composition_is_registered_with_its_partial_needs_and_cartridges()
         assert (heroes.PACKAGE_DIR / f"{hero_id}.html").is_file(), hero_id
         assert hero.title and hero.summary and hero.supports
     assert heroes.get("buybox").supports == ("landing",)
-    # the image a composition needs, as the brief states it
-    assert heroes.get("caps_over_photo").needs["image"]["orient"] == "wide"
-    assert heroes.get("caps_over_photo").needs["image"]["dark_ok"] is True
-    assert heroes.get("dark_statement").needs["image"]["shots"] == ("detail",)
+    # the image a composition needs, in cycle 93's slot vocabulary (harness/images.py)
+    assert heroes.get("caps_over_photo").needs["image"]["fullbleed_ok"] is True
+    assert heroes.get("caps_over_photo").needs["image"]["sources"] == ("ad_still", "library")
+    assert heroes.get("dark_statement").needs["image"]["shots"] == ("detail-macro",)
+    assert heroes.get("dark_statement").needs["image"]["dark_ok"] is True
     assert heroes.get("dark_statement").needs["required"] is False
-    assert heroes.get("split").needs["image"]["orient"] == "portrait"
+    assert heroes.get("split").needs["image"]["orientation"] == ["portrait", "square"]
+    assert heroes.get("letters_pill").needs["image"]["crop"] == "pill"
     assert "cutout" in heroes.get("letters_pill").needs["image"]["sources"]
     assert heroes.get("buybox").needs["image"]["sources"] == ("cutout",)
+    for hero_id in heroes.ids():
+        spec = (heroes.get(hero_id).needs or {}).get("image") or {}
+        assert set(spec.get("shots") or ()) <= set(images.SHOTS), hero_id
 
 
 @pytest.mark.parametrize("hero_id", NEW)
@@ -287,32 +292,46 @@ def _offered(manifest, ids=None):
     return {p["id"]: pl.facts_pack_asset(p) for p in manifest["photos"] if ids is None or p["id"] in ids}
 
 
-def test_pick_image_matches_the_library_by_tags_orientation_and_page_use(tmp_path, monkeypatch):
+def test_pick_image_asks_the_cycle_93_resolver(tmp_path, monkeypatch):
+    """Hero images come from images.fill_slots: richer tags (shot, fullbleed_ok,
+    dark_ok, focal), the retired mark kept off the first screen, no photo the
+    page already shows, the ad still first, then the cut-out."""
     manifest = _library_dir(tmp_path, monkeypatch)
     photos = {p["id"]: p for p in manifest["photos"]}
-    assets = _offered(manifest)
     caps = heroes.get("caps_over_photo").needs
-    pick = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets=assets, require_files=True)
-    tags = photos[pick["id"]]["tags"]
-    assert pick["source"] == "library" and tags["shot"] in ("people-in-use", "lifestyle", "exterior")
-    assert not tags.get("old_logo_visible") and not tags["blurry"] and not tags["has_text_overlay"]
-    assert pick["orient"] == "wide"
+    pick = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={})
+    photo = photos[pick["id"]]
+    assert pick["source"] == "library" and pick["fit"] == "cover"
+    assert images.photo_shots(photo) & {"hero-wide", "lifestyle-person", "exterior", "room"}
+    assert not photo["tags"].get("old_logo_visible") and not photo["tags"]["has_text_overlay"]
+    focal = photo["image_tags"]["focal"]
+    assert pick["focal"] == focal and pick["position"] == f"{round(focal['x'] * 100)}% {round(focal['y'] * 100)}%"
+    # the strict stage first: a full-bleed photo when one fits
+    if pick["why"].startswith("want"):
+        assert photo["image_tags"]["fullbleed_ok"]
     # a photo already on the page is never picked again
-    again = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets=assets,
-                              exclude_ids={pick["id"]}, require_files=True)
-    assert again["id"] != pick["id"]
+    again = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={}, exclude_ids={pick["id"]})
+    assert again is None or again["id"] != pick["id"]
+    # dark macro: only a dark-page-ok detail photo
+    macro = heroes.pick_image(heroes.get("dark_statement").needs, facts_pack=RICH_FACTS_PACK, tenant=TENANT,
+                              assets={})
+    if macro is not None:
+        assert "detail-macro" in images.photo_shots(photos[macro["id"]])
+        assert photos[macro["id"]]["image_tags"]["dark_ok"]
+    # letters_pill cuts its photo to the pill window
+    pill = heroes.pick_image(heroes.get("letters_pill").needs, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={})
+    assert pill["crop"] == ("pill" if pill["source"] == "library" else None)
     # the ad still wins when the run has one
-    assets[ad_frames.FRAME_ID] = {"id": ad_frames.FRAME_ID, "kind": "ad-frame"}
-    still = heroes.pick_image(caps, tenant=TENANT, assets=assets, frame={"object_position": "50% 20%"})
-    assert still == {"id": ad_frames.FRAME_ID, "source": "ad_still", "fit": "cover", "position": "50% 20%",
-                     "orient": "portrait", "why": "the ad's own still"}
-    # dark macro: a detail shot
-    macro = heroes.pick_image(heroes.get("dark_statement").needs, tenant=TENANT, assets=_offered(manifest),
-                              require_files=True)
-    assert photos[macro["id"]]["tags"]["shot"] == "detail"
-    # no file on this machine, no library pick (a real render)
+    run_dir = _run_dir(tmp_path / "still", with_frame=True)
+    record = ad_frames.load(run_dir)
+    assets = {}
+    still = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets=assets, frame=record)
+    assert still["source"] == "ad_still" and still["id"].startswith(ad_frames.FRAME_ID) and still["id"] in assets
+    # no file on this machine: no library photo, and only the cut-out where the need allows it
     monkeypatch.setenv(pl.FILES_DIR_ENV, str(tmp_path / "empty"))
-    assert heroes.pick_image(caps, tenant=TENANT, assets=_offered(manifest), require_files=True) is None
+    assert heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={}) is None
+    split = heroes.pick_image(heroes.get("split").needs, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={})
+    assert split["source"] == "cutout" and split["fit"] == "contain"
 
 
 def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkeypatch):

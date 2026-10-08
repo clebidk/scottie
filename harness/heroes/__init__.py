@@ -41,10 +41,10 @@ fallbacks; else a pick seeded from the run among the look's default pool
 (tenant.yaml `cartridges.<c>.hero_styles` narrows that pool to its own
 order). Every choice comes with a reason the renderer logs.
 
-Images go through ONE function, pick_image(): a simple local matcher over
-the run's ad still, the photo-library tags (brand/photo-library.json) of the
-photos the facts pack offers, and the product's cut-out. Cycle 93's resolver
-will replace the matcher behind the same call.
+Images go through ONE function, pick_image(), which asks cycle 93's slot
+resolver (harness/images.py fill_slots) for the run's ad still, a library
+photo by its richer tags (shot, fullbleed_ok, dark_ok, mood, focal point) or
+the product's cut-out, in the composition's order.
 """
 import importlib
 import json
@@ -236,111 +236,69 @@ def resolve(cartridge, requested=None, *, look=None, seed=0, tenant=None, availa
 # Images: the one call (cycle 93's resolver replaces the matcher behind it)
 # ---------------------------------------------------------------------------
 
-def _library_photos(tenant):
-    from .. import photo_library
-
-    try:
-        return photo_library.photos_by_id(photo_library.load_manifest(tenant))
-    except Exception:  # noqa: BLE001 -- a bad manifest only means no library photos
-        return {}
+# The cycle 93 slot keys a composition's image spec may carry, passed to
+# images.fill_slots as the slot's `want` (shot, fullbleed_ok, dark_ok, mood,
+# orientation, aspect_min/max ...).
+_WANT_KEYS = ("fullbleed_ok", "dark_ok", "mood", "orientation", "aspect_min", "aspect_max", "min_quality")
+_SOURCE_SHOTS = {"ad_still": ["ad-still"], "cutout": ["cutout"]}
 
 
-def _luma(path):
-    """Mean luminance 0-255 of a local image, or None."""
-    try:
-        from PIL import Image
-
-        with Image.open(path) as im:
-            im = im.convert("L")
-            im.thumbnail((64, 64))
-            data = list(im.getdata())
-        return sum(data) / max(1, len(data))
-    except Exception:  # noqa: BLE001 -- unreadable: no luminance evidence
-        return None
+def _position(focal):
+    focal = focal or {"x": 0.5, "y": 0.5}
+    return f"{round(focal.get('x', 0.5) * 100)}% {round(focal.get('y', 0.5) * 100)}%"
 
 
-def _orient(width, height):
-    if not width or not height:
-        return None
-    ratio = width / height
-    return "wide" if ratio >= 1.2 else ("portrait" if ratio <= 0.9 else "square")
-
-
-def _library_candidates(spec, *, assets, tenant, exclude_ids, require_files):
-    from .. import photo_library
-
-    photos = _library_photos(tenant)
-    shots = tuple(spec.get("shots") or ())
-    settings = tuple(spec.get("settings") or ())
-    out = []
-    for asset_id, asset in assets.items():
-        photo = photos.get(asset_id)
-        if photo is None or asset_id in exclude_ids or not photo_library._usable(photo):
-            continue
-        tags = photo["tags"]
-        # Above the fold the page shows the current brand only (cycle 78).
-        if photo_library.shows_old_logo(photo) or tags.get("blurry"):
-            continue
-        if shots and tags["shot"] not in shots:
-            continue
-        path = photo_library.local_file(tenant, photo)
-        if require_files and not path.exists():
-            continue
-        orient = _orient(photo.get("width"), photo.get("height"))
-        luma = _luma(path) if spec.get("dark_ok") and path.exists() else None
-        score = (
-            (2 if spec.get("orient") and orient == spec["orient"] else 0)
-            + (1 if settings and tags["setting"] in settings else 0)
-            + (1 if luma is not None and luma <= 150 else 0)
-            - (1 if tags.get("cluttered") else 0)
-            + (shots.index(tags["shot"]) * -0.1 if shots else 0)
-        )
-        out.append((score, photo_library.hero_rank(photo), asset_id, photo, orient))
-    out.sort(key=lambda row: (row[0], row[1]), reverse=True)
-    return out
-
-
-def pick_image(needs, *, page=None, facts_pack=None, tenant=None, assets=None, frame=None, exclude_ids=(),
-               require_files=False):
+def pick_image(needs, *, facts_pack=None, tenant=None, assets=None, frame=None, exclude_ids=(), seed=0,
+               page=None, pool=None):
     """The image a composition shows, or None.
 
     {"id", "source": "ad_still"|"library"|"cutout", "fit": "cover"|
-    "contain", "position": CSS object-position, "orient", "why"} --
-    `assets` is the renderer's assets_by_id (a cut-out the page does not
-    hold yet is added to it). Sources are tried in the need's order: the
-    run's ad still (asset-adframe), then the library photos the facts pack
-    offers ranked by the need's shots / settings / orientation / darkness
-    (tags from brand/photo-library.json; never one with the retired mark or
-    a text overlay, never one already on the page), then the product's
-    cut-out. `require_files` (a real render) skips a library photo whose
-    file is not on this machine."""
-    from .. import ad_frames, cutouts
+    "contain", "position": CSS object-position at the focal point, "focal",
+    "crop" (a cycle 93 crop name, e.g. "pill", or None), "why"}.
+
+    Cycle 93's resolver chooses (images.fill_slots): each of the need's
+    sources, in order, is one slot -- the run's ad still; the library
+    photos whose image_tags/tags shot is one of the need's `shots`, filtered
+    and ranked by the need's fullbleed_ok / dark_ok / mood / orientation,
+    the page's model, quality, blur and clutter, never a retired-mark photo
+    above the fold, never one already on the page (`exclude_ids`), with a
+    relaxed second pass on the same shots; then the product cut-out. The
+    picked asset is added to `assets` (render_page's assets_by_id) with its
+    focal point, so render_image_slot(crop=...) cuts round it."""
+    from .. import images
 
     spec = (needs or {}).get("image")
-    if not spec:
+    if not spec or tenant is None:
         return None
     assets = assets if assets is not None else {}
-    exclude = set(exclude_ids or ())
+    facts_pack = facts_pack or {}
+    if pool is None:
+        pool = images.candidates(facts_pack, tenant, ad_frame=frame)
+    want = {k: spec[k] for k in _WANT_KEYS if k in spec}
     for source in spec.get("sources") or ():
-        if source == "ad_still" and ad_frames.FRAME_ID in assets:
-            position = (frame or {}).get("object_position") or "50% 30%"
-            return {"id": ad_frames.FRAME_ID, "source": "ad_still", "fit": "cover", "position": position,
-                    "orient": "portrait", "why": "the ad's own still"}
-        if source == "library" and tenant is not None:
-            rows = _library_candidates(spec, assets=assets, tenant=tenant, exclude_ids=exclude,
-                                       require_files=require_files)
-            if rows:
-                _score, _rank, asset_id, photo, orient = rows[0]
-                # a photo with people keeps their heads in a wide crop
-                position = "50% 30%" if photo["tags"].get("people") else "50% 50%"
-                return {"id": asset_id, "source": "library", "fit": "cover", "position": position,
-                        "orient": orient, "why": f"library photo ({photo['tags']['shot']}, {photo['tags']['setting']})"}
-        if source == "cutout" and tenant is not None:
-            asset = cutouts.cutout_for_product(tenant, (facts_pack or {}).get("product"))
-            if asset is not None:
-                assets.setdefault(asset["id"], dict(asset))
-                return {"id": asset["id"], "source": "cutout", "fit": "contain", "position": "50% 50%",
-                        "orient": "portrait", "why": "the product's cut-out"}
+        shots = _SOURCE_SHOTS.get(source) or list(spec.get("shots") or images.SHOTS)
+        slot = {"name": "hero", "want": dict(want if source == "library" else {}, shot=shots), "n": 1,
+                "above_fold": True, "last_resort": None}
+        if source == "library":
+            slot["fallback"] = list(shots)   # the same shots, frame filters relaxed
+            if spec.get("crop"):
+                slot["crop"] = spec["crop"]
+        result = images.fill_slots([slot], facts_pack, tenant, ad_frames=frame, seed=seed, page=page,
+                                   used=exclude_ids, pool=pool)[0]
+        if not result["picks"]:
+            continue
+        pick = result["picks"][0]
+        focal = pick.get("focal") or {"x": 0.5, "y": 0.5}
+        entry = assets.setdefault(pick["id"], dict(pick["asset"]))
+        entry.setdefault("focal", focal)
+        if source == "ad_still":
+            position = (frame or {}).get("object_position") or _position(focal)
+        else:
+            position = _position(focal)
+        return {"id": pick["id"], "source": source, "fit": "contain" if source == "cutout" else "cover",
+                "position": position, "focal": focal,
+                "crop": spec.get("crop") if source == "library" else None,
+                "why": f"{pick['via']}: {', '.join(pick['reasons'])}"}
     return None
 
 
@@ -355,7 +313,7 @@ def need_text(hero):
 # ---------------------------------------------------------------------------
 
 def render_context(cartridge, page, *, look, ad_brief, facts_pack, tenant, base, assets, frame, seed,
-                   require_files=False, exclude_ids=(), quote=False):
+                   exclude_ids=(), quote=False):
     """(hero context for the template, note). Resolves the composition
     (resolve) with availability from pick_image, then builds what its
     partial prints. A page.json `hero_style` that is no composition of this
@@ -364,9 +322,13 @@ def render_context(cartridge, page, *, look, ad_brief, facts_pack, tenant, base,
 
     def image_for(hero_id):
         if hero_id not in cache:
+            if "pool" not in cache:
+                from .. import images
+
+                cache["pool"] = images.candidates(facts_pack or {}, tenant, ad_frame=frame)
             cache[hero_id] = pick_image(REGISTRY[hero_id].needs, page=page, facts_pack=facts_pack, tenant=tenant,
-                                        assets=assets, frame=frame, exclude_ids=exclude_ids,
-                                        require_files=require_files)
+                                        assets=assets, frame=frame, exclude_ids=exclude_ids, seed=seed,
+                                        pool=cache["pool"])
         return cache[hero_id]
 
     def available(hero_id):
@@ -384,7 +346,8 @@ def render_context(cartridge, page, *, look, ad_brief, facts_pack, tenant, base,
                                         available=available, quote=quote)
         note = reason = f"{e}; rendered {hero_id}"
     hero = REGISTRY[hero_id]
-    image = image_for(hero_id) if (hero.needs or {}).get("image") else None
+    # an adapter prints the look's own images (its still, the page's cut-out)
+    image = image_for(hero_id) if (hero.needs or {}).get("image") and not hero.adapter else None
     ctx = {"id": hero_id, "title": hero.title, "reason": reason, "pattern": f"hero:{hero_id}",
            "image": image, "adapter": hero.adapter}
     ctx.update(hero.context(page, ad_brief, facts_pack, tenant, image, cartridge=cartridge, base=base, look=look))

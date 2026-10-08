@@ -312,6 +312,9 @@ def describe(tenant, version):
         source = source if isinstance(source, dict) else {"origin": source}
         info["imported_from"] = str(source.get("origin") or "").strip() or None
         info["added_at"] = str(lib.get("added_at") or source.get("imported_at") or "").strip() or None
+        # cycle 90: the import's fidelity score (0-1), shown on the card
+        if isinstance(lib.get("fidelity"), (int, float)):
+            info["fidelity"] = round(float(lib["fidelity"]), 2)
     else:
         notes.append(LOOK_NOTES.get((version.cartridge, version.look), ""))
     if version.first_screen:

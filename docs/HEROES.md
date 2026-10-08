@@ -71,17 +71,24 @@ recorded as what rendered, not as what was asked. `harness rerender --hero-style
 
 ## Images: `heroes.pick_image(needs, ...)`
 
-One function, so cycle 93's resolver can replace the matcher without touching a composition.
-Sources in the need's order:
+One function; since the merge with cycle 93 it asks the slot resolver, `images.fill_slots`
+(harness/images.py, docs/IMAGES.md section 11). A composition's image spec uses the resolver's
+vocabulary: `sources` (order), `shots` (cycle 93 SHOTS: hero-wide, room, detail-macro, exterior,
+lifestyle-person, cutout), and the slot `want` keys `fullbleed_ok`, `dark_ok`, `mood`,
+`orientation`, `aspect_min/max`, plus a `crop`. Each source is one slot, tried in order:
 
-- `ad_still`: the run's ad still (`asset-adframe`, harness/ad_frames.py), cropped by its face
-  position.
-- `library`: the photo-library photos the facts pack offers (brand/photo-library.json tags),
-  never one with a text overlay, the retired mark (`old_logo_visible`) or blur, never one
-  already on the page; ranked by orientation (`wide` / `portrait`), setting, a dark mean
-  luminance when `dark_ok` (measured on the local file), clutter, then `photo_library.hero_rank`.
-  A real render skips a photo whose file is not on the machine.
+- `ad_still`: the run's ad stills (`asset-adframe` and the cycle 93 extra stills), scored by the
+  resolver (a face-checked frame first); positioned by the frame's face point.
+- `library`: photo-library photos of the page's model (plus model-agnostic ones) whose shot is
+  one of `shots`, filtered by the want keys on a strict pass and again with the frame filters
+  relaxed; never a text overlay, never the retired mark above the fold, never a photo already on
+  the page; ranked by the page's model, quality, blur, clutter. The file must be on the machine.
+  The picture is positioned on its measured focal point; letters_pill cuts the `pill` window
+  round it (`render_image_slot(crop="pill")`).
 - `cutout`: the product's cut-out (harness/cutouts.py), shown contained.
+
+Adapters (face, story, display, ad_first) print the look's own images; the resolver only answers
+whether face has a still.
 
 ## Add a composition
 

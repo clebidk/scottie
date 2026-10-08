@@ -17,7 +17,7 @@ def context(page, ad_brief, facts_pack, tenant, image, *, cartridge, base, look)
 
 register(Hero(
     id="dark_statement", title="Dark statement", supports=("listicle", "landing"), context=context,
-    needs={"image": {"sources": ("library",), "shots": ("detail",), "dark_ok": True,
+    needs={"image": {"sources": ("library",), "shots": ("detail-macro",), "dark_ok": True,
                      "label": "a dark detail (macro) photo"},
            "required": False},
     summary="A dark ground with one display line and one pill; a dark macro photo when the library has one.",
