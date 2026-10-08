@@ -1009,10 +1009,37 @@ def summarise(observation):
 # left out on purpose: a look prints only renderer-checked values.
 CONTRACT_NAMES = {
     "landing": ("page", "product", "assets", "cartridge_data", "disclosure_label", "byline_html",
-                "render_image_slot", "image_fit", "look", "tenant_name"),
+                "render_image_slot", "image_fit", "look", "tenant_name", "blocks"),
     "listicle": ("page", "product", "assets", "cartridge_data", "first_screen", "disclosure_label", "byline_html",
-                 "about_author_html", "render_image_slot", "image_fit", "look", "tenant_name", "micro_cta_after"),
+                 "about_author_html", "render_image_slot", "image_fit", "look", "tenant_name", "micro_cta_after",
+                 "blocks"),
 }
+# Cycle 91: a look may include a catalog block (harness/blocks/catalog/) as
+# {% include "blocks/<id>.html" %}; its rendered context is `blocks.<id>`.
+_BLOCK_INCLUDE_RE = re.compile(r"^blocks/([a-z][a-z0-9_]*)\.html$")
+
+
+def included_blocks(text):
+    """The catalog block ids a template includes, in order (no repeats);
+    [] when it does not parse."""
+    try:
+        ast = _jinja_env().parse(text)
+    except jinja2.TemplateSyntaxError:
+        return []
+    out = []
+    for node in ast.find_all(nodes.Include):
+        m = _BLOCK_INCLUDE_RE.match(node.template.value) if isinstance(node.template, nodes.Const) and \
+            isinstance(node.template.value, str) else None
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def look_spec_for(text):
+    """The look.json an imported look gets: the catalog blocks it includes
+    (None when it includes none)."""
+    ids = included_blocks(text)
+    return {"blocks": ids} if ids else None
 JINJA_NAMES = frozenset({"loop", "range", "namespace", "super", "caller", "varargs", "kwargs"})
 # Keys of the renderer's own context that are bookkeeping, not page content.
 HIDDEN_DATA_KEYS = frozenset({"accent_note", "claim_ids", "pronoun"})
@@ -1095,6 +1122,9 @@ def contract(cartridge, tenant, demo):
         fs = first_screen_mod.render_context(copy.deepcopy(page), ad_brief=brief, facts_pack=fp, tenant=tenant,
                                              hero_style="display", frame=None, updated="2026-01-01")
         data["first_screen"] = sorted(set(fs) - HIDDEN_DATA_KEYS)
+    from .blocks import catalog as block_catalog
+
+    data["blocks"] = sorted(block_catalog.ids())
     product = sorted(set((fp.get("product") or {})) | {"full_name", "descriptor"})
     return {"names": CONTRACT_NAMES[cartridge], "data": data, "product": product}
 
@@ -1332,8 +1362,19 @@ def static_errors(text, cartridge, *, contract_, schema, max_dark=1):
     if len(extends) != 1 or not (isinstance(extends[0].template, nodes.Const)
                                  and extends[0].template.value == "base.html"):
         errors.append('the template must start with {% extends "base.html" %} (once)')
+    from .blocks import catalog as block_catalog
+
+    included = []
     for node in ast.find_all((nodes.Include, nodes.Import, nodes.FromImport)):
-        errors.append(f"line {node.lineno}: {{% include %}}/{{% import %}} is not allowed in a look")
+        # Cycle 91: the one allowed include -- a catalog block's partial, by
+        # its literal name.
+        m = (_BLOCK_INCLUDE_RE.match(node.template.value) if isinstance(node, nodes.Include)
+             and isinstance(node.template, nodes.Const) and isinstance(node.template.value, str) else None)
+        if m and block_catalog.get(m.group(1)) is not None:
+            included.append(m.group(1))
+            continue
+        errors.append(f"line {node.lineno}: {{% include %}}/{{% import %}} is not allowed in a look, except "
+                      f"{{% include \"blocks/<id>.html\" %}} for a catalog block ({', '.join(block_catalog.ids())})")
     blocks = [b.name for b in ast.find_all(nodes.Block)]
     for name in blocks:
         if name not in ALLOWED_BLOCKS:
@@ -1367,7 +1408,7 @@ def static_errors(text, cartridge, *, contract_, schema, max_dark=1):
             errors.append(f"line {node.lineno}: a string with '__' in it")
 
     aliases = {"cartridge_data": "cartridge_data", "first_screen": "first_screen", "page": "page",
-               "product": "product"}
+               "product": "product", "blocks": "blocks"}
     for node in ast.find_all(nodes.Assign):
         if isinstance(node.target, nodes.Name) and isinstance(node.node, nodes.Name) and node.node.name in aliases:
             aliases[node.target.name] = aliases[node.node.name]
@@ -1437,6 +1478,11 @@ def static_errors(text, cartridge, *, contract_, schema, max_dark=1):
         if node.name not in ("defined", "undefined", "none", "string", "number", "mapping", "sequence",
                              "iterable", "odd", "even", "divisibleby", "in", "eq", "ne", "lt", "gt", "le", "ge"):
             errors.append(f"line {node.lineno}: test {node.name!r} is not allowed")
+
+    # Cycle 91: an included catalog block prints what it covers (the faq
+    # block prints page.faq, the trust bar the trust facts, ...).
+    for block_id in included:
+        used |= set(block_catalog.get(block_id).covers)
 
     # -- required references (the renderer-owned blocks and the writer's sections)
     for root, keys in rules["required"].items():
@@ -1730,6 +1776,9 @@ def render_errors(text, cartridge, slug, tenant, demo):
             looks_root = tmp / "looks"
             (looks_root / cartridge / slug).mkdir(parents=True)
             (looks_root / cartridge / slug / "template.html").write_text(text)
+            spec = look_spec_for(text)
+            if spec:
+                (looks_root / cartridge / slug / "look.json").write_text(json.dumps(spec) + "\n")
             page = copy.deepcopy(demo["page"])
             page["look"] = slug
             out = tmp / f"look-{slug}" / cartridge
@@ -2015,6 +2064,9 @@ def store_look(tenant, cartridge, slug, *, template, library, observation, revie
     staging.mkdir()
     try:
         (staging / "template.html").write_text(template)
+        spec = look_spec_for(template)
+        if spec:   # cycle 91: the catalog blocks it includes
+            (staging / "look.json").write_text(json.dumps(spec, indent=2) + "\n")
         (staging / "library.json").write_text(json.dumps(library, indent=2) + "\n")
         (staging / "observation.json").write_text(json.dumps(observation, indent=2) + "\n")
         (staging / "review.html").write_text(review_html)

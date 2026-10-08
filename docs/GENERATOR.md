@@ -318,6 +318,15 @@ writer adds two optional fields only for this look -- `benefits` and `icon_row`
 (`cartridges.landing.looks`), or the A/B/C library entries `landing:open` / `landing:proof`;
 the variant record keeps the look. `--look proof` reaches the writer, unlike a rerender.
 
+**Block-built looks (cycle 91).** The landing cartridge also has `cinematic` (pack page 08: a
+full-bleed first screen with the stats inside it, a photo essay, a feature grid, a dark statement
+band) and `buybox` (pack page 06: a trust bar, the cycle 94 `buybox` first screen, then the
+product with labelled hotspots). Their first screens are cycle 94 hero compositions. Both are composed from the block catalog (`harness/blocks/catalog/`): sections the harness
+owns from end to end, declared in a `look.json` next to the look's template. A declared block
+renders from facts_pack; only its writer fields (`page.json` `blocks.<id>`) reach the prompt; only
+its gates run. See docs/BLOCKS.md for the catalog, how a look declares blocks, and how to write a
+block. `--look cinematic|buybox`, A/B/C `landing:cinematic` / `landing:buybox`.
+
 ## Tenant looks (cycle 87, "Import a page")
 
 A look can also belong to a TENANT: `tenants/<t>/looks/<cartridge>/<slug>/`
@@ -468,6 +477,11 @@ just as part of `harness/`); a `<script>` tag; an inline event handler; an
 `<img>` with no explicit size; a color that isn't a `var(--…)` token; and a
 fixed width over 390px (a block must never break the mobile-first layout).
 `tests/test_blocks.py` runs every registered block through this gate.
+
+These registry blocks are layout variants of one slot. The cycle 91 **block catalog**
+(`harness/blocks/catalog/`, snake_case ids, docs/BLOCKS.md) is a different tier: whole sections
+with their own data, writer fields, gates, markup and CSS, which a look declares in `look.json`
+and includes as `{% include "blocks/<id>.html" %}`.
 
 ## The comparison cartridge (v1.0.0, cycle 56; opt-in)
 

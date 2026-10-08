@@ -1275,7 +1275,7 @@ class LocalFactsSource:
         }
         return compare, backing
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, include_product_page=False, include_quiz=False, live_price_claims=None, log=None):
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, include_product_page=False, include_quiz=False, live_price_claims=None, log=None, include_models=False):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -1511,6 +1511,17 @@ class LocalFactsSource:
                 {"id": c["id"], "text": c["text"], "category": c["category"], "source": c["source"]}
                 for c in backing_claims
                 if c["id"] not in existing_ids
+            ]
+        if include_models:
+            # Cycle 91: the model_grid catalog block's rows -- one per active
+            # product with a price claim, cheapest first (the quiz's own model
+            # list) -- only when the run's look declares that block; their
+            # price/capacity claims join the citable universe.
+            models, backing_claims = self._quiz_models(live_price_claims)
+            pack["models"] = models
+            existing_ids = {c["id"] for c in pack["verified_claims"]}
+            pack["verified_claims"] = pack["verified_claims"] + [
+                c for c in backing_claims if c["id"] not in existing_ids
             ]
         if include_quiz:
             # Cycle 57: only a run whose selected cartridges include quiz gets

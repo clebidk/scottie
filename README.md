@@ -119,6 +119,11 @@ harness/blocks/ the layout-block registry (registry.json + one block.html/
                 inline handler, an unsized <img>, a non-var(--…) color, or a
                 fixed width over 390px, so a block can never smuggle in
                 copy or a company's words.
+harness/blocks/catalog/
+                cycle 91: the block catalog -- whole sections (stat strip,
+                photo essay, hotspot image, feature grid, model card/grid,
+                statement band, FAQ, trust bar), each a module + a partial,
+                that a look declares in look.json; see docs/BLOCKS.md.
 agents/         role briefs, one per pipeline job, as markdown with front-matter.
 workflows/      named pipelines as YAML. `stage:` steps are executed by the
                 runner; `action:` steps are specification only.

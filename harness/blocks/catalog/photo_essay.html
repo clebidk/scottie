@@ -1,0 +1,26 @@
+{#- Block `photo_essay` (cycle 91, harness/blocks/catalog/photo_essay.py): 2-4
+    renderer-picked library photos, each with the writer's one short line.
+    layout "contained": one column on a phone, one row of 2-4 from 768px,
+    inside the look's container; "bleed": every photo edge to edge, the line
+    under it in a 16px/32px gutter (include it outside any container). -#}
+{%- set bk = blocks.photo_essay if blocks and blocks.photo_essay else none -%}
+{%- if bk and bk.photos %}
+<style>
+.bk-photo_essay{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));display:grid;grid-template-columns:minmax(0,1fr);gap:32px;margin:0}
+.bk-photo_essay .bk-photo_essay-fig{margin:0;min-width:0}
+.bk-photo_essay .bk-photo_essay-fig .adv-img{width:100%;margin:0;border-radius:var(--bk-radius);object-fit:cover}
+.bk-photo_essay .bk-photo_essay-line{margin:14px 0 0;font:500 17px/1.4 var(--bk-heading);color:var(--bk-ink);max-width:36ch;text-wrap:pretty}
+.bk-photo_essay.bk-photo_essay--bleed{gap:40px}
+.bk-photo_essay.bk-photo_essay--bleed .bk-photo_essay-fig .adv-img{border-radius:0}
+.bk-photo_essay.bk-photo_essay--bleed .bk-photo_essay-line{padding:0 16px;max-width:40ch}
+@media (min-width:768px){
+  .bk-photo_essay.bk-photo_essay--contained{grid-template-columns:repeat({{ bk.photos | length }},minmax(0,1fr));gap:28px}
+  .bk-photo_essay.bk-photo_essay--bleed .bk-photo_essay-line{padding:0 32px}
+}
+</style>
+<div class="bk-photo_essay bk-photo_essay--{{ bk.layout }}" data-look-pattern="photo_essay">
+{%- for item in bk.photos %}
+  <figure class="bk-photo_essay-fig">{{ render_image_slot(assets.get(item.asset_id), frame="3x2" if bk.layout == "bleed" else "4x5") }}{% if item.line %}<figcaption class="bk-photo_essay-line">{{ item.line }}</figcaption>{% endif %}</figure>
+{%- endfor %}
+</div>
+{%- endif %}

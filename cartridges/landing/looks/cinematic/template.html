@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{# Landing look `cinematic` (cycle 91) -- built from the block catalog
+   (harness/blocks/catalog/, docs/BLOCKS.md), modelled on the approved pack
+   page 08 (a Function Health-style landing page).
+
+   Order: the first screen is a cycle 94 hero composition (harness/heroes/,
+   `{% include "heroes/_pick.html" %}`; look.json "heroes"): by default
+   `caps_over_photo` -- the ad still or a wide library photo under a flat
+   basalt overlay -- which falls back to `dark_statement` with no photo; then
+   the stat_strip block on the same dark ground (layout "inline"; on the
+   light `split` / `letters_pill` compositions the strip sits on hairlines).
+   Then the checked claims as numbered steps; the photo_essay
+   block (library photos, one writer line each); the feature_grid block
+   (renderer icons, writer label + line); the statement_band block (the one
+   dark band below the fold: a display line and the pill); the rating,
+   warranty and review quote; a large display price; the faq block; the
+   light closing with the closing headline and the pill; the sticky bar.
+
+   Blocks are declared in look.json beside this file; the writer fills
+   blocks.photo_essay, blocks.feature_grid and blocks.statement_band. The
+   price, specs, stats, rating, financing and warranty are the renderer's;
+   the first screen's image is the hero composition's (images.fill_slots).
+   Mobile first (390px), widened at 768px and 1024px. Prefix `ld-` for the
+   shared pieces (the CTA pill `ld-btn`, the text link `ld-text`, the sticky
+   bar `ld-bar`), `cn-` for this look's layout, all under .adv-landing.
+   Colours are the tenant's --ps-* tokens through --pk-* names; no literal. #}
+{% block title %}{{ page.hero.headline }}{% endblock %}
+{% block byline %}<div class="adv-byline ld-about">{{ byline_html | safe }}</div>{% endblock %}
+{% block content %}
+{% set ld = cartridge_data %}
+{% set room_asset = assets.get(page.room_photo.asset_id) if page.room_photo and page.room_photo.asset_id else None %}
+{% set show_room = room_asset and room_asset.kind in ld.room_kinds and not room_asset.ai_generated %}
+{% set cn_dark = hero.id in ("caps_over_photo", "dark_statement") %}
+{% set q = ld.review_quote %}
+<style>
+.adv-wrap:has(.adv-landing){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.adv-landing) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.adv-landing{
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted-alt,var(--ps-muted,var(--adv-muted)));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-red:var(--ps-red,var(--ps-accent-hover,var(--adv-accent)));
+  --pk-line:var(--ps-hairline,var(--ps-border,var(--adv-border)));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-heading:var(--ps-heading,var(--pk-sans));
+  --pk-display-wide:var(--ps-display-wide,var(--pk-heading));
+  --pk-display-acid:var(--ps-display-acid,var(--pk-heading));
+  --pk-radius:var(--ps-radius-box,4px);
+  --pk-max:var(--ps-max-width,1320px);
+  --cn-gap:64px;
+  background:var(--pk-bg);
+  color:var(--pk-body);
+  font-family:var(--pk-sans);
+  font-size:16.5px;
+  line-height:1.55;
+  overflow-x:clip;
+}
+.adv-landing.pk-lp{display:block}
+.adv-landing .ld-about{margin-top:0}
+.adv-landing p{color:var(--pk-body)}
+.adv-landing .cn-c{max-width:1200px;margin:0 auto;padding:0 16px}
+.adv-landing .cn-eyebrow{font:500 11.5px/1.4 var(--pk-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--pk-muted);margin:0 0 12px}
+.adv-landing .cn-eyebrow span{padding:0 6px}
+.adv-landing .cn-h2{margin:0 0 24px;font:600 26px/1.15 var(--pk-heading);letter-spacing:-.015em;color:var(--pk-ink);text-wrap:balance;max-width:22ch}
+.adv-landing .cn-sec{padding:var(--cn-gap) 0 0}
+.adv-landing .cn-rule{border:0;border-top:1px solid var(--pk-line);margin:var(--cn-gap) 0 0}
+/* the stats under the first screen: on its dark ground, or on hairlines */
+.adv-landing .cn-stats{padding:0 16px}
+.adv-landing .cn-stats .bk-stat_strip{max-width:1200px;margin:0 auto}
+.adv-landing .cn-stats--dark{background:var(--pk-dark);padding-bottom:32px}
+.adv-landing .cn-stats--light{padding-top:24px}
+.adv-landing .cn-stats--light .bk-stat_strip.bk-stat_strip--inline{--bk-line:var(--pk-line)}
+.adv-landing .cn-stats--light .bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-value{color:var(--pk-ink)}
+.adv-landing .cn-stats--light .bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-label{color:var(--pk-muted);opacity:1}
+.adv-landing .cn-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px}
+.adv-landing .ld-btn{display:inline-flex;align-items:center;justify-content:center;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:var(--ps-radius-btn,999px);padding:15px 36px;min-height:52px;font:600 16px/1.2 var(--pk-heading);text-decoration:none;text-align:center}
+.adv-landing .ld-btn:hover{background:var(--pk-red)}
+/* checked claims as numbered steps */
+.adv-landing .cn-steps{list-style:none;margin:0;padding:0}
+.adv-landing .cn-step{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 12px;padding:22px 0;border-top:1px solid var(--pk-line)}
+.adv-landing .cn-step:last-child{border-bottom:1px solid var(--pk-line)}
+.adv-landing .cn-num{font:400 30px/1 var(--pk-display-acid);color:var(--pk-red)}
+.adv-landing .cn-said{margin:0 0 6px;font:600 18px/1.3 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .cn-fact{margin:0;color:var(--pk-muted);max-width:60ch}
+.adv-landing .cn-side{margin:32px 0 0}
+.adv-landing .cn-side .adv-img{width:100%;border-radius:var(--pk-radius);object-fit:cover}
+/* proof */
+.adv-landing .cn-proof{list-style:none;margin:0;padding:0;display:grid;gap:22px}
+.adv-landing .cn-proof li{border-left:3px solid var(--pk-red);padding:2px 0 2px 16px}
+.adv-landing .cn-proof b{display:block;margin-bottom:2px;font:400 30px/1.1 var(--pk-display-wide);color:var(--pk-ink)}
+.adv-landing .cn-proof span{display:block;color:var(--pk-muted)}
+.adv-landing .cn-proof blockquote{margin:0}
+.adv-landing .cn-proof blockquote p{margin:0;font:500 17px/1.45 var(--pk-heading);color:var(--pk-ink)}
+/* price */
+.adv-landing .cn-big{margin:0;font:400 44px/1.02 var(--pk-display-wide);color:var(--pk-ink);overflow-wrap:anywhere}
+.adv-landing .cn-pricecopy p{margin:16px 0 20px;color:var(--pk-muted);max-width:44ch}
+/* closing */
+.adv-landing .cn-close{padding:var(--cn-gap) 0 72px}
+.adv-landing .cn-close .cn-h2{font-size:30px;max-width:18ch}
+.adv-landing .cn-fine{margin:16px 0 0;max-width:52ch;font-size:13.5px;color:var(--pk-muted)}
+/* sticky bar: price + the pill, after the first screen scrolls out */
+.adv-landing .ld-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--pk-bg);border-top:1px solid var(--pk-line);transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility .25s}
+.adv-landing .ld-bar.ld-bar--on{transform:none;visibility:visible}
+.adv-landing .ld-bar b{font:600 18px/1 var(--pk-heading);color:var(--pk-ink);white-space:nowrap}
+.adv-landing .ld-bar .ld-btn.ld-btn{min-height:46px!important;padding:10px 24px!important;font-size:15px!important}
+@media (min-width:768px){
+  .adv-landing{--cn-gap:88px;font-size:17px}
+  .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
+  .adv-landing .cn-c,.adv-landing .cn-stats{padding-left:32px;padding-right:32px}
+  .adv-landing .cn-h2{font-size:38px}
+  .adv-landing .cn-big{font-size:68px}
+  .adv-landing .cn-close .cn-h2{font-size:42px}
+  .adv-landing .ld-bar{justify-content:center;gap:24px}
+}
+@media (min-width:1024px){
+  .adv-landing{--cn-gap:104px}
+  .adv-landing .cn-steps-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:72px;align-items:start}
+  .adv-landing .cn-side{position:sticky;top:32px;margin-top:0}
+  .adv-landing .cn-split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:72px;align-items:start}
+  .adv-landing .cn-split--end{align-items:end}
+  .adv-landing .cn-big{font-size:88px}
+  .adv-landing .ld-bar{display:none}
+}
+</style>
+<div class="pk-lp adv-landing">
+
+  {% include "heroes/_pick.html" %}
+  <div class="cn-stats {{ 'cn-stats--dark' if cn_dark else 'cn-stats--light' }}">{% include "blocks/stat_strip.html" %}</div>
+
+  {% if page.checked_claims %}
+  <section class="cn-sec">
+    <div class="cn-c{{ ' cn-steps-grid' if show_room and not (hero.image and hero.image.id == room_asset.id) else '' }}">
+      <div>
+        <p class="cn-eyebrow">The ad, checked</p>
+        <h2 class="cn-h2">What the ad said, and what holds up</h2>
+        <ol class="cn-steps">
+          {% for item in page.checked_claims %}
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">{{ "%02d" | format(loop.index) }}</span><div><p class="cn-said">{{ item.ad_said }}</p><p class="cn-fact">{{ item.fact }}</p></div></li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% if show_room and not (hero.image and hero.image.id == room_asset.id) %}<figure class="cn-side">{{ render_image_slot(room_asset, frame="4x5") }}</figure>{% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if blocks.photo_essay and blocks.photo_essay.photos %}
+  <section class="cn-sec">
+    <div class="cn-c">
+      <p class="cn-eyebrow">A closer look</p>
+      {% include "blocks/photo_essay.html" %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if blocks.feature_grid and blocks.feature_grid.cells %}
+  <section class="cn-sec">
+    <div class="cn-c">
+      <p class="cn-eyebrow">{{ product.full_name or product.name }}</p>
+      <h2 class="cn-h2">What comes with it</h2>
+      {% include "blocks/feature_grid.html" %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if blocks.statement_band and blocks.statement_band.line %}
+  <div class="cn-sec">{% include "blocks/statement_band.html" %}</div>
+  {% endif %}
+
+  {% if ld.warranty or ld.rating or q %}
+  <section class="cn-sec">
+    <div class="cn-c cn-split">
+      <div>
+        <p class="cn-eyebrow">Who stands behind it</p>
+        <h2 class="cn-h2">{{ tenant_name }}</h2>
+      </div>
+      <ul class="cn-proof">
+        {% if ld.rating %}<li><b>{{ ld.rating.value }}</b><span>{{ ld.rating.label }}</span></li>{% endif %}
+        {% if q %}<li><blockquote><p>&ldquo;{{ q.text }}&rdquo;</p>{% if q.author %}<span>{{ q.author }}</span>{% endif %}</blockquote></li>{% endif %}
+        {% if ld.warranty %}<li><span>{{ ld.warranty.text }}</span></li>{% endif %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if ld.price %}
+  <div class="cn-c"><hr class="cn-rule"></div>
+  <section class="cn-sec">
+    <div class="cn-c cn-split cn-split--end">
+      <div>
+        <p class="cn-eyebrow">{{ product.full_name or product.name }}</p>
+        <p class="cn-big">{{ ld.price.text }}</p>
+      </div>
+      <div class="cn-pricecopy">
+        {% if ld.financing %}<p>{{ ld.financing }}</p>{% endif %}
+        <div class="cn-ctas"><a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if blocks.faq and blocks.faq.questions %}
+  <section class="cn-sec">
+    <div class="cn-c cn-split">
+      <div><p class="cn-eyebrow">Questions</p><h2 class="cn-h2">Before you buy</h2></div>
+      {% include "blocks/faq.html" %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="cn-close">
+    <div class="cn-c">
+      <h2 class="cn-h2">{{ page.closing.headline }}</h2>
+      <div class="cn-ctas"><a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+      {% if ld.warranty %}<p class="cn-fine">{{ ld.warranty.text }}</p>{% endif %}
+    </div>
+  </section>
+
+  <div class="ld-bar">
+    {% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}
+    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+  </div>
+</div>
+<script>
+</script>
+{% endblock %}

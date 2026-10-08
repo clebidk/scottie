@@ -346,6 +346,10 @@ def ground(state):
         include_product_page="product-page" in state.selected,
         live_price_claims=state.live_price_claims_by_slug,
         log=state.log,
+        # Cycle 91: the model_grid block's model rows, only for a landing look
+        # that declares that block (harness/blocks/catalog/); passed only then,
+        # so a facts source without the keyword is untouched.
+        **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
     )
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
     if "quiz" in state.selected:
@@ -603,6 +607,17 @@ def write_pages(state):
             "deterministic_fixes": deterministic_fixes,
         }
         state.pages[cartridge_name] = page
+
+
+def _landing_look_uses(state, block_id):
+    """True when this run renders a landing page whose look declares the
+    catalog block `block_id` in its look.json."""
+    from .blocks import catalog as block_catalog
+
+    look = getattr(state, "landing_look", None)
+    if "landing" not in state.selected or not look:
+        return False
+    return block_id in block_catalog.look_blocks("landing", look, tenant=state.tenant)
 
 
 def render_pages(state):

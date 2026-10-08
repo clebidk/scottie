@@ -48,6 +48,7 @@ harness = [
     "blocks/*/block.html",
     "blocks/*/block.css",
     "blocks/*/screenshot.svg",
+    "blocks/catalog/*.html",
     "design_skills/rules.json",
     "design_skills/SOURCE.json",
     "design_skills/LICENSE",

@@ -5328,6 +5328,130 @@ reproduce. Page 03 was refused twice: the model printed the byline (with its fou
   thresholds tuned on the ten pack pages and the cycle 87 fixture.
 - `tests/test_tenant_peak.py::test_hsa_fsa_truemed_text_and_category` fails on origin/master already
   (c74c6bd moved HSA/FSA to Redo; the test still expects TrueMed). Not touched here.
+
+## Cycle 91 (block catalog: photo essay, hotspot image, stat strip, feature grid, model card/grid, statement band, trust bar, FAQ; two block-built looks, 2026-10-07)
+Branch `cycle91/block-catalog` from master bbc3ac4. Not merged, not pushed.
+
+### Problem
+Owner: "all the themes in library are uber simplified; we need to make them cooler and more like
+the 10 examples". A look could only arrange the few fields its cartridge writes. No look could show
+a photo essay, a hotspot image, stats inside the hero, a feature grid, a model card or a dark
+statement band, because no renderer value and no writer field existed for them.
+
+### Change
+- **`harness/blocks/catalog/`** (docs/BLOCKS.md): nine blocks, each one module that calls
+  `register(Block(...))` plus one partial `<id>.html`. The partial uses tokens only, `bk-<id>-*`
+  classes, has its scoped CSS in the same file, and puts `data-look-pattern="<id>"` on its root
+  element for cycle 90. The blocks:
+  - `stat_strip`: `first_screen.stats` filled from `landing.spec_strip`, 3-4 stats, layout
+    `inline`/`band`.
+  - `photo_essay`: photo-library photos by tag (room, detail, exterior, best first), with a writer
+    line for each photo (14 words or fewer, claim ids when the line has a number). Option `ad_still`.
+  - `hotspot_image`: the cut-out with dots. The labels come from verified specs and claims of the
+    model. The positions come from the new `tenants/peak-saunas/brand/hotspots.json` (11 cut-outs,
+    keys heater/bench/panel/glass/control/wood), else the dots are placed evenly. Fewer than 3
+    labels gives a list with no dots.
+  - `feature_grid`: writer `{label, line, claim_ids}` with the icon_row gates plus the line rule.
+    The renderer picks the icon from the cited claims' topic, so the cycle 85 open issue (an icon
+    that contradicts its claim) cannot happen here.
+  - `model_card` (variants `card`/`panel`) and `model_grid` (every priced model with a cut-out;
+    `facts_pack.models` from `_quiz_models`, joined only when the look declares the block). Every
+    card links to the one CTA, and a `page_gate` refuses a `cta_text` that names a model.
+  - `statement_band`: a writer line of 12 words or fewer, no number, and the pill.
+  - `faq`: the FAQ markup that the landing `open` and `proof` looks repeated now lives here. A look
+    that includes the partial without declaring it gets the old markup byte for byte.
+  - `trust_bar`: the warranty term, free shipping, the fixed financing sentence, the HSA/FSA claim.
+- **Looks declare blocks** in `look.json` next to the template (built-in or tenant look). The
+  loader is a `blocks/` prefix loader; the template context is `blocks` ({} for a look with no
+  blocks). The rendered blocks' images join the download set and their claims join Sources
+  (`render.py`). `catalog.look_spec` refuses an unknown id.
+- **Writer**: `write._append_landing_guidance` adds only the declared blocks' lines and schema
+  fragments. `repair.check_page_gates(look=...)` (the run's landing look, else `page.look`) runs
+  `catalog.find_violations`: an unknown block, an undeclared block, fields for a renderer-only
+  block, a declared writer block left out, and each block's own field gates, with keys
+  `blocks:<id>:*` and paths `$.blocks.<id>.<field>`. `pagechecks.find_block_violations` now skips
+  object values: a string value is still a cycle 34 slot pick. `degenerate_repair` counts a dropped
+  block, except one the gate asked the writer to remove. The generic gates and the deterministic
+  fixes already walk block fields.
+- **Two looks**: `cartridges/landing/looks/cinematic/` (pack 08) and `.../buybox/` (pack 06),
+  `looks.CARTRIDGE_LOOKS["landing"]` = open, proof, cinematic, buybox (the default stays `open`).
+  Both are mobile first with no colour literal. Copies are tenant looks `block-cinematic` and
+  `block-buybox` under `tenants/peak-saunas/looks/landing/` (gitignored, with library.json).
+- **fake_run**: `LANDING_BLOCK_FIELDS`, added to the canned landing page for the blocks a look
+  declares. `run_once` now resolves the landing look with the tenant, so a tenant look gets its
+  blocks' canned fields.
+- **Library**: notes for the two looks. The sha now also covers `look.json` and the files of the
+  declared blocks.
+- **Look import**: `{% include "blocks/<id>.html" %}` (a literal catalog id) and `blocks` are now
+  part of the contract. An included block counts as printing what it `covers` (faq: `page.faq`,
+  trust_bar: the trust line, stat_strip: the specs, model_card: the price, rating and financing).
+  The stored look gets a `look.json` for the blocks it includes. `look_import_rules.md` documents
+  the constructs.
+
+### Verify
+- Default looks byte-identical: the canned page rendered in `open` and `proof` (with no brand
+  folder) has the same sha256 as on master (5bfdce0f..., 36617160...). The values are pinned in
+  `tests/test_blocks_cycle91.py`.
+- `tests/test_blocks_cycle91.py`: 43 tests. They cover: the partials (marker, scope, tokens,
+  width, own classes); look.json errors; each renderer-only block from a fixture facts pack;
+  photo_essay picks, pairing, degradation and the ad still; the gates of the three writer blocks
+  and the claim-topic icons (identical to the proof look's icons); the catalog gate in
+  `check_page_gates`; the degenerate guard; the prompt for each look; both looks rendered in order,
+  passing the brand lint, with one h1; the fake runs (exit 0, pagechecks, the Shopify export
+  invariants); the Library listing and sha; model rows in facts_pack; a look import with a block
+  include. Changed tests: `test_library_cycle86.py` (four landing versions) and
+  `test_look_import_cycle87.py` (the stored look now has look.json; the "has a number" mutation
+  targets another heading, because the FAQ heading moved into the partial).
+- Full suite: `.venv/bin/python -m pytest -q` passed 2774 tests, 0 failed (master bbc3ac4: 2729).
+- `python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant
+  peak-saunas --cartridges landing --look cinematic` and `--look buybox`: exit 0 for both.
+  `harness shopify-body` and `harness review` succeeded on both runs.
+  `harness library build --tenant peak-saunas --only landing --force`: 6 built (open, proof,
+  cinematic, buybox, block-buybox, block-cinematic) with 6 thumbnails (Chrome shim), 0 failed.
+- Headless Chrome at 390px and 1440px. The cinematic look was also shot with the pack's photo
+  library linked as `HARNESS_PHOTO_LIBRARY_DIR`, which showed the photo essay with 4 photos (the
+  test conftest turns the library off, so fake runs on this Mac show no essay).
+
+### Open
+- **Listicle writer**: blocks render and are gated on any cartridge with looks, but only the
+  landing look reaches the writer prompt. No listicle look declares blocks yet, and the run's
+  listicle look is not passed to the writer (`landing_look` is the only look parameter there).
+- **Cinematic first screen**: the screen is dark only behind the ad still or a writer-picked
+  real-room photo. An image ad with no room photo gets the light version with the cut-out, because
+  the cut-out is flattened onto white and cannot sit on the dark ground.
+- **Buybox on a phone**: as on pack page 06, the image and its label list come before the headline,
+  so the headline sits below the first 844px screen.
+- **Canned essay lines** in fake runs do not describe the photos the library picks. A real run
+  tells the writer each photo's description, in order.
+- `harness rerender --look cinematic` on a page written for another look shows no writer blocks
+  (no model call), the same as cycle 85's proof look.
+- The hotspot positions were set by eye from the 2026-10-05 cut-outs. The glass and control dots
+  show only when a claim of the model names them; the offline Fuji pack has neither claim.
+- No real-model run.
+
+### Cycle 91b (merge with origin/master 3e70b2e: cycles 90, 93, 94, 95, 2026-10-08)
+- Conflicts: `docs/FIXLOG.md` (both sides kept, cycles in number order) and `harness/library.py`
+  (the version sha keeps cycle 94's look.json and hero partials, and adds the declared catalog
+  blocks' files; look.json is counted once).
+- Blocks and hero compositions: one `look.json` now declares both (`heroes`/`default_heroes` and
+  `blocks`/`options`). The two looks no longer draw their own first screen. `cinematic` includes
+  `heroes/_pick.html` (default `caps_over_photo` -> `dark_statement`; `split`, `letters_pill`)
+  with `stat_strip` directly under it. `buybox` uses the cycle 94 `buybox` composition as its buy
+  box, with `hotspot_image` below it, and no longer declares `model_card` (the composition is
+  the buy panel). The sticky bar anchors on `hero.anchor`.
+- Images in blocks go through `images.fill_slots`: `photo_essay` (three group slots and an
+  `ad-still` slot; `BlockContext.frame_record`), `hotspot_image` and `model_card` (the cut-out
+  slot). `model_grid` still reads other models' cut-outs from `harness/cutouts.py` (the resolver
+  serves the page's own model only).
+- Tests: the open/proof render pins in `tests/test_blocks_cycle91.py` were re-pinned to the merge.
+  A render of 3e70b2e itself gives the same two hashes, so the catalog does not change master's
+  output. The pins in `tests/test_heroes_cycle94.py` were not touched and pass. The block tests
+  give the resolver a candidate pool, and the importer test uses `heroes.standalone_source`.
+- Cycle 90: block roots now carry the cycle 90 pattern name after the block id where one exists
+  (`stat_strip stat-strip`, `hotspot_image hotspots`, `model_grid product-grid`, `trust_bar
+  trust-bar`, `feature_grid icon-row`). The cycle 87/90 import fixture marks the FAQ with a wrapper
+  around the faq block include, because the FAQ markup moved into blocks/faq.html.
+
 ## Cycle 93 (image pipeline: richer tags, slot resolver, focal crops, better ad stills, 2026-10-07)
 
 Branch `cycle93/image-pipeline` from master bbc3ac4. Not merged, not pushed.
