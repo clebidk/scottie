@@ -23,14 +23,20 @@
    Mobile first (390px), widened at 768px and 1024px. Prefix `ld-` for the
    shared pieces (the CTA pill `ld-btn`, the text link `ld-text`, the sticky
    bar `ld-bar`), `cn-` for this look's layout, all under .adv-landing.
-   Colours are the tenant's --ps-* tokens through --pk-* names; no literal. #}
+   Colours are the tenant's --ps-* tokens through --pk-* names; no literal.
+
+   Cycle 97: the look `cinematic-light` extends this template; its look.json
+   "palette": "light" (`palette` in the context) puts the statement first
+   screen on the white page and the stats on hairlines. The dark look's output
+   does not change (the light rules print only when cn_light). #}
 {% block title %}{{ page.hero.headline }}{% endblock %}
 {% block byline %}<div class="adv-byline ld-about">{{ byline_html | safe }}</div>{% endblock %}
 {% block content %}
 {% set ld = cartridge_data %}
 {% set room_asset = assets.get(page.room_photo.asset_id) if page.room_photo and page.room_photo.asset_id else None %}
 {% set show_room = room_asset and room_asset.kind in ld.room_kinds and not room_asset.ai_generated %}
-{% set cn_dark = hero.id in ("caps_over_photo", "dark_statement") %}
+{% set cn_light = palette == "light" -%}
+{% set cn_dark = hero.id in ("caps_over_photo", "dark_statement") and not cn_light %}
 {% set q = ld.review_quote %}
 <style>
 .adv-wrap:has(.adv-landing){max-width:none;padding-top:0;padding-left:0;padding-right:0}
@@ -104,8 +110,17 @@
 /* sticky bar: price + the pill, after the first screen scrolls out */
 .adv-landing .ld-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--pk-bg);border-top:1px solid var(--pk-line);transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility .25s}
 .adv-landing .ld-bar.ld-bar--on{transform:none;visibility:visible}
-.adv-landing .ld-bar b{font:600 18px/1 var(--pk-heading);color:var(--pk-ink);white-space:nowrap}
+.adv-landing .ld-bar .ld-bar-name{margin:0;min-width:0;font:600 16px/1.2 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-bar .ld-bar-name span{display:block;margin-top:2px;font:400 12.5px/1.3 var(--pk-sans);color:var(--pk-muted);white-space:nowrap}
 .adv-landing .ld-bar .ld-btn.ld-btn{min-height:46px!important;padding:10px 24px!important;font-size:15px!important}
+{%- if cn_light %}
+/* cycle 97, look cinematic-light (look.json "palette": "light"): the statement
+   first screen is near-black type on the white page with the basalt pill;
+   photos keep their own overlay; the stats sit on hairlines */
+.adv-landing.cn-light .hr-dark_statement{--hr-dark:var(--pk-bg);--hr-on-dark:var(--pk-ink)}
+.adv-landing.cn-light .hr-dark_statement .hr-cta.hr-cta.hr-cta{background:var(--pk-dark)!important;color:var(--pk-on-dark)!important;border-color:var(--pk-dark)!important}
+.adv-landing.cn-light .hr-dark_statement .hr-cta.hr-cta.hr-cta:hover{background:var(--pk-red)!important;color:var(--pk-on-dark)!important;border-color:var(--pk-red)!important}
+{% endif %}
 @media (min-width:768px){
   .adv-landing{--cn-gap:88px;font-size:17px}
   .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
@@ -125,7 +140,7 @@
   .adv-landing .ld-bar{display:none}
 }
 </style>
-<div class="pk-lp adv-landing">
+<div class="pk-lp adv-landing{{ ' cn-light' if cn_light else '' }}">
 
   {% include "heroes/_pick.html" %}
   <div class="cn-stats {{ 'cn-stats--dark' if cn_dark else 'cn-stats--light' }}">{% include "blocks/stat_strip.html" %}</div>
@@ -220,10 +235,11 @@
   </section>
 
   <div class="ld-bar">
-    {% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}
-    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}</span>{% endif %}</p>
+    <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>
 <script>
+(function(){var h=document.querySelector("{{ hero.anchor }}"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
 </script>
 {% endblock %}

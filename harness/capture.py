@@ -29,6 +29,7 @@ returns None -- never an exception.
 import html
 import json
 import os
+import re
 import secrets
 import shutil
 import signal
@@ -69,6 +70,7 @@ PREP_JS = r"""
 
 PROBE_JS = r"""
 (function(){
+  var CTA_SEL='a.hr-cta[href],a.ld-btn[href],a.op-btn[href],a.adv-cta[href],button.hr-cta,button.ld-btn';
   function sel(el){ var s=el.tagName.toLowerCase(); if(el.id){s+='#'+el.id;}
     var c=[].slice.call(el.classList,0,2); if(c.length){s+='.'+c.join('.');} return s; }
   function own(el){ var t=''; el.childNodes.forEach(function(n){ if(n.nodeType===3){t+=n.textContent;} }); return t.replace(/\s+/g,' ').trim(); }
@@ -136,6 +138,19 @@ PROBE_JS = r"""
         var d=declared[fam]=declared[fam]||{faces:0, loaded:0, error:0};
         d.faces++; if(f.status==='loaded'){d.loaded++;} if(f.status==='error'){d.error++;} });
       out.fonts=declared; out.fonts_status=document.fonts.status;
+      // cycle 97: the primary CTA -- the first visible button-like link that
+      // is not in a fixed or sticky bar -- and its top edge on the page
+      var ctas=[].slice.call(document.querySelectorAll(CTA_SEL)).filter(function(el){
+        var r=el.getBoundingClientRect(); if(!shown(el,r,getComputedStyle(el))){return false;}
+        for(var a=el; a && a!==document.documentElement; a=a.parentElement){
+          var pos=getComputedStyle(a).position; if(pos==='fixed'||pos==='sticky'){return false;} }
+        return true; });
+      // a landing page or a cycle 94 hero composition puts its pill in the
+      // first screen; an article first screen (listicle face/story/display) has none
+      out.cta_expected=!!document.querySelector('.hr-root,.adv-landing');
+      out.cta=ctas.length ? (function(el){ var r=el.getBoundingClientRect();
+        return {sel:sel(el), top:Math.round(r.top+sy), text:el.textContent.replace(/\s+/g,' ').trim().slice(0,40)};
+      })(ctas[0]) : null;
     }catch(e){ out.error=String(e); }
     parent.postMessage({__designProbe: out}, '*');
   });
@@ -159,12 +174,31 @@ def find_browser():
     return None
 
 
-def stage_page(html_path, *, tenant=None, probe=False):
+# A CSS length in viewport-height units (100vh, 88svh, 92dvh, 50lvh).
+_VH_RE = re.compile(r"(?<![\w.-])(\d*\.?\d+)(?:s|d|l)?vh\b")
+
+
+def pin_viewport_height(text, screen_height):
+    """Cycle 97: `text` with every viewport-height length turned into px of
+    `screen_height`. A full-page shot frames the page in an iframe as tall as
+    the page, so `88svh` was 88% of about 4,700px there, and the judge and the
+    owner saw a hero band three screens tall that a 844px phone never shows.
+    Only the staged capture copy is changed."""
+    def px(m):
+        return f"{round(float(m.group(1)) * screen_height / 100, 2):g}px"
+
+    return _VH_RE.sub(px, text)
+
+
+def stage_page(html_path, *, tenant=None, probe=False, screen_height=None):
     """The hidden sibling copy of `html_path` this module loads (see the
-    module docstring). The caller deletes it."""
+    module docstring). The caller deletes it. `screen_height`: lay out
+    viewport-height units against this device height (pin_viewport_height)."""
     html_path = Path(html_path)
     text = html_path.read_text(errors="ignore")
     text = fonts_mod.for_capture(text, tenant)
+    if screen_height:
+        text = pin_viewport_height(text, screen_height)
     script = "<script>" + PREP_JS + (PROBE_JS if probe else "") + "</script>"
     lower = text.lower()
     at = lower.rfind("</body>")
@@ -235,14 +269,15 @@ def _crop(png_path, width, height):
 
 
 def screenshot(browser, html_path, png_path, *, width, height, tenant=None, popen=subprocess.Popen,
-               timeout_s=DEFAULT_TIMEOUT_S):
+               timeout_s=DEFAULT_TIMEOUT_S, screen_height=None):
     """A width x height PNG of html_path at scale 1. True when it was
-    written; any failure is False."""
+    written; any failure is False. `screen_height` (a full-page shot): the
+    device's own screen height, for viewport-height units."""
     png_path = Path(png_path)
     png_path.unlink(missing_ok=True)  # never report an older file as this capture
     png_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        staged = stage_page(html_path, tenant=tenant)
+        staged = stage_page(html_path, tenant=tenant, screen_height=screen_height)
     except OSError:
         return False
     try:

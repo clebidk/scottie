@@ -1,0 +1,7 @@
+{# Landing look `cinematic-light` (cycle 97): the cinematic look on a white
+   page. Owner, 2026-10-08: "keep the dark one as is, but I also want a white
+   version". One shared template: this file only extends
+   looks/cinematic/template.html, and look.json beside it declares the same
+   heroes and blocks plus "palette": "light", which the renderer passes as
+   `palette` (harness/looks.py palette). -#}
+{% extends "looks/cinematic/template.html" %}

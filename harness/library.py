@@ -88,6 +88,8 @@ LOOK_NOTES = {
                           "and an icon row.",
     ("landing", "cinematic"): "Built from blocks: a dark full-bleed first screen with the stats under it, a "
                               "photo essay, a feature grid, a dark statement band, the FAQ.",
+    ("landing", "cinematic-light"): "The cinematic page on white: near-black type, the red accent, the "
+                                    "statement first screen dark on white; photos and blocks as cinematic.",
     ("landing", "buybox"): "Built from blocks: a trust bar, the buy box first screen (price, specs, one pill), "
                            "the product with labelled hotspots, checked claims, the FAQ.",
     ("listicle", "open"): "Boxless white page: centred headline with one red accent, numbered items with a "

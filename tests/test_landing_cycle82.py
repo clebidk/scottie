@@ -233,8 +233,10 @@ def test_no_price_claim_means_no_price(tmp_path):
 
 def test_the_cta_phrase_appears_three_times(tmp_path):
     html = (_render(tmp_path) / "index.html").read_text()
-    assert html.count(">Shop the Fuji<") == 3
+    # cycle 97: the sticky bar's button reads "Shop now" beside the model name
+    assert html.count(">Shop the Fuji<") == 2 and html.count(">Shop now<") == 1
     assert html.count('class="ld-btn"') == 3
+    assert '<p class="ld-bar-name">Peak Fuji<span>$8,250</span></p>' in html
 
 
 def test_the_secondary_link_is_an_sms_link_from_tenant_config(tmp_path):

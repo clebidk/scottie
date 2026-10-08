@@ -33,8 +33,22 @@ from harness import pipeline
 from harness import skeletons
 from harness import tenant as tenant_mod
 from harness.prices import build_live_price_claims
-from tests.conftest import FakeClient, json_response
-from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE, _FILLER_SENTENCES
+
+# Cycle 97: tests/conftest.py sets these at import time for the suite (the
+# photo library off, one draft, no TypeSafe key, no design gate). Importing
+# the doubles below must not change them for the process that imports this
+# module: `harness library build` on prod lost its 66 library photos that way
+# (every caps_over_photo and face version "not renderable offline").
+_SUITE_ENV = ("HARNESS_PHOTO_LIBRARY_DIR", "HARNESS_JEV_DRAFTS", "TYPESAFE_API_KEY", "HARNESS_DESIGN_GATE")
+_saved_env = {key: os.environ.get(key) for key in _SUITE_ENV}
+from tests.conftest import FakeClient, json_response  # noqa: E402
+from tests.test_render import ARTICLE_PAGE, LONGFORM_PAGE, PRODUCT_PAGE_PAGE, _FILLER_SENTENCES  # noqa: E402
+
+for _key, _value in _saved_env.items():
+    if _value is None:
+        os.environ.pop(_key, None)
+    else:
+        os.environ[_key] = _value
 
 # Cycle 82: the landing cartridge's canned page -- every number in it
 # cites a verified claim the offline facts pack carries; the price, rating,

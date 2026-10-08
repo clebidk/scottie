@@ -5985,3 +5985,133 @@ image pool, not the photo library.
   message.
 - The worker must have the Anthropic key in its environment, as for every
   other model job.
+
+## Cycle 97 (owner grading pass 1: phone-safe heroes, still preference, Shop now bar, white cinematic, offline library photos, 2026-10-08)
+
+Branch `cycle97/grading-pass-1` from origin/master ee2bd55. Pushed, not merged. No model or API call
+(FakeClient and fixtures only).
+
+### Problem
+The owner graded the first real page (cinematic look, run 20261008-184958 on prod, design gate in
+warn mode):
+- `caps_over_photo` variant: judge 36, owner 3/10 ("the primary image is funky and totally off").
+  In the 390px phone shot about three screens of blurred photo (a 9:16 talking-head ad still)
+  scrolled before the headline, the price and the pill.
+- `dark_statement` variant: judge 73; owner phone 7.5/10, desktop 9/10.
+- Three of four variants used a low-resolution talking-head ad still as the hero, because the
+  resolver tries the ad still before library photos.
+- Owner: on the phone a sticky bar like the store's product page bar, with the model name and a
+  button that says "Shop now" (not "Checkout", not "Shop the Fuji"). And "keep the dark one as is,
+  but I also want a white version".
+- Prod `harness library build` reported 12 versions "not renderable offline" (landing open/proof
+  caps_over_photo, listicle open face/* and caps_over_photo/*) although tenants/peak-saunas/
+  photo-library holds 66 files and the manifest has 17 fullbleed_ok photos.
+
+### Causes found
+- **The tall band was a capture artifact plus an uncapped band.** caps_over_photo set
+  `min-height: 88svh`. The design gate's full-page phone shot frames the page in an iframe as tall
+  as the page (about 4,700px), so `88svh` became about 4,100px there. On a real 390x844 phone the
+  band was 743px and the pill started near 600px. The judge and the owner both saw the shot.
+  Reproduced on this Mac with a 1080x1920 portrait still (headless Chrome shot, band about 2,300px
+  in a 3,000px frame).
+- **Offline photos.** `evals/fake_run.py` imports its doubles from `tests/conftest.py`, which sets
+  `HARNESS_PHOTO_LIBRARY_DIR=/nonexistent/photo-library-off-in-tests` (and HARNESS_JEV_DRAFTS,
+  HARNESS_DESIGN_GATE, and pops TYPESAFE_API_KEY) at import time. `library._fake_run_module()`
+  imports it, so the first fake run of a build switched the photo library off for the whole
+  process. Reproduced: with a fixture files dir, a plain fake run and the offline Library render
+  both fell back to dark_statement; the run log said "none usable".
+- **Hidden sticky bar.** The cycle 91b merge (0e5ee61) emptied the `<script>` of the cinematic and
+  buybox looks, so their `ld-bar` stayed `visibility: hidden` on every page.
+
+### Fix
+1. **Phone-safe photo heroes** (harness/heroes/caps_over_photo.html): on a phone the band is
+   `min-height: clamp(560px, 100svh, 900px)`; the photo stays an absolutely positioned cover
+   background on its focal point; desktop keeps `min(92svh, 880px)`. Measured at 390 with the 9:16
+   still: pill top 699px (844px frame) and 755px (3,000px frame: the 900px cap holds). split 643,
+   letters_pill 707, buybox 643, dark_statement 386, ad_first 338: no other composition needed a
+   change.
+2. **Captures lay out viewport units against the device** (harness/capture.py
+   `pin_viewport_height`, `screenshot(..., screen_height=)`): the staged copy of a design-gate shot
+   turns vh/svh/dvh/lvh into px of 844 (phone) or 900 (desktop). Library thumbnails are 390x844
+   frames already and are unchanged.
+3. **Hard check `first_screen_cta`** (harness/design_gate.py; the probe records `cta` and
+   `cta_expected`): on a landing page or a cycle 94 composition, the primary CTA's top edge must be
+   under 844px at 390; an article first screen passes with a note. A failing variant is not judged
+   (one judge call saved); when every variant fails, the revise round asks for a different first
+   screen, and with none left the page STOPs (enforce) or warns.
+4. **Still preference** (heroes.pick_image `_source_order`, images.product_still, slot want key
+   `product_still`): for a `fullbleed_ok` hero that lists the ad still before the library, the
+   still goes first only when the ad_frames vision call saw no face in it and its short side is at
+   least 720px; then a matching library photo; then any ad still. split and the face/ad_first
+   adapters keep the still first.
+5. **Sticky bar** (landing looks open, proof, cinematic, buybox; cinematic-light by inheritance):
+   `<p class="ld-bar-name">{{ product.full_name }}<span>{{ price }}</span></p>` and a button that
+   reads exactly "Shop now" (the page's other CTAs keep cta_text). The observer script is back in
+   cinematic and buybox. The cycle 87/90 import validator (`look_import.cta_errors`) accepts
+   "Shop now" only on a link inside `.ld-bar`; the prompt's link rules and
+   harness/look_import_rules.md say so.
+6. **White cinematic** (`cartridges/landing/looks/cinematic-light/`): template.html is one
+   `{% extends "looks/cinematic/template.html" %}`; look.json = cinematic's heroes and blocks plus
+   `"palette": "light"`. `looks.palette()` reads it and render.py passes `palette` to the template.
+   With `light` the wrapper gets `cn-light`, the statement first screen is near-black type on the
+   white page with the basalt pill (hover red with white text), and the stats sit on hairlines.
+   Photos keep their own overlay. The dark cinematic output is byte-identical except the bar
+   (diffed against master for three heroes). The Library lists landing/cinematic-light and its
+   dark_statement, split and letters_pill versions; the design gate's layout space includes it.
+7. **Offline library photos** (evals/fake_run.py): the four environment keys conftest writes are
+   saved before the doubles are imported and restored after. Under pytest nothing changes
+   (conftest has already run). A host with no files still degrades to the existing message.
+
+### Owner decisions recorded
+- Grades: caps-over-photo 3/10, dark statement phone 7.5/10 and desktop 9/10.
+- Sticky bar: model name, price beneath, button "Shop now".
+- Keep the dark cinematic as is; add a white version.
+
+### Judgment calls (say if wrong)
+- The white version keeps the below-the-fold `statement_band` as its one basalt band, like the
+  store's own pages and the PEAK rubric ("white ground, basalt dark band and buttons").
+  `--ps-bg-muted` is white by brand rule, so the light statement hero sits on white, not a pale band.
+- The still rule applies to `fullbleed_ok` heroes only (caps_over_photo), as briefed. split still
+  prefers the ad still, so a talking-head still can still lead a split hero.
+
+### Verify
+- tests/test_grading_cycle97.py (30): band CSS and the portrait-still render; the viewport pin;
+  the check from probes; a CTA-below-fold variant is not judged; all variants below the fold STOP
+  or warn after a revise round; real Chrome: the portrait still keeps the pill on the first screen
+  (844 and 3,000px frames), a synthetic page with its CTA at 2,400px fails; still preference (face
+  still and a 600px product still lose to the library, a 1080px product still wins, no library
+  match uses the face still); the bar in all five landing looks; the validator exception;
+  cinematic-light registration, palette, Library versions, light vs dark markup, offline fake runs
+  with each of its four heroes (page checks, brand lint, export invariants), real-Chrome hard
+  checks at 390 for its caps_over_photo and dark_statement (no hard fail; overflow, contrast and
+  first_screen_cta pass); a fresh-process Library render that keeps the fixture files dir
+  (caps_over_photo renders) and degrades without it (dark_statement + "the photo library files are
+  not on this machine").
+- Changed tests: tests/test_heroes_cycle94.py (the four landing SHIPPED pins re-pinned for the bar;
+  the pick test now expects the library over a face still and the still without files),
+  tests/test_blocks_cycle91.py (open/proof hashes re-pinned for the bar; master ee2bd55 renders
+  gave exactly the old values, and the diff is the bar only), tests/test_landing_cycle82.py (two
+  "Shop the Fuji" CTAs plus "Shop now"), tests/test_library_cycle86.py and
+  tests/test_blocks_cycle91.py (five landing looks, not four), tests/test_design_gate_cycle92.py
+  (PEAK's gate mode is `warn` since ee2bd55; that test failed on master before this cycle).
+- `python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant
+  peak-saunas --cartridges landing --look cinematic-light --hero-style <hero>` with a fixture
+  photo files dir in HARNESS_PHOTO_LIBRARY_DIR: exit 0 for caps_over_photo, dark_statement, split
+  and letters_pill, each rendered as itself on the light page. Without the files, caps_over_photo
+  falls back to dark_statement (exit 0). The run folders were deleted afterwards.
+- Full suite `.venv/bin/python -m pytest -q -p no:cacheprovider`: 2993 passed, 0 failed, 1 skipped
+  (tests/test_photos_page_cycle96.py HEIC: pillow-heif is not installed in this venv). 10 min 52 s on
+  this Mac under load; the first full run (before the five-look test updates) took 19 min.
+- Headless Chrome screenshots on this Mac (390 full page and 1280 fold, scratch only): cinematic
+  caps_over_photo before and after; cinematic-light dark_statement and caps_over_photo.
+
+### Open
+- The phone shot and the DOM probe still use different frame heights (the probe 844px, the shot
+  the page height). With the viewport pin they agree for vh units; a page that sizes by JavaScript
+  from `innerHeight` would still differ.
+- The conftest import still sets those keys in any process that imports a test module directly;
+  only fake_run restores them.
+- Not deployed. On prod after merge, `harness library build --tenant peak-saunas --force` should
+  build the caps_over_photo versions that were "not renderable offline", plus the four
+  cinematic-light versions. Not verified on prod. The listicle face/* versions stay unavailable:
+  the demo ad is a text ad with no still, and face needs one.

@@ -77,6 +77,7 @@ DARK_OK_MAX_LUMA = 130
 WHITE_EDGE_MIN_CHANNEL = 235
 WHITE_EDGE_MIN_SHARE = 0.6
 FULLBLEED_MIN_WIDTH = 1600
+HERO_STILL_MIN_SHORT = 720  # cycle 97: an ad still's short side for a full-bleed hero
 HERO_WIDE_MIN_ASPECT = 1.3
 MEASURE_EDGE = 256
 CUTOUT_MAX_USES = 3        # same as photo_library.CUTOUT_MAX_USES
@@ -86,7 +87,7 @@ CROPS = {"16:9": (16, 9), "3:2": (3, 2), "4:3": (4, 3), "1:1": (1, 1), "4:5": (4
          "2:3": (2, 3), "pill": (11, 5)}
 
 WANT_KEYS = ("shot", "mood", "fullbleed_ok", "dark_ok", "aspect_min", "aspect_max", "orientation", "model",
-             "min_quality")
+             "min_quality", "product_still")
 SLOT_KEYS = ("name", "want", "n", "fallback", "crop", "above_fold", "bind", "last_resort")
 
 
@@ -486,6 +487,9 @@ def ad_still_candidates(record):
                     "focal": face_focal, "model": None, "quality": None, "ai_generated": False,
                     "old_brand": False, "blurry": False, "cluttered": False,
                     "face_checked": bool(record.get("face_checked")), "still_score": None,
+                    # the first-screen frame is chosen for the creator's face
+                    # (unchecked by the heuristic method): never a product shot
+                    "face": True if record.get("face_checked") else None, "short_side": min(w, h),
                     "asset": {"id": ad_frames.FRAME_ID, "kind": "ad-frame", "local_path": record["frame_path"],
                               "url": f"{ad_frames.DIRNAME}/{ad_frames.FRAME_FILE}", "alt": "A still from the ad video"}})
     for i, still in enumerate(record.get("stills") or [], 1):
@@ -499,6 +503,7 @@ def ad_still_candidates(record):
                     "focal": {"x": 0.5, "y": 0.4}, "model": None, "quality": None, "ai_generated": False,
                     "old_brand": False, "blurry": False, "cluttered": False, "face_checked": False,
                     "still_score": still.get("score"), "still_rank": i,
+                    "face": still.get("face"), "short_side": min(w, h),
                     "asset": {"id": sid, "kind": "ad-frame", "local_path": still["path"],
                               "url": f"{ad_frames.DIRNAME}/{still['file']}", "alt": "A still from the ad video"}})
     return out
@@ -586,6 +591,14 @@ def _seed_jitter(seed, cid):
     return int(h[:6], 16) / 0xFFFFFF / 100
 
 
+def product_still(c):
+    """Cycle 97: an ad still that may fill a full-bleed hero on its own merit:
+    the ad_frames vision call saw NO face in it (a product or room shot, not
+    the talking head) and its short side is at least HERO_STILL_MIN_SHORT px.
+    A face still or a low-resolution one loses to a matching library photo."""
+    return c.get("face") is False and (c.get("short_side") or 0) >= HERO_STILL_MIN_SHORT
+
+
 def _passes(c, want, *, shots, strict, above_fold, prefer_model):
     """(ok, why-not). `strict` False on a fallback stage: the frame filters
     (full-bleed, aspect, orientation, quality) are relaxed; mood is kept."""
@@ -602,6 +615,8 @@ def _passes(c, want, *, shots, strict, above_fold, prefer_model):
         return False, "mood"
     if want.get("dark_ok") and not c["dark_ok"]:
         return False, "not dark-page ok"
+    if want.get("product_still") and c["source"] == "ad-still" and not product_still(c):
+        return False, "ad still is a face or too small for a full-bleed hero"
     if not strict:
         return True, ""
     if want.get("fullbleed_ok") and not c["fullbleed_ok"]:

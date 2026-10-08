@@ -14,7 +14,7 @@ state.json, on an A/B/C variant, `--hero-style` on `harness run` and `harness re
 | `story` | Story | listicle | none | -- | cycle 79 |
 | `display` | Display | listicle | none (the page's cut-out) | -- | cycle 79 |
 | `ad_first` | Ad first | landing | none (still or cut-out when there) | -- | cycles 82/85 |
-| `caps_over_photo` | Caps over photo | listicle, landing | a wide photo that reads under a dark overlay: the ad still, else a library photo (people in use, lifestyle, exterior; wide; dark) | dark_statement | peak-lp-pack/01-ridge |
+| `caps_over_photo` | Caps over photo | listicle, landing | a wide photo that reads under a dark overlay: the ad still when it is a product/room shot of at least 720px (cycle 97), else a library photo (people in use, lifestyle, exterior; wide; dark), else any ad still | dark_statement | peak-lp-pack/01-ridge |
 | `dark_statement` | Dark statement | listicle, landing | optional: a dark library detail (macro) photo | -- | 02-hexclad, 07-oura |
 | `split` | Split | listicle, landing | a portrait/room photo: the ad still, else a library photo (lifestyle, interior, people in use, exterior; indoor and portrait preferred), else the cut-out | the look's defaults | 03-bobbie |
 | `letters_pill` | Letters and pill | listicle, landing (listed by the landing looks) | a library photo (exterior, lifestyle; outdoor preferred), else the cut-out in the pill | dark_statement | 09-rivian |
@@ -32,6 +32,8 @@ What each look renders (`look.json` beside its template):
 | listicle `open` | face, story, display, caps_over_photo, split, dark_statement | face, story, display |
 | landing `open` | ad_first, caps_over_photo, split, letters_pill, dark_statement, buybox | ad_first |
 | landing `proof` | same as open | ad_first |
+| landing `cinematic` | caps_over_photo, dark_statement, split, letters_pill | caps_over_photo |
+| landing `cinematic-light` (cycle 97) | same as cinematic | caps_over_photo |
 
 A look with no `look.json` (a tenant's imported look, cycle 87) renders its cartridge's legacy
 first screens only: face/story/display for the listicle, ad_first for the landing page.
@@ -89,6 +91,27 @@ lifestyle-person, cutout), and the slot `want` keys `fullbleed_ok`, `dark_ok`, `
 
 Adapters (face, story, display, ad_first) print the look's own images; the resolver only answers
 whether face has a still.
+
+**Which still a full-bleed hero takes (cycle 97).** For a composition whose image spec has
+`fullbleed_ok` and lists `ad_still` before `library` (today: caps_over_photo), the order is:
+the ad still only when `images.product_still` is true (the ad_frames vision call saw no face in
+it, so a product or room shot, and its short side is at least `images.HERO_STILL_MIN_SHORT` =
+720px; the slot want key `product_still`), then a matching library photo, then any ad still.
+The first-screen frame is chosen for the creator's face, so it never qualifies; an extra still
+the vision call did not see (face unknown) does not qualify either. On the owner's first graded
+page (2026-10-08) three of four variants showed a low-resolution talking-head still as the hero.
+`split` (no `fullbleed_ok`) and the face/ad_first adapters still use the still first, on purpose.
+
+## Phone-safe photo heroes (cycle 97)
+
+At 390px a photo hero must put the eyebrow, headline, price and pill inside the first 844px.
+caps_over_photo's band is `min-height: clamp(560px, 100svh, 900px)` on a phone (desktop keeps
+`min(92svh, 880px)`), and its photo is an absolutely positioned `object-fit: cover` background on
+its focal point (`--hr-pos`: the face point of an ad still, the measured focal point of a library
+photo), so a 9:16 portrait still no longer sets the band's height. Measured at 390 with a
+1080x1920 still: the pill starts at 699px (cinematic, open). split 643px, letters_pill 707px,
+buybox 643px, dark_statement 386px, ad_first 338px. The design gate's `first_screen_cta` hard
+check (docs/DESIGN-GATE.md) fails a page whose pill is lower.
 
 ## Add a composition
 

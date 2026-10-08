@@ -57,8 +57,13 @@ CARTRIDGE_LOOKS = {
     # "open", the one look landing had before.
     # Cycle 91: two looks built from the block catalog (harness/blocks/
     # catalog/): `cinematic` (pack page 08) and `buybox` (pack page 06).
-    "landing": ("open", "proof", "cinematic", "buybox"),
+    # Cycle 97: `cinematic-light`, the cinematic look on a white page (owner,
+    # 2026-10-08: "keep the dark one as is, but I also want a white
+    # version"): the same template, look.json "palette": "light".
+    "landing": ("open", "proof", "cinematic", "buybox", "cinematic-light"),
 }
+
+PALETTES = ("dark", "light")
 
 DEFAULT_LOOKS = {
     "listicle": listicle.DEFAULT_LOOK,
@@ -183,6 +188,25 @@ def resolve_look(cartridge_name, requested=None, *, style=None, tenant=None, loo
     allowed = tenant_looks(cartridge_name, tenant)
     default = DEFAULT_LOOKS.get(cartridge_name)
     return default if default in allowed else allowed[0]
+
+
+def palette(cartridge_name, look, tenant=None, looks_dir=None):
+    """Cycle 97: the look.json "palette" of this look ("light" or "dark"),
+    or None when it declares none (the look's own colours). A template
+    shared by two looks reads it to switch its grounds (cinematic and
+    cinematic-light)."""
+    import json
+
+    from .blocks import catalog
+
+    path = catalog.look_spec_path(cartridge_name, look, tenant, looks_dir)
+    if path is None:
+        return None
+    try:
+        value = json.loads(path.read_text()).get("palette")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return value if value in PALETTES else None
 
 
 def requested_for(cartridge_name, requested, tenant=None):

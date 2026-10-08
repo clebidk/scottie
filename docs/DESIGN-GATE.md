@@ -24,6 +24,7 @@ tenant-neutral rubric) and `tenants/<t>/design-rubric.md` (the brand rules and i
    | Check | Fails when | Warns when |
    |---|---|---|
    | `overflow_390` | the page is wider than the 390 px viewport (offenders listed) | |
+   | `first_screen_cta` (cycle 97) | on a landing page or a cycle 94 composition (`.adv-landing`, `.hr-root`), the primary CTA's top edge (the first visible `hr-cta` / `ld-btn` / `op-btn` / `adv-cta` link outside a fixed or sticky bar) is at 844 px or lower, or there is none. An article first screen (listicle face/story/display) passes with a note | |
    | `contrast_hero` | first-screen text over a photo is under WCAG AA (4.5, or 3.0 for large text), measured on the screenshot pixels behind the words | |
    | `empty_images` | an `<img>` did not load or has no src, or a `*placeholder*` element shows | |
    | `text_cut` | a text block is clipped (`overflow: hidden/clip`, line clamp or ellipsis with hidden content) | |
@@ -32,6 +33,16 @@ tenant-neutral rubric) and `tenants/<t>/design-rubric.md` (the brand rules and i
    | `fonts` | | a font family the text uses is declared as a web font but no face of it loaded |
 
    A variant with a failing hard check is never chosen while a variant without one exists, and never passes.
+   Cycle 97: a variant that fails `first_screen_cta` is not sent to the judge at all (it can never be
+   chosen, so the call is saved); its record says "not judged: ...". When every variant fails it, the
+   revise round tries other first screens, and a page with none left STOPs (enforce) or warns.
+
+   **Viewport-height units in shots (cycle 97).** The full-page shots frame the page in an iframe as
+   tall as the page, so a `100svh` band used to be measured against about 4,700 px: the owner's first
+   graded page (caps_over_photo, score 36, owner 3/10) showed three screens of photo before the
+   headline in its phone shot, which a real 844 px phone never shows. The staged capture copy now
+   turns every `vh`/`svh`/`dvh`/`lvh` length into px of the device's own screen height (844 phone,
+   900 desktop; `capture.pin_viewport_height`). The page itself is never changed.
 3. **Vision judge**: one call per variant through the harness's Anthropic client (`client.messages.create`,
    so tests use the FakeClient). Images: the phone page in tiles of at most 2400 px (Opus 5.5 reads up to
    2576 px on the long edge without downscaling), then the desktop first screen, as JPEG. The system prompt
@@ -71,7 +82,7 @@ with no file of its own gets a brand section built from tenant.yaml `brand.palet
 
 - Round 1: the page as rendered first, then the other layouts the tenant allows, up to `variants`:
   look (tenant.yaml `cartridges.<c>.looks`, else all of the cartridge's looks: for the landing page open,
-  proof and the cycle 91 block looks cinematic and buybox) x hero composition (cycle 94, harness/heroes/:
+  proof, the cycle 91 block looks cinematic and buybox, and cycle 97's cinematic-light) x hero composition (cycle 94, harness/heroes/:
   each look's look.json `default_heroes`, narrowed by tenant.yaml `cartridges.<c>.hero_styles`) x block
   set (`design_gate.block_sets()`, `(None,)`: a look's cycle 91 blocks come with the look). An explicit
   `--look` / `--hero-style` (an A/B/C arm that names a look or a hero passes them) is never changed; a look

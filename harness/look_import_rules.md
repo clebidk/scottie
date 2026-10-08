@@ -240,7 +240,8 @@ the renderer data that fill them:
 - `hotspots`: short labels placed over the hero/product image with
   `position:absolute` and percentage offsets, filled from
   `cartridge_data.specs` labels/values.
-- `sticky-bar`: the reference's fixed bottom bar with the price and the CTA.
+- `sticky-bar`: the reference's fixed bottom bar: the model name with the price beneath it, and the CTA (on
+  the landing page it reads exactly `Shop now`, cycle 97).
 - `check-rows`: rows with a check mark (an inline SVG in `currentColor`)
   from `page.checked_claims` or `cartridge_data.trust`.
 - `icon-row`: a row of small inline SVG icons (currentColor) with short
