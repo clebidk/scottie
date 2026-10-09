@@ -306,9 +306,12 @@ def test_pick_image_asks_the_cycle_93_resolver(tmp_path, monkeypatch):
     assert not photo["tags"].get("old_logo_visible") and not photo["tags"]["has_text_overlay"]
     focal = photo["image_tags"]["focal"]
     assert pick["focal"] == focal and pick["position"] == f"{round(focal['x'] * 100)}% {round(focal['y'] * 100)}%"
-    # the strict stage first: a full-bleed photo when one fits
+    # the strict stage first: a full-bleed photo when one fits (cycle 101: or a
+    # portrait room/exterior photo with a 1600px long side)
     if pick["why"].startswith("want"):
-        assert photo["image_tags"]["fullbleed_ok"]
+        assert photo["image_tags"]["fullbleed_ok"] or (
+            max(photo["width"], photo["height"]) >= images.FULLBLEED_MIN_WIDTH
+            and images.photo_shots(photo) & {"room", "exterior"})
     # a photo already on the page is never picked again
     again = heroes.pick_image(caps, facts_pack=RICH_FACTS_PACK, tenant=TENANT, assets={}, exclude_ids={pick["id"]})
     assert again is None or again["id"] != pick["id"]

@@ -464,6 +464,7 @@ def _library_candidates(tenant, facts_pack, manifest, *, allow_ai_renders):
             "mood": it.get("mood"), "aspect": it.get("aspect") or round(p["width"] / p["height"], 3),
             "orientation": it.get("orientation"), "fullbleed_ok": bool(it.get("fullbleed_ok")),
             "dark_ok": bool(it.get("dark_ok")), "focal": it.get("focal") or {"x": 0.5, "y": 0.5},
+            "long_side": max(p["width"], p["height"]), "white_edge": it.get("white_edge"),
             "model": it.get("model") or (tags["product"] if tags["product"] != pl.UNKNOWN else None),
             "quality": it.get("quality"), "ai_generated": bool(p.get("ai_generated")),
             "old_brand": bool(tags.get("old_logo_visible")), "blurry": bool(tags.get("blurry")),
@@ -630,6 +631,16 @@ def shot_tier(c, shots=None):
     return min((SHOT_TIER.get(s, len(SHOT_TIERS)) for s in own), default=len(SHOT_TIERS))
 
 
+def portrait_fullbleed(c):
+    """Cycle 101 (owner decision 2026-10-09): a room or exterior photo that is
+    not fullbleed_ok only because it is portrait (long side >= 1600px, no
+    white studio edge, e.g. 1067 x 1600) may fill a full-bleed hero; the
+    hero's cover crop on the focal point handles the shape. It ranks after
+    the landscape full-bleed photos of its tier (fill_slots)."""
+    return (not c["fullbleed_ok"] and bool(c["shots"] & {"room", "exterior"})
+            and (c.get("long_side") or 0) >= FULLBLEED_MIN_WIDTH and c.get("white_edge") is False)
+
+
 def _passes(c, want, *, shots, strict, above_fold, prefer_model):
     """(ok, why-not). `strict` False on a fallback stage: the frame filters
     (full-bleed, aspect, orientation, quality) are relaxed; mood is kept."""
@@ -650,7 +661,7 @@ def _passes(c, want, *, shots, strict, above_fold, prefer_model):
         return False, "ad still is a face or too small for a full-bleed hero"
     if not strict:
         return True, ""
-    if want.get("fullbleed_ok") and not c["fullbleed_ok"]:
+    if want.get("fullbleed_ok") and not (c["fullbleed_ok"] or portrait_fullbleed(c)):
         return False, "not full-bleed"
     if want.get("aspect_min") is not None and (c["aspect"] or 0) < want["aspect_min"]:
         return False, "aspect"
@@ -793,8 +804,12 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
                     continue
                 s, reasons = score_candidate(c, shots=shots, prefer_model=prefer_model, crop=crop, seed=seed)
                 scored.append((s, c, reasons))
-            # cycle 101: the shot tier first (SHOT_TIERS), the score inside it
-            scored.sort(key=lambda x: (shot_tier(x[1], shots), -x[0], x[1]["id"]))
+            # cycle 101: the shot tier first (SHOT_TIERS), then a landscape
+            # full-bleed photo before a portrait one (portrait_fullbleed), then
+            # the score
+            portrait_last = strict and bool(want.get("fullbleed_ok"))
+            scored.sort(key=lambda x: (shot_tier(x[1], shots), portrait_last and portrait_fullbleed(x[1]),
+                                       -x[0], x[1]["id"]))
             for s, c, reasons in scored:
                 if len(picks) >= n:
                     break

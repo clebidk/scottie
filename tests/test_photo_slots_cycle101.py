@@ -25,6 +25,7 @@ from harness import render as render_mod
 from tests.support import REPO_ROOT, TENANT
 from tests.test_first_screen_cycle79 import SPEAKER_BRIEF, _page as _listicle_page, _run_dir
 from tests.test_grading_cycle97 import _portrait_still_run, _render_landing
+from tests.test_brand_lint_cycle78 import _lint
 from tests.test_heroes_cycle94 import FIXTURE, _library_dir
 from tests.test_images_cycle93 import CUT, _cand, _fill, _ids
 from tests.test_listicle import RICH_FACTS_PACK, _make_image_bytes
@@ -114,6 +115,33 @@ def test_an_ad_still_ranks_with_the_rooms_only_when_it_is_a_product_still():
     assert images.shot_tier(dict(still, face=False, short_side=600)) == images.SHOT_TIER["lifestyle-person"]
 
 
+FULL_BLEED = {"name": "hero", "want": {"shot": list(heroes.get("caps_over_photo").needs["image"]["shots"]),
+                                      "fullbleed_ok": True}, "n": 1, "last_resort": None}
+# owner decision 2026-10-09: a portrait room photo (1067 x 1600) may lead a full-bleed hero
+PORTRAIT_ROOM = dict(_cand("portrait-room", "room", aspect=0.667, fullbleed=False), long_side=1600, white_edge=False)
+WIDE_PERSON = dict(_cand("wide-person", "lifestyle-person", model="fuji", quality=5), long_side=1600, white_edge=False)
+WIDE_ROOM = dict(_cand("wide-room", "room"), long_side=1600, white_edge=False)
+
+
+def test_a_portrait_room_photo_beats_a_landscape_person_for_a_full_bleed_hero():
+    r = _fill([FULL_BLEED], [WIDE_PERSON, PORTRAIT_ROOM, CUT])[0]
+    assert _ids(r) == ["portrait-room"] and r["picks"][0]["via"] == "want"
+    assert images.portrait_fullbleed(PORTRAIT_ROOM) and not images.portrait_fullbleed(WIDE_ROOM)
+
+
+def test_a_landscape_room_photo_beats_the_portrait_one():
+    better = dict(PORTRAIT_ROOM, model="fuji", quality=5)   # a higher score does not lift it
+    assert _ids(_fill([dict(FULL_BLEED, n=2)], [better, WIDE_PERSON, WIDE_ROOM])[0]) == ["wide-room", "portrait-room"]
+
+
+def test_the_portrait_rule_needs_a_long_side_of_1600_no_white_edge_and_a_room_or_exterior():
+    for c in (dict(PORTRAIT_ROOM, long_side=1200), dict(PORTRAIT_ROOM, white_edge=True),
+              dict(PORTRAIT_ROOM, white_edge=None),   # not measured
+              dict(_cand("p", "lifestyle-person", aspect=0.667, fullbleed=False), long_side=1600, white_edge=False)):
+        assert not images.portrait_fullbleed(c)
+        assert _ids(_fill([FULL_BLEED], [c])[0]) == []
+
+
 # ---------------------------------------------------------------------------
 # B. hero sets for the tenant landing looks (and D's first screen in each)
 # ---------------------------------------------------------------------------
@@ -146,6 +174,23 @@ def test_each_tenant_landing_look_renders_each_hero_it_declares(tmp_path, monkey
                   pagechecks.find_rendered_json_ld_violations(html, "landing"),
                   pagechecks.find_image_markup_violations(html)):
         assert check == []
+
+
+@pytest.mark.parametrize("slug", LANDING_LOOKS)
+def test_each_tenant_landing_look_has_the_cycle_97_sticky_bar(slug):
+    """The cycle 97 bar check (tests/test_grading_cycle97.py): the model name,
+    the price beneath, one link that says exactly "Shop now"."""
+    _tenant_look("landing", slug)
+    rc, run_dir, _pages = fake_run.run_once(str(FIXTURE), tenant="peak-saunas", cartridges="landing", look=slug)
+    assert rc == 0
+    html = (run_dir / "landing" / "index.html").read_text()
+    bar = html[html.index('<div class="ld-bar">'):]
+    bar = bar[:bar.index("</div>")]
+    assert '<p class="ld-bar-name">Peak Fuji<span>$8,250</span></p>' in bar
+    # oura-restraint's bar is dark: the brand's white pill (ld-btn--light, brand/base.css)
+    assert bar.count("<a ") == 1 and ">Shop now</a>" in bar and re.search(r'class="ld-btn( ld-btn--light)?"', bar)
+    assert "IntersectionObserver" in html and 'b=document.querySelector(".adv-landing' in html
+    assert _lint(html) == []
 
 
 @pytest.mark.real_browser

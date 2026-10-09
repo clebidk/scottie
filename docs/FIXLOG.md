@@ -6339,6 +6339,11 @@ The owner graded 21 real pages (the Library batch, scores 38-72):
    >= 720px), else with the people. In `fill_slots` the tier is the first sort key of every stage,
    the score the second. Stages, fallbacks, the last-resort cut-out, the `used` set and the cycle 97
    source order in `heroes.pick_image` are unchanged.
+   Follow-up (owner decision 2026-10-09): `images.portrait_fullbleed` -- on the strict pass of a
+   `fullbleed_ok` slot, a room or exterior photo with a long side of at least 1600px and a
+   measured `white_edge` of false passes although it is portrait (e.g. 1067 x 1600); it sorts
+   after the landscape full-bleed photos of its tier, before people and the cut-out. Library
+   candidates carry `long_side` and `white_edge` for it.
 2. **Hero sets** (tenant looks, gitignored): a `look.json` beside each of the five landing looks;
    in each template the look's own first screen is the `ad_first` composition and
    `{% include "heroes/_pick.html" %}` prints the others (docs/HEROES.md, "Tenant landing looks
@@ -6349,6 +6354,10 @@ The owner graded 21 real pages (the Library batch, scores 38-72):
    eightsleep-buybox's own text-link rule is scoped to its buy section (`.es-under .ld-text`): at
    three classes it overrode the hero's light link, so "Text us" was dark on the dark photo.
    oura-restraint is a dark page, so it lists only the dark compositions.
+   Follow-up: the five bars follow the cycle 97 rule -- `<div class="ld-bar">`,
+   `<p class="ld-bar-name">` with the model name and the price beneath, one button "Shop now".
+   eightsleep-buybox's `es-bar` became `ld-bar` (its own type sizes kept); oura-restraint's dark
+   bar keeps the brand's white pill (`ld-btn ld-btn--light`: brand/base.css forces `.ld-btn` dark).
 3. **Nourial inset** (nourial-ten-reasons and swarva-doctor-byline templates): an item photo
    keeps its own ratio (no `frame=`); a cut-out is unchanged. jevi-five-signs (4x3 frame) and
    citrusroot-named-cause (16x9) were checked: with the library's ratios (3:2, 2:3, 1:1) their
@@ -6365,15 +6374,22 @@ The owner graded 21 real pages (the Library batch, scores 38-72):
 - Slot order: room and exterior first, then lifestyle-person, then detail-macro, the cut-out last
   (a fallback, never a first choice when a tagged photo fits). Approved with the other three
   fixes, slot order first.
+- 2026-10-09: a portrait room or exterior photo (long side >= 1600px) may lead a full-bleed hero,
+  ranked after landscape photos of the same tier, before people and the cut-out.
+- 2026-10-09: the five tenant landing looks follow the cycle 97 sticky bar rule.
 
 ### Judgment calls (say if wrong)
-- The tier orders photos inside a stage; it does not lift a photo over a stricter stage. So
-  caps_over_photo's `fullbleed_ok` pass still comes first. On the PEAK library no room or exterior
-  photo is full-bleed (width >= 1600, no white edge), free of the retired mark and offered for a
-  page's model (the two clean full-bleed rooms are model "unknown" and not model-agnostic), so
-  caps_over_photo still takes a full-bleed person photo on all 8 models. split now takes a room or
-  exterior photo on 6 of 8 models (was 3). Letting a portrait room photo (1067 x 1600) lead a
-  full-bleed hero, like a product still of 720px or more, is a one-line change; it was not made.
+- The tier orders photos inside a stage; it does not lift a photo over a stricter stage. With the
+  landscape rule alone, caps_over_photo took a full-bleed person photo on all 8 models: no
+  landscape room or exterior photo is full-bleed, free of the retired mark and offered for a
+  page's model (the two clean full-bleed rooms, asset-photo-258c439743a2 and
+  asset-photo-c65010644b97, are model "unknown" and not model-agnostic). With the portrait rule
+  (owner decision above) it takes a room or exterior photo on 6 of 8 (Everest and Mini
+  asset-photo-f96ac9043d8d, Patagonia / Kilimanjaro / Matterhorn asset-photo-0b2c59baccb2,
+  El Capitan asset-photo-bff59b51d7a3); Fuji and Rainier still get the person photo
+  asset-photo-7f49a0eae69d. split takes a room or exterior photo on 6 of 8 (was 3).
+- The portrait rule asks for a measured `white_edge` of false: a photo without `image_tags` does
+  not qualify.
 - The cycle 79 owner rule stays: the page's own hero image (`page.hero`, which `ad_first` and the
   listicle adapters print) is the product cut-out, and listicle item images still come from the
   cycle 75/79 topic matcher (`photo_library.assign_page_images`). The tier table orders the
@@ -6406,9 +6422,15 @@ The owner graded 21 real pages (the Library batch, scores 38-72):
   plunge-category ad_first 648, caps 699, split 643, dark 386; rivian-letters ad_first 751,
   letters 707, caps 699, dark 386, split 643. `tap_targets` warns on every page, own first screen
   included (not looked into this cycle). Phone and 1280 screenshots read by eye.
-- Full suite `.venv/bin/python -m pytest -q -p no:cacheprovider`: 3079 passed, 0 failed, 1 skipped
-  (the pillow-heif HEIC test), 7 min 0 s. The new file and tests/test_images_cycle93.py were run
-  again after the last Eight Sleep CSS edit: 84 passed.
+- Follow-up tests in the same file: a portrait room photo beats a landscape person photo of the
+  page's model for the full-bleed hero; with a landscape room photo present the landscape one
+  wins even against a better-scoring portrait one; the rule needs a 1600px long side, a measured
+  white edge of false and a room or exterior shot. The cycle 97 bar check on each of the five
+  looks (offline fake run: `<p class="ld-bar-name">Peak Fuji<span>$8,250</span></p>`, one link,
+  "Shop now", the observer, brand lint clean); it fails on the five templates before the change.
+  `tests/test_heroes_cycle94.py`: the strict-pass assertion accepts a portrait room/exterior
+  photo with a 1600px long side. The five bars screenshotted at 390 (forced visible) and read by eye.
+- Full suite after the follow-ups: 3087 passed, 0 failed, 1 skipped (HEIC), 5 min 4 s.
 
 ### Deploy by hand (gitignored tenant files)
 `tenants/*/looks/` is gitignored; copy these to prod (`/home/deploy/advertorial/`) by hand:
@@ -6423,10 +6445,12 @@ The owner graded 21 real pages (the Library batch, scores 38-72):
 The prod copies were not compared with this Mac's copies before the edit; diff them first.
 
 ### Open
-- caps_over_photo stays person-led on this library (see Judgment calls). New-mark room and
-  exterior photos tagged with a model, or the portrait-photo rule, would change it.
-- None of the five tenant landing looks says "Shop now" in its sticky bar (cycle 97 rule for the
-  shipped looks); eightsleep-buybox's bar still uses its own `es-bar` and the CTA text.
+- Fuji and Rainier pages still lead caps_over_photo with a person photo. asset-photo-c65010644b97
+  (cedar interior, Drive folder Matterhorn) re-tagged for the cedar models would give them a room
+  photo; the owner fixes the tags on prod.
+- The two "unknown" interiors are close-ups of the bench and the corner heater, tagged
+  `interior` (read as `room`); they lead a hero as room shots although they are nearer to detail
+  shots. The vision tagger (`photos tag --only-missing`) has not set `image_tags.shot` on them.
 - `look_import.static_errors` refuses the hero include in a new import; a re-import of these
   looks would lose their hero sets.
 - Not deployed. After the copy, `harness library build --tenant peak-saunas --force` rebuilds the

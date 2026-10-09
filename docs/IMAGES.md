@@ -605,8 +605,14 @@ better score, and the cut-out is chosen only when no tagged photo passes the slo
 filters (`images.shot_tier(candidate, shots)`). The slot's own shot list still orders
 shots inside one tier (`hero-wide` before `room` when the slot lists it first). The
 stages are unchanged: a strict `want` pass (e.g. `fullbleed_ok`) still comes before its
-relaxed pass, so a full-bleed person photo beats a room photo that is not full-bleed. The
-owner's grading of 21 real pages (2026-10-09): most led with the cut-out or a person
+relaxed pass.
+
+**Portrait full-bleed (cycle 101, owner decision 2026-10-09).** On the strict pass of a
+`fullbleed_ok` slot, a room or exterior photo that is not `fullbleed_ok` only because it is
+portrait also passes when its long side is at least 1600px and it has no white studio edge
+(measured; `images.portrait_fullbleed`, e.g. a 1067 x 1600 derivative). The hero's cover crop
+on the focal point handles the shape. It ranks after the landscape full-bleed photos of its
+tier and before people and the cut-out. The owner's grading of 21 real pages (2026-10-09): most led with the cut-out or a person
 photo. `heroes.pick_image` keeps its own source order (the cycle 97 still rule, then the
 library, then the cut-out); the tiers order the photos inside its library slot.
 

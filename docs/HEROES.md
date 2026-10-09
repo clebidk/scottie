@@ -49,7 +49,10 @@ the rest:
 {% else %}{% include "heroes/_pick.html" %}{% endif %}
 ```
 
-The sticky bar observes the look's own header for `ad_first` and `{{ hero.anchor }}` otherwise.
+The sticky bar observes the look's own header for `ad_first` and `{{ hero.anchor }}` otherwise,
+and follows the cycle 97 rule: `<div class="ld-bar">`, the model name with the price beneath
+(`ld-bar-name`), one button that says "Shop now" (oura-restraint's dark bar uses the brand's
+white pill, `ld-btn ld-btn--light`).
 Below the hero each look keeps its own sections. A look lists only the compositions its ground
 can hold (a dark page such as oura-restraint takes the dark ones only; the light partials print
 ink-coloured text) and every fallback of what it lists.
@@ -133,12 +136,12 @@ page (2026-10-08) three of four variants showed a low-resolution talking-head st
 
 **Which library photo (cycle 101).** Inside the library slot, room and exterior shots come
 first, then people in use, then detail macros, and the cut-out last (`images.SHOT_TIERS`,
-docs/IMAGES.md section 11), whatever order the composition's `shots` list has. The strict
-`fullbleed_ok` pass still comes before the relaxed one: on the PEAK library of 2026-10-09 no
-room or exterior photo is full-bleed, free of the retired mark and offered for a page's model,
-so caps_over_photo still takes a full-bleed person photo on every model. split now takes a room
-or exterior photo on 6 of the 8 models (it was 3); letters_pill asks for room and exterior
-shots only and did not change.
+docs/IMAGES.md section 11), whatever order the composition's `shots` list has. A portrait room
+or exterior photo with a 1600px long side counts as full-bleed for caps_over_photo (owner
+decision 2026-10-09), after the landscape ones. On the PEAK library of 2026-10-09
+caps_over_photo now takes a room or exterior photo on 6 of the 8 models (Fuji and Rainier still
+get a person photo: no clean room or exterior photo is offered for them), split on 6 of 8 (it
+was 3); letters_pill asks for room and exterior shots only and did not change.
 
 ## Phone-safe photo heroes (cycle 97)
 
