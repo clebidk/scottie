@@ -46,11 +46,13 @@ FIXED_KINDS = ("brand", "year", "count", "count_unit", "authority", "alternative
 FREE_KINDS = ("audience", "category", "product", "common_solution", "problem", "solution", "desire",
               "usp", "concern", "features", "age", "niche", "choice",
               # cycle 79: the open-loop templates (o1-o4)
-              "setup", "ad_hook", "beat", "callout", "place")
+              "setup", "ad_hook", "beat", "callout", "place",
+              # cycle 98: the named-cause templates (nc1)
+              "cause")
 SLOT_KINDS = FIXED_KINDS + FREE_KINDS
 # Slots that must read as an everyday, non-medical situation.
 NON_MEDICAL_KINDS = ("problem", "solution", "desire", "usp", "concern", "features",
-                     "setup", "beat", "callout", "place")
+                     "setup", "beat", "callout", "place", "cause")
 ITEM_GATES = ("fear", "medical")
 
 _PLACEHOLDER_RE = re.compile(r"<([a-z_]+)>")
@@ -904,6 +906,11 @@ _KIND_RULES = {
     "niche": "is the niche the verified exclusivity claim names, in its own words",
     "ad_hook": ("is the ad speaker's own words copied word for word from ONE ad_quotes entry (a run of it, "
                 "never reworded) -- the quotation marks around it are part of the template"),
+    # cycle 98: the named-cause page sells one cause the verified claims can carry
+    "cause": ("names the ONE cause this page sells: an everyday thing the reader owns, uses or does (a habit, "
+              "a room, a heater layout, the outlet) that a verified claim or the ad's own words can back -- never "
+              "a body part, a hormone, a disease, a condition, a symptom or any other health word, never the "
+              "brand or a model name"),
 }
 _NON_MEDICAL_RULE = ("is everyday, non-medical wording -- never a disease, condition, symptom, cure, treat, heal "
                      "or other health word")

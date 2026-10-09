@@ -6115,3 +6115,108 @@ warn mode):
   build the caps_over_photo versions that were "not renderable offline", plus the four
   cinematic-light versions. Not verified on prod. The listicle face/* versions stay unavailable:
   the demo ad is a text ad with no still, and face needs one.
+
+## Cycle 98 (named-cause listicle skeleton, 2026-10-09)
+
+Branch `cycle98/named-cause-skeleton` from origin/master 1cc4d78. Pushed, not merged. No model or
+API call (FakeClient and fixtures only).
+
+### Problem
+The owner shared four DTC listicles that convert because each sells a NAMED CAUSE before it
+pitches the product. Their visual looks were imported on 2026-10-09 (tenant looks, gitignored:
+tenants/peak-saunas/looks/listicle/{nourial-ten-reasons,jevi-five-signs,swarva-doctor-byline,
+citrusroot-named-cause}/). Their copy structure was not in the harness: no skeleton put a cause
+first, and no headline template said "N signs ..." or "... isn't enough".
+
+### What was taken from each source page
+- **Nourial** (try.nourial.com, "10 reasons the alignment pillow ..."): the cause is named as a
+  mechanism ("structural alignment vs cushioning"), so the old product takes the blame and the
+  new one is the only fix. Taken: item 1 states the cause as one plain mechanism sentence.
+- **Jevi** (jevi-slim.html upload, "5 signs you may have high cortisol"): unrelated signs grouped
+  under one cause, so every sign points to the root. Taken: items 2-4 are signs, each the sign +
+  why the cause produces it + what the product changes; headline nc1 "N Signs <cause> Is <harm>".
+- **Swarva** (swarva.com, "3 reasons why showers aren't enough", doctor byline): "your soap is
+  the problem" removes shame and makes the product a fix for the cause. Taken: the "why past fixes
+  failed" item (item 5), the no-blame voice, headline nc2 "N Reasons Why <common_solution> Isn't
+  Enough". The doctor byline was not taken: PEAK has no verified named endorsement (h15 is
+  ineligible for the same reason).
+- **Citrus Root** (citrusroot.co): leads with the dreaded moment ("we'll discuss statins next
+  visit"). Taken: the hero hint, where headline and dek name the reader's moment.
+Not taken: the body-chemistry causes themselves (sciatic pain, cortisol, 2-nonenal, statins).
+They are medical claims; PEAK's gates refuse them, and now the headline word lists do too.
+
+### Fix
+1. **Skeleton `named-cause`** (cartridges/listicle/skeletons/10-named-cause.json, index.json):
+   styles reasons and mistakes, look editorial (renders in open), five items: `named_cause`,
+   `first_sign`, `second_sign`, `third_sign`, `past_fixes_failed`. Section hints: hero = the
+   reader's moment, the lede names ONE cause with no number or spec; closing = the product as the
+   fix with the fixed warranty and financing sentences and the CTA. Compliance: the cause is an
+   everyday thing the reader owns, uses or does, never a body part or a health term; the mechanism
+   sentence is a verified claim or the ad speaker's quoted words. No change to the style system:
+   the style still fixes copy and gates, the skeleton the item map, the template the headline and
+   the item pattern, so no style hook was needed.
+2. **Headline templates nc1 and nc2** (cartridges/listicle/headlines.yaml, appended after o4 so
+   the library order of the older templates is unchanged): both with `item_gates: [fear, medical]`
+   and an `item_pattern` that defines a sign or a gap. New slot kind `cause` (harness/headlines.py
+   FREE_KINDS, NON_MEDICAL_KINDS and a writer rule that names what a cause may be).
+   `word_lists.medical` and `medical_items` also refuse hormone, cortisol, belly fat, statins,
+   cholesterol and sciatic. A pinned `--skeleton named-cause` narrows the headline pick to nc1
+   (reasons) or nc2 (mistakes); with no pin, PEAK's open-loop default keeps them out of the seeded
+   pick.
+3. **PEAK hints** (tenants/peak-saunas/listicle-library/skeletons.yaml): the causes PEAK's
+   verified claims carry: the outlet requirement (the electrical claims), heat that reaches only
+   the front (the 360-degree heater placement claim), a routine that depends on leaving the house
+   (no claim: a question or the ad's own words). "A heater that heats the air, not you" is
+   excluded: no verified claim compares infrared with air heat.
+4. **Canned page** (evals/fake_run.py `_named_cause_page`): the founder fixture's complaint
+   (confusing sauna shopping) traced to one skipped question, the wiring. Item 1's proof is the
+   founder's own quoted words; items 2-5 cite gbrain-fuji-power, gbrain-fuji-dimensions,
+   gbrain-allowlist-360-full-spectrum and shipping-policy; five real FAQ entries with claim ids.
+   `run_once(skeleton="named-cause")` pins nc1 or nc2 for the run's style. The first draft of the
+   nc1 example ("Skipping the Wiring Question") and an item heading ("plug in") failed
+   `listicle:install_claim` (they read as "installation is easy"); both were reworded.
+
+### Judgment calls (say if wrong)
+- **Item count is 5, not 3 or 10.** The brief asked for 3, 5 or 10 signs by style or length. The
+  cartridge's item gate is 5-7 (`listicle.ITEM_COUNT_RANGE`, schema.json, the skeleton schema,
+  cartridge.md, and the owner's no-padding rule), and N in the headline must equal the item
+  count. A 3-sign Swarva page or a 10-reason Nourial page needs that gate changed for this
+  skeleton, and a skeleton never reaches the gates by design (cycle 73). Not done; the owner
+  decides.
+- The "product as the fix" is the closing block (and the renderer's value stack and model
+  picker), not a numbered item: the fixed price, financing and warranty lines live only there.
+- nc1 is a `reasons` template, nc2 a `mistakes` template (like h11/h17, its items are gaps of the
+  common solution).
+- The Library still renders the four imported looks with the generic reasons page
+  (`library.IMPORTED_LISTICLE`); library versions have no skeleton.
+
+### Verify
+- tests/test_named_cause_cycle98.py (18): the skeleton is a `--skeleton` choice and fits reasons
+  and mistakes only; the item map and the PEAK hints; nc1/nc2 produce "5 Signs Your Sauna Search
+  Is Hiding the Wiring Question", "3 Signs a Gym Sauna Habit Is Costing You Sessions", "5 Reasons
+  Why a Sauna Sales Call Isn't Enough", "7 Reasons Why a Gym Sauna Pass Isn't Enough" and parse
+  back; the aliases; cortisol, hormones and back pain causes are refused; medical and fear words
+  in items are refused; the writer lines; an offline run in each style passes every gate on the
+  first write and cites only verified claims; each of the four imported looks renders the page
+  offline with every heading, proof line, FAQ question and recap bullet (skipped when the look is
+  not on disk).
+- Changed tests (counts, not hash pins): tests/test_skeletons.py (10 skeletons, not 9),
+  tests/test_headlines_cycle70.py (28 templates, not 26; the mistakes style also gets nc2).
+- `python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt --tenant
+  peak-saunas --cartridges listicle --skeleton named-cause [--style mistakes]`: exit 0, look open,
+  nc1 / nc2. `run_once(..., look=<slug>, hero_style="story")` for the four imported looks, both
+  styles: exit 0, all eight pages render every item. Headless Chrome shots at 390 (scratch only):
+  open, jevi-five-signs, swarva-doctor-byline.
+- `harness library build --tenant peak-saunas --only listicle` (this Mac): 24 built, 10 not
+  renderable offline (the face and caps_over_photo versions, as before: no ad still and no photo
+  library files here), 0 failed.
+- Full suite `.venv/bin/python -m pytest -q -p no:cacheprovider`: 3016 passed, 0 failed, 1 skipped
+  (the HEIC test: pillow-heif is not installed in this venv), 3 min 45 s on this Mac.
+
+### Open
+- jevi-five-signs: the headline's accent phrase is invisible. The look colours `.op-accent` with
+  `--ps-accent` (#161817, basalt) on its dark page. This is in every page of that look, not only
+  named-cause pages. The look is a gitignored tenant file: fix it on prod or re-import it.
+- swarva-doctor-byline at 390: the copy runs to the screen edge (no side gutter) and the "At a
+  glance" icons are empty circles. A look issue, as above.
+- 3-sign and 10-sign pages need an owner decision on the 5-7 item gate (see Judgment calls).

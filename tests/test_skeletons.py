@@ -41,11 +41,11 @@ RETIRED_BRANCH_IDS = ("going-viral", "breakthrough-crushes", "game-changer-for-a
 # library and schema
 # ---------------------------------------------------------------------------
 
-def test_index_lists_nine_skeletons_with_a_default_for_every_style():
+def test_index_lists_ten_skeletons_with_a_default_for_every_style():
     index = json.loads((SKELETONS_DIR / "index.json").read_text())
     ids = [row["id"] for row in index["skeletons"]]
     assert ids == skeletons.skeleton_ids()
-    assert len(ids) == len(set(ids)) == 9
+    assert len(ids) == len(set(ids)) == 10   # cycle 98: named-cause
     for row in index["skeletons"]:
         assert (SKELETONS_DIR / row["file"]).exists()
     assert set(index["default_by_style"]) == set(listicle.STYLES)

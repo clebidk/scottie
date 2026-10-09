@@ -80,3 +80,15 @@ day-in-the-life:
     - Red light in the same sitting
     - An evening session after the kids are in bed
     - Why home access is easier to keep up than a drive to the gym
+
+# Cycle 98: the causes PEAK's verified claims can carry. "A heater that heats
+# the air, not you" is NOT one: no verified claim compares infrared with air
+# heat, so it stays out until one is verified.
+named-cause:
+  angle_fit: [root cause, cold and dark, nobody mentions]
+  item_hints:
+    - The cause, named -- a routine that depends on leaving the house breaks when it is cold and dark (no verified claim says so; ask it as a question or quote the ad speaker)
+    - The outlet nobody mentions (only what the model's electrical claim says -- a dedicated 20A outlet, or a standard outlet with no electrician)
+    - Heat that reaches only the front of you (cite the 360-degree heater placement claim; never a body outcome)
+    - The trip, the wait and the schedule of a shared sauna (the reader's own routine, no fee figure)
+    - Why a gym pass or a sauna blanket did not hold -- it answers the sign, not the cause; the fix with verified shipping and warranty terms

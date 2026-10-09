@@ -1,0 +1,88 @@
+{
+  "id": "named-cause",
+  "version": "1.0.0",
+  "name": "Named cause: signs that point to one cause",
+  "styles": [
+    "reasons",
+    "mistakes"
+  ],
+  "look": "editorial",
+  "sources": [
+    {
+      "kind": "swipe",
+      "name": "Nourial: 10 reasons, structural alignment named as the cause",
+      "url": "https://try.nourial.com"
+    },
+    {
+      "kind": "swipe",
+      "name": "Jevi: 5 signs grouped under one cause"
+    },
+    {
+      "kind": "swipe",
+      "name": "Swarva: 3 reasons the usual fix is not enough, doctor byline",
+      "url": "https://swarva.com"
+    },
+    {
+      "kind": "swipe",
+      "name": "Citrus Root: the dreaded moment as the hook",
+      "url": "https://citrusroot.co"
+    }
+  ],
+  "tags": [
+    "named cause",
+    "root cause",
+    "real reason",
+    "the real problem",
+    "signs",
+    "not enough",
+    "keeps breaking",
+    "why it fails"
+  ],
+  "item_count": 5,
+  "sections": {
+    "hero": "Headline and dek name the reader's moment or the cluster of signs, in the ad's own hook (the dreaded moment, the routine that keeps breaking). The lede names the one cause in plain words and opens the loop the items close: no number, spec or verdict up top.",
+    "items": "Item 1 states the cause as one plain mechanism sentence; its proof line is the verified claim behind it, or the ad speaker's own quoted words. Each later item is one sign the reader recognises: the heading names the sign, the body says why the cause produces it and what the product changes, the proof line states the verified fact. The last item says why the usual fixes did not hold: they answer the sign, not the cause.",
+    "audience_fit": "for_you: readers who recognise the signs. not_for_you: readers whose real limit is one the cause does not explain (space, power, budget).",
+    "faq": "Answer the doubts the cause raises (can my home take it, what changes first) with verified facts only.",
+    "closing": "The product as the fix for the cause: a 3-bullet recap of the cause and what removes it, then the CTA, the fixed warranty sentence and the allowed financing sentence."
+  },
+  "items": [
+    {
+      "role": "named_cause",
+      "heading_hint": "The cause, named in one plain mechanism sentence -- its proof line is the verified claim behind it or the ad speaker's own quoted words",
+      "image_role": "item"
+    },
+    {
+      "role": "first_sign",
+      "heading_hint": "A sign the reader already recognises, why the cause produces it, and what the product changes",
+      "image_role": "lifestyle"
+    },
+    {
+      "role": "second_sign",
+      "heading_hint": "A second sign from the same cause, often the hassle nobody mentions (the outlet, the install, the trip)",
+      "image_role": "install"
+    },
+    {
+      "role": "third_sign",
+      "heading_hint": "A third sign from the same cause, with the verified fact that removes it",
+      "image_role": "item"
+    },
+    {
+      "role": "past_fixes_failed",
+      "heading_hint": "Why the usual fixes did not hold: they answer the sign, not the cause; the product removes the cause (verified facts only)",
+      "image_role": "product"
+    }
+  ],
+  "headline_templates": [
+    "nc1",
+    "nc2"
+  ],
+  "voice": "Plain, second person, no blame and no shame: the cause is at fault, not the reader. Short sentences, one sign per item.",
+  "compliance": [
+    "The cause is an everyday thing the reader owns, uses or does -- never a body part, a lab value or any health term.",
+    "The mechanism sentence states only what a verified claim says, or quotes the ad speaker word for word in an attributed line; a hint is never a fact.",
+    "Every number, price, spec or outcome needs a verified claim_id.",
+    "No health or outcome promise for the product, no fear or safety wording, no urgency."
+  ],
+  "writer_brief": "Name ONE cause that a verified claim or the ad's own words can carry, then let every item point back to it, so the reader stops blaming themselves and sees the product as the fix for that cause. State the fix with verified facts, never an outcome promise."
+}

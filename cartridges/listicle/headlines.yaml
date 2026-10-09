@@ -93,7 +93,9 @@ word_lists:
             'heal(?:s|ed|ing|er)?', 'pain\w*', 'aches?', aching, 'inflamm\w*', 'arthrit\w*', insomnia,
             anxiety, 'depress\w*', 'diabet\w*', hypertension, blood pressure, eczema, psoriasis, acne,
             'illness\w*', 'sick\w*', 'injur\w*', 'infection\w*', 'immun\w*', weight loss, cellulite, chronic,
-            'diagnos\w*', 'prescription\w*', 'medication\w*', 'patients?']
+            'diagnos\w*', 'prescription\w*', 'medication\w*', 'patients?',
+            # cycle 98: the body-chemistry causes the named-cause swipes sell
+            'hormon\w*', cortisol, belly fat, 'statins?', cholesterol, 'sciatic\w*']
   # Never in the items (heading, body, proof) of a template with
   # `item_gates: [medical]`. Narrower than `medical`: item prose is long, and
   # "treat", "condition", "pain" or "sick" are ordinary English there ("how it
@@ -101,7 +103,8 @@ word_lists:
   medical_items: ['diseases?', 'symptoms?', 'cure[sd]?', curing, 'heal(?:s|ed|ing|er)?', 'inflamm\w*',
                   'arthrit\w*', insomnia, 'diabet\w*', hypertension, blood pressure, eczema, psoriasis, acne,
                   'illness\w*', 'infection\w*', 'immune', 'immunity', weight loss, cellulite, 'diagnos\w*',
-                  'prescription\w*', 'medication\w*', 'patients?', 'chronic pain', 'medical conditions?']
+                  'prescription\w*', 'medication\w*', 'patients?', 'chronic pain', 'medical conditions?',
+                  'hormon\w*', cortisol, belly fat, 'statins?', cholesterol, 'sciatic\w*']
 
 templates:
   # -- the five cycle 41 style formulas, unchanged (harness/listicle.py
@@ -397,3 +400,38 @@ templates:
       place: {kind: place, max_words: 2, description: 'where it had to fit, as she names it'}
       obstacle: {kind: problem, max_words: 4, description: 'what was in the way, as her quotes put it'}
     example: {pronoun: She, desire: a real sauna, possessive: Her, place: apartment, obstacle: no spare room}
+
+  # -- cycle 98: named-cause templates (the named-cause skeleton). The page
+  #    sells ONE cause before the product: every item is a sign or a gap
+  #    that points back to it. The cause is an everyday thing the reader owns,
+  #    uses or does -- never a body part, a hormone or a health condition --
+  #    and the item gates refuse fear and medical wording in the items.
+  - id: nc1
+    alias: signs-cause-is-harm
+    source: cycle 98 named-cause skeleton (Jevi "5 signs" pattern)
+    pattern: "N Signs <cause> Is <harm>"
+    styles: [reasons]
+    item_pattern: >-
+      one sign the reader recognises, stated as the sign itself, with the body saying why the cause
+      named in the headline produces it and what the product changes -- backed by a cited claim
+      wherever it states a spec; a sign is something the reader notices in the routine, the room or
+      the bill, never in the body
+    item_gates: [fear, medical]
+    slots:
+      cause: {kind: cause, max_words: 5, description: 'the one cause the page names, as a thing the reader owns, uses or does (e.g. "your sauna search", "a gym sauna habit")'}
+      harm: {kind: problem, max_words: 5, description: 'what the cause costs the reader, everyday and non-medical (e.g. "hiding the wiring question")'}
+    example: {cause: Your Sauna Search, harm: Hiding the Wiring Question}
+  - id: nc2
+    alias: reasons-not-enough
+    source: cycle 98 named-cause skeleton (Swarva "3 reasons ... aren't enough" pattern)
+    pattern: "N Reasons Why <common_solution> Isn't Enough"
+    styles: [mistakes]
+    item_pattern: >-
+      one reason the common solution named in the headline falls short, named as the gap itself, with
+      the body tracing it back to the one cause the page names and saying what the product changes --
+      a concrete, checkable gap (the trip, the schedule, the outlet, where the heat reaches), never a
+      health, safety or fear claim
+    item_gates: [fear, medical]
+    slots:
+      common_solution: {kind: common_solution, max_words: 5, description: 'what the reader uses now, singular, as a CATEGORY (e.g. "a gym sauna pass"), never a brand'}
+    example: {common_solution: a Sauna Sales Call}

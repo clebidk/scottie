@@ -101,7 +101,9 @@ def test_library_has_all_17_templates_plus_the_five_style_formulas():
     assert {f"s-{s}" for s in listicle.STYLES} <= ids
     # cycle 79: plus the four open-loop first-screen templates o1-o4
     assert {"o1", "o2", "o3", "o4"} <= ids
-    assert len(ids) == 26
+    # cycle 98: plus the two named-cause templates nc1 and nc2
+    assert {"nc1", "nc2"} <= ids
+    assert len(ids) == 28
 
 
 def test_every_template_names_real_styles_slots_and_evidence_kinds():
@@ -503,8 +505,9 @@ def test_questions_myths_and_tested_keep_their_own_formula():
 
 
 def test_mistakes_style_gets_templates_11_and_17():
+    # cycle 98: and the named-cause template nc2
     assert set(headlines.eligible_templates("mistakes", _facts(), tenant=TENANT)) - OPEN_LOOP == {
-        "s-mistakes", "h11", "h17"}
+        "s-mistakes", "h11", "h17", "nc2"}
 
 
 def test_weights_hook_steers_the_pick(monkeypatch):
