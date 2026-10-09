@@ -105,6 +105,13 @@ def _balanced(text, start):
     return len(text)
 
 
+
+def _attr_px(value):
+    """An HTML width/height attribute as pixels: "48" or "48px" -> 48.0;
+    a percentage, "auto" or anything else -> 0 (not a small icon)."""
+    m = re.match(r"\s*(\d+(?:\.\d+)?)\s*(?:px)?\s*$", str(value or ""))
+    return float(m.group(1)) if m else 0.0
+
 def _px(value, *, largest=True):
     """A length in px: px, rem/em (x16), clamp()/min()/max() (the largest
     px argument, or the smallest with largest=False); None otherwise."""
@@ -836,8 +843,7 @@ def detect_patterns(css, body, nodes_, sections):
             if ticks and all(li._words(li._text(k)) <= 40 for k in kids):
                 add("check-rows", el, f"{len(kids)} rows with a check mark")
         if len(kids) >= 3 and "icon-row" not in found:
-            icons = [k for k in kids if any(li._tag(x) == "svg" or (li._tag(x) == "img" and 0 < float(
-                x.get("width") or 0) <= 64) for x in k.iter()) and 0 < li._words(li._text(k)) <= 12]
+            icons = [k for k in kids if any(li._tag(x) == "svg" or (li._tag(x) == "img" and 0 < _attr_px(x.get("width")) <= 64) for x in k.iter()) and 0 < li._words(li._text(k)) <= 12]
             if len(icons) >= 3 and len(icons) == len(kids) and not _CHECK_RE.search((el.get("class") or "").lower()):
                 add("icon-row", el, f"{len(icons)} icons with short labels")
         if 3 <= len(kids) <= 8 and "stat-strip" not in found:

@@ -453,3 +453,13 @@ def test_the_cli_takes_an_exemplar_and_the_dry_run_prints_the_brief(capsys, monk
     assert cli.main(args[:-1]) == 0
     printed = capsys.readouterr().out
     assert "design brief: A light page" in printed and "fidelity " in printed and "exemplar: plunge-category" in printed
+
+
+def test_an_icon_row_whose_images_have_a_percent_width_is_observed_not_crashed():
+    """Cycle 97b: swarva.com's icon row had <img width="100%">; the observer
+    raised ValueError on float("100%") and the import died."""
+    row = "".join(f'<div><img src="i{i}.svg" width="100%" height="auto"><p>Label {i}</p></div>' for i in range(3))
+    html = f"<html><body><section><div class=\"icons\">{row}</div><p>{'word ' * 60}</p></section></body></html>"
+    obs = look_import.observe(look_import.load_source(
+        {"kind": "upload", "data": html.encode(), "filename": "percent_width_icon.html"}), tenant=TENANT)
+    assert "patterns" in obs
