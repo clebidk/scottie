@@ -313,6 +313,20 @@ _NAMED_CAUSE_ITEMS = (
                "claim_ids": ["shipping-policy"]}},
 )
 
+# Cycle 100: the 3- and 4-item pages (the skeleton's item_plans), as indexes
+# into _NAMED_CAUSE_ITEMS; "merged" is the 3-item map's last item, a second
+# sign and why the usual fixes did not hold in one.
+_NAMED_CAUSE_MERGED_ITEM = {
+    "heading": "The measurements only come up on a call",
+    "text": "When the footprint is missing, the room question waits on someone else's schedule, and another "
+            "sales call answers the sign, not the cause. Published dimensions let you tape out the corner "
+            "tonight.",
+    "claim_ids": ["gbrain-fuji-dimensions"],
+    "proof": {"text": "Assembled, the Fuji measures 53 inches wide, 44 inches deep and 75 inches high.",
+              "claim_ids": ["gbrain-fuji-dimensions"]},
+}
+_NAMED_CAUSE_PLANS = {5: (0, 1, 2, 3, 4), 4: (0, 1, 2, 4), 3: (0, 1, "merged")}
+
 _NAMED_CAUSE_FAQ = (
     {"question": "Do I need special wiring?",
      "answer": "Plan for a dedicated 20A circuit on 120V, because a standard 15A outlet is not sufficient. Check "
@@ -333,7 +347,7 @@ _NAMED_CAUSE_FAQ = (
 )
 
 
-def _named_cause_page(style, headline=None, hero_quote_id=None, display_line=None):
+def _named_cause_page(style, headline=None, hero_quote_id=None, display_line=None, items=5):
     page = _listicle_page(style, headline, hero_quote_id, display_line)
     page.update({
         "eyebrow": "For confused sauna shoppers",
@@ -342,9 +356,10 @@ def _named_cause_page(style, headline=None, hero_quote_id=None, display_line=Non
                 "back to it.",
         "scroll_cue": "Start with the cause",
     })
+    chosen = [_NAMED_CAUSE_MERGED_ITEM if k == "merged" else _NAMED_CAUSE_ITEMS[k] for k in _NAMED_CAUSE_PLANS[items]]
     page["reasons"] = [
         {"number": i, **copy.deepcopy(item), "image": {"asset_id": _LISTICLE_ASSET_IDS[i]}}
-        for i, item in enumerate(_NAMED_CAUSE_ITEMS, start=1)
+        for i, item in enumerate(chosen, start=1)
     ]
     page["faq"] = {"questions": copy.deepcopy(list(_NAMED_CAUSE_FAQ))}
     page["closing"]["headline"] = "Start with the outlet, then pick the cabin"
@@ -357,7 +372,7 @@ def _named_cause_page(style, headline=None, hero_quote_id=None, display_line=Non
 
 
 def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None, display_line=None,
-                 landing_look=None, skeleton=None):
+                 landing_look=None, skeleton=None, items=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -375,7 +390,7 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_i
 
         return COMPARISON_PAGE
     if cartridge == "listicle" and skeleton == "named-cause":
-        return _named_cause_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
+        return _named_cause_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line, items or 5)
     if cartridge == "listicle":
         return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
     if cartridge == "landing" and landing_look == "proof":
@@ -507,12 +522,15 @@ def _newest_run_dir(base_dir, pattern):
 
 
 def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longform", seed=42, product=None,
-             style=None, headline_template=None, skeleton=None, look=None, hero_style=None, extra_responses=()):
+             style=None, headline_template=None, skeleton=None, look=None, hero_style=None, extra_responses=(),
+             items=None):
     """One fake-client run, programmatically. Returns (exit_code, run_dir or
     None, [page.json paths]). Shared by main() (the CLI), evals/soak.py
     (the 200-generation dry run) and harness/library.py (cycle 86: one
     reference render per page version; `hero_style` is the listicle's first
-    screen, as `harness run --hero-style`)."""
+    screen, as `harness run --hero-style`). `items` (cycle 100) is `harness
+    run --items`: the named-cause page is canned at that count; a count the
+    skeleton has no item map for raises SkeletonError, as the run does."""
     selected = [c.strip() for c in cartridges.split(",") if c.strip()]
     known = set(CANNED_PAGES) | {"comparison", "listicle", "quiz"}
     unknown = [c for c in selected if c not in known]
@@ -536,6 +554,8 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     # formula unless the caller names one. A named one must need no extra
     # evidence: the canned items cite none.
     canned_headline = None
+    if "listicle" in selected and items is not None and skeleton:
+        skeletons.items_for(skeletons.load_skeleton(skeleton), items)
     if "listicle" in selected:
         # Cycle 98: the named-cause page is written for its own templates
         # (nc1 for reasons, nc2 for mistakes), not the style formula.
@@ -551,7 +571,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
                 headline_template, resolved_style, {"verified_claims": []},
                 tenant=tenant_mod.load_tenant(tenant, require=True), today=datetime.date.today(),
             )
-            canned_headline = headlines.example_headline(plan, 5)
+            canned_headline = headlines.example_headline(plan, items or 5)
 
     # Cycle 85: the landing page's look decides which canned page the writer
     # "returns" (the proof look's page carries benefits and icon_row), from
@@ -574,7 +594,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     quotes = safe_quote_candidates(brief, None)
     hero_quote_id = quotes[0]["id"] if quotes else None
     responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id,
-                                             _display_line(brief), landing_look, skeleton))
+                                             _display_line(brief), landing_look, skeleton, items))
                   for c in selected]
     responses += list(extra_responses)   # cycle 92: the design gate's judge answers, in order
     client = FakeClient(responses)
@@ -586,6 +606,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
         style=style,
         headline_template=headline_template,
         skeleton=skeleton,
+        items=items,
         look=look,
         hero_style=hero_style,
         product=product,
@@ -618,6 +639,8 @@ def main(argv=None):
                         help="listicle headline template id; default: the style's own formula")
     parser.add_argument("--skeleton", choices=skeletons.skeleton_ids(), default=None,
                         help="listicle winner skeleton id; default: picked from the ad's angle")
+    parser.add_argument("--items", type=int, metavar="N", default=None,
+                        help="listicle item count, as harness run --items (needs --skeleton; named-cause: 3, 4 or 5)")
     parser.add_argument("--product", default=None)
     parser.add_argument("--look", choices=list(looks.all_looks()), default=None,
                         help="a look of a selected cartridge (e.g. landing: open | proof); default: the cartridge's own")
@@ -628,11 +651,15 @@ def main(argv=None):
                         help="copy each cartridge's page.json here as <cartridge>.page.json, plus a manifest.json")
     ns = parser.parse_args(argv)
 
-    exit_code, run_dir, pages = run_once(
-        ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
-        style=ns.style, headline_template=ns.headline_template, skeleton=ns.skeleton, look=ns.look,
-        hero_style=ns.hero_style,
-    )
+    try:
+        exit_code, run_dir, pages = run_once(
+            ns.input, tenant=ns.tenant, cartridges=ns.cartridges, seed=ns.seed, product=ns.product,
+            style=ns.style, headline_template=ns.headline_template, skeleton=ns.skeleton, look=ns.look,
+            hero_style=ns.hero_style, items=ns.items,
+        )
+    except skeletons.SkeletonError as e:   # cycle 100: --items outside the skeleton's range, as harness run
+        print(str(e), file=sys.stderr)
+        return e.exit_code
     if exit_code != 0:
         return exit_code
 

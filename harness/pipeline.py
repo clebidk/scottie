@@ -184,6 +184,15 @@ def prepare_run(state):
     requested_style = getattr(args, "style", None)
     if requested_skeleton:
         requested_style = skeletons.style_for(requested_skeleton, requested_style)
+    # Cycle 100: --items pins the item count. The count's item map is the
+    # skeleton's, so it needs --skeleton, and a count outside that skeleton's
+    # range (named-cause 3-5) or with no item map is refused here, before any
+    # model call.
+    requested_items = getattr(args, "items", None) if "listicle" in selected else None
+    if requested_items is not None:
+        if not requested_skeleton:
+            raise skeletons.SkeletonError("--items needs --skeleton: the item count's item map is the skeleton's")
+        skeletons.items_for(skeletons.load_skeleton(requested_skeleton), requested_items)
     state.listicle_style = listicle.resolve_style(requested_style, seed=state.seed, tenant=tenant)
     # Cycle 70: an explicit --headline-template must exist and fit the style
     # before any model call; its evidence is checked in write_pages, once the
@@ -528,11 +537,14 @@ def write_pages(state):
         skeleton = skeletons.select(
             state.listicle_style, state.ad_brief, requested=requested_skeleton, tenant=state.tenant,
         )
-        state.listicle_skeleton = skeletons.for_writer(skeleton, state.tenant)
+        requested_items = getattr(state.args, "items", None)
+        state.listicle_skeleton = skeletons.for_writer(skeleton, state.tenant, items=requested_items)
         state.log.event(
             "run",
             f"listicle skeleton: {skeleton['id']} ({'--skeleton' if requested_skeleton else 'auto-pick'})",
         )
+        if requested_items is not None:
+            state.log.event("run", f"listicle items: {requested_items} (--items)")
     # Cycle 70: the listicle's headline template (harness/headlines.py),
     # picked here because the facts pack's evidence decides which templates
     # are eligible: --headline-template when given, else a pick from the run

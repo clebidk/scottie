@@ -6297,3 +6297,98 @@ but nothing removed them).
 - Phone width: headless Chrome on this Mac lays out at 500 px at the least; at 500 px nothing in
   the cards overflows. 390 px was not measured in a real phone viewport.
 - The listicle imported looks' summaries are long; the card clamps them to three lines.
+
+## Cycle 100 (named-cause pages with 3 to 5 items, 2026-10-09)
+
+Branch `cycle100/named-cause-three-to-five` from origin/master b2a277f. No model or API call
+(FakeClient and fixtures only).
+
+### Problem
+Cycle 98 left the named-cause skeleton at five items: the cartridge's item gate accepted only
+5-7 (`listicle.ITEM_COUNT_RANGE`), so a Swarva-style "3 Reasons Why ... Isn't Enough" page could
+not be written. Owner decision (2026-10-09): the named-cause skeleton may have 3, 4 or 5 items,
+never more than 5. Every other skeleton keeps 5-7.
+
+### Change
+1. **One source: the skeleton** (cartridges/listicle/skeletons/10-named-cause.json, version
+   1.1.0): `item_range: [3, 5]`. A skeleton with no `item_range` has the cartridge's 5-7.
+   `skeletons.item_range(skeleton)` reads it (a skeleton, its writer payload, or None).
+   `listicle.find_item_violations` / `find_listicle_violations` take `item_range`;
+   `repair.check_page_gates` takes `listicle_skeleton` and passes its range, and
+   `write_and_gate_page` gives its gate the run's (or the draft's) skeleton. The headline check is
+   unchanged: N must equal the item count, so N is inside the same range. This is the first thing
+   a skeleton changes in the gates (cycle 73 kept skeletons out of them); the docstrings say so.
+2. **Item plans** (`item_plans` in the same file; skeleton.schema.json: `item_range`,
+   `item_plans` as a `$ref` to the items shape, `item_count` and `items` down to 3).
+   4 = `named_cause`, `first_sign`, `second_sign`, `past_fixes_failed`. 3 = `named_cause`,
+   `first_sign`, `second_sign_past_fixes_failed` (a second sign and why the usual fixes did not
+   hold, in one item). 5 = the cycle 98 map. `skeletons.validate` now also checks the counts
+   (`count_problems`: item_count and every plan key inside item_range, each map as long as its
+   count) and supports a schema-valued `additionalProperties` and a local `$ref`.
+3. **`--items N`** on `harness run` (and `python -m evals.fake_run`): needs `--skeleton`; a count
+   outside the skeleton's range or with no item map stops the run in `prepare_run`, before any
+   model call (`SkeletonError`, exit 1): "skeleton 'named-cause' allows 3 to 5 items, not 6".
+   The other skeletons have one item map, so `--items` takes only their own item_count. Without
+   `--items` the run writes the skeleton's item_count (5). `skeletons.for_writer(..., items=N)`
+   puts that count and its map in the writer payload (with `item_range`, only for a skeleton that
+   sets one), and the skeleton lines say "Write exactly N numbered items ... This skeleton allows
+   3 to 5 items, never more than 5: that range replaces the 5-7 items stated elsewhere". The other
+   skeletons' lines are byte-identical ("stay inside 5-7" now comes from the same range).
+4. **Revise**: `revise._gate_skeleton` gives the gate the run's recorded skeleton (state.json
+   `listicle.skeleton_id`) when it sets its own range, so a revised 3-item page is held to 3-5.
+   Revises of pages on the other skeletons keep their prompt unchanged.
+5. **Headlines nc1 and nc2**: no change needed. Both take any N ("3 Reasons Why a Sauna Sales
+   Call Isn't Enough", "4 Signs Your Sauna Search Is Hiding the Wiring Question"); the `cause`
+   slot's medical words and the items' fear and medical gates still apply.
+6. **Canned pages** (evals/fake_run.py): `_named_cause_page(..., items=3|4|5)`. 4 drops the
+   third sign (heater layout); 3 keeps the cause and the outlet sign and ends with one merged item
+   (the measurements sign plus "another sales call answers the sign, not the cause", citing
+   gbrain-fuji-dimensions). `run_once(items=N)` cans the headline at N.
+7. Docs: cartridge.md and rubric.md name the skeleton range next to "5-7 items"; GENERATOR.md,
+   HEADLINES.md and the skeletons README describe the range, the plans and `--items`.
+
+### Judgment calls (say if wrong)
+- **No word caps were scaled.** The brief asked per-item caps to scale for a 3-item page inside
+  the listicle body cap. The listicle has neither: cycle 72 removed the item word range and
+  cartridge.md says "No page-level word minimum and no page-level word band". Adding one would
+  undo an owner rule. Instead the count line tells the writer that each item keeps its whole role
+  (the merged item carries both parts) and never to pad.
+- **`--items` needs `--skeleton`.** The count's item map belongs to a skeleton, and an auto-picked
+  skeleton is chosen after the ad brief (a model call); a refusal there would cost a call.
+- **The default count is the skeleton's item_count (5).** The brief said the count is "chosen
+  from the skeleton's range"; nothing in the ad picks 3 over 5 yet, so without `--items` it is 5.
+- cartridge.md's "5-7 numbered items" line now names the exception, so the listicle cartridge
+  version hash changes for every run (the writer prompt changed by one parenthesis).
+  schema.json's "5-7 numbered items" description is unchanged; the hard-constraint count line
+  overrides it on named-cause pages.
+
+### Verify
+- tests/test_named_cause_cycle100.py (44): the range is read from the skeleton (and a changed
+  range changes the gate through `check_page_gates`); named-cause refuses 2 and 6 items and takes
+  3, 4, 5; classic-n-reasons and hormozi-mistakes (and no skeleton) still refuse 4 and 8 and take
+  5 and 7; the plans for 3, 4, 5 and the schema count checks; the writer lines name the count; the
+  other skeletons' lines are unchanged; `--items` parses, and 2, 6 (named-cause), 6 and 3
+  (classic-n-reasons) and `--items` with no `--skeleton` stop before any model call; fake_run
+  `--items 6` exits non-zero; nc1/nc2 at 3 and 4 render, parse and fail when N is not the count;
+  medical and fear words still refused at 3 items; offline runs at 3, 4, 5 in both styles pass
+  every gate on the first write and send the writer that count; the revise gate skeleton; each of
+  the four imported looks renders the 3- and 4-item page with every heading and proof line.
+- No existing test changed. No hash pin re-recorded.
+- Fake runs (`python -m evals.fake_run tenants/peak-saunas/fixtures/founder-warranty-demo.txt
+  --tenant peak-saunas --cartridges listicle --skeleton named-cause ...`): `--items 3`, `--items
+  4`, `--items 5`, `--items 3 --style mistakes`, `--items 4 --style mistakes` and no `--items`:
+  exit 0, look open. `--items 2` and `--items 6`: exit 1 with the range message. `--items 3` with
+  no `--skeleton`: exit 1. `run_once(..., items=N, look=<slug>, hero_style="story")` for the four
+  imported looks and open, both styles, N = 3, 4, 5: 30 runs, all exit 0, every headline, heading
+  and proof line in the HTML.
+- `harness library build --tenant peak-saunas --only listicle` (this Mac): 24 built, 10 not
+  renderable offline (the face and caps_over_photo versions, as in cycle 98), 0 failed. The
+  Library does not use skeletons, so this only shows the shared fake-run path still works.
+- Full suite `.venv/bin/python -m pytest -q -p no:cacheprovider`: 3069 passed, 0 failed, 1 skipped
+  (the HEIC test: pillow-heif is not installed in this venv), 4 min 17 s on this Mac.
+
+### Open
+- The Library still renders the imported listicle looks with the generic five-item reasons page;
+  library versions have no skeleton, so no 3- or 4-item version is in the Library.
+- No real-model run at 3 or 4 items yet: whether the writer keeps the merged item to two short
+  beats (and does not pad) is untested until a live run.

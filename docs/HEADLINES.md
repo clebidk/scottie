@@ -198,6 +198,11 @@ A pinned `--skeleton named-cause` narrows the seeded pick to these two (nc1 on a
 page, nc2 on a `mistakes` page); with no pin they are ordinary count templates, used only when
 the open-loop default is off or `--headline-template` names one.
 
+Cycle 100: N is 3, 4 or 5 on a named-cause page ("3 Reasons Why a Sauna Sales Call Isn't
+Enough", "4 Signs Your Sauna Search Is Hiding the Wiring Question"): the skeleton's item range
+is 3-5, and N must equal the item count. The templates themselves were not changed; they take
+any N. The `cause` slot and the item gates still refuse medical and fear words.
+
 | id | alias | pattern | styles | gates |
 | --- | --- | --- | --- | --- |
 | nc1 | signs-cause-is-harm | N Signs \<cause\> Is \<harm\> | reasons | no fear or medical words in items |

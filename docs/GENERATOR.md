@@ -128,7 +128,7 @@ composition whose image is missing falls back, logged, and page.json/state.json 
 rendered. Catalog, image needs, selection and how to add one: `docs/HEROES.md`.
 
 **Page structure.** Header (the first screen above; the product hero is the model's cut-out,
-`harness/cutouts.py`) -> 5-7 numbered items, each with an H2, a short
+`harness/cutouts.py`) -> 5-7 numbered items (named-cause skeleton: 3-5), each with an H2, a short
 one-idea body, one image and a closing proof line, with a micro-CTA after items 2 and 4 -> a
 pull-quote band after item 3 -> "who this is for / who it is not for" -> the model
 picker -> a 5-7 question FAQ -> the closing block (3-bullet recap, CTA, warranty
@@ -209,6 +209,15 @@ Enough" (mistakes); both refuse fear and medical wording in the items, and the `
 refuses health and body-chemistry words (docs/HEADLINES.md). For PEAK the cause is one its
 verified claims carry: the outlet requirement, the 360-degree heater placement, or a routine
 that depends on leaving the house (that one only as a question or the ad's own words).
+Cycle 100 (owner decision 2026-10-09): a named-cause page has 3, 4 or 5 items, never more than
+5; every other skeleton keeps 5-7. The range is the skeleton's `item_range` (absent: the
+cartridge's 5-7), read by the item gate (`listicle:item_count`) through `skeletons.item_range`;
+the headline's N must still equal the item count. `item_plans` hold the 3- and 4-item maps: 4 =
+cause, two signs, past fixes; 3 = cause, one sign, and a second sign merged with why the usual
+fixes did not hold. `--items N` (with `--skeleton`) picks the count; a count outside the
+skeleton's range, or one it has no item map for, stops the run before any model call. Without
+`--items` the run writes the skeleton's `item_count` (5). The writer's hard constraints name the
+count. There is no item or page word cap on the listicle (cycle 72), so none was scaled.
 
 **Repairs** (cycle 74). The writer gets `ad_quotes` (the ad speaker's own sentences,
 pre-filtered so each passes the claims gate) and `allowed_numbers` (every verified number
@@ -275,7 +284,8 @@ into the storefront body.
 
 **Offline.** `python -m evals.fake_run <fixture> --tenant peak-saunas --cartridges
 listicle --style <s>` renders any style with no API key; `--skeleton named-cause` renders
-the canned named-cause page (cycle 98).
+the canned named-cause page (cycle 98); add `--items 3` or `--items 4` for the 3- and 4-item
+pages (cycle 100).
 
 **Reading `REVIEW.md`.** Every run writes `tenants/peak-saunas/out/<run-id>/REVIEW.md`: the product picked
 (with a `**WARNING:**` line if it was defaulted rather than named in the ad), the gate
