@@ -101,9 +101,28 @@
       }
     },
     "item_count": {
+      "description": "The items in this skeleton's own item map (\"items\"): the count a run writes unless --items picks one of item_plans. Inside item_range.",
       "type": "integer",
-      "minimum": 5,
+      "minimum": 3,
       "maximum": 7
+    },
+    "item_range": {
+      "description": "Cycle 100: [lo, hi], the item counts a page on this skeleton may have; the listicle item gate reads it. Absent: the cartridge's 5-7 (harness/listicle.py ITEM_COUNT_RANGE).",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 7
+      }
+    },
+    "item_plans": {
+      "description": "Cycle 100: the ordered item map for each other count inside item_range, keyed by the count (\"3\", \"4\"); the same shape as items.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/properties/items"
+      }
     },
     "sections": {
       "type": "object",
@@ -138,7 +157,7 @@
     },
     "items": {
       "type": "array",
-      "minItems": 5,
+      "minItems": 3,
       "maxItems": 7,
       "items": {
         "type": "object",

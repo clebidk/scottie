@@ -2092,6 +2092,12 @@ def build_parser():
              "Default: picked from the skeletons that fit the style, by the ad's angle",
     )
     p_run.add_argument(
+        "--items", type=int, metavar="N",
+        help="listicle item count (cycle 100); needs --skeleton and must be a count that skeleton has an "
+             "item map for (named-cause: 3, 4 or 5; the others: their own item_count). Default: the "
+             "skeleton's item_count",
+    )
+    p_run.add_argument(
         "--hero-style", dest="hero_style", type=heroes.arg, metavar="HERO",
         help="first-screen composition (harness/heroes/, docs/HEROES.md): listicle face | story | display | "
              "caps_over_photo | split | dark_statement; landing ad_first | caps_over_photo | split | "

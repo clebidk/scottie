@@ -35,7 +35,7 @@ The FIRST SCREEN has three styles, chosen by the run (`--hero-style`, an A/B/C b
 
 ## Structure (in order)
 1. Header (the first screen, see above): the tenant's optional disclosure label (`disclosure_label` in tenant.yaml; nothing renders when it is unset), eyebrow, H1 headline with its accent phrase, dek or lede, the byline, and the first-screen picture -- the renderer puts the product's cut-out in `hero.asset_id`'s slot. Still write `hero.asset_id` (any asset id from facts_pack.assets).
-2. 5-7 numbered items (`reasons`). Each: number, an H2 heading (<=10 words, no numeral), a short body (one idea, a few sentences -- the winner's density, no word minimum), one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
+2. 5-7 numbered items (`reasons`; a skeleton may set its own range -- named-cause 3-5 -- and the hard constraints then name the count). Each: number, an H2 heading (<=10 words, no numeral), a short body (one idea, a few sentences -- the winner's density, no word minimum), one image, and a closing `proof` line. A micro-CTA with the same `cta_text` renders after items 2 and 4.
 3. A pull-quote band after item 3, when this run's facts pack carries a customer quote.
 4. "Who this is for / who it is not for" (`audience_fit`): two lists of 2-4 one-line entries.
 5. The model picker: up to three of the tenant's own active models, each with a one-line fit, its verified price, and a CTA to that model's page.

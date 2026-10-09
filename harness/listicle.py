@@ -96,6 +96,8 @@ GENERIC_AUDIENCE_WORDS = frozenset({"people", "buyers", "shoppers", "customers",
 # never happened (docs/FIXLOG.md Cycle 49).
 _N_IS_ITEM_COUNT = STYLES
 
+# Cycle 100: the default; a skeleton may set its own (harness/skeletons.py
+# item_range -- named-cause: 3-5), passed to find_item_violations.
 ITEM_COUNT_RANGE = (5, 7)
 # Cycle 72: no item word range. Cycle 43 had lowered the floor from 60 to 50;
 # the owner's winner-adaptation rule (cartridge.md) drops it: an item body is
@@ -693,13 +695,14 @@ def find_headline_slot_violations(page, tenant_name=None, product_names=None, st
     return problems
 
 
-def find_item_violations(page):
-    """5-7 numbered items; each numbered by position, with an image, a
+def find_item_violations(page, item_range=None):
+    """5-7 numbered items (cycle 100: or `item_range`, the run's skeleton's
+    own -- named-cause 3-5); each numbered by position, with an image, a
     non-empty body (cycle 72: no word range), and a proof line that is either claim-backed or an
     attributed customer statement."""
     problems = []
     items = _items(page)
-    lo, hi = ITEM_COUNT_RANGE
+    lo, hi = item_range or ITEM_COUNT_RANGE
     if not lo <= len(items) <= hi:
         problems.append(_problem(
             "$.reasons", "listicle:item_count",
@@ -908,13 +911,15 @@ def find_renderer_owned_violations(page):
     return problems
 
 
-def find_listicle_violations(page, style=None, tenant_name=None, product_names=None, headline=None):
+def find_listicle_violations(page, style=None, tenant_name=None, product_names=None, headline=None,
+                             item_range=None):
     """Every listicle-specific structural check, combined. Wired into
     harness/repair.py's check_page_gates for the listicle cartridge only.
     tenant_name/product_names (cycle 43) feed find_headline_slot_violations
     only; both default to None, so a caller that doesn't have them yet
     (every existing call site outside check_page_gates) simply skips that
-    one check rather than needing an update."""
+    one check rather than needing an update. item_range (cycle 100): the
+    run's skeleton's (skeletons.item_range); None is ITEM_COUNT_RANGE."""
     if not isinstance(page, dict):
         return []
     problems = []
@@ -930,7 +935,7 @@ def find_listicle_violations(page, style=None, tenant_name=None, product_names=N
         problems += headlines.find_headline_violations(page, headline)
     else:
         problems += find_headline_slot_violations(page, tenant_name, product_names, style)
-    problems += find_item_violations(page)
+    problems += find_item_violations(page, item_range)
     problems += find_hero_violations(page)
     problems += find_audience_fit_violations(page)
     problems += find_faq_violations(page)

@@ -26,6 +26,7 @@ from pathlib import Path
 from . import headlines
 from . import notify
 from . import runstate
+from . import skeletons
 from . import tenant as tenant_mod
 from .anthropic_client import make_client
 from .budget import Budget, BudgetExceeded, record_spend, reserve_spend
@@ -224,6 +225,23 @@ def _append_revision_note(run_dir, *, page, version, by, applied_cuts, notes, mo
 # The command
 # ---------------------------------------------------------------------------
 
+def _gate_skeleton(state, page, tenant):
+    """Cycle 100: the run's recorded skeleton (state.json listicle.skeleton_id)
+    as a writer payload for the page's own item count, when that skeleton
+    sets its own item_range (named-cause, 3-5) -- so a revised 3-item page is
+    held to that range, not the cartridge's 5-7. None for every other
+    skeleton: their range is the cartridge's, and the revise keeps its
+    prompt."""
+    sid = (state.get("listicle") or {}).get("skeleton_id")
+    if sid not in skeletons.skeleton_ids():
+        return None
+    skeleton = skeletons.load_skeleton(sid)
+    if not skeleton.get("item_range"):
+        return None
+    count = len(page.get("reasons") or [])
+    return skeletons.for_writer(skeleton, tenant, items=count if count in skeletons.item_counts(skeleton) else None)
+
+
 def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make_client):
     """Does the whole revise. Returns a result dict: {page, version,
     model_called, applied_cuts, gate_problems, cost}. Raises ReviseError if
@@ -257,6 +275,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
     notes = feedback.get("notes") or ""
 
     page, applied_cuts = apply_cuts_to_page(page, cuts)
+    listicle_skeleton = _gate_skeleton(state, page, tenant) if page_name == "listicle" else None
 
     version = next_version(cartridge_dir)
     run_id = run_dir.name
@@ -323,6 +342,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
                         repair_next_model=tenant.model_for("repair_next"),
                         initial_page=initial_page, initial_call_tokens=initial_call_tokens,
                         listicle_headline=headline_plan, landing_look=landing_look,
+                        listicle_skeleton=listicle_skeleton,
                     )
                 except (ClaimsGateFailure, BudgetExceeded) as e:
                     # Same rule a fresh run follows: never write a page that failed
@@ -354,7 +374,7 @@ def revise_page(run_dir, page_name, *, by=None, tenant=None, make_client_fn=make
                 financing_lender=tenant.claims_config.get("financing_lender"),
                 speaker_pov=ad_brief.get("speaker_pov"), word_range=word_range,
                 allowed_cta_texts=allowed_cta_texts, ad_brief=ad_brief,
-                listicle_headline=headline_plan,
+                listicle_headline=headline_plan, listicle_skeleton=listicle_skeleton,
             )
             log.gate_result("PASS" if not gate_problems else "FAIL", f"page_json:{page_name} (cuts only)")
         else:

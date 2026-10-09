@@ -5,7 +5,9 @@ the same way it adapts the tenant's winner exemplar: it keeps the item order,
 each item's role and the section hints, and writes the copy in this run's
 style, headline template, brand voice and verified claims. A skeleton is never
 a claims source and never reaches the gates -- every page still passes the
-claims gate, proof lines, quote fidelity and the banned words unchanged.
+claims gate, proof lines, quote fidelity and the banned words unchanged. The
+one exception is the item count (cycle 100): a skeleton's optional
+`item_range` replaces the cartridge's 5-7 for its pages.
 
 Each skeleton fits inside the cartridge's fixed eight-section Structure
 (`../cartridge.md`). Its `sections` hints say what to do in the hero, the
@@ -32,9 +34,12 @@ a verified claim or the ad speaker's own quoted words), items 2-4 are signs
 why the usual fixes did not hold, and the closing block is the product as the
 fix with the fixed price, financing and warranty lines. Its headline
 templates are nc1 "N Signs \<cause\> Is \<harm\>" and nc2 "N Reasons Why
-\<common_solution\> Isn't Enough" (docs/HEADLINES.md). Five items: the
-cartridge's 5-7 item gate holds, so a 3-sign or 10-sign page is not
-possible without changing that gate.
+\<common_solution\> Isn't Enough" (docs/HEADLINES.md). Cycle 100 (owner
+decision 2026-10-09): 3, 4 or 5 items, never more (its `item_range`, read
+by the item gate; every other skeleton keeps the cartridge's 5-7).
+`item_plans` hold the 4-item map (cause, two signs, past fixes) and the
+3-item map (cause, one sign, a second sign merged with why the usual fixes
+did not hold); `--items N` picks one.
 
 ## How a run picks one
 

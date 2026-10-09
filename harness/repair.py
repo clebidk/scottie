@@ -30,6 +30,7 @@ from . import quiz
 from . import landing
 from . import pdp
 from . import simplicity
+from . import skeletons
 from . import tenant as tenant_mod
 from . import vocab
 from .claims import (
@@ -431,10 +432,12 @@ def resolve_warmup_window(tenant, schema_default=None):
     return default_warmup_window_words()
 
 
-def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, listicle_headline=None, log=None, look=None):
+def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, speaker_pov, word_range, allowed_cta_texts, ad_brief=None, block_slots=None, tenant=None, warmup_window_words=None, listicle_style=None, listicle_headline=None, log=None, look=None, listicle_skeleton=None):
     """Every page-level gate check, combined into one list of problem dicts
     (empty if the page passes everything). Never raises -- the repair loop
-    decides what to do with the result."""
+    decides what to do with the result. listicle_skeleton (cycle 100): the
+    run's skeleton or its writer payload; the item gate reads its
+    item_range (named-cause 3-5; None or any other skeleton 5-7)."""
     problems = []
     try:
         gate_page_json(
@@ -500,6 +503,7 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
             page, style=listicle_style, headline=listicle_headline,
             tenant_name=tenant.display_name,
             product_names=facts_pack.get("digit_exempt_terms"),
+            item_range=skeletons.item_range(listicle_skeleton),
         )
         # Cycle 74: copy quality -- repeated lines and numbers, a proof line
         # that restates its body, one brand spelling, no narration about the
@@ -1557,6 +1561,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             listicle_headline=listicle_headline,
             log=log,
             look=landing_look if cartridge_name == "landing" else None,
+            listicle_skeleton=listicle_skeleton,
         )
 
     revision_note = None

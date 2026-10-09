@@ -18,7 +18,11 @@ replaces none of them:
 
 A skeleton never reaches the gates: check_page_gates sees the page exactly as
 it would without one, so claims, proof lines, quote fidelity and the banned
-words apply unchanged. Its hints are angles, never facts.
+words apply unchanged. Its hints are angles, never facts. One exception
+(cycle 100, owner decision 2026-10-09): the item count. A skeleton may set
+its own "item_range" (named-cause: 3-5); the listicle item gate reads it
+through item_range() below, and every other skeleton keeps the cartridge's
+5-7.
 
 Tenant-neutral: tenant fill hints (extra auto-pick tags, item hints) live in
 tenants/<tenant>/listicle-library/skeletons.yaml.
@@ -90,10 +94,18 @@ _TYPES = {"object": dict, "array": list, "string": str, "integer": int, "boolean
 def validate(data, spec=None, path="$"):
     """Problems (strings) found checking `data` against skeleton.schema.json.
     Covers the keywords that schema uses -- type, required, properties,
-    additionalProperties, enum, pattern, minLength, minItems, maxItems,
-    minimum, maximum, items -- so the schema file is the one definition
-    (no jsonschema dependency for one file)."""
-    spec = schema() if spec is None else spec
+    additionalProperties (false, or a schema for every other key), enum,
+    pattern, minLength, minItems, maxItems, minimum, maximum, items, and a
+    "#/..." $ref into the same file -- so the schema file is the one
+    definition (no jsonschema dependency for one file). At the top level
+    also the item-count rules no keyword can state (count_problems)."""
+    if spec is None:
+        return validate(data, schema(), path) + (count_problems(data) if isinstance(data, dict) else [])
+    if "$ref" in spec:
+        target = schema()
+        for part in spec["$ref"].removeprefix("#/").split("/"):
+            target = target[part]
+        spec = target
     problems = []
     typ = spec.get("type")
     if typ:
@@ -124,12 +136,81 @@ def validate(data, spec=None, path="$"):
         for key in spec.get("required") or []:
             if key not in data:
                 problems.append(f"{path}: missing {key!r}")
+        extra = spec.get("additionalProperties")
         for key, value in data.items():
             if key in props:
                 problems += validate(value, props[key], f"{path}.{key}")
-            elif spec.get("additionalProperties") is False:
+            elif extra is False:
                 problems.append(f"{path}: unknown key {key!r}")
+            elif isinstance(extra, dict):
+                problems += validate(value, extra, f"{path}.{key}")
     return problems
+
+
+def count_problems(skeleton):
+    """Cycle 100: the item-count rules across fields -- item_range is
+    [lo, hi] with lo <= hi, item_count and every item_plans key sit inside
+    it, items has item_count entries, and each plan has as many entries as
+    its key says."""
+    problems = []
+    lo, hi = item_range(skeleton)
+    if lo > hi:
+        problems.append(f"$.item_range: {lo} > {hi}")
+    count = skeleton.get("item_count")
+    if isinstance(count, int) and not lo <= count <= hi:
+        problems.append(f"$.item_count: {count} is outside item_range {lo}-{hi}")
+    if isinstance(count, int) and isinstance(skeleton.get("items"), list) and len(skeleton["items"]) != count:
+        problems.append(f"$.items: {len(skeleton['items'])} entries, item_count is {count}")
+    for key, plan in (skeleton.get("item_plans") or {}).items():
+        if not key.isdigit():
+            problems.append(f"$.item_plans.{key}: the key must be the item count")
+            continue
+        if not lo <= int(key) <= hi:
+            problems.append(f"$.item_plans.{key}: {key} is outside item_range {lo}-{hi}")
+        if int(key) == count:
+            problems.append(f"$.item_plans.{key}: item_count's map is items, not a plan")
+        if isinstance(plan, list) and len(plan) != int(key):
+            problems.append(f"$.item_plans.{key}: {len(plan)} entries, not {key}")
+    return problems
+
+
+# ---------------------------------------------------------------------------
+# item count (cycle 100)
+# ---------------------------------------------------------------------------
+
+def item_range(skeleton):
+    """(lo, hi): the item counts a page on this skeleton may have -- its own
+    "item_range" when it sets one (named-cause: 3-5), else the cartridge's
+    listicle.ITEM_COUNT_RANGE (5-7). Takes a skeleton, its writer payload
+    (for_writer keeps item_range), or None (no skeleton: the cartridge's)."""
+    own = (skeleton or {}).get("item_range")
+    return (own[0], own[1]) if own else listicle.ITEM_COUNT_RANGE
+
+
+def item_counts(skeleton):
+    """The counts this skeleton has an item map for: item_count (its items)
+    and each item_plans key, ascending."""
+    return sorted({skeleton["item_count"], *(int(k) for k in skeleton.get("item_plans") or {})})
+
+
+def items_for(skeleton, n=None):
+    """The ordered item map for an n-item page (n None: item_count, the
+    skeleton's own items). Raises SkeletonError for a count outside the
+    skeleton's item_range, or one inside it with no item map (only
+    named-cause has item_plans; the others have their one item_count)."""
+    if n is None or n == skeleton["item_count"]:
+        return skeleton["items"]
+    lo, hi = item_range(skeleton)
+    if not lo <= n <= hi:
+        raise SkeletonError(
+            f"skeleton {skeleton['id']!r} allows {lo} to {hi} items, not {n}"
+        )
+    plan = (skeleton.get("item_plans") or {}).get(str(n))
+    if plan is None:
+        raise SkeletonError(
+            f"skeleton {skeleton['id']!r} has an item map for {item_counts(skeleton)} items, not {n}"
+        )
+    return plan
 
 
 # ---------------------------------------------------------------------------
@@ -231,15 +312,21 @@ def ranked(style, ad_brief=None, *, tenant=None):
 # writer
 # ---------------------------------------------------------------------------
 
-WRITER_KEYS = ("id", "name", "item_count", "sections", "items", "voice", "compliance", "writer_brief")
+WRITER_KEYS = ("id", "name", "item_count", "item_range", "sections", "items", "voice", "compliance", "writer_brief")
 
 
-def for_writer(skeleton, tenant=None):
+def for_writer(skeleton, tenant=None, items=None):
     """The compact payload the writer's user message carries under
     "skeleton": the item map and hints, plus the tenant's item hints. No
     sources, tags, look or headline list -- those steer selection, not
-    copy."""
+    copy. Cycle 100: `items` (--items) picks the count and its item map
+    (items_for; SkeletonError when the skeleton has none); item_count and
+    items then say that count. item_range is kept only when the skeleton
+    sets one, so the gate reads the same range the writer was given."""
     payload = {k: skeleton[k] for k in WRITER_KEYS if k in skeleton}
+    if items is not None:
+        payload["items"] = items_for(skeleton, items)
+        payload["item_count"] = items
     hints = tenant_hints(tenant, skeleton["id"]).get("item_hints")
     if hints:
         payload["tenant_item_hints"] = list(hints)
@@ -250,17 +337,30 @@ def writer_lines(skeleton):
     """Hard-constraint lines for a run with a skeleton (listicle only)."""
     if not skeleton:
         return []
-    return [
+    lo, hi = item_range(skeleton)
+    lines = [
         f'This page adapts the winner skeleton "{skeleton["name"]}" -- the user message carries it '
         'under "skeleton". It is an item map, never a claims source: write the numbered items in '
         "its order, one per entry in skeleton.items, using each entry's role and heading_hint as "
         "that item's angle in this page's style and headline template. Keep its item count unless "
-        "an item has no verified fact to stand on; then drop that item and stay inside 5-7.",
+        f"an item has no verified fact to stand on; then drop that item and stay inside {lo}-{hi}.",
         "The skeleton's section hints fit inside this cartridge's Structure: they never add a "
         "section, a label, a byline, comments or a trust row. Its hints and tenant_item_hints are "
         "angles, not facts -- every number, spec or outcome still needs a verified claim_id, and "
         "every other rule in these hard constraints wins over the skeleton.",
-    ] + ([DRAFT_ANGLE_LINE] if skeleton.get("draft_angle") else [])
+    ]
+    # Cycle 100: a skeleton with its own range names the count to write.
+    if skeleton.get("item_range"):
+        n = skeleton["item_count"]
+        dlo, dhi = listicle.ITEM_COUNT_RANGE
+        lines.insert(1, (
+            f"Write exactly {n} numbered items (skeleton.item_count), and a count headline's N is {n}. "
+            f"This skeleton allows {lo} to {hi} items, never more than {hi}: that range replaces the "
+            f"{dlo}-{dhi} items stated elsewhere in these instructions. With fewer items each one keeps its "
+            "whole role from skeleton.items (an item whose role names two parts carries both); never pad "
+            "an item to make up the length."
+        ))
+    return lines + ([DRAFT_ANGLE_LINE] if skeleton.get("draft_angle") else [])
 
 
 # Cycle 76 (harness/drafts.py): a second draft whose style allows no other
