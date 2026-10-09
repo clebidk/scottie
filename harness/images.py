@@ -90,6 +90,28 @@ WANT_KEYS = ("shot", "mood", "fullbleed_ok", "dark_ok", "aspect_min", "aspect_ma
              "min_quality", "product_still")
 SLOT_KEYS = ("name", "want", "n", "fallback", "crop", "above_fold", "bind", "last_resort")
 
+# Cycle 101 (owner grading of 21 real pages, 2026-10-09): the order every
+# slot ranks the pictures it accepts -- hero, first-screen, item and essay
+# slots alike. Most pages led with the studio cut-out or a person photo while
+# tagged room and exterior photos went unused. The tier is the FIRST
+# sort key in fill_slots; the score (the page's model, real over AI, quality,
+# blur, clutter, crop loss, the slot's own shot order) only orders pictures
+# inside one tier. Room and exterior shots (and the wide "hero-wide" view of
+# them) first, then people in use, then detail macros, then the storefront's
+# product images, and the studio cut-out last: a fallback, never a first
+# choice when a tagged photo fits. An ad still ranks with the room shots when
+# it is a product still (product_still: no face, short side >= 720px) and
+# with the people otherwise. A slot's fallback stages and its last-resort
+# cut-out still come after its `want` stage.
+SHOT_TIERS = (
+    ("hero-wide", "room", "exterior"),
+    ("lifestyle-person",),
+    ("detail-macro",),
+    ("storefront",),
+    ("cutout",),
+)
+SHOT_TIER = {shot: tier for tier, shots in enumerate(SHOT_TIERS) for shot in shots}
+
 
 # ---------------------------------------------------------------------------
 # 1. Deterministic measurements
@@ -599,6 +621,15 @@ def product_still(c):
     return c.get("face") is False and (c.get("short_side") or 0) >= HERO_STILL_MIN_SHORT
 
 
+def shot_tier(c, shots=None):
+    """The candidate's place in SHOT_TIERS (0 first): its best shot among the
+    slot's `shots` (all of its shots for a slot that takes any)."""
+    if c["source"] == "ad-still":
+        return SHOT_TIER["room"] if product_still(c) else SHOT_TIER["lifestyle-person"]
+    own = c["shots"] & set(shots) if shots else c["shots"]
+    return min((SHOT_TIER.get(s, len(SHOT_TIERS)) for s in own), default=len(SHOT_TIERS))
+
+
 def _passes(c, want, *, shots, strict, above_fold, prefer_model):
     """(ok, why-not). `strict` False on a fallback stage: the frame filters
     (full-bleed, aspect, orientation, quality) are relaxed; mood is kept."""
@@ -705,7 +736,9 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
 
     Returns [{"slot", "bind", "wanted", "picks": [{"id", "score", "reasons",
     "via", "asset"}], "short": k, "notes": [...]}] in slot order. A photo is
-    used once per page; the cut-out may repeat up to CUTOUT_MAX_USES."""
+    used once per page; the cut-out may repeat up to CUTOUT_MAX_USES. Inside
+    each stage the picks are ranked by SHOT_TIERS first (cycle 101), then by
+    score."""
     from . import photo_library as pl
 
     prefer_model = prefer_model or pl.page_model_slug(facts_pack) or None
@@ -760,7 +793,8 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
                     continue
                 s, reasons = score_candidate(c, shots=shots, prefer_model=prefer_model, crop=crop, seed=seed)
                 scored.append((s, c, reasons))
-            scored.sort(key=lambda x: (-x[0], x[1]["id"]))
+            # cycle 101: the shot tier first (SHOT_TIERS), the score inside it
+            scored.sort(key=lambda x: (shot_tier(x[1], shots), -x[0], x[1]["id"]))
             for s, c, reasons in scored:
                 if len(picks) >= n:
                     break

@@ -38,6 +38,35 @@ What each look renders (`look.json` beside its template):
 A look with no `look.json` (a tenant's imported look, cycle 87) renders its cartridge's legacy
 first screens only: face/story/display for the listicle, ad_first for the landing page.
 
+**Tenant landing looks with a hero set (cycle 101).** The five hand-converted PEAK landing
+looks (`tenants/peak-saunas/looks/landing/<slug>/`, gitignored) have a `look.json`. In each
+template the look's own first screen is the `ad_first` composition and the shared partials are
+the rest:
+
+```jinja
+{% set own_hero = hero.id == "ad_first" %}
+{% if own_hero %}<header class="fc-hero">...the look's own first screen...</header>
+{% else %}{% include "heroes/_pick.html" %}{% endif %}
+```
+
+The sticky bar observes the look's own header for `ad_first` and `{{ hero.anchor }}` otherwise.
+Below the hero each look keeps its own sections. A look lists only the compositions its ground
+can hold (a dark page such as oura-restraint takes the dark ones only; the light partials print
+ink-coloured text) and every fallback of what it lists.
+
+| tenant look | heroes | default pool | what changes under a shared hero |
+|---|---|---|---|
+| `eightsleep-buybox` | ad_first, split, caps_over_photo, dark_statement | ad_first, split, caps_over_photo | the trust bar stays on top; the product grid follows as the buy section without its own h1, subhead, eyebrow or second "Text us" |
+| `function-cinematic` | ad_first, caps_over_photo, dark_statement, split, letters_pill | ad_first, caps_over_photo, dark_statement | the spec strip that sat in the header follows as a dark band |
+| `oura-restraint` | ad_first, dark_statement, caps_over_photo | the same | the cut-out section shows unless the hero already shows the cut-out |
+| `plunge-category` | ad_first, caps_over_photo, split, dark_statement | ad_first, caps_over_photo, split | nothing |
+| `rivian-letters` | ad_first, letters_pill, caps_over_photo, dark_statement, split | ad_first, letters_pill, caps_over_photo | nothing |
+
+`buybox` is in none of them: eightsleep-buybox's own first screen is a buy box, and the other
+four show the product card or the cut-out below the hero. The import validator (cycle 87,
+`look_import.static_errors`) still refuses `{% include "heroes/_pick.html" %}` in a NEW import;
+these looks were edited by hand.
+
 ## look.json
 
 ```json
@@ -101,6 +130,15 @@ The first-screen frame is chosen for the creator's face, so it never qualifies; 
 the vision call did not see (face unknown) does not qualify either. On the owner's first graded
 page (2026-10-08) three of four variants showed a low-resolution talking-head still as the hero.
 `split` (no `fullbleed_ok`) and the face/ad_first adapters still use the still first, on purpose.
+
+**Which library photo (cycle 101).** Inside the library slot, room and exterior shots come
+first, then people in use, then detail macros, and the cut-out last (`images.SHOT_TIERS`,
+docs/IMAGES.md section 11), whatever order the composition's `shots` list has. The strict
+`fullbleed_ok` pass still comes before the relaxed one: on the PEAK library of 2026-10-09 no
+room or exterior photo is full-bleed, free of the retired mark and offered for a page's model,
+so caps_over_photo still takes a full-bleed person photo on every model. split now takes a room
+or exterior photo on 6 of the 8 models (it was 3); letters_pill asks for room and exterior
+shots only and did not change.
 
 ## Phone-safe photo heroes (cycle 97)
 
