@@ -35,7 +35,15 @@ A cartridge with no looks uses the folder name "default". A version whose
 sha (its templates + cartridge.md + schema.json) is unchanged is skipped
 unless --force. A version that cannot be rendered offline (the listicle's
 `face` first screen needs a still from the ad; the canned ad is text) gets
-a meta.json with an "unavailable" reason and no page.
+a meta.json with an "unavailable" reason and no page. Cycle 99: a version
+that fails to render and has no older page gets a meta.json with a "failed"
+reason (retried on the next build), and the build first removes version
+folders whose version no longer exists (a tenant look that was deleted, a
+first screen a look no longer renders) and prints each one.
+
+Cycle 99: the site shows one card per structure -- a (cartridge, look) --
+and every first screen / style of that look as a variant inside the card
+(`structures`).
 
 The fake runs happen in a scratch folder: out/, runs/ (logs and the spend
 ledger) and evals/ point there for the build, reviewer notifications are
@@ -77,6 +85,8 @@ NOTE = "Reference renders use a canned demo page and the tenant's brand; copy is
 # Library version renders with (story needs no ad still; reasons is the
 # first style).
 IMPORTED_LISTICLE = ("story", "reasons")
+# Cycle 99: the Library page's cartridge order; the others follow in discover order.
+CARTRIDGE_ORDER = ("landing", "listicle")
 
 CARTRIDGE_LABELS = {
     "article": "Article", "comparison": "Comparison", "landing": "Landing page", "listicle": "Listicle",
@@ -386,17 +396,99 @@ def read_meta(tenant, version):
     return data if isinstance(data, dict) else None
 
 
+def _entry(tenant, version):
+    folder = Path(tenant.library_dir) / version.key
+    meta = read_meta(tenant, version)
+    entry = dict(meta) if meta else describe(tenant, version)
+    entry.update(key=version.key, built=meta is not None,
+                 has_review=(folder / "review.html").is_file(), has_thumb=(folder / "thumb.png").is_file())
+    return entry
+
+
 def entries(tenant):
     """Every version for the site: its meta.json when built (else its
     description), plus key, built, has_review, has_thumb."""
-    out = []
+    return [_entry(tenant, version) for version in versions(tenant)]
+
+
+# ---------------------------------------------------------------------------
+# cycle 99: one structure per (cartridge, look), its versions as variants
+# ---------------------------------------------------------------------------
+
+def origin(tenant, version):
+    """"shipped" (a harness look, or a cartridge with no looks), "imported"
+    (a cycle 87 import) or "hand-converted" (a tenant look whose
+    library.json source records a hand conversion, or a hand-made pack
+    look, source.kind "pack")."""
+    if not version.tenant_look:
+        return "shipped"
+    source = _tenant_look_info(tenant, version).get("source")
+    if isinstance(source, dict) and (source.get("converted") or source.get("kind") == "pack"):
+        return "hand-converted"
+    return "imported"
+
+
+def variant_label(tenant, version):
+    """The variant's name inside its structure's card: the first screen
+    ("Story", "Caps over photo"), with the style for the listicle
+    ("Story · myths"). A landing look's own version names its default
+    first screen(s)."""
+    hero_ids = [version.first_screen] if version.first_screen else []
+    if not hero_ids and version.look and heroes.has_heroes(version.cartridge):
+        try:
+            hero_ids = list(heroes.look_spec(version.cartridge, version.look, tenant)["default_heroes"])
+        except (KeyError, ValueError):
+            hero_ids = []
+    names = [heroes.get(h).title if heroes.get(h) else h for h in hero_ids]
+    name = " or ".join(names) or "Default"
+    return f"{name} \u00b7 {version.style}" if version.style else name
+
+
+def _variant_state(entry):
+    """("ready", None) for a variant with a reference page, else ("off",
+    why) -- not renderable offline, failed, or not built yet."""
+    if entry.get("unavailable"):
+        return "off", entry["unavailable"]
+    if entry.get("failed"):
+        return "off", f"failed: {entry['failed']}"
+    if not entry["has_review"]:
+        return "off", "not built yet"
+    return "ready", None
+
+
+def structures(tenant):
+    """The Library page's cards: one dict per (cartridge, look), in page
+    order (CARTRIDGE_ORDER, then discover order; looks in versions()
+    order) -- cartridge, look, key, title, summary, purpose, origin,
+    variants (entries() rows plus label, state, why), default (the first
+    ready variant, else the first), design (the variant row with the best
+    design score, or None), fidelity (the best, or None)."""
+    found = {}
     for version in versions(tenant):
-        folder = Path(tenant.library_dir) / version.key
-        meta = read_meta(tenant, version)
-        entry = dict(meta) if meta else describe(tenant, version)
-        entry.update(key=version.key, built=meta is not None,
-                     has_review=(folder / "review.html").is_file(), has_thumb=(folder / "thumb.png").is_file())
-        out.append(entry)
+        look_key = f"{version.cartridge}/{version.look or DEFAULT_LOOK_DIR}"
+        if look_key not in found:
+            info = describe(tenant, Version(version.cartridge, version.look, tenant_look=version.tenant_look))
+            title = info["title"]
+            if not version.tenant_look:
+                title = label(version.cartridge, version.look)
+            notes = info["notes"] if version.tenant_look else LOOK_NOTES.get((version.cartridge, version.look), "")
+            found[look_key] = {"cartridge": version.cartridge, "look": version.look, "key": look_key,
+                               "title": title, "summary": notes or info["purpose"], "purpose": info["purpose"],
+                               "origin": origin(tenant, version), "variants": []}
+        entry = _entry(tenant, version)
+        state, why = _variant_state(entry)
+        entry.update(label=variant_label(tenant, version), state=state, why=why)
+        found[look_key]["variants"].append(entry)
+    order = list(CARTRIDGE_ORDER) + [c for c in pipeline.discover_cartridges() if c not in CARTRIDGE_ORDER]
+    out = sorted(found.values(), key=lambda s: order.index(s["cartridge"]) if s["cartridge"] in order else len(order))
+    for item in out:
+        variants = item["variants"]
+        item["default"] = next((v for v in variants if v["state"] == "ready"), variants[0])
+        scored = [v for v in variants if v.get("design_score") is not None]
+        item["design"] = (max(scored, key=lambda v: v["design_score"]) if scored
+                          else next((v for v in variants if v.get("design_status")), None))
+        fids = [float(v["fidelity"]) for v in variants if isinstance(v.get("fidelity"), (int, float))]
+        item["fidelity"] = max(fids) if fids else None
     return out
 
 
@@ -591,7 +683,8 @@ def build(tenant, *, only=None, force=False, log=print):
             raise LibraryError(f"unknown cartridge(s) {unknown}; choose from {sorted(known)}")
         selected = [v for v in selected if v.cartridge in set(only)]
     browser = find_browser()
-    summary = {"built": [], "skipped": [], "unavailable": [], "failed": [], "thumbs": 0, "browser": browser}
+    summary = {"built": [], "skipped": [], "unavailable": [], "failed": [], "thumbs": 0, "browser": browser,
+               "pruned": prune(tenant, only=only, log=log)}
     if browser is None:
         log("no chromium, google-chrome or chromium-browser on PATH: no thumbnails (the page shows text cards)")
     root = Path(tenant.library_dir)
@@ -633,6 +726,9 @@ def build(tenant, *, only=None, force=False, log=print):
             if error is not None:
                 summary["failed"].append([version.key, error])
                 log(f"[{i}/{len(todo)}] {version.key}: FAILED {error}")
+                # cycle 99: the card lists why; an older page, when there is one, stays
+                if not (dest / "review.html").is_file():
+                    _swap_in(_staged_meta(scratch, version, dict(meta, failed=error)), dest)
                 continue
             staging = scratch / "staging" / version.key
             staging.mkdir(parents=True)
@@ -659,6 +755,33 @@ def _staged_meta(scratch, version, meta):
     staging = scratch / "staging" / version.key
     _write_meta(staging, meta)
     return staging
+
+
+def prune(tenant, *, only=None, log=print):
+    """Cycle 99: removes every folder under the library with a meta.json
+    whose key is no longer a version (its look, or the first screen, was
+    removed), and the empty folders left above it. `only` keeps the prune
+    to those cartridges; a build's scratch folder is never touched. Returns
+    the removed keys."""
+    root = Path(tenant.library_dir)
+    if not root.is_dir():
+        return []
+    keep = {v.key for v in versions(tenant)}
+    removed = []
+    for meta in sorted(root.rglob("meta.json"), key=lambda p: len(p.parts)):
+        folder = meta.parent
+        key = folder.relative_to(root).as_posix()
+        top = key.split("/")[0]
+        if key in keep or not folder.is_dir() or top.startswith("harness-library-") or (only and top not in only):
+            continue
+        shutil.rmtree(folder)
+        removed.append(key)
+        log(f"pruned {key}: no such version any more")
+        parent = folder.parent
+        while parent != root and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+    return removed
 
 
 # ---------------------------------------------------------------------------

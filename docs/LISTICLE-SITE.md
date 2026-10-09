@@ -31,7 +31,7 @@ browser --> Caddy (listicle.peaksaunasteam.com) --> harness serve 127.0.0.1:4870
 | `/gen/<run>/<page>/post-live`, `/update-live`, `/unpublish` | Cycle 80: the confirm step (a dialog on the page, or this page without JS) and the POST that queues the job. |
 | `/run/<run>/ad-frame` | Cycle 80: a thumbnail of the run's ad still (`ad-frame/frame.jpg`). |
 | `/upload` | The upload form. Cycle 86: `?cartridge=&look=&hero_style=&style=` pins a page version (the Library's **Generate with this**). |
-| `/library` | Cycle 86: every page version the harness can generate, as reference cards grouped by cartridge (see **Library** below). |
+| `/library` | Cycle 86: every page version the harness can generate, as reference renders grouped by cartridge; cycle 99: one card per structure (cartridge x look) with its first screens and styles as variants inside it (see **Library** below). |
 | `/library/<version>/review`, `/library/<version>/thumb` | Cycle 86: one version's self-contained reference page (framed like `/run/<run>/review/<page>`) and its thumbnail. |
 | `/library/rebuild` | Cycle 86: the POST of **Rebuild library** (queues a `library_build` job). |
 | `/looks/import` | Cycle 87: "Import a page" (also a dialog on the Ads page). |
@@ -241,7 +241,7 @@ them listicles). A look imported with **Import a page** (cycle 87,
 version of that cartridge: it is rendered by the same offline run
 (`looks.resolve_look` accepts the slug and the renderer loads the template from
 the tenant folder), and its card takes the title, summary and source from
-`library.json` and carries an "Imported look" chip. An imported listicle look is
+`library.json` and carries an "Imported" or "Hand-converted" tag (cycle 99). An imported listicle look is
 one version, with the story first screen and the reasons style. A slug that is
 a built-in look name is ignored (the built-in look wins). If the harness does
 not accept an imported look, its card is a text card with the reason.
@@ -267,16 +267,49 @@ a text card; the build never fails for that. A version whose sha (its cartridge
 template, look template, cartridge.md and schema.json) has not changed is
 skipped unless `--force`. Exit 1 when a version failed to render.
 
+Cycle 99: a version that fails and has no older page gets a `meta.json` with a
+`failed` reason (it is tried again on the next build); an older page is kept.
+Each build first **prunes**: it removes every folder under
+`tenants/<t>/library/` with a `meta.json` whose key is no longer a version (a
+tenant look that was deleted, a first screen a look no longer renders) and the
+empty folders above it, and prints `pruned <key>: no such version any more`
+per folder and "N pruned" in the summary line (also in the job result). With
+`--only` it prunes only those cartridges; a build's scratch folder is never
+touched.
+
 Not renderable offline: the listicle's `face` first screen needs a still from
 the ad, and the demo ad is text, so its five versions show a text card with
 that reason (the "Generate with this" button still works: a real ad with a
 usable still renders it).
 
-**Cards.** Grouped by cartridge (a row of jump links at the top). Each card:
-the thumbnail (or a text card), the look / first screen / style chips, the
-title, the summary, the audience temperature and word range, **Open reference**
-(the version's `review.html`, in a new tab, from the frameable route) and
-**Generate with this**: it opens `/upload` with the cartridge, look, hero style
+**Cards (cycle 99: one per structure).** A structure is a cartridge x look
+(`library.structures`); every first screen of that look (and, for the
+listicle, every style) is a variant inside its card, never a card of its own.
+Sections are in the order landing, listicle, then the other cartridges, each
+with a count line such as "7 structures · 25 variants" (a row of jump links
+at the top counts structures). Each card: the default variant's thumbnail,
+large (the first variant with a reference page: a landing look's own first
+screen, the listicle's first first screen x first style); the origin tag
+(**Shipped** for a harness look, **Imported** for a cycle 87 import,
+**Hand-converted** when `library.json`'s `source` has `converted` or
+`kind: "pack"`) and the look chip; the look's title and one-line summary
+(`LOOK_NOTES`, or `library.json`); audience temperature, word range, the
+number of variants, the best design score among the variants (`--design-score`)
+and the best fidelity. Under that, "Showing <variant>" and a strip with one
+small thumbnail per built variant, labelled by first screen ("Split",
+"Story · myths"); a click swaps the big thumbnail, **Open review** and
+**Generate with this** to that variant (a few lines in `site_ui.JS`,
+`data-lib-variant`; without script, or with Cmd/Ctrl, the click opens that
+variant's review). Variants with no page -- not renderable offline, failed,
+not built yet -- are text chips under the strip with the short reason (the
+full reason on hover); listicle styles of one first screen with the same
+reason share one chip ("Face · 5 styles: not renderable offline"). A look with
+one variant has no strip. A structure with no page goes to the end of its
+section. The per-variant routes are unchanged:
+`/library/<key>/review` and `/library/<key>/thumb`.
+
+**Open review** opens the variant's `review.html` (in a new tab, from the
+frameable route) and **Generate with this** opens `/upload` with the cartridge, look, hero style
 and style pre-selected (shown in a "Page version" box, sent as hidden fields).
 The upload checks the combination (`abtest.parse_arm`) and keeps it on the inbox
 item as `pinned_arm`; the `create_test` job and `harness abtest from-inbox`

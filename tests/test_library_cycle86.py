@@ -270,7 +270,8 @@ def test_imported_looks_are_listed_rendered_and_described(monkeypatch, tmp_path,
     body = client.get("/library", headers=_auth()).get_data(as_text=True)
     card = body[body.index('id="lib-landing-bold"'):]
     card = card[:card.index('id="lib-', 10)] if 'id="lib-' in card[10:] else card
-    assert "Bold storefront landing" in card and "Imported look" in card and "Imported from the store theme." in card
+    # cycle 99: the origin tag "Imported" (was the chip "Imported look")
+    assert "Bold storefront landing" in card and ">Imported</span>" in card and "Imported from the store theme." in card
     assert 'href="/library/landing/bold/review"' in card
     assert 'href="/upload?cartridge=landing&amp;look=bold"' in card
     form = client.get("/upload?cartridge=landing&look=bold", headers=_auth())
@@ -315,9 +316,15 @@ def test_library_page_lists_every_version_grouped_by_cartridge(client):  # noqa:
     body = resp.get_data(as_text=True)
     assert library.NOTE.replace("'", "&#x27;") in body
     assert 'href="/library"' in body and ">Library<" in body  # the nav entry
+    # cycle 99: one card per look, every version a variant inside it (tests/test_library_cycle99.py);
+    # a look with one built version is just its card; unbuilt listicle styles share a chip (below)
     for version in library.versions(TENANT):
-        assert f'id="lib-{version.key.replace("/", "-")}"' in body, version.key
-    groups = [body.index(f'id="lib-group-{c}"') for c in pipeline.discover_cartridges()]
+        if version.cartridge == "listicle":
+            continue
+        dashed = version.key.replace("/", "-")
+        assert f'id="libv-{dashed}"' in body or f'id="lib-{dashed}"' in body, version.key
+    order = ["landing", "listicle"] + [c for c in pipeline.discover_cartridges() if c not in ("landing", "listicle")]
+    groups = [body.index(f'id="lib-group-{c}"') for c in order]
     assert groups == sorted(groups)
     # each card sits inside its own cartridge's group
     land, nxt = body.index('id="lib-group-landing"'), body.index('id="lib-group-listicle"')
@@ -325,7 +332,7 @@ def test_library_page_lists_every_version_grouped_by_cartridge(client):  # noqa:
     assert "A short, ad-first landing page" in body[land:nxt]  # the cartridge's purpose, once per group
     # built cards open the framed review route; unbuilt ones say so
     assert 'href="/library/landing/proof/review"' in body
-    assert 'href="/library/article/default/review"' not in body and "Not built yet" in body
+    assert 'href="/library/article/default/review"' not in body and "Default: not built yet" in body
     review = client.get("/library/landing/proof/review", headers=_auth())
     assert review.status_code == 200 and review.headers["X-Frame-Options"] == "SAMEORIGIN"
     assert "frame-ancestors 'self'" in review.headers["Content-Security-Policy"]
@@ -336,7 +343,9 @@ def test_library_page_lists_every_version_grouped_by_cartridge(client):  # noqa:
     assert client.get("/library").status_code == 401
     # "Generate with this" carries the pre-selection
     assert 'href="/upload?cartridge=landing&amp;look=proof"' in body
-    assert 'href="/upload?cartridge=listicle&amp;look=open&amp;hero_style=display&amp;style=myths"' in body
+    assert 'data-generate="/upload?cartridge=listicle&amp;look=open&amp;hero_style=display&amp;style=myths"' not in body
+    # not built here: one chip per first screen in the open look's card
+    assert "Display \u00b7 5 styles: not built yet</span>" in body
 
 
 def test_library_cards_show_a_thumb_when_there_is_one(client):  # noqa: F811

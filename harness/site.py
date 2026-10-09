@@ -1217,6 +1217,7 @@ def _job_result_html(tenant, job):
         if result:
             parts.append(f'<p>{int(result.get("built") or 0)} built, {int(result.get("skipped") or 0)} up to date, '
                          f'{len(result.get("unavailable") or [])} not renderable offline, '
+                         f'{len(result.get("pruned") or [])} pruned, '
                          f'{int(result.get("thumbs") or 0)} thumbnail(s).</p>')
             if not result.get("browser"):
                 parts.append('<p class="small muted">No headless browser on the server: the cards are text '
@@ -1355,60 +1356,113 @@ def _generate_url(item):
     return url_for("upload_ad", **args)
 
 
-def _lib_card(item):
+# Cycle 99: the origin tag on a structure's card (library.origin).
+LIB_ORIGIN_LABELS = {"shipped": "Shipped", "imported": "Imported", "hand-converted": "Hand-converted"}
+
+
+def _lib_no_thumb_text(item):
+    return item.get("headline") or ("No reference render yet." if not item["has_review"] else
+                                    "No thumbnail: the server has no headless browser.")
+
+
+def _lib_variant(item, current):
+    """A ready variant in its card's strip: a small thumbnail and its name.
+    A click swaps the card's big thumbnail and links (site_ui.JS,
+    data-lib-variant); without script it opens the variant's reference."""
     key = item["key"]
-    chips = [chip(f'{item["look"]} look') if item.get("look") else "",
-             chip(HERO_LABELS.get(item.get("first_screen"), "")) if item.get("first_screen") else "",
-             chip(item["style"]) if item.get("style") else "",
-             chip("Imported look", "solid") if item.get("source") == "tenant" else ""]
-    review_url = url_for("library_review", key=key)
-    if item.get("unavailable"):
-        status = f'<p class="small lib-why">{e(item["unavailable"])}</p>'
-    elif not item["built"]:
-        status = '<p class="small muted">Not built yet. Rebuild the library.</p>'
+    thumb = url_for("library_thumb", key=key) if item["has_thumb"] else ""
+    img = f'<img loading="lazy" src="{thumb}" alt="">' if thumb else ""
+    return (f'<a class="lib-var{" on" if item is current else ""}" id="libv-{e(key.replace("/", "-"))}" '
+            f'href="{url_for("library_review", key=key)}" target="_blank" rel="noopener" data-lib-variant '
+            f'data-thumb="{thumb}" data-text="{e(_lib_no_thumb_text(item))}" '
+            f'data-review="{url_for("library_review", key=key)}" '
+            f'data-generate="{e(_generate_url(item)) if item.get("arm") else ""}" data-label="{e(item["label"])}">'
+            f'<span class="lib-var-shot">{img}</span><span class="lib-var-name">{e(item["label"])}</span></a>')
+
+
+def _lib_off(group):
+    """Variants with no reference page (not renderable offline, failed, not
+    built yet) as one text chip, the full reason on hover. Listicle styles
+    of one first screen with the same reason share a chip ("Face · 5
+    styles")."""
+    item = group[0]
+    name = item["label"] if len(group) == 1 else f'{item["label"].split(" \u00b7 ")[0]} \u00b7 {len(group)} styles'
+    title = item["why"] + (f' ({", ".join(v["style"] for v in group)})' if len(group) > 1 else "")
+    return (f'<span class="chip lib-off" id="libv-{e(item["key"].replace("/", "-"))}" title="{e(title)}">'
+            f'{e(name)}: {e(item["why"].split(":")[0])}</span>')
+
+
+def _lib_card(structure):
+    """Cycle 99: one card per structure (a cartridge x look). Its first
+    screens (and listicle styles) are variants inside the card."""
+    item = structure["default"]
+    variants = structure["variants"]
+    ready = [v for v in variants if v["state"] == "ready"]
+    off = [v for v in variants if v["state"] == "off"]
+    review_url = url_for("library_review", key=item["key"]) if item["state"] == "ready" else ""
+    thumb = url_for("library_thumb", key=item["key"]) if item["has_thumb"] else ""
+    screen = (f'<div class="phone"><div class="screen"><img class="poster lib-poster" '
+              + (f'src="{thumb}" ' if thumb else "hidden ")
+              + f'alt=""><b class="lib-noshot"{" hidden" if thumb else ""}>'
+              f'{e("Not renderable offline" if item["state"] == "off" else _lib_no_thumb_text(item))}</b></div></div>')
+    if review_url:
+        shot = (f'<a class="shot lib-shot" href="{review_url}" target="_blank" rel="noopener" tabindex="-1" '
+                f'aria-hidden="true">{screen}</a>')
     else:
-        status = ""
-    if item["has_thumb"]:
-        shot = (f'<a class="shot" href="{review_url}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">'
-                f'<div class="phone"><div class="screen"><img class="poster lib-poster" loading="lazy" '
-                f'src="{url_for("library_thumb", key=key)}" alt=""></div></div></a>')
-    else:
-        text = ("Not renderable offline" if item.get("unavailable") else
-                item.get("headline") or ("No reference render yet." if not item["has_review"] else
-                                         "No thumbnail: the server has no headless browser."))
-        shot = (f'<div class="shot lib-text"><div><p class="eyebrow">{e(library.CARTRIDGE_LABELS.get(item["cartridge"], item["cartridge"]))}</p>'
-                f'<b>{e(text)}</b></div></div>')
+        shot = f'<div class="shot lib-shot">{screen}</div>'
+    chips = [chip(LIB_ORIGIN_LABELS.get(structure["origin"], structure["origin"]),
+                  "solid" if structure["origin"] != "shipped" else ""),
+             chip(f'{structure["look"]} look') if structure.get("look") else ""]
     words = item.get("word_range")
     design_fact = ""
-    if item.get("design_status"):   # cycle 92: `library build --design-score`
-        design_fact = _design_fact({"score": item.get("design_score"), "status": item.get("design_status"),
+    if structure["design"]:   # cycle 92 scores; cycle 99: the best among the variants
+        best = structure["design"]
+        design_fact = _design_fact({"score": best.get("design_score"), "status": best.get("design_status"),
                                     "min_score": "-", "model": ""})
+    added = next((v.get("added_at") for v in variants if v.get("added_at")), None)
     facts = (f'<div class="facts"><span>Audience <b>{e(item.get("audience_temperature") or "-")}</b></span>'
              f'<span>Words <b>{f"{words[0]}-{words[1]}" if words else "no band"}</b></span>'
-             + (f'<span>Added <b>{_date(item.get("added_at"))}</b></span>' if item.get("added_at") else "")
+             f'<span>Variants <b>{len(variants)}</b></span>'
+             + (f'<span>Added <b>{_date(added)}</b></span>' if added else "")
              + design_fact + "</div>")
-    if item.get("fidelity") is not None:
-        facts += f'<p class="small muted lib-fidelity">fidelity {round(float(item["fidelity"]), 2):g}</p>'
+    if structure["fidelity"] is not None:
+        facts += f'<p class="small muted lib-fidelity">fidelity {round(structure["fidelity"], 2):g}</p>'
+    strip = ""
+    if len(variants) > 1 and ready:
+        strip = (f'<p class="small muted lib-current">Showing <b data-lib-current>{e(item["label"])}</b></p>'
+                 f'<div class="lib-strip">{"".join(_lib_variant(v, item) for v in ready)}</div>')
+    if off:
+        same = {}
+        for v in off:
+            same.setdefault((v.get("first_screen"), v["why"]) if v.get("style") else (v["key"],), []).append(v)
+        strip += f'<div class="lib-offs">{"".join(_lib_off(g) for g in same.values())}</div>'
     actions = ""
-    if item["has_review"]:
-        actions += (f'<a class="btn ghost sm" href="{review_url}" target="_blank" rel="noopener">'
-                    f'{icon("external")}Open reference</a>')
-    if item.get("arm"):
-        actions += f'<a class="btn sm" href="{e(_generate_url(item))}">{icon("send")}Generate with this</a>'
-    return (f'<div class="gen lib-card" id="lib-{e(key.replace("/", "-"))}">{shot}<div class="gen-body">'
+    if review_url:
+        actions += (f'<a class="btn ghost sm" href="{review_url}" target="_blank" rel="noopener" data-lib-review>'
+                    f'{icon("external")}Open review</a>')
+    if any(v.get("arm") for v in ready):
+        hidden = "" if item.get("arm") and item["state"] == "ready" else " hidden"
+        href = e(_generate_url(item)) if not hidden else "#"
+        actions += f'<a class="btn sm" href="{href}" data-lib-generate{hidden}>{icon("send")}Generate with this</a>'
+    return (f'<div class="gen lib-card" id="lib-{e(structure["key"].replace("/", "-"))}">{shot}<div class="gen-body">'
             f'<div class="chips">{"".join(c for c in chips if c)}</div>'
-            f'<div class="gen-title">{e(item.get("title") or key)}</div>'
-            f'<p class="small muted lib-summary">{e(item.get("notes") or item.get("summary") or "")}</p>{facts}{status}'
+            f'<div class="gen-title">{e(structure["title"])}</div>'
+            f'<p class="small muted lib-summary" title="{e(structure["summary"])}">{e(structure["summary"])}</p>'
+            f'{facts}{strip}'
             f'<div class="gen-actions">{actions}</div></div></div>')
 
 
+def _plural(n, word):
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
 def render_library(tenant):
-    items = library.entries(tenant)
+    cards = library.structures(tenant)
     groups = {}
-    for item in items:
-        groups.setdefault(item["cartridge"], []).append(item)
-    for group in groups.values():  # a version that cannot render offline goes to the end of its group
-        group.sort(key=lambda i: bool(i.get("unavailable")))
+    for card in cards:
+        groups.setdefault(card["cartridge"], []).append(card)
+    for group in groups.values():  # a structure with nothing to show goes to the end of its group
+        group.sort(key=lambda c: c["default"]["state"] != "ready")
     job = jobs.active_job(tenant, job_type="library_build", target=library.JOB_TARGET)
     if job:
         rebuild = (f'<a class="btn ghost" href="{url_for("job_detail", job_id=job["id"])}">{icon("clock")}'
@@ -1416,21 +1470,26 @@ def render_library(tenant):
     else:
         rebuild = (f'<form method="post" action="{url_for("library_rebuild")}">{_csrf_field()}'
                    f'<button class="btn" type="submit">{icon("refresh")}Rebuild library</button></form>')
-    built = sum(1 for i in items if i["has_review"])
+    variants = [v for card in cards for v in card["variants"]]
+    built = sum(1 for v in variants if v["state"] == "ready")
     nav = "".join(f'<a class="btn ghost sm" href="#lib-group-{e(c)}">'
                   f'{e(library.CARTRIDGE_LABELS.get(c, c))} <span class="num">{len(v)}</span></a>'
                   for c, v in groups.items())
     sections = []
     for cartridge, group in groups.items():
+        count = sum(len(c["variants"]) for c in group)
         sections.append(
             f'<section class="lib-group" id="lib-group-{e(cartridge)}"><div class="card-h"><h2>'
             f'{e(library.CARTRIDGE_LABELS.get(cartridge, cartridge))}</h2>'
-            f'<span class="muted small">{len(group)} version{"s" if len(group) != 1 else ""}</span></div>'
+            f'<span class="muted small lib-count">{_plural(len(group), "structure")} &middot; '
+            f'{_plural(count, "variant")}</span></div>'
             + (f'<p class="muted small lib-purpose">{e(group[0]["purpose"])}</p>' if group[0].get("purpose") else "")
-            + f'<div class="lib-cards">{"".join(_lib_card(i) for i in group)}</div></section>')
+            + f'<div class="lib-cards">{"".join(_lib_card(c) for c in group)}</div></section>')
     body = (
-        '<div class="page-head"><div><h1>Library</h1><p class="sub">Every page version the harness can generate, '
-        f'rendered once as a reference ({built} of {len(items)} rendered). Pick one and generate a test from it.</p>'
+        '<div class="page-head"><div><h1>Library</h1><p class="sub">Every page structure the harness can generate, '
+        'rendered once as a reference. Each card is one structure; its first screens and styles are variants '
+        f'inside it ({_plural(len(cards), "structure")}, {built} of {_plural(len(variants), "variant")} rendered). '
+        'Pick one and generate a test from it.</p>'
         f'</div><div class="actions">{rebuild}</div></div>'
         f'<div class="notice lib-note">{e(library.NOTE)}</div>'
         f'<div class="lib-nav">{nav}</div>' + "".join(sections)
