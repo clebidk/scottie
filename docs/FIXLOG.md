@@ -6392,3 +6392,160 @@ never more than 5. Every other skeleton keeps 5-7.
   library versions have no skeleton, so no 3- or 4-item version is in the Library.
 - No real-model run at 3 or 4 items yet: whether the writer keeps the merged item to two short
   beats (and does not pad) is untested until a live run.
+## Cycle 101 (photo slot order, hero sets for imported looks, Nourial inset, Eight Sleep first screen, 2026-10-09)
+
+Branch `cycle101/photo-slots-and-hero-sets` from origin/master b2a277f. No model or API call
+(fixtures, FakeClient, the pack's 66 photo derivatives for manual checks).
+
+### Problem
+The owner graded 21 real pages (the Library batch, scores 38-72):
+- Most pages led with the studio cut-out of the sauna on white or with a person photo, while
+  tagged room and exterior photos went unused.
+- The hand-converted tenant landing looks declare no heroes, so the design gate ran one variant
+  (their own first screen) on each.
+- The Nourial listicle look left a large empty band above and below an inset item photo on a
+  phone.
+- The Eight Sleep buy-box look put its first button at about 1,200px on a 390px phone, so the
+  cycle 97 `first_screen_cta` hard check refused every variant.
+
+### Causes found
+- **Slot order.** `images.fill_slots` sorted by score only. The page's model (+5) and quality
+  outweighed the shot: a person photo of the page's model beat a model-agnostic room photo, and
+  with shot "any" the cut-out (the page's model, quality 4) came first. Reproduced on the
+  committed manifest with the pack files: a Fuji page's `hero` + `items` slots with shot "any"
+  gave cut-out, then exterior, person, three macros.
+- **One variant.** `heroes.look_spec` gives a look with no look.json the legacy pool, which for the
+  landing page is `ad_first` only, and the tenant templates printed their own first screen inline.
+- **Nourial band.** The item photo was `render_image_slot(..., frame="4x5")`. In a named frame
+  only a lifestyle/installation photo is cropped (`render.image_fit`); every other photo (room,
+  exterior, detail) is contained on a neutral band. Measured in headless Chrome at 390: a 4:3
+  photo in the 358 x 448 box has an 89px band above and below (a 3:2 library photo: about 105px,
+  16:9: about 123px). swarva-doctor-byline has the same pattern with a 1:1 frame (4:3 photo: 45px).
+- **Eight Sleep.** On a phone the gallery (cut-out 359px tall plus the thumbnail row) came first,
+  then the buy panel with the subhead, the review quote and the spec rows above the pill. Measured
+  with the cycle 97 9:16 still fixture: pill top 1,206px.
+
+### Fix
+1. **Slot order** (`harness/images.py`): one table, `SHOT_TIERS` (with a comment):
+   room / exterior / hero-wide, then lifestyle-person, then detail-macro, then storefront, then the
+   cut-out. `shot_tier(candidate, shots)` gives a candidate's tier (its best shot among the slot's
+   shots); an ad still ranks with the rooms only when `product_still` (cycle 97: no face, short side
+   >= 720px), else with the people. In `fill_slots` the tier is the first sort key of every stage,
+   the score the second. Stages, fallbacks, the last-resort cut-out, the `used` set and the cycle 97
+   source order in `heroes.pick_image` are unchanged.
+   Follow-up (owner decision 2026-10-09): `images.portrait_fullbleed` -- on the strict pass of a
+   `fullbleed_ok` slot, a room or exterior photo with a long side of at least 1600px and a
+   measured `white_edge` of false passes although it is portrait (e.g. 1067 x 1600); it sorts
+   after the landscape full-bleed photos of its tier, before people and the cut-out. Library
+   candidates carry `long_side` and `white_edge` for it.
+2. **Hero sets** (tenant looks, gitignored): a `look.json` beside each of the five landing looks;
+   in each template the look's own first screen is the `ad_first` composition and
+   `{% include "heroes/_pick.html" %}` prints the others (docs/HEROES.md, "Tenant landing looks
+   with a hero set"). The sticky bar observes `{{ hero.anchor }}` under a shared hero. Below the
+   hero each look keeps its own sections; eightsleep-buybox keeps its trust bar on top and its
+   product grid as the buy section (no second h1), function-cinematic moves its spec strip under the
+   hero as a dark band, oura-restraint shows its cut-out section unless the hero shows the cut-out.
+   eightsleep-buybox's own text-link rule is scoped to its buy section (`.es-under .ld-text`): at
+   three classes it overrode the hero's light link, so "Text us" was dark on the dark photo.
+   oura-restraint is a dark page, so it lists only the dark compositions.
+   Follow-up: the five bars follow the cycle 97 rule -- `<div class="ld-bar">`,
+   `<p class="ld-bar-name">` with the model name and the price beneath, one button "Shop now".
+   eightsleep-buybox's `es-bar` became `ld-bar` (its own type sizes kept); oura-restraint's dark
+   bar keeps the brand's white pill (`ld-btn ld-btn--light`: brand/base.css forces `.ld-btn` dark).
+3. **Nourial inset** (nourial-ten-reasons and swarva-doctor-byline templates): an item photo
+   keeps its own ratio (no `frame=`); a cut-out is unchanged. jevi-five-signs (4x3 frame) and
+   citrusroot-named-cause (16x9) were checked: with the library's ratios (3:2, 2:3, 1:1) their
+   vertical band is at most 15px; a portrait photo gets side bands there, not vertical ones.
+   Left as they are.
+4. **Eight Sleep first screen** (eightsleep-buybox template): under 1024px only, the gallery
+   section is `display: contents`, so the cut-out comes first, then the buy panel, then the
+   thumbnails; in the buy panel the pill and the warranty / "Text us" row follow the price and
+   financing (CSS `order`), the subhead, review quote and spec rows after it; the cut-out is
+   `min(320px, 82vw)` tall on a phone. From 1024px nothing changed: the 1280 x 900 screenshot is
+   pixel-identical before and after.
+
+### Owner decisions recorded
+- Slot order: room and exterior first, then lifestyle-person, then detail-macro, the cut-out last
+  (a fallback, never a first choice when a tagged photo fits). Approved with the other three
+  fixes, slot order first.
+- 2026-10-09: a portrait room or exterior photo (long side >= 1600px) may lead a full-bleed hero,
+  ranked after landscape photos of the same tier, before people and the cut-out.
+- 2026-10-09: the five tenant landing looks follow the cycle 97 sticky bar rule.
+
+### Judgment calls (say if wrong)
+- The tier orders photos inside a stage; it does not lift a photo over a stricter stage. With the
+  landscape rule alone, caps_over_photo took a full-bleed person photo on all 8 models: no
+  landscape room or exterior photo is full-bleed, free of the retired mark and offered for a
+  page's model (the two clean full-bleed rooms, asset-photo-258c439743a2 and
+  asset-photo-c65010644b97, are model "unknown" and not model-agnostic). With the portrait rule
+  (owner decision above) it takes a room or exterior photo on 6 of 8 (Everest and Mini
+  asset-photo-f96ac9043d8d, Patagonia / Kilimanjaro / Matterhorn asset-photo-0b2c59baccb2,
+  El Capitan asset-photo-bff59b51d7a3); Fuji and Rainier still get the person photo
+  asset-photo-7f49a0eae69d. split takes a room or exterior photo on 6 of 8 (was 3).
+- The portrait rule asks for a measured `white_edge` of false: a photo without `image_tags` does
+  not qualify.
+- The cycle 79 owner rule stays: the page's own hero image (`page.hero`, which `ad_first` and the
+  listicle adapters print) is the product cut-out, and listicle item images still come from the
+  cycle 75/79 topic matcher (`photo_library.assign_page_images`). The tier table orders the
+  resolver's slots: the hero compositions, look-declared slots, the photo essay.
+- Default pools keep the look's own first screen (`ad_first`) plus two shared compositions, so a
+  gate run tries three variants per tenant look; `buybox` is in no tenant look (see HEROES.md).
+
+### Verify
+- `tests/test_photo_slots_cycle101.py` (54): the table; hero slot = room over a better-scoring
+  person, macro and cut-out (also with caps_over_photo's shot list, which names the person first);
+  only person + cut-out = person; only the cut-out = the cut-out; an item slot after the hero
+  follows the tiers and never repeats the hero photo; ad-still tiers. One parametrised test over
+  the five looks x their heroes (21 cases): look.json shape, fallbacks inside the set, an offline
+  fake run with fixture library files exits 0 and stamps the look and the hero, the composition's
+  `data-look-pattern`, one h1, html validity, JSON-LD and image markup. The same 21 in headless
+  Chrome with the cycle 97 9:16 still: overflow_390 and first_screen_cta pass. Nourial and Swarva:
+  a 4:3 item photo is a 4:3 box (markup) and has no band over 24px at 390 (Chrome). Eight Sleep:
+  the phone rules are under `max-width:1023.98px` and the 1024px rules are as before; the pill is
+  under 844px at 390 (it was 1,206px), no horizontal scroll at 1280. The A tests fail with the old
+  sort (2 of 6) and the C tests fail on the old templates (89px and 45px bands).
+- Fake runs (`fake_run.run_once(<fixture>, tenant="peak-saunas", cartridges="landing",
+  look=<slug>, hero_style=<hero>)`, the pack photos as the library files): exit 0 for all 21
+  look x hero pairs, each page.json stamped with its look and hero, each shared hero rendering as
+  itself (letters_pill with the cut-out: no clean exterior of the Fuji). The run folders were
+  deleted afterwards.
+- Headless Chrome at 390 x 844 with the 9:16 still and the pack photos, all 21 pairs: scroll width
+  390, `first_screen_cta` pass, `contrast_hero` pass, no hard fail. Pill tops: eightsleep-buybox
+  ad_first 735, split 689, caps_over_photo 778 (under its 79px trust bar), dark_statement 431; function-cinematic ad_first 479,
+  caps 699, dark 386, split 643, letters 707; oura-restraint ad_first 670, dark 386, caps 699;
+  plunge-category ad_first 648, caps 699, split 643, dark 386; rivian-letters ad_first 751,
+  letters 707, caps 699, dark 386, split 643. `tap_targets` warns on every page, own first screen
+  included (not looked into this cycle). Phone and 1280 screenshots read by eye.
+- Follow-up tests in the same file: a portrait room photo beats a landscape person photo of the
+  page's model for the full-bleed hero; with a landscape room photo present the landscape one
+  wins even against a better-scoring portrait one; the rule needs a 1600px long side, a measured
+  white edge of false and a room or exterior shot. The cycle 97 bar check on each of the five
+  looks (offline fake run: `<p class="ld-bar-name">Peak Fuji<span>$8,250</span></p>`, one link,
+  "Shop now", the observer, brand lint clean); it fails on the five templates before the change.
+  `tests/test_heroes_cycle94.py`: the strict-pass assertion accepts a portrait room/exterior
+  photo with a 1600px long side. The five bars screenshotted at 390 (forced visible) and read by eye.
+- Full suite after the follow-ups: 3087 passed, 0 failed, 1 skipped (HEIC), 5 min 4 s.
+
+### Deploy by hand (gitignored tenant files)
+`tenants/*/looks/` is gitignored; copy these to prod (`/home/deploy/advertorial/`) by hand:
+- `tenants/peak-saunas/looks/landing/eightsleep-buybox/template.html`, `look.json` (new)
+- `tenants/peak-saunas/looks/landing/function-cinematic/template.html`, `look.json` (new)
+- `tenants/peak-saunas/looks/landing/oura-restraint/template.html`, `look.json` (new)
+- `tenants/peak-saunas/looks/landing/plunge-category/template.html`, `look.json` (new)
+- `tenants/peak-saunas/looks/landing/rivian-letters/template.html`, `look.json` (new)
+- `tenants/peak-saunas/looks/listicle/nourial-ten-reasons/template.html`
+- `tenants/peak-saunas/looks/listicle/swarva-doctor-byline/template.html`
+
+The prod copies were not compared with this Mac's copies before the edit; diff them first.
+
+### Open
+- Fuji and Rainier pages still lead caps_over_photo with a person photo. asset-photo-c65010644b97
+  (cedar interior, Drive folder Matterhorn) re-tagged for the cedar models would give them a room
+  photo; the owner fixes the tags on prod.
+- The two "unknown" interiors are close-ups of the bench and the corner heater, tagged
+  `interior` (read as `room`); they lead a hero as room shots although they are nearer to detail
+  shots. The vision tagger (`photos tag --only-missing`) has not set `image_tags.shot` on them.
+- `look_import.static_errors` refuses the hero include in a new import; a re-import of these
+  looks would lose their hero sets.
+- Not deployed. After the copy, `harness library build --tenant peak-saunas --force` rebuilds the
+  five landing cards with their default variants.

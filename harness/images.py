@@ -90,6 +90,28 @@ WANT_KEYS = ("shot", "mood", "fullbleed_ok", "dark_ok", "aspect_min", "aspect_ma
              "min_quality", "product_still")
 SLOT_KEYS = ("name", "want", "n", "fallback", "crop", "above_fold", "bind", "last_resort")
 
+# Cycle 101 (owner grading of 21 real pages, 2026-10-09): the order every
+# slot ranks the pictures it accepts -- hero, first-screen, item and essay
+# slots alike. Most pages led with the studio cut-out or a person photo while
+# tagged room and exterior photos went unused. The tier is the FIRST
+# sort key in fill_slots; the score (the page's model, real over AI, quality,
+# blur, clutter, crop loss, the slot's own shot order) only orders pictures
+# inside one tier. Room and exterior shots (and the wide "hero-wide" view of
+# them) first, then people in use, then detail macros, then the storefront's
+# product images, and the studio cut-out last: a fallback, never a first
+# choice when a tagged photo fits. An ad still ranks with the room shots when
+# it is a product still (product_still: no face, short side >= 720px) and
+# with the people otherwise. A slot's fallback stages and its last-resort
+# cut-out still come after its `want` stage.
+SHOT_TIERS = (
+    ("hero-wide", "room", "exterior"),
+    ("lifestyle-person",),
+    ("detail-macro",),
+    ("storefront",),
+    ("cutout",),
+)
+SHOT_TIER = {shot: tier for tier, shots in enumerate(SHOT_TIERS) for shot in shots}
+
 
 # ---------------------------------------------------------------------------
 # 1. Deterministic measurements
@@ -442,6 +464,7 @@ def _library_candidates(tenant, facts_pack, manifest, *, allow_ai_renders):
             "mood": it.get("mood"), "aspect": it.get("aspect") or round(p["width"] / p["height"], 3),
             "orientation": it.get("orientation"), "fullbleed_ok": bool(it.get("fullbleed_ok")),
             "dark_ok": bool(it.get("dark_ok")), "focal": it.get("focal") or {"x": 0.5, "y": 0.5},
+            "long_side": max(p["width"], p["height"]), "white_edge": it.get("white_edge"),
             "model": it.get("model") or (tags["product"] if tags["product"] != pl.UNKNOWN else None),
             "quality": it.get("quality"), "ai_generated": bool(p.get("ai_generated")),
             "old_brand": bool(tags.get("old_logo_visible")), "blurry": bool(tags.get("blurry")),
@@ -599,6 +622,25 @@ def product_still(c):
     return c.get("face") is False and (c.get("short_side") or 0) >= HERO_STILL_MIN_SHORT
 
 
+def shot_tier(c, shots=None):
+    """The candidate's place in SHOT_TIERS (0 first): its best shot among the
+    slot's `shots` (all of its shots for a slot that takes any)."""
+    if c["source"] == "ad-still":
+        return SHOT_TIER["room"] if product_still(c) else SHOT_TIER["lifestyle-person"]
+    own = c["shots"] & set(shots) if shots else c["shots"]
+    return min((SHOT_TIER.get(s, len(SHOT_TIERS)) for s in own), default=len(SHOT_TIERS))
+
+
+def portrait_fullbleed(c):
+    """Cycle 101 (owner decision 2026-10-09): a room or exterior photo that is
+    not fullbleed_ok only because it is portrait (long side >= 1600px, no
+    white studio edge, e.g. 1067 x 1600) may fill a full-bleed hero; the
+    hero's cover crop on the focal point handles the shape. It ranks after
+    the landscape full-bleed photos of its tier (fill_slots)."""
+    return (not c["fullbleed_ok"] and bool(c["shots"] & {"room", "exterior"})
+            and (c.get("long_side") or 0) >= FULLBLEED_MIN_WIDTH and c.get("white_edge") is False)
+
+
 def _passes(c, want, *, shots, strict, above_fold, prefer_model):
     """(ok, why-not). `strict` False on a fallback stage: the frame filters
     (full-bleed, aspect, orientation, quality) are relaxed; mood is kept."""
@@ -619,7 +661,7 @@ def _passes(c, want, *, shots, strict, above_fold, prefer_model):
         return False, "ad still is a face or too small for a full-bleed hero"
     if not strict:
         return True, ""
-    if want.get("fullbleed_ok") and not c["fullbleed_ok"]:
+    if want.get("fullbleed_ok") and not (c["fullbleed_ok"] or portrait_fullbleed(c)):
         return False, "not full-bleed"
     if want.get("aspect_min") is not None and (c["aspect"] or 0) < want["aspect_min"]:
         return False, "aspect"
@@ -705,7 +747,9 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
 
     Returns [{"slot", "bind", "wanted", "picks": [{"id", "score", "reasons",
     "via", "asset"}], "short": k, "notes": [...]}] in slot order. A photo is
-    used once per page; the cut-out may repeat up to CUTOUT_MAX_USES."""
+    used once per page; the cut-out may repeat up to CUTOUT_MAX_USES. Inside
+    each stage the picks are ranked by SHOT_TIERS first (cycle 101), then by
+    score."""
     from . import photo_library as pl
 
     prefer_model = prefer_model or pl.page_model_slug(facts_pack) or None
@@ -760,7 +804,12 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
                     continue
                 s, reasons = score_candidate(c, shots=shots, prefer_model=prefer_model, crop=crop, seed=seed)
                 scored.append((s, c, reasons))
-            scored.sort(key=lambda x: (-x[0], x[1]["id"]))
+            # cycle 101: the shot tier first (SHOT_TIERS), then a landscape
+            # full-bleed photo before a portrait one (portrait_fullbleed), then
+            # the score
+            portrait_last = strict and bool(want.get("fullbleed_ok"))
+            scored.sort(key=lambda x: (shot_tier(x[1], shots), portrait_last and portrait_fullbleed(x[1]),
+                                       -x[0], x[1]["id"]))
             for s, c, reasons in scored:
                 if len(picks) >= n:
                     break

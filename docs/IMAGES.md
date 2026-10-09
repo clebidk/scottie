@@ -588,6 +588,34 @@ tenant allows AI renders); quality (q - 3) x 1.5; blurry -3, cluttered -2; retir
 face-checked first-screen still +5; `seed` only breaks ties. A photo is used once per
 page (the page's own `asset_id`s count as used); the cut-out up to 3 times.
 
+**Slot order (cycle 101).** Inside each stage of a slot (its `want`, then each `fallback`
+shot) the picks are sorted by `images.SHOT_TIERS` first and by the score only inside a
+tier. One table for every slot (hero, first-screen, item, essay):
+
+| tier | shots |
+|---|---|
+| 0 | `hero-wide`, `room`, `exterior`; an ad still that is a product still (`images.product_still`: no face, short side >= 720px) |
+| 1 | `lifestyle-person`; any other ad still |
+| 2 | `detail-macro` |
+| 3 | `storefront` |
+| 4 | `cutout` |
+
+So a room shot of no particular model beats a person shot of the page's model with a
+better score, and the cut-out is chosen only when no tagged photo passes the slot's
+filters (`images.shot_tier(candidate, shots)`). The slot's own shot list still orders
+shots inside one tier (`hero-wide` before `room` when the slot lists it first). The
+stages are unchanged: a strict `want` pass (e.g. `fullbleed_ok`) still comes before its
+relaxed pass.
+
+**Portrait full-bleed (cycle 101, owner decision 2026-10-09).** On the strict pass of a
+`fullbleed_ok` slot, a room or exterior photo that is not `fullbleed_ok` only because it is
+portrait also passes when its long side is at least 1600px and it has no white studio edge
+(measured; `images.portrait_fullbleed`, e.g. a 1067 x 1600 derivative). The hero's cover crop
+on the focal point handles the shape. It ranks after the landscape full-bleed photos of its
+tier and before people and the cut-out. The owner's grading of 21 real pages (2026-10-09): most led with the cut-out or a person
+photo. `heroes.pick_image` keeps its own source order (the cycle 97 still rule, then the
+library, then the cut-out); the tiers order the photos inside its library slot.
+
 In `render_page` (real renders only) the look's slots are filled after every existing
 matcher; the picks are downloaded with the page's other images, recorded in
 `<run>/.image-selection.json` under `slots` (and in the cartridge's used ids, so
