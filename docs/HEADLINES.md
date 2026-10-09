@@ -166,6 +166,8 @@ From `tenants/peak-saunas/claims/verified.json` (140 claims, 2026-09-24):
 
 A `reasons` run picks from 11 templates (s-reasons, h01, h03, h04, h06, h07,
 h08, h10, h13, h14, h16); a `mistakes` run from 3 (s-mistakes, h11, h17).
+Cycle 98 adds nc1 (reasons) and nc2 (mistakes), both eligible for PEAK (no
+extra evidence): 12 and 4 when the open-loop default is off.
 
 ## Open-loop templates (cycle 79)
 
@@ -188,3 +190,23 @@ formulas stay available by name.
 carry her verbatim quote (`hero_quote_id`). The first-screen fields and gates are in
 docs/GENERATOR.md.
 
+## Named-cause templates (cycle 98)
+
+For the `named-cause` skeleton (cartridges/listicle/skeletons/10-named-cause.json): the page
+sells ONE cause before the product, and every item is a sign or a gap that points back to it.
+A pinned `--skeleton named-cause` narrows the seeded pick to these two (nc1 on a `reasons`
+page, nc2 on a `mistakes` page); with no pin they are ordinary count templates, used only when
+the open-loop default is off or `--headline-template` names one.
+
+| id | alias | pattern | styles | gates |
+| --- | --- | --- | --- | --- |
+| nc1 | signs-cause-is-harm | N Signs \<cause\> Is \<harm\> | reasons | no fear or medical words in items |
+| nc2 | reasons-not-enough | N Reasons Why \<common_solution\> Isn't Enough | mistakes | no fear or medical words in items |
+
+Examples: "5 Signs Your Sauna Search Is Hiding the Wiring Question", "5 Reasons Why a Sauna
+Sales Call Isn't Enough". The `cause` slot kind is new: an everyday thing the reader owns,
+uses or does (a habit, a room, a heater layout, the outlet), checked like the problem-type
+slots (no `word_lists.medical` word, no trigger word). `word_lists.medical` and
+`medical_items` now also refuse the body-chemistry causes the source pages sold (hormone,
+cortisol, belly fat, statins, cholesterol, sciatic): a PEAK page names a cause its verified
+claims carry, never one in the body.

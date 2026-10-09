@@ -1,6 +1,6 @@
 # Listicle winner skeletons (cycle 73)
 
-Nine item maps of proven listicles. The writer adapts one per listicle run,
+Ten item maps of proven listicles (cycle 98 added `named-cause`). The writer adapts one per listicle run,
 the same way it adapts the tenant's winner exemplar: it keeps the item order,
 each item's role and the section hints, and writes the copy in this run's
 style, headline template, brand voice and verified claims. A skeleton is never
@@ -22,6 +22,19 @@ items, audience_fit, the FAQ and the closing block; they never add a section.
 | `myth-bust` | myths, tested | pillars | myths, tested |
 | `buyers-checklist` | questions | scorecard | questions |
 | `day-in-the-life` | reasons | pillars | |
+| `named-cause` | reasons, mistakes | editorial | |
+
+`named-cause` (cycle 98, from the Nourial, Jevi, Swarva and Citrus Root
+listicles): the hook names the reader's moment, the lede names ONE cause in
+plain words, item 1 states the cause as one mechanism sentence (its proof is
+a verified claim or the ad speaker's own quoted words), items 2-4 are signs
+(the sign, why the cause produces it, what the product changes), item 5 is
+why the usual fixes did not hold, and the closing block is the product as the
+fix with the fixed price, financing and warranty lines. Its headline
+templates are nc1 "N Signs \<cause\> Is \<harm\>" and nc2 "N Reasons Why
+\<common_solution\> Isn't Enough" (docs/HEADLINES.md). Five items: the
+cartridge's 5-7 item gate holds, so a 3-sign or 10-sign page is not
+possible without changing that gate.
 
 ## How a run picks one
 

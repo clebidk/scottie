@@ -197,6 +197,19 @@ face. No source notes in the copy (`listicle:source_parenthetical:<path>`, also 
 render). Each ad quote at most once on the page, the hero quote included
 (`listicle:quote_repeat:<id>`).
 
+**Winner skeletons** (cycle 73; list in `cartridges/listicle/skeletons/README.md`). The
+item map the writer adapts: `harness run ... --cartridges listicle --skeleton <id>`, else a
+pick by the ad's angle. Cycle 98 added `named-cause` (styles reasons and mistakes): the
+hook names the reader's moment, the lede names ONE cause, item 1 states it as one plain
+mechanism sentence (proof: a verified claim or the ad speaker's own quoted words), items 2-4
+are signs that point back to it, item 5 is why the usual fixes did not hold, and the
+closing block is the product as the fix. A pinned run takes the headline template nc1 "N
+Signs \<cause\> Is \<harm\>" (reasons) or nc2 "N Reasons Why \<common_solution\> Isn't
+Enough" (mistakes); both refuse fear and medical wording in the items, and the `cause` slot
+refuses health and body-chemistry words (docs/HEADLINES.md). For PEAK the cause is one its
+verified claims carry: the outlet requirement, the 360-degree heater placement, or a routine
+that depends on leaving the house (that one only as a question or the ad's own words).
+
 **Repairs** (cycle 74). The writer gets `ad_quotes` (the ad speaker's own sentences,
 pre-filtered so each passes the claims gate) and `allowed_numbers` (every verified number
 with its claim ids). A listicle repair is a patch: the writer returns `{"edits": [{"path",
@@ -261,7 +274,8 @@ inside the cartridge wrapper, never in `base.html`, so `harness shopify-body` ca
 into the storefront body.
 
 **Offline.** `python -m evals.fake_run <fixture> --tenant peak-saunas --cartridges
-listicle --style <s>` renders any style with no API key.
+listicle --style <s>` renders any style with no API key; `--skeleton named-cause` renders
+the canned named-cause page (cycle 98).
 
 **Reading `REVIEW.md`.** Every run writes `tenants/peak-saunas/out/<run-id>/REVIEW.md`: the product picked
 (with a `**WARNING:**` line if it was defaulted rather than named in the ad), the gate

@@ -277,8 +277,87 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
     return page
 
 
+# Cycle 98: the named-cause skeleton's canned page (cartridges/listicle/
+# skeletons/10-named-cause.json) -- one cause, three signs that point back to
+# it and the "why past fixes failed" item, in the skeleton's item order. The
+# cause is the founder fixture's own complaint (confusing sauna shopping)
+# traced to one skipped question, the wiring; every spec cites a Fuji claim
+# the offline facts pack verifies, and item 1's proof is the ad's own words.
+_NAMED_CAUSE_ITEMS = (
+    {"heading": "A sauna is an appliance before it is a cabin",
+     "text": "The confusing part of sauna shopping is rarely the wood or the heat. It is the circuit behind the "
+             "wall, and a listing that leaves it for later leaves every other choice waiting on it.",
+     "proof": _LISTICLE_PROOFS[0]},
+    {"heading": "You cannot say which outlet it needs",
+     "text": "That is the cause showing up first. The cabin needs a circuit of its own, so the page should say "
+             "which one before you pick anything else.",
+     "claim_ids": ["gbrain-fuji-power"],
+     "proof": {"text": "The Fuji needs a dedicated 120V / 20A outlet; a standard 15A outlet is not sufficient.",
+               "claim_ids": ["gbrain-fuji-power"]}},
+    {"heading": "The measurements only come up on a call",
+     "text": "When the footprint is missing, the room question waits on someone else's schedule. Published "
+             "dimensions let you tape out the corner tonight.",
+     "claim_ids": ["gbrain-fuji-dimensions"],
+     "proof": {"text": "Assembled, the Fuji measures 53 inches wide, 44 inches deep and 75 inches high.",
+               "claim_ids": ["gbrain-fuji-dimensions"]}},
+    {"heading": "Nobody says where the heat comes from",
+     "text": "A vague listing hides the heater layout too. When the page shows where the heaters sit, you know "
+             "where the warmth reaches before the crate arrives.",
+     "claim_ids": ["gbrain-allowlist-360-full-spectrum"],
+     "proof": {"text": "The infrared heaters use a 360° placement around you.",
+               "claim_ids": ["gbrain-allowlist-360-full-spectrum"]}},
+    {"heading": "Why another sales call did not settle it",
+     "text": "More opinions answer the sign, not the cause. The facts that settle the choice are the circuit, the "
+             "footprint and the delivery, and they belong on the page before checkout.",
+     "proof": {"text": "Every order ships free, and heavy freight arrives on a delivery appointment you schedule.",
+               "claim_ids": ["shipping-policy"]}},
+)
+
+_NAMED_CAUSE_FAQ = (
+    {"question": "Do I need special wiring?",
+     "answer": "Plan for a dedicated 20A circuit on 120V, because a standard 15A outlet is not sufficient. Check "
+               "your panel for a free circuit before you order.",
+     "claim_ids": ["gbrain-fuji-power"]},
+    {"question": "How many people fit inside?",
+     "answer": "Two people sit side by side on one bench.",
+     "claim_ids": ["spec-fuji-capacity"]},
+    {"question": "What is the cabin made of?",
+     "answer": "Canadian red cedar, on the inside and the outside.",
+     "claim_ids": ["gbrain-fuji-wood"]},
+    {"question": "How hot does it get?",
+     "answer": "The Fuji reaches up to 150°F.",
+     "claim_ids": ["spec-fuji-max-temperature"]},
+    {"question": "What if I change my mind?",
+     "answer": "Returns are accepted once the cabin is taken apart and repacked in its original crate.",
+     "claim_ids": ["returns-policy"]},
+)
+
+
+def _named_cause_page(style, headline=None, hero_quote_id=None, display_line=None):
+    page = _listicle_page(style, headline, hero_quote_id, display_line)
+    page.update({
+        "eyebrow": "For confused sauna shoppers",
+        "dek": "If sauna shopping has felt confusing, the reason may be one question that keeps getting skipped.",
+        "lede": "It is not the wood, the heat or you. It is the part behind the wall, and every sign below points "
+                "back to it.",
+        "scroll_cue": "Start with the cause",
+    })
+    page["reasons"] = [
+        {"number": i, **copy.deepcopy(item), "image": {"asset_id": _LISTICLE_ASSET_IDS[i]}}
+        for i, item in enumerate(_NAMED_CAUSE_ITEMS, start=1)
+    ]
+    page["faq"] = {"questions": copy.deepcopy(list(_NAMED_CAUSE_FAQ))}
+    page["closing"]["headline"] = "Start with the outlet, then pick the cabin"
+    page["closing"]["recap"] = [
+        {"text": "The confusing part was one skipped question, not you."},
+        {"text": "The circuit, the footprint and the heater layout are on the page before checkout."},
+        {"text": "Free shipping is included on every order.", "claim_ids": ["shipping-policy"]},
+    ]
+    return page
+
+
 def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_id=None, display_line=None,
-                 landing_look=None):
+                 landing_look=None, skeleton=None):
     if cartridge == "quiz":
         # Cycle 57: built from the run tenant's own quiz rubric (question ids
         # and option labels must echo it), lazily like comparison's.
@@ -295,6 +374,8 @@ def _canned_page(cartridge, style=None, tenant=None, headline=None, hero_quote_i
         from tests.test_comparison import COMPARISON_PAGE
 
         return COMPARISON_PAGE
+    if cartridge == "listicle" and skeleton == "named-cause":
+        return _named_cause_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
     if cartridge == "listicle":
         return _listicle_page(style or listicle_mod.STYLES[0], headline, hero_quote_id, display_line)
     if cartridge == "landing" and landing_look == "proof":
@@ -456,6 +537,14 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     # evidence: the canned items cite none.
     canned_headline = None
     if "listicle" in selected:
+        # Cycle 98: the named-cause page is written for its own templates
+        # (nc1 for reasons, nc2 for mistakes), not the style formula.
+        if skeleton == "named-cause" and not headline_template:
+            headline_template = next(
+                (t for t in skeletons.load_skeleton(skeleton)["headline_templates"]
+                 if resolved_style in headlines.template(t)["styles"]),
+                None,
+            )
         headline_template = headline_template or headlines.legacy_id(resolved_style)
         if headline_template != headlines.legacy_id(resolved_style):
             plan = headlines.build_plan(
@@ -485,7 +574,7 @@ def run_once(input_arg, *, tenant=None, cartridges="article,product-page,longfor
     quotes = safe_quote_candidates(brief, None)
     hero_quote_id = quotes[0]["id"] if quotes else None
     responses += [json_response(_canned_page(c, resolved_style, tenant, canned_headline, hero_quote_id,
-                                             _display_line(brief), landing_look))
+                                             _display_line(brief), landing_look, skeleton))
                   for c in selected]
     responses += list(extra_responses)   # cycle 92: the design gate's judge answers, in order
     client = FakeClient(responses)
