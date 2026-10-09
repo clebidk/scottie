@@ -6220,3 +6220,80 @@ They are medical claims; PEAK's gates refuse them, and now the headline word lis
 - swarva-doctor-byline at 390: the copy runs to the screen edge (no side gutter) and the "At a
   glance" icons are empty circles. A look issue, as above.
 - 3-sign and 10-sign pages need an owner decision on the 5-7 item gate (see Judgment calls).
+
+## Cycle 99 (Library: one card per structure, variants inside it, 2026-10-09)
+Branch `cycle99/library-one-card-per-look` from origin/master b983ab0.
+
+### Problem
+Owner: "theres tons of duplicates in the library. i only want 1 of each structure in library and if
+there are variants they are all confined in the 1". The page showed one card per look x first
+screen x style (76 cards on prod for about 30 looks). The owner reads a look as one structure and
+each first screen or style as a variant of it. Also, the tenant looks block-cinematic and
+block-buybox were removed on prod, but their version folders stayed under
+`tenants/peak-saunas/library/landing/` (the page did not list them, since it lists `versions()`,
+but nothing removed them).
+
+### Change
+- **`library.structures(tenant)`**: one dict per (cartridge, look) in page order (landing,
+  listicle, then discover order; `CARTRIDGE_ORDER`), with title, summary (the look's
+  `LOOK_NOTES` or its `library.json` summary; the cartridge purpose for a cartridge with no
+  looks), origin, the variants (the `entries()` rows plus `label`, `state` ready/off and `why`),
+  the default variant (the first ready one), the best design score and the best fidelity.
+  `library.origin`: "shipped" (harness look), "hand-converted" (`library.json` `source.converted`,
+  or `source.kind == "pack"`), else "imported". `library.variant_label`: "Split", "Story · myths";
+  a landing look's own version names its default first screen ("Ad first"); "Default" for a
+  cartridge with no looks.
+- **Site** (`harness/site.py` `_lib_card` / `render_library`, CSS and JS in `harness/site_ui.py`):
+  one card per structure. The default variant's thumbnail large (200 px phone, was 152), the
+  origin tag (Shipped / Imported / Hand-converted) and look chip, title, summary (clamped to three
+  lines, full text on hover), audience, words, the number of variants, "Design N" for the best
+  scored variant, "fidelity 0.8" for the best fidelity. "Showing <variant>" and a strip with one
+  small thumbnail per built variant; a click swaps the big thumbnail, **Open review** and
+  **Generate with this** to that variant (`pkLibVariant` in `site_ui.JS`, the delegated
+  `data-lib-variant` click; without script, or with Cmd/Ctrl, the link opens that variant's
+  review). Variants with no page (not renderable offline, failed, not built yet) are text chips
+  with the short reason (full reason on hover); listicle styles of one first screen with the same
+  reason share a chip ("Face · 5 styles: not renderable offline"). A look with one variant has no
+  strip. Section count lines "7 structures · 25 variants"; the jump links count structures. The
+  card id is `lib-<cartridge>-<look>`; variant ids are `libv-<key>`. The routes
+  `/library/<key>/review` and `/library/<key>/thumb` are unchanged. "Open reference" is now
+  "Open review".
+- **Failed versions**: a version that fails to render and has no older page gets a `meta.json`
+  with `failed` (its card chip shows it); it is not up to date, so the next build tries it again.
+  An older page stays when there is one.
+- **Prune**: `library.prune` (called first by `library.build`) removes every folder with a
+  `meta.json` whose key is no longer a version, and the empty folders above it; it prints
+  `pruned <key>: no such version any more`. `--only` limits it to those cartridges; the build's
+  `harness-library-*` scratch folder is never touched. The CLI summary line and the job result /
+  job page add "N pruned".
+- Rebuild button (page head) and **Import a page** (Ads page and `/looks/import`; the Library
+  page never had it) are unchanged.
+
+### Verify
+- `tests/test_library_cycle99.py` (9): versions group into one structure per look (every version
+  in exactly one, order landing/listicle/rest, labels); origin tags and the best design score;
+  the page has one card per look with the default thumbnail large and the variants in its strip
+  (data-thumb / data-review / data-generate), a not-renderable variant as a chip with its reason
+  and no swap link; the section count lines; listicle styles sharing a chip; a failed variant as a
+  chip and retried; the per-variant review / thumb routes, rebuild and `/looks/import` still
+  answer; prune removes a stale look, a stale first screen inside a live look and a stale listicle
+  look (with its empty parents), keeps live and scratch folders; the CLI build prunes and prints.
+- Changed older tests: `tests/test_library_cycle86.py` (per-version ids are now variant ids or
+  the card id; sections in the landing/listicle/rest order; "Imported" tag; the not-built chip
+  text; an unbuilt listicle variant's Generate link is no longer on the page).
+- `harness library build --tenant peak-saunas` on this Mac: 33 built, 31 up to date, 2 not
+  renderable offline, 0 failed, 0 pruned, 33 thumbnails. A copied stale folder
+  `landing/stale-demo` and `--only landing`: "pruned landing/stale-demo", "1 pruned".
+- The page through the Flask app with the local library: 19 cards for 66 variants (landing 7
+  structures · 25 variants, listicle 5 · 34, article 1 · 1, comparison 1 · 1, longform 2 · 2,
+  product page 2 · 2, quiz 1 · 1); headless Chrome screenshot at 1280 checked by eye. A scripted
+  click on the landing open card's "Split" variant in headless Chrome swapped the big thumbnail,
+  Open review, Generate with this, the "Showing" label and the active variant.
+- Full suite `.venv/bin/python -m pytest -q -p no:cacheprovider`: 3025 passed, 0 failed, 1 skipped, 3 min 33 s.
+
+### Open
+- Prod: the stale `landing/block-cinematic` and `landing/block-buybox` folders go at the first
+  build after deploy (the Rebuild button or the CLI). Not deployed here.
+- Phone width: headless Chrome on this Mac lays out at 500 px at the least; at 500 px nothing in
+  the cards overflows. 390 px was not measured in a real phone viewport.
+- The listicle imported looks' summaries are long; the card clamps them to three lines.
