@@ -124,6 +124,12 @@ def select_skeleton(ad_brief, skeleton_id=None, *, for_cartridge=None):
         for tag in tags + angle_fit:
             if tag and tag in text:
                 score += 2 if tag in angle_fit else 1
+        # Noah Igler mobile first-screen / availability box
+        if sk.get("id") == "mobile-first-availability":
+            for needle in ("consult", "book", "call", "availability", "appointment",
+                           "same-day", "mobile", "specialist"):
+                if needle in text:
+                    score += 3
         if score > best_score:
             best, best_score = sk, score
     if best is not None and best_score > 0:

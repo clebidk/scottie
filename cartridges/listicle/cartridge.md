@@ -34,4 +34,4 @@ Exemplars are a secondary voice reference. **Winner skeletons** in `cartridges/l
 
 Pass `--skeleton <id>` to pin a page map (e.g. `hormozi-value-stack`, `classic-n-reasons`) and `--headline <id>` to pin a pre-sell title swipe (e.g. `everyones-switching`, `most-dont-work`). When omitted, the harness picks both from ad angle tags (defaults: `classic-n-reasons` + `everyones-switching`). Peak fill hints live on each file under `peak_saunas`. See `cartridges/listicle/skeletons/README.md` and `.../headlines/`.
 
-Library groups: 2 Hormozi page maps, 1 native article+comments, 1 simplified PDP (`simplified-pdp` → product-page), 6 classic listicles, plus **17 headline swipe templates**.
+Library groups: 2 Hormozi page maps, 1 native article+comments, 1 simplified PDP (`simplified-pdp` → product-page), 1 mobile first-screen + availability box (`mobile-first-availability` → product-page, [Noah Igler](https://x.com/noahiglerSEO/status/2108882995658514806)), 6 classic listicles, plus **17 headline swipe templates**.

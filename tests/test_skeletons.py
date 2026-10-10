@@ -16,10 +16,10 @@ SKELETONS_DIR = REPO_ROOT / "cartridges" / "listicle" / "skeletons"
 HEADLINES_DIR = SKELETONS_DIR / "headlines"
 
 
-def test_index_lists_exactly_ten_skeletons():
+def test_index_lists_exactly_eleven_skeletons():
     index = json.loads((SKELETONS_DIR / "index.json").read_text())
-    assert index["count"] == 10
-    assert len(index["skeletons"]) == 10
+    assert index["count"] == 11
+    assert len(index["skeletons"]) == 11
     assert index["default_id"] == "classic-n-reasons"
     assert skeletons.list_skeleton_ids() == [row["id"] for row in index["skeletons"]]
 
@@ -51,13 +51,30 @@ def test_library_groups_match_the_brief():
     assert {"hormozi-value-stack", "hormozi-mistakes"} <= ids
     assert "native-article-comments" in ids
     assert "simplified-pdp" in ids
+    assert "mobile-first-availability" in ids
     classic = {
         "classic-n-reasons", "hidden-costs", "switcher-reasons",
         "myth-bust", "buyers-checklist", "day-in-the-life",
     }
     assert classic <= ids
     assert skeletons.load_skeleton("simplified-pdp")["target_cartridge"] == "product-page"
+    assert skeletons.load_skeleton("mobile-first-availability")["target_cartridge"] == "product-page"
     assert skeletons.load_skeleton("native-article-comments")["compliance"]["risk"] == "high"
+
+
+def test_select_skeleton_matches_consult_availability_angle():
+    sk = skeletons.select_skeleton(
+        {"angle": "book a consult", "hook": "talk to a specialist about availability"},
+        for_cartridge="product-page",
+    )
+    assert sk["id"] == "mobile-first-availability"
+
+
+def test_mobile_first_availability_cites_noah_igler_source():
+    sk = skeletons.load_skeleton("mobile-first-availability")
+    urls = [s.get("url", "") for s in sk["sources"]]
+    assert any("2108882995658514806" in u for u in urls)
+    assert (SKELETONS_DIR / "references" / "noah-igler-mobile-first-screen.jpg").is_file()
 
 
 def test_headline_swipe_templates_match_source_formulas():

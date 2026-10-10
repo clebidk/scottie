@@ -1,8 +1,8 @@
 # Listicle winner skeletons (v1)
 
-Ten **page component maps** + seventeen **headline swipe templates** for one-shot generation: pick a page skeleton + a title formula, fill slots with this brand’s voice, verified claims, and assets. Do not invent padded advertorials.
+Eleven **page component maps** + seventeen **headline swipe templates** for one-shot generation: pick a page skeleton + a title formula, fill slots with this brand’s voice, verified claims, and assets. Do not invent padded advertorials.
 
-## Page skeletons (10)
+## Page skeletons (11)
 
 | # | id | Group | Target cartridge |
 |---|----|-------|------------------|
@@ -16,6 +16,7 @@ Ten **page component maps** + seventeen **headline swipe templates** for one-sho
 | 8 | `myth-bust` | Classic | listicle |
 | 9 | `buyers-checklist` | Classic | listicle |
 | 10 | `day-in-the-life` | Classic | listicle |
+| 11 | `mobile-first-availability` | Local-lead (Noah Igler) | **product-page** |
 
 ## Headline skeletons (17)
 
@@ -32,9 +33,12 @@ harness run <ad> --tenant peak-saunas --cartridges listicle \
 harness run <ad> --tenant peak-saunas --cartridges listicle \
   --skeleton hormozi-mistakes --headline still-problem-after-trying
 
-# product-page shaped winner (no headline swipe):
+# product-page shaped winners (no headline swipe):
 harness run <ad> --tenant peak-saunas --cartridges product-page --skeleton simplified-pdp
+harness run <ad> --tenant peak-saunas --cartridges product-page --skeleton mobile-first-availability
 ```
+
+`mobile-first-availability` is the [Noah Igler mobile first-screen](https://x.com/noahiglerSEO/status/2108882995658514806) pattern (rating bar + two reassurances + availability/consult box). Prefer `cta_mode: consult` / Book a consult. Never invent appointment clock times or review counts.
 
 When `--skeleton` / `--headline` are omitted, the harness auto-picks from ad angle tags (fallback page: `classic-n-reasons`; fallback headline: `everyones-switching`).
 

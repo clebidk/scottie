@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "purpose": "Winner skeletons for one-shot listicle (and related) generation: adapt components to brand/colors/images/tone/voice \u2014 do not invent padded pages.",
   "default_id": "classic-n-reasons",
-  "count": 10,
+  "count": 11,
   "skeletons": [
     {
       "id": "hormozi-value-stack",
@@ -53,6 +53,11 @@
       "id": "day-in-the-life",
       "file": "10-day-in-the-life.json",
       "group": "classic"
+    },
+    {
+      "id": "mobile-first-availability",
+      "file": "11-mobile-first-availability.json",
+      "group": "local-lead"
     }
   ]
 }
