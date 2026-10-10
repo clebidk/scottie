@@ -1,0 +1,154 @@
+{
+  "id": "classic-n-reasons",
+  "version": "1.0.0",
+  "name": "Classic N reasons (Peak live DNA)",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "tenant_live",
+      "name": "5 Reasons People Love The Peak Mini Sauna",
+      "url": "https://peaksaunas.com/pages/5-reasons-to-love-peak-saunas"
+    },
+    {
+      "kind": "pattern",
+      "name": "High-converting reasons listicle structure",
+      "url": "https://www.getlandra.com/blog/listicle-landing-page-examples-that-convert"
+    },
+    {
+      "kind": "pattern",
+      "name": "$100M-brand listicle anatomy",
+      "url": "https://www.bloggersideas.com/100m-brands-write-high-converting-listicles/"
+    }
+  ],
+  "tags": [
+    "classic",
+    "reasons",
+    "peak-live",
+    "default",
+    "warm"
+  ],
+  "density": {
+    "approx_body_words": 230,
+    "item_count": 5,
+    "words_per_item_hint": "35-70",
+    "length_band": "match live Mini page \u2014 ~200-300 body words"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Reasons \u2026"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "proof_row",
+      "required": false,
+      "hint": "Optional verified stats; live page used unsourced trust line \u2014 do not copy unsourced counts"
+    },
+    {
+      "id": "reasons",
+      "required": true
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "plug_and_play",
+        "heading_hint": "Plug & Play / no electrician",
+        "image_role": "item_1"
+      },
+      {
+        "number": 2,
+        "role": "red_light",
+        "heading_hint": "Red light included",
+        "image_role": "item_2"
+      },
+      {
+        "number": 3,
+        "role": "fits_space",
+        "heading_hint": "Fits your space",
+        "image_role": "item_3"
+      },
+      {
+        "number": 4,
+        "role": "app_controls",
+        "heading_hint": "Smart app controls",
+        "image_role": "item_4"
+      },
+      {
+        "number": 5,
+        "role": "free_shipping",
+        "heading_hint": "Free shipping / delivery proof",
+        "image_role": "item_5"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true,
+    "note": "Live page used two different CTA phrases \u2014 harness requires one phrase twice."
+  },
+  "voice": {
+    "style": "plain_peak",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "Never paste live '5,000+ customers' unless verified.",
+      "Never invent Mini width if not in verified_claims."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "features",
+      "mini",
+      "product-features",
+      "default"
+    ],
+    "default_model": "mini",
+    "reason_fills": [
+      "Plug & Play",
+      "Medical-grade red light",
+      "Fits your space",
+      "Smart app controls",
+      "Free shipping"
+    ],
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    },
+    "is_default": true
+  },
+  "writer_brief": "Clone the live Peak component map and density. Rewrite for this ad/brand voice. One CTA phrase twice. Verified claims only. Do not pad toward 600 words."
+}

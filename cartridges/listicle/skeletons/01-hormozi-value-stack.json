@@ -1,0 +1,162 @@
+{
+  "id": "hormozi-value-stack",
+  "version": "1.0.0",
+  "name": "Hormozi Grand Slam value stack",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "framework",
+      "name": "Alex Hormozi $100M Offers \u2014 value equation + Grand Slam Offer stack",
+      "url": "https://www.setsail.ca/reports/how-to-craft-a-100m-offer-and-actually-sell-it-lessons-from-alex-hormozi",
+      "note": "Dream outcome, likelihood, time delay, effort/sacrifice; stack components until saying no feels irrational."
+    },
+    {
+      "kind": "pattern",
+      "name": "Hormozi offer carousel / benefit stack",
+      "url": "https://swipethread.com/templates/hormozi-offer"
+    }
+  ],
+  "tags": [
+    "hormozi",
+    "value-stack",
+    "offer",
+    "warm",
+    "features"
+  ],
+  "density": {
+    "approx_body_words": 320,
+    "item_count": 6,
+    "words_per_item_hint": "35-60",
+    "length_band": "match stack density; do not pad"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "What's included / everything you get when you {dream outcome}"
+    },
+    {
+      "id": "dek",
+      "required": true,
+      "hint": "One line: dream outcome + lower effort/time"
+    },
+    {
+      "id": "proof_row",
+      "required": false,
+      "hint": "Verified rating/warranty/shipping only"
+    },
+    {
+      "id": "reasons",
+      "required": true,
+      "hint": "Each item is one stacked offer component, not a vague benefit"
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true,
+      "hint": "Restate stack in one sentence + warranty + financing lines"
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "dream_outcome_core",
+        "heading_hint": "The core product that delivers the dream outcome",
+        "image_role": "hero"
+      },
+      {
+        "number": 2,
+        "role": "likelihood_booster",
+        "heading_hint": "Built-in mechanism that raises odds of success (e.g. red light standard)",
+        "image_role": "item_2"
+      },
+      {
+        "number": 3,
+        "role": "speed_to_value",
+        "heading_hint": "Faster path (plug-and-play, app preheat, no electrician)",
+        "image_role": "item_1"
+      },
+      {
+        "number": 4,
+        "role": "effort_reducer",
+        "heading_hint": "Lower effort/sacrifice (footprint, assembly, daily use)",
+        "image_role": "item_3"
+      },
+      {
+        "number": 5,
+        "role": "bonus_or_included",
+        "heading_hint": "Included extras normally sold separate \u2014 only if verified",
+        "image_role": "item_4"
+      },
+      {
+        "number": 6,
+        "role": "risk_reversal",
+        "heading_hint": "Warranty / shipping / support as stack finishers \u2014 verified only",
+        "image_role": "item_5"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "direct_offer",
+    "sentence_length": "short",
+    "person": "second",
+    "banned_padding": true
+  },
+  "compliance": {
+    "notes": [
+      "No invented dollar values on bonuses.",
+      "Every numeric stack claim needs a claim_id.",
+      "Do not invent urgency/scarcity."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "features",
+      "value",
+      "offer",
+      "whats-included",
+      "red light",
+      "full spectrum"
+    ],
+    "default_model": "mini",
+    "reason_fills": [
+      "Full-spectrum infrared cabin (the practice itself)",
+      "Medical-grade red light included standard (not an upsell) \u2014 verified claim only",
+      "Standard outlet / no electrician when true for the model",
+      "Footprint / fits the space",
+      "App controls / preheat",
+      "Free shipping + warranty lines as closing stack items"
+    ],
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Adapt this Grand Slam stack to the ad's angle. Each reason = one concrete included component. Match short density. Swap brand/voice/assets/verified claims only. No page-level word floor."
+}

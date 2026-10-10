@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartridges/listicle/skeletons/skeleton.schema.json",
+  "title": "ListicleWinnerSkeleton",
+  "type": "object",
+  "required": ["id", "version", "name", "family", "sources", "tags", "density", "components", "writer_brief", "target_cartridge"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "version": {"type": "string"},
+    "name": {"type": "string"},
+    "family": {"type": "string", "enum": ["listicle", "advertorial", "pdp", "hybrid"]},
+    "target_cartridge": {"type": "string", "enum": ["listicle", "product-page", "article", "longform"]},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["kind", "name"],
+        "properties": {
+          "kind": {"type": "string"},
+          "name": {"type": "string"},
+          "url": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "density": {
+      "type": "object",
+      "required": ["approx_body_words", "item_count"],
+      "properties": {
+        "approx_body_words": {"type": "integer", "minimum": 0},
+        "item_count": {"type": "integer", "minimum": 0},
+        "words_per_item_hint": {"type": "string"},
+        "length_band": {"type": "string", "description": "Optional library-entry length band (not a generation floor)."}
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "required"],
+        "properties": {
+          "id": {"type": "string"},
+          "required": {"type": "boolean"},
+          "hint": {"type": "string"},
+          "after": {"type": "string"}
+        }
+      }
+    },
+    "slots": {"type": "object"},
+    "cta": {"type": "object"},
+    "voice": {"type": "object"},
+    "compliance": {"type": "object"},
+    "peak_saunas": {"type": "object"},
+    "writer_brief": {"type": "string"}
+  }
+}

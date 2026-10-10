@@ -313,6 +313,8 @@ def _write_initial_pages_via_batch(state, write_model):
         model=write_model,
         tenant=state.tenant,
         ad_not_repeated=state.ad_not_repeated,
+        skeleton_id=getattr(state.args, "skeleton", None),
+        headline_id=getattr(state.args, "headline", None),
     )
     created = state.client.messages.batches.create(requests=requests)
     state.log.event("write_pages", f"batch {created.id} submitted for {len(requests)} cartridge(s)")
@@ -376,6 +378,8 @@ def write_pages(state):
                 tenant=state.tenant,
                 initial_page=initial_page,
                 initial_call_tokens=initial_call_tokens,
+                skeleton_id=getattr(state.args, "skeleton", None),
+                headline_id=getattr(state.args, "headline", None),
             )
         except ClaimsGateFailure as e:
             attempts = getattr(e, "attempts", [e.items])

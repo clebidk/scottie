@@ -1,0 +1,133 @@
+{
+  "id": "simplified-pdp",
+  "version": "1.0.0",
+  "name": "Simplified Peak PDP",
+  "family": "pdp",
+  "target_cartridge": "product-page",
+  "sources": [
+    {
+      "kind": "tenant_live",
+      "name": "Peak Fuji Shopify PDP (stripped)",
+      "url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+      "note": "Live PDP is CTA-dense (11+). This skeleton keeps hero, price, 3 proof bullets, angle, specs, trust, one CTA \u2014 matches cartridges/product-page and tenants/.../STYLES.md style 2."
+    },
+    {
+      "kind": "cartridge",
+      "name": "cartridges/product-page",
+      "note": "Canonical schema for this skeleton."
+    }
+  ],
+  "tags": [
+    "pdp",
+    "retargeting",
+    "shopping",
+    "warm",
+    "peak"
+  ],
+  "density": {
+    "approx_body_words": 350,
+    "item_count": 0,
+    "words_per_item_hint": "n/a \u2014 PDP sections",
+    "length_band": "250-500 words (product-page cartridge band)"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "hero",
+      "required": true,
+      "hint": "short_name, promise from ad, price, financing line, hero image"
+    },
+    {
+      "id": "proof_bullets",
+      "required": true,
+      "hint": "Exactly 3 verified benefit bullets"
+    },
+    {
+      "id": "angle_section",
+      "required": true,
+      "hint": "H2 + 2-4 short paragraphs expanding the ad"
+    },
+    {
+      "id": "specs_table",
+      "required": true,
+      "hint": "6-10 rows from facts_pack.specs"
+    },
+    {
+      "id": "trust_strip",
+      "required": true,
+      "hint": "warranty, shipping, returns, reviews if verified"
+    },
+    {
+      "id": "repeat_cta",
+      "required": true,
+      "hint": "Same cta_text/url as hero \u2014 renderer places it"
+    }
+  ],
+  "slots": {
+    "proof_bullets": [
+      {
+        "role": "hero_benefit",
+        "peak_hint": "Full-spectrum IR or capacity \u2014 verified"
+      },
+      {
+        "role": "differentiator",
+        "peak_hint": "Red light included standard \u2014 verified"
+      },
+      {
+        "role": "friction_remover",
+        "peak_hint": "Outlet / footprint / shipping \u2014 verified"
+      }
+    ],
+    "strip_from_live_pdp": [
+      "No reviews carousel",
+      "No related products",
+      "No multi-financing button stack",
+      "No click-to-call promo spam",
+      "No nav / newsletter"
+    ]
+  },
+  "cta": {
+    "placement": [
+      "hero",
+      "repeat"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "declarative_pdp",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "Price from live facts_pack only.",
+      "Financing line must be the allowed sentence \u2014 never invent lender/APR.",
+      "No Bread Pay naming."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "retargeting",
+      "shopping",
+      "product",
+      "buy",
+      "model"
+    ],
+    "default_model": "fuji",
+    "live_pdp_steal": [
+      "Price above the fold",
+      "Red light as included value callout (verified)",
+      "Crate shipping as trust proof (verified)",
+      "App / outlet / warranty as proof bullets"
+    ],
+    "image_role_map": {
+      "hero": "product hero",
+      "detail_1": "red light / interior",
+      "detail_2": "controls or install"
+    }
+  },
+  "writer_brief": "Fill product-page schema, not listicle reasons. Strip the live Peak PDP to one SKU, one CTA phrase, three proofs, specs, trust. Match the ad angle in hero.promise and angle_section."
+}

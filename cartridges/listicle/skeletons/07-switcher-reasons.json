@@ -1,0 +1,133 @@
+{
+  "id": "switcher-reasons",
+  "version": "1.0.0",
+  "name": "Why people switch",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "tenant_exemplar",
+      "name": "br-5-reasons-sauna-owners-switch (article exemplar DNA, listicle shape)",
+      "note": "Peak already has switcher narrative DNA in exemplars/article."
+    },
+    {
+      "kind": "pattern",
+      "name": "Audience-in-headline reasons listicle",
+      "url": "https://www.getlandra.com/blog/listicle-landing-page-examples-that-convert"
+    }
+  ],
+  "tags": [
+    "switcher",
+    "comparison",
+    "owners",
+    "warm"
+  ],
+  "density": {
+    "approx_body_words": 280,
+    "item_count": 5,
+    "words_per_item_hint": "40-70"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Reasons {audience} Are Switching to Home Infrared"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "reasons",
+      "required": true
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "consistency",
+        "heading_hint": "Daily access beats weekly appointments",
+        "image_role": "lifestyle"
+      },
+      {
+        "number": 2,
+        "role": "stack_included",
+        "heading_hint": "Heat + red light in one",
+        "image_role": "item_2"
+      },
+      {
+        "number": 3,
+        "role": "privacy_control",
+        "heading_hint": "Your schedule, your space",
+        "image_role": "item_3"
+      },
+      {
+        "number": 4,
+        "role": "setup_reality",
+        "heading_hint": "Outlet / footprint reality check",
+        "image_role": "item_1"
+      },
+      {
+        "number": 5,
+        "role": "ownership_math",
+        "heading_hint": "Ownership vs endless visits \u2014 careful with numbers",
+        "image_role": "hero"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "peer_to_peer",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "No unverified competitor bashing.",
+      "Switcher testimonials need attribution rules."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "switch",
+      "owners",
+      "comparison",
+      "vs spa"
+    ],
+    "default_model": "mini",
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Write as reasons people switch \u2014 not a feature dump. Keep Peak voice plain. Verified only."
+}

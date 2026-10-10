@@ -1,0 +1,135 @@
+{
+  "id": "hidden-costs",
+  "version": "1.0.0",
+  "name": "Hidden costs of the status quo",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "tenant_fixture",
+      "name": "Peak hidden-costs-v2 ad \u2192 listicle runs",
+      "note": "Existing Peak fixture angle; listicle PASS in sweep docs."
+    },
+    {
+      "kind": "pattern",
+      "name": "Cost-of-inaction / status-quo tax listicle",
+      "url": "https://www.bloggersideas.com/100m-brands-write-high-converting-listicles/"
+    }
+  ],
+  "tags": [
+    "hidden-costs",
+    "price",
+    "spa",
+    "membership",
+    "cold-to-warm"
+  ],
+  "density": {
+    "approx_body_words": 300,
+    "item_count": 5,
+    "words_per_item_hint": "40-70"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Hidden Costs of {spa/gym/status quo}"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "reasons",
+      "required": true
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "membership_math",
+        "heading_hint": "Membership / per-visit math \u2014 attributed estimates only if from ad speaker",
+        "image_role": "lifestyle"
+      },
+      {
+        "number": 2,
+        "role": "time_tax",
+        "heading_hint": "Travel + wait + inconsistency",
+        "image_role": "item_1"
+      },
+      {
+        "number": 3,
+        "role": "missing_stack",
+        "heading_hint": "Paying again for red light / add-ons elsewhere",
+        "image_role": "item_2"
+      },
+      {
+        "number": 4,
+        "role": "home_unit_false_savings",
+        "heading_hint": "Cheap units that need electrician or lack warranty",
+        "image_role": "item_3"
+      },
+      {
+        "number": 5,
+        "role": "clear_alternative",
+        "heading_hint": "Home stack with verified shipping/warranty as the clean alternative",
+        "image_role": "hero"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "plain_math",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "Speaker cost estimates must be attributed_to_customer.",
+      "No invented monthly savings figures without claims."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "hidden-costs",
+      "price",
+      "spa",
+      "membership",
+      "roi"
+    ],
+    "default_model": "mini",
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Number the hidden costs. Keep math honest and attributed. End on verified Peak alternative \u2014 not a fake ROI calculator."
+}

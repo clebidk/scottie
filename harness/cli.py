@@ -592,6 +592,16 @@ def build_parser():
     p_run = sub.add_parser("run", help="ingest -> ground -> gate -> write -> render")
     p_run.add_argument("input")
     p_run.add_argument("--cartridges", help="comma-separated cartridge names; default: 3 random from the tenant's pool")
+    p_run.add_argument(
+        "--skeleton",
+        help="winner skeleton id from cartridges/listicle/skeletons/ (e.g. classic-n-reasons, hormozi-value-stack); "
+             "auto-selected from the ad angle when omitted",
+    )
+    p_run.add_argument(
+        "--headline",
+        help="pre-sell headline swipe id from cartridges/listicle/skeletons/headlines/ "
+             "(e.g. everyones-switching, most-dont-work); auto-selected when omitted",
+    )
     p_run.add_argument("--seed", type=int)
     p_run.add_argument("--product", help="product slug or name; default: inferred from the ad, else the tenant's default product")
     _add_tool_flags(p_run)

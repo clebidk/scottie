@@ -553,7 +553,7 @@ def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_b
 def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, model, budget, log,
                          financing_lender, speaker_pov, ad_not_repeated=None, tenant=None,
                          repair_first_model=None, repair_next_model=None,
-                         initial_page=None, initial_call_tokens=0):
+                         initial_page=None, initial_call_tokens=0, skeleton_id=None, headline_id=None):
     """write_page, then check_page_gates; on failure, first tries the
     deterministic pre-repair pass (apply_deterministic_fixes -- no model
     call) and re-gates, then, only if failures remain, retries write_page
@@ -670,6 +670,8 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
                 revision_note=revision_note,
                 ad_not_repeated=ad_not_repeated,
                 tenant=tenant,
+                skeleton_id=skeleton_id,
+                headline_id=headline_id,
             )
             call_token_costs.append(budget.tokens_used - tokens_before)
         problems = _gate(page)

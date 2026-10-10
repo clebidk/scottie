@@ -1,0 +1,135 @@
+{
+  "id": "buyers-checklist",
+  "version": "1.0.0",
+  "name": "Before you buy checklist",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "Checklist listicle / evaluation criteria pre-sell",
+      "url": "https://www.getlandra.com/blog/listicle-landing-page-examples-that-convert"
+    }
+  ],
+  "tags": [
+    "checklist",
+    "buyers-guide",
+    "evaluation",
+    "warm"
+  ],
+  "density": {
+    "approx_body_words": 280,
+    "item_count": 6,
+    "words_per_item_hint": "30-55"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Things to Check Before You Buy a Home Sauna"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "reasons",
+      "required": true,
+      "hint": "Each item is a check criterion; Peak quietly passes with verified proof"
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "check_spectrum",
+        "heading_hint": "Full-spectrum vs single-band",
+        "image_role": "item_2"
+      },
+      {
+        "number": 2,
+        "role": "check_red_light",
+        "heading_hint": "Is red light included?",
+        "image_role": "item_2"
+      },
+      {
+        "number": 3,
+        "role": "check_power",
+        "heading_hint": "Outlet / amperage reality",
+        "image_role": "item_1"
+      },
+      {
+        "number": 4,
+        "role": "check_footprint",
+        "heading_hint": "Measure the space",
+        "image_role": "item_3"
+      },
+      {
+        "number": 5,
+        "role": "check_warranty",
+        "heading_hint": "Read real warranty terms",
+        "image_role": "item_5"
+      },
+      {
+        "number": 6,
+        "role": "check_shipping",
+        "heading_hint": "Shipping / crate / damage policy",
+        "image_role": "item_5"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "helpful_advisor",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "Checklist criteria must not invent industry standards.",
+      "Peak pass/fail lines need claim_ids."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "checklist",
+      "buyers guide",
+      "how to choose",
+      "before you buy"
+    ],
+    "default_model": "mini",
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Be a checklist, not a brochure. Each criterion teaches; Peak satisfies with verified facts only."
+}

@@ -1,0 +1,152 @@
+{
+  "id": "hormozi-mistakes",
+  "version": "1.0.0",
+  "name": "Hormozi mistakes \u2192 offer",
+  "family": "listicle",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "framework",
+      "name": "Hormozi problem \u2192 consequence \u2192 solution \u2192 benefit stack",
+      "url": "https://swipethread.com/templates/hormozi-offer"
+    },
+    {
+      "kind": "pattern",
+      "name": "Objection-first listicle (lead with #1 category objection)",
+      "url": "https://www.getlandra.com/blog/listicle-landing-page-examples-that-convert"
+    }
+  ],
+  "tags": [
+    "hormozi",
+    "mistakes",
+    "problem",
+    "pas",
+    "cold-to-warm"
+  ],
+  "density": {
+    "approx_body_words": 340,
+    "item_count": 5,
+    "words_per_item_hint": "40-70",
+    "length_band": "short PAS per item"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "N Mistakes {audience} Make With {category} (or N Reasons Your {status quo} Is Costing You)"
+    },
+    {
+      "id": "dek",
+      "required": true,
+      "hint": "Name the dream outcome they are missing"
+    },
+    {
+      "id": "proof_row",
+      "required": false
+    },
+    {
+      "id": "reasons",
+      "required": true,
+      "hint": "Each item: mistake \u2192 cost of mistake \u2192 mechanism that fixes it (product enters as the fix, not the opener)"
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "biggest_objection_mistake",
+        "heading_hint": "Lead with the category's #1 objection framed as a mistake",
+        "image_role": "item_1"
+      },
+      {
+        "number": 2,
+        "role": "time_or_access_mistake",
+        "heading_hint": "Spa/gym access, schedule, consistency mistake",
+        "image_role": "lifestyle"
+      },
+      {
+        "number": 3,
+        "role": "wrong_tool_mistake",
+        "heading_hint": "Wrong heat type / missing red light / EMF fear \u2014 only verified facts",
+        "image_role": "item_2"
+      },
+      {
+        "number": 4,
+        "role": "setup_friction_mistake",
+        "heading_hint": "Assuming you need an electrician / huge footprint",
+        "image_role": "item_3"
+      },
+      {
+        "number": 5,
+        "role": "proof_and_risk",
+        "heading_hint": "Ignoring warranty/shipping/support when comparing",
+        "image_role": "item_5"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "candid_coach",
+    "sentence_length": "short",
+    "person": "second"
+  },
+  "compliance": {
+    "notes": [
+      "Do not bash named competitors with unverified claims.",
+      "Health outcomes need study citations from verified_claims.",
+      "Product appears as the fix inside each item, not a hard sell in the headline."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "mistakes",
+      "hidden costs",
+      "recovery",
+      "sleep",
+      "spa",
+      "gym",
+      "inconsistency"
+    ],
+    "default_model": "mini",
+    "reason_fills": [
+      "Treating recovery as a twice-a-month spa trip",
+      "Paying for memberships that sit unused",
+      "Buying heat without red light (or paying upsells) \u2014 verified framing only",
+      "Assuming home units need custom electrical",
+      "Comparing on price alone and skipping warranty/shipping"
+    ],
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    }
+  },
+  "writer_brief": "Each reason is a mistake + consequence + Peak mechanism that removes it. Keep PAS short. No padding. Verified claims only."
+}

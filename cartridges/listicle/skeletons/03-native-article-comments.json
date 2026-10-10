@@ -1,0 +1,198 @@
+{
+  "id": "native-article-comments",
+  "version": "1.0.0",
+  "name": "Native article + related comment thread",
+  "family": "advertorial",
+  "target_cartridge": "listicle",
+  "sources": [
+    {
+      "kind": "pattern",
+      "name": "DTC native advertorial (editorial frame + social proof thread)",
+      "url": "https://www.getlandra.com/blog/advertorial-examples-that-convert",
+      "note": "Industry uses comment-style proof; many live examples are deceptive. This skeleton keeps the layout, requires Advertisement disclosure, forbids fake experts/publications, and constrains comments to non-claim opinion or verified/attributed lines."
+    },
+    {
+      "kind": "pattern",
+      "name": "Advertorial section order",
+      "url": "https://www.getlandra.com/blog/how-to-build-an-advertorial-landing-page"
+    }
+  ],
+  "tags": [
+    "advertorial",
+    "native",
+    "comments",
+    "story",
+    "cold"
+  ],
+  "density": {
+    "approx_body_words": 450,
+    "item_count": 5,
+    "words_per_item_hint": "50-80 article beats; comments 1-3 sentences",
+    "length_band": "short article, not longform"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true,
+      "hint": "Visible Advertisement / Advertorial before headline"
+    },
+    {
+      "id": "byline",
+      "required": true,
+      "hint": "Real tenant author from authors.yaml \u2014 never invent a fake journalist or publication"
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "Editorial curiosity headline (not Shop X)"
+    },
+    {
+      "id": "dek",
+      "required": true
+    },
+    {
+      "id": "lede",
+      "required": true,
+      "hint": "Problem-led opening; product not named in first beat"
+    },
+    {
+      "id": "reasons",
+      "required": true,
+      "hint": "Numbered article beats that earn the product turn by midpoint"
+    },
+    {
+      "id": "mid_cta",
+      "required": true,
+      "after": "reason_3"
+    },
+    {
+      "id": "closing",
+      "required": true
+    },
+    {
+      "id": "comments",
+      "required": true,
+      "hint": "3-5 fake-layout comments that relate to article beats \u2014 see compliance"
+    }
+  ],
+  "slots": {
+    "reasons": [
+      {
+        "number": 1,
+        "role": "problem_scene",
+        "heading_hint": "Relatable problem scene",
+        "image_role": "lifestyle"
+      },
+      {
+        "number": 2,
+        "role": "failed_status_quo",
+        "heading_hint": "Why the usual fix fails",
+        "image_role": "item_1"
+      },
+      {
+        "number": 3,
+        "role": "mechanism",
+        "heading_hint": "What actually has to be true (mechanism)",
+        "image_role": "item_2"
+      },
+      {
+        "number": 4,
+        "role": "product_turn",
+        "heading_hint": "First clear product turn with verified facts",
+        "image_role": "hero"
+      },
+      {
+        "number": 5,
+        "role": "lived_result_frame",
+        "heading_hint": "What daily use looks like \u2014 no unsourced outcome promises",
+        "image_role": "item_3"
+      }
+    ],
+    "comments": [
+      {
+        "role": "owner_corroborates",
+        "relates_to": "product_turn",
+        "stance": "supportive",
+        "fill_policy": "attributed_to_customer or claim-free opinion"
+      },
+      {
+        "role": "asks_practical",
+        "relates_to": "mechanism",
+        "stance": "curious",
+        "fill_policy": "question only; no invented specs in the question"
+      },
+      {
+        "role": "answers_practical",
+        "relates_to": "mechanism",
+        "stance": "informative",
+        "fill_policy": "verified claim_ids only if stating a fact"
+      },
+      {
+        "role": "skeptic_softens",
+        "relates_to": "failed_status_quo",
+        "stance": "skeptical-then-open",
+        "fill_policy": "opinion; no fake clinical claims"
+      },
+      {
+        "role": "shipping_or_setup",
+        "relates_to": "lived_result_frame",
+        "stance": "practical",
+        "fill_policy": "verified shipping/setup only"
+      }
+    ]
+  },
+  "cta": {
+    "placement": [
+      "after_item_3",
+      "closing"
+    ],
+    "same_text_both": true
+  },
+  "voice": {
+    "style": "editorial",
+    "sentence_length": "mixed_short",
+    "person": "third_or_second"
+  },
+  "compliance": {
+    "risk": "high",
+    "notes": [
+      "ALWAYS show Advertisement label; this is paid content.",
+      "Do NOT invent a publication name, fake reporter, or unverifiable expert.",
+      "Comment author display names are layout placeholders only \u2014 not real people unless facts_pack provides them.",
+      "Comments must not smuggle unsourced stats, medical claims, or review counts.",
+      "Prefer omitting a comment over inventing proof."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "story",
+      "diary",
+      "i tried",
+      "cold traffic",
+      "discovery"
+    ],
+    "default_model": "mini",
+    "reason_fills": [
+      "Inconsistent spa/gym recovery routine",
+      "Why drop-in heat never sticks",
+      "What full-spectrum + red light is actually doing (verified)",
+      "Peak Mini / model turn with plug-and-play",
+      "A realistic daily rhythm \u2014 no miracle claims"
+    ],
+    "image_role_map": {
+      "hero": "product hero / lifestyle hero",
+      "item_1": "product or feature shot matching reason 1",
+      "item_2": "product or feature shot matching reason 2",
+      "item_3": "product or feature shot matching reason 3",
+      "item_4": "product or feature shot matching reason 4",
+      "item_5": "product or feature shot matching reason 5",
+      "item_6": "product or feature shot matching reason 6",
+      "item_7": "product or feature shot matching reason 7",
+      "lifestyle": "in-home / office still",
+      "install": "real install photo only",
+      "closing": "closing-band atmosphere still"
+    },
+    "comments_note": "Render comments as a labeled 'Reader discussion (illustrative)' block in future template work; for JSON today, put comment texts into reasons' attributed customer lines or closing paragraphs only if policy allows \u2014 skeleton documents the intended layout."
+  },
+  "writer_brief": "Write a short native article that earns a product turn by reason 4. Include a comments slot plan in closing.paragraphs only as clearly labeled illustrative discussion if the schema has no comments field yet \u2014 never fake experts. Keep density short."
+}

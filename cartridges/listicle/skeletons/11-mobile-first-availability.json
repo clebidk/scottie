@@ -1,0 +1,161 @@
+{
+  "id": "mobile-first-availability",
+  "version": "1.0.0",
+  "name": "Mobile first-screen + availability box (Noah Igler)",
+  "family": "hybrid",
+  "target_cartridge": "product-page",
+  "sources": [
+    {
+      "kind": "social",
+      "name": "Noah Igler — mobile first screen for home-service LPs",
+      "url": "https://x.com/noahiglerSEO/status/2108882995658514806",
+      "note": "HVAC/local SEO pattern: logo+call, real Google rating bar, service+city H1, two reassurances, two sentences, same-day availability box + Book Online. Adapted here as a consult/book first-screen for Peak (and other tenants), not a numbered listicle."
+    },
+    {
+      "kind": "reference_image",
+      "name": "Tweet screenshot (mobile mock)",
+      "url": "references/noah-igler-mobile-first-screen.jpg"
+    }
+  ],
+  "tags": [
+    "mobile",
+    "first-screen",
+    "availability",
+    "consult",
+    "book",
+    "local",
+    "call",
+    "retargeting",
+    "warm"
+  ],
+  "density": {
+    "approx_body_words": 120,
+    "item_count": 0,
+    "words_per_item_hint": "n/a — above-the-fold first screen only",
+    "length_band": "keep the first screen under ~120 words; anything longer goes below the fold"
+  },
+  "components": [
+    {
+      "id": "ad_label",
+      "required": true,
+      "hint": "Visible Advertisement label (harness requirement) — keep it small so it does not steal the thumb zone"
+    },
+    {
+      "id": "header_bar",
+      "required": true,
+      "hint": "Logo left + one big primary action top-right (call or Book a consult). No full nav — menu icon only if needed."
+    },
+    {
+      "id": "rating_bar",
+      "required": true,
+      "hint": "Real platform rating + count with stars (e.g. Judge.me / Google). Verified numbers only — never invent 12,700-style counts. If reviews_summary is null, omit or use one attributed recent customer line instead."
+    },
+    {
+      "id": "headline",
+      "required": true,
+      "hint": "Service/product + market or use-case as H1 (e.g. 'Infrared Saunas for Home Recovery' / model + city if local). Not a slogan."
+    },
+    {
+      "id": "two_reassurances",
+      "required": true,
+      "hint": "Exactly two trust lines the customer cares about most (not six icon noise). Peak defaults: free shipping, warranty — verified only."
+    },
+    {
+      "id": "two_sentences",
+      "required": true,
+      "hint": "Sentence 1: who you are. Sentence 2: what happens when they call/book. Stop there above the fold."
+    },
+    {
+      "id": "availability_box",
+      "required": true,
+      "hint": "High-contrast box: availability / next step + one big CTA. Source pattern: 'Same-day availability. Next available appointment: 1:00 PM' + Book Online. Peak: do NOT invent appointment times — use consult framing ('Talk to a specialist' / 'Book a consult') or a rule-based window the team can honor. One CTA phrase, reused."
+    },
+    {
+      "id": "below_fold",
+      "required": false,
+      "hint": "Optional after scroll: proof bullets, specs, trust strip — product-page fields. First screen must stand alone."
+    }
+  ],
+  "slots": {
+    "header_bar": {
+      "logo": true,
+      "primary_action": "call_or_consult",
+      "no_full_nav": true
+    },
+    "rating_bar": {
+      "format": "Rated {rating} · {count} {platform} reviews",
+      "requires": "facts_pack.reviews_summary with claim_ids"
+    },
+    "two_reassurances": [
+      {"role": "reassurance_a", "peak_hint": "Free shipping — verified"},
+      {"role": "reassurance_b", "peak_hint": "Limited lifetime warranty line — exact fixed sentence or omit"}
+    ],
+    "two_sentences": [
+      {"role": "who", "peak_hint": "US-owned / family framing only if verified"},
+      {"role": "what_happens", "peak_hint": "A specialist helps with sizing, voltage, delivery — no fake 24/7 claims"}
+    ],
+    "availability_box": {
+      "line_1": "availability claim the team can honor (no invented CRM slots)",
+      "line_2_optional": "next step without a fake clock time unless wired to real scheduling",
+      "cta": "one allowlisted CTA — prefer consult variants when cta_mode is consult/auto"
+    },
+    "product_page_field_map": {
+      "hero.product_name": "headline product/model",
+      "hero.promise": "two_sentences compressed or headline subtext",
+      "hero.price_line": "optional below fold — not required above fold for consult mode",
+      "proof_bullets": "map two_reassurances + one more benefit below fold if needed (schema wants 3)",
+      "angle_section": "expand two_sentences below fold",
+      "trust_strip": "rating_bar + warranty/shipping",
+      "cta_text": "availability_box CTA — Book a consult / Shop the {model}"
+    }
+  },
+  "cta": {
+    "placement": ["header_bar", "availability_box"],
+    "same_text_both": true,
+    "preferred_mode": "consult",
+    "note": "Source uses Call + Book Online. Harness one-CTA rule: pick one phrase (consult or buy) and reuse it; header may be tel: link with same label only if tenant allows — otherwise both buttons use the same cta_text/url."
+  },
+  "voice": {
+    "style": "local_direct",
+    "sentence_length": "very_short",
+    "person": "second",
+    "thumb_zone": true
+  },
+  "compliance": {
+    "notes": [
+      "Never invent review counts, star ratings, or 'next available' appointment times.",
+      "Availability copy must be a rule the business can honor, or soft consult language with no clock time.",
+      "Licensed/insured/24/7 claims only if in verified_claims — Peak should not copy HVAC trust lines verbatim.",
+      "Advertisement label still required on harness pages."
+    ]
+  },
+  "peak_saunas": {
+    "angle_fit": [
+      "consult",
+      "book",
+      "call",
+      "availability",
+      "local",
+      "retargeting",
+      "mobile",
+      "appointment",
+      "specialist"
+    ],
+    "default_model": "mini",
+    "cta_mode_hint": "consult",
+    "first_screen_fill": {
+      "headline": "Infrared Saunas for Home Recovery — or '{Model} Infrared Sauna'",
+      "reassurance_a": "Free shipping (verified)",
+      "reassurance_b": "Fixed warranty sentence (verified)",
+      "who": "Peak Saunas — home infrared with red light included standard (verified framing only)",
+      "what_happens": "Book a consult and a specialist helps with model, outlet, and delivery.",
+      "availability_box": "Consultations available — Book a consult (no fake 1:00 PM slot unless scheduling is wired)",
+      "rating_bar": "Only from facts_pack.reviews_summary"
+    },
+    "image_role_map": {
+      "hero": "product hero above or behind first screen if space allows — pattern is copy-led on mobile",
+      "detail_1": "lifestyle still below fold"
+    }
+  },
+  "writer_brief": "Build the ABOVE-THE-FOLD first screen only from this map: header action, real rating bar, service/product+market H1, exactly two reassurances, exactly two sentences, then an availability/consult box with one big CTA. Map into product-page schema fields (see product_page_field_map). Do not invent appointment times or review counts. Prefer consult CTA phrasing. Keep density extremely short — this skeleton wins by fitting on one phone screen before scroll."
+}
