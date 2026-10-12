@@ -1810,7 +1810,7 @@
       "width": 1600,
       "height": 1067,
       "ai_generated": false,
-      "excluded": false,
+      "excluded": true,
       "tags": {
         "product": "unknown",
         "product_confidence": 0.95,
@@ -1858,7 +1858,8 @@
         "shot": "lifestyle-person",
         "quality": 4,
         "tagged_by": "claude-haiku-4-5-20251001"
-      }
+      },
+      "excluded_note": "2026-10-12 launch: red-lit face close-up won every person-tier hero; not a product or room image"
     },
     {
       "id": "asset-photo-56473b43aa06",
