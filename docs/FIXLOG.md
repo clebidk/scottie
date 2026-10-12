@@ -6618,3 +6618,46 @@ the locked behaviour or the old listicle pool:
   override is checked with the other mode.
 - Full suite: 3070 passed, 0 failed, 34 skipped (gitignored files missing in this worktree),
   4 min 46 s.
+
+## Cycle 104 (hero photo rotation across runs, 2026-10-12)
+Branch `cycle104/hero-photo-rotation` from origin/master 1350c75.
+
+### Problem
+On prod on 2026-10-12, ten landing pages for ten different ads all led with the same library
+photo in the full-bleed hero (first the red-lit face close-up; after it was excluded, the next
+photo). `fill_slots` ranks by SHOT_TIERS, the portrait rule, then the score. The seed is already
+the run folder's name (render.py passes `seed=run_dir.name`), but the seed only adds a jitter
+under 0.01 (`_seed_jitter`), and two library photos of one tier almost always differ by more
+than that (crop fit to the slot's ratio), so one photo won every run.
+
+### Change
+- **`fill_slots` (harness/images.py)**: in each stage, after the sort, the leading candidates
+  that tie rotate by the seed. A tie is the same shot tier, the same portrait rank, the same
+  `quality` value, and a score within `ROTATE_WINDOW` (0.5) of the best, among library photos
+  only (an ad still keeps the ad_frames record's order, which `still_rank` sets 0.02 apart, and
+  the ad-still rule is unchanged). The window is under one
+  step of the slot's wanted-shot order (1.0) and one quality point (1.5), so a better tier, a
+  better quality, the page's model, the wanted-shot order and the blurry, cluttered, AI and
+  retired-mark penalties still win for every seed. The tied group is sorted by id and rotated by
+  `_seed_int(seed) % len(group)` (an int seed as is, a text seed by a stable hash), so one seed
+  always gives one pick. The `used` set and the per-page no-repeat rule are unchanged.
+- **Slot notes**: when the first pick of a slot comes from a tie, the slot's notes say
+  `<slot>: picked <id> by seed from <k> tied (<ids>)`, so REVIEW.md and the log show the photo
+  and the set it came from. The picked id was already in REVIEW.md and `.image-selection.json`.
+
+### Tests (tests/test_photo_slots_cycle101.py)
+- Three equal-tier room photos: seeds 1, 2 and 3 give three different heroes; one seed gives one
+  pick; the note names it; a text seed works. (Fails without the change.)
+- A better tier (room over person), a better quality (quality 5 over three equal rooms) wins for
+  seeds 1 to 6.
+- The hero photo is never reused by a later slot, and `used` still excludes photos.
+- Two close ad stills keep the record's order for every seed.
+
+No hash pin changed: the shipped-look pins have one candidate per slot.
+
+### Verification
+- Targeted (photo slots 101, images 93, heroes 94, grading 97): 133 passed, 21 skipped.
+- Full suite: 3071 passed, 3 failed, 34 skipped. The 3 failures are in
+  tests/test_listicle_site_cycle69.py (budget cap) and fail the same on bare origin/master
+  1350c75: that commit set the peak-saunas daily budget to 25 USD, and the tests still expect
+  the 10 USD cap. Not touched here.
