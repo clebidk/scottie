@@ -365,15 +365,11 @@ abtest:
   # the three first screens (face | story | display) are the new dimension.
   # `harness abtest library --by hero` pools results per first screen.
   library:
-    - listicle:reasons:open:story
-    - listicle:mistakes:open:face
-    - listicle:questions:open:display
-    - listicle:myths:open:story
-    - listicle:tested:open:face
-    - listicle:reasons:open:display
-    - listicle:questions:open:face
-    - comparison
-    - quiz
+    # 2026-10-12 launch (owner): landing pages are the test arms; the
+    # design gate picks the first screen within each look.
+    - landing:cinematic
+    - landing:open
+    - landing:proof
   explore: 0.2
   min_views: 300
   beacon_url: https://listicle.peaksaunasteam.com/e
