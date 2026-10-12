@@ -6894,3 +6894,111 @@ listed as one variant ("Variants 1" on prod).
   or captured again in the same build.
 - A real-thumb of a look that later leaves the page (hidden, removed) is not pruned when its folder
   has no meta.json (the listicle look folders).
+
+## Cycle 106 (import tuning on real pages, 2026-10-12)
+
+Branch `cycle106/import-tuning` from origin/master 6d78f4e. Five real imports on prod (overlay of this
+branch's `harness/` under /home/deploy/tmp/tune), 3.87 USD of the 5 USD budget. Every tune-<n> folder
+was deleted from prod after it was copied back and compared by eye; none is left.
+
+### Problem
+The first real import of https://peaksaunas.com/pages/i-regret-my-home-sauna (landing, `regret-story`,
+fidelity 0.58) kept the disclosure strip, the caps headline, the italic deck and the trust line, then
+fell into the default numbered stack: no photo, no author row, no rating line, no CTA until the end.
+
+### Findings (from the evidence, before any prompt change)
+1. **The fidelity score was miscalibrated.** Scored against their own stored observations, the four hand
+   conversions got 0.24-0.65 (Swarva 0.24, Jevi 0.36). Three causes: (a) the render was cut into
+   sections at the wrapper's direct children only, so a look whose items sit in one article column
+   counted as 4-6 sections; (b) the 16 pattern names had no word for what a story or list article is
+   built from (author row, rating line, photo per item, CTA band, product card, explainer box, promo
+   strip), so the observer could not report them and the score could not miss them; (c) the cascade
+   ignored `!important`, so a plain `text-transform:uppercase` h1 scored as caps while the tenant's
+   base.css (`.adv-wrap h1{text-transform:none!important}`) renders it in sentence case.
+2. **The import's demo pages had no hero photo.** The review render runs with `download_assets=False`;
+   both demo pages named the product cut-out (`asset-cutout-fuji`) as the hero image, and the cut-out
+   exists only in a downloading render. Every landing import was judged on a page with zero photos
+   (the regret-story template placed two photos; neither rendered).
+3. **The prompt never said which data fills which source element**, so the model kept the exemplar's
+   stack; the revise round said "fidelity low" and named only missing pattern names.
+
+### Change
+- `harness/look_design.py`: eight new patterns (`promo-bar`, `author-card`, `rating-line`,
+  `pull-quote`, `photo-per-item`, `cta-band`, `product-card`, `info-box`; `trust-bar` now covers a
+  press-logo row). Structural marker checks (an author card holds its avatar or byline link, a product
+  card its photo and a price or CTA, a CTA band its button, photo-per-item at least two photos, a rating
+  line its stars). `fidelity` reads the render as a reader sees it (opens an article column, as the
+  observer does on the source), compares role order and count over runs of same-role sections (the
+  item count follows the writer's data: the demo has five reasons, Nourial ten), and adds RHYTHM
+  (0.2): where photos and buttons sit down the page, by relative position (`cadence_match`). Weights
+  0.4 patterns / 0.2 order / 0.2 rhythm / 0.15 bands / 0.05 count. `unscored_patterns`: a pattern the
+  demo page has no data for (no verified rating, no review quote; on the landing page the author row
+  and per-item photos) is not scored. The cascade honours `!important` (`look_import._Decls`).
+  `is_story`: six or more content sections, mostly plain or three numbered.
+- `harness/look_import.py`: the drafting prompt gets the source section by section (`rhythm_table`:
+  role, ground, photos, button, numbering, patterns, the observer's description), a per-cartridge map
+  from source elements to renderer data (`DATA_MAP`), the rule that repeated rows map onto the writer's
+  repeated items (count from the data, rhythm from the rows, never an unrelated value to keep a row),
+  and a `{# section-map: S1 -> ... #}` comment the model writes before the markup. A story page
+  imported as landing, with no hand-made landing look, learns from a hand-made listicle look with a
+  listicle-to-landing name map (`CROSS_MAP`). The revise feedback names each missing element with the
+  section that shows it, the sections where the source and the render have photos and buttons, the
+  role order, the grounds, and (caps headline) the `!important` cause. The demo context is computed
+  once (`demo_context`). Validator rules unchanged (claims, brand lint, Shop now bar, avatar class, no
+  literal img).
+- `harness/look_vision.py`: the observer is told to report the new patterns (press logos ->
+  `trust-bar`).
+- `harness/look_import_rules.md`: the new patterns, the new score, the caps `!important` rule.
+- `tenants/peak-saunas/look-demo/{landing,listicle}/page.json`: the hero image is a product photo in
+  the demo facts pack (`...-1` landing, `...-6` listicle) instead of the cut-out a review render cannot
+  load.
+- `tests/test_look_import_cycle106.py`: 8 offline tests (segmentation and rhythm, cadence matching,
+  structural checks, unscored patterns, the prompt's table and data map, the revise findings, the
+  story -> listicle exemplar, the `!important` cascade).
+
+### Calibration (offline, the final metric, each hand look rendered on the demo page)
+| observation | hand look | score | other hand looks (wrong page) |
+|---|---|---|---|
+| tune-2 (Nourial, vision + HTML) | nourial-ten-reasons | 0.78 | swarva 0.49, jevi 0.63 |
+| tune-3 (Swarva, vision + HTML) | swarva-doctor-byline | 0.75 | nourial 0.52, citrusroot 0.55 |
+The metric now ranks a page's own hand conversion at or above 0.75 and other pages' looks well below.
+These scores use local copies of the hand looks with the new markers added (see Open).
+
+### Real runs
+| # | source (cartridge) | state of the change | fidelity (prod, at run) | final metric, its stored render | cost | kept / dropped (by eye) |
+|---|---|---|---|---|---|---|
+| base | Regret (landing), cycle 102 | before this cycle | 0.58 | 0.68 (its observation has only 2 patterns) | 0.69 (not in budget) | default numbered stack, no photo |
+| 1 | Regret (landing) | patterns, rhythm table, data map, section map, story -> listicle exemplar (nourial), named revise; demo fix NOT yet on prod | 0.70 | 0.47 | 0.72 | strip, trust row, rating; NO photo (demo), h1 not caps (base.css), specs/warranty/price pushed into the story rows |
+| 2 | Nourial (listicle) | + repeated rows -> repeated items; landing demo fixed | 0.77 (1 attempt) | 0.79 | 0.66 | dark promo strip, wordmark, stats line (no rating data), headline, CTA, author row, numbered items each with a photo above the heading, dark CTA bands, models, fit, FAQ, dark close; no hero photo (listicle demo fixed after this run); reviews dropped (no data) |
+| 3 | Swarva (listicle) | + listicle demo hero, `!important` cascade, role runs | 0.86 (2 attempts) | 0.86 | 0.89 | disclosure strip, name bar, headline, avatar author row, lede, key-facts box, numbered items heading > photo > body, rating-line fallback, product card between dashed rules, FAQ with CTA, fit with CTA, dark close; the dark masthead band became light |
+| 4 | Regret (landing) | all of the above | 0.56 | 0.56 | 0.84 | story sections in order, photo after the second, numbered questions, key facts, product card + CTA after the story, dark close; h1 still sentence case (plain `uppercase`) |
+| 5 | Regret (landing) | + caps `!important` named in rules and feedback | 0.68 | 0.68 | 0.76 | caps headline, italic deck, trust row, photo, serif story subheads, product + CTA after the story, numbered serif questions, key facts, dark close; author row, extra photos and press logos dropped (no landing data) |
+
+The fidelity columns are not comparable across runs: each run is scored against its own vision
+observation. Scored against ONE observation (tune-5's) on the current demo page, the Regret templates
+rank as the eye does: cycle 102 baseline 0.54, run 1 0.51, run 4 0.56, run 5 0.68.
+
+Total spend 3.87 USD. Stop condition met at run 3 (Nourial and Swarva >= 0.75 and structurally faithful by
+eye); runs 4-5 were spent to verify the landing fixes on the page that failed, not to raise a score.
+
+### Verdict
+The two listicle imports are close to hand-conversion grade in structure: same section order, photo per
+item, CTA bands and author/key-facts/product elements in the source's places. They still miss what a
+person adds: the Swarva dark masthead, the Nourial headline weight. The Regret import (landing) is a
+faithful story column now, but not hand grade, and the ceiling is the landing data, not the prompt: the
+landing contract has no per-section photo (one hero photo renders on the demo), no compact author row
+(the byline is the About block at the foot) and no rating on the demo, so rhythm stays at 0.17 and the
+score at 0.68. A story page like this one is better imported as a listicle (photo per reason, byline card).
+
+### Open
+- The hand looks on prod (gitignored data) do not carry the new markers. Exemplar choice reads the
+  markers of a hand look; until the four hand templates are marked, a listicle import's exemplar is
+  chosen on the old markers (runs 2 and 3 picked pack looks, `ridge-caps-hero` and `hexclad-dark`).
+  The markers used for the calibration: nourial `promo-bar`, `rating-line`, `pull-quote`,
+  `photo-per-item alternating-rows`, `cta-band`; swarva `promo-bar`, `author-card`, `pull-quote`,
+  `photo-per-item`, `stat-strip info-box`, `product-card`; citrusroot `info-box`, `photo-per-item`,
+  `cta-band`; jevi `promo-bar`, `photo-per-item`, `cta-band`, `product-card`.
+- The 390 px review capture leaves lazy item photos blank and a drive.google.com render broken
+  (tune-2, tune-3); the template places them, the screenshot does not wait for them.
+- The local copies of the hand looks in this clone were older than prod's (cycle 101); four
+  test_photo_slots_cycle101 tests failed on them until they were copied from prod.

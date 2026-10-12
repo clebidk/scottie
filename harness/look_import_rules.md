@@ -208,10 +208,13 @@ pricing table) maps to the closest block or is left out.
 ## Design fidelity (cycle 90)
 
 After validation the harness renders the demo page in your look and scores
-its FIDELITY to the observation (0-1): half of it is the share of the
-observed patterns your page realises, the rest the section order, the
-section count and the dark/light band order. Below 0.75 (cycle 102; was
-0.7) the template comes back with the missing patterns named.
+its FIDELITY to the observation (0-1, cycle 106): 0.4 the share of the
+observed patterns your page realises, 0.2 the section order, 0.2 the
+RHYTHM (whether your photos and buttons sit in the same places down the
+page as the source's), 0.15 the dark/light band order and 0.05 the
+section count. A pattern the demo page has no data for (no verified
+rating, no review quote) is not scored. Below 0.75 the template comes back
+with each miss named against the source.
 
 Mark the element that realises each observed pattern with
 `data-look-pattern="<name>"` (several names on one element are separated by
@@ -227,7 +230,9 @@ the renderer data that fill them:
 - `pill-image`: the hero image in a wide box with `border-radius:999px`
   and `overflow:hidden` (render_image_slot inside it).
 - `caps-headline`: the h1 upper case in the display face (the reference's
-  `ld-h1--wide` rules).
+  `ld-h1--wide` rules), written `text-transform:uppercase!important`: the
+  tenant's base.css sets `.adv-wrap h1{text-transform:none!important}`, so
+  a plain `uppercase` renders in sentence case (and is scored missing).
 - `dark-hero`: the first screen on `var(--pk-dark)`; over a photo, the
   photo fills the hero and a `::after` scrim of `var(--pk-dark)` with
   opacity keeps the text legible.
@@ -260,6 +265,28 @@ the renderer data that fill them:
 - `faq-accordion`: the FAQ as question/answer rows from `page.faq` (open
   by default, no `<details>` script needed; `<details>`/`<summary>` are
   allowed).
+
+The story and list-article elements (cycle 106). Boxless still holds: a
+card is hairlines, a rule and white space, never a four-sided border or a
+filled panel (a dark band is the one filled ground).
+
+- `promo-bar`: a thin line of short text across the very top: the
+  disclosure label, the eyebrow, trust items (never an offer).
+- `author-card`: the listicle byline as a row: the avatar
+  (`<img class="adv-brand-logo" ...>`), the name, the title, the date and
+  read time. Must hold the avatar or the byline link. (Landing: not scored.)
+- `rating-line`: SVG stars (`currentColor`) with the renderer's rating
+  text, under its `{% if %}`.
+- `pull-quote`: the review quote (or the speaker's quote) set large in
+  `var(--ps-serif)` in its own block.
+- `photo-per-item`: each numbered item with its own photo through
+  `render_image_slot`; mark every item. (Landing: not scored.)
+- `cta-band`: a band holding the CTA between the items (after item 3, say),
+  not only the closing band.
+- `product-card`: the product inside the article: its photo, name, price
+  or value stack, and the CTA, between hairlines.
+- `info-box`: a key-facts or science explainer under a short label and a
+  rule: label/value rows from the stats or specs.
 
 ## Screenshots: convert it like a person would (cycle 102)
 

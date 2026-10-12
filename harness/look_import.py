@@ -425,10 +425,20 @@ def sanitised_html(tree):
 _DECL_RE = re.compile(r"([-\w]+)\s*:\s*([^;]+)")
 
 
+class _Decls(dict):
+    """{prop: value} with `important`: the props declared !important
+    (cycle 106: the fidelity cascade honours them)."""
+    important = frozenset()
+
+
 def _declarations(body):
-    out = {}
+    out, important = _Decls(), set()
     for m in _DECL_RE.finditer(body or ""):
-        out[m.group(1).strip().lower()] = m.group(2).replace("!important", "").strip()
+        key = m.group(1).strip().lower()
+        out[key] = m.group(2).replace("!important", "").strip()
+        if "!important" in m.group(2):
+            important.add(key)
+    out.important = frozenset(important)
     return out
 
 
@@ -1142,6 +1152,17 @@ def load_demo(tenant, cartridge):
             f"no demo page for {cartridge} at {folder} ({e}); make one with `python -m evals.fake_run "
             f"<fixture> --tenant {tenant.name} --cartridges {cartridge}` and copy its page.json, "
             "facts_pack.json and ad_brief.json there") from e
+
+
+def demo_context(cartridge, tenant, demo):
+    """The renderer's cartridge_data for the demo page (cycle 106: which
+    patterns the demo can show at all)."""
+    from . import landing as landing_mod
+    from . import listicle as listicle_mod
+
+    if cartridge == "landing":
+        return landing_mod.render_context(demo["page"], demo["facts_pack"], ad_brief=demo["ad_brief"], tenant=tenant)
+    return dict(listicle_mod.render_context(demo["facts_pack"], tenant=tenant))
 
 
 def contract(cartridge, tenant, demo):
@@ -1926,12 +1947,42 @@ def contract_markdown(cartridge, contract_, schema):
     return "\n".join(parts)
 
 
+CROSS_MAP = {
+    ("listicle", "landing"): """- `first_screen.headline_html` -> `cartridge_data.headline_html`; `page.dek` / `first_screen.lede` ->
+  `page.hero.subhead`; `first_screen.eyebrow` -> `cartridge_data.eyebrow`.
+- `page.reasons[]` {heading, text, image} -> `page.checked_claims[]` {ad_said, fact} (no photo per item: place
+  the landing photos -- hero photo, room photo, ad still -- between sections where the source has photos).
+- `first_screen.byline` -> nothing in the content: the landing byline is `byline_html` in the `byline` block.
+- `cartridge_data.rating_line` -> `cartridge_data.rating` {value, label}; `cartridge_data.pull_quote` ->
+  `cartridge_data.review_quote` {text, author}.
+- `cartridge_data.trust_items` -> `cartridge_data.trust`; `first_screen.stats` -> `cartridge_data.specs`.
+- `first_screen.value_stack` / the model option price -> `cartridge_data.price`, `cartridge_data.financing`,
+  `cartridge_data.warranty`; `cartridge_data.model_options`, `page.audience_fit`, `about_author_html` -> none.
+- `page.closing.*` -> `page.closing.headline`; the FAQ is `page.faq` in both.
+- classes: wrapper `pk-lp adv-landing`, CTA `ld-btn`, secondary `ld-text` (once, `cartridge_data.secondary`),
+  sticky bar `ld-bar`; every selector holds `.adv-landing`.""",
+}
+
+
 def build_system_prompt(cartridge, contract_, schema, exemplar=None):
     """The rules file with the contract filled in, then ONE look to learn
     the contract's use from: the closest hand-made exemplar (its page's
     observation + its template) when there is one, else the cartridge's
     default look."""
     rules = RULES_PATH.read_text().replace("{{CONTRACT}}", contract_markdown(cartridge, contract_, schema))
+    if exemplar and exemplar.get("kind") == "hand" and exemplar.get("cartridge", cartridge) != cartridge:
+        # Cycle 106: a story page imported as a landing look learns from a
+        # hand-made LISTICLE look (no landing look was made by hand); its
+        # data names belong to the listicle contract.
+        return (rules + f"\n\n## Exemplar: the hand-made {exemplar['cartridge']} look `{exemplar['slug']}`\n\n"
+                + "A person converted a story/list page into a look by hand, LOOKING at the page; this is the "
+                  "standard of craft to meet: the thin top strip, the byline and rating elements, the photo and "
+                  "button cadence, the type scale in tokens. It is a " + exemplar["cartridge"] + " look: its "
+                  "data names and classes are NOT valid in this " + cartridge + " look. Use ONLY the " + cartridge
+                + " contract above; translate with this map:\n\n" + CROSS_MAP.get((exemplar["cartridge"], cartridge), "")
+                + "\n\n### What was kept and dropped\n\n" + (exemplar.get("summary") or "(no summary)")
+                + "\n\n### Its template.html (listicle names: translate, never copy a name)\n\n"
+                + exemplar["template"])
     if exemplar and exemplar.get("kind") == "hand":
         # Cycle 102: a hand conversion -- its summary says what was kept and
         # dropped; its stored HTML observation was wrong, so it is not shown.
@@ -2001,6 +2052,78 @@ page by hand:
   layout words only. It becomes the look's summary in the Library."""
 
 
+# Cycle 106: where each element of a story or list article comes from in
+# the renderer's data. The first real imports fell back to the exemplar's
+# stack because the prompt never said which data fills an author card, a
+# rating line or a photo per item (docs/FIXLOG.md cycle 106).
+DATA_MAP = {
+    "landing": """- disclosure / kicker strip at the very top (promo-bar): `disclosure_label` + `ld.eyebrow`, one thin line.
+- headline (h1): `ld.headline_html`; deck: `page.hero.subhead`.
+- press logos or trust strip (trust-bar): no press data -- `ld.trust` items in that slot, a thin hairline row.
+- author row: the landing byline is the whole About block (`byline_html`, printed in the `byline` block at the
+  foot); do not move it up. Leave the author row out (it is not scored on the landing page).
+- star rating line (rating-line): `ld.rating` {value, label} with inline SVG stars, under `{% if ld.rating %}`.
+- review / pull quote (pull-quote): `ld.review_quote` {text, author} in `var(--ps-serif)`, under `{% if %}`.
+- story sections or numbered items: `page.checked_claims[]` -- `ad_said` is the section's subhead (set it as the
+  source sets its subheads: serif caps, heavy sans, a bold lead-in), `fact` the paragraph. Number them only if
+  the source numbers them.
+- photos: the hero product photo `assets.get(page.hero.hero_image.asset_id)`, the room photo (see above), the
+  ad still `assets.get("asset-adframe")`; place them where the source's photos sit (after the intro, between
+  story sections), each at most once. The checked claims carry no photo of their own.
+- spec list or key facts (info-box / stat-strip): `ld.specs` [{label, value}].
+- CTA band between sections (cta-band): `ld.price` + the CTA, after the section where the source puts its first
+  button; a model/product section (product-card): `product.full_name`, the hero photo, `ld.price`,
+  `ld.financing`, `ld.warranty`, the CTA.
+- questions: `page.faq.questions[]`; closing band: `page.closing.headline` + the CTA + `ld.secondary`.""",
+    "listicle": """- promo / guarantee / disclosure strip at the very top (promo-bar): `disclosure_label`, `first_screen.eyebrow`
+  and `cartridge_data.trust_items` texts, one thin line (never an offer or a discount).
+- headline (h1): `first_screen.headline_html`; deck: `page.dek` and/or `first_screen.lede`.
+- author or doctor byline card (author-card): `first_screen.byline` {name, title, url, verified, updated,
+  minutes, avatar_url, avatar_alt} -- the avatar `<img class="adv-brand-logo" src="{{ first_screen.byline.avatar_url }}"
+  alt="{{ first_screen.byline.avatar_alt }}" width="44" height="44">`, the name (linked to `byline.url` when
+  set), the title, "Updated {{ first_screen.byline.updated }}" and the minutes. Never invent a credential.
+- star rating line (rating-line): `cartridge_data.rating_line.text` with inline SVG stars under
+  `{% if cartridge_data.rating_line %}`; in its `{% else %}` the `first_screen.stats` with check marks.
+- press logos: no press data -- `cartridge_data.trust_items` in that slot (trust-bar).
+- pull quote (pull-quote): `cartridge_data.pull_quote` {text, attribution} in `var(--ps-serif)`, under `{% if %}`.
+- numbered items: `page.reasons[]` {number, heading, text, image.asset_id, proof.text}; the item's own photo is
+  `assets.get(item.image.asset_id)` through `render_image_slot` (photo-per-item, mark each item); big numerals
+  (`{{ "%02d" | format(loop.index) }}` or `{{ loop.index }}`) when the source sets them big (big-numerals).
+- CTA band between items (cta-band): `{% if loop.index == N and not loop.last %}` after item N where the source
+  has its band: `page.display_headline` or `page.closing.headline` + the CTA.
+- science / key-facts box (info-box): `first_screen.stats` [{value, label}] as label/value rows under a rule
+  and a short label.
+- product card inside the article (product-card): the hero photo `assets.get(page.hero.asset_id)`,
+  `product.full_name`, `product.descriptor`, `first_screen.value_stack` (items, price, financing) or the
+  model option's `price_text`, and the CTA.
+- who it is for: `page.audience_fit`; questions: `page.faq.questions[]`; the models: `cartridge_data.model_options`;
+  closing band: `page.closing` (headline, recap, warranty_line, financing_line) + the CTA.""",
+}
+
+
+def rhythm_table(observation):
+    """One line per source section, top to bottom: its role, ground,
+    photos, buttons, numbering, patterns and the observer's description --
+    the order and rhythm the look must keep (cycle 106)."""
+    lines = []
+    for s in observation.get("sections") or []:
+        st = s.get("style") or {}
+        bits = [f"S{s['index']}", s["role"], "dark" if s.get("background") == "dark" else "light"]
+        if st.get("pinned"):
+            bits.append("pinned")
+        if s.get("images"):
+            bits.append(f"{s['images']} photo" + ("s" if s["images"] > 1 else ""))
+        if (s.get("cta") or {}).get("count"):
+            bits.append("button")
+        if s.get("numbered"):
+            bits.append("numbered")
+        if s.get("patterns"):
+            bits.append("[" + ", ".join(s["patterns"]) + "]")
+        what = s.get("what") or ""
+        lines.append(" | ".join(bits) + (f" -- {what}" if what else ""))
+    return "\n".join(lines)
+
+
 def build_user_message(cartridge, slug, observation, css_text="", images=False):
     names = [p["name"] for p in observation.get("patterns") or []]
     parts = [f"Cartridge: {cartridge}. Look name: {slug}.", ""]
@@ -2018,9 +2141,31 @@ def build_user_message(cartridge, slug, observation, css_text="", images=False):
     parts.append("Reproduce the composition faithfully: the same section order, the same hero composition, the "
                  "same dark/light treatment, the same numerals, grids and type scale. Express every value with "
                  "tokens.")
+    table = rhythm_table(observation)
+    if table:
+        g = observation.get("global") or {}
+        parts += ["", "## The source, section by section (keep this ORDER and this RHYTHM)", "", table, ""]
+        if g.get("photo_cadence") or g.get("cta_cadence"):
+            parts.append(f"Photo cadence: {g.get('photo_cadence') or 'n/a'}. Button cadence: "
+                         f"{g.get('cta_cadence') or 'n/a'}.")
+        parts.append("Build the page from THIS table, not from the exemplar's or the reference's stack: the same "
+                     "order, a photo where the rows have photos, a button where they have buttons. Rows of one kind "
+                     "that repeat (story sections, numbered items, questions) are the writer's repeated items "
+                     "(the checked claims, the reasons, the FAQ): their COUNT follows the data, their look and "
+                     "rhythm follow the rows (a photo after every second one when the source does that). Never fill "
+                     "a row with an unrelated renderer value (a spec list, the warranty, a quote) to keep the count: "
+                     "put each renderer element where the source has that KIND of element, and drop rows with no "
+                     "tenant data (name them in look-notes). The exemplar teaches the contract and the craft; its "
+                     "section order is not yours.")
+    parts += ["", f"## Which renderer data fills which source element ({cartridge})", "", DATA_MAP[cartridge], ""]
     if names:
         parts.append("Distinctive patterns to reproduce, each on the element that realises it with "
-                     "data-look-pattern=\"<name>\": " + ", ".join(names) + ".")
+                     "data-look-pattern=\"<name>\": " + ", ".join(names) + ". Mark ONLY an element that really is "
+                     "the pattern: the harness checks what is inside it (an author card needs its avatar, a product "
+                     "card its photo and price or button, a CTA band its button, a rating line its stars).")
+    parts.append("Right after the look-notes comment, write one more Jinja comment, "
+                 "`{# section-map: S1 -> <your element and its data>; S2 -> ...; Sn -> dropped (why) #}`, one entry "
+                 "per row of the table above, then build exactly that map.")
     if images:
         parts += ["", IMAGE_INSTRUCTIONS, ""]
     parts += [allowed_links_text(cartridge), "",
@@ -2040,26 +2185,58 @@ def dark_allowance(observation):
 
 
 def fidelity_feedback(fid, observation):
+    """The revise round's findings (cycle 106): each miss NAMED against the
+    source -- the missing elements with the section that shows them, the
+    sections where the source has photos and buttons and where the render
+    has them, the role order and the grounds -- not only the score."""
     from . import look_design
 
-    lines = [f"The harness accepted this template, but its fidelity to the observed page is {fid['score']} "
-             f"(below {look_design.FIDELITY_THRESHOLD})."]
+    lines = [f"The harness accepted this template, but its fidelity to the observed page is {fid['score']} (below "
+             f"{look_design.FIDELITY_THRESHOLD}). Compare the source screenshots (first message) with your render "
+             "(below) section by section, fix every miss named here and keep what is already right."]
     by_name = {p["name"]: p for p in observation.get("patterns") or []}
+    src = [s for s in observation["sections"]
+           if s["role"] not in ("nav", "footer") and not (s.get("style") or {}).get("pinned")]
     if fid["missing"]:
-        lines.append("Missing patterns -- realise each one and mark the element that realises it with "
-                     "data-look-pattern=\"<name>\" (dark-page / dark-hero on an element with a dark ground; "
-                     "caps-headline on the upper-case h1):")
+        lines.append("Missing elements -- build each one where the source has it, from the data the data map names, "
+                     "and mark it data-look-pattern=\"<name>\" (dark-page / dark-hero on a dark ground; "
+                     "caps-headline on the upper-case h1; the marked element must hold what the pattern is):")
         for name in fid["missing"]:
             p = by_name.get(name) or {}
-            where = f"section {p['section']}" if p.get("section") is not None else "the whole page"
-            lines.append(f"- {name}: {look_design.PATTERNS.get(name, name)} (observed in {where}: "
+            where = f"section S{p['section']}" if p.get("section") is not None else "the whole page"
+            lines.append(f"- {name}: {look_design.PATTERNS.get(name, name)} (the source shows it in {where}: "
                          f"{p.get('evidence', '')})")
+            if name == "caps-headline":
+                lines.append("  (the tenant's base.css sets `.adv-wrap h1{text-transform:none!important}`: write "
+                             "`text-transform:uppercase!important` on the h1, or it renders in sentence case)")
+    cad = fid.get("cadence") or {}
+
+    def at(flags, sections=None):
+        hits = [i for i, c in enumerate(flags) if c != "-"]
+        if sections is not None:
+            return ", ".join(f"S{sections[i]['index']}" for i in hits) or "none"
+        return ", ".join(str(i + 1) for i in hits) or "none"
+
+    if cad and cad.get("source_photos") != cad.get("render_photos"):
+        lines.append(f"Photos: the source has a photo in {cad['source_photos'].count('p')} of its {len(src)} "
+                     f"sections ({at(cad['source_photos'], src)}); your render has one in "
+                     f"{cad['render_photos'].count('p')} of its {len(cad['render_photos'])} sections (number "
+                     f"{at(cad['render_photos'])}). Put the photos where the source has them.")
+    if cad and cad.get("source_ctas") != cad.get("render_ctas"):
+        lines.append(f"Buttons: the source has a button in sections {at(cad['source_ctas'], src)}; your render in "
+                     f"sections number {at(cad['render_ctas'])} of {len(cad['render_ctas'])}. Match the button "
+                     "cadence (the sticky bar is not counted).")
     secs = fid.get("sections") or {}
-    if fid.get("order", 1) < 0.8:
-        lines.append("Section order observed: " + " > ".join(secs.get("source") or []) + "; your render: "
+    if fid.get("order", 1) < 0.85:
+        lines.append("Section order -- the source: " + " > ".join(secs.get("source") or []) + "; your render: "
                      + " > ".join(secs.get("render") or []) + ".")
-    if fid.get("bands", 1) < 0.8:
-        lines.append("Follow the observed dark/light treatment section by section (each section's style.bg).")
+    if fid.get("bands", 1) < 0.85:
+        dark = [f"S{s['index']}" for s in src if s.get("background") == "dark"]
+        lines.append("Grounds: the source is dark in " + (", ".join(dark) or "no section") + " and light elsewhere; "
+                     "follow it section by section.")
+    if fid.get("unscored"):
+        lines.append("Not scored (the demo page has no data for them; keep them under their {% if %}): "
+                     + ", ".join(fid["unscored"]) + ".")
     lines.append("Return the corrected complete template.html only.")
     return "\n".join(lines)
 
@@ -2164,6 +2341,7 @@ def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, p
                                                            sheets_dir)}]
     budget = Budget(wall_s=900, tokens=400_000, calls=MAX_CALLS)
     max_dark = dark_allowance(observation)
+    unscored = look_design.unscored_patterns(cartridge, demo_context(cartridge, tenant, demo))
     cost, errors, text, best, attempt = 0.0, [], "", None, 0
     work_dir = Path(work_dir) if work_dir else None
     for attempt in range(1, MAX_CALLS + 1):
@@ -2187,7 +2365,7 @@ def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, p
         errors, review_html = validate_template(text, cartridge, slug, tenant, demo, contract_=contract_,
                                                 schema=schema, max_dark=max_dark, shot=shot)
         if not errors:
-            fid = look_design.fidelity(observation, review_html, tenant)
+            fid = look_design.fidelity(observation, review_html, tenant, unscored=unscored)
             shot_file = render_png if render_png is not None and render_png.is_file() else None
             if best is None or fid["score"] > best["fidelity"]["score"]:
                 best = {"template": text, "review_html": review_html, "fidelity": fid, "render_shot": shot_file}
@@ -2407,7 +2585,13 @@ def import_look(tenant, *, cartridge, name, source, title=None, client=None, mod
                 observation = look_vision.merge(image_obs, html_obs) if html_obs else image_obs
             else:
                 observation["observed_from"] = "html"
-            chosen = look_design.choose_exemplar(observation, candidates, exemplar)
+            pool = candidates
+            if not exemplar and cartridge == "landing" and look_design.is_story(observation) \
+                    and not any(c["kind"] == "hand" for c in candidates):
+                # Cycle 106: a story page learns from a hand-made listicle look
+                pool = [dict(c, cartridge="listicle") for c in look_design.exemplars(tenant, "listicle")
+                        if c["kind"] == "hand"] or candidates
+            chosen = look_design.choose_exemplar(observation, pool, exemplar)
             progress("drafting")
             template, review_html, outcome = convert(
                 observation, cartridge=cartridge, slug=slug, tenant=tenant, demo=demo, client=client, model=model,

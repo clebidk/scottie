@@ -44,7 +44,7 @@ PATTERNS = {
     "dark-page": "a dark page (dark ground everywhere, light text)",
     "big-numerals": "numbered items with big numerals",
     "alternating-rows": "image/text rows that alternate sides",
-    "trust-bar": "a short trust bar near the top",
+    "trust-bar": "a short trust bar or a row of press logos near the top",
     "hotspots": "hotspot labels placed over a product image",
     "sticky-bar": "a sticky bottom bar with the CTA",
     "check-rows": "check-mark rows",
@@ -53,6 +53,17 @@ PATTERNS = {
     "model-picker": "a model picker (options to choose between)",
     "product-grid": "a grid of product cards",
     "faq-accordion": "an FAQ accordion (questions that open)",
+    # Cycle 106: the elements a story or list article is built from. The
+    # hand conversions keep them; the first real imports dropped them and
+    # the score could not see it (docs/FIXLOG.md cycle 106).
+    "promo-bar": "a thin strip of short text across the very top (an offer, guarantee or disclosure line)",
+    "author-card": "an author row: a round avatar photo beside the name, a date or a role",
+    "rating-line": "a star rating line (stars with a short count or label)",
+    "pull-quote": "a quote set large in its own block (a review or the speaker)",
+    "photo-per-item": "each numbered item or story section carries its own photo",
+    "cta-band": "a button band between the items, not only at the end",
+    "product-card": "a product panel inside the article: photo, name, price and button",
+    "info-box": "a set-apart explainer (key facts or the science) under a rule or label",
 }
 PATTERN_NAMES = tuple(PATTERNS)
 
@@ -210,11 +221,12 @@ def _match_compound(el, comp):
 
 
 class _Rule:
-    __slots__ = ("selector", "parts", "spec", "order", "decls", "desktop", "pseudo")
+    __slots__ = ("selector", "parts", "spec", "order", "decls", "desktop", "pseudo", "important")
 
     def __init__(self, selector, parts, spec, order, decls, desktop, pseudo):
         self.selector, self.parts, self.spec, self.order = selector, parts, spec, order
         self.decls, self.desktop, self.pseudo = decls, desktop, pseudo
+        self.important = frozenset()
 
 
 def _expand_font(decls):
@@ -271,6 +283,7 @@ class Css:
                         sum(1 for _cb, c in parts if c["tag"]))
                 order += 1
                 rule = _Rule(sel, parts, spec, order, _expand_font(decls), desktop, pseudo)
+                rule.important = getattr(decls, "important", frozenset())
                 self.rules.append(rule)
                 last = parts[-1][1]
                 key = (("#", last["ids"][0]) if last["ids"] else (".", last["classes"][0]) if last["classes"]
@@ -337,11 +350,15 @@ class Css:
         matched = [r for r in self._candidates(el)
                    if r.pseudo == pseudo and (desktop or not r.desktop) and self._matches(el, r.parts)]
         matched.sort(key=lambda r: (r.spec, r.order))
-        out = {}
+        out, important = {}, {}
         for rule in matched:
             out.update(rule.decls)
+            important.update((k, v) for k, v in rule.decls.items() if k in rule.important)
         if pseudo is None:
             out.update(_expand_font(li._declarations(el.get("style") or "")))
+        # cycle 106: an !important declaration beats every normal one (the
+        # tenant's base.css forces `.adv-wrap h1{text-transform:none!important}`)
+        out.update(important)
         self._declared[key] = out
         return out
 
@@ -1161,6 +1178,18 @@ def closeness(a, b):
     return round(0.7 * jaccard + 0.3 * order, 4)
 
 
+def is_story(observation):
+    """A story or list article (cycle 106): six or more content sections,
+    mostly plain `content` ones or three or more numbered."""
+    content = [s for s in observation.get("sections") or []
+               if s["role"] not in ("nav", "footer") and not (s.get("style") or {}).get("pinned")]
+    if len(content) < 6:
+        return False
+    plain = sum(1 for s in content if s["role"] == "content")
+    numbered = sum(1 for s in content if s.get("numbered"))
+    return plain >= 0.6 * len(content) or numbered >= 3
+
+
 def choose_exemplar(observation, candidates, slug=None):
     """The closest candidate (or the one named `slug`), or None."""
     if slug:
@@ -1178,53 +1207,176 @@ def choose_exemplar(observation, candidates, slug=None):
 # Fidelity
 # ---------------------------------------------------------------------------
 
+_CTA_CLASSES = ("ld-btn", "op-btn")
+
+
+def _imgs(el):
+    return sum(1 for d in el.iter() if li._tag(d) in ("img", "picture"))
+
+
+def _has_cta(el):
+    return any(li._tag(d) == "a" and set((d.get("class") or "").split()) & set(_CTA_CLASSES) for d in el.iter())
+
+
 def _marker_ok(name, el, css, wrapper):
+    """Whether one element marked `name` realises it. The structural checks
+    (cycle 106) keep a bare marker from counting: an author card needs its
+    avatar, a product card its photo, a CTA band its button."""
     if name in ("dark-page", "dark-hero"):
         return li._is_dark(css.background(el))
     if name == "caps-headline":
         heads = [el] if li._tag(el) == "h1" else [d for d in el.iter() if li._tag(d) == "h1"]
-        return any((css.computed(h).get("text-transform") or "").strip() == "uppercase" for h in heads)
+        return any((css.computed(h).get("text-transform") or "").replace("!important", "").strip() == "uppercase"
+                   for h in heads)
+    if name == "author-card":
+        return _imgs(el) >= 1 and bool(li._words(li._text(el)))
+    if name == "rating-line":
+        return "★" in li._text(el) or any(li._tag(d) == "svg" for d in el.iter())
+    if name == "product-card":
+        return _imgs(el) >= 1 and (_has_cta(el) or bool(_PRICE_RE.search(li._text(el))))
+    if name == "cta-band":
+        return _has_cta(el)
+    if name in ("pull-quote", "info-box", "promo-bar"):
+        return bool(li._words(li._text(el)))
     return True
 
 
-def fidelity(observation, review_html, tenant=None):
+# Patterns the demo page cannot show: the import renders the tenant's demo
+# page, and a look rightly prints nothing where the renderer has no value
+# (no verified rating, no review quote) or where the cartridge has no such
+# data at all. Such a pattern is not scored.
+def unscored_patterns(cartridge, ctx):
+    """Pattern names the demo context has no data for (cycle 106). `ctx`:
+    the landing render context, or the listicle context with `byline`."""
+    ctx = ctx or {}
+    out = set()
+    if cartridge == "landing":
+        # the landing byline is the whole About block (byline_html, printed
+        # at the foot) and its checked claims carry no photo of their own
+        out |= {"author-card", "photo-per-item"}
+        if not ctx.get("rating"):
+            out.add("rating-line")
+        if not ctx.get("review_quote"):
+            out.add("pull-quote")
+    else:
+        if not ctx.get("rating_line"):
+            out.add("rating-line")
+        if not ctx.get("pull_quote"):
+            out.add("pull-quote")
+    return out
+
+
+def _render_sections(wrapper, css):
+    """The rendered page's sections, as a reader sees them: the wrapper's
+    children, with a container of several sections (an article column
+    holding the items) opened up, as the observer does on the source."""
+    out = []
+
+    def walk(el, depth):
+        for child in li._children(el):
+            if not li._has_content(child):
+                continue
+            if (css.declared(child).get("position") or "").strip() in ("fixed", "sticky"):
+                continue
+            if depth < 3 and (li._is_container(child) or (
+                    li._tag(child) in li.WRAPPER_TAGS and any(li._is_container(k) for k in li._children(child)))):
+                walk(child, depth + 1)
+            else:
+                out.append(child)
+
+    walk(wrapper, 0)
+    return out
+
+
+def _runs(roles):
+    return [r for i, r in enumerate(roles) if i == 0 or roles[i - 1] != r]
+
+
+def cadence_match(src, ren, tol=0.12):
+    """0-1: how well the sections holding a photo (or a button) line up,
+    by relative position down the page (F1 of matches within `tol` of the
+    page length). Both strings are one character per section, a non-dash
+    where the element is. 1.0 when neither has one."""
+    a = [(i + 0.5) / len(src) for i, c in enumerate(src) if c != "-"]
+    b = [(i + 0.5) / len(ren) for i, c in enumerate(ren) if c != "-"]
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    free, hits = list(b), 0
+    for x in a:
+        near = min(free, key=lambda y: abs(x - y), default=None)
+        if near is not None and abs(near - x) <= tol:
+            hits += 1
+            free.remove(near)
+    return 2 * hits / (len(a) + len(b))
+
+
+def fidelity(observation, review_html, tenant=None, unscored=()):
     """How faithfully a rendered candidate reproduces the observation:
-    0.5 x the share of observed patterns realised (an element with
-    data-look-pattern="<name>" in the rendered page; dark-page/dark-hero
-    must sit on a dark ground, caps-headline must be an upper-case h1)
-    + 0.2 x role-order similarity + 0.1 x section-count similarity
-    + 0.2 x dark/light band similarity. Returns a dict with `score`."""
+    0.4 x the share of observed patterns realised (an element with
+    data-look-pattern="<name>" in the rendered page that passes
+    _marker_ok) + 0.2 x role-order similarity + 0.2 x rhythm (cycle 106:
+    where photos and buttons recur, section by section) + 0.05 x
+    section-count similarity + 0.15 x dark/light band similarity. Order
+    and count compare runs of same-role sections (cycle 106).
+    `unscored`: pattern names the demo page cannot show (unscored_patterns),
+    left out of the share. Returns a dict with `score`."""
     tree = li.parse_html(review_html)
     css = Css(li._css_texts(tree), tenant_tokens(tenant)).bind(tree)
     wrapper = li._wrapper_element(review_html)
-    expected = [p["name"] for p in observation.get("patterns") or []]
+    unscored = set(unscored or ())
+    expected = [p["name"] for p in observation.get("patterns") or [] if p["name"] not in unscored]
+    skipped = [p["name"] for p in observation.get("patterns") or [] if p["name"] in unscored]
     if wrapper is None:
-        return {"score": 0.0, "missing": expected, "present": [], "order": 0.0, "count": 0.0, "bands": 0.0}
+        return {"score": 0.0, "missing": expected, "present": [], "unscored": skipped, "order": 0.0, "count": 0.0,
+                "bands": 0.0, "rhythm": 0.0}
     # the wrapper found by _wrapper_element belongs to another parse; find it in this tree
     wrapper = next(el for el in tree.iter() if isinstance(el.tag, str) and "pk-lp" in (el.get("class") or "").split())
-    rendered = [el for el in li._children(wrapper) if li._has_content(el)
-                and (css.declared(el).get("position") or "").strip() not in ("fixed", "sticky")]
+    rendered = _render_sections(wrapper, css)
     index = li._CssIndex(li._css_texts(tree))
-    roles, bands = [], ""
+    roles, bands, photos, ctas = [], "", "", ""
     for i, el in enumerate(rendered):
         m, text = li._measure(el, index)
         roles.append(li._role(i + 1, len(rendered) + 2, el, m, text))
         bands += "d" if li._is_dark(css.background(el)) else "l"
+        photos += "p" if _imgs(el) else "-"
+        ctas += "c" if _has_cta(el) else "-"
     src = [s for s in observation["sections"]
            if s["role"] not in ("nav", "footer") and not (s.get("style") or {}).get("pinned")]
     src_roles = [s["role"] for s in src]
     src_bands = "".join("d" if s.get("background") == "dark" else "l" for s in src)
-    order = difflib.SequenceMatcher(None, src_roles, roles).ratio() if src_roles or roles else 1.0
-    count = 1 - abs(len(src) - len(rendered)) / max(len(src), len(rendered), 1)
-    band_score = difflib.SequenceMatcher(None, src_bands, bands).ratio() if src_bands or bands else 1.0
+    src_photos = "".join("p" if s.get("images") else "-" for s in src)
+    src_ctas = "".join("c" if (s.get("cta") or {}).get("count") else "-" for s in src)
+
+    def ratio(a, b):
+        return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() if a or b else 1.0
+
+    # Cycle 106: a run of same-role sections (the items) counts once: the
+    # number of items follows the writer's data (the demo page has five
+    # reasons, the source ten), the order of the runs follows the source.
+    src_runs, ren_runs = _runs(src_roles), _runs(roles)
+    order = ratio(src_runs, ren_runs)
+    count = 1 - abs(len(src_runs) - len(ren_runs)) / max(len(src_runs), len(ren_runs), 1)
+    band_score = ratio(src_bands, bands)
+    rhythm = (cadence_match(src_photos, photos) + cadence_match(src_ctas, ctas)) / 2
     markers = {}
     for el in wrapper.iter():
         if isinstance(el.tag, str) and el.get("data-look-pattern"):
             for name in el.get("data-look-pattern").split():
                 markers.setdefault(name, []).append(el)
-    present = [n for n in expected if any(_marker_ok(n, el, css, wrapper) for el in markers.get(n, []))]
+
+    def ok(n):
+        if n == "photo-per-item":   # several items each with its photo
+            return sum(_imgs(el) for el in markers.get(n, [])) >= 2
+        return any(_marker_ok(n, el, css, wrapper) for el in markers.get(n, []))
+
+    present = [n for n in expected if ok(n)]
     share = len(present) / len(expected) if expected else 1.0
-    score = round(0.5 * share + 0.2 * order + 0.1 * count + 0.2 * band_score, 2)
+    score = round(0.4 * share + 0.2 * order + 0.2 * rhythm + 0.05 * count + 0.15 * band_score, 2)
     return {"score": score, "present": present, "missing": [n for n in expected if n not in present],
-            "order": round(order, 2), "count": round(count, 2), "bands": round(band_score, 2),
-            "sections": {"source": src_roles, "render": roles}}
+            "unscored": skipped, "order": round(order, 2), "count": round(count, 2), "bands": round(band_score, 2),
+            "rhythm": round(rhythm, 2),
+            "sections": {"source": src_roles, "render": roles},
+            "cadence": {"source_photos": src_photos, "render_photos": photos,
+                        "source_ctas": src_ctas, "render_ctas": ctas}}
