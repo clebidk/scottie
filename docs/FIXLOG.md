@@ -6807,6 +6807,22 @@ $0.70 is spent). The daily-cap reservation is $1.00 an import.
 - Deploy: no tenant files change in this cycle. The four hand-converted looks must be on prod
   (`tenants/peak-saunas/looks/listicle/`, gitignored, copied by hand in cycle 101) to be exemplars there.
 
+### Cycle 102b (the drafting call streams, 2026-10-12)
+The first real import on prod failed in the drafting step: `ValueError: Streaming is required for
+operations that may take longer than 10 minutes`. The Anthropic SDK (1.12.0) refuses a non-streaming
+`messages.create` whose max_tokens may run past 10 minutes; the drafting and revise calls ask for 32,000
+(the template plus adaptive thinking). Reproduced offline: create() with max_tokens 32,000 raises before
+any request; 16,000 (the vision call) passes the check. Fix: `look_import._call` uses
+`client.messages.stream(...)` and `get_final_message()`; usage, cost and text are read from the final
+message as before. The vision call and the dry run are unchanged. `tests/conftest.py`: FakeMessages has a
+`stream()` shim (same canned responses as create, the call in `calls`, its index in `streamed`); the
+cycle 102 tests assert the draft and the revise round stream and the vision call does not, and the cost
+is read from the final message. Full suite: 9 failed, 3103 passed, 19 skipped. The same 5 of those
+(tests/test_library_cycle103.py::test_peak_hides_the_three_merged_near_duplicates,
+tests/test_library_cycle86.py::test_cli_library_build, the three tests/test_listicle_site_cycle69.py
+budget tests) fail on origin/master d0a739f without this change; the other 4 are the cycle 101 photo
+tests on this clone's stale gitignored tenant templates (above).
+
 ## Cycle 105 (Library: one picture per card, variants behind a click, real-run pictures, 2026-10-12)
 Branch `cycle105/library-cards` from origin/master 35114c7 (cycles 99, 102, 103 and the 15-structure
 hide list). No model or API call.

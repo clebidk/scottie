@@ -147,6 +147,8 @@ def test_an_image_upload_creates_a_job_and_the_observation_comes_from_the_vision
     assert done["state"] == "done", done["reason"]
     assert not pending.exists()
     vision, draft = fake.messages.calls
+    # cycle 102b: the draft streams (the SDK refuses a long non-streaming call); the vision call does not
+    assert fake.messages.streamed == [1]
     # the vision call: two sheets, the role and pattern vocabulary, Opus with adaptive thinking
     assert len(_images(vision["messages"][0]["content"])) == 2
     assert "## Section roles" in vision["system"] and "`faq-accordion`" in vision["system"]
@@ -280,6 +282,7 @@ def test_low_fidelity_gets_one_revise_round_with_the_render_beside_the_source(tm
     result = look_import.import_look(TENANT, cartridge="landing", name="rev-look", client=fake, progress=seen.append,
                                      source={"kind": "images", "paths": _image_files(tmp_path)})
     assert len(fake.messages.calls) == 3 and result["attempts"] == 2
+    assert fake.messages.streamed == [1, 2]                  # the draft and the revise round stream
     assert seen.count("revising") == 1 and seen.index("observing") < seen.index("drafting")
     revise = fake.messages.calls[2]["messages"]
     assert [m["role"] for m in revise] == ["user", "assistant", "user"]

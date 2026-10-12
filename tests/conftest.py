@@ -64,12 +64,31 @@ class FakeResponse:
         )
 
 
+class FakeStream:
+    """Cycle 102b: what `client.messages.stream(...)` returns -- a context
+    manager whose get_final_message() is the canned response."""
+
+    def __init__(self, message):
+        self._message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_message(self):
+        return self._message
+
+
 class FakeMessages:
     def __init__(self, responses):
         # each item is either a raw string (JSON or garbage), a FakeResponse,
         # or an Exception instance to raise.
         self._responses = list(responses)
         self.calls = []
+        # Cycle 102b: the indexes in `calls` that came through stream()
+        self.streamed = []
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
@@ -81,6 +100,12 @@ class FakeMessages:
         if isinstance(item, str):
             return FakeResponse(item)
         return item
+
+    def stream(self, **kwargs):
+        """Cycle 102b: messages.stream(**kwargs) -- the same canned
+        responses as create(), recorded in `calls` and `streamed`."""
+        self.streamed.append(len(self.calls))
+        return FakeStream(self.create(**kwargs))
 
 
 class FakeClient:

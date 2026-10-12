@@ -2074,8 +2074,13 @@ def _call(client, model, system, messages, budget, log):
     from . import look_vision
 
     budget.check()
-    resp = client.messages.create(model=model, max_tokens=MAX_OUTPUT_TOKENS, system=system, messages=messages,
-                                  **look_vision.model_kwargs(model))
+    # Cycle 102b: streamed. The Anthropic SDK refuses a non-streaming call
+    # whose max_tokens may run past 10 minutes ("Streaming is required ..."),
+    # and the drafting/revise calls ask for MAX_OUTPUT_TOKENS (template +
+    # thinking). The final message carries the same usage and content.
+    with client.messages.stream(model=model, max_tokens=MAX_OUTPUT_TOKENS, system=system, messages=messages,
+                                **look_vision.model_kwargs(model)) as stream:
+        resp = stream.get_final_message()
     usage = resp.usage
     cache_w = getattr(usage, "cache_creation_input_tokens", 0) or 0
     cache_r = getattr(usage, "cache_read_input_tokens", 0) or 0
