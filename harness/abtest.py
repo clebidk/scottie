@@ -2,7 +2,8 @@
 
 Owner decision 2026-09-23: every new Meta ad gets three different page builds,
 published as three hidden Shopify pages behind one SPLIT LINK that the team
-pastes into the ad in Ads Manager (this harness never edits an ad). The winner
+pastes into the ad in Ads Manager (cycle 107: or `harness abtest go-live`
+puts it there, harness/meta_golive.py). The winner
 is the build with the highest CTA click-through: the share of unique visitors
 on a variant who click a CTA to a product page. Orders are secondary.
 
@@ -328,6 +329,9 @@ def settings(tenant):
         # Cycle 69: publish a test as soon as its three builds exist (the
         # listicle site's upload and `harness abtest from-inbox`).
         "auto_publish": tenant.get("abtest.auto_publish") is True,
+        # Cycle 107: the owner's lever -- from-inbox also puts each test it
+        # publishes on its Meta ad once the ad is ACTIVE (harness/meta_golive.py).
+        "auto_go_live": tenant.get("abtest.auto_go_live") is True,
     }
 
 
@@ -335,36 +339,129 @@ def settings(tenant):
 # arm selection
 # ---------------------------------------------------------------------------
 
-def pooled_arm_stats(tenant, by="arm"):
+def _look_and_hero(v):
+    """Cycle 107: (cartridge, look, first screen) a variant rendered: the
+    record's own look / hero_style (set when it was built), else the parts
+    of its arm id."""
+    parts = v["arm"].split(":")
+    cartridge = v.get("cartridge") or parts[0]
+    first = 2 if cartridge == "listicle" else 1  # a listicle arm is listicle:<style>:<look>[:<hero>]
+    look = v.get("look") or (parts[first] if len(parts) > first else None)
+    hero = v.get("hero_style") or (parts[first + 1] if len(parts) > first + 1 else None)
+    return cartridge, look, hero
+
+
+def variant_group(v, by):
+    """The pooled-stats group of a generated variant (None: left out)."""
+    if by in ("build", "look"):
+        cartridge, look, hero = _look_and_hero(v)
+        return ":".join(p for p in (cartridge, look, hero if by == "build" else None) if p)
+    return {"arm": v["arm"], "headline": v.get("headline_template_id"), "hero": v.get("hero_style")}.get(by)
+
+
+def pooled_arm_stats(tenant, by="arm", *, with_orders=False):
     """{arm_id: {"views", "clicks", "tests"}} summed over every live or
     finished test's variants (unique visitors, from events.sqlite).
     Cycle 70: by="headline" groups by each listicle variant's
     headline_template_id instead (variants with none are left out) -- what
     `harness abtest library --by headline` shows, and what a later cycle can
-    feed to headlines.resolve_plan's `weights`."""
+    feed to headlines.resolve_plan's `weights`.
+    Cycle 107: by="build" (cartridge:look:first screen) and by="look"
+    (cartridge:look), the leaderboard's groups. `with_orders` adds "orders",
+    "revenue" and "order_views" (the views of the variants whose test has
+    cached orders, `harness abtest refresh-metrics`), so orders per view
+    never mixes tests with and without order data."""
     db = abevents.db_path(tenant)
     stats = {}
     for rec in list_tests(tenant):
         if rec.get("status") not in POOLED_STATUSES:
             continue
         counts = abevents.counts(db, rec["test_id"])
+        cached_orders = (rec.get("orders_cache") or {}).get("by_key") if with_orders else None
         for v in rec.get("variants") or []:
             if is_external(v):  # cycle 88: not a build; no views or CTA clicks
                 continue
-            group = {"arm": v["arm"], "headline": v.get("headline_template_id"),
-                     "hero": v.get("hero_style")}.get(by)
+            group = variant_group(v, by)
             if not group:
                 continue
             slot = stats.setdefault(group, {"views": 0, "clicks": 0, "tests": 0})
+            if with_orders:
+                for field, zero in (("orders", 0), ("revenue", Decimal("0")), ("order_views", 0)):
+                    slot.setdefault(field, zero)
             # Cycle 69: a replaced variant's old events (archived key) are
             # still evidence for the same build.
             keys = [v["key"]] + [r["archived_key"] for r in v.get("replacements") or []]
+            views = 0
             for key in keys:
                 c = counts.get(key, {"views": 0, "clicks": 0})
-                slot["views"] += c["views"]
+                views += c["views"]
                 slot["clicks"] += min(c["clicks"], c["views"])
+            slot["views"] += views
             slot["tests"] += 1
+            if cached_orders is not None:
+                o = cached_orders.get(v["key"]) or {"orders": 0, "revenue": "0.00"}
+                slot["orders"] += int(o.get("orders") or 0)
+                slot["revenue"] += _money(o.get("revenue"))
+                slot["order_views"] += views
     return stats
+
+
+LEADERBOARD_GROUPS = ("build", "look")
+LEADERBOARD_SORTS = ("cta", "orders")
+
+
+def leaderboard(tenant, by="build", sort="cta"):
+    """Cycle 107: (rows, min_views) -- every build (by="build": cartridge:
+    look:first screen) or look (by="look") pooled over all live and finished
+    tests, ranked by CTA rate (sort="cta") or orders per 1000 views
+    (sort="orders"). A group under abtest.min_views views is listed after
+    the ranked ones with rank None: too few views to rank honestly.
+    orders / orders_per_1000 are None when no test of the group has cached
+    orders."""
+    if by not in LEADERBOARD_GROUPS or sort not in LEADERBOARD_SORTS:
+        raise AbtestError(f"leaderboard by {by!r} sort {sort!r}: by one of {list(LEADERBOARD_GROUPS)}, sort one of "
+                          f"{list(LEADERBOARD_SORTS)}")
+    min_views = settings(tenant)["min_views"]
+    rows = []
+    for group, s in pooled_arm_stats(tenant, by=by, with_orders=True).items():
+        has_orders = s["order_views"] > 0
+        rows.append({
+            "group": group, "tests": s["tests"], "views": s["views"], "clicks": s["clicks"],
+            "cta_rate": abstats.ctr(s["clicks"], s["views"]) if s["views"] else None,
+            "orders": s["orders"] if has_orders else None,
+            "revenue": f"{s['revenue']:.2f}" if has_orders else None,
+            "order_views": s["order_views"],
+            "orders_per_1000": s["orders"] * 1000 / s["order_views"] if has_orders else None,
+            "enough": s["views"] >= min_views, "rank": None,
+        })
+    first, second = ("cta_rate", "orders_per_1000") if sort == "cta" else ("orders_per_1000", "cta_rate")
+    ranked = sorted((r for r in rows if r["enough"]),
+                    key=lambda r: (-(r[first] or 0), -(r[second] or 0), r["group"]))
+    for i, r in enumerate(ranked, 1):
+        r["rank"] = i
+    rest = sorted((r for r in rows if not r["enough"]), key=lambda r: (-r["views"], r["group"]))
+    return ranked + rest, min_views
+
+
+def format_leaderboard(rows, min_views, *, by="build", sort="cta"):
+    label = {"build": "build (look x first screen)", "look": "look"}[by]
+    order = "CTA rate" if sort == "cta" else "orders per 1000 views"
+    lines = [f"Leaderboard by {label}, ranked by {order}; pooled over live + finished tests",
+             f"{'#':>3} {label.split(' ')[0]:34} {'tests':>5} {'views':>7} {'CTA':>6} {'CTA rate':>8} "
+             f"{'orders':>6} {'ord/1k':>7}"]
+    for r in rows:
+        rank = str(r["rank"]) if r["rank"] else "-"
+        rate = f"{r['cta_rate']:.1%}" if r["cta_rate"] is not None else "-"
+        orders = str(r["orders"]) if r["orders"] is not None else "-"
+        per = f"{r['orders_per_1000']:.1f}" if r["orders_per_1000"] is not None else "-"
+        lines.append(f"{rank:>3} {r['group']:34} {r['tests']:>5} {r['views']:>7} {r['clicks']:>6} {rate:>8} "
+                     f"{orders:>6} {per:>7}" + ("" if r["enough"] else f"  (under {min_views} views: not ranked)"))
+    if not rows:
+        lines.append("(no generated page in a live or finished test yet)")
+    lines.append(f"A build needs abtest.min_views = {min_views} views to be ranked. Orders come from the cached "
+                 "Shopify orders (harness abtest refresh-metrics); orders per 1000 views counts only tests "
+                 "with order data.")
+    return "\n".join(lines)
 
 
 def rank_arms(tenant, rng, *, stats=None):
@@ -890,7 +987,7 @@ def attribute_orders(orders, test_id, keys):
 # results + finish
 # ---------------------------------------------------------------------------
 
-def results(tenant, rec, orders=None):
+def results(tenant, rec, orders=None, *, draws=None):
     """One row per variant: key, arm, kind, assigns (split page "assign"
     events), views, clicks, ctr, p_best, and orders/revenue when `orders`
     (attribute_orders output) is given.
@@ -898,7 +995,8 @@ def results(tenant, rec, orders=None):
     p_best and orders are None (the report shows "-"; never a zero that
     reads as data) and its row carries the utm_content to look up in
     GA4/Shopify. P(best) compares generated arms only, and only when there
-    are at least two."""
+    are at least two. Cycle 107: `draws` (default abstats' own) lets the
+    site's Results page, which shows every test, use fewer Monte Carlo draws."""
     counts = abevents.counts(abevents.db_path(tenant), rec["test_id"])
     data = {}
     for v in rec["variants"]:
@@ -906,7 +1004,7 @@ def results(tenant, rec, orders=None):
             continue
         c = counts.get(v["key"], {"views": 0, "clicks": 0})
         data[v["key"]] = (min(c["clicks"], c["views"]), c["views"])
-    pb = abstats.p_best(data) if len(data) >= 2 else {}
+    pb = (abstats.p_best(data, **({"draws": draws} if draws else {})) if len(data) >= 2 else {})
     rows = []
     for v in rec["variants"]:
         assigns = counts.get(v["key"], {}).get("assigns", 0)

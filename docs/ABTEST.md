@@ -2,8 +2,8 @@
 
 Every new Meta ad gets three different page builds. The three pages go live
 as hidden Shopify pages behind one **split link**. The team pastes the split
-link into the ad as its destination in Ads Manager. The harness never edits
-an ad.
+link into the ad as its destination in Ads Manager, or (cycle 107) the
+harness puts it there with `harness abtest go-live` (see "Go live on Meta").
 
 The winner is the build with the highest **CTA click-through**: the share of
 unique visitors on a variant who click a CTA to a product page. Orders show
@@ -85,6 +85,8 @@ Before the first live test, make sure of these three things:
 
 In Ads Manager, set the ad's website URL to the split link. Keep your usual
 URL parameters (utm_*). The split page forwards them to the variant.
+Cycle 107: `harness abtest go-live` does this step for an ad you choose; see
+"Go live on Meta (cycle 107)".
 
 ## 4. Read results
 
@@ -104,6 +106,31 @@ attribute when a visitor clicks a CTA. Cancelled orders do not count.
 `library` shows each build's pooled results over all live and finished tests,
 and how often the selection would pick it now (`P(picked)`).
 
+Cycle 107:
+
+```
+harness abtest refresh-metrics [--test <test_id>]   # cache orders + Meta spend (cron, hourly)
+harness abtest leaderboard [--by build|look] [--sort cta|orders]
+```
+
+`refresh-metrics` stores, on each live or finished test record, its orders
+per arm (`orders_cache`, from Shopify) and its Meta ad's spend, impressions and
+link clicks for the live period (`meta_insights`, from
+`<ad_id>/insights?fields=spend,impressions,inline_link_clicks`; read at most
+once an hour per test). The live period starts at go-live (`meta_go_live.at`),
+else at `live_at` for a split link pasted by hand, and ends at the revert or
+finish, else today (whole days, the ad account's time zone). `results` then
+prints the Meta line and, per arm, its share of the spend and its cost per
+order. The spend is shared by the arms in proportion to the visitors the split
+page sent each one (assign events); Meta cannot see the split.
+
+`leaderboard` pools every generated variant of every live and finished test by
+BUILD (`<cartridge>:<look>:<first screen>`, from the variant's own `look` and
+`hero_style`) or by LOOK, and ranks by CTA rate (default) or orders per 1000
+views. A group with fewer than `abtest.min_views` views is listed after the
+ranked ones, with its views and "not ranked". Orders per 1000 views counts the
+views of tests with cached orders only. The site's Results page shows the same.
+
 ## 5. Finish
 
 ```
@@ -118,6 +145,72 @@ of these are true:
 `--force` finishes without these rules. `--orders` fetches orders, and when
 two P(best) values are within 0.05, the variant with more orders wins.
 Finishing does not remove the pages. To stop traffic, change the ad's URL.
+
+## Go live on Meta (cycle 107)
+
+Owner instruction 2026-10-12: put generations live as A/B/C on the Meta ads the
+owner chooses, until the owner turns on the lever for all new ads.
+
+```
+harness abtest go-live <test_id> --by <reviewer email> --dry-run   # first: read only
+harness abtest go-live <test_id> --by <reviewer email> [--force]
+harness abtest revert-go-live <test_id> --by <reviewer email>
+```
+
+Meta does not allow a change to an existing creative. `go-live` reads the ad
+(`<ad_id>?fields=...creative{...}`), makes a COPY of its creative with every
+link field set to the split link -- `object_story_spec.link_data.link`, the
+`link_data` / `video_data` call-to-action `value.link`, carousel cards,
+`asset_feed_spec.link_urls[].website_url`, `object_url` -- with `url_tags` and
+every other field unchanged (POST `act_<id>/adcreatives`), points the ad at
+the copy (POST `<ad_id>` with `creative={"creative_id": ...}`; Graph's update
+call is a POST), reads the ad back, and checks that it uses the new creative
+and that every link is the split link. The test record gets
+
+```
+"meta_go_live": {"at", "by", "ad_id", "ad_name", "old_creative_id", "new_creative_id",
+                 "old_destination", "split_url", "verified_destination", "verified", "forced"},
+"linked_at": "<at>"      (only when verified)
+```
+
+and the ad's inbox item gets the verified `destination_url`, so the linked-ad
+icon shows it at once. Both commands write a row in the site's audit log
+(`meta_go_live`, `meta_revert_go_live`, target `test:<test_id>`).
+
+Consequences, printed before every change: Meta restarts the ad's learning
+phase, and the new post starts with no likes, comments or shares (the old post
+keeps them).
+
+Refusals (nothing is written): the test is not live or has no split link; it
+was not built from a Meta ad (an upload); it is live on Meta already (revert
+first); the ad is in another ad account; the ad is not ACTIVE (approved and
+running) unless `--force`; the ad is an existing-post ad (`object_story_id`, no
+spec) -- change that one by hand in Ads Manager. A read-back that does not
+match is recorded with `"verified": false` and the command exits 1; check the
+ad in Ads Manager and revert. A POST is not retried after a network error or a
+5xx (it may have gone through); only a rate-limit refusal is retried.
+
+`revert-go-live` sets the ad back to `old_creative_id`, reads it back, checks
+the creative and the old link, and records `reverted_at`, `reverted_by`,
+`revert_verified_destination`, `revert_verified` on the block; `linked_at`
+goes back to null. A later go-live moves the old block to
+`meta_go_live_history`.
+
+The token needs `ads_management` (the owner's system-user token has it,
+2026-10-12). On the site: the "Go live on Meta" and "Revert" buttons on a live
+test's card (docs/LISTICLE-SITE.md).
+
+### The lever: `abtest.auto_go_live`
+
+`tenant.yaml` `abtest.auto_go_live` (default false; PEAK ships it OFF). When
+true, `harness abtest from-inbox` goes live for each test it has just built
+AND published (so it needs `auto_publish: true` too), with the same record.
+Only for an ad whose effective_status is ACTIVE: a test whose ad is still in
+review is marked `auto_go_live.state: pending`, and each later from-inbox run
+(the hourly meta-pull cron) tries it again, so it goes live as soon as Meta
+approves the ad. It never uses `--force` and never touches an existing-post ad
+(`state: refused`). Tests the lever did not publish (for example the 20 tests
+live on 2026-10-12) are never touched by it.
 
 ## Replace a live variant (cycle 69)
 

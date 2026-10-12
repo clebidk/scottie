@@ -662,6 +662,7 @@ _ICONS = {
     "send": '<path d="M5 12h13"/><path d="M13 6l6 6-6 6"/>',
     "grid": '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
     "layers": '<path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/>',
+    "chart": '<path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-9"/>',
     "list": '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
 }
 
@@ -730,6 +731,8 @@ NAV = (
                                      "gen_update_live", "gen_unpublish")),
         # Cycle 86: every page version as a reference (harness/library.py).
         ("library_home", "Library", "layers", ("library_home",)),
+        # Cycle 107: which generations perform best (per test and pooled).
+        ("results_home", "Results", "chart", ("results_home",)),
         ("upload_ad", "Upload an ad", "upload", ("upload_ad",)),
     )),
     ("Queue", (

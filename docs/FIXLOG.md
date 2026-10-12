@@ -7002,3 +7002,112 @@ score at 0.68. A story page like this one is better imported as a listicle (phot
   (tune-2, tune-3); the template places them, the screenshot does not wait for them.
 - The local copies of the hand looks in this clone were older than prod's (cycle 101); four
   test_photo_slots_cycle101 tests failed on them until they were copied from prod.
+
+## Cycle 107 (go live on Meta, auto lever, results leaderboard, 2026-10-12)
+
+Branch `cycle107/meta-go-live` from origin/master 8cb340f (the cycle 106 merge).
+
+### Problem
+Owner instruction, verbatim: "build it that allows generations to be posted as A/B/C on meta ads of my
+choosing for now (using Meta token) - until i turn on lever to apply to all new meta ads as soon as they
+are approved. then also track metrics so we can see which versions of generations perform best".
+Twenty tests were live with a split link that no ad used (status "live", created 2026-10-12): the split
+link had to be pasted into each ad by hand, and nothing ranked the builds across tests or set Meta spend
+against orders.
+
+### Change
+- harness/meta_golive.py (new). `go_live`: reads the ad and its creative, refuses (nothing written) when
+  the test is not live, has no split link, was not built from a Meta ad, is live on Meta already, the ad
+  is in another account, the ad is not ACTIVE (unless `force`), or the creative is an existing-post one
+  (`object_story_id`, no spec: "change it by hand in Ads Manager"). Else it copies the creative
+  (`object_story_spec`, `asset_feed_spec`, `url_tags`, `object_url`, `degrees_of_freedom_spec`) with every
+  link field set to the split link (link_data.link, the link_data / video_data CTA `value.link`, carousel
+  cards, asset_feed_spec `link_urls[].website_url`, object_url; url_tags and all other fields unchanged),
+  POSTs it to `act_<id>/adcreatives`, POSTs the ad's `creative={"creative_id": ...}` (Graph's update call
+  is a POST, not a PUT), reads the ad back and verifies the creative id and every link. It records
+  `meta_go_live {at, by, ad_id, ad_name, old_creative_id, new_creative_id, old_destination, split_url,
+  verified_destination, verified, forced}` and `linked_at` (verified only), writes the verified
+  destination on the ad's inbox item (`meta_ingest.store_links`, so the cycle 83 icon follows it), and an
+  audit row. A read-back mismatch is recorded `verified: false` and raises. `revert` sets the old creative
+  back, verifies, records `reverted_at/by` and `revert_verified*`, clears `linked_at`. Dry run prints each
+  field `old -> new`, the kept url_tags and the warning, and writes nothing.
+- harness/meta_ingest.py: `GraphClient.post` (form body, dict values as JSON) through the same transport
+  and error mapping; a POST is retried only on 429 / a rate-limit code, never after a network error, a
+  5xx or `is_transient` (it may have created the object). Permission/token errors name `ads_management`
+  for a POST. `store_links` extracted from `refresh_links` (same output).
+- CLI: `harness abtest go-live <test_id> --by <email> [--dry-run] [--force]`, `revert-go-live <test_id>
+  --by <email>` (listed reviewer required), `refresh-metrics [--test <id>]` (caches `orders_cache` from
+  Shopify and `meta_insights` {spend, impressions, link_clicks} for the live period, Meta at most once an
+  hour per test), `leaderboard [--by build|look] [--sort cta|orders]`. `results` prints the cached Meta
+  line and per-arm spend and cost per order.
+- The lever: `abtest.auto_go_live` (abtest.settings), shipped `false` for PEAK with the comment "owner: off
+  until I turn it on (2026-10-12)", documented beside auto_publish. When true, `build_test_for_item` goes
+  live for a test it has just published (needs auto_publish too), ACTIVE ads only, never forced, never an
+  existing-post creative; a not-yet-ACTIVE ad leaves `auto_go_live.state: pending` and `from_inbox` retries
+  pending tests at the end of every run (the hourly cron), so a test goes live once Meta approves its ad.
+  Tests the lever did not publish are never touched.
+- harness/abtest.py: `pooled_arm_stats(by="build"|"look", with_orders=True)` (build = cartridge:look:first
+  screen from the variant's own `look` / `hero_style`, else its arm id; orders and `order_views` only from
+  tests with cached orders), `leaderboard` (rank by CTA rate or orders per 1000 views; a group under
+  `abtest.min_views` is listed unranked with its views), `format_leaderboard`, `results(draws=)`.
+- Site: on a live test's card, "Go live on Meta" (confirm dialog, and a confirm page without JS, with the
+  ad's name, id and status, current link, split link, and the creative-copy / learning-phase /
+  social-proof text), a note instead for a non-ACTIVE ad, and after go-live "Live on Meta" with "Revert"
+  (same pattern). Both queue jobs (`meta_go_live`, `meta_revert_go_live` in harness/jobs.py) and audit the
+  request; the job page shows the ad, creative old -> new, link before and after (read back), each
+  changed field and the log. New `/results` page (sidebar "Results"): leaderboards by build and by look,
+  and per test and arm assigned, views, CTA, CTR, orders, revenue, P(best), spend share and cost per
+  order, all from the caches (no Shopify or Meta call in a request).
+- crons/meta-pull.sh: `harness abtest refresh-metrics` after from-inbox.
+- docs/ABTEST.md ("Go live on Meta (cycle 107)", "The lever", results), docs/LISTICLE-SITE.md (go-live
+  buttons, Results, runbook 3.1), docs/META-INGEST.md (write calls, scope, cron).
+
+### Operator runbook
+```
+.venv/bin/harness abtest go-live <test_id> --by <reviewer email> --tenant peak-saunas --dry-run
+.venv/bin/harness abtest go-live <test_id> --by <reviewer email> --tenant peak-saunas
+.venv/bin/harness abtest revert-go-live <test_id> --by <reviewer email> --tenant peak-saunas
+```
+
+### Verify
+- `tests/test_meta_golive_cycle107.py` (32), all with a fake Meta transport keyed by method and path:
+  creative copy for video_data, link_data with carousel, and asset_feed_spec + object_url (links
+  replaced, url_tags and every other field unchanged, input untouched); existing-post and no-link
+  refusals; CLI go-live (call order GET, POST creative, POST ad, GET; bodies; record fields; inbox
+  destination; audit; token never in a URL, body or output); dry run writes nothing; refusals before any
+  call (not live, finished, upload), existing post, not ACTIVE then `--force`, other account, second
+  go-live, unlisted reviewer; unverified read-back; revert and a second revert; POST retry policy; lever
+  off in tenant.yaml and no Meta call, lever on (ACTIVE), pending then live on a later from-inbox run,
+  existing post refused, untouched tests left alone; the card button and dialog text, the non-ACTIVE
+  note, the POST -> job + audit + 409 when queued + 404, the worker run -> job page before/after -> card
+  "Live on Meta", Revert dialog and the link icon, a refused job; insights period, query and hourly cache;
+  spend share and cost per order; leaderboard ranks, honest order rate, min_views listing, by look, CLI
+  output, the Results page; refresh-metrics and the cron order. Two mutations (no ACTIVE check, no inbox
+  write) fail four of these tests.
+- Full suite `PYTHONPATH=. python -m pytest -q`: 3133 passed, 3 failed, 35 skipped (before: 3101 passed, the same
+  3 failed, 35 skipped). The 3 are the known prod-state budget-cap tests (they expect a 10-dollar cap); the
+  fonts prod-state test passed in this clone.
+- The Ads page (before and after go-live, the dialog opened), the confirm page, the job page and the Results
+  page were rendered from the test fixtures and looked at in a browser; the dialog was not submitted.
+
+### Open
+- Not run against Meta. That a creative read back from Meta can be POSTed again as is: Meta may return
+  fields in `object_story_spec` it does not accept on create (for example both `image_url` and
+  `image_hash` in video_data). Such a refusal fails the creative POST before the ad is touched, so the ad
+  is unchanged; the dry run cannot show it. Run the first real go-live on one ad and check it in Ads
+  Manager.
+- `degrees_of_freedom_spec` is copied when Meta returns it; whether Meta accepts the returned value on
+  create is not verified. Other creative-level settings not in COPY_FIELDS (e.g. `contextual_multi_ads`)
+  are not carried over.
+- The confirm's ad status and current link are the inbox's (last pull / refresh-links); the job reads the
+  ad again and refuses a non-ACTIVE ad.
+- A test built from an uploaded ad has no Meta ad id, so it cannot go live here; there is no `--ad-id`
+  option to name one.
+- Meta insights are whole days in the ad account's time zone, so the day of go-live counts in full. Per-arm
+  spend is an allocation by split-page assignments, not a Meta number; impressions and link clicks are
+  per ad only.
+- The lever acts only when from-inbox publishes (auto_publish true). With auto_publish false, turning the
+  lever on does nothing.
+- refresh-metrics calls Shopify once per live or finished test each run; not measured on prod.
+- A build whose variant has no recorded first screen (`hero_style` missing) pools as `<cartridge>:<look>`,
+  apart from the same look with a known first screen.
