@@ -136,6 +136,19 @@ def is_existing_post(creative):
                                                           or creative.get("asset_feed_spec"))
 
 
+
+def _drop_read_only_echoes(payload):
+    """Cycle 107b: a creative read from Meta echoes fields Meta refuses on
+    create. `image_url` beside `image_hash` is one (code 100 / 1443051 on
+    the first real go-live, 2026-10-12): the hash is the stored image, the
+    url is Meta's own rendering of it. Drop the url wherever both appear."""
+    spec = payload.get("object_story_spec") or {}
+    nodes = [spec.get("video_data"), spec.get("link_data")]
+    nodes += list((spec.get("link_data") or {}).get("child_attachments") or [])
+    for node in nodes:
+        if isinstance(node, dict) and node.get("image_hash") and "image_url" in node:
+            del node["image_url"]
+
 def copy_creative(creative, url, *, name):
     """(payload for POST act_<id>/adcreatives, [{"field", "old", "new"}]):
     the creative's COPY_FIELDS with every link field set to `url`. url_tags
@@ -144,6 +157,7 @@ def copy_creative(creative, url, *, name):
         raise ExistingPost("the ad uses an existing Page post (object_story_id, no spec); its link cannot be "
                            "changed by copying the creative. Change it by hand in Ads Manager.")
     payload = {k: copy.deepcopy(creative[k]) for k in COPY_FIELDS if creative.get(k) not in (None, "", {}, [])}
+    _drop_read_only_echoes(payload)
     changes = []
     for path, node, key in _link_slots(payload):
         changes.append({"field": path, "old": node[key], "new": url})
