@@ -149,14 +149,28 @@ def tenant_look_versions(tenant, cartridge):
     """The tenant's imported looks for this cartridge (looks.imported_looks:
     every valid slug folder with a template.html). A slug that is, or is an
     alias of, one of the cartridge's own looks is left out -- the built-in
-    look wins there, as in looks.resolve_look."""
+    look wins there, as in looks.resolve_look. Cycle 102: so is an import
+    that waits for "Add to Library" on its job page (library.json
+    `library: "pending"`)."""
     out = []
     for slug in looks.imported_looks(cartridge, tenant):
         if slug == DEFAULT_LOOK_DIR or looks.canonical(cartridge, slug) in looks.cartridge_looks(cartridge):
             continue
+        if looks.pending_review(cartridge, slug, tenant):
+            continue
         fs, style = IMPORTED_LISTICLE if cartridge == "listicle" else (None, None)
         out.append(Version(cartridge, slug, fs, style, tenant_look=True))
     return out
+
+
+def source_thumb(tenant, cartridge, slug):
+    """Cycle 102: the path of an imported look's source thumbnail (the first
+    phone screen of the page it was modelled on), or None."""
+    from .look_vision import SOURCE_THUMB
+
+    folder = looks.imported_looks_dir(cartridge, tenant)
+    path = folder / slug / SOURCE_THUMB if folder is not None else None
+    return path if path is not None and path.is_file() else None
 
 
 def versions(tenant):
@@ -474,7 +488,11 @@ def structures(tenant):
             notes = info["notes"] if version.tenant_look else LOOK_NOTES.get((version.cartridge, version.look), "")
             found[look_key] = {"cartridge": version.cartridge, "look": version.look, "key": look_key,
                                "title": title, "summary": notes or info["purpose"], "purpose": info["purpose"],
-                               "origin": origin(tenant, version), "variants": []}
+                               "origin": origin(tenant, version), "variants": [],
+                               # cycle 102: what an imported look was modelled on
+                               "imported_from": info.get("imported_from"),
+                               "source_thumb": bool(version.tenant_look
+                                                    and source_thumb(tenant, version.cartridge, version.look))}
         entry = _entry(tenant, version)
         state, why = _variant_state(entry)
         entry.update(label=variant_label(tenant, version), state=state, why=why)

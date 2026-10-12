@@ -212,11 +212,11 @@ def test_a_valid_template_is_stored_as_a_tenant_look_that_resolves_and_renders(t
         json.loads((folder / "observation.json").read_text()))
     assert library["derived_from_sections"] == ["hero", "benefits", "proof", "faq", "cta"]
     assert library["summary"].count(". ") == 1
-    # 12k in + 7k out on claude-sonnet-5 ($2 / $10 per M)
-    assert library["cost_usd"] == pytest.approx(0.094)
+    # 12k in + 7k out on claude-opus-5-5 ($4 / $20 per M; cycle 102: the import's model)
+    assert library["cost_usd"] == pytest.approx(0.188)
     # the one call: the observation and the rules went in, no copy of the page did
     call = client.messages.calls[0]
-    assert call["model"] == TENANT.model_for("write")
+    assert call["model"] == "claude-opus-5-5"
     assert "Build observation" in call["messages"][0]["content"] and "Boxless rules" in call["system"]
     assert "`headline_html`" in call["system"] and "{{CONTRACT}}" not in call["system"]
     for word in SOURCE_WORDS:
@@ -318,13 +318,14 @@ def test_each_rule_is_enforced(change, needle):
 
 
 def test_an_invalid_template_is_repaired_then_refused_and_nothing_is_stored():
-    client = _client(BAD_TEMPLATE, BAD_TEMPLATE, BAD_TEMPLATE)
+    client = _client(BAD_TEMPLATE, BAD_TEMPLATE)
     with pytest.raises(look_import.LookImportError) as info:
         _import(client=client)
     message = look_import.format_errors(info.value)
-    assert "after 2 repair(s)" in message and "nothing was stored" in message
+    # cycle 102: a draft and one revise round
+    assert "after 1 revise round(s)" in message and "nothing was stored" in message
     assert "'tagline' is not in the landing page schema" in message and "colour literal" in message
-    assert len(client.messages.calls) == 3
+    assert len(client.messages.calls) == 2
     repair = client.messages.calls[1]["messages"]
     assert repair[1] == {"role": "assistant", "content": BAD_TEMPLATE.strip() + "\n"}
     assert "The harness refused this template" in repair[2]["content"] and "tagline" in repair[2]["content"]
@@ -475,7 +476,7 @@ def test_the_job_imports_the_page_reports_progress_and_links_the_reference(clien
     assert pending.exists()
     done = jobs.run_one(TENANT, log=lambda *_: None)
     assert done["state"] == "done", done["reason"]
-    assert seen == ["reading", "observing", "converting", "validating", "storing"]
+    assert seen == ["reading", "observing", "drafting", "validating", "storing"]
     assert not pending.exists()
     assert done["result"]["slug"] == "split-hero" and done["result"]["validation"] == "PASS on attempt 1"
     page = client.get(f"/job/{done['id']}", headers=_auth()).get_data(as_text=True)
@@ -505,9 +506,9 @@ def test_the_job_page_shows_the_running_step(client):
                                                   "cartridge": "landing", "by": REVIEWER}, by=REVIEWER,
                           target="look:landing/x-look")
     jobs.claim_next(TENANT)
-    jobs.set_progress(TENANT, job_id, "converting")
+    jobs.set_progress(TENANT, job_id, "drafting")
     page = client.get(f"/job/{job_id}", headers=_auth()).get_data(as_text=True)
-    assert "Step: <b>converting</b>" in page and "(3 of 6)" in page
+    assert "Step: <b>drafting</b>" in page and "(4 of 7)" in page
 
 
 # ---------------------------------------------------------------------------

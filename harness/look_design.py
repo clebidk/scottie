@@ -60,7 +60,8 @@ MAX_OBSERVATION_BYTES = 12 * 1024
 MAX_CSS_CHARS = 8 * 1024
 SKELETON_NODES = (40, 28, 20, 12, 6, 0)
 SKELETON_DEPTH = 4
-FIDELITY_THRESHOLD = 0.7
+# Cycle 102: was 0.7; below this the import runs its one revise round.
+FIDELITY_THRESHOLD = 0.75
 INHERITED = ("color", "font-family", "font-size", "font-weight", "text-transform", "letter-spacing")
 _SKEL_SKIP = frozenset({"script", "style", "br", "wbr", "source", "path", "meta", "link", "title", "template"})
 _STATE_RE = re.compile(r":(?:hover|focus|focus-visible|focus-within|active|visited|checked|disabled|enabled|"
@@ -1073,12 +1074,29 @@ def _pack_observation(origin, tenant):
     return li.observe(src, tenant=tenant)
 
 
+_MARKER_RE = re.compile(r'data-look-pattern="([^"]+)"')
+
+
+def _is_hand_converted(source):
+    """Cycle 102: a tenant look a person converted by hand (library.json
+    source.converted.by "hand", the cycle 98b listicle looks)."""
+    converted = source.get("converted")
+    return isinstance(converted, dict) and converted.get("by") == "hand"
+
+
 def exemplars(tenant, cartridge):
     """Hand-made looks to show the model: [{slug, origin, observation,
-    template}]. From the tenant's looks whose library.json says
-    source.kind "pack" (observation.json beside it, else the pack page in
-    the pack folder, pack_dir), then <pack folder>/looks/<cartridge>/<slug>/
-    (template.html + library.json naming its page in the pack folder)."""
+    template, kind, summary}]. From the tenant's looks whose library.json
+    says source.kind "pack" (observation.json beside it, else the pack page
+    in the pack folder, pack_dir) or (cycle 102) records a hand conversion,
+    then <pack folder>/looks/<cartridge>/<slug>/ (template.html +
+    library.json naming its page in the pack folder).
+
+    A hand-converted look (kind "hand") was made by a person looking at the
+    page; its stored observation is the HTML observer's and was wrong where
+    it mattered (docs/FIXLOG.md cycle 102), so its patterns are the ones its
+    template marks (data-look-pattern) and the prompt shows its summary --
+    what was kept and dropped -- instead of that observation."""
     out, seen = [], set()
     folders = []
     if tenant is not None:
@@ -1097,15 +1115,25 @@ def exemplars(tenant, cartridge):
         except (OSError, ValueError):
             continue
         source = lib.get("source") if isinstance(lib.get("source"), dict) else {}
-        if source.get("kind") != "pack":
+        hand = _is_hand_converted(source)
+        if source.get("kind") != "pack" and not hand:
             continue
+        template = (folder / "template.html").read_text()
         observation = None
         if (folder / "observation.json").is_file():
             try:
                 observation = json.loads((folder / "observation.json").read_text())
             except ValueError:
                 observation = None
-        if not observation or observation.get("version", 1) < 2:
+        if hand:
+            marked = []
+            for names in _MARKER_RE.findall(template):
+                marked += [n for n in names.split() if n in PATTERNS and n not in marked]
+            observation = dict(observation or {})
+            observation.setdefault("sections", [])
+            observation["patterns"] = [{"name": n, "section": None, "evidence": "marked in the hand-made template"}
+                                       for n in marked]
+        elif not observation or observation.get("version", 1) < 2:
             try:
                 observation = _pack_observation(source.get("origin"), tenant)
             except li.LookImportError:
@@ -1114,7 +1142,8 @@ def exemplars(tenant, cartridge):
             continue
         seen.add(slug)
         out.append({"slug": slug, "origin": source.get("origin"), "observation": observation,
-                    "template": (folder / "template.html").read_text()})
+                    "template": template, "kind": "hand" if hand else "pack",
+                    "summary": str(lib.get("summary") or "").strip()})
     return out
 
 

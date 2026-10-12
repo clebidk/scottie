@@ -1,4 +1,4 @@
-# Look-authoring rules (cycle 87, "Import a page"; cycle 90, import fidelity)
+# Look-authoring rules (cycle 87, "Import a page"; cycle 90, import fidelity; cycle 102, screenshots)
 
 You write ONE file: the `template.html` of a new LOOK for a harness cartridge.
 A look is a LAYOUT. It never carries copy, prices, claims, images or links of
@@ -19,9 +19,10 @@ does not contain them) and never a colour or font literal: every value is a
 token.
 
 The harness validates your template before anything is stored. A template
-that breaks any rule below is sent back with the errors (two repairs at
-most), then refused. A valid template whose fidelity score is below 0.7 is
-sent back too, with the patterns it misses.
+that breaks any rule below is sent back with the errors (cycle 102: ONE
+revise round), then refused. A valid template whose fidelity score is below
+0.75 is sent back too, with the patterns it misses and, when the harness
+could screenshot it, your render at 390 px beside the source.
 
 ## Output
 
@@ -175,8 +176,9 @@ reference look below still has a colour literal, it is legacy: write a token
   byline link. Anything else is refused as a second CTA.
 - No literal `href`/`src` value, no other URL, no `<button>`,
   `<form>`, `<input>`, `<iframe>`, `<link>`; an `<img>` only for a renderer
-  value (the listicle byline avatar), every other image through
-  `render_image_slot`.
+  value (the listicle byline avatar, `<img class="adv-brand-logo"
+  src="{{ first_screen.byline.avatar_url }}" ...>` -- that class, cycle 102),
+  every other image through `render_image_slot`.
 
 ## Copy
 
@@ -208,8 +210,8 @@ pricing table) maps to the closest block or is left out.
 After validation the harness renders the demo page in your look and scores
 its FIDELITY to the observation (0-1): half of it is the share of the
 observed patterns your page realises, the rest the section order, the
-section count and the dark/light band order. Below 0.7 the template comes
-back with the missing patterns named.
+section count and the dark/light band order. Below 0.75 (cycle 102; was
+0.7) the template comes back with the missing patterns named.
 
 Mark the element that realises each observed pattern with
 `data-look-pattern="<name>"` (several names on one element are separated by
@@ -240,8 +242,9 @@ the renderer data that fill them:
 - `hotspots`: short labels placed over the hero/product image with
   `position:absolute` and percentage offsets, filled from
   `cartridge_data.specs` labels/values.
-- `sticky-bar`: the reference's fixed bottom bar: the model name with the price beneath it, and the CTA (on
-  the landing page it reads exactly `Shop now`, cycle 97).
+- `sticky-bar`: the reference's fixed bottom bar: the model name with the price beneath it, and the CTA,
+  which reads exactly `Shop now` (cycle 97 on the landing page; cycle 102 also on the listicle, class
+  `ld-bar op-bar`).
 - `check-rows`: rows with a check mark (an inline SVG in `currentColor`)
   from `page.checked_claims` or `cartridge_data.trust`.
 - `icon-row`: a row of small inline SVG icons (currentColor) with short
@@ -257,3 +260,36 @@ the renderer data that fill them:
 - `faq-accordion`: the FAQ as question/answer rows from `page.faq` (open
   by default, no `<details>` script needed; `<details>`/`<summary>` are
   allowed).
+
+## Screenshots: convert it like a person would (cycle 102)
+
+The source may come as SCREENSHOTS (uploaded, or taken from the URL at 390
+and 1280 px), and the observation then says `observed_from: images` or
+`images+html`. Its sections are what a reader sees, top to bottom: each
+with its role, ground (`style.bg`), layout, images, buttons and patterns,
+plus `global.palette` (each colour role with the tenant token for it),
+`global.type_scale`, `global.photo_cadence`, `global.cta_cadence` and
+`global.special`. With HTML too, the exact CSS values (headline size,
+width, padding, radius) and font names come from the page's CSS.
+
+The four hand conversions that matched their sources (the cycle 98b
+listicle looks) did these things; do them too:
+
+- Walk the source top to bottom and map every section onto renderer data
+  (the contract above). Keep the source's section ORDER, its PHOTO CADENCE
+  (one photo per item, every other item, full width or inset) and its CTA
+  CADENCE (a button band after items 3 and 6, the sticky bar, the closing
+  band).
+- Drop what has no tenant data -- an offer or discount, a countdown, a
+  bundle picker, a supplement panel, a doctor or press quote the tenant does not
+  have -- never invent it. Name what you kept and dropped in the
+  `{# look-notes: Kept: ... Dropped: ... #}` comment right after the first
+  line (at most 120 words, layout words only); it becomes the Library
+  summary.
+- Reproduce the composition in tokens: the grounds band by band, the type
+  scale (size, case, weight, an accent phrase in `--pk-red` or Epika
+  italic), numerals, grids, image treatments.
+- Never copy a word, name, price, offer or claim you read in a screenshot.
+  Every word comes from page.json and the renderer context, which the
+  claims gates and the brand lint check; your own labels stay short and
+  generic (the Copy rules above).

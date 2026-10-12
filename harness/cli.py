@@ -170,12 +170,15 @@ def cmd_tenant_list(args):
 
 def cmd_look_import(args):
     """`harness look import --tenant <t> --cartridge landing (--file F | --url U
-    | --html -) --name <slug> [--title T] [--exemplar SLUG] [--dry-run]` -- cycle 87, the CLI
-    mirror of the site's "Import a page" (harness/look_import.py). A dry run
-    prints the build observation and makes no model call."""
+    | --html - | --image IMG [--image IMG ...]) --name <slug> [--title T] [--exemplar SLUG] [--dry-run]` --
+    cycle 87, the CLI mirror of the site's "Import a page" (harness/look_import.py; cycle 102: screenshots,
+    harness/look_vision.py). A dry run prints the build observation (or, for images, the sheets the model
+    would see) and makes no model call."""
     tenant = tenant_mod.load_tenant(args.tenant)
     tenant_mod.activate(tenant)
-    if args.file:
+    if args.image:
+        source = {"kind": "images", "paths": [Path(p) for p in args.image]}
+    elif args.file:
         path = Path(args.file)
         try:
             data = path.read_bytes()
@@ -207,13 +210,21 @@ def cmd_look_import(args):
         if log:
             log.close()
     if args.dry_run:
-        print(json.dumps(result["observation"], indent=2))
-        print(f"\n{result['summary']}\n\nDesign brief: {result['brief']}\nExemplar: {result['exemplar'] or 'none'}"
-              "\n(--dry-run: observation only; no model call, nothing written)", file=sys.stderr)
+        if result["observation"] is not None:
+            print(json.dumps(result["observation"], indent=2))
+            print(f"\n{result['summary']}\n\nDesign brief: {result['brief']}\nExemplar: "
+                  f"{result['exemplar'] or 'none'}", file=sys.stderr)
+        if result["images"]:
+            if result["observation"] is None:
+                print(json.dumps(result["images"], indent=2))
+            print(f"{len(result['images'])} image(s) would go to the vision observation: "
+                  + "; ".join(f"{s['file']} {s['width']}x{s['height']}" for s in result["images"]), file=sys.stderr)
+        print("(--dry-run: observation only; no model call, nothing written)", file=sys.stderr)
         return exits.OK
     print(f"imported {args.cartridge} look {result['slug']!r} ({result['title']}): validation PASS on attempt "
           f"{result['attempts']}, model cost ${result['cost_usd']:.4f}")
     print(f"  {result['summary']}")
+    print(f"  observed from: {result['observed_from']}")
     print(f"  design brief: {result['brief']}")
     print(f"  fidelity {result['fidelity']:.2f}"
           + (f"; missing patterns: {', '.join(result['missing_patterns'])}" if result["missing_patterns"] else "")
@@ -2477,12 +2488,18 @@ def build_parser():
     p_look = sub.add_parser("look", help="looks learned from other pages (cycle 87)")
     look_sub = p_look.add_subparsers(dest="look_command", required=True)
     p_look_import = look_sub.add_parser(
-        "import", help="learn a page's layout and store it as a tenant look (one model call; --dry-run: none)")
+        "import", help="learn a page's layout and store it as a tenant look (a vision call when there are "
+                       "screenshots, a draft and at most one revise; --dry-run: none)")
     p_look_import.add_argument("--cartridge", choices=list(look_import.CARTRIDGES), default="landing")
     source = p_look_import.add_mutually_exclusive_group(required=True)
     source.add_argument("--file", help="a saved .html page")
-    source.add_argument("--url", help="a page URL (http/https, public host, HTML, at most 2 MB)")
+    source.add_argument("--url", help="a page URL (http/https, public host, HTML); screenshotted at 390 and 1280 "
+                                      "when a headless browser is here; over 2 MB it is imported from the "
+                                      "screenshots alone")
     source.add_argument("--html", help="the page's HTML; '-' reads it from stdin")
+    source.add_argument("--image", action="append", metavar="FILE",
+                        help="a screenshot of the page (png, jpg, webp, heic); repeat for several, at most 10 "
+                             "(cycle 102)")
     p_look_import.add_argument("--name", required=True, help="the look's name (slug): letters, digits, hyphens")
     p_look_import.add_argument("--title", help="a display title for the Library (default: from the name)")
     p_look_import.add_argument("--exemplar", help="the hand-made look (slug) to show the model instead of the "

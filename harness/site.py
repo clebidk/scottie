@@ -19,6 +19,10 @@ harness/site_ui.py. Pages:
                              (harness/look_import.py); the form is also a
                              dialog on the Ads page
   /looks/<c>/<slug>/review   an imported look's reference render
+  /looks/<c>/<slug>/add|discard  cycle 102: the import job's "Add to Library"
+                             (a Library build job) or "Discard"
+  /looks/<c>/<slug>/source.jpg|render.png  its source thumbnail and its
+                             render at 390
   /photos                    cycle 96: the photo library -- coverage, add
                              photos (photos_import job), curate each photo
                              (harness/site_photos.py)
@@ -48,6 +52,7 @@ from . import abevents, abtest, ads as ads_mod, budget, jobs, library, meta_inge
 from . import design_gate as design_gate_mod
 from . import heroes
 from . import look_import as look_import_mod
+from . import look_vision as look_vision_mod
 from . import looks as looks_mod
 from . import serve as _serve
 from . import upload as upload_mod
@@ -58,6 +63,8 @@ ENDPOINTS = (
     "gen_post_live", "gen_update_live", "gen_unpublish", "ad_frame", "site_favicon", "site_static", "site_manifest",
     "library_home", "library_review", "library_thumb", "library_rebuild",
     "look_import", "look_review",
+    # cycle 102: the import's result card and the Library chip
+    "look_source", "look_render", "look_add", "look_discard",
     # cycle 92: the design gate's shots
     "design_shot",
     # cycle 96: the Photos page (harness/site_photos.py)
@@ -65,7 +72,7 @@ ENDPOINTS = (
 )
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
                             "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import",
-                            "photos_upload", "photo_edit", "photos_pull_drive"})
+                            "photos_upload", "photo_edit", "photos_pull_drive", "look_add", "look_discard"})
 
 ADS_PER_PAGE = 20
 MAX_FEEDBACK_CHARS = 2000
@@ -78,7 +85,9 @@ MAX_REQUEST_BYTES = 520 * 1024 * 1024
 # at most look_import.MAX_SOURCE_BYTES (a file and a paste are both refused
 # above it), plus room for the form's other fields.
 LOOK_IMPORTS_PER_WINDOW = UPLOADS_PER_WINDOW
-LOOK_IMPORT_MAX_REQUEST_BYTES = look_import_mod.MAX_SOURCE_BYTES + 256 * 1024
+# Cycle 102: or up to ten screenshots of 15 MB (harness/look_vision.py).
+LOOK_IMPORT_MAX_REQUEST_BYTES = (look_vision_mod.MAX_FILES * look_vision_mod.MAX_FILE_BYTES
+                                 + look_import_mod.MAX_SOURCE_BYTES + 256 * 1024)
 
 _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
 LIVE_JOB_TYPES = ("post_live", "update_live", "unpublish_live")
@@ -1152,8 +1161,8 @@ def _look_import_form(*, dialog_id=None, error=None, values=None):
         for c, label in (("landing", "Landing page"), ("listicle", "Listicle")))
     form = (
         f'<form method="post" enctype="multipart/form-data" action="{url_for("look_import")}">{_csrf_field()}'
-        f'<div class="dlg-h"><div><h2 id="{key}-t">Import a page</h2><p>Learn how a page is built and add its '
-        "layout as a new look, in our own design.</p></div>"
+        f'<div class="dlg-h"><div><h2 id="{key}-t">Import a page</h2><p>Drop screenshots of any landing page or '
+        "listicle, or paste its URL: you get a version of the same structure in our design, to add to the Library.</p></div>"
         + (f'<button type="button" class="iconbtn" data-close aria-label="Close">{icon("x")}</button>' if dialog_id
            else "")
         + '</div><div class="dlg-b">' + (f'<div class="error">{e(error)}</div>' if error else "")
@@ -1161,7 +1170,14 @@ def _look_import_form(*, dialog_id=None, error=None, values=None):
         f'<input type="text" id="{key}-name" name="name" required maxlength="{look_import_mod.MAX_TITLE_CHARS}" '
         f'value="{e(values.get("name") or "")}" placeholder="e.g. Split hero" autocomplete="off">'
         f'<label for="{key}-c">Page type</label><select id="{key}-c" name="cartridge">{options}</select>'
-        f'<label for="{key}-url">Page URL</label>'
+        f'<label for="{key}-img">Screenshots</label>'
+        f'<div class="drop">{icon("upload")}<div><b>Choose screenshots</b> or drop them here</div>'
+        f'<div class="small">png, jpg, webp, heic &middot; up to {look_vision_mod.MAX_FILES}, '
+        f'{look_vision_mod.MAX_FILE_BYTES // look_vision_mod.MB} MB each, top of the page first</div>'
+        '<div class="file"></div>'
+        f'<input type="file" id="{key}-img" name="images" multiple aria-label="Screenshots" '
+        'accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.png,.jpg,.jpeg,.webp,.heic,.heif"></div>'
+        f'<label for="{key}-url">or the page URL</label>'
         f'<input type="text" id="{key}-url" name="url" maxlength="{look_import_mod.MAX_URL_CHARS}" '
         f'value="{e(values.get("url") or "")}" placeholder="https://..." autocomplete="off" spellcheck="false">'
         f'<label for="{key}-file">or an .html file</label>'
@@ -1172,9 +1188,11 @@ def _look_import_form(*, dialog_id=None, error=None, values=None):
         f'<label for="{key}-ex">Exemplar look (optional)</label>'
         f'<input type="text" id="{key}-ex" name="exemplar" maxlength="40" value="{e(values.get("exemplar") or "")}" '
         'placeholder="a hand-made look name; empty = the closest" autocomplete="off" spellcheck="false">'
-        '<p class="hint">Use one of the three, up to 2 MB. Only the layout and the design are learned: the '
-        "page&rsquo;s words, images, brand names and scripts are never kept. Up to three model calls; the look "
-        "is checked against our rules, rendered with a demo page and scored for fidelity. A failed import keeps "
+        '<p class="hint">Use one of the four. A URL is also screenshotted on a phone and a desktop. Only the '
+        "layout and the design are learned: the page&rsquo;s words, prices, brand names and scripts never reach "
+        "the look. Claude Opus looks at the screenshots, drafts the look with the closest hand-made look as its "
+        "model, and revises it once if our rules or the fidelity score ask for it (about $1 an import). You see "
+        "the source beside our render, then add it to the Library or discard it. A failed import keeps "
         "nothing.</p>"
         '</div><div class="dlg-f">'
         + ('<button type="button" class="btn ghost" data-close>Cancel</button>' if dialog_id else
@@ -1227,6 +1245,7 @@ def _job_result_html(tenant, job):
             obs = result.get("observation") or {}
             parts.append(f'<p><b>{e(result.get("title") or "")}</b> <span class="muted">{e(result["cartridge"])} look '
                          f'<code>{e(result["slug"])}</code></span></p>')
+            parts.append(_import_result_card(tenant, job, result))
             parts.append(f'<p>{e(result.get("summary") or "")}</p>')
             parts.append('<p class="small muted">Sections: ' + e(" > ".join(result.get("sections") or []))
                          + f' &middot; {int(obs.get("words") or 0)} words, {int(obs.get("images") or 0)} images, '
@@ -1278,6 +1297,56 @@ def _job_result_html(tenant, job):
         if result.get("new_version"):
             parts.append(f"<p>New version: {int(result['new_version'])}</p>")
     return "".join(parts)
+
+
+IMPORT_STATE_TEXT = {
+    "added": "Added to the Library.",
+    "discarded": "Discarded: it was not added to the Library.",
+    "stored": "In the Library.",
+}
+
+
+def _import_result_card(tenant, job, result):
+    """Cycle 102: the import's result -- the source's first phone screen
+    beside the look's render at 390, the fidelity, what the observation came
+    from, and "Add to Library" / "Discard" while the look is pending."""
+    cartridge, slug = result["cartridge"], result["slug"]
+    state = look_import_mod.import_state(tenant, cartridge, slug)
+    figures = []
+    if result.get("source_thumb") and state != "discarded":
+        figures.append(f'<figure><img src="{url_for("look_source", cartridge=cartridge, slug=slug)}" '
+                       'alt="The source page, first phone screen"><figcaption>Source</figcaption></figure>')
+    if result.get("render_shot") and state != "discarded":
+        figures.append(f'<figure><img src="{url_for("look_render", cartridge=cartridge, slug=slug)}" '
+                       'alt="Our render at 390 px"><figcaption>Our render, 390 px</figcaption></figure>')
+    html_ = f'<div class="li-compare">{"".join(figures)}</div>' if figures else ""
+    observed = {"images": "the screenshots", "images+html": "the screenshots and the HTML",
+                "html": "the HTML"}.get(result.get("observed_from") or "html", "the HTML")
+    html_ += f'<p class="small muted li-observed">Observed from {e(observed)}.</p>'
+    if state == "pending":
+        job_field = f'<input type="hidden" name="job" value="{int(job["id"])}">'
+        html_ += (
+            '<div class="li-actions">'
+            f'<form method="post" action="{url_for("look_add", cartridge=cartridge, slug=slug)}">{_csrf_field()}'
+            f'{job_field}<button class="btn" type="submit">{icon("layers")}Add to Library</button></form>'
+            f'<form method="post" action="{url_for("look_discard", cartridge=cartridge, slug=slug)}">'
+            f'{_csrf_field()}{job_field}<button class="btn ghost" type="submit">{icon("x")}Discard</button></form>'
+            "</div>")
+    else:
+        text = IMPORT_STATE_TEXT[state]
+        link = (f' <a href="{url_for("library_home")}#lib-{e(cartridge)}-{e(slug)}">Open the Library</a>'
+                if state in ("added", "stored") else "")
+        html_ += f'<p class="li-state">{e(text)}{link}</p>'
+    return html_
+
+
+def _import_steps(current):
+    """Cycle 102: the import's steps as a row, the current one marked."""
+    steps = look_import_mod.PROGRESS_STEPS
+    at = steps.index(current) if current in steps else -1
+    return '<ol class="li-steps">' + "".join(
+        f'<li class="{"done" if i < at else "now" if i == at else ""}">{e(s.capitalize())}</li>'
+        for i, s in enumerate(steps)) + "</ol>"
 
 
 def _target_link(target):
@@ -1392,6 +1461,19 @@ def _lib_off(group):
             f'{e(name)}: {e(item["why"].split(":")[0])}</span>')
 
 
+def _lib_source_chip(structure):
+    """Cycle 102: an imported look's source -- a chip with its thumbnail,
+    the first phone screen of the page it was modelled on, bigger on hover."""
+    if not structure.get("source_thumb"):
+        return ""
+    src = url_for("look_source", cartridge=structure["cartridge"], slug=structure["look"])
+    origin = structure.get("imported_from") or "a screenshot"
+    return (f'<a class="chip lib-source" href="{src}" target="_blank" rel="noopener" '
+            f'title="Modelled on {e(origin)}"><img src="{src}" alt="" loading="lazy">Modelled on {e(origin)}'
+            f'<span class="lib-source-pop"><img src="{src}" alt="The source page, first phone screen" '
+            'loading="lazy"></span></a>')
+
+
 def _lib_card(structure):
     """Cycle 99: one card per structure (a cartridge x look). Its first
     screens (and listicle styles) are variants inside the card."""
@@ -1412,7 +1494,8 @@ def _lib_card(structure):
         shot = f'<div class="shot lib-shot">{screen}</div>'
     chips = [chip(LIB_ORIGIN_LABELS.get(structure["origin"], structure["origin"]),
                   "solid" if structure["origin"] != "shipped" else ""),
-             chip(f'{structure["look"]} look') if structure.get("look") else ""]
+             chip(f'{structure["look"]} look') if structure.get("look") else "",
+             _lib_source_chip(structure)]
     words = item.get("word_range")
     design_fact = ""
     if structure["design"]:   # cycle 92 scores; cycle 99: the best among the variants
@@ -1881,7 +1964,9 @@ def register(app, tenant):
         values = {k: request.form.get(k) or "" for k in ("name", "cartridge", "url", "html", "exemplar")}
         if (request.content_length or 0) > LOOK_IMPORT_MAX_REQUEST_BYTES:
             return _look_import_page(values={**values, "html": ""}, status=413,
-                                     error=f"The page is larger than {look_import_mod.MAX_SOURCE_BYTES // 1024} KB.")
+                                     error=f"The upload is too large: at most {look_vision_mod.MAX_FILES} "
+                                           f"screenshots of {look_vision_mod.MAX_FILE_BYTES // look_vision_mod.MB} "
+                                           f"MB, or a page of {look_import_mod.MAX_SOURCE_BYTES // 1024} KB.")
         if not look_import_limiter.allow(email.lower()):
             return _look_import_page(values=values, status=429,
                                      error=f"More than {LOOK_IMPORTS_PER_WINDOW} imports in "
@@ -1893,17 +1978,19 @@ def register(app, tenant):
                                      error="An import with this name is already waiting or running.")
         upload = request.files.get("page_file")
         file_bytes = upload.stream.read(look_import_mod.MAX_SOURCE_BYTES + 1) if upload and upload.filename else None
+        images = [(f.stream, f.filename) for f in request.files.getlist("images") if f and f.filename]
         try:
             payload = look_import_mod.queue_payload(
                 tenant, name=values["name"], cartridge=cartridge, title=values["name"], url=values["url"],
                 html_text=values["html"], file_bytes=file_bytes, filename=upload.filename if upload else None,
-                by=email, exemplar=values["exemplar"])
+                by=email, exemplar=values["exemplar"], images=images)
         except look_import_mod.LookImportError as exc:
             return _look_import_page(values=values, error=str(exc), status=400)
         job_id = jobs.enqueue(tenant, "look_import", payload, by=email, target=target)
+        source = (payload.get("url") or payload.get("filename")
+                  or (f"{len(payload['files'])} screenshot(s)" if payload.get("files") else "pasted HTML"))
         jobs.audit(tenant, by=email, action="look_import", target=target,
-                   detail={"kind": payload["kind"], "source": payload.get("url") or payload.get("filename")
-                           or "pasted HTML", "job_id": job_id})
+                   detail={"kind": payload["kind"], "source": source, "job_id": job_id})
         return redirect(url_for("job_detail", job_id=job_id), code=303)
 
     @app.route("/looks/<cartridge>/<slug>/review")
@@ -1914,6 +2001,64 @@ def register(app, tenant):
         if not path.is_file():
             abort(404)
         return send_file(path, mimetype="text/html")
+
+    def _look_file(cartridge, slug, name, mimetype):
+        if cartridge not in look_import_mod.CARTRIDGES or not looks_mod.LOOK_SLUG_RE.match(slug):
+            abort(404)
+        path = look_import_mod.look_folder(tenant, cartridge, slug) / name
+        if not path.is_file():
+            abort(404)
+        resp = send_file(path, mimetype=mimetype)
+        resp.headers["Cache-Control"] = "max-age=300"
+        return resp
+
+    @app.route("/looks/<cartridge>/<slug>/source.jpg")
+    def look_source(cartridge, slug):
+        """Cycle 102: the first phone screen of the page a look was modelled on."""
+        return _look_file(cartridge, slug, look_vision_mod.SOURCE_THUMB, "image/jpeg")
+
+    @app.route("/looks/<cartridge>/<slug>/render.png")
+    def look_render(cartridge, slug):
+        """Cycle 102: the look's render of the demo page at 390."""
+        return _look_file(cartridge, slug, look_vision_mod.RENDER_SHOT, "image/png")
+
+    def _back_to_job():
+        job_id = request.form.get("job") or ""
+        return redirect(url_for("job_detail", job_id=int(job_id)) if job_id.isdigit() else url_for("look_import"),
+                        code=303)
+
+    @app.route("/looks/<cartridge>/<slug>/add", methods=["POST"])
+    def look_add(cartridge, slug):
+        """Cycle 102: "Add to Library" -- the look leaves its pending state and
+        the Library build (the existing path) renders it."""
+        if cartridge not in look_import_mod.CARTRIDGES or not looks_mod.LOOK_SLUG_RE.match(slug):
+            abort(404)
+        email = g.reviewer_email
+        try:
+            look_import_mod.add_to_library(tenant, cartridge, slug, by=email)
+        except look_import_mod.LookImportError:
+            return _back_to_job()
+        # a queued build will see the look; a running one may have listed the looks already
+        job = jobs.active_job(tenant, job_type="library_build", target=library.JOB_TARGET)
+        job_id = job["id"] if job and job["state"] == "queued" else jobs.enqueue(
+            tenant, "library_build", {"by": email, "only": [cartridge]}, by=email, target=library.JOB_TARGET)
+        jobs.audit(tenant, by=email, action="look_add", target=f"look:{cartridge}/{slug}",
+                   detail={"library_job": job_id})
+        return redirect(url_for("job_detail", job_id=job_id), code=303)
+
+    @app.route("/looks/<cartridge>/<slug>/discard", methods=["POST"])
+    def look_discard(cartridge, slug):
+        """Cycle 102: "Discard" -- the pending look is moved out of every listing."""
+        if cartridge not in look_import_mod.CARTRIDGES or not looks_mod.LOOK_SLUG_RE.match(slug):
+            abort(404)
+        email = g.reviewer_email
+        try:
+            moved = look_import_mod.discard(tenant, cartridge, slug)
+        except look_import_mod.LookImportError:
+            return _back_to_job()
+        jobs.audit(tenant, by=email, action="look_discard", target=f"look:{cartridge}/{slug}",
+                   detail={"moved_to": moved.name})
+        return _back_to_job()
 
     # Cycle 96: the Photos page (harness/site_photos.py).
     from . import site_photos
@@ -1965,7 +2110,8 @@ def register(app, tenant):
         if busy and job.get("progress"):
             steps = look_import_mod.PROGRESS_STEPS if job["type"] == "look_import" else ()
             step = job["progress"]
-            wait = (f'<p>Step: <b>{e(step)}</b>'
+            wait = ((_import_steps(step) if job["type"] == "look_import" else "")
+                    + f'<p>Step: <b>{e(step)}</b>'
                     + (f' <span class="muted">({steps.index(step) + 1} of {len(steps)})</span>' if step in steps
                        else "") + "</p>" + wait)
         body = (
