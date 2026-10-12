@@ -229,6 +229,9 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     monkeypatch.setattr(type(TENANT), "library_dir", property(lambda self: base / "library"))
     # Cycle 87: looks imported from other pages (harness/look_import.py).
     monkeypatch.setattr(type(TENANT), "looks_dir", property(lambda self: base / "looks"))
+    # Cycle 103: the tenant's library.hide list is the owner's page choice;
+    # tests see every Library structure unless they set the list themselves.
+    monkeypatch.setitem(TENANT.config, "library", {})
     # Cycle 90: the hand-made exemplar pack (../peak-lp-pack) lives outside
     # the repo and changes; a test that wants exemplars sets its own.
     from harness import look_design

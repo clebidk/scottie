@@ -277,6 +277,11 @@ per folder and "N pruned" in the summary line (also in the job result). With
 `--only` it prunes only those cartridges; a build's scratch folder is never
 touched.
 
+Cycle 103: tenant.yaml `library: {hide: ["<cartridge>:<look>", ...]}` takes
+those structures off the page and out of the build (their folders are pruned
+with the same "pruned" line; an entry that names no structure is reported once
+per build and ignored); a run that pins a hidden look still builds it.
+
 Not renderable offline: the listicle's `face` first screen needs a still from
 the ad, and the demo ad is text, so its five versions show a text card with
 that reason (the "Generate with this" button still works: a real ad with a

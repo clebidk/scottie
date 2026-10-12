@@ -333,3 +333,10 @@ hero: {}
 # "old_logo": false}}}, files next to it. Leave out to use photos only.
 product_cutouts: {}
 #   manifest: brand/cutouts/cutouts.json
+
+# Cycle 103: the review site's Library page (harness/library.py). hide:
+# "<cartridge>:<look>" structures left off the page and out of `harness
+# library build` (their folders are pruned); "default" is the look of a
+# cartridge with no looks. A hidden look still renders when a run pins it.
+library: {}
+#   hide: ["article:default"]
