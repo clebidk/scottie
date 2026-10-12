@@ -16,7 +16,7 @@ import pytest
 
 from harness import abtest, cli, jobs, meta_ingest, postlive, revise, runstate, site
 from harness.publishers.shopify import ShopifyPublisher
-from tests.support import TENANT
+from tests.support import TENANT, tenant_copy
 from tests.test_listicle_site_cycle69 import (  # noqa: F401 -- `client` is a fixture
     OTHER, PNG, REVIEWER, _auth, _built_test, _csrf, _fake_revise, _feedback, _older_run, _upload, client,
 )
@@ -77,12 +77,26 @@ def _post_live(client, run_dir, handle=HANDLE, *, csrf=None):
 # ---------------------------------------------------------------------------
 # 1. the lock still blocks every automatic or indirect path
 # ---------------------------------------------------------------------------
+# Cycle 103b: the owner lifted the lock for the 2026-10-12 launch; these tests
+# run on a copy of the tenant with publish_locked: true, so the locked
+# behaviour stays covered.
 
-def test_peak_is_still_locked():
-    assert TENANT.get("publish_locked") is True
+def _locked(monkeypatch):
+    return tenant_copy(monkeypatch, {"publish_locked": True})
+
+
+def test_the_publisher_follows_the_tenants_lock(monkeypatch):
+    transport, made = _store(monkeypatch)
+    cli._make_publisher(TENANT, export_dir=Path("unused"))
+    locked = TENANT.get("publish_locked") is True
+    assert isinstance(made[-1], cli.LockedShopifyPublisher) is locked
+    _locked(monkeypatch)
+    cli._make_publisher(TENANT, export_dir=Path("unused"))
+    assert isinstance(made[-1], cli.LockedShopifyPublisher)
 
 
 def test_plain_publish_live_is_still_refused(monkeypatch, capsys):
+    _locked(monkeypatch)
     transport, made = _store(monkeypatch)
     run_dir = _run()
     runstate.approve(run_dir, TENANT, by=REVIEWER, pages=[PAGE])
@@ -131,6 +145,7 @@ def test_cmd_publish_refuses_an_unlinked_publish_with_a_redirect_or_without_a_ha
 
 
 def test_abtest_publish_is_still_locked(monkeypatch, client):
+    _locked(monkeypatch)
     transport, _made = _store(monkeypatch)
     rec = _built_test(monkeypatch)
     assert cli.main(["abtest", "publish", rec["test_id"], "--by", REVIEWER, "--tenant", TENANT.name]) != 0
@@ -142,6 +157,7 @@ def test_auto_publish_is_still_locked(monkeypatch, client):
     from harness import abtest_inbox
     from tests.test_abtest_cycle67 import FakeRunner
 
+    _locked(monkeypatch)
     transport, _made = _store(monkeypatch)
     monkeypatch.setitem(TENANT.config["abtest"], "auto_publish", True)
     monkeypatch.setattr(abtest_inbox, "_auto_publish", lambda tenant: True)
@@ -211,6 +227,7 @@ def test_a_handle_shopify_already_has_fails_the_job_before_anything_is_created(m
 # ---------------------------------------------------------------------------
 
 def test_post_live_job_publishes_at_the_handle_with_no_redirect_and_records_who(monkeypatch, client):
+    _locked(monkeypatch)   # post live is the one way out of the lock: test it with the lock on
     transport, made = _store(monkeypatch)
     run_dir = _run()
     page_url = f"/gen/{run_dir.name}/{PAGE}"

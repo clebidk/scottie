@@ -256,11 +256,14 @@ def test_judge_refusal_and_api_errors_are_judge_errors():
 def test_settings_defaults_env_override_and_bad_values(monkeypatch):
     monkeypatch.delenv("HARNESS_DESIGN_GATE", raising=False)
     cfg = design_gate.settings(TENANT)
-    # PEAK runs the gate in warn mode for the owner grading pass (master ee2bd55, 2026-10-08)
-    assert cfg["mode"] == "warn" and cfg["model"] == "claude-opus-5-5" and cfg["variants"] == 3
-    assert cfg["min_score"] == 75 and cfg["max_usd_per_page"] == 1.0
-    monkeypatch.setenv("HARNESS_DESIGN_GATE", "enforce")
-    assert design_gate.settings(TENANT)["mode"] == "enforce"
+    # cycle 103b: the tenant's own values (2026-10-12 launch: enforce at 65)
+    configured = TENANT.get("design_gate")
+    assert cfg["mode"] == configured["mode"] and cfg["model"] == configured["model"]
+    assert cfg["variants"] == configured["variants"] and cfg["min_score"] == float(configured["min_score"])
+    assert cfg["max_usd_per_page"] == float(configured["max_usd_per_page"])
+    other = "warn" if configured["mode"] != "warn" else "enforce"
+    monkeypatch.setenv("HARNESS_DESIGN_GATE", other)
+    assert design_gate.settings(TENANT)["mode"] == other
     monkeypatch.setenv("HARNESS_DESIGN_GATE", "loud")
     with pytest.raises(design_gate.DesignGateError):
         design_gate.settings(TENANT)

@@ -48,9 +48,12 @@ def test_hidden_draft_still_goes_through(creds, monkeypatch):
     assert seen["u"] is True
 
 
-def test_peak_tenant_is_locked_and_auto_publish_is_off():
+def test_peak_tenant_gets_the_publisher_its_tenant_yaml_names(creds, tmp_path):
+    # cycle 103b: the owner lifted the lock for the 2026-10-12 launch; the factory follows tenant.yaml
     import yaml
     from pathlib import Path
+    from tests.support import TENANT
     cfg = yaml.safe_load(Path("tenants/peak-saunas/tenant.yaml").read_text())
-    assert cfg["publish_locked"] is True
-    assert cfg["abtest"]["auto_publish"] is False
+    assert isinstance(cfg["publish_locked"], bool) and isinstance(cfg["abtest"]["auto_publish"], bool)
+    p = cli._make_publisher(TENANT, export_dir=tmp_path)
+    assert type(p) is (cli.LockedShopifyPublisher if cfg["publish_locked"] else ShopifyPublisher)
