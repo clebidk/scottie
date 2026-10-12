@@ -387,7 +387,7 @@ notifications:
 # 2026-10-05 (owner decision, "training wheels"): ads may be pulled and pages
 # built for review, but no generated page goes live on the store until the
 # owner lifts this. Enforced in harness/cli.py LockedShopifyPublisher.
-publish_locked: true
+publish_locked: false  # lifted 2026-10-12 for the 3pm launch (owner autonomy)
 
 meta:
   ad_account_id: act_963439094733982
