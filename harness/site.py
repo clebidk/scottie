@@ -1474,24 +1474,48 @@ def _lib_source_chip(structure):
             'loading="lazy"></span></a>')
 
 
+def _lib_toggle_text(variants):
+    """Cycle 105: the card's one variants line: "6 first screens · 5
+    styles" for a look with listicle styles, else "4 variants"."""
+    if any(v.get("style") for v in variants):
+        screens = len({v.get("first_screen") for v in variants})
+        styles = len({v.get("style") for v in variants})
+        return f'{_plural(screens, "first screen")} \u00b7 {_plural(styles, "style")}'
+    return _plural(len(variants), "variant")
+
+
 def _lib_card(structure):
     """Cycle 99: one card per structure (a cartridge x look). Its first
-    screens (and listicle styles) are variants inside the card."""
+    screens (and listicle styles) are variants inside the card. Cycle 105:
+    the card shows one picture (the newest real run's phone screen when
+    `harness library build` cached one, else the default variant's
+    reference render) and one variants line; the variant strip stays
+    hidden until that line or the picture is clicked (site_ui.JS,
+    data-lib-toggle; without script both open the review)."""
     item = structure["default"]
     variants = structure["variants"]
     ready = [v for v in variants if v["state"] == "ready"]
     off = [v for v in variants if v["state"] == "off"]
+    card_id = structure["key"].replace("/", "-")
     review_url = url_for("library_review", key=item["key"]) if item["state"] == "ready" else ""
+    real = structure.get("real")
     thumb = url_for("library_thumb", key=item["key"]) if item["has_thumb"] else ""
+    if real:
+        thumb = url_for("library_real_thumb", key=structure["key"])
     screen = (f'<div class="phone"><div class="screen"><img class="poster lib-poster" '
               + (f'src="{thumb}" ' if thumb else "hidden ")
               + f'alt=""><b class="lib-noshot"{" hidden" if thumb else ""}>'
               f'{e("Not renderable offline" if item["state"] == "off" else _lib_no_thumb_text(item))}</b></div></div>')
+    more = len(variants) > 1 and bool(ready or off)
+    toggle_attrs = f' data-lib-toggle aria-controls="libs-{e(card_id)}"' if more else ""
     if review_url:
         shot = (f'<a class="shot lib-shot" href="{review_url}" target="_blank" rel="noopener" tabindex="-1" '
-                f'aria-hidden="true">{screen}</a>')
+                f'aria-hidden="true"{toggle_attrs}>{screen}</a>')
     else:
-        shot = f'<div class="shot lib-shot">{screen}</div>'
+        shot = f'<div class="shot lib-shot"{toggle_attrs}>{screen}</div>'
+    if real:
+        shot += (f'<p class="small muted lib-from" data-lib-from title="{e(real["run_id"])}">'
+                 f'from a real run \u00b7 {_date(real["at"]) if real.get("at") else e(real["run_id"])}</p>')
     chips = [chip(LIB_ORIGIN_LABELS.get(structure["origin"], structure["origin"]),
                   "solid" if structure["origin"] != "shipped" else ""),
              chip(f'{structure["look"]} look') if structure.get("look") else "",
@@ -1510,15 +1534,24 @@ def _lib_card(structure):
              + design_fact + "</div>")
     if structure["fidelity"] is not None:
         facts += f'<p class="small muted lib-fidelity">fidelity {round(structure["fidelity"], 2):g}</p>'
-    strip = ""
+    strip = current = ""
     if len(variants) > 1 and ready:
-        strip = (f'<p class="small muted lib-current">Showing <b data-lib-current>{e(item["label"])}</b></p>'
-                 f'<div class="lib-strip">{"".join(_lib_variant(v, item) for v in ready)}</div>')
+        # the offline render's label; a real-run picture shows its own line until a variant is picked
+        current = (f'<p class="small muted lib-current"{" hidden" if real else ""}>'
+                   f'Showing <b data-lib-current>{e(item["label"])}</b></p>')
+        strip = f'<div class="lib-strip">{"".join(_lib_variant(v, item) for v in ready)}</div>'
     if off:
         same = {}
         for v in off:
             same.setdefault((v.get("first_screen"), v["why"]) if v.get("style") else (v["key"],), []).append(v)
         strip += f'<div class="lib-offs">{"".join(_lib_off(g) for g in same.values())}</div>'
+    if more:
+        # cycle 105: the variants line is the toggle; without script it opens the review
+        href = review_url or f"#libs-{e(card_id)}"
+        target = ' target="_blank" rel="noopener"' if review_url else ""
+        strip = (f'<a class="lib-toggle" href="{href}"{target} data-lib-toggle aria-expanded="false" '
+                 f'aria-controls="libs-{e(card_id)}">{e(_lib_toggle_text(variants))}</a>'
+                 f'<div class="lib-more" id="libs-{e(card_id)}" hidden>{strip}</div>')
     actions = ""
     if review_url:
         actions += (f'<a class="btn ghost sm" href="{review_url}" target="_blank" rel="noopener" data-lib-review>'
@@ -1527,7 +1560,8 @@ def _lib_card(structure):
         hidden = "" if item.get("arm") and item["state"] == "ready" else " hidden"
         href = e(_generate_url(item)) if not hidden else "#"
         actions += f'<a class="btn sm" href="{href}" data-lib-generate{hidden}>{icon("send")}Generate with this</a>'
-    return (f'<div class="gen lib-card" id="lib-{e(structure["key"].replace("/", "-"))}">{shot}<div class="gen-body">'
+    return (f'<div class="gen lib-card" id="lib-{e(card_id)}"><div class="lib-pic">{shot}{current}</div>'
+            f'<div class="gen-body">'
             f'<div class="chips">{"".join(c for c in chips if c)}</div>'
             f'<div class="gen-title">{e(structure["title"])}</div>'
             f'<p class="small muted lib-summary" title="{e(structure["summary"])}">{e(structure["summary"])}</p>'
@@ -1937,6 +1971,19 @@ def register(app, tenant):
         version = library.find(tenant, key)
         path = Path(tenant.library_dir) / version.key / "thumb.png" if version else None
         if path is None or not path.is_file():
+            abort(404)
+        resp = send_file(path, mimetype="image/png")
+        resp.headers["Cache-Control"] = "max-age=300"
+        return resp
+
+    @app.route("/library/<path:key>/real-thumb")
+    def library_real_thumb(key):
+        """Cycle 105: a structure's picture from its newest real run
+        (library.real_pictures caches it during `harness library build`)."""
+        if key not in library.structure_keys(tenant):
+            abort(404)
+        path = Path(tenant.library_dir) / key / library.REAL_THUMB
+        if not path.is_file():
             abort(404)
         resp = send_file(path, mimetype="image/png")
         resp.headers["Cache-Control"] = "max-age=300"

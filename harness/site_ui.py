@@ -417,6 +417,12 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
   text-align:center;font-size:.85rem;line-height:1.4;color:var(--ink)}
 .lib-card .lib-summary{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .lib-current{margin:0}
+.lib-pic{display:flex;flex-direction:column;gap:6px}
+.lib-pic .lib-current,.lib-from{margin:0;padding:0 14px;text-align:center}
+.lib-toggle{align-self:flex-start;font-size:.8rem;font-weight:600;color:var(--ink);text-decoration:underline;
+  text-underline-offset:3px;cursor:pointer}
+.lib-toggle[aria-expanded="true"]{text-decoration:none}
+.lib-more{display:flex;flex-direction:column;gap:8px}
 .lib-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .lib-var{flex:none;width:66px;display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:.68rem;
   line-height:1.25;text-decoration:none}
@@ -600,7 +606,8 @@ function pkLibVariant(v){var c=v.closest('.lib-card');if(!c)return;
   if(t){img.src=t;img.hidden=false;txt.hidden=true;}else{img.hidden=true;txt.textContent=v.getAttribute('data-text');txt.hidden=false;}
   var links=c.querySelectorAll('a.lib-shot,[data-lib-review]');for(var i=0;i<links.length;i++){links[i].href=r;}
   if(gen){gen.hidden=!g;if(g){gen.href=g;}}
-  var cur=q('[data-lib-current]');if(cur){cur.textContent=v.getAttribute('data-label');}
+  var cur=q('[data-lib-current]');if(cur){cur.textContent=v.getAttribute('data-label');cur.parentNode.hidden=false;}
+  var from=q('[data-lib-from]');if(from){from.hidden=true;}
   var all=c.querySelectorAll('[data-lib-variant]');for(var j=0;j<all.length;j++){all[j].classList.toggle('on',all[j]===v);}}
 document.addEventListener('click',function(ev){
   var o=ev.target.closest('[data-dialog]');
@@ -609,6 +616,10 @@ document.addEventListener('click',function(ev){
   var c=ev.target.closest('[data-close]');if(c){ev.preventDefault();c.closest('dialog').close();}
   var v=ev.target.closest('[data-view]');if(v){pkWidth(v.getAttribute('data-view'));}
   var lv=ev.target.closest('[data-lib-variant]');if(lv&&!ev.metaKey&&!ev.ctrlKey){ev.preventDefault();pkLibVariant(lv);}
+  var lt=ev.target.closest('[data-lib-toggle]');if(lt&&!ev.metaKey&&!ev.ctrlKey){
+    var lc=lt.closest('.lib-card'),m=lc&&lc.querySelector('.lib-more');
+    if(m){ev.preventDefault();m.hidden=lt.classList.contains('lib-shot')?false:!m.hidden;
+      var ts=lc.querySelectorAll('.lib-toggle');for(var k=0;k<ts.length;k++){ts[k].setAttribute('aria-expanded',String(!m.hidden));}}}
   if(ev.target.tagName==='DIALOG'){ev.target.close();}});
 document.addEventListener('keydown',function(ev){if((ev.metaKey||ev.ctrlKey)&&(ev.key==='k'||ev.key==='K')){
   var q=document.getElementById('q');if(q){ev.preventDefault();q.focus();q.select();}}});
