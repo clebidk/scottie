@@ -613,3 +613,25 @@ def test_site_endpoints_are_registered_and_csrf_checked():
         assert endpoint in site.ENDPOINTS
     assert {"test_go_live", "test_revert_go_live"} <= site.CSRF_ENDPOINTS
     assert {"meta_go_live", "meta_revert_go_live"} <= set(jobs.JOB_TYPES) <= set(jobs.HANDLERS)
+
+
+def test_copy_drops_the_read_only_image_url_when_an_image_hash_is_present():
+    """Cycle 107b: Meta returns both image_url and image_hash on a creative it
+    serves, and refuses that pair on create (code 100 / 1443051, seen on the
+    first real go-live 2026-10-12). The copy keeps the hash and drops the url."""
+    creative = {"id": "c1", "url_tags": "utm_source=facebook", "object_story_spec": {
+        "page_id": "111", "video_data": {
+            "video_id": "9", "image_hash": "abc", "image_url": "https://www.facebook.com/ads/image/?d=X",
+            "call_to_action": {"type": "LEARN_MORE", "value": {"link": OLD}}}}}
+    payload, _changes = meta_golive.copy_creative(creative, SPLIT, name="copy")
+    vd = payload["object_story_spec"]["video_data"]
+    assert "image_url" not in vd and vd["image_hash"] == "abc"
+    link = {"id": "c2", "object_story_spec": {"page_id": "111", "link_data": {
+        "link": OLD, "image_hash": "h1", "image_url": "https://www.facebook.com/ads/image/?d=Y",
+        "child_attachments": [{"link": OLD, "image_hash": "h2", "image_url": "https://www.facebook.com/ads/image/?d=Z"}]}}}
+    payload, _changes = meta_golive.copy_creative(link, SPLIT, name="copy")
+    ld = payload["object_story_spec"]["link_data"]
+    assert "image_url" not in ld and "image_url" not in ld["child_attachments"][0]
+    only_url = {"id": "c3", "object_story_spec": {"page_id": "111", "link_data": {"link": OLD, "image_url": "https://x/y.jpg"}}}
+    payload, _changes = meta_golive.copy_creative(only_url, SPLIT, name="copy")
+    assert payload["object_story_spec"]["link_data"]["image_url"] == "https://x/y.jpg"
