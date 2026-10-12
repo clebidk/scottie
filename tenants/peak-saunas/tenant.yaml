@@ -489,3 +489,4 @@ library:
     - listicle:bobbie-split-hero
     - listicle:caraway-soft
     - product-page:pdp
+    - landing:regret-story   # imported 2026-10-12 as the first real URL import; hidden until the owner wants it as a 16th
