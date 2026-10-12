@@ -6549,3 +6549,52 @@ The prod copies were not compared with this Mac's copies before the edit; diff t
   looks would lose their hero sets.
 - Not deployed. After the copy, `harness library build --tenant peak-saunas --force` rebuilds the
   five landing cards with their default variants.
+
+## Cycle 103 (Library: hide structures by config, 2026-10-12)
+Branch `cycle103/library-hide` from origin/master e726403 (cycles 99 to 101 and the 2026-10-12
+launch config).
+
+### Problem
+The owner wants the Library at 20 structures for the 2026-10-12 launch: three near-duplicates
+(article default, longform classic, product page classic) are to leave the page, without
+removing the cartridges or looks, which runs can still pin.
+
+### Change
+- **tenant.yaml `library: {hide: ["<cartridge>:<look>", ...]}`** (new top-level key, declared in
+  `tenants/_template/tenant.yaml` as `library: {}` so `harness doctor` does not warn; the existing
+  `abtest.library` is the A/B/C build pool, a different thing, so it was not reused). `default`
+  is the look of a cartridge with no looks (`article:default`).
+- `library.hidden_looks`, `library.unknown_hidden`; `library.versions(tenant)` leaves the hidden
+  looks out (`include_hidden=True` lists them), so the page, the routes (`find`), the build,
+  design scoring and the prune all skip them. A hidden look's folders are pruned by the next build
+  with the cycle 99 line `pruned <key>: no such version any more`. An entry that names no
+  structure is logged once per build (`tenant.yaml library.hide: '<entry>' names no Library
+  structure; ignored`) and changes nothing.
+- Runs are not affected: `abtest.parse_arm` and the upload pin never read the list.
+- `tenants/peak-saunas/tenant.yaml`: hides `article:default`, `longform:classic`,
+  `product-page:classic` ("2026-10-12 owner: merged near-duplicates, Library capped at 20").
+- `tests/conftest.py` clears `library` in the tenant isolation fixture, so the older Library
+  tests still see every structure; the cycle 103 tests set their own list.
+
+### Verify
+- `tests/test_library_cycle103.py` (4): a hidden look has no card, no section when it was the
+  cartridge's only structure, and no review route, while `arm_from_fields` / `parse_arm` still
+  accept it; a hidden look's folders (and a nested first-screen folder) are pruned by the build
+  with the pruned line, and `--only` keeps the prune to its cartridges; unknown entries are
+  reported once at build time and ignored while the known entry still applies; the peak tenant
+  hides the three structures, all of them known, with no unknown-key warning.
+- Full suite: 3058 passed, 12 failed, 34 skipped. The same 12 fail on clean origin/master e726403
+  (run with this change stashed): the three 2026-10-12 launch commits changed
+  `tenants/peak-saunas/tenant.yaml` (publishing unlocked, landing looks as the A/B/C pool, design
+  gate enforce at 65) and these tests still assert the old values --
+  test_abtest_cycle67.py (4), test_post_live_cycle80.py (5), test_publish_lock.py (1),
+  test_first_screen_cycle79.py (1), test_design_gate_cycle92.py (1). Not changed here: whether the
+  tests or the config are right is the owner's launch decision. The 34 skips are gitignored files
+  this fresh worktree does not have (tenant looks, photo files).
+
+### Open
+- The count: this worktree has none of the gitignored tenant looks and shows 10 harness
+  structures with the three hidden. Prod (read-only listing, 2026-10-12) has 10 tenant looks with a
+  template.html (2 landing, 8 listicle), so the page there should show 20. Not checked on the live
+  page; count it after deploy.
+- Not deployed. The hidden folders on prod go at the next library build.

@@ -159,9 +159,30 @@ def tenant_look_versions(tenant, cartridge):
     return out
 
 
-def versions(tenant):
+def hidden_looks(tenant):
+    """Cycle 103: tenant.yaml `library: {hide: ["<cartridge>:<look>", ...]}`
+    as a set of "<cartridge>:<look>" strings ("article:default" for a
+    cartridge with no looks). Only the Library reads it: a hidden look still
+    renders when a run pins it."""
+    config = getattr(tenant, "config", None) or {}
+    hide = (config.get("library") or {}).get("hide") or []
+    return {str(entry).strip() for entry in hide if str(entry).strip()}
+
+
+def unknown_hidden(tenant):
+    """The library.hide entries that name no structure, sorted."""
+    hidden = hidden_looks(tenant)
+    if not hidden:
+        return []
+    known = {f"{v.cartridge}:{v.look or DEFAULT_LOOK_DIR}" for v in versions(tenant, include_hidden=True)}
+    return sorted(hidden - known)
+
+
+def versions(tenant, *, include_hidden=False):
     """Every version, cartridge by cartridge (discover order), harness looks
-    first, then the tenant's imported looks."""
+    first, then the tenant's imported looks. Cycle 103: without
+    include_hidden, the looks tenant.yaml's library.hide names are left
+    out (hidden_looks)."""
     out = []
     for cartridge in pipeline.discover_cartridges():
         for look in looks.cartridge_looks(cartridge) or (None,):
@@ -176,7 +197,10 @@ def versions(tenant):
                     out += [Version(cartridge, look, hero_id) for hero_id in spec["heroes"]
                             if hero_id not in spec["default_heroes"]]
         out += tenant_look_versions(tenant, cartridge)
-    return out
+    if include_hidden:
+        return out
+    hidden = hidden_looks(tenant)
+    return [v for v in out if f"{v.cartridge}:{v.look or DEFAULT_LOOK_DIR}" not in hidden]
 
 
 def find(tenant, key):
@@ -683,6 +707,8 @@ def build(tenant, *, only=None, force=False, log=print):
             raise LibraryError(f"unknown cartridge(s) {unknown}; choose from {sorted(known)}")
         selected = [v for v in selected if v.cartridge in set(only)]
     browser = find_browser()
+    for entry in unknown_hidden(tenant):   # cycle 103
+        log(f"tenant.yaml library.hide: {entry!r} names no Library structure; ignored")
     summary = {"built": [], "skipped": [], "unavailable": [], "failed": [], "thumbs": 0, "browser": browser,
                "pruned": prune(tenant, only=only, log=log)}
     if browser is None:

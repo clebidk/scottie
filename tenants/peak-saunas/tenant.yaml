@@ -474,3 +474,12 @@ first_screen:
 # new-mark set is one edit there or a new manifest path here.
 product_cutouts:
   manifest: brand/cutouts/cutouts.json
+
+# Cycle 103: structures left off the Library page and out of `harness library
+# build` (docs/LISTICLE-SITE.md, Library). Runs that pin them still render.
+library:
+  # 2026-10-12 owner: merged near-duplicates, Library capped at 20
+  hide:
+    - article:default
+    - longform:classic
+    - product-page:classic
