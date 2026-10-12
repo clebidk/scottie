@@ -479,7 +479,8 @@ def handle_library_build(tenant, payload, log=print):
         raise JobFailed(str(e)) from e
     result = {"built": len(summary["built"]), "skipped": len(summary["skipped"]),
               "unavailable": summary["unavailable"], "failed": summary["failed"], "thumbs": summary["thumbs"],
-              "browser": bool(summary["browser"]), "pruned": summary["pruned"]}
+              "browser": bool(summary["browser"]), "pruned": summary["pruned"],
+              "real": summary.get("real", 0)}
     if summary["failed"]:
         raise JobFailed(f"{len(summary['failed'])} version(s) failed: "
                         + "; ".join(f"{key}: {why}" for key, why in summary["failed"]))

@@ -315,6 +315,33 @@ one variant has no strip. A structure with no page goes to the end of its
 section. The per-variant routes are unchanged:
 `/library/<key>/review` and `/library/<key>/thumb`.
 
+**Cycle 105: one picture per card, variants behind a click, real-run pictures.**
+A card now shows one picture, the chips, title, summary and facts, and one
+line "6 first screens · 5 styles" (listicle) or "4 variants" (the others). That
+line and the picture are toggles (`data-lib-toggle` in `site_ui.JS`): the strip
+and the chips above are hidden in the card (`.lib-more` with `hidden`) until
+one of them is clicked; without script, or with Cmd/Ctrl, both open the
+review. A look with one variant has no line. The picture is the newest *real*
+run of that look when there is one: `harness library build` (and the Rebuild
+job) looks under `tenants/<t>/out/` for runs whose `state.json` is not a dry run
+(`harness run`, `harness abtest create`; FakeClient runs and the offline build
+never count) and whose `landing/` or `listicle/page.json` is stamped with the
+look, newest by start time. It caches that run's design-gate phone screenshot
+(`design/variant-<chosen>.png`), or a 390x844 capture of its `index.html` when
+the run has none, as `tenants/<t>/library/<cartridge>/<look>/real-thumb.png`
+with `real-thumb.json` (run id, start time, source), and replaces it when a newer
+run appears. The build logs one line per landing / listicle structure with the
+source it used ("landing/open: picture from real run <id> (design
+variant-2.png)", "... picture from the offline render (no real run of this
+look)"), and the CLI summary counts the real-run pictures. The card labels it
+"from a real run · <date>" (route `/library/<cartridge>/<look>/real-thumb`); a
+card with no real run keeps the offline render and its "Showing <variant>"
+label. The strip keeps the offline thumbnails, and picking a variant there
+swaps the picture to that variant's render. An imported landing look whose
+`look.json` declares `heroes` now has one variant per hero outside its
+`default_heroes`, as the harness looks do; its own version renders the
+default first screen and is the card picture.
+
 **Open review** opens the variant's `review.html` (in a new tab, from the
 frameable route) and **Generate with this** opens `/upload` with the cartridge, look, hero style
 and style pre-selected (shown in a "Page version" box, sent as hidden fields).

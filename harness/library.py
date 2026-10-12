@@ -87,6 +87,11 @@ NOTE = "Reference renders use a canned demo page and the tenant's brand; copy is
 IMPORTED_LISTICLE = ("story", "reasons")
 # Cycle 99: the Library page's cartridge order; the others follow in discover order.
 CARTRIDGE_ORDER = ("landing", "listicle")
+# Cycle 105: a card's picture from the newest real run of its look, cached in
+# tenants/<t>/library/<cartridge>/<look>/ beside the library thumb.
+REAL_THUMB = "real-thumb.png"
+REAL_META = "real-thumb.json"
+REAL_CARTRIDGES = ("landing", "listicle")
 
 CARTRIDGE_LABELS = {
     "article": "Article", "comparison": "Comparison", "landing": "Landing page", "listicle": "Listicle",
@@ -151,7 +156,10 @@ def tenant_look_versions(tenant, cartridge):
     alias of, one of the cartridge's own looks is left out -- the built-in
     look wins there, as in looks.resolve_look. Cycle 102: so is an import
     that waits for "Add to Library" on its job page (library.json
-    `library: "pending"`)."""
+    `library: "pending"`). Cycle 105: a non-listicle look whose look.json
+    declares "heroes" gets one more version per hero that is not in its
+    "default_heroes", as versions() does for the cartridge's own looks (the
+    look's own version renders its default first screen)."""
     out = []
     for slug in looks.imported_looks(cartridge, tenant):
         if slug == DEFAULT_LOOK_DIR or looks.canonical(cartridge, slug) in looks.cartridge_looks(cartridge):
@@ -160,6 +168,10 @@ def tenant_look_versions(tenant, cartridge):
             continue
         fs, style = IMPORTED_LISTICLE if cartridge == "listicle" else (None, None)
         out.append(Version(cartridge, slug, fs, style, tenant_look=True))
+        if cartridge != "listicle" and heroes.has_heroes(cartridge):
+            spec = heroes.look_spec(cartridge, slug, tenant)
+            out += [Version(cartridge, slug, hero_id, tenant_look=True) for hero_id in spec["heroes"]
+                    if hero_id not in spec["default_heroes"]]
     return out
 
 
@@ -516,7 +528,9 @@ def structures(tenant):
                                # cycle 102: what an imported look was modelled on
                                "imported_from": info.get("imported_from"),
                                "source_thumb": bool(version.tenant_look
-                                                    and source_thumb(tenant, version.cartridge, version.look))}
+                                                    and source_thumb(tenant, version.cartridge, version.look)),
+                               # cycle 105: the newest real run's phone screen, or None
+                               "real": real_picture(tenant, look_key)}
         entry = _entry(tenant, version)
         state, why = _variant_state(entry)
         entry.update(label=variant_label(tenant, version), state=state, why=why)
@@ -532,6 +546,129 @@ def structures(tenant):
         fids = [float(v["fidelity"]) for v in variants if isinstance(v.get("fidelity"), (int, float))]
         item["fidelity"] = max(fids) if fids else None
     return out
+
+
+# ---------------------------------------------------------------------------
+# cycle 105: a real run's phone screen as the card picture
+# ---------------------------------------------------------------------------
+
+def structure_keys(tenant):
+    """The "<cartridge>/<look>" key of every structure on the page."""
+    return {f"{v.cartridge}/{v.look or DEFAULT_LOOK_DIR}" for v in versions(tenant)}
+
+
+def real_runs(tenant):
+    """{"<cartridge>/<look>": the newest real run of that look} for the
+    landing and listicle pages under tenants/<t>/out/. A real run has a
+    state.json that is not a dry run (`harness run`, `harness abtest
+    create`); the FakeClient runs (tests, `python -m evals.fake_run`) are
+    dry runs, and the offline library build never writes to out/. A run
+    counts for the look its <cartridge>/page.json was stamped with. Each
+    value: run_id, run_dir, cartridge, look, at (the run's first history
+    time)."""
+    from . import runstate
+
+    found = {}
+    out = Path(tenant.out_dir)
+    if not out.is_dir():
+        return found
+    for run_dir in out.iterdir():
+        if not run_dir.is_dir():
+            continue
+        try:
+            state = runstate.load_state(run_dir)
+        except (FileNotFoundError, ValueError):
+            continue
+        if not isinstance(state, dict) or state.get("dry_run"):
+            continue
+        at = next((h.get("at") for h in state.get("history") or [] if isinstance(h, dict) and h.get("at")), "")
+        for cartridge in REAL_CARTRIDGES:
+            if not (run_dir / cartridge / "index.html").is_file():
+                continue
+            try:
+                page = json.loads((run_dir / cartridge / "page.json").read_text())
+            except (OSError, ValueError):
+                continue
+            look = looks.canonical(cartridge, page.get("look")) if isinstance(page, dict) else None
+            if not look:
+                continue
+            key = f"{cartridge}/{look}"
+            record = {"run_id": run_dir.name, "run_dir": run_dir, "cartridge": cartridge, "look": look,
+                      "at": str(at)}
+            if key not in found or (record["at"], record["run_id"]) > (found[key]["at"], found[key]["run_id"]):
+                found[key] = record
+    return found
+
+
+def real_picture(tenant, look_key):
+    """The cached real-run picture of a structure: {run_id, at, source}
+    from real-thumb.json when real-thumb.png is there, else None."""
+    folder = Path(tenant.library_dir) / look_key
+    if not (folder / REAL_THUMB).is_file():
+        return None
+    try:
+        data = json.loads((folder / REAL_META).read_text())
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) and data.get("run_id") else None
+
+
+def _design_phone(run):
+    """The run's design-gate phone screenshot of the chosen variant
+    (<cartridge>/design/variant-<chosen>.png), or None."""
+    from . import design_gate
+
+    page_dir = run["run_dir"] / run["cartridge"]
+    scores = design_gate.load_scores(page_dir) or {}
+    chosen = scores.get("chosen")
+    if chosen is None:
+        return None
+    path = design_gate.design_dir_for(page_dir) / f"variant-{chosen}.png"
+    return path if path.is_file() else None
+
+
+def real_pictures(tenant, *, only=None, browser=None, log=print):
+    """Cycle 105: for every landing / listicle structure, the newest real
+    run's phone screen cached as <cartridge>/<look>/real-thumb.png (the
+    design gate's chosen variant screenshot when the run has one, else a
+    390x844 capture of its index.html); refreshed when a newer run
+    appears. Logs one line per structure with the source it uses. Returns
+    the count of structures with a real picture."""
+    runs = real_runs(tenant)
+    root = Path(tenant.library_dir)
+    count = 0
+    for look_key in sorted(structure_keys(tenant), key=lambda k: (k.split("/")[0], k)):
+        cartridge = look_key.split("/")[0]
+        if cartridge not in REAL_CARTRIDGES or (only and cartridge not in only):
+            continue
+        run = runs.get(look_key)
+        if run is None:
+            log(f"{look_key}: picture from the offline render (no real run of this look)")
+            continue
+        folder = root / look_key
+        cached = real_picture(tenant, look_key)
+        if cached and cached.get("run_id") == run["run_id"]:
+            count += 1
+            log(f"{look_key}: picture from real run {run['run_id']} (up to date)")
+            continue
+        folder.mkdir(parents=True, exist_ok=True)
+        phone = _design_phone(run)
+        if phone is not None:
+            shutil.copy2(phone, folder / REAL_THUMB)
+            source = f"design {phone.name}"
+        elif browser and capture_thumb(browser, run["run_dir"] / run["cartridge"] / "index.html",
+                                       folder / REAL_THUMB, tenant=tenant):
+            source = "captured index.html at 390"
+        else:
+            log(f"{look_key}: picture from the offline render (real run {run['run_id']} has no design "
+                "screenshot and no browser to capture it)")
+            continue
+        (folder / REAL_META).write_text(json.dumps(
+            {"run_id": run["run_id"], "cartridge": run["cartridge"], "at": run["at"], "source": source},
+            indent=2) + "\n")
+        count += 1
+        log(f"{look_key}: picture from real run {run['run_id']} ({source})")
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -714,7 +851,8 @@ def build(tenant, *, only=None, force=False, log=print):
     """Renders every version that is not up to date (all with force). `only`
     is a list of cartridge names. Returns {"built", "skipped",
     "unavailable", "failed" (lists of keys; failed as [key, reason]),
-    "thumbs" (count), "browser" (path or None)}."""
+    "thumbs" (count), "browser" (path or None), "real" (structures with a
+    real-run picture, cycle 105)}."""
     from . import review
 
     selected = versions(tenant)
@@ -740,6 +878,7 @@ def build(tenant, *, only=None, force=False, log=print):
         else:
             todo.append((version, sha))
     if not todo:
+        summary["real"] = real_pictures(tenant, only=only, browser=browser, log=log)
         return summary
     fixture = _fixture(tenant)
     fake_run = _fake_run_module()
@@ -792,6 +931,8 @@ def build(tenant, *, only=None, force=False, log=print):
             _swap_in(staging, dest)
             summary["built"].append(version.key)
             log(f"[{i}/{len(todo)}] {version.key}: built" + (" + thumb" if thumb else ""))
+    # cycle 105: after the renders, since a rebuilt look folder is replaced whole
+    summary["real"] = real_pictures(tenant, only=only, browser=browser, log=log)
     return summary
 
 

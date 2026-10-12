@@ -683,7 +683,8 @@ def cmd_library_build(args):
         summary = library.build(tenant, only=only or None, force=args.force, log=lambda m: print(m, flush=True))
     print(f"library: {len(summary['built'])} built, {len(summary['skipped'])} up to date, "
           f"{len(summary['unavailable'])} not renderable offline, {len(summary['failed'])} failed, "
-          f"{len(summary['pruned'])} pruned, {summary['thumbs']} thumbnail(s) -> {tenant.library_dir}")
+          f"{len(summary['pruned'])} pruned, {summary['thumbs']} thumbnail(s), "
+          f"{summary.get('real', 0)} real-run picture(s) -> {tenant.library_dir}")
     if getattr(args, "design_score", False):
         rc = _library_design_score(tenant, force=args.force)
         if rc != exits.OK:

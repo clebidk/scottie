@@ -6806,3 +6806,71 @@ $0.70 is spent). The daily-cap reservation is $1.00 an import.
   with `heic_supported` faked, plus a real decode test that skips here. On prod it is installed (cycle 96).
 - Deploy: no tenant files change in this cycle. The four hand-converted looks must be on prod
   (`tenants/peak-saunas/looks/listicle/`, gitignored, copied by hand in cycle 101) to be exemplars there.
+
+## Cycle 105 (Library: one picture per card, variants behind a click, real-run pictures, 2026-10-12)
+Branch `cycle105/library-cards` from origin/master 35114c7 (cycles 99, 102, 103 and the 15-structure
+hide list). No model or API call.
+
+### Problem
+Owner, 2026-10-12: "i want the 15 more different and distinct options that dont look like one
+another there" and "can be more when i click on one of the 15". Each card showed every variant
+thumbnail at once, and every reference render uses the canned demo copy and the same cut-out or
+photo, so the landing cards looked the same. Also (coordinator): an imported landing look with a
+`look.json` that declares `heroes` (cycle 101: landing/rivian-letters, landing/plunge-category) was
+listed as one variant ("Variants 1" on prod).
+
+### Change
+- **Variants behind a click** (`harness/site.py` `_lib_card`, `_lib_toggle_text`; `harness/site_ui.py`
+  CSS and the delegated click handler): the card shows one picture, the chips, title, summary and
+  facts, and one line "N first screens · M styles" (when the variants have listicle styles) or
+  "N variants" (`a.lib-toggle`, `data-lib-toggle`, `aria-expanded`). The strip and the not-renderable
+  chips are in `<div class="lib-more" id="libs-<card id>" hidden>`; the line toggles it, the picture
+  (also `data-lib-toggle`) opens it. Without script, or with Cmd/Ctrl, both open the review (the line
+  links to `#libs-...` when the default variant has no review). A look with one variant has no line.
+  "Showing <variant>" moved under the picture. Card ids, variant ids, `data-lib-variant` and all
+  routes are unchanged.
+- **Real-run pictures** (`harness/library.py`): `real_runs(tenant)` finds, per landing / listicle
+  look, the newest run under `tenants/<t>/out/` whose `state.json` is not `dry_run` (so `harness run`
+  and `harness abtest create`, never FakeClient runs; the offline build never writes to out/) and
+  whose `<cartridge>/page.json` `look` is that look (`looks.canonical`), newest by its first history
+  time. `real_pictures` (called by `library.build` after the renders, also when every version is up
+  to date) caches that run's `design/variant-<chosen>.png` (from `design/scores.json`), else a
+  390x844 `capture_thumb` of its `index.html`, as `<cartridge>/<look>/real-thumb.png` with
+  `real-thumb.json` {run_id, cartridge, at, source}; it is replaced when a newer run appears. One log
+  line per structure: "landing/open: picture from real run <id> (design variant-2.png)", "(up to
+  date)", "(captured index.html at 390)", or "picture from the offline render (no real run of this
+  look)" / "(real run <id> has no design screenshot and no browser to capture it)". The summary gets
+  `real` (CLI line "N real-run picture(s)", job result `real`). `structures()` adds `real`
+  (`real_picture`); the card uses `/library/<cartridge>/<look>/real-thumb` (new route, 404 unless the
+  key is a structure with a cached picture) and the label "from a real run · <date>"; the offline
+  "Showing" label is hidden until a variant is picked in the strip (the strip keeps the offline
+  thumbnails; `pkLibVariant` hides the real-run label).
+- **Imported looks with heroes**: `tenant_look_versions` adds one version per `look.json` hero outside
+  `default_heroes` for a non-listicle cartridge, as `versions()` does for harness looks
+  (`heroes.look_spec` already read the tenant look.json). The look's own version renders the default
+  first screen and is the card picture.
+
+### Verify
+- `tests/test_library_cycle105.py` (5): the strip is collapsed behind the toggle line (hidden block,
+  counts for landing and listicle, the picture toggles, one picture, buttons stay, no line for one
+  variant, the JS handler); a card with a real run uses the newest non-dry run's design screenshot,
+  the label and the route, a dry run newer than it is ignored, a card without one falls back to the
+  offline thumb, and the route 404s for those; a newer run refreshes the picture, the same run is
+  "up to date"; a run with no design screenshot is captured with the browser, and with no browser the
+  card falls back; an imported look with look.json `{"heroes": ["ad_first", "letters_pill"],
+  "default_heroes": ["ad_first"]}` has two variants, ad_first first, and its picture is the look's own
+  render. No hash pins re-recorded.
+- Full suite: 3091 passed, 5 failed, 35 skipped (3 min 47 s). Failed: the three budget-cap tests in
+  test_listicle_site_cycle69.py (prod budget state), and test_library_cycle103.py::test_peak_hides_the_three_merged_near_duplicates
+  and test_library_cycle86.py::test_cli_library_build, which fail the same way on clean origin/master 35114c7
+  (that commit set the 15-structure hide list in tenant.yaml; the tests still expect the three-entry list and
+  five built landing versions).
+
+### Open
+- Not deployed. On prod the real-run pictures appear after the first library build (Rebuild button).
+- The listicle imported looks still render one variant (story · reasons); a listicle look.json's
+  heroes are not read for the Library.
+- A rebuilt landing look folder is replaced whole by the build, so its cached real-thumb is copied
+  or captured again in the same build.
+- A real-thumb of a look that later leaves the page (hidden, removed) is not pruned when its folder
+  has no meta.json (the listicle look folders).
