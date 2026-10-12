@@ -18,7 +18,7 @@ from harness import photo_library as pl
 from harness import render as render_mod
 from harness.budget import Budget
 from tests.conftest import FakeClient, json_response
-from tests.support import REPO_ROOT, TENANT
+from tests.support import REPO_ROOT, TENANT, tenant_copy
 from tests.test_listicle import AD_BRIEF, FACTS_PACK, RICH_FACTS_PACK, _listicle_page, _make_image_bytes
 from tests.test_photo_library import FUJI_HANDLE, FakeTenant, _library, _photo, _tags
 
@@ -529,7 +529,9 @@ def test_topic_matching_runs_and_is_recorded_on_build_and_on_rerender(tmp_path, 
 # A/B/C
 # ---------------------------------------------------------------------------
 
-def test_an_arm_names_its_first_screen_and_results_pool_per_hero_style():
+def test_an_arm_names_its_first_screen_and_results_pool_per_hero_style(monkeypatch):
+    # cycle 103b: the launch pool is landing-only; the listicle first screens are pooled over the default pool
+    tenant_copy(monkeypatch, {"abtest.library": list(abtest.DEFAULT_LIBRARY)})
     arm = abtest.parse_arm("listicle:reasons:open:story", TENANT)
     assert (arm.id, arm.hero_style, arm.look) == ("listicle:reasons:open:story", "story", "open")
     assert abtest.parse_arm("listicle:reasons:cards", TENANT).id == "listicle:reasons:open"

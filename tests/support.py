@@ -17,3 +17,28 @@ def newest_run_dir(base_dir, pattern):
     dirs = list(base_dir.glob(pattern))
     assert dirs, f"expected a directory matching {pattern!r} under {base_dir}"
     return max(dirs, key=lambda p: p.stat().st_mtime)
+
+
+def tenant_copy(monkeypatch, changes):
+    """TENANT with some tenant.yaml values changed for one test, e.g.
+    {"publish_locked": True} or {"abtest.library": [...]} (dotted keys walk
+    into the mapping). The CLI loads its tenant by name; that load returns
+    TENANT too, so `cli.main([... "--tenant", TENANT.name])` sees the copy.
+    Cycle 103b: the 2026-10-12 launch config (publishing unlocked, landing
+    pool) is the real tenant's; tests about the locked behaviour or the old
+    listicle pool set it here."""
+    for dotted, value in changes.items():
+        *parents, key = dotted.split(".")
+        node = TENANT.config
+        for part in parents:
+            node = node[part]
+        monkeypatch.setitem(node, key, value)
+    real = tenant_mod.load_tenant
+
+    def load(name=None, *, require=False):
+        if tenant_mod.resolve_tenant_name(name) == TENANT.name:
+            return TENANT
+        return real(name, require=require)
+
+    monkeypatch.setattr(tenant_mod, "load_tenant", load)
+    return TENANT

@@ -19,7 +19,7 @@ import pytest
 
 from harness import abevents, abstats, abtest, cli, page_body, runstate, serve
 from harness.publishers.shopify import ShopifyPublisher
-from tests.support import REPO_ROOT, TENANT
+from tests.support import REPO_ROOT, TENANT, tenant_copy
 from tests.test_publishers import FakeTransport
 
 REVIEWER = "caleb@peaksaunas.com"
@@ -146,8 +146,10 @@ def test_library_rejects_an_unknown_build():
         abtest.library(ConfigTenant({"library": ["nosuchcartridge", "quiz", "comparison"]}))
 
 
-def test_peak_tenant_library_matches_the_default():
-    assert [a.id for a in abtest.library(TENANT)] == list(abtest.DEFAULT_LIBRARY)
+def test_peak_tenant_library_is_its_configured_pool():
+    # cycle 103b: the pool is the owner's (2026-10-12: the landing looks), read from tenant.yaml
+    configured = [abtest.parse_arm(e, TENANT).id for e in TENANT.get("abtest.library")]
+    assert [a.id for a in abtest.library(TENANT)] == list(dict.fromkeys(configured))
     assert abtest.settings(TENANT)["beacon_url"] == "https://listicle.peaksaunasteam.com/e"
 
 
@@ -297,6 +299,8 @@ def test_create_reads_optional_source_json(monkeypatch, tmp_path):
 
 
 def test_a_failing_arm_is_retried_three_seeds_then_substituted(monkeypatch):
+    # a substitute needs a fourth build: the default nine-build pool, not the launch's three
+    tenant_copy(monkeypatch, {"abtest.library": list(abtest.DEFAULT_LIBRARY)})
     rng_first = abtest.choose_arms(TENANT, 3, random.Random(7), stats={})
     bad = rng_first[1]
     runner = FakeRunner(fail_arms={bad})
@@ -331,7 +335,7 @@ def test_budget_cap_leaves_the_test_queued_and_resume_finishes_it(monkeypatch, c
 
 
 def test_no_arm_left_marks_the_test_failed(monkeypatch):
-    runner = FakeRunner(fail_arms=set(abtest.DEFAULT_LIBRARY))
+    runner = FakeRunner(fail_arms={a.id for a in abtest.library(TENANT)})
     assert _create(monkeypatch, runner) == 1
     assert _only_test()["status"] == "failed"
 
@@ -467,8 +471,8 @@ def test_pooled_arm_stats_and_library_command(monkeypatch, capsys):
 
     assert cli.main(["abtest", "library", "--tenant", TENANT.name]) == 0
     out = capsys.readouterr().out
-    for arm in abtest.DEFAULT_LIBRARY:
-        assert arm in out
+    for arm in abtest.library(TENANT):
+        assert arm.id in out
 
 
 # ---------------------------------------------------------------------------

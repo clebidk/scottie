@@ -6583,14 +6583,9 @@ removing the cartridges or looks, which runs can still pin.
   with the pruned line, and `--only` keeps the prune to its cartridges; unknown entries are
   reported once at build time and ignored while the known entry still applies; the peak tenant
   hides the three structures, all of them known, with no unknown-key warning.
-- Full suite: 3058 passed, 12 failed, 34 skipped. The same 12 fail on clean origin/master e726403
-  (run with this change stashed): the three 2026-10-12 launch commits changed
-  `tenants/peak-saunas/tenant.yaml` (publishing unlocked, landing looks as the A/B/C pool, design
-  gate enforce at 65) and these tests still assert the old values --
-  test_abtest_cycle67.py (4), test_post_live_cycle80.py (5), test_publish_lock.py (1),
-  test_first_screen_cycle79.py (1), test_design_gate_cycle92.py (1). Not changed here: whether the
-  tests or the config are right is the owner's launch decision. The 34 skips are gitignored files
-  this fresh worktree does not have (tenant looks, photo files).
+- Full suite before 103b: 3058 passed, 12 failed, 34 skipped; the same 12 failed on clean
+  origin/master e726403 (see 103b). The 34 skips are gitignored files this fresh worktree does
+  not have (tenant looks, photo files).
 
 ### Open
 - The count: this worktree has none of the gitignored tenant looks and shows 10 harness
@@ -6598,3 +6593,28 @@ removing the cartridges or looks, which runs can still pin.
   template.html (2 landing, 8 listicle), so the page there should show 20. Not checked on the live
   page; count it after deploy.
 - Not deployed. The hidden folders on prod go at the next library build.
+
+### Cycle 103b (tests follow the 2026-10-12 launch config, 2026-10-12)
+The three launch commits on master (57ab598, f569eeb, e726403) set `tenants/peak-saunas/tenant.yaml`
+to publishing unlocked, the A/B/C pool landing:cinematic / landing:open / landing:proof, and the
+design gate enforce at 65 (owner decision 2026-10-12). Twelve tests still asserted the old
+literals. They now read the tenant's configured values, or run on a tenant copy where they test
+the locked behaviour or the old listicle pool:
+- `tests/support.py tenant_copy(monkeypatch, {dotted key: value})`: changes TENANT.config for one
+  test and makes the CLI's load of this tenant return TENANT, so `cli.main([... --tenant ...])`
+  sees the copy.
+- test_abtest_cycle67.py: the peak pool equals its tenant.yaml list
+  (`test_peak_tenant_library_is_its_configured_pool`); the retry-and-substitute test runs on the
+  default nine-build pool (three builds leave no substitute); "no arm left" fails every build of
+  the configured pool; the library command prints the configured pool.
+- test_post_live_cycle80.py: the four lock tests (plain publish refused, abtest publish locked,
+  auto publish locked, post live through the narrow unlinked flag) run with `publish_locked: true`;
+  `test_peak_is_still_locked` is now `test_the_publisher_follows_the_tenants_lock` (the real
+  tenant's lock decides the publisher; with the lock on it is the locked one).
+- test_publish_lock.py: `test_peak_tenant_gets_the_publisher_its_tenant_yaml_names` (both keys are
+  booleans; the factory returns the locked publisher only when tenant.yaml locks).
+- test_first_screen_cycle79.py: the per-first-screen pooling test runs on the default pool.
+- test_design_gate_cycle92.py: settings equal the tenant's `design_gate` values; the environment
+  override is checked with the other mode.
+- Full suite: 3070 passed, 0 failed, 34 skipped (gitignored files missing in this worktree),
+  4 min 46 s.
