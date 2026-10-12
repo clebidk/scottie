@@ -478,8 +478,14 @@ product_cutouts:
 # Cycle 103: structures left off the Library page and out of `harness library
 # build` (docs/LISTICLE-SITE.md, Library). Runs that pin them still render.
 library:
-  # 2026-10-12 owner: merged near-duplicates, Library capped at 20
+  # 2026-10-12 owner: merged near-duplicates; then "only 15 options, more
+  # different and distinct". Hidden looks still generate when a run pins them.
   hide:
     - article:default
     - longform:classic
     - product-page:classic
+    - landing:proof
+    - landing:cinematic-light
+    - listicle:bobbie-split-hero
+    - listicle:caraway-soft
+    - product-page:pdp
