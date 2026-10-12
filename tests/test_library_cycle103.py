@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from harness import abtest, library
+from harness import abtest, library, looks, pipeline
 from harness import tenant as tenant_mod
 from tests.support import TENANT
 from tests.test_listicle_site_cycle69 import _auth, client  # noqa: F401 (client is a fixture)
@@ -77,7 +77,18 @@ def test_an_unknown_entry_is_reported_once_at_build_time_and_ignored(monkeypatch
 
 def test_peak_hides_the_three_merged_near_duplicates():
     peak = tenant_mod.load_tenant("peak-saunas", require=True)
-    assert library.hidden_looks(peak) == {"article:default", "longform:classic", "product-page:classic"}
-    assert library.unknown_hidden(peak) == []
+    hidden = library.hidden_looks(peak)
+    # the three 2026-10-12 merges stay hidden; the rest of the list is the
+    # owner's (15 structures, same day) and is read from tenant.yaml
+    assert {"article:default", "longform:classic", "product-page:classic"} <= hidden
+    # every entry names a structure. Imported looks are gitignored: where this
+    # checkout has none for a cartridge (a fresh worktree), an entry naming
+    # one cannot be checked here and is accepted when it is not a harness
+    # look; where the imports are present (prod, the Mac), it must be known.
+    for entry in library.unknown_hidden(peak):
+        cartridge, _, look = entry.partition(":")
+        assert cartridge in pipeline.discover_cartridges(), entry
+        assert look not in looks.cartridge_looks(cartridge) and look != library.DEFAULT_LOOK_DIR, entry
+        assert not looks.imported_looks(cartridge, peak), f"{entry} names no structure"
     _errors, warnings = peak.validate()
     assert not any("never reads" in w for w in warnings), warnings
