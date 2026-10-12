@@ -43,6 +43,20 @@ CSS and the closest hand-made exemplar. After validation a fidelity score
 compares the render with the observation; below 0.7 a repair round names
 the missing patterns (three model calls at most). The byline's own links
 are allowed; the look may have as many dark bands as the observed page.
+
+Cycle 102 (import from a screenshot or URL, hand-conversion grade): the
+source can also be one or more images (PNG/JPG/WebP/HEIC), and a URL or an
+.html source is screenshotted at 390 and 1280 too (harness/look_vision.py);
+a URL page over MAX_SOURCE_BYTES is imported from its screenshots alone.
+One vision call on claude-opus-5-5 turns the screenshots into an
+observation of the same shape; with HTML too, the two are merged (the
+images win on order, rhythm and palette, the HTML on exact CSS values and
+font names). The generation runs on claude-opus-5-5 with the images, the
+section-by-section observation and the closest exemplar's full template --
+hand-converted tenant looks count as exemplars now -- and gets ONE revise
+round (MAX_CALLS = 2) when the validator refuses the draft or its fidelity
+is under look_design.FIDELITY_THRESHOLD (0.75), with the findings and the
+render at 390 beside the source.
 """
 import copy
 import datetime
@@ -70,14 +84,14 @@ from jinja2 import meta, nodes
 from . import budget as budget_mod
 from . import css_scope, heroes, looks, page_body, pricing
 from . import tenant as tenant_mod
-from .anthropic_client import make_client, thinking_kwargs
+from .anthropic_client import make_client
 from .errors import HarnessError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RULES_PATH = Path(__file__).resolve().parent / "look_import_rules.md"
 
 CARTRIDGES = ("landing", "listicle")
-SOURCE_KINDS = ("upload", "url", "paste")
+SOURCE_KINDS = ("upload", "url", "paste", "images")
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_URL_CHARS = 2048
 FETCH_TIMEOUT_S = 10
@@ -88,7 +102,9 @@ MAX_CSS_TOTAL_BYTES = 1536 * 1024
 MAX_SECTIONS = 40
 MAX_TEMPLATE_BYTES = 80 * 1024
 MAX_TITLE_CHARS = 60
-MAX_OUTPUT_TOKENS = 16000
+# Cycle 102: the generation runs on Opus 5.5 with adaptive thinking; the
+# template (8-10k tokens) and the thinking share this.
+MAX_OUTPUT_TOKENS = 32000
 MODEL_STAGE = "write"
 MAX_ERRORS_SHOWN = 25
 # Page-weight estimate for what the import does not download (stated in
@@ -100,7 +116,12 @@ EST_CSS_KB = 30
 USER_AGENT = "Mozilla/5.0 (compatible; harness-look-import/1.0)"
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 
-PROGRESS_STEPS = ("reading", "observing", "converting", "validating", "repairing", "storing")
+PROGRESS_STEPS = ("reading", "capturing", "observing", "drafting", "validating", "revising", "storing")
+# Cycle 102: the revise round runs only while the import has spent less than
+# this (the vision call plus the draft), so an import stays near $1.
+REVISE_MAX_SPENT_USD = 0.70
+# The daily-cap reservation of one import (docs/LISTICLE-SITE.md, the cost line).
+EST_IMPORT_USD = 1.00
 
 
 class LookImportError(HarnessError):
@@ -281,8 +302,10 @@ def decode_html(data, content_type=""):
 
 def load_source(source, *, transport=None, resolver=None):
     """`source` = {"kind": "upload", "data": bytes, "filename": ...} |
-    {"kind": "paste", "html": str} | {"kind": "url", "url": str} ->
-    {"kind", "origin", "html", "base_url", "bytes"}."""
+    {"kind": "paste", "html": str} | {"kind": "url", "url": str} |
+    {"kind": "images", "paths": [...], "names": [...]} (cycle 102) ->
+    {"kind", "origin", "html", "base_url", "bytes"} (+ "over_cap" for a URL,
+    "paths" for images)."""
     kind = (source or {}).get("kind")
     if kind == "upload":
         filename = os.path.basename(str(source.get("filename") or ""))
@@ -301,10 +324,27 @@ def load_source(source, *, transport=None, resolver=None):
         return {"kind": kind, "origin": "pasted HTML", "html": decode_html(text.encode("utf-8")), "base_url": None,
                 "bytes": size}
     if kind == "url":
-        body, headers, final_url = fetch_url(source.get("url"), transport=transport, resolver=resolver)
+        # Cycle 102: a page over MAX_SOURCE_BYTES is no longer refused here: it
+        # is screenshotted and imported from its images (over_cap), up to the
+        # screenshot browser's own cap.
+        from .look_vision import MAX_CAPTURE_BYTES
+
+        body, headers, final_url = fetch_url(source.get("url"), transport=transport, resolver=resolver,
+                                             max_bytes=MAX_CAPTURE_BYTES)
         return {"kind": kind, "origin": urllib.parse.urlsplit(final_url).hostname or "",
                 "html": decode_html(body, headers.get("content-type", "")), "base_url": final_url,
-                "bytes": len(body)}
+                "bytes": len(body), "over_cap": len(body) > MAX_SOURCE_BYTES}
+    if kind == "images":
+        from . import look_vision
+
+        try:
+            paths = look_vision.check_image_paths(source.get("paths"))
+        except look_vision.VisionError as e:
+            raise LookImportError(f"refused: {e}") from e
+        names = [str(n) for n in (source.get("names") or [p.name for p in paths])]
+        origin = names[0] if len(names) == 1 else f"{len(names)} screenshots"
+        return {"kind": kind, "origin": origin[:120], "html": None, "base_url": None, "paths": paths,
+                "bytes": sum(p.stat().st_size for p in paths)}
     raise LookImportError(f"unknown source kind {kind!r}; one of {list(SOURCE_KINDS)}")
 
 
@@ -1504,6 +1544,12 @@ def static_errors(text, cartridge, *, contract_, schema, max_dark=1):
     for m in _FORBIDDEN_TAG_RE.finditer(static):
         errors.append(f"<{m.group(1).lower()}> is not allowed in a look (images come through "
                       "render_image_slot; no forms, buttons, frames or external resources)")
+    # Cycle 102: the one literal <img> is the byline avatar, on its chrome class
+    # (pagechecks.py does not count it as a content image slot).
+    for m in re.finditer(r"<img\b([^>]*)>", static, re.I):
+        if "adv-brand-logo" not in m.group(1):
+            errors.append('a literal <img> must be the byline avatar with class="adv-brand-logo" (every other '
+                          "image goes through render_image_slot)")
     scripts = re.findall(r"<script\b([^>]*)>(.*?)</script>", text, re.S | re.I)
     if len(scripts) > 1:
         errors.append("at most one inline <script> (the sticky bar's observer)")
@@ -1767,9 +1813,11 @@ def expected_texts(cartridge, page, ctx):
     return [(k, v) for k, v in out if v]
 
 
-def render_errors(text, cartridge, slug, tenant, demo):
+def render_errors(text, cartridge, slug, tenant, demo, shot=None):
     """Renders the demo page in the candidate look (nothing stored), then
-    the rendered checks. Returns (errors, html or None)."""
+    the rendered checks. Returns (errors, html or None). `shot` (cycle 102):
+    called with the rendered index.html while its assets still exist (the
+    render at 390 for the result card and the revise round)."""
     from . import claims as claims_mod
     from . import landing as landing_mod
     from . import listicle as listicle_mod
@@ -1805,6 +1853,8 @@ def render_errors(text, cartridge, slug, tenant, demo):
             except Exception as e:  # noqa: BLE001 -- any crash of a candidate template is a refusal reason
                 return [f"render failed: {type(e).__name__}: {e}"], None
             html_text = (out / "index.html").read_text()
+            if shot is not None:
+                shot(out / "index.html")
             export, _manifest = page_body.build_shopify_body(out)
         demo_page = demo["page"]
         if cartridge == "landing":
@@ -1831,7 +1881,7 @@ def render_errors(text, cartridge, slug, tenant, demo):
     return list(dict.fromkeys(errors)), html_text
 
 
-def validate_template(text, cartridge, slug, tenant, demo, *, contract_=None, schema=None, max_dark=1):
+def validate_template(text, cartridge, slug, tenant, demo, *, contract_=None, schema=None, max_dark=1, shot=None):
     """(errors, rendered review html or None). Static rules first; the render
     runs only when they pass."""
     contract_ = contract_ or contract(cartridge, tenant, demo)
@@ -1839,7 +1889,7 @@ def validate_template(text, cartridge, slug, tenant, demo, *, contract_=None, sc
     errors = static_errors(text, cartridge, contract_=contract_, schema=schema, max_dark=max_dark)
     if errors:
         return errors, None
-    return render_errors(text, cartridge, slug, tenant, demo)
+    return render_errors(text, cartridge, slug, tenant, demo, shot=shot)
 
 
 # ---------------------------------------------------------------------------
@@ -1882,6 +1932,16 @@ def build_system_prompt(cartridge, contract_, schema, exemplar=None):
     observation + its template) when there is one, else the cartridge's
     default look."""
     rules = RULES_PATH.read_text().replace("{{CONTRACT}}", contract_markdown(cartridge, contract_, schema))
+    if exemplar and exemplar.get("kind") == "hand":
+        # Cycle 102: a hand conversion -- its summary says what was kept and
+        # dropped; its stored HTML observation was wrong, so it is not shown.
+        return (rules + f"\n\n## Exemplar: the hand-made look `{exemplar['slug']}`\n\n"
+                + "A person converted a page into a look by hand, LOOKING at the page; this is the standard to "
+                  "meet. First what the person kept and dropped, then the template they made. Notice how each "
+                  "section of the source became renderer data, how the photo and CTA cadence was kept, how the "
+                  "grounds and the type scale became token-only CSS.\n\n### What was kept and dropped\n\n"
+                + (exemplar.get("summary") or "(no summary)")
+                + "\n\n### Its template.html\n\n" + exemplar["template"])
     if exemplar:
         return (rules + f"\n\n## Exemplar: the hand-made look `{exemplar['slug']}`\n\n"
                 + "A person converted a page into a look by hand; this is the standard to meet. First the build "
@@ -1913,16 +1973,41 @@ def allowed_links_text(cartridge):
         text += (f" The one exception to the CTA text: the CTA inside the sticky bar `{BAR_CLASS}` reads exactly "
                  f"`{BAR_CTA_TEXT}`, beside the model name (`product.full_name`) with the price beneath it.")
     if cartridge == "listicle":
+        text += (f" The one exception to the CTA text: the CTA inside the sticky bar (class `{BAR_CLASS} op-bar`) "
+                 f"reads exactly `{BAR_CTA_TEXT}`, beside the model name with the price beneath it.")
+    if cartridge == "listicle":
         text += (" On the listicle also the renderer's model links (`cartridge_data.model_options[].url`) and "
                  "the first-screen byline link.")
     return text + " No other href: no founder, about, review, phone or shop link of your own."
 
 
-def build_user_message(cartridge, slug, observation, css_text=""):
+# Cycle 102: what a hand conversion did that the automatic import did not
+# (docs/FIXLOG.md cycle 102), asked of the model when it sees the page.
+IMAGE_INSTRUCTIONS = """You also SEE the page: the screenshots above are the source. Convert it the way a person converts a
+page by hand:
+- Walk the source top to bottom and map every section onto the renderer data that fills it (the contract
+  above). Keep the source's section ORDER, its PHOTO CADENCE (where photos recur: one per item, every other
+  item, full width or inset) and its CTA CADENCE (after which items a button band sits, a sticky bar, the
+  closing band). A section with no tenant data (an offer, a countdown, a bundle picker, a supplement panel) is
+  dropped, not invented.
+- Reproduce the composition in the tenant's tokens: the grounds band by band, the type scale (the headline size,
+  case and weight; an accent phrase), the numerals, the grids, the image treatments.
+- The sticky bar: the model name with the price beneath it and a CTA reading exactly `Shop now`. The
+  listicle byline avatar is `<img class="adv-brand-logo" ...>` from `first_screen.byline.avatar_url`.
+- Never copy a word, name, price, offer or claim you read in the screenshots: every word comes from
+  page.json and the renderer context; your own labels stay short and generic.
+- Right after the first line, write one Jinja comment
+  `{# look-notes: Kept: <what you reproduced>. Dropped: <what had no tenant data>. #}` -- at most 120 words,
+  layout words only. It becomes the look's summary in the Library."""
+
+
+def build_user_message(cartridge, slug, observation, css_text="", images=False):
     names = [p["name"] for p in observation.get("patterns") or []]
     parts = [f"Cartridge: {cartridge}. Look name: {slug}.", ""]
     if observation.get("brief"):
         parts += ["Design brief (written by the harness from the observation):", observation["brief"], ""]
+    if observation.get("observed_from"):
+        parts += [f"Observed from: {observation['observed_from']} (the section-by-section observation below).", ""]
     parts += ["Build observation of the page to learn from (layout and style values only: the page's words, "
               "images, brand names and scripts are not included and must not be invented):", "",
               json.dumps(observation, separators=(",", ":")), ""]
@@ -1936,6 +2021,8 @@ def build_user_message(cartridge, slug, observation, css_text=""):
     if names:
         parts.append("Distinctive patterns to reproduce, each on the element that realises it with "
                      "data-look-pattern=\"<name>\": " + ", ".join(names) + ".")
+    if images:
+        parts += ["", IMAGE_INSTRUCTIONS, ""]
     parts += [allowed_links_text(cartridge), "",
               "Write the complete template.html for this look. Output the template only: no prose, no code fence."]
     return "\n".join(parts)
@@ -1984,44 +2071,96 @@ def extract_template(text):
 
 
 def _call(client, model, system, messages, budget, log):
+    from . import look_vision
+
     budget.check()
     resp = client.messages.create(model=model, max_tokens=MAX_OUTPUT_TOKENS, system=system, messages=messages,
-                                  **thinking_kwargs(model))
+                                  **look_vision.model_kwargs(model))
     usage = resp.usage
     cache_w = getattr(usage, "cache_creation_input_tokens", 0) or 0
     cache_r = getattr(usage, "cache_read_input_tokens", 0) or 0
     budget.record_call(usage.input_tokens, usage.output_tokens)
+    family = pricing.family_id(model)
     if log:
-        log.call("look_import.convert", model, usage.input_tokens, usage.output_tokens,
+        log.call("look_import.convert", family, usage.input_tokens, usage.output_tokens,
                  cache_creation_input_tokens=cache_w, cache_read_input_tokens=cache_r)
-    cost = pricing.calculate_cost(model, usage.input_tokens, usage.output_tokens,
+    cost = pricing.calculate_cost(family, usage.input_tokens, usage.output_tokens,
                                   cache_creation_input_tokens=cache_w, cache_read_input_tokens=cache_r)
     text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", "text") == "text")
     return text, cost
 
 
-MAX_CALLS = 3
+# Cycle 102: a draft and ONE revise round (was three calls; the Opus calls
+# with images cost more, and the revise round sees the render).
+MAX_CALLS = 2
+
+
+def _first_message(cartridge, slug, observation, css_text, sheets, sheets_dir):
+    """The first user message: a plain string without images (as before),
+    else the screenshots then the text, with a prompt-cache breakpoint on the
+    last block so the revise round reads system + images + observation from
+    the cache."""
+    from . import look_vision
+
+    text = build_user_message(cartridge, slug, observation, css_text, images=bool(sheets))
+    if not sheets:
+        return text
+    blocks = look_vision.image_blocks(sheets, sheets_dir, "The source page, as screenshots (top to bottom):")
+    blocks.append({"type": "text", "text": text, "cache_control": {"type": "ephemeral"}})
+    return blocks
+
+
+def _revise_content(feedback, *, sheets_dir, render_png, work_dir):
+    """The revise round's user message: the findings, and with a render
+    shot the render at 390 (as sheets) plus the source's first screen beside
+    the render's."""
+    from . import look_vision
+
+    if render_png is None or not Path(render_png).is_file():
+        return feedback
+    work_dir = Path(work_dir)
+    blocks = [{"type": "text", "text": feedback}]
+    thumb = Path(sheets_dir) / look_vision.SOURCE_THUMB
+    if thumb.is_file():
+        pair = look_vision.side_by_side(thumb, render_png, work_dir / "side-by-side.jpg")
+        blocks.append({"type": "text", "text": "Side by side, the first phone screen: the source (left), your "
+                                               "render of the demo page (right)."})
+        blocks.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                   "data": look_vision.b64(pair)}})
+    shots = look_vision.prepare([(look_vision.open_image(render_png), "Your render at 390 px")], work_dir,
+                                max_images=3, prefix="render-sheet-")
+    blocks += look_vision.image_blocks(shots, work_dir, "Your whole render at 390 px, top to bottom. Compare its "
+                                                        "order, grounds, photo and CTA cadence with the source:")
+    return blocks
 
 
 def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, progress=None, log=None, css_text="",
-            exemplar=None):
+            exemplar=None, sheets=None, sheets_dir=None, browser=None, work_dir=None, spent_usd=0.0):
     """(template text, review html, {"attempts", "cost_usd", "model",
-    "fidelity"}) or LookImportError with the validation errors of the last
-    attempt. Up to MAX_CALLS calls: a refused template, or a valid one whose
-    fidelity is below look_design.FIDELITY_THRESHOLD, gets a repair round
-    (two at most). The valid template with the best fidelity is kept."""
+    "fidelity", "render_shot"}) or LookImportError with the validation
+    errors of the last attempt. A draft, then (cycle 102) ONE revise round
+    when the validator refuses it or its fidelity is below
+    look_design.FIDELITY_THRESHOLD, while the import has spent less than
+    REVISE_MAX_SPENT_USD (`spent_usd`: the vision call before this). With
+    `sheets` the model sees the screenshots; with `browser` each valid
+    candidate is screenshotted at 390 (render_shot) and the revise round
+    sees it beside the source. The valid template with the best fidelity is
+    kept."""
     from . import look_design
+    from . import look_vision
     from .budget import Budget, BudgetExceeded
 
     progress = progress or (lambda _s: None)
-    model = model or tenant.model_for(MODEL_STAGE)
+    model = model or look_vision.MODEL
     contract_ = contract(cartridge, tenant, demo)
     schema = load_schema(cartridge, tenant)
     system = build_system_prompt(cartridge, contract_, schema, exemplar=exemplar)
-    messages = [{"role": "user", "content": build_user_message(cartridge, slug, observation, css_text)}]
-    budget = Budget(wall_s=900, tokens=260_000, calls=MAX_CALLS)
+    messages = [{"role": "user", "content": _first_message(cartridge, slug, observation, css_text, sheets or [],
+                                                           sheets_dir)}]
+    budget = Budget(wall_s=900, tokens=400_000, calls=MAX_CALLS)
     max_dark = dark_allowance(observation)
     cost, errors, text, best, attempt = 0.0, [], "", None, 0
+    work_dir = Path(work_dir) if work_dir else None
     for attempt in range(1, MAX_CALLS + 1):
         try:
             raw, call_cost = _call(client, model, system, messages, budget, log)
@@ -2033,28 +2172,56 @@ def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, p
         cost += call_cost
         text = extract_template(raw)
         progress("validating")
+        render_png = None
+        shot = None
+        if browser and work_dir is not None:
+            render_png = work_dir / f"render-{attempt}.png"
+
+            def shot(index_html, _png=render_png):
+                look_vision.screenshot_full(browser, index_html, _png, look_vision.PHONE, tenant=tenant)
         errors, review_html = validate_template(text, cartridge, slug, tenant, demo, contract_=contract_,
-                                                schema=schema, max_dark=max_dark)
+                                                schema=schema, max_dark=max_dark, shot=shot)
         if not errors:
             fid = look_design.fidelity(observation, review_html, tenant)
+            shot_file = render_png if render_png is not None and render_png.is_file() else None
             if best is None or fid["score"] > best["fidelity"]["score"]:
-                best = {"template": text, "review_html": review_html, "fidelity": fid}
+                best = {"template": text, "review_html": review_html, "fidelity": fid, "render_shot": shot_file}
             if fid["score"] >= look_design.FIDELITY_THRESHOLD:
                 break
             feedback = fidelity_feedback(fid, observation)
         else:
+            shot_file = None
             feedback = ("The harness refused this template:\n" + "\n".join(f"- {e}" for e in errors[:MAX_ERRORS_SHOWN])
                         + "\n\nReturn the corrected complete template.html only.")
-        if attempt < MAX_CALLS:
-            progress("repairing")
-            messages += [{"role": "assistant", "content": text}, {"role": "user", "content": feedback}]
+        if attempt >= MAX_CALLS:
+            break
+        if spent_usd + cost >= REVISE_MAX_SPENT_USD and best is not None:
+            if log:
+                log.event("look_import", f"revise round skipped: ${spent_usd + cost:.2f} spent "
+                                         f"(cap ${REVISE_MAX_SPENT_USD:.2f})")
+            break
+        progress("revising")
+        content = feedback
+        if sheets and work_dir is not None:
+            content = _revise_content(feedback, sheets_dir=sheets_dir, render_png=shot_file, work_dir=work_dir)
+        messages += [{"role": "assistant", "content": text}, {"role": "user", "content": content}]
     if best is None:
         exc = LookImportError(f"import refused: the {cartridge} look failed validation after {attempt - 1} "
-                              f"repair(s) ({len(errors)} problem(s)); nothing was stored", errors)
+                              f"revise round(s) ({len(errors)} problem(s)); nothing was stored", errors)
         exc.cost_usd = round(cost, 4)
         raise exc
     return best["template"], best["review_html"], {"attempts": attempt, "cost_usd": round(cost, 4), "model": model,
-                                                   "fidelity": best["fidelity"]}
+                                                   "fidelity": best["fidelity"], "render_shot": best["render_shot"]}
+
+
+_LOOK_NOTES_RE = re.compile(r"\{#\s*look-notes:\s*(.*?)\s*#\}", re.S)
+
+
+def look_notes(template):
+    """The model's `{# look-notes: ... #}` (cycle 102): what it kept and
+    dropped, at most 120 words; "" when there is none."""
+    m = _LOOK_NOTES_RE.search(template or "")
+    return " ".join(m.group(1).split()[:120]) if m else ""
 
 
 # ---------------------------------------------------------------------------
@@ -2065,10 +2232,12 @@ def look_folder(tenant, cartridge, slug):
     return Path(tenant.looks_dir) / cartridge / slug
 
 
-def store_look(tenant, cartridge, slug, *, template, library, observation, review_html):
-    """Writes the four files into a hidden staging folder, then renames it
-    to looks/<cartridge>/<slug> -- a half-written look is never visible. A
-    name taken meanwhile is a collision."""
+def store_look(tenant, cartridge, slug, *, template, library, observation, review_html, files=None):
+    """Writes the four files (cycle 102: plus `files`, {name: source path} --
+    the screenshots the model saw, the source thumbnail, the render at 390)
+    into a hidden staging folder, then renames it to looks/<cartridge>/<slug>
+    -- a half-written look is never visible. A name taken meanwhile is a
+    collision."""
     root = Path(tenant.looks_dir) / cartridge
     root.mkdir(parents=True, exist_ok=True)
     final = root / slug
@@ -2082,6 +2251,8 @@ def store_look(tenant, cartridge, slug, *, template, library, observation, revie
         (staging / "library.json").write_text(json.dumps(library, indent=2) + "\n")
         (staging / "observation.json").write_text(json.dumps(observation, indent=2) + "\n")
         (staging / "review.html").write_text(review_html)
+        for name, src in (files or {}).items():
+            shutil.copyfile(src, staging / name)
         if final.exists():
             raise LookImportError(f"name collision: tenant {tenant.name} already has a {cartridge} look {slug!r}")
         os.rename(staging, final)
@@ -2091,73 +2262,202 @@ def store_look(tenant, cartridge, slug, *, template, library, observation, revie
     return final
 
 
+DISCARDED_DIR = ".discarded"
+
+
+def import_state(tenant, cartridge, slug):
+    """Cycle 102, the import job page: "pending" (waits for Add to Library),
+    "added", "discarded" (the folder is gone) or "stored" (an import made
+    before cycle 102, or from the CLI: in the Library already)."""
+    path = look_folder(tenant, cartridge, slug) / "library.json"
+    if not path.is_file():
+        return "discarded"
+    try:
+        data = json.loads(path.read_text())
+    except ValueError:
+        return "stored"
+    return {"pending": "pending", "added": "added"}.get(data.get("library"), "stored") if isinstance(data, dict) \
+        else "stored"
+
+
+def add_to_library(tenant, cartridge, slug, *, by):
+    """"Add to Library": library.json `library: "added"` (+ added_at,
+    added_by). The caller queues the Library build (the existing path).
+    Raises LookImportError unless the look is pending."""
+    if import_state(tenant, cartridge, slug) != "pending":
+        raise LookImportError(f"the {cartridge} look {slug!r} is not waiting to be added")
+    path = look_folder(tenant, cartridge, slug) / "library.json"
+    data = json.loads(path.read_text())
+    data.update({"library": "added", "added_at": datetime.datetime.now().isoformat(timespec="seconds"),
+                 "added_by": by})
+    tmp = path.with_name(f".library-{secrets.token_hex(4)}.json")
+    tmp.write_text(json.dumps(data, indent=2) + "\n")
+    os.replace(tmp, path)
+    return data
+
+
+def discard(tenant, cartridge, slug):
+    """"Discard": the pending look's folder moves to
+    looks/<cartridge>/.discarded/<slug>-<time> (kept on disk, out of every
+    listing; its name is free again). Raises LookImportError unless the
+    look is pending. Returns the new folder."""
+    if import_state(tenant, cartridge, slug) != "pending":
+        raise LookImportError(f"the {cartridge} look {slug!r} is not waiting to be added")
+    root = Path(tenant.looks_dir) / cartridge / DISCARDED_DIR
+    root.mkdir(parents=True, exist_ok=True)
+    dest = root / f"{slug}-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2)}"
+    os.rename(look_folder(tenant, cartridge, slug), dest)
+    return dest
+
+
+def _source_images(src, work, *, browser, progress):
+    """[(PIL image, label)] of the source: the uploaded images, or (cycle
+    102) the page's screenshots at 390 and 1280 when a browser is here."""
+    from . import look_vision
+
+    try:
+        if src["kind"] == "images":
+            names = [p.name for p in src["paths"]]
+            n = len(src["paths"])
+            return [(look_vision.open_image(path), f"Screenshot {k} of {n}" + (f" ({names[k - 1]})" if n > 1 else ""))
+                    for k, path in enumerate(src["paths"], 1)]
+        if not src.get("html") or not browser:
+            return []
+        progress("capturing")
+        shots = look_vision.capture_page(src["html"], src.get("base_url"), work / "capture", browser=browser)
+        return [(look_vision.open_image(path), label) for path, label in shots]
+    except look_vision.VisionError as e:
+        raise LookImportError(f"refused: {e}") from e
+
+
 def import_look(tenant, *, cartridge, name, source, title=None, client=None, model=None, dry_run=False,
-                progress=None, log=None, transport=None, resolver=None, exemplar=None):
+                progress=None, log=None, transport=None, resolver=None, exemplar=None, review=False):
     """The whole import. dry_run: the observation only (no model call,
-    nothing written). `exemplar`: a hand-made look's slug to show the model
-    instead of the closest one. Returns a JSON-ready result dict; raises
+    nothing written; with images, the sheets that would be sent and the
+    HTML observation when there is one). `exemplar`: a hand-made look's slug
+    to show the model instead of the closest one. `review` (cycle 102, the
+    site's job): the stored look waits for "Add to Library" (library.json
+    `library: "pending"`). Returns a JSON-ready result dict; raises
     LookImportError (nothing stored) on any refusal."""
     from . import look_design
+    from . import look_vision
 
     progress = progress or (lambda _s: None)
     slug = check_name(tenant, cartridge, name)
     title = " ".join(str(title or "").split())[:MAX_TITLE_CHARS] or slug.replace("-", " ").capitalize()
     progress("reading")
     src = load_source(source, transport=transport, resolver=resolver)
-    progress("observing")
-    observation, css_text = observe_with_css(src, transport=transport, resolver=resolver, tenant=tenant)
-    sha = observation_sha(observation)
-    chosen = look_design.choose_exemplar(observation, look_design.exemplars(tenant, cartridge), exemplar)
-    result = {"slug": slug, "cartridge": cartridge, "title": title, "observation": observation,
-              "observation_sha": sha, "summary": summarise(observation), "brief": observation.get("brief"),
-              "patterns": [p["name"] for p in observation.get("patterns") or []],
-              "exemplar": chosen["slug"] if chosen else None}
-    if dry_run:
-        return result
-    demo = load_demo(tenant, cartridge)
-    client = client or make_client()
-    today = datetime.date.today().isoformat()
-    run_id = f"look-import-{slug}-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    try:
-        budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today, log=log)
-    except budget_mod.BudgetExceeded as e:
-        raise LookImportError(f"import not started: {e}") from e
-    progress("converting")
-    cost = 0.0
-    try:
-        template, review_html, outcome = convert(observation, cartridge=cartridge, slug=slug, tenant=tenant,
-                                                 demo=demo, client=client, model=model, progress=progress, log=log,
-                                                 css_text=css_text, exemplar=chosen)
-        cost = outcome["cost_usd"]
-    except LookImportError as e:
-        cost = getattr(e, "cost_usd", 0.0)
-        raise
-    finally:
-        budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today, log=log)
-    progress("storing")
-    roles = [s["role"] for s in observation["sections"] if s["role"] not in ("nav", "footer")]
-    library = {
-        "name": slug,
-        "title": title,
-        "summary": result["summary"],
-        "source": {"kind": src["kind"], "origin": src["origin"],
-                   "imported_at": datetime.datetime.now().isoformat(timespec="seconds"), "observation_sha": sha},
-        "cartridge": cartridge,
-        "derived_from_sections": roles,
-        "abtest_entry": f"{cartridge}:{slug}",
-        "validation": {"result": "PASS", "attempts": outcome["attempts"]},
-        "model": outcome["model"],
-        "cost_usd": outcome["cost_usd"],
-        "fidelity": outcome["fidelity"]["score"],
-        "patterns": result["patterns"],
-        "missing_patterns": outcome["fidelity"]["missing"],
-        "exemplar": result["exemplar"],
-    }
-    folder = store_look(tenant, cartridge, slug, template=template, library=library, observation=observation,
-                        review_html=review_html)
-    result.update({"library": library, "folder": str(folder), "attempts": outcome["attempts"],
-                   "cost_usd": outcome["cost_usd"], "fidelity": outcome["fidelity"]["score"],
-                   "fidelity_detail": outcome["fidelity"], "missing_patterns": outcome["fidelity"]["missing"]})
+    browser = look_vision.find_browser()
+    with tempfile.TemporaryDirectory(prefix="look-import-") as tmp:
+        work = Path(tmp)
+        html_obs, css_text = None, ""
+        if src.get("html") and not src.get("over_cap"):
+            progress("observing")
+            html_obs, css_text = observe_with_css(src, transport=transport, resolver=resolver, tenant=tenant)
+        images = _source_images(src, work, browser=browser, progress=progress)
+        if src.get("over_cap") and not images:
+            raise LookImportError(f"refused: {src['origin']} is larger than {MAX_SOURCE_BYTES // 1024} KB and no "
+                                  "screenshot of it could be taken here (no headless browser, or the capture "
+                                  "failed); upload screenshots of the page instead")
+        sheets_dir = work / "sheets"
+        sheets = look_vision.prepare(images, sheets_dir) if images else []
+        if images:
+            look_vision.write_thumb(images[0][0], sheets_dir / look_vision.SOURCE_THUMB)
+        result = {"slug": slug, "cartridge": cartridge, "title": title, "images": sheets,
+                  "observed_from": "images+html" if html_obs and sheets else ("images" if sheets else "html")}
+        if dry_run:
+            chosen = (look_design.choose_exemplar(html_obs, look_design.exemplars(tenant, cartridge), exemplar)
+                      if html_obs else None)
+            result.update({"observation": html_obs, "summary": summarise(html_obs) if html_obs else "",
+                           "brief": (html_obs or {}).get("brief"),
+                           "patterns": [p["name"] for p in (html_obs or {}).get("patterns") or []],
+                           "exemplar": chosen["slug"] if chosen else None})
+            return result
+        candidates = look_design.exemplars(tenant, cartridge)
+        if exemplar:   # an unknown exemplar is refused before any model call
+            look_design.choose_exemplar({"patterns": [], "sections": []}, candidates, exemplar)
+        demo = load_demo(tenant, cartridge)
+        client = client or make_client()
+        today = datetime.date.today().isoformat()
+        run_id = f"look-import-{slug}-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        try:
+            budget_mod.reserve_spend(tenant, run_id=run_id, today_iso=today, log=log, extra_usd=EST_IMPORT_USD)
+        except budget_mod.BudgetExceeded as e:
+            raise LookImportError(f"import not started: {e}") from e
+        cost = 0.0
+        try:
+            observation = html_obs
+            if sheets:
+                progress("observing")
+                from .budget import Budget
+
+                try:
+                    image_obs, cost = look_vision.observe(
+                        sheets, sheets_dir, client=client, cartridge=cartridge, origin=src["origin"],
+                        source_kind=src["kind"], budget=Budget(wall_s=600, tokens=120_000, calls=1),
+                        model=model or look_vision.MODEL, log=log)
+                except look_vision.VisionError as e:
+                    cost = getattr(e, "cost_usd", 0.0)
+                    raise LookImportError(f"refused: {e}") from e
+                observation = look_vision.merge(image_obs, html_obs) if html_obs else image_obs
+            else:
+                observation["observed_from"] = "html"
+            chosen = look_design.choose_exemplar(observation, candidates, exemplar)
+            progress("drafting")
+            template, review_html, outcome = convert(
+                observation, cartridge=cartridge, slug=slug, tenant=tenant, demo=demo, client=client, model=model,
+                progress=progress, log=log, css_text=css_text, exemplar=chosen, sheets=sheets,
+                sheets_dir=sheets_dir, browser=browser, work_dir=work, spent_usd=cost)
+            cost += outcome["cost_usd"]
+        except LookImportError as e:
+            cost += getattr(e, "cost_usd", 0.0)
+            e.cost_usd = round(cost, 4)
+            raise
+        finally:
+            budget_mod.record_spend(tenant, run_id=run_id, cost=cost, today_iso=today, log=log)
+        progress("storing")
+        sha = observation_sha(observation)
+        files = {s["file"]: sheets_dir / s["file"] for s in sheets}
+        if (sheets_dir / look_vision.SOURCE_THUMB).is_file():
+            files[look_vision.SOURCE_THUMB] = sheets_dir / look_vision.SOURCE_THUMB
+        if outcome.get("render_shot"):
+            files[look_vision.RENDER_SHOT] = outcome["render_shot"]
+        roles = [s["role"] for s in observation["sections"] if s["role"] not in ("nav", "footer")]
+        notes = look_notes(template)
+        summary = summarise(observation)
+        library = {
+            "name": slug,
+            "title": title,
+            "summary": (f"{notes} ({summary})" if notes else summary),
+            "source": {"kind": src["kind"], "origin": src["origin"],
+                       "imported_at": datetime.datetime.now().isoformat(timespec="seconds"), "observation_sha": sha,
+                       "images": [s["file"] for s in sheets]},
+            "observed_from": observation["observed_from"],
+            "cartridge": cartridge,
+            "derived_from_sections": roles,
+            "abtest_entry": f"{cartridge}:{slug}",
+            "validation": {"result": "PASS", "attempts": outcome["attempts"]},
+            "model": outcome["model"],
+            "cost_usd": round(cost, 4),
+            "fidelity": outcome["fidelity"]["score"],
+            "patterns": [p["name"] for p in observation.get("patterns") or []],
+            "missing_patterns": outcome["fidelity"]["missing"],
+            "exemplar": chosen["slug"] if chosen else None,
+        }
+        if look_vision.SOURCE_THUMB in files:
+            library["source_thumb"] = look_vision.SOURCE_THUMB
+        if look_vision.RENDER_SHOT in files:
+            library["render_shot"] = look_vision.RENDER_SHOT
+        if review:
+            library["library"] = "pending"
+        folder = store_look(tenant, cartridge, slug, template=template, library=library, observation=observation,
+                            review_html=review_html, files=files)
+    result.update({"observation": observation, "observation_sha": sha, "summary": library["summary"],
+                   "brief": observation.get("brief"), "patterns": library["patterns"],
+                   "exemplar": library["exemplar"], "library": library, "folder": str(folder),
+                   "attempts": outcome["attempts"], "cost_usd": library["cost_usd"],
+                   "fidelity": outcome["fidelity"]["score"], "fidelity_detail": outcome["fidelity"],
+                   "missing_patterns": outcome["fidelity"]["missing"]})
     return result
 
 
@@ -2180,24 +2480,33 @@ def job_summary(result):
         "fidelity": result.get("fidelity"),
         "missing_patterns": result.get("missing_patterns") or [],
         "exemplar": result.get("exemplar"),
+        # cycle 102: what the observation came from, and the result card's pictures
+        "observed_from": result.get("observed_from") or obs.get("observed_from") or "html",
+        "images": len(result.get("images") or []),
+        "source_thumb": bool((result.get("library") or {}).get("source_thumb")),
+        "render_shot": bool((result.get("library") or {}).get("render_shot")),
     }
 
 
 def queue_payload(tenant, *, name, cartridge, by, title=None, url=None, html_text=None, file_bytes=None,
-                  filename=None, exemplar=None):
+                  filename=None, exemplar=None, images=None):
     """The quick checks of a site request (name, collision, exactly one
-    source, size, an HTML upload/paste, an http(s) URL) and the look_import
-    job payload. An upload or paste is written to
-    tenants/<t>/jobs/look-imports/<16 hex>.html for the worker, which
-    deletes it when the job ends. Raises LookImportError."""
+    source, size, an HTML upload/paste, an http(s) URL, cycle 102: images)
+    and the look_import job payload. An upload or paste is written to
+    tenants/<t>/jobs/look-imports/<16 hex>.html, images to
+    tenants/<t>/jobs/look-imports/img-<16 hex>/ (look_vision.save_images),
+    for the worker, which deletes them when the job ends. `images`:
+    [(stream, filename)]. Raises LookImportError."""
     from . import jobs
+    from . import look_vision
 
     slug = check_name(tenant, cartridge, name)
     url = (url or "").strip()
-    given = [kind for kind, value in (("upload", file_bytes), ("url", url), ("paste", (html_text or "").strip()))
-             if value]
+    images = [(s, n) for s, n in (images or []) if s is not None and n]
+    given = [kind for kind, value in (("upload", file_bytes), ("url", url), ("paste", (html_text or "").strip()),
+                                      ("images", images)) if value]
     if len(given) != 1:
-        raise LookImportError("give exactly one source: an .html file, a page URL, or pasted HTML")
+        raise LookImportError("give exactly one source: screenshots, a page URL, an .html file, or pasted HTML")
     kind = given[0]
     payload = {"kind": kind, "slug": slug, "cartridge": cartridge, "by": by,
                "title": " ".join(str(title or name or "").split())[:MAX_TITLE_CHARS]}
@@ -2206,6 +2515,13 @@ def queue_payload(tenant, *, name, cartridge, by, title=None, url=None, html_tex
         if not looks.LOOK_SLUG_RE.match(exemplar):
             raise LookImportError(f"exemplar {exemplar!r} is not a look name")
         payload["exemplar"] = exemplar
+    if kind == "images":
+        try:
+            payload["images"] = look_vision.save_images(tenant, images)
+        except look_vision.VisionError as e:
+            raise LookImportError(str(e)) from e
+        payload["files"] = [os.path.basename(str(n))[:120] for _s, n in images]
+        return payload
     if kind == "url":
         parts = urllib.parse.urlsplit(url)
         if parts.scheme.lower() not in ("http", "https") or not parts.hostname:

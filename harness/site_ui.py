@@ -427,6 +427,24 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
 .lib-var.on .lib-var-shot{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
 .lib-offs{display:flex;flex-wrap:wrap;gap:6px}
 .lib-off{height:auto;min-height:22px;padding:4px 9px;white-space:normal;line-height:1.3;cursor:help}
+/* cycle 102: an imported look's source, as a chip with a thumbnail that grows on hover */
+.lib-source{position:relative;text-decoration:none;padding-left:3px}
+.lib-source img{height:16px;width:12px;object-fit:cover;object-position:top;border-radius:999px}
+.lib-source-pop{display:none;position:absolute;z-index:5;left:0;top:26px;width:180px;border:1px solid var(--line-2);
+  border-radius:8px;background:var(--bg);overflow:hidden}
+.lib-source-pop img{display:block;width:100%;height:auto;border-radius:0}
+.lib-source:hover .lib-source-pop,.lib-source:focus .lib-source-pop{display:block}
+/* cycle 102: the import job -- its steps, then the source beside the render */
+.li-steps{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.li-steps li{font-size:.74rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+.li-steps li.done{color:var(--ink)}
+.li-steps li.now{color:var(--red);border-color:var(--red-line);font-weight:600}
+.li-compare{display:flex;gap:12px;margin:0 0 12px}
+.li-compare figure{margin:0;flex:1;min-width:0;max-width:220px}
+.li-compare img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px}
+.li-compare figcaption{font-size:.72rem;color:var(--muted);margin-top:4px}
+.li-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.li-actions form{margin:0}
 .notice.pin{display:block;margin:0 0 16px}
 
 /* cycle 96: the Photos page */

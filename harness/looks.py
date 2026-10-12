@@ -30,6 +30,7 @@ harness/render.py loads it through a prefix loader rooted at the tenant's
 looks folder for that cartridge, so it can never leave that folder either.
 An imported look is never a default: it renders only when named.
 """
+import json
 import re
 from pathlib import Path
 
@@ -120,6 +121,20 @@ def imported_looks(cartridge_name, tenant=None, looks_dir=None):
         p.name for p in folder.iterdir()
         if LOOK_SLUG_RE.match(p.name) and (p / "template.html").is_file()
     ))
+
+
+def pending_review(cartridge_name, slug, tenant=None, looks_dir=None):
+    """Cycle 102: True for an imported look that waits for "Add to Library"
+    on its import job page (library.json `library: "pending"`): the Library
+    does not list it and the design gate does not try it."""
+    folder = imported_looks_dir(cartridge_name, tenant, looks_dir)
+    if folder is None:
+        return False
+    try:
+        data = json.loads((folder / slug / "library.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and data.get("library") == "pending"
 
 
 def is_look_of(cartridge_name, look, tenant=None, looks_dir=None):

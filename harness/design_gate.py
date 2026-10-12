@@ -697,6 +697,8 @@ def extra_layouts(cartridge, tenant, pinned=None):
     if pinned.get("look") or not looks.has_looks(cartridge):
         return out
     for slug in looks.imported_looks(cartridge, tenant):
+        if looks.pending_review(cartridge, slug, tenant):   # cycle 102: not reviewed yet
+            continue
         try:
             if looks.resolve_look(cartridge, slug, tenant=tenant) != slug:
                 continue

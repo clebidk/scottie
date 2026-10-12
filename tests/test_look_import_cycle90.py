@@ -325,15 +325,16 @@ def test_low_fidelity_gets_a_repair_round_naming_the_missing_patterns(tmp_path, 
 
 
 def test_the_repair_rounds_stop_after_two_and_keep_the_best_valid_template(tmp_path, monkeypatch):
+    # cycle 102: a draft and ONE revise round (was two repairs)
     monkeypatch.setattr(look_design, "PACK_DIR", tmp_path / "no-pack")
     half = _marked().replace(' data-look-pattern="check-rows"', "").replace(' data-look-pattern="stat-strip"', "")
-    client = _client(OPEN_LOOK, half, OPEN_LOOK)
+    client = _client(OPEN_LOOK, half)
     seen = []
     result = _import("09-rivian.html", "rivian-test", client, progress=seen.append)
-    assert len(client.messages.calls) == look_import.MAX_CALLS == 3
-    assert seen.count("repairing") == 2 and seen.count("validating") == 3
-    assert result["attempts"] == 3 and result["fidelity"] < 0.7
-    assert result["missing_patterns"] == ["check-rows", "stat-strip"]    # the best of the three was stored
+    assert len(client.messages.calls) == look_import.MAX_CALLS == 2
+    assert seen.count("revising") == 1 and seen.count("validating") == 2
+    assert result["attempts"] == 2 and result["fidelity"] < 0.75
+    assert result["missing_patterns"] == ["check-rows", "stat-strip"]    # the best of the two was stored
     library_json = json.loads((TENANT.looks_dir / "landing" / "rivian-test" / "library.json").read_text())
     assert library_json["fidelity"] == result["fidelity"] and library_json["missing_patterns"] == ["check-rows",
                                                                                                   "stat-strip"]

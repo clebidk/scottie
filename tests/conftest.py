@@ -236,6 +236,10 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     # the repo and changes; a test that wants exemplars sets its own.
     from harness import look_design
     monkeypatch.setattr(look_design, "PACK_DIR", base / "no-pack")
+    # Cycle 102: an import screenshots its page when a headless browser is on
+    # this host; no test starts one unless it puts its own fake here.
+    from harness import look_vision
+    monkeypatch.setattr(look_vision, "find_browser", lambda: None)
     return base
 
 

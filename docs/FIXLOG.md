@@ -6661,3 +6661,148 @@ No hash pin changed: the shipped-look pins have one candidate per slot.
   tests/test_listicle_site_cycle69.py (budget cap) and fail the same on bare origin/master
   1350c75: that commit set the peak-saunas daily budget to 25 USD, and the tests still expect
   the 10 USD cap. Not touched here.
+## Cycle 102 (import a look from a screenshot or URL, hand-conversion grade, 2026-10-12)
+
+Branch `cycle102/import-from-image` from origin/master 7b3ea05. No model or API call while building
+(FakeClient and canned vision answers in the tests; two checks with the real headless Chrome on the Mac,
+no model).
+
+### Problem
+The owner, verbatim: "upgrade the workflow, agent, or system where on listicle.peaksaunas.com i can
+upload a image or url and it builds a like version for listicle library". The import took a URL or an
+HTML file only, and its looks came out generic, while the four looks converted by hand on 2026-10-08
+(tenants/peak-saunas/looks/listicle/{nourial-ten-reasons,jevi-five-signs,swarva-doctor-byline,
+citrusroot-named-cause}, `library.json` `source.converted.cycle: "98b"`) matched their sources.
+
+### Why the hand conversions matched and the automatic imports did not
+There is no "Cycle 98b" section in this file (the hand conversions are recorded only in their
+`library.json`); this comparison is from the four looks' `observation.json`, `library.json` and
+`template.html`.
+1. **The HTML observer was wrong where it mattered.** Each hand-converted look keeps the observation the
+   importer made of its page. Jevi: 20 sections, all read as dark (`dark-page`); the page is white
+   sections on hairlines with one dark stat panel and two dark bands. Swarva: 11 sections, all dark
+   (`dark-page`, `dark-hero`); the page is a light editorial page with a dark masthead and a dark close.
+   Citrus Root: 5 sections (a skip link, a pinned helper, a hidden wrapper, the hero, a CTA) -- the page
+   is built by script, so the reading column, the numbered points and the guarantee panel were never in
+   the HTML. Nourial: 25 sections with 5 `hero` roles (several h1s) and the sticky bar missed. The
+   observer reads the DOM and the CSS cascade, not the page as a reader sees it.
+2. **The hand-made looks were never exemplars.** `look_design.exemplars` took only `source.kind ==
+   "pack"`; these four are `url`/`upload`, so a listicle import had no exemplar at all and was shown the
+   default `open` look.
+3. **A person mapped the source onto PEAK data and wrote down the choices.** Each `library.json` summary
+   is a kept/dropped list ("Kept: ... a dark CTA band after items 3 and 6 ... Dropped: the 50%-off offer,
+   the review carousel ..."). The rhythm a person keeps -- one photo per item, a CTA band every three
+   items, the sticky bar -- is in none of the HTML observations.
+4. **The markers follow the page, not the observation.** The hand templates mark what the page has
+   (Citrus Root: `stat-strip big-numerals model-picker sticky-bar`), the observation lists other
+   patterns (`sticky-bar icon-row stat-strip`).
+
+### Change
+- **`harness/look_vision.py`** (new): image intake (`save_images` for the site: PNG/JPG/WebP/HEIC by
+  their bytes as on the Photos page, at most 10 files of 15 MB, all or nothing, under
+  `jobs/look-imports/img-<16 hex>/`; `check_image_paths` for the CLI); `capture_page`: a URL or HTML page
+  screenshotted at 390 and 1280, full height (12,000 px at most), with harness/capture.py's Chromium from
+  a sanitised copy (look_import.sanitise; lazy images made eager; inline SVG written without the
+  html5lib namespace so it draws; a `<base>` on the URL); `prepare`: tiles at most 2.2 x as tall as
+  wide, at most 6 sheets (each source image its own sheets; more than 6 images packed side by side in
+  reading order), each downscaled to 1280 px on the long side; `observe`: ONE claude-opus-5-5 call
+  (adaptive thinking, effort medium -- Opus 5.5 refuses `thinking: disabled`) with a structured prompt
+  using the HTML observer's role names and the 16 cycle 90 patterns; `to_observation`: the answer in the
+  HTML observer's shape (one hero, `dark-page` / `dark-hero` / `sticky-bar` derived, palette roles mapped
+  to PEAK tokens, type scale, photo and CTA cadence, special elements; `observed_from: "images"`);
+  `merge`: images win on order, roles, grounds, layout, patterns, cadence and palette; HTML wins on
+  `style.type`, `max_width`, `pad`, `radius`, `scrim`, skeletons and image aspects (sections matched by
+  role order), fonts, page width, sticky, weight, and the patterns it reads exactly (`sticky-bar`,
+  `faq-accordion`, `caps-headline`); `side_by_side` for the revise round.
+- **`harness/look_import.py`**: source kind `images`; a URL is fetched up to 10 MB and a page over the
+  2 MB HTML cap is imported from its screenshots alone (refused only when no screenshot can be taken);
+  every URL/HTML import is screenshotted when a browser is here; the vision observation and the merge;
+  the generation model is claude-opus-5-5 (was the tenant's `write` model, claude-sonnet-5), max 32k
+  output tokens; the first message carries the sheets, the observation, the sanitised CSS and the
+  hand-conversion instructions (section order, photo cadence, CTA cadence, drop what has no PEAK data,
+  sticky bar with `Shop now`, the `adv-brand-logo` avatar, never copy a word from a screenshot, a
+  `{# look-notes: Kept/Dropped #}` comment that becomes the Library summary), with a prompt-cache
+  breakpoint; `MAX_CALLS = 2`: a draft and ONE revise round (was three calls) when the validator refuses
+  it or its fidelity is under 0.75, with the findings, the source's first screen beside the render's and
+  the whole render at 390; the revise round is skipped once $0.70 is spent; each valid candidate is
+  screenshotted at 390 through a new `shot` hook in `render_errors`; the stored look keeps the sheets,
+  `source-thumb.jpg`, `render-390.png`; `library.json` adds `observed_from`, `source.images`,
+  `source_thumb`, `render_shot` and (site imports) `library: "pending"`; `import_state`,
+  `add_to_library`, `discard` (moves the folder to `looks/<cartridge>/.discarded/`); progress steps
+  reading, capturing, observing, drafting, validating, revising, storing; the validator refuses a literal
+  `<img>` without `adv-brand-logo`; the listicle sticky bar's `Shop now` is in the allowed-links text.
+- **`harness/look_design.py`**: `FIDELITY_THRESHOLD` 0.75 (was 0.7); hand-converted tenant looks
+  (`source.converted.by == "hand"`) are exemplars, matched by the patterns their templates mark; the
+  prompt shows their kept/dropped summary instead of their (wrong) HTML observation.
+- **`harness/looks.py`** `pending_review`; **`harness/library.py`** leaves pending imports out and gives
+  each imported look's card its source thumbnail; **`harness/design_gate.py`** `extra_layouts` skips a
+  pending look (otherwise a look the owner had not reviewed could be tried on a real page).
+- **`harness/jobs.py`**: the `look_import` job takes screenshots, deletes them when it ends, and stores
+  the look as pending.
+- **`harness/site.py`, `harness/site_ui.py`**: the form takes **Screenshots** (a drop zone, `multiple`,
+  HEIC), the request cap is 10 x 15 MB + 2 MB; the job page shows the steps as a row with the current one
+  marked, then the result card: the source's first phone screen beside the PEAK render at 390, the
+  fidelity, "Observed from ...", **Add to Library** (library.json `added`, a `library_build` job for that
+  page type, audit `look_add`) or **Discard** (audit `look_discard`); routes `/looks/<c>/<slug>/
+  source.jpg`, `render.png`, `add`, `discard` (form token); the Library card of an imported look has a
+  **Modelled on ...** chip with the source thumbnail, bigger on hover.
+- **CLI**: `harness look import --image FILE [--image FILE ...]` (one source kind; `--dry-run` prints the
+  sheets and makes no call; a CLI import goes into the Library at once).
+- **`harness/look_import_rules.md`**: one revise round, 0.75, the avatar class, `Shop now` on both
+  cartridges, and "Screenshots: convert it like a person would". **docs/LISTICLE-SITE.md**: "Import from
+  a screenshot or a URL (cycle 102)", pages, data and security.
+- **Tests**: `tests/test_look_import_cycle102.py` (18): an image upload makes a job, the observation is
+  the fake vision answer's, the draft sees the sheets (cache breakpoint, Opus, effort medium, no
+  `thinking`), the look is pending with its sheets and thumbnail, the look-notes summary, the cost; the
+  normalisation; the merge rules; a URL screenshotted from a sanitised copy (`<base>`, no script) and
+  merged, the render shot stored; a URL over the HTML cap imported from its screenshots; refused with no
+  screenshot before any call; the revise round on low fidelity with the side by side and the render
+  sheets; the revise round skipped at the spend cap; the CLI flag; the result page, Add to Library (the
+  library_build job, the chip), Discard (the name is free again); the form and the step row; HEIC
+  accepted (and refused when it cannot be read; a real HEIC decode test skips without pillow-heif); the
+  upload limits and one source; the sheets; hand-converted exemplars; the design gate skips a pending
+  look. `tests/conftest.py`: the isolation fixture sets `look_vision.find_browser` to no browser.
+  Changed on purpose in the cycle 87/90 tests: the Opus price (0.188 for 12k/7k), two calls and "after 1
+  revise round(s)", the step names, the threshold.
+
+### Verify
+- Targeted: tests/test_look_import_cycle87.py, _cycle90.py, _cycle102.py, test_library_cycle99.py,
+  test_photos_page_cycle96.py: 133 passed, 2 skipped (both real-HEIC decode tests: pillow-heif is not
+  installed in this checkout's .venv).
+- Full suite (`.venv/bin/python -m pytest -q -p no:cacheprovider`): 4 failed, 3095 passed, 19 skipped
+  in 347 s. The 4 failures are tests/test_photo_slots_cycle101.py's item-photo tests for
+  nourial-ten-reasons and swarva-doctor-byline. They read the gitignored tenant templates, and this
+  clone's copies (dated 2026-10-08) are from before cycle 101: the Nourial item photo still has
+  `frame="4x5"`, which cycle 101 removed in the copy listed under its "Deploy by hand". Nothing in this
+  cycle changes rendering. A first run also flagged the word PEAK in tenant-neutral engine text
+  (tests/test_tenant.py); the new wording is tenant-neutral and that test passes.
+- Real Chrome (no model): `capture_page` on tests/fixtures/look_import/pack/09-rivian.html took 6.3 s
+  for 390x7401 and 1280x5532; `prepare` made 6 sheets (four of two phone tiles, one phone tile, one sheet
+  of the two desktop tiles at 1192x1280). The render hook screenshotted nourial-ten-reasons rendering the
+  listicle demo at 390x9587 with the brand fonts and photos, and `side_by_side` made a 796x844 pair.
+
+### Cost per import (estimated, not measured)
+At $4 / $20 per M tokens (claude-opus-5-5): the vision call about 9k input (6 sheets of 0.9-1.6k
+tokens + the prompt) and 6k output with thinking, about $0.16; the draft about 29k input (rules,
+contract, exemplar template, sheets, observation, CSS; written to the prompt cache at 1.25x) and 13k
+output, about $0.40; the revise round about 15k new input + the cache read and 13k output, about $0.33.
+About $0.55 an import, $0.90 with the revise round, at most about $1.05 (the revise round is skipped once
+$0.70 is spent). The daily-cap reservation is $1.00 an import.
+
+### Open
+- **No real-model import was run.** Whether Opus returns the vision JSON as asked, how often the draft
+  passes the validator and 0.75 on the first call, the real token counts and the real cost are unseen.
+  32,000 max output tokens for Opus 5.5 is an assumption from the model family, not checked against the
+  API in this cycle.
+- **One revise round.** A draft the validator refuses twice is refused (was three calls). Opus with the
+  screenshots and an exemplar should pass more often than Sonnet did; unmeasured.
+- **The screenshot browser loads the page's CSS and images** from wherever the page names them (the
+  public-address check covers the HTML fetch only). Scripts never run. A page whose content is built
+  by script screenshots nearly empty, as it observed nearly empty; upload screenshots for such a page.
+- **Source screenshots are kept** in the look's folder (behind the login) for the result card and the
+  Library chip -- a change from cycle 87's "nothing of the source page is kept". The template and the
+  export never hold them.
+- pillow-heif is a project dependency but is not installed in this Mac checkout's .venv; HEIC was tested
+  with `heic_supported` faked, plus a real decode test that skips here. On prod it is installed (cycle 96).
+- Deploy: no tenant files change in this cycle. The four hand-converted looks must be on prod
+  (`tenants/peak-saunas/looks/listicle/`, gitignored, copied by hand in cycle 101) to be exemplars there.

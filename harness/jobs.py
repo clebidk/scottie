@@ -31,9 +31,10 @@ Job types and handlers (each reuses the CLI's own code path):
                    Library page's reference renders; no model call
   look_import      cycle 87: "Import a page" -- harness/look_import.py's
                    import_look (= `harness look import`); progress states
-                   reading -> observing -> converting -> validating
-                   [-> repairing -> validating] -> storing, in the job's
-                   `progress` column
+                   reading [-> capturing] -> observing -> drafting ->
+                   validating [-> revising -> validating] -> storing, in
+                   the job's `progress` column (cycle 102: also from
+                   screenshots; the look waits for "Add to Library")
   photos_import    cycle 96: photos added on the Photos page (or pulled from
                    Drive) -- harness/photo_uploads.py's run_import: import,
                    measure, tag; progress "k of n tagged"
@@ -46,6 +47,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sqlite3
 import threading
 import traceback
@@ -417,14 +419,27 @@ def pending_source_path(tenant, name):
 
 def handle_look_import(tenant, payload):
     """Cycle 87: one "Import a page" (harness/look_import.py). The pending
-    source file is deleted whatever happens; a refusal stores nothing."""
+    source file (cycle 102: or folder of screenshots) is deleted whatever
+    happens; a refusal stores nothing. Cycle 102: the stored look waits for
+    "Add to Library" on the job page (review=True)."""
     from . import look_import
+    from . import look_vision
 
     pending = None
+    pending_images = None
     try:
         kind = payload["kind"]
         if kind == "url":
             source = {"kind": "url", "url": payload["url"]}
+        elif kind == "images":
+            try:
+                pending_images = look_vision.pending_dir(tenant, payload["images"])
+            except look_vision.VisionError as e:
+                raise JobFailed(str(e)) from e
+            paths = sorted(p for p in pending_images.iterdir() if p.is_file()) if pending_images.is_dir() else []
+            if not paths:
+                raise JobFailed("the uploaded screenshots are gone (was the job run twice?); import them again")
+            source = {"kind": "images", "paths": paths, "names": payload.get("files") or [p.name for p in paths]}
         else:
             pending = pending_source_path(tenant, payload["pending"])
             data = pending.read_bytes() if pending.exists() else None
@@ -436,12 +451,15 @@ def handle_look_import(tenant, payload):
             result = look_import.import_look(
                 tenant, cartridge=payload["cartridge"], name=payload["slug"], title=payload.get("title"),
                 source=source, progress=lambda step: progress(tenant, step), exemplar=payload.get("exemplar"),
+                review=True,
             )
         except look_import.LookImportError as e:
             raise JobFailed(look_import.format_errors(e)) from e
     finally:
         if pending is not None:
             pending.unlink(missing_ok=True)
+        if pending_images is not None:
+            shutil.rmtree(pending_images, ignore_errors=True)
     summary = look_import.job_summary(result)
     audit(tenant, by=payload["by"], action="look_import_done", target=f"look:{payload['cartridge']}/{result['slug']}",
           detail={"title": result["title"], "cost_usd": summary["cost_usd"], "validation": summary["validation"],

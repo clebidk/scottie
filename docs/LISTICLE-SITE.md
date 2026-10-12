@@ -34,8 +34,10 @@ browser --> Caddy (listicle.peaksaunasteam.com) --> harness serve 127.0.0.1:4870
 | `/library` | Cycle 86: every page version the harness can generate, as reference renders grouped by cartridge; cycle 99: one card per structure (cartridge x look) with its first screens and styles as variants inside it (see **Library** below). |
 | `/library/<version>/review`, `/library/<version>/thumb` | Cycle 86: one version's self-contained reference page (framed like `/run/<run>/review/<page>`) and its thumbnail. |
 | `/library/rebuild` | Cycle 86: the POST of **Rebuild library** (queues a `library_build` job). |
-| `/looks/import` | Cycle 87: "Import a page" (also a dialog on the Ads page). |
+| `/looks/import` | Cycle 87: "Import a page" (also a dialog on the Ads page). Cycle 102: also takes screenshots. |
 | `/looks/<cartridge>/<slug>/review` | Cycle 87: an imported look's reference render. |
+| `/looks/<cartridge>/<slug>/source.jpg`, `/render.png` | Cycle 102: the first phone screen of the page an import was modelled on, and the look's PEAK render at 390. |
+| `/looks/<cartridge>/<slug>/add`, `/discard` | Cycle 102: the import job's **Add to Library** (queues a `library_build` job) and **Discard** (POST, form token). |
 | `/jobs`, `/job/<id>` | The job queue and one job (state, reason, result, split link). |
 | `/audit` | Who did what, and when. |
 | `/runs` | The old run list (it was at `/` before cycle 69). |
@@ -349,7 +351,8 @@ opens a dialog (without JS, the page `/looks/import`) with:
 The site checks these, writes an uploaded or pasted page to
 `tenants/<t>/jobs/look-imports/<16 hex>.html`, and queues a `look_import`
 job. The job page shows the step while it runs: reading, observing,
-converting, validating (repairing, validating again), storing. The worker
+converting, validating (repairing, validating again), storing (cycle 102:
+new steps, see "Import from a screenshot or a URL" below). The worker
 deletes the pending file when the job ends, whatever the outcome.
 
 What the job does (`harness/look_import.py`, the same code as
@@ -457,7 +460,103 @@ the default layout. Since cycle 90 (`harness/look_design.py`):
 - **Model cost** (estimated from prompt sizes, not measured): about 16k
   input tokens a call with an exemplar (the observation and CSS 19 KB, the
   rules + contract + exemplar 40-50 KB), 5-8k output; about $0.10 a call at
-  claude-sonnet-5, $0.30-0.35 when both repair rounds run.
+  claude-sonnet-5, $0.30-0.35 when both repair rounds run. (Cycle 102
+  replaces this: see below.)
+
+#### Import from a screenshot or a URL (cycle 102)
+
+The owner's ask: "on listicle.peaksaunas.com i can upload a image or url and
+it builds a like version for listicle library". The HTML-only import came
+out generic where the hand conversions matched (docs/FIXLOG.md cycle 102
+says why). Since cycle 102 (`harness/look_vision.py`):
+
+- **Sources.** The form takes **Screenshots** (one or more PNG, JPG, WebP or
+  HEIC files -- HEIC through pillow-heif, as on the Photos page; at most 10,
+  15 MB each, checked by their first bytes, all or nothing), or a page URL,
+  an `.html` file or pasted HTML -- exactly one kind. Screenshots wait in
+  `tenants/<t>/jobs/look-imports/img-<16 hex>/` for the job, which deletes
+  them when it ends. The request may be up to 10 x 15 MB + 2 MB; the rate
+  limit is the same (6 imports in 10 minutes for each reviewer).
+- **Every import has images when it can.** A URL or an HTML file is also
+  screenshotted at 390 and 1280 px, full height (at most 12,000 px), with
+  the design gate's headless Chromium (`harness/capture.py`), from a
+  SANITISED copy: scripts, frames, objects and `on...` attributes dropped as
+  in the observer, lazy images made eager, a `<base>` on the page's URL so
+  its own CSS and images load. A URL page over the 2 MB HTML cap is no
+  longer refused: it is fetched up to 10 MB for the screenshot and imported
+  from the screenshots alone (no HTML observation). With no browser on the
+  host the import runs from the HTML as before, and a page over the cap is
+  refused with "upload screenshots of the page instead".
+- **Sheets.** Each image is cut top to bottom into tiles at most 2.2 times
+  as tall as wide; the tiles go into at most 6 sheets (each source image
+  gets its own sheets; with more than 6 images the tiles are packed in
+  reading order, side by side), and each sheet is downscaled to 1280 px on
+  its long side. These sheets are what the model sees, and they are stored
+  with the look (`source-N.jpg`, plus `source-thumb.jpg`, the first phone
+  screen at 390 px).
+- **Vision observation.** One call to claude-opus-5-5 (adaptive thinking,
+  effort medium) with the sheets and a structured prompt (the section roles
+  and the 16 pattern names of cycle 90) returns, per section top to bottom,
+  its role, ground, layout and columns, items, numbering, images and their
+  treatment, radius, buttons, words, pinning and patterns, plus the palette
+  as roles, the type scale, the photo cadence, the CTA cadence and special
+  elements -- never the page's words. The harness normalises it into the
+  SAME observation shape the HTML observer produces (one hero; `dark-page`,
+  `dark-hero` and `sticky-bar` derived; each palette role mapped to its PEAK
+  token), so the exemplar choice, the brief, the generation, the validator
+  and the fidelity score run unchanged. `observation.json` and
+  `library.json` record `observed_from`: `images`, `html` or `images+html`.
+- **Merge.** With both HTML and images, the image observation wins on
+  section order, rhythm (roles, grounds, layout, patterns, cadence) and
+  palette; the HTML wins on exact CSS values (headline type, width,
+  padding, radius, scrim), the DOM skeletons and image aspects of the
+  sections matched by role order, the font names, the page width, sticky
+  elements and weight, and the patterns it reads exactly (`sticky-bar`,
+  `faq-accordion`, `caps-headline`).
+- **Generation, hand-conversion grade.** One call to claude-opus-5-5 with:
+  the rules file, the contract, the closest exemplar's FULL template (the
+  four hand-converted listicle looks count now: `library.json`
+  `source.converted.by: "hand"`; they are matched by the patterns their
+  templates mark and shown with their kept/dropped summary instead of
+  their HTML observation, which was wrong), the screenshots, the
+  section-by-section observation and the page's sanitised CSS, and the
+  instructions a person followed: keep the section order, the photo cadence
+  and the CTA cadence; drop what has no PEAK data; the sticky bar with the
+  model name, the price and **Shop now** (both cartridges); the byline
+  avatar on `adv-brand-logo` (the validator now refuses any other literal
+  `<img>`); never copy a word, price, offer or claim from a screenshot. The
+  template opens with `{# look-notes: Kept: ... Dropped: ... #}`, which
+  becomes the Library summary.
+- **One revise round.** The validator and the fidelity score run as in
+  cycle 90; if the template is refused or its fidelity is under **0.75**
+  (was 0.7), ONE revise round runs (was two repairs) with the findings and,
+  when the host has a browser, the render of the demo page at 390 px: the
+  source's first screen beside the render's, and the whole render as
+  sheets. The revise round is skipped once the import has spent $0.70.
+  Every valid candidate is screenshotted at 390 (`render-390.png`).
+- **Review on the job page.** The job page shows the steps (reading,
+  capturing, observing, drafting, validating, revising, storing) with the
+  current one marked, then the result card: the source's first phone screen
+  beside the PEAK render at 390, the fidelity, what it was observed from,
+  and **Add to Library** or **Discard**. A site import is stored with
+  `library.json` `library: "pending"`: the Library does not list it until
+  **Add to Library** sets `library: "added"` (with `added_at`, `added_by`)
+  and queues a `library_build` job for that page type (the existing path).
+  **Discard** moves the folder to `tenants/<t>/looks/<cartridge>/.discarded/
+  <slug>-<time>/` (kept on disk, out of every listing; the name is free
+  again). A CLI import goes into the Library at once, as before. The Library
+  card of an imported look shows a **Modelled on ...** chip with the source
+  thumbnail; hovering it shows the thumbnail bigger.
+- **CLI.** `harness look import --tenant <t> --cartridge listicle --image
+  shot1.png [--image shot2.png ...] --name <slug>`; `--dry-run` prints the
+  sheets that would be sent and makes no model call.
+- **Model cost per import** (estimated from prompt sizes at $4 / $20 per M
+  tokens, not measured -- no real-model import was run in cycle 102): the
+  vision call about 9k input + 6k output (thinking included), about $0.16;
+  the draft about 29k input (written to the prompt cache) + 13k output,
+  about $0.40; the revise round about 15k new input + the cache read + 13k
+  output, about $0.33. About **$0.55** an import, **$0.90** with the revise
+  round, at most about $1.05. The daily-cap reservation is $1.00 an import.
 
 ### Photos (cycle 96)
 
@@ -574,6 +673,15 @@ refuses or the site's edits are lost.
 - Cycle 87: an import never runs the imported page. A URL import contacts
   only public addresses (every redirect hop is checked) and reads only
   HTML and same-origin CSS, capped.
+- Cycle 102: the screenshot of a URL or an HTML file is taken from a
+  sanitised copy (no script, frame, object or event attribute; the
+  harness's own capture script is the only script). The browser then loads
+  the page's stylesheets and images from wherever the page names them; the
+  public-address check covers the HTML fetch, not those loads (the browser
+  shows them as pixels; nothing is read back). The screenshots and the
+  sheets are kept in the look's folder (behind the login) so the owner can
+  see what a look was modelled on; they never reach the template or an
+  export.
 
 ## 2. Operator steps (not done in cycle 69)
 
@@ -693,7 +801,9 @@ you give them the link. They all use the same `REVIEW_PASSWORD`.
 | `tenants/<t>/meta_inbox/up-*/` | Uploaded ads (`ad.json` + media). |
 | `tenants/<t>/runs/thumb-cache/` | Page thumbnails for the Ads page. |
 | `tenants/<t>/library/` | Cycle 86: the Library's reference renders (`harness library build`). Gitignored. |
-| `tenants/<t>/looks/<cartridge>/<name>/` | Cycle 86: tenant-level imported looks the Library lists (template.html + library.json). |
+| `tenants/<t>/looks/<cartridge>/<name>/` | Cycle 86: tenant-level imported looks the Library lists (template.html + library.json). Cycle 102: plus `observation.json`, `review.html`, the sheets the model saw (`source-N.jpg`), `source-thumb.jpg` and `render-390.png`; `library.json` `library: "pending"` until **Add to Library**. |
+| `tenants/<t>/looks/<cartridge>/.discarded/` | Cycle 102: imports discarded on the job page. |
+| `tenants/<t>/jobs/look-imports/` | Cycle 87: a pending uploaded or pasted page (`<16 hex>.html`); cycle 102: pending screenshots (`img-<16 hex>/`). Removed when the job ends. |
 | `tenants/<t>/jobs/photo-uploads/<batch>/` | Cycle 96: photos waiting for their `photos_import` job; removed when the job ends. |
 | `tenants/<t>/photo-library/.trash/` | Cycle 96: photos deleted on the Photos page (the row stays, marked `removed`). |
 | `tenants/<t>/brand/.photo-library.lock` | Cycle 96: the manifest write lock. Gitignored. |
