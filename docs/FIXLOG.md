@@ -6860,11 +6860,15 @@ listed as one variant ("Variants 1" on prod).
   card falls back; an imported look with look.json `{"heroes": ["ad_first", "letters_pill"],
   "default_heroes": ["ad_first"]}` has two variants, ad_first first, and its picture is the look's own
   render. No hash pins re-recorded.
-- Full suite: 3091 passed, 5 failed, 35 skipped (3 min 47 s). Failed: the three budget-cap tests in
-  test_listicle_site_cycle69.py (prod budget state), and test_library_cycle103.py::test_peak_hides_the_three_merged_near_duplicates
-  and test_library_cycle86.py::test_cli_library_build, which fail the same way on clean origin/master 35114c7
-  (that commit set the 15-structure hide list in tenant.yaml; the tests still expect the three-entry list and
-  five built landing versions).
+- Tests broken by master 35114c7 (the owner's 15-structure hide list in tenant.yaml, which stays):
+  `test_library_cycle103.py::test_peak_hides_the_three_merged_near_duplicates` now checks that the three
+  original entries are in the configured list and that every entry names a structure (an entry for an
+  imported look is checked only where this checkout has that cartridge's imports, since they are
+  gitignored; a fresh worktree accepts it when it is not a harness look name);
+  `test_library_cycle86.py::test_cli_library_build` derives the landing count from `library.versions()` of
+  the tenant the CLI loads (built + not renderable = that count; the second build has all up to date).
+- Full suite: 3093 passed, 3 failed, 35 skipped (3 min 57 s). The 3 are the budget-cap tests in
+  test_listicle_site_cycle69.py (prod budget state).
 
 ### Open
 - Not deployed. On prod the real-run pictures appear after the first library build (Rebuild button).

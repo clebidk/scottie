@@ -8,6 +8,7 @@ evals/fake_run.py's FakeClient, and the A/B/C runner is
 tests/test_abtest_cycle67.py's FakeRunner.
 """
 import json
+import re
 import socket
 import subprocess
 from pathlib import Path
@@ -219,10 +220,19 @@ def test_the_build_runs_offline_and_puts_everything_back():
 
 
 def test_cli_library_build(capsys):
+    # the CLI loads the real tenant.yaml, so its library.hide applies (the
+    # owner's list, 2026-10-12): count the landing versions that tenant has
+    peak = tenant_mod.load_tenant(TENANT.name, require=True)
+    landing = [v for v in library.versions(peak) if v.cartridge == "landing"]
+    assert landing
     assert cli.main(["library", "build", "--tenant", TENANT.name, "--only", "landing"]) == 0
-    assert "5 built" in capsys.readouterr().out
+    line = re.search(r"library: (\d+) built, 0 up to date, (\d+) not renderable offline, 0 failed",
+                     capsys.readouterr().out)
+    assert line, "no summary line"
+    built, unavailable = int(line.group(1)), int(line.group(2))
+    assert built >= 1 and built + unavailable == len(landing)
     assert cli.main(["library", "build", "--tenant", TENANT.name, "--only", "landing"]) == 0
-    assert "5 up to date" in capsys.readouterr().out
+    assert f"library: 0 built, {len(landing)} up to date" in capsys.readouterr().out
     assert cli.main(["library", "build", "--tenant", TENANT.name, "--only", "no-such-page"]) == 1
 
 
