@@ -420,6 +420,10 @@ Skip cookie banners, chat bubbles and browser chrome.
 ## Pattern names (use only these, on the section that shows them)
 {pats}
 
+Report every pattern you see, each on the first section that shows it: an author row with an avatar is
+`author-card`, a row of press logos is `trust-bar`, items that each carry their own photo are `photo-per-item`
+(on the first such item), a button band between items is `cta-band`.
+
 ## Output
 Return ONLY one JSON object, no prose, no code fence:
 {{"ground": "light" | "dark",
