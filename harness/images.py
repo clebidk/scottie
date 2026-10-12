@@ -614,6 +614,21 @@ def _seed_jitter(seed, cid):
     return int(h[:6], 16) / 0xFFFFFF / 100
 
 
+# cycle 104: candidates of one tier and quality whose scores differ by at most
+# this much tie, and fill_slots rotates among them by the run seed. It is under
+# one step of the slot's wanted-shot order (1.0) and one quality point (1.5),
+# so it only merges photos that differ by crop fit and the seeded jitter.
+ROTATE_WINDOW = 0.5
+
+
+def _seed_int(seed):
+    """The seed as an int: an int seed as is, else a stable hash of its text
+    (render passes the run folder's name)."""
+    if isinstance(seed, int):
+        return seed
+    return int(hashlib.sha256(str(seed).encode()).hexdigest()[:8], 16)
+
+
 def product_still(c):
     """Cycle 97: an ad still that may fill a full-bleed hero on its own merit:
     the ad_frames vision call saw NO face in it (a product or room shot, not
@@ -810,6 +825,22 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
             portrait_last = strict and bool(want.get("fullbleed_ok"))
             scored.sort(key=lambda x: (shot_tier(x[1], shots), portrait_last and portrait_fullbleed(x[1]),
                                        -x[0], x[1]["id"]))
+            # cycle 104: the leading candidates that tie (same tier and portrait
+            # rank, same quality, score within ROTATE_WINDOW of the best) rotate
+            # by the run seed, so ten runs do not all lead with one photo; the
+            # best tier still wins and a given seed gives the same pick. Library
+            # photos only: an ad still keeps the ad_frames record's order
+            rank = lambda x: (shot_tier(x[1], shots), portrait_last and portrait_fullbleed(x[1]), x[1]["quality"])
+            tied = [x for x in scored if x[1]["source"] == "library" and rank(x) == rank(scored[0])
+                    and scored[0][0] - x[0] <= ROTATE_WINDOW] if scored and scored[0][1]["source"] == "library" else []
+            if len(tied) > 1:
+                tied.sort(key=lambda x: x[1]["id"])
+                k = _seed_int(seed) % len(tied)
+                tied_ids = {x[1]["id"] for x in tied}
+                scored = tied[k:] + tied[:k] + [x for x in scored if x[1]["id"] not in tied_ids]
+                if not picks:
+                    notes.append(f"{slot['name']}: picked {tied[k][1]['id']} by seed from {len(tied)} tied "
+                                 f"({', '.join(x[1]['id'] for x in tied)})")
             for s, c, reasons in scored:
                 if len(picks) >= n:
                     break

@@ -293,3 +293,45 @@ def test_the_eight_sleep_pill_is_inside_the_first_phone_screen(tmp_path):
     # sticky pill, so it is not measured here); no horizontal scroll
     desktop = capture.probe(REAL_BROWSER, html, width=1280, height=900, tenant=TENANT)
     assert desktop["scroll_width"] <= 1280
+
+
+# ---------------------------------------------------------------------------
+# Cycle 104: tied hero photos rotate by the run seed
+# ---------------------------------------------------------------------------
+
+THREE_ROOMS = [_cand("room-a", "room"), _cand("room-b", "room"), _cand("room-c", "room")]
+
+
+def test_three_equal_room_photos_give_three_heroes_for_seeds_1_2_3():
+    results = {s: _fill([HERO], THREE_ROOMS + [PERSON, CUT], seed=s)[0] for s in (1, 2, 3)}
+    assert sorted(_ids(r)[0] for r in results.values()) == ["room-a", "room-b", "room-c"]
+    # one seed gives one pick, and the note names it
+    assert _ids(_fill([HERO], THREE_ROOMS, seed=2)[0]) == _ids(results[2])
+    assert any(_ids(results[2])[0] in n and "3 tied" in n for n in results[2]["notes"])
+    # the run folder's name (render's seed) works too
+    assert _ids(_fill([HERO], THREE_ROOMS, seed="2026-10-12-ad7")[0])[0] in {"room-a", "room-b", "room-c"}
+
+
+def test_a_better_tier_or_quality_wins_for_every_seed():
+    for s in range(1, 7):
+        assert _ids(_fill([HERO], THREE_ROOMS[:2] + [PERSON, CUT, EXTERIOR], seed=s)[0])[0] != "person"
+        assert _ids(_fill([HERO], [PERSON, MACRO, CUT, ROOM], seed=s)[0]) == ["room"]
+        best = _cand("room-q5", "room", quality=5)
+        assert _ids(_fill([HERO], THREE_ROOMS + [best], seed=s)[0]) == ["room-q5"]
+
+
+def test_the_rotation_never_reuses_a_photo_on_the_page():
+    items = {"name": "items", "want": {"shot": "any"}, "n": 2, "above_fold": False, "last_resort": None}
+    for s in (1, 2, 3):
+        hero, rest = _fill([HERO, items], THREE_ROOMS + [CUT], seed=s)
+        assert hero["picks"][0]["id"] not in _ids(rest)
+        assert sorted(_ids(hero) + _ids(rest)) == ["room-a", "room-b", "room-c"]
+        assert _ids(_fill([HERO], THREE_ROOMS, seed=s, used={"room-a", "room-b"})[0]) == ["room-c"]
+
+
+def test_close_ad_stills_keep_the_record_order_for_every_seed():
+    stills = [dict(_cand(f"asset-adframe-still-{i}", "ad-still", source="ad-still"), still_score=10, still_rank=i)
+              for i in (1, 2, 3)]
+    slot = {"name": "ad-still", "want": {"shot": ["ad-still"]}, "n": 1, "last_resort": None, "above_fold": True}
+    for s in (1, 2, 3):
+        assert _ids(_fill([slot], stills, seed=s)[0]) == ["asset-adframe-still-1"]
