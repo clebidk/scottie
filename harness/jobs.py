@@ -38,6 +38,11 @@ Job types and handlers (each reuses the CLI's own code path):
   photos_import    cycle 96: photos added on the Photos page (or pulled from
                    Drive) -- harness/photo_uploads.py's run_import: import,
                    measure, tag; progress "k of n tagged"
+  meta_go_live     cycle 107: the Ads page's "Go live on Meta" --
+                   meta_golive.go_live (= `harness abtest go-live`): the ad's
+                   creative copied with the split link, the ad pointed at it,
+                   read back and verified
+  meta_revert_go_live  the "Revert" button (= `harness abtest revert-go-live`)
 """
 import argparse
 import contextlib
@@ -58,7 +63,8 @@ from .errors import HarnessError
 
 STATES = ("queued", "running", "done", "failed")
 JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
-             "unpublish_live", "look_import", "library_build", "photos_import")
+             "unpublish_live", "look_import", "library_build", "photos_import", "meta_go_live",
+             "meta_revert_go_live")
 # Cycle 87: the job the worker is running now, so a handler can report its
 # progress (set by run_one, one job at a time per worker).
 _RUNNING = {"id": None}
@@ -497,6 +503,27 @@ def handle_photos_import(tenant, payload, log=print):
     return result
 
 
+def handle_meta_go_live(tenant, payload, *, revert=False):
+    """Cycle 107: go live on Meta (or revert) for one test. The result keeps
+    the before/after the job page shows. Refusals and Meta errors fail the
+    job with their one-line reason."""
+    from . import meta_golive, meta_ingest
+
+    lines = []
+    try:
+        client = meta_golive.client_for(tenant)
+        if revert:
+            result = meta_golive.revert(tenant, payload["test_id"], by=payload["by"], client=client, log=lines.append)
+        else:
+            result = meta_golive.go_live(tenant, payload["test_id"], by=payload["by"], client=client,
+                                         log=lines.append)
+    except (meta_golive.GoLiveError, meta_ingest.MetaError) as e:
+        raise JobFailed(str(e)) from e
+    result.pop("payload", None)
+    result["log"] = lines
+    return result
+
+
 HANDLERS = {
     "regenerate": handle_regenerate,
     "create_test": handle_create_test,
@@ -508,6 +535,8 @@ HANDLERS = {
     "library_build": handle_library_build,
     "look_import": handle_look_import,
     "photos_import": handle_photos_import,
+    "meta_go_live": handle_meta_go_live,
+    "meta_revert_go_live": lambda tenant, payload: handle_meta_go_live(tenant, payload, revert=True),
 }
 
 

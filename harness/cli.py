@@ -1344,12 +1344,22 @@ def _abtest_orders(tenant, rec):
 
 
 def cmd_abtest_results(args):
+    from . import meta_golive
+
     tenant = _abtest_tenant(args)
     rec = abtest.load_test(tenant, args.test_id)
     orders, why = (None, "skipped (--no-orders)") if args.no_orders else _abtest_orders(tenant, rec)
-    print(abtest.format_results(rec, abtest.results(tenant, rec, orders)))
+    rows = abtest.results(tenant, rec, orders)
+    print(abtest.format_results(rec, rows))
     if orders is None:
         print(f"orders: {why}")
+    # Cycle 107: the ad's cached Meta numbers (harness abtest refresh-metrics).
+    meta_line = meta_golive.format_insights(rec)
+    if meta_line:
+        print(meta_line)
+        for r in meta_golive.with_costs(rows, rec.get("meta_insights")):
+            cost = f"${r['cost_per_order']}" if r.get("cost_per_order") else "-"
+            print(f"  {r['key']}  spend ${r['spend']}  cost per order {cost}")
     return exits.OK
 
 
@@ -1422,6 +1432,89 @@ def cmd_abtest_library(args):
         s = stats.get(arm.id) or {"views": 0, "clicks": 0, "tests": 0}
         ctr = f"{s['clicks'] / s['views']:.1%}" if s["views"] else "-"
         print(f"{arm.id:32s} {s['tests']:>5d} {s['views']:>7d} {s['clicks']:>6d} {ctr:>7s} {weights[arm.id]:>10.1%}")
+    return exits.OK
+
+
+def _go_live_reviewer(tenant, by):
+    if runstate.find_reviewer(tenant, by) is None:
+        print(f"{by!r} is not a listed reviewer for tenant {tenant.name!r}", file=sys.stderr)
+        return False
+    return True
+
+
+def cmd_abtest_go_live(args):
+    """`harness abtest go-live <test_id> --by <email> [--dry-run] [--force]`
+    (cycle 107): put the live test's split link on its Meta ad -- a copy of
+    the ad's creative with every link set to the split link, the ad pointed
+    at it, read back and verified (harness/meta_golive.py). --dry-run reads
+    the ad and prints the change; it writes nothing."""
+    from . import meta_golive
+
+    tenant = _abtest_tenant(args)
+    if not _go_live_reviewer(tenant, args.by):
+        return exits.USAGE
+    _cfg, client = _meta_setup(tenant)
+    summary = meta_golive.go_live(tenant, args.test_id, by=args.by, client=client, dry_run=args.dry_run,
+                                  force=args.force)
+    if not args.dry_run:
+        print(f"Test {args.test_id} is live on Meta ad {summary['ad_id']}. Undo: harness abtest revert-go-live "
+              f"{args.test_id} --by <email>")
+    return exits.OK
+
+
+def cmd_abtest_revert_go_live(args):
+    """`harness abtest revert-go-live <test_id> --by <email>` (cycle 107): set
+    the ad back to the creative it had before go-live, and verify."""
+    from . import meta_golive
+
+    tenant = _abtest_tenant(args)
+    if not _go_live_reviewer(tenant, args.by):
+        return exits.USAGE
+    _cfg, client = _meta_setup(tenant)
+    meta_golive.revert(tenant, args.test_id, by=args.by, client=client)
+    return exits.OK
+
+
+def cmd_abtest_refresh_metrics(args):
+    """`harness abtest refresh-metrics [--test <id>]` (cycle 107): for each live
+    or finished test, cache its Shopify orders per arm and its Meta ad's
+    spend, impressions and link clicks for the live period on the test record
+    (Meta at most once an hour per test). The review site's Results page and
+    `harness abtest leaderboard` read these caches; nothing there calls
+    Shopify or Meta. Read only on both sides."""
+    from . import meta_golive
+
+    tenant = _abtest_tenant(args)
+    tests = [abtest.load_test(tenant, args.test)] if args.test else [
+        r for r in abtest.list_tests(tenant) if r.get("status") in abtest.POOLED_STATUSES]
+    client, client_error = None, None
+    try:
+        _cfg, client = _meta_setup(tenant)
+    except meta_ingest.MetaError as e:
+        client_error = str(e)
+    for rec in tests:
+        test_id = rec["test_id"]
+        orders, why = _abtest_orders(tenant, rec)
+        if orders is not None:
+            rec = abtest.load_test(tenant, test_id)
+            rec["orders_cache"] = {"fetched_at": abtest._utc_now(), "by_key": orders}
+            abtest.save_test(tenant, rec)
+        meta = client_error or "no Meta client"
+        if client is not None:
+            try:
+                rec, meta = meta_golive.refresh_insights(tenant, rec, client=client)
+            except meta_ingest.MetaError as e:
+                meta = str(e)
+        print(f"{test_id:40s} orders: {'cached' if orders is not None else why}; meta: {meta}")
+    return exits.OK
+
+
+def cmd_abtest_leaderboard(args):
+    """`harness abtest leaderboard [--by build|look] [--sort cta|orders]`
+    (cycle 107): every build pooled over all live and finished tests."""
+    tenant = tenant_mod.load_tenant(args.tenant)
+    rows, min_views = abtest.leaderboard(tenant, by=args.by, sort=args.sort)
+    print(abtest.format_leaderboard(rows, min_views, by=args.by, sort=args.sort))
     return exits.OK
 
 
@@ -2407,6 +2500,31 @@ def build_parser():
                               help="group results by build (default), listicle headline template, or "
                                    "listicle first-screen style")
     p_ab_library.set_defaults(func=cmd_abtest_library)
+    # Cycle 107: go live on Meta, the results leaderboard (harness/meta_golive.py).
+    p_ab_golive = ab_sub.add_parser("go-live", help="put a live test's split link on its Meta ad (copies the creative)")
+    p_ab_golive.add_argument("test_id")
+    p_ab_golive.add_argument("--by", required=True, help="reviewer email recorded on the change")
+    p_ab_golive.add_argument("--dry-run", action="store_true", help="read the ad and print the change; write nothing")
+    p_ab_golive.add_argument("--force", action="store_true", help="change an ad that is not ACTIVE")
+    _add_tenant_flag(p_ab_golive)
+    p_ab_golive.set_defaults(func=cmd_abtest_go_live)
+    p_ab_revert = ab_sub.add_parser("revert-go-live", help="set the Meta ad back to its creative before go-live")
+    p_ab_revert.add_argument("test_id")
+    p_ab_revert.add_argument("--by", required=True, help="reviewer email recorded on the change")
+    _add_tenant_flag(p_ab_revert)
+    p_ab_revert.set_defaults(func=cmd_abtest_revert_go_live)
+    p_ab_metrics = ab_sub.add_parser("refresh-metrics",
+                                     help="cache Shopify orders and Meta spend/impressions/link clicks per test")
+    p_ab_metrics.add_argument("--test", help="one test id; default: every live or finished test")
+    _add_tenant_flag(p_ab_metrics)
+    p_ab_metrics.set_defaults(func=cmd_abtest_refresh_metrics)
+    p_ab_board = ab_sub.add_parser("leaderboard", help="builds ranked by CTA rate or orders per 1000 views")
+    p_ab_board.add_argument("--by", choices=abtest.LEADERBOARD_GROUPS, default="build",
+                            help="build = look x first screen (default), or look alone")
+    p_ab_board.add_argument("--sort", choices=abtest.LEADERBOARD_SORTS, default="cta",
+                            help="rank by CTA rate (default) or orders per 1000 views")
+    _add_tenant_flag(p_ab_board)
+    p_ab_board.set_defaults(func=cmd_abtest_leaderboard)
 
     p_digest = sub.add_parser("digest", help="reviewer-backlog and score digests")
     digest_sub = p_digest.add_subparsers(dest="digest_command", required=True)

@@ -8,7 +8,9 @@ the media file. The next stage (an A/B/C landing-page test) reads the inbox;
 harness/ingest.py reads the item's ad.json for the ad copy.
 
 READ ONLY. The token needs the `ads_read` permission and nothing else; this
-module never creates, edits, or pauses an ad.
+module never creates, edits, or pauses an ad. Cycle 107: GraphClient.post is
+the one write path, used only by harness/meta_golive.py (`harness abtest
+go-live` / `revert-go-live`; those two need ads_management).
 
 The token goes in the Authorization header only -- never in a URL, a log
 line, an exception, or ad.json. Media downloads go to Meta's CDN with no
@@ -271,14 +273,27 @@ class GraphClient:
     def get(self, path, params=None):
         return self._get_url(self._url(path, params))
 
-    def _get_url(self, url):
-        """One GET with retry/backoff. `url` never carries the token."""
+    def post(self, path, params):
+        """Cycle 107: one POST (form-encoded; dict and list values as JSON).
+        Retried only when Meta refused it for rate (429 or a rate-limit
+        code): a network error, a 5xx or a "transient" error may have
+        created the object, so it is reported, not sent again."""
+        body = urllib.parse.urlencode({
+            k: (json.dumps(v) if isinstance(v, (list, dict)) else v) for k, v in params.items()
+        }).encode()
+        return self._get_url(self._url(path), method="POST", body=body)
+
+    def _get_url(self, url, *, method="GET", body=None):
+        """One GET (or a cycle 107 POST) with retry/backoff. `url` never
+        carries the token."""
         headers = {"Authorization": f"Bearer {self._token}", "Accept": "application/json"}
+        if body is not None:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
         where = urllib.parse.urlsplit(url).path
         attempt = 0
         while True:
             try:
-                status, raw = self._transport("GET", url, headers=headers)
+                status, raw = self._transport(method, url, headers=headers, body=body)
                 failure = None
             except OSError as e:  # connection reset, timeout, DNS
                 status, raw, failure = 0, b"", f"network error: {type(e).__name__}"
@@ -298,23 +313,27 @@ class GraphClient:
                 + (f"/{error['error_subcode']}" if error.get("error_subcode") else "")
                 + f": {error.get('message') or 'no message'}"
             )
+            scope = "ads_read" if method == "GET" else "ads_management"
             if code in AUTH_CODES:
                 raise MetaAuthError(
                     f"Meta says the access token is invalid or expired ({detail}). Make a new "
-                    f"system-user token with ads_read and put it in the tenant's .env; see {DOCS}."
+                    f"system-user token with {scope} and put it in the tenant's .env; see {DOCS}."
                 )
             if code in PERMISSION_CODES:
                 raise MetaPermissionError(
                     f"Meta refused {where}: the token has no permission for it ({detail}). The "
-                    f"system user needs ads_read and access to the ad account; see {DOCS}."
+                    f"system user needs {scope} and access to the ad account; see {DOCS}."
                 )
-            retryable = (
-                failure is not None or status == 429 or status >= 500
-                or code in RATE_LIMIT_CODES or bool(error.get("is_transient"))
-            )
+            if method == "GET":
+                retryable = (
+                    failure is not None or status == 429 or status >= 500
+                    or code in RATE_LIMIT_CODES or bool(error.get("is_transient"))
+                )
+            else:
+                retryable = failure is None and (status == 429 or code in RATE_LIMIT_CODES)
             if not retryable or attempt >= self.max_retries:
                 suffix = f" after {attempt} retries" if attempt else ""
-                raise MetaAPIError(f"Meta API GET {where} failed{suffix}: {detail}")
+                raise MetaAPIError(f"Meta API {method} {where} failed{suffix}: {detail}")
             self._sleep(min(BACKOFF_BASE_S * (2 ** attempt), BACKOFF_MAX_S))
             attempt += 1
 
@@ -882,6 +901,27 @@ def pull(client, inbox, *, account_id, since, limit=None, refresh=False, dry_run
 LINK_KEYS = ("destination_url", "effective_status", "links_checked_at")
 
 
+def store_links(inbox, item, new, at):
+    """Writes `new` (destination_url, effective_status) and links_checked_at
+    on an inbox item; every other key, the key order and the file's layout
+    stay as they were. Cycle 107: also used after `harness abtest go-live`."""
+    item.update(new)
+    if "links_checked_at" in item:
+        item["links_checked_at"] = at
+    else:
+        # Placed just after destination_url, not at the end, so no other
+        # line of the file changes (not even the last line's comma).
+        ordered = {}
+        for key, value in item.items():
+            ordered[key] = value
+            if key == "destination_url":
+                ordered["links_checked_at"] = at
+        ordered.setdefault("links_checked_at", at)
+        item = ordered
+    inbox.write(item)
+    return item
+
+
 def _read_links(client, ad_ids):
     """({ad_id: raw}, [(ad_id, reason)]) for `ad_ids`: one `?ids=` GET per
     IDS_PER_CALL ids. Meta refuses a whole `?ids=` call when one id cannot
@@ -947,20 +987,7 @@ def refresh_links(client, inbox, *, dry_run=False, log=print):
                 log(f"would change {ad_id}: {changes}")
         if dry_run:
             continue
-        item.update(new)
-        if "links_checked_at" in item:
-            item["links_checked_at"] = at
-        else:
-            # Placed just after destination_url, not at the end, so no other
-            # line of the file changes (not even the last line's comma).
-            ordered = {}
-            for key, value in item.items():
-                ordered[key] = value
-                if key == "destination_url":
-                    ordered["links_checked_at"] = at
-            ordered.setdefault("links_checked_at", at)
-            item = ordered
-        inbox.write(item)
+        store_links(inbox, item, new, at)
     return summary
 
 

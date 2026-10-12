@@ -376,6 +376,13 @@ abtest:
   # Cycle 69 (owner decision): tests go live as soon as their pages are built.
   # 2026-10-05 (owner): off while training wheels are on -- see publish_locked.
   auto_publish: false
+  # Cycle 107: the go-live lever. When true, from-inbox also puts each test it
+  # publishes on its Meta ad (a copy of the creative with the split link) once
+  # Meta has approved the ad (effective_status ACTIVE); never forced, never an
+  # existing-post creative. Acts only on tests from-inbox publishes, so it
+  # needs auto_publish: true too. Manual go-live (`harness abtest go-live`,
+  # the Ads page's "Go live on Meta") works with the lever off.
+  auto_go_live: false  # owner: off until I turn it on (2026-10-12)
 
 notifications:
   slack: false

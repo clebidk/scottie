@@ -28,6 +28,12 @@ harness/site_ui.py. Pages:
                              (harness/site_photos.py)
   /jobs, /job/<id>           the job queue (harness/jobs.py)
   /audit                     who did what, when
+  /test/<id>/go-live|revert-go-live  cycle 107: put a live test's split link
+                             on its Meta ad, or set the old creative back
+                             (meta_go_live / meta_revert_go_live jobs,
+                             harness/meta_golive.py)
+  /results                   cycle 107: per test and arm results with Meta
+                             spend, and the pooled leaderboard by build / look
 
 Nothing slow runs in a request: feedback, uploads, publishes and replacements
 only write a job; `harness worker` runs it. Every POST here carries a CSRF
@@ -54,6 +60,7 @@ from . import heroes
 from . import look_import as look_import_mod
 from . import look_vision as look_vision_mod
 from . import looks as looks_mod
+from . import meta_golive
 from . import serve as _serve
 from . import upload as upload_mod
 
@@ -69,10 +76,13 @@ ENDPOINTS = (
     "design_shot",
     # cycle 96: the Photos page (harness/site_photos.py)
     "photos_home", "photo_thumb", "photos_upload", "photo_edit", "photos_pull_drive",
+    # cycle 107: go live on Meta, revert, results
+    "test_go_live", "test_revert_go_live", "results_home",
 )
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
                             "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import",
-                            "photos_upload", "photo_edit", "photos_pull_drive", "look_add", "look_discard"})
+                            "photos_upload", "photo_edit", "photos_pull_drive", "look_add", "look_discard",
+                            "test_go_live", "test_revert_go_live"})
 
 ADS_PER_PAGE = 20
 MAX_FEEDBACK_CHARS = 2000
@@ -96,7 +106,23 @@ FILTERS = (("all", "All"), ("review", "Needs review"), ("live", "Live"))
 JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "publish_page": "Publish new version",
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
               "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page",
-              "photos_import": "Add photos"}
+              "photos_import": "Add photos", "meta_go_live": "Go live on Meta", "meta_revert_go_live": "Revert Meta ad"}
+GO_LIVE_JOB_TYPES = ("meta_go_live", "meta_revert_go_live")
+# Cycle 107: what the go-live confirm says before anything changes on Meta.
+GO_LIVE_CONSEQUENCES = (
+    "Meta does not allow editing a creative: this makes a copy of the ad's creative with the split link and points "
+    "the ad at the copy. The UTM tags (url_tags) stay the same.",
+    "<b>Learning phase:</b> Meta restarts the ad's learning phase, so delivery and cost per result can swing for a "
+    "few days.",
+    "<b>Social proof:</b> the new post starts with no likes, comments or shares. The old post keeps them; "
+    "<b>Revert</b> puts the old creative back.",
+)
+REVERT_CONSEQUENCES = (
+    "<b>Learning phase:</b> Meta restarts the ad's learning phase again.",
+    "<b>Social proof:</b> the old post comes back with the likes and comments it had. Reactions on the split-link "
+    "post stay on that post.",
+)
+RESULTS_DRAWS = 5000
 # Cycle 94: every hero composition by its title (harness/heroes/).
 HERO_LABELS = {hero_id: heroes.get(hero_id).title for hero_id in heroes.ids()}
 # Cycle 86: the upload form's pre-selected page version (the Library's
@@ -577,6 +603,92 @@ def _ad_thumb(tenant, ad):
     return icon("video" if kind == "video" else "image" if kind == "image" else "text")
 
 
+def _go_live_info(tenant, rec):
+    """Cycle 107: what the go-live box, confirm and routes need for a test,
+    or None when the test was not built from a Meta ad. Ad name, status and
+    current link are the inbox's (as fresh as the last pull / refresh-links);
+    the job reads the ad again before it changes anything."""
+    ad_id = str((rec.get("source") or {}).get("ad_id") or "")
+    if not (ad_id.isdigit() and ad_id.isascii()):
+        return None
+    item = next((i for i in _inbox_items(tenant) if str(i.get("ad_id")) == ad_id), None) or {}
+    block = rec.get("meta_go_live") or {}
+    target = meta_golive.target(rec["test_id"])
+    job = _latest(tenant, target, GO_LIVE_JOB_TYPES)
+    return {"ad_id": ad_id, "ad_name": item.get("ad_name") or (rec.get("source") or {}).get("ad_name") or ad_id,
+            "status": item.get("effective_status") or "", "current": item.get("destination_url") or "",
+            "checked": item.get("links_checked_at") or item.get("pulled_at") or "",
+            "split": (rec.get("split") or {}).get("url") or "", "block": block,
+            "live": bool(block) and not block.get("reverted_at"), "job": job,
+            "busy": bool(job and job["state"] in ("queued", "running"))}
+
+
+def _go_live_lines(gl, *, revert):
+    ad = (f"Ad: <b>{e(gl['ad_name'])}</b> (id {e(gl['ad_id'])}, {e(gl['status'] or 'status unknown')}"
+          + (f" when last read {_when(gl['checked'])}" if gl["checked"] else "") + ")")
+    if revert:
+        block = gl["block"]
+        return [ad,
+                f"Current link: <code>{e(block.get('verified_destination') or gl['split'])}</code> (creative "
+                f"{e(block.get('new_creative_id') or '-')})",
+                f"Link after revert: <code>{e(block.get('old_destination') or '-')}</code> (creative "
+                f"{e(block.get('old_creative_id') or '-')})", *REVERT_CONSEQUENCES]
+    return [ad, f"Current link: <code>{e(gl['current'] or 'unknown')}</code>",
+            f"Split link (new link): <code>{e(gl['split'])}</code>", *GO_LIVE_CONSEQUENCES]
+
+
+def _confirm_dialog(dialog_id, title, lines, action_url, button, *, danger=False):
+    """The _confirm_page content in a <dialog> (the cards' data-dialog)."""
+    return (f'<dialog id="{dialog_id}" aria-labelledby="{dialog_id}-t"><form method="post" action="{action_url}">'
+            f'{_csrf_field()}<input type="hidden" name="confirm" value="yes">'
+            f'<div class="dlg-h"><div><h2 id="{dialog_id}-t">{e(title)}</h2></div>'
+            f'<button type="button" class="iconbtn" data-close aria-label="Close">{icon("x")}</button></div>'
+            '<div class="dlg-b"><div class="warn">' + "".join(f"<p>{line}</p>" for line in lines) + "</div></div>"
+            '<div class="dlg-f"><button type="button" class="btn ghost" data-close>Cancel</button>'
+            f'<button class="btn{" danger" if danger else ""}" type="submit">{e(button)}</button></div></form></dialog>')
+
+
+def _meta_box(tenant, rec, index):
+    """Cycle 107: a live test's Meta state on its card: "Go live on Meta" (or
+    a note when the ad is not ACTIVE), "Live on Meta" with "Revert", or the
+    running job."""
+    if rec.get("status") != "live" or not (rec.get("split") or {}).get("url"):
+        return ""
+    gl = _go_live_info(tenant, rec)
+    if gl is None:
+        return ""
+    test_id = rec["test_id"]
+    parts = ['<div class="golive" style="margin:10px 0 0">']
+    job = gl["job"]
+    if gl["busy"]:
+        parts.append(_job_box(job, what=JOB_LABELS[job["type"]]))
+    elif gl["live"]:
+        block = gl["block"]
+        parts.append(f'<p class="small">{chip("Live on Meta", "live", dot=True)} since {_when(block.get("at"))} by '
+                     f'{e(block.get("by") or "")} &middot; link '
+                     f'<code>{e(block.get("verified_destination") or "-")}</code>'
+                     + ("" if block.get("verified") else " <b>(not verified: check Ads Manager)</b>") + "</p>")
+        dialog_id = f"golive-{index}-revert"
+        parts.append(f'<a class="btn ghost sm" href="{url_for("test_revert_go_live", test_id=test_id)}" '
+                     f'data-dialog="{dialog_id}">{icon("back")}Revert</a>')
+        parts.append(_confirm_dialog(dialog_id, "Revert the Meta ad", _go_live_lines(gl, revert=True),
+                                     url_for("test_revert_go_live", test_id=test_id), "Yes, revert", danger=True))
+    else:
+        if job and job["state"] == "failed":
+            parts.append(_job_box(job, what=JOB_LABELS[job["type"]]))
+        if gl["status"] and gl["status"] != meta_golive.LIVE_STATUS:
+            parts.append(f'<p class="muted small">Meta ad {e(gl["ad_name"])} is {e(gl["status"])}: Go live on Meta '
+                         "needs an ACTIVE (approved) ad. The command line takes --force.</p>")
+        else:
+            dialog_id = f"golive-{index}"
+            parts.append(f'<a class="btn sm" href="{url_for("test_go_live", test_id=test_id)}" '
+                         f'data-dialog="{dialog_id}">{icon("live")}Go live on Meta</a>')
+            parts.append(_confirm_dialog(dialog_id, "Go live on Meta", _go_live_lines(gl, revert=False),
+                                         url_for("test_go_live", test_id=test_id), "Yes, go live on Meta"))
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def _ad_card(tenant, ad, index):
     rec = ad["tests"][0] if ad["tests"] else None
     item = ad["inbox"][-1] if ad["inbox"] else None
@@ -611,6 +723,7 @@ def _ad_card(tenant, ad, index):
         split = (rec.get("split") or {}).get("url")
         if split:
             parts.append(f'<div class="ad-split">{_copy_row(f"split-{index}", split)}</div>')
+        parts.append(_meta_box(tenant, rec, index))
     if ad["variants"]:
         cards = [_gen_card(tenant, ad, v, info, dom_id=f"g{index}-{j}")
                  for j, (v, info) in enumerate(zip(ad["variants"], ad["gens"]))]
@@ -1230,6 +1343,28 @@ def _job_result_html(tenant, job):
                          + '<p class="hint">Paste this split link as the ad\'s website URL in Ads Manager.</p>')
         elif result.get("publish_error"):
             parts.append(f'<div class="error">Auto publish failed: {e(result["publish_error"])}</div>')
+    elif job["type"] in GO_LIVE_JOB_TYPES:
+        test_id = payload.get("test_id") or ""
+        rec = abtest.find_test(tenant, test_id)
+        parts.append(f'<p>A/B/C test <a href="{url_for("results_home")}#t-{e(test_id)}">{e(test_id)}</a>'
+                     + (f" &middot; {e(rec.get('name') or '')}" if rec else "") + "</p>")
+        if result.get("ad_id"):
+            if job["type"] == "meta_go_live":
+                rows = [("Ad", f"{result.get('ad_name') or ''} ({result['ad_id']})"),
+                        ("Creative", f"{result.get('old_creative_id') or '-'} -> {result.get('new_creative_id') or '-'}"),
+                        ("Link before", result.get("old_destination") or "-"),
+                        ("Link after (read back)", result.get("verified_destination") or "-")]
+            else:
+                rows = [("Ad", f"{result.get('ad_name') or ''} ({result['ad_id']})"),
+                        ("Creative", f"{result.get('from_creative_id') or '-'} -> {result.get('creative_id') or '-'}"),
+                        ("Link before", result.get("split_url") or "-"),
+                        ("Link after (read back)", result.get("verified_destination") or "-")]
+            parts.append('<dl class="meta">' + "".join(f"<dt>{e(k)}</dt><dd>{e(v)}</dd>" for k, v in rows) + "</dl>")
+            for change in result.get("changes") or []:
+                parts.append(f'<p class="small"><code>{e(change["field"])}</code>: {e(change["old"] or "-")} &rarr; '
+                             f'{e(change["new"])}</p>')
+            if result.get("log"):
+                parts.append('<pre class="detail">' + e("\n".join(result["log"])) + "</pre>")
     elif job["type"] == "library_build":
         parts.append(f'<p><a href="{url_for("library_home")}">Open the Library</a></p>')
         if result:
@@ -1350,6 +1485,9 @@ def _import_steps(current):
 
 
 def _target_link(target):
+    if (target or "").startswith(meta_golive.TARGET_PREFIX):
+        test_id = target[len(meta_golive.TARGET_PREFIX):]
+        return f'<a href="{url_for("results_home")}#t-{e(test_id)}">{e(target)}</a>'
     if target == "photos:library":
         return f'<a href="{url_for("photos_home")}">{e(target)}</a>'
     if target == library.JOB_TARGET:
@@ -1617,6 +1755,85 @@ def render_library(tenant):
 # ---------------------------------------------------------------------------
 # routes
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# cycle 107: results (per test and arm, and the pooled leaderboard)
+# ---------------------------------------------------------------------------
+
+def _cell(value, fmt=""):
+    return "-" if value is None else e(format(value, fmt))
+
+
+def _leaderboard_table(rows, min_views, label):
+    body = "".join(
+        f'<tr{" class=muted" if not r["enough"] else ""}><td data-label="#">{r["rank"] or "-"}</td>'
+        f'<td data-label="{e(label)}"><code>{e(r["group"])}</code>'
+        + ("" if r["enough"] else f'<div class="small">under {min_views} views: not ranked</div>') + "</td>"
+        f'<td data-label="Tests">{r["tests"]}</td><td data-label="Views">{r["views"]}</td>'
+        f'<td data-label="CTA">{r["clicks"]}</td><td data-label="CTA rate">{_cell(r["cta_rate"], ".1%")}</td>'
+        f'<td data-label="Orders">{_cell(r["orders"])}</td>'
+        f'<td data-label="Orders / 1000 views">{_cell(r["orders_per_1000"], ".1f")}</td></tr>'
+        for r in rows)
+    return ('<div class="table-wrap"><table class="rtable"><thead><tr><th>#</th>'
+            f'<th>{e(label)}</th><th>Tests</th><th>Views</th><th>CTA</th><th>CTA rate</th><th>Orders</th>'
+            '<th>Orders / 1000 views</th></tr></thead><tbody>'
+            + (body or '<tr><td colspan="8" class="muted">No generated page in a live or finished test yet.</td></tr>')
+            + "</tbody></table></div>")
+
+
+def _test_results(tenant, rec):
+    cache = rec.get("orders_cache") or {}
+    rows = abtest.results(tenant, rec, cache.get("by_key"), draws=RESULTS_DRAWS)
+    rows = meta_golive.with_costs(rows, rec.get("meta_insights"))
+    block = rec.get("meta_go_live") or {}
+    linked = bool(block) and not block.get("reverted_at")
+    head = (f'<div class="jobline" id="t-{e(rec["test_id"])}"><b>{e(rec.get("name") or rec["test_id"])}</b>'
+            f'{chip(rec.get("status") or "", "live" if rec.get("status") == "live" else "")}'
+            + (chip("Live on Meta", "live", dot=True) if linked else chip("not linked on Meta"))
+            + f'<span class="muted small">{e(rec["test_id"])}</span></div>')
+    ins = rec.get("meta_insights")
+    meta = (f'<p class="small">Meta ad {e(ins["ad_id"])}, {e(ins["since"])} to {e(ins["until"])}: spend '
+            f'<b>${e(ins["spend"])}</b>, {ins.get("impressions") or 0} impressions, {ins.get("link_clicks") or 0} '
+            f'link clicks <span class="muted">(as of {_when(ins.get("fetched_at"))})</span></p>' if ins else
+            '<p class="muted small">No Meta numbers cached yet (harness abtest refresh-metrics).</p>')
+    orders_note = (f'<span class="muted small">orders as of {_when(cache.get("fetched_at"))}</span>' if cache else
+                   '<span class="muted small">no orders cached yet</span>')
+    body = "".join(
+        f'<tr><td data-label="Arm">{e(r["key"])}</td><td data-label="Build"><code>{e(r["arm"])}</code></td>'
+        f'<td data-label="Assigned">{r.get("assigns", 0)}</td><td data-label="Views">{_cell(r["views"])}</td>'
+        f'<td data-label="CTA">{_cell(r["clicks"])}</td><td data-label="CTR">{_cell(r["ctr"], ".1%")}</td>'
+        f'<td data-label="Orders">{_cell(r.get("orders"))}</td><td data-label="Revenue">{_cell(r.get("revenue"))}</td>'
+        f'<td data-label="P(best)">{_cell(r["p_best"], ".0%")}</td>'
+        f'<td data-label="Spend">{"$" + e(r["spend"]) if r.get("spend") else "-"}</td>'
+        f'<td data-label="Cost / order">{"$" + e(r["cost_per_order"]) if r.get("cost_per_order") else "-"}</td></tr>'
+        for r in rows)
+    return ('<div class="card" style="margin-bottom:16px">' + head + meta + orders_note
+            + '<div class="table-wrap"><table class="rtable"><thead><tr><th>Arm</th><th>Build</th><th>Assigned</th>'
+            '<th>Views</th><th>CTA</th><th>CTR</th><th>Orders</th><th>Revenue</th><th>P(best)</th><th>Spend</th>'
+            f'<th>Cost / order</th></tr></thead><tbody>{body}</tbody></table></div></div>')
+
+
+def render_results(tenant):
+    by_build, min_views = abtest.leaderboard(tenant, by="build")
+    by_look, _ = abtest.leaderboard(tenant, by="look")
+    tests = [r for r in reversed(abtest.list_tests(tenant)) if r.get("status") in abtest.POOLED_STATUSES]
+    body = (
+        '<div class="page-head"><div><h1>Results</h1><p class="sub">Which generations perform best: every live and '
+        'finished A/B/C test, and the builds pooled across them.</p></div></div>'
+        f'<p class="muted small">Ranked by CTA rate. A build needs {min_views} views (abtest.min_views) to be ranked; '
+        "the rest are listed with their views. Orders and Meta numbers come from the hourly cache "
+        "(<code>harness abtest refresh-metrics</code>); orders per 1000 views counts only tests with order data. "
+        "A test's Meta spend is shared by its arms in proportion to the visitors the split page sent each one.</p>"
+        '<h2 style="font-size:1.05rem;margin:18px 0 8px">By build (look x first screen)</h2>'
+        + _leaderboard_table(by_build, min_views, "Build")
+        + '<h2 style="font-size:1.05rem;margin:18px 0 8px">By look</h2>'
+        + _leaderboard_table(by_look, min_views, "Look")
+        + '<h2 style="font-size:1.05rem;margin:24px 0 8px">Per test</h2>'
+        + ("".join(_test_results(tenant, rec) for rec in tests) or '<div class="empty">No live or finished test yet.'
+                                                                   "</div>")
+    )
+    return _page("Results", body)
+
 
 def register(app, tenant):
     """Adds the listicle site's routes to serve.build_app's app. serve.py's
@@ -2111,6 +2328,58 @@ def register(app, tenant):
     from . import site_photos
 
     site_photos.register(app, tenant)
+
+    # Cycle 107: go live on Meta / revert (harness/meta_golive.py), as jobs.
+    def _go_live_action(test_id, *, revert):
+        rec = abtest.find_test(tenant, test_id)
+        if rec is None:
+            abort(404)
+        back = url_for("ads_home", q=rec.get("name") or None)
+        email = g.reviewer_email
+        if runstate.find_reviewer(tenant, email) is None:
+            return _page("Not a reviewer", _message("Not a reviewer", f"{e(email)} is not in this tenant's reviewers "
+                                                    "list.", back=back), 403)
+        gl = _go_live_info(tenant, rec) if rec.get("status") == "live" and (rec.get("split") or {}).get("url") else None
+        if gl is None:
+            return _page("Not a live Meta test", _message("Not a live Meta test", "Only a live A/B/C test with a split "
+                                                          "link, built from a Meta ad, can go live on Meta.",
+                                                          back=back), 409)
+        if revert and not gl["live"]:
+            return _page("Not live on Meta", _message("Not live on Meta", "This test's ad does not use the split link "
+                                                      "from a go-live; there is nothing to revert.", back=back), 409)
+        if not revert and gl["live"]:
+            return _page("Already live on Meta", _message("Already live on Meta", "This test's ad uses its split link "
+                                                          "already. Revert it first.", back=back), 409)
+        if gl["busy"]:
+            return _page("Already queued", _message("Already queued", "A Meta job for this test is already waiting "
+                                                    "or running.", back=back), 409)
+        title = "Revert the Meta ad" if revert else "Go live on Meta"
+        action = url_for("test_revert_go_live" if revert else "test_go_live", test_id=rec["test_id"])
+        if request.method == "GET":
+            return _confirm_page(title, _go_live_lines(gl, revert=revert), action,
+                                 "Yes, revert" if revert else "Yes, go live on Meta", back, danger=revert)
+        if request.form.get("confirm") != "yes":
+            return _page("Confirm first", _message("Confirm first", f'Open <a href="{back}">the test</a> and use the '
+                                                   "button there; it asks you to confirm."), 400)
+        job_type = "meta_revert_go_live" if revert else "meta_go_live"
+        target = meta_golive.target(rec["test_id"])
+        job_id = jobs.enqueue(tenant, job_type, {"test_id": rec["test_id"], "by": email}, by=email, target=target)
+        jobs.audit(tenant, by=email, action=f"{job_type}_requested", target=target,
+                   detail={"ad_id": gl["ad_id"], "split_url": gl["split"], "current_link": gl["current"],
+                           "job_id": job_id})
+        return redirect(url_for("job_detail", job_id=job_id), code=303)
+
+    @app.route("/test/<test_id>/go-live", methods=["GET", "POST"])
+    def test_go_live(test_id):
+        return _go_live_action(test_id, revert=False)
+
+    @app.route("/test/<test_id>/revert-go-live", methods=["GET", "POST"])
+    def test_revert_go_live(test_id):
+        return _go_live_action(test_id, revert=True)
+
+    @app.route("/results")
+    def results_home():
+        return render_results(tenant)
 
     @app.route("/jobs")
     def job_list():

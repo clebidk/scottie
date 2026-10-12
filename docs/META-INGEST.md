@@ -6,8 +6,11 @@ landing-page test from it. "New" means created on or after
 `meta.ingest_since` in `tenant.yaml` (PEAK: 2026-09-23, the day the owner
 switched it on).
 
-The harness only READS from Meta. The token needs `ads_read` and nothing
-else. The harness never creates, edits, pauses, or deletes an ad.
+The ingest only READS from Meta. The token needs `ads_read` for it. The
+ingest never creates, edits, pauses, or deletes an ad. Cycle 107: `harness
+abtest go-live` / `revert-go-live` (docs/ABTEST.md "Go live on Meta") are the
+only writes -- a new ad creative and the ad's `creative` field -- and need
+`ads_management`. They never pause or delete an ad.
 
 ## 1. Make a system-user token (once)
 
@@ -205,7 +208,9 @@ The listicle site reads these fields for its linked-ad icon
 ## 5. Cron
 
 `crons/meta-pull.sh [tenant]` runs `harness meta pull`, then (cycle 83)
-`harness meta refresh-links`, then `harness abtest from-inbox`, appends to
+`harness meta refresh-links`, then `harness abtest from-inbox`, then (cycle
+107) `harness abtest refresh-metrics` (cached orders and Meta insights for
+the Results page; GETs only), appends to
 `tenants/<tenant>/runs/meta-pull.log`, and skips a run if the last one is
 still going (flock). It is not installed. When the token is in place and
 `harness meta check` passes, add this line with `crontab -e` as the deploy
@@ -232,6 +237,13 @@ user (every hour at :15):
   - `<video_id>?fields=source,length,title,picture`
   - `?ids=<id,...>&fields=id,effective_status,creative{link_url,object_story_spec,asset_feed_spec,url_tags}` (refresh-links; falls back to `<ad_id>?fields=...` per ad)
   - `act_<id>/adimages?hashes=["<hash>"]&fields=hash,url,width,height,name`
+  - cycle 107 (harness/meta_golive.py): `<ad_id>?fields=id,name,account_id,effective_status,creative{id,name,object_story_id,object_story_spec,asset_feed_spec,url_tags,object_url,degrees_of_freedom_spec}`,
+    `<ad_id>/insights?fields=spend,impressions,inline_link_clicks&level=ad&time_range={"since","until"}`
+- Writes (cycle 107, `harness abtest go-live` / `revert-go-live` only; form
+  body, dict values as JSON): POST `act_<id>/adcreatives` (the creative copy)
+  and POST `<ad_id>` with `creative={"creative_id": "<id>"}`. A POST is retried
+  only on 429 or a rate-limit code; never after a network error, a 5xx or
+  `is_transient`, since it may have gone through.
 - Ad fields: `id,name,created_time,effective_status,adset{id,name},campaign{id,name},creative{id,name,title,body,object_type,video_id,image_url,image_hash,thumbnail_url,object_story_spec,asset_feed_spec,url_tags,call_to_action_type,link_url}`
 - Statuses asked for: ACTIVE, PAUSED, IN_PROCESS, PENDING_REVIEW,
   PREAPPROVED, CAMPAIGN_PAUSED, ADSET_PAUSED, WITH_ISSUES. A brand-new ad

@@ -176,8 +176,55 @@ test's split link for an A/B/C variant, after normalising both (http and https
 alike, no `www.`, no query string or fragment, no trailing slash, path
 percent-decoded; `postlive.linked_ads`). The data is only as fresh as the last
 `harness meta refresh-links` (in the meta-pull cron, docs/META-INGEST.md); an ad
-never refreshed shows its pull time. The site and the harness only read from
-Meta; nothing here attaches a page to an ad.
+never refreshed shows its pull time. Cycle 107: "Go live on Meta" (below) is
+the one action that attaches a test's split link to an ad; after it, the ad's
+inbox item holds the destination read back from Meta, so the icon shows it at
+once.
+
+### Go live on Meta -- cycle 107
+
+A live A/B/C test built from a Meta ad shows, under its split link:
+
+- **Go live on Meta** (the ad is ACTIVE, or its status is unknown). It opens a
+  confirm dialog (a page of its own without JS) that says: the ad's name, id
+  and status (as last read), the current link, the split link (new link), and
+  "Meta does not allow editing a creative: this makes a copy of the ad's
+  creative with the split link and points the ad at the copy. The UTM tags
+  (url_tags) stay the same." / "Learning phase: Meta restarts the ad's
+  learning phase, so delivery and cost per result can swing for a few days." /
+  "Social proof: the new post starts with no likes, comments or shares. The old
+  post keeps them; Revert puts the old creative back." Confirm queues a
+  `meta_go_live` job (`harness abtest go-live`, harness/meta_golive.py) and
+  opens the job page, which shows the ad, creative old -> new, link before and
+  link after (read back from Meta), each changed field, and the log.
+- A note instead of the button when the ad is not ACTIVE ("Go live on Meta
+  needs an ACTIVE (approved) ad. The command line takes --force.").
+- After go-live: "Live on Meta since <time> by <reviewer>", the verified link,
+  and **Revert** with the same kind of confirm (current link, link after
+  revert, learning phase restarts again, the old post comes back with its
+  reactions). Revert queues `meta_revert_go_live`.
+
+A refused or failed job shows its reason on the card, and the button stays.
+The request and the change are both in the audit log
+(`meta_go_live_requested`, `meta_go_live`, and the revert pair). Only listed
+reviewers can use the buttons; every POST carries the CSRF token.
+
+### Results -- cycle 107
+
+`/results` (sidebar: Results): which generations perform best.
+
+- Leaderboards by build (look x first screen) and by look, pooled over every
+  live and finished test, ranked by CTA rate, with tests, views, CTA clicks,
+  orders and orders per 1000 views. A build under `abtest.min_views` views is
+  listed below the ranked ones with "under N views: not ranked".
+- Per test: status, "Live on Meta" or "not linked on Meta", the Meta ad's
+  spend, impressions and link clicks for the live period, and per arm:
+  assigned, views, CTA, CTR, orders, revenue, P(best), spend (the ad's spend
+  shared by split-page assignments) and cost per order.
+
+Nothing on the page calls Shopify or Meta: orders and Meta numbers are the
+caches `harness abtest refresh-metrics` writes (hourly, in the meta-pull cron);
+each shows its "as of" time.
 
 ### Replace live variant (a page that is a variant of a live A/B/C test)
 
@@ -818,6 +865,28 @@ you give them the link. They all use the same `REVIEW_PASSWORD`.
   worker job. If a job is running, it skips this run (exit 0).
 - `crons/meta-pull.sh` runs it after `harness meta pull`, also when the pull
   failed (the Meta token is not installed yet).
+- Cycle 107: with `abtest.auto_go_live: true` (and `auto_publish: true`), each
+  test it publishes also goes live on its Meta ad once the ad is ACTIVE; see
+  docs/ABTEST.md "The lever". PEAK ships it off.
+
+### 3.1 Runbook: put a test live on its Meta ad (cycle 107)
+
+Dry run first, then the change, as a listed reviewer:
+
+```bash
+cd ~/advertorial
+.venv/bin/harness abtest go-live <test_id> --by <reviewer email> --tenant peak-saunas --dry-run
+.venv/bin/harness abtest go-live <test_id> --by <reviewer email> --tenant peak-saunas
+# undo:
+.venv/bin/harness abtest revert-go-live <test_id> --by <reviewer email> --tenant peak-saunas
+```
+
+The dry run reads the ad and prints each link field `old -> new`, the kept
+url_tags and the learning-phase / social-proof warning; it writes nothing.
+`harness abtest status` lists the test ids; the test must be live with a split
+link and built from a Meta ad. Then `harness abtest refresh-metrics --tenant
+peak-saunas` and `harness abtest leaderboard --tenant peak-saunas` (or the
+site's Results page) show the numbers.
 
 ## 4. Data
 

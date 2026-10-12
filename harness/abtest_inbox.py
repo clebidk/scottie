@@ -20,6 +20,12 @@ with the reason "budget cap"; the next run (the next day) picks them up.
 Cycle 88: the test's destination plan (abtest.PLANS) is the item's own
 "destinations" (the upload form's choice), else the `plan` the caller
 passes (`from-inbox --destinations`), else 3 generated.
+
+Cycle 107: with abtest.auto_go_live (the owner's lever, off until the owner
+turns it on), a test this module has just published also goes live on its
+Meta ad (harness/meta_golive.py) when the ad is ACTIVE; a test whose ad is
+not ACTIVE yet is marked pending and each later from-inbox run tries it
+again. It never forces and never touches an existing-post creative.
 """
 import argparse
 import contextlib
@@ -144,9 +150,10 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
         inbox.set_state(ad_id, "failed", f"test {test_id}: {rec.get('reason') or 'build failed'}")
         return {"outcome": "failed", "test_id": test_id, "split_url": None, "reason": rec.get("reason", "")}
 
-    split_url, publish_error = None, None
+    split_url, publish_error, published_now = None, None, False
     if _auto_publish(tenant) and rec.get("status") != "live":
         split_url, publish_error = publish_test(tenant, test_id, by=by)
+        published_now = bool(split_url)
     elif rec.get("status") == "live":
         split_url = (rec.get("split") or {}).get("url")
     if publish_error:
@@ -155,9 +162,16 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
         reason = f"test {test_id} is live: {split_url}"
     else:
         reason = f"test {test_id} built; publish it with `harness abtest publish {test_id}`"
+    go_live = None
+    if published_now and abtest.settings(tenant)["auto_go_live"]:
+        from . import meta_golive
+
+        go_live = meta_golive.auto_go_live(tenant, test_id, by=by)
+        if go_live is not None:
+            reason += f"; Meta go-live {go_live['state']}" + (f": {go_live['reason']}" if go_live["reason"] else "")
     inbox.set_state(ad_id, "tested", reason)
     return {"outcome": "live" if split_url else "built", "test_id": test_id, "split_url": split_url,
-            "reason": reason, "publish_error": publish_error}
+            "reason": reason, "publish_error": publish_error, "meta_go_live": go_live}
 
 
 def _pending(inbox, tenant):
@@ -214,5 +228,11 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
             log(f"daily budget cap reached during {ad_id}: its test resumes on the next run")
             break
         summary["failed" if outcome["outcome"] == "failed" else "built"].append(ad_id)
+    if abtest.settings(tenant)["auto_go_live"]:
+        # Cycle 107: tests the lever left pending (ad not ACTIVE yet) go live
+        # as soon as Meta has approved their ad.
+        from . import meta_golive
+
+        summary["went_live"] = meta_golive.retry_pending(tenant, by=by, log=log)
     return summary
 

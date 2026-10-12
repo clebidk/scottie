@@ -35,5 +35,12 @@ cd "$REPO"
   "$REPO/.venv/bin/harness" abtest from-inbox --tenant "$TENANT" || inbox_status=$?
   echo "=== exit $inbox_status"
   [ "$status" -ne 0 ] || status=$inbox_status
+  # Cycle 107: cache each live test's Shopify orders and its Meta ad's spend,
+  # impressions and link clicks (read only) for the site's Results page.
+  echo "=== $(date -u +%FT%TZ) harness abtest refresh-metrics --tenant $TENANT"
+  metrics_status=0
+  "$REPO/.venv/bin/harness" abtest refresh-metrics --tenant "$TENANT" || metrics_status=$?
+  echo "=== exit $metrics_status"
+  [ "$status" -ne 0 ] || status=$metrics_status
 } >> "$LOG" 2>&1
 exit "${status:-0}"
