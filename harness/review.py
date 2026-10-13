@@ -93,6 +93,21 @@ def inline_font_face_urls(css, brand_dir):
     return fonts_mod.localize_font_faces(css, brand_dir, "inline")
 
 
+def self_contained(index_html, assets_dir, tenant):
+    """One page's review document: every `assets/` image a data: URI, the
+    brand's font faces and body faces inlined. Cycle 102e: shared by
+    build_review_for_page and an imported look's review.html."""
+    review_html = inline_assets_as_data_uris(index_html, assets_dir)
+    brand_dir = getattr(tenant, "brand_dir", None)
+    if brand_dir:
+        review_html = inline_font_face_urls(review_html, brand_dir)
+        # Cycle 92: the body faces the page loads from Google Fonts (a <link>,
+        # not an @font-face in the document), from brand/fonts-body/ when
+        # `harness fonts fetch` has filled it.
+        review_html = fonts_mod.inject(review_html, fonts_mod.body_font_css(tenant, "inline"))
+    return review_html
+
+
 def build_review_for_page(run_dir, page_name, tenant=None):
     """Write <page_name>-review.html for one cartridge under `run_dir`, if it
     has a rendered index.html. Returns the path written, or None if that
@@ -106,15 +121,7 @@ def build_review_for_page(run_dir, page_name, tenant=None):
     index_path = cartridge_dir / "index.html"
     if not index_path.exists():
         return None
-    review_html = inline_assets_as_data_uris(index_path.read_text(), cartridge_dir / "assets")
-    tenant = tenant or tenant_mod.active()
-    brand_dir = getattr(tenant, "brand_dir", None)
-    if brand_dir:
-        review_html = inline_font_face_urls(review_html, brand_dir)
-        # Cycle 92: the body faces the page loads from Google Fonts (a <link>,
-        # not an @font-face in the document), from brand/fonts-body/ when
-        # `harness fonts fetch` has filled it.
-        review_html = fonts_mod.inject(review_html, fonts_mod.body_font_css(tenant, "inline"))
+    review_html = self_contained(index_path.read_text(), cartridge_dir / "assets", tenant or tenant_mod.active())
     review_path = run_dir / f"{page_name}-review.html"
     review_path.write_text(review_html)
     size = review_path.stat().st_size

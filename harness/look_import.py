@@ -1902,6 +1902,60 @@ def render_errors(text, cartridge, slug, tenant, demo, shot=None):
     return list(dict.fromkeys(errors)), html_text
 
 
+def _no_network(url):
+    raise ConnectionError(f"the look's review render runs offline: {url} was not fetched")
+
+
+def review_document(text, cartridge, slug, tenant, demo, shot=None):
+    """Cycle 102e: the review.html an imported look stores -- the demo page
+    rendered in the look the way the Library build renders a version
+    (offline: photo-library photos and cut-outs from their local files into
+    assets/; an image with no local copy is dropped, never fetched), then
+    made self-contained as `harness review` does (review.self_contained:
+    every image a data: URI, the brand fonts inlined). The validation
+    render (render_errors) keeps download_assets=False, so its paths
+    ("photo-library/...", CDN urls) never resolve beside a stored file.
+    `shot` is called with the written document, so the render at 390 shows
+    exactly what the review link shows. Returns the html, or None when the
+    render fails (the caller keeps the validation html)."""
+    from . import review as review_mod
+    from . import vocab
+    from .render import render_page
+
+    prev_tenant, prev_vocab = tenant_mod.active_or_none(), vocab.active_or_none()
+    tenant_mod.activate(tenant)
+    try:
+        with tempfile.TemporaryDirectory(prefix="look-review-", dir=work_root(tenant)) as tmp:
+            tmp = Path(tmp)
+            looks_root = tmp / "looks"
+            (looks_root / cartridge / slug).mkdir(parents=True)
+            (looks_root / cartridge / slug / "template.html").write_text(text)
+            spec = look_spec_for(text)
+            if spec:
+                (looks_root / cartridge / slug / "look.json").write_text(json.dumps(spec) + "\n")
+            page = copy.deepcopy(demo["page"])
+            page["look"] = slug
+            out = tmp / f"look-{slug}" / cartridge
+            today = datetime.date.today().isoformat()
+            try:
+                render_page(cartridge_name=cartridge, page=page, ad_brief=copy.deepcopy(demo["ad_brief"]),
+                            facts_pack=copy.deepcopy(demo["facts_pack"]), cartridges_dir=REPO_ROOT / "cartridges",
+                            brand_dir=tenant.brand_dir, templates_dir=REPO_ROOT / "harness" / "templates",
+                            out_dir=out, published=today, updated=today, tenant=tenant, download_assets=True,
+                            fetch_url=_no_network, looks_dir=looks_root)
+            except Exception:  # noqa: BLE001 -- the template passed validation; keep its validation html
+                return None
+            html_text = review_mod.self_contained((out / "index.html").read_text(), out / "assets", tenant)
+            path = out.parent / "review.html"
+            path.write_text(html_text)
+            if shot is not None:
+                shot(path)
+            return html_text
+    finally:
+        tenant_mod.set_active(prev_tenant)
+        vocab.set_active(prev_vocab)
+
+
 def validate_template(text, cartridge, slug, tenant, demo, *, contract_=None, schema=None, max_dark=1, shot=None):
     """(errors, rendered review html or None). Static rules first; the render
     runs only when they pass."""
@@ -2365,12 +2419,15 @@ def convert(observation, *, cartridge, slug, tenant, demo, client, model=None, p
             def shot(index_html, _png=render_png):
                 look_vision.screenshot_full(browser, index_html, _png, look_vision.PHONE, tenant=tenant)
         errors, review_html = validate_template(text, cartridge, slug, tenant, demo, contract_=contract_,
-                                                schema=schema, max_dark=max_dark, shot=shot)
+                                                schema=schema, max_dark=max_dark)
         if not errors:
             fid = look_design.fidelity(observation, review_html, tenant, unscored=unscored)
+            # cycle 102e: the stored review.html and the shot are the self-contained document
+            document = review_document(text, cartridge, slug, tenant, demo, shot=shot)
             shot_file = render_png if render_png is not None and render_png.is_file() else None
             if best is None or fid["score"] > best["fidelity"]["score"]:
-                best = {"template": text, "review_html": review_html, "fidelity": fid, "render_shot": shot_file}
+                best = {"template": text, "review_html": document or review_html, "fidelity": fid,
+                        "render_shot": shot_file}
             if fid["score"] >= look_design.FIDELITY_THRESHOLD:
                 break
             feedback = fidelity_feedback(fid, observation)
