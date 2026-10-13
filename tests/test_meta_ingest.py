@@ -860,7 +860,9 @@ def test_a_second_ad_with_the_same_creative_is_a_duplicate_not_a_new_test(tmp_pa
     assert len(downloads.calls) == 1  # the media is downloaded once
 
     from harness import abtest_inbox
-    assert [i["ad_id"] for i in abtest_inbox._pending(inbox, None)] == ["120210000000000101"]
+    from tests.support import TENANT
+    todo, not_built = abtest_inbox._pending(inbox, TENANT)  # cycle 108: built or listed as not auto-built
+    assert [i["ad_id"] for i in todo] + [s[0]["ad_id"] for s in not_built] == ["120210000000000101"]
 
     # Refreshing the first ad keeps it the one that gets the test.
     summary, inbox, _, _, _ = run_pull(

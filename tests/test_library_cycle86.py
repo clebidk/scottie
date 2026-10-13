@@ -404,6 +404,7 @@ def test_abtest_from_inbox_honours_a_pinned_version(monkeypatch):
         directory.mkdir(parents=True)
         (directory / f"meta-{ad_id}.jpg").write_bytes(JPG)
         inbox.write({"ad_id": ad_id, "ad_name": f"Ad {ad_id}", "media_type": "image",
+                     "created_time": "2026-10-13T10:00:00+0000", "effective_status": "ACTIVE",  # cycle 108
                      "media_file": f"meta-{ad_id}.jpg", "source": "meta", "state": "new", "reason": "",
                      "history": [], "pinned_arm": pin})
     monkeypatch.setitem(TENANT.config["abtest"], "auto_publish", False)

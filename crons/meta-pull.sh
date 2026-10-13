@@ -3,9 +3,10 @@
 # tenants/<tenant>/meta_inbox/ (read only; see docs/META-INGEST.md), then
 # (cycle 83) `harness meta refresh-links`, then (cycle 69) `harness abtest
 # from-inbox` builds a test for each new item.
-# Appends to tenants/<tenant>/runs/meta-pull.log. Not installed anywhere --
-# add the crontab line from docs/META-INGEST.md when the token is in place.
-# A second copy that starts while one is still running exits at once.
+# Appends to tenants/<tenant>/runs/meta-pull.log. Cycle 108: installed in the
+# deploy user's crontab by crons/install-cron.sh (minute 7 of every hour);
+# from-inbox writes the run's summary to tenants/<tenant>/runs/auto-pipeline.json
+# for the Ads page. A second copy that starts while one is still running exits at once.
 set -euo pipefail
 REPO="${HARNESS_REPO:-$HOME/advertorial}"
 TENANT="${1:-${HARNESS_TENANT:-peak-saunas}}"
@@ -29,7 +30,9 @@ cd "$REPO"
   [ "$status" -ne 0 ] || status=$links_status
   # Cycle 69: build (and, with abtest.auto_publish, publish) an A/B/C test for
   # each new inbox item. Runs even when the pull failed (no token yet): items
-  # the daily budget cap left queued resume here too.
+  # the daily budget cap left queued resume here too. Cycle 108: only ACTIVE /
+  # PENDING_REVIEW / IN_PROCESS ads created on or after abtest.auto_since, at
+  # most abtest.auto_max_per_run per run, plan chosen per ad (inbox_plan auto).
   echo "=== $(date -u +%FT%TZ) harness abtest from-inbox --tenant $TENANT"
   inbox_status=0
   "$REPO/.venv/bin/harness" abtest from-inbox --tenant "$TENANT" || inbox_status=$?

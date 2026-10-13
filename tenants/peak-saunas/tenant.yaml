@@ -383,6 +383,21 @@ abtest:
   # needs auto_publish: true too. Manual go-live (`harness abtest go-live`,
   # the Ads page's "Go live on Meta") works with the lever off.
   auto_go_live: false  # owner: off until I turn it on (2026-10-12)
+  # Cycle 108 (owner decision 2026-10-13): "lets turn it on. only exception is
+  # if ad is uploaded with specific landing page, that becomes A of the A/B/C
+  # test and only 2 others are generated". The plan of each test from-inbox
+  # builds is chosen per ad: the ad's own specific store page (not home, not a
+  # /products/ page) is arm A + 2 generated; else 2 generated + the PDP when
+  # the ad's copy names a model; else 2 generated + the home page.
+  inbox_plan: auto
+  # Meta ads created before this date (00:00 UTC) are never auto-built; they
+  # stay "new" and the Ads page says why. Only ACTIVE, PENDING_REVIEW and
+  # IN_PROCESS ads are auto-built. `harness abtest create` and the upload
+  # form are not limited by this.
+  auto_since: "2026-10-13"
+  # At most this many tests are built per hourly run (the daily budget cap
+  # still applies); the rest wait for the next run. 0 stops auto builds.
+  auto_max_per_run: 5
 
 notifications:
   slack: false

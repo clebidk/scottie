@@ -26,15 +26,223 @@ turns it on), a test this module has just published also goes live on its
 Meta ad (harness/meta_golive.py) when the ad is ACTIVE; a test whose ad is
 not ACTIVE yet is marked pending and each later from-inbox run tries it
 again. It never forces and never touches an existing-post creative.
+
+Cycle 108 (owner decision 2026-10-13, docs/ABTEST.md "Automatic pipeline"):
+- the plan of an item that names none is abtest.inbox_plan, by default
+  "auto": `plan_for_item` picks it per ad (rule 1: the ad's own specific
+  store page is arm A, B and C are generated; rule 2: the ad names a
+  model, so generated, generated, PDP; rule 3: generated, generated, home);
+- from-inbox builds only Meta ads whose effective_status is ACTIVE,
+  PENDING_REVIEW or IN_PROCESS and that were created on or after
+  abtest.auto_since; the others stay "new" (`not_auto_built` says why);
+- at most abtest.auto_max_per_run items per run (the daily cap still
+  applies); the rest wait for the next run;
+- an ad whose creative has no spec (an existing Page post) is built, but
+  its test is marked "manual link": go-live cannot change that ad;
+- the lever never goes live for a test created before abtest.auto_since;
+- each run writes its summary to runs/auto-pipeline.json (the Ads page).
 """
 import argparse
+import collections
 import contextlib
 import datetime
 import io
+import json
+import os
+import re
+import urllib.parse
+from pathlib import Path
 
 from . import abtest, budget, exits, meta_ingest
 
 BUDGET_REASON = "budget cap"
+# Cycle 108: the effective_status values from-inbox builds for: approved and
+# running, or still in Meta's review (go-live waits for ACTIVE).
+AUTO_STATUSES = ("ACTIVE", "PENDING_REVIEW", "IN_PROCESS")
+STATUS_FILE = "auto-pipeline.json"
+MANUAL_LINK = ("the ad's creative has no object_story_spec or asset_feed_spec (an existing Page post): "
+               "go-live cannot change its link. Paste the split link into the ad by hand in Ads Manager")
+
+
+# ---------------------------------------------------------------------------
+# cycle 108: the automatic plan, eligibility, the status file
+# ---------------------------------------------------------------------------
+
+_PRODUCT_PATH = re.compile(r"(?:^|/)products/[^/]+")
+
+
+def specific_page(tenant, url):
+    """Rule 1: `url` when it is a page on the tenant's own store that is not
+    the home page and not a product page (/products/<handle>, also under a
+    collection), else None. A harness test page (/pages/lp-...) is not one,
+    so arm A is never another test's split link."""
+    url = str(url or "").strip()
+    parsed = urllib.parse.urlparse(url)
+    host = (tenant.get("site_host") or "").lower()
+    if parsed.scheme not in ("http", "https") or not host or parsed.netloc.lower() not in (host, f"www.{host}"):
+        return None
+    path = parsed.path.rstrip("/")
+    if not path or _PRODUCT_PATH.search(path) or path.startswith("/pages/lp-"):
+        return None
+    return url
+
+
+def named_product(tenant, item):
+    """Rule 2: the product the ad's own words name (ad name, headline,
+    primary text, description), found by the same detection as the PDP arm
+    (ground.LocalFactsSource.pick_product_with_warning), else None."""
+    from . import ground
+
+    text = " ".join(str(item.get(k) or "") for k in ("ad_name", "headline", "primary_text", "description"))
+    product, warning = ground.LocalFactsSource(tenant.claims_dir).pick_product_with_warning(
+        None, {"transcript_or_text": text})
+    if warning and warning.startswith(abtest.PRODUCT_NOT_NAMED):
+        return None
+    return product
+
+
+def plan_for_item(item, tenant):
+    """(plan name, arm specs, rule) for an inbox item under abtest.inbox_plan
+    "auto". The name says which rule fired; the arms take A, B, C in order."""
+    gen = {"kind": "generated"}
+    page = specific_page(tenant, item.get("destination_url"))
+    if page:
+        return ("auto-page", [{"kind": "external", "target": "url", "url": page}, dict(gen), dict(gen)],
+                f"rule 1: the ad links to a specific store page ({page}), so that page is arm A")
+    product = named_product(tenant, item)
+    if product and product.get("url"):
+        return ("auto-pdp", [dict(gen), dict(gen), {"kind": "external", "target": "pdp", "url": product["url"]}],
+                f"rule 2: the ad names {product['name']}, so its product page is arm C")
+    return ("auto-home", [dict(gen), dict(gen), {"kind": "external", "target": "home"}],
+            "rule 3: the ad names no model and links to no specific store page, so the home page is arm C")
+
+
+def resolve_plan(tenant, item, plan=None):
+    """(plan name, arm specs, rule or None): the item's own destinations (the
+    upload form's choice), else `plan` (`from-inbox --destinations`), else
+    abtest.inbox_plan; "auto" is `plan_for_item`."""
+    chosen = item.get("destinations") or plan or abtest.settings(tenant)["inbox_plan"]
+    if chosen == abtest.AUTO_PLAN:
+        name, specs, rule = plan_for_item(item, tenant)
+        return name, abtest.validate_plan(specs), rule
+    name, specs = abtest.parse_plan(chosen)
+    return name, specs, None
+
+
+def _auto_since(tenant):
+    since = abtest.settings(tenant)["auto_since"]
+    return meta_ingest.parse_since(since, what="abtest.auto_since") if since else None
+
+
+def not_auto_built(tenant, item):
+    """(category, reason) when from-inbox must not build this Meta ad, else
+    None. An upload is always built (its job and its form are the owner's
+    own choice); so is anything `harness abtest create` is given."""
+    if item.get("source") == "upload":
+        return None
+    since = _auto_since(tenant)
+    if since is not None:
+        created = meta_ingest.parse_meta_time(item.get("created_time"))
+        if created is None or created < since:
+            when = str(item.get("created_time") or "unknown")[:10]
+            return "before auto_since", f"created {when}, before abtest.auto_since {since.date().isoformat()}"
+    status = item.get("effective_status") or ""
+    if status not in AUTO_STATUSES:
+        category = "paused" if "PAUSED" in status else (status.lower() or "no status")
+        return category, (f"ad status {status or 'unknown'}; it is built once it is "
+                          f"{', '.join(AUTO_STATUSES[:-1])} or {AUTO_STATUSES[-1]}")
+    return None
+
+
+def waiting_for_auto(item):
+    """True for an item from-inbox would pick up: new, or queued by the cap."""
+    return item.get("state") == "new" or (item.get("state") == "queued" and item.get("reason") == BUDGET_REASON)
+
+
+def manual_link_reason(item):
+    """MANUAL_LINK for a Meta ad whose creative has no spec to copy (an
+    existing Page post), else None."""
+    from . import meta_golive
+
+    creative = (item.get("meta") or {}).get("creative") or {}
+    if item.get("source") == "upload" or not creative:
+        return None
+    if meta_golive.is_existing_post(creative) or not (creative.get("object_story_spec")
+                                                       or creative.get("asset_feed_spec")):
+        return MANUAL_LINK
+    return None
+
+
+def _lever_skip(tenant, rec):
+    """Why the go-live lever leaves this test alone, else None."""
+    if rec.get("manual_link"):
+        return "manual link (the ad is an existing Page post)"
+    since = _auto_since(tenant)
+    if since is not None and str(rec.get("created_at") or "")[:10] < since.date().isoformat():
+        return f"test created before abtest.auto_since {since.date().isoformat()}"
+    return None
+
+
+def status_path(tenant):
+    return Path(tenant.runs_dir) / STATUS_FILE
+
+
+def read_status(tenant):
+    try:
+        data = json.loads(status_path(tenant).read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def write_status(tenant, section, data):
+    """Sets one section ("pull" or "inbox") of runs/auto-pipeline.json."""
+    status = read_status(tenant)
+    status[section] = data
+    path = status_path(tenant)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(status, indent=2) + "\n")
+    os.replace(tmp, path)
+
+
+def _clock(at, today):
+    at = str(at or "")
+    return at[11:16] if at[:10] == today else at[:16].replace("T", " ")
+
+
+def status_line(tenant, today=None):
+    """"Auto pipeline: last run 14:07, pulled 4, 2 built, 1 live, 3 skipped
+    (paused), ..." from runs/auto-pipeline.json, or None before a run."""
+    status = read_status(tenant)
+    run = status.get("inbox")
+    if not run:
+        return None
+    today = today or datetime.date.today().isoformat()
+    parts = [f"last run {_clock(run.get('at'), today)}"]
+    pull = status.get("pull")
+    if pull:
+        parts.append(f"pulled {pull.get('ingested', 0)}")
+    parts.append(f"{run.get('built', 0)} built")
+    if run.get("failed"):
+        parts.append(f"{run['failed']} failed")
+    if run.get("published"):
+        parts.append(f"{run['published']} published")
+    parts.append(f"{run.get('went_live', 0)} live")
+    if run.get("pending"):
+        parts.append(f"{run['pending']} pending")
+    if run.get("waiting") or run.get("left"):
+        parts.append(f"{(run.get('waiting') or 0) + (run.get('left') or 0)} waiting")
+    by = run.get("skipped_by") or {}
+    if by:
+        detail = ", ".join(f"{n} {c}" for c, n in by.items()) if len(by) > 1 else next(iter(by))
+        parts.append(f"{run.get('skipped', 0)} skipped ({detail})")
+    else:
+        parts.append("0 skipped")
+    parts.append(f"${float(run.get('spend_usd') or 0):.2f} spend")
+    levers = (f"auto publish {'on' if run.get('auto_publish') else 'off'}, "
+              f"auto go-live {'on' if run.get('auto_go_live') else 'off'}")
+    return "Auto pipeline: " + ", ".join(parts) + f" ({levers})"
 
 
 def budget_ok(tenant, today_iso=None):
@@ -83,7 +291,7 @@ def publish_test(tenant, test_id, *, by):
 def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
     """Builds (or resumes) the A/B/C test for one inbox item. Returns
     {"outcome": "built"|"live"|"budget"|"failed", "test_id", "split_url",
-    "reason"}."""
+    "reason", ...}; cycle 108 adds "plan", "plan_rule" and "published"."""
     runner = runner or abtest.default_runner
     inbox = meta_ingest.Inbox(tenant.meta_inbox_dir)
     item = inbox.read(ad_id)
@@ -127,11 +335,16 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
             if item.get(key):
                 source[key] = item[key]
 
+        manual = manual_link_reason(item)
+
         def link(new_rec):
+            if manual:  # cycle 108: built, but the owner pastes the split link by hand
+                new_rec["manual_link"] = manual
+                abtest.save_test(tenant, new_rec)
             inbox.note(ad_id, f"building A/B/C test {new_rec['test_id']}", test_id=new_rec["test_id"])
 
         try:
-            plan_name, specs = abtest.parse_plan(item.get("destinations") or plan)
+            plan_name, specs, plan_rule = resolve_plan(tenant, item, plan)
             if pinned and not any(s["kind"] == "generated" for s in specs):
                 raise abtest.AbtestError(f"destinations {plan_name!r} build no page, so the pinned page "
                                          f"version {pinned} cannot be used")
@@ -140,15 +353,18 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
             return {"outcome": "failed", "test_id": None, "split_url": None, "reason": str(e)}
         rc, rec = abtest.create_test(tenant, input_path=media, name=item.get("ad_name") or ad_id,
                                      source=source, runner=runner, on_record=link, plan=specs,
-                                     pinned_arm=pinned)
+                                     pinned_arm=pinned, plan_name=plan_name, plan_rule=plan_rule)
 
     test_id = rec["test_id"]
+    plan_info = {"plan": rec.get("plan"), "plan_rule": rec.get("plan_rule")}
     if rc == exits.BUDGET:
         inbox.note(ad_id, f"{BUDGET_REASON}: test {test_id} is queued; the next from-inbox run resumes it")
-        return {"outcome": "budget", "test_id": test_id, "split_url": None, "reason": rec.get("reason", "")}
+        return {"outcome": "budget", "test_id": test_id, "split_url": None, "reason": rec.get("reason", ""),
+                **plan_info}
     if rc != exits.OK:
         inbox.set_state(ad_id, "failed", f"test {test_id}: {rec.get('reason') or 'build failed'}")
-        return {"outcome": "failed", "test_id": test_id, "split_url": None, "reason": rec.get("reason", "")}
+        return {"outcome": "failed", "test_id": test_id, "split_url": None, "reason": rec.get("reason", ""),
+                **plan_info}
 
     split_url, publish_error, published_now = None, None, False
     if _auto_publish(tenant) and rec.get("status") != "live":
@@ -166,29 +382,38 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
     if published_now and abtest.settings(tenant)["auto_go_live"]:
         from . import meta_golive
 
-        go_live = meta_golive.auto_go_live(tenant, test_id, by=by)
+        skip = _lever_skip(tenant, abtest.load_test(tenant, test_id))
+        if skip:
+            reason += f"; Meta go-live skipped: {skip}"
+        else:
+            go_live = meta_golive.auto_go_live(tenant, test_id, by=by)
         if go_live is not None:
             reason += f"; Meta go-live {go_live['state']}" + (f": {go_live['reason']}" if go_live["reason"] else "")
     inbox.set_state(ad_id, "tested", reason)
     return {"outcome": "live" if split_url else "built", "test_id": test_id, "split_url": split_url,
-            "reason": reason, "publish_error": publish_error, "meta_go_live": go_live}
+            "reason": reason, "publish_error": publish_error, "meta_go_live": go_live,
+            "published": published_now, **plan_info}
 
 
 def _pending(inbox, tenant):
-    """Items to work on, in order: tests the cap stopped mid-build, items the
-    cap left queued, then new items (oldest first)."""
-    resume, queued, new = [], [], []
+    """(items to work on, skipped). Items in order: tests the cap stopped
+    mid-build, items the cap left queued, then new items (oldest first).
+    Cycle 108: skipped is [(item, category, reason)] for the queued and new
+    Meta ads `not_auto_built` refuses; they keep their state."""
+    resume, queued, new, skipped = [], [], [], []
     for item in inbox.items():
         state = item.get("state")
         if state == "building" and item.get("test_id"):
             rec = abtest.find_test(tenant, item["test_id"])
             if rec and rec.get("status") in ("queued", "building"):
                 resume.append(item)
-        elif state == "queued" and item.get("reason") == BUDGET_REASON:
-            queued.append(item)
-        elif state == "new":
-            new.append(item)
-    return resume + queued + new
+        elif waiting_for_auto(item):
+            why = not_auto_built(tenant, item)
+            if why:
+                skipped.append((item, *why))
+            else:
+                (new if state == "new" else queued).append(item)
+    return resume + queued + new, skipped
 
 
 def _leave_for_tomorrow(inbox, items):
@@ -199,15 +424,34 @@ def _leave_for_tomorrow(inbox, items):
             inbox.note(item["ad_id"], BUDGET_REASON)
 
 
+def _today_spend(tenant):
+    return float(budget.daily_spend(tenant, datetime.date.today().isoformat()) or 0)
+
+
 def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
     """Builds a test for each pending inbox item until the daily cap stops
     it. Returns {"built": [...], "failed": [...], "left": [...], "stopped":
-    None|"budget cap"}."""
+    None|"budget cap"}; cycle 108 adds "waiting" (over the per-run limit),
+    "skipped" ({ad_id: reason}), "published" and "went_live", and writes
+    the run's summary to runs/auto-pipeline.json."""
     inbox = meta_ingest.Inbox(tenant.meta_inbox_dir)
-    todo = _pending(inbox, tenant)
-    if limit is not None:
-        todo = todo[:limit]
-    summary = {"built": [], "failed": [], "left": [], "stopped": None}
+    cfg = abtest.settings(tenant)
+    todo, skipped = _pending(inbox, tenant)
+    summary = {"built": [], "failed": [], "left": [], "stopped": None, "waiting": [], "published": [],
+               "went_live": [], "skipped": {i["ad_id"]: reason for i, _c, reason in skipped}}
+    skipped_by = collections.Counter(c for _i, c, _r in skipped)
+    if skipped:
+        log("not auto-built (listed on the Ads page): "
+            + ", ".join(f"{n} {c}" for c, n in skipped_by.most_common()))
+    per_run = cfg["auto_max_per_run"] if limit is None else min(limit, cfg["auto_max_per_run"])
+    if len(todo) > per_run:
+        summary["waiting"] = [x["ad_id"] for x in todo[per_run:]]
+        log(f"at most {per_run} item(s) per run (abtest.auto_max_per_run {cfg['auto_max_per_run']}"
+            + (f", --limit {limit}" if limit is not None else "") + f"): {len(summary['waiting'])} wait for the "
+            "next run")
+        todo = todo[:per_run]
+    spend_before = _today_spend(tenant)
+    items = []
     for i, item in enumerate(todo):
         ad_id = item["ad_id"]
         if not budget_ok(tenant):
@@ -219,7 +463,17 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
             break
         log(f"building an A/B/C test for inbox item {ad_id} ({item.get('ad_name')})")
         outcome = build_test_for_item(tenant, ad_id, by=by, runner=runner, plan=plan)
+        if outcome.get("plan"):
+            log(f"  {ad_id} ({item.get('ad_name')}): plan {outcome['plan']}"
+                + (f" -- {outcome['plan_rule']}" if outcome.get("plan_rule") else ""))
         log(f"  {ad_id}: {outcome['outcome']} {outcome.get('test_id') or ''} {outcome.get('reason') or ''}".rstrip())
+        items.append({"ad_id": ad_id, "ad_name": item.get("ad_name") or "", "outcome": outcome["outcome"],
+                      "test_id": outcome.get("test_id"), "plan": outcome.get("plan"),
+                      "plan_rule": outcome.get("plan_rule")})
+        if outcome.get("published"):
+            summary["published"].append(ad_id)
+        if (outcome.get("meta_go_live") or {}).get("state") == "done":
+            summary["went_live"].append(outcome["test_id"])
         if outcome["outcome"] == "budget":
             rest = todo[i + 1:]
             _leave_for_tomorrow(inbox, [inbox.read(x["ad_id"]) for x in rest])
@@ -228,11 +482,22 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
             log(f"daily budget cap reached during {ad_id}: its test resumes on the next run")
             break
         summary["failed" if outcome["outcome"] == "failed" else "built"].append(ad_id)
-    if abtest.settings(tenant)["auto_go_live"]:
+    if cfg["auto_go_live"]:
         # Cycle 107: tests the lever left pending (ad not ACTIVE yet) go live
         # as soon as Meta has approved their ad.
         from . import meta_golive
 
-        summary["went_live"] = meta_golive.retry_pending(tenant, by=by, log=log)
+        summary["went_live"] += meta_golive.retry_pending(tenant, by=by, log=log)
+    pending = sum(1 for r in abtest.list_tests(tenant)
+                  if (r.get("auto_go_live") or {}).get("state") == "pending" and r.get("status") == "live")
+    write_status(tenant, "inbox", {
+        "at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "built": len(summary["built"]), "failed": len(summary["failed"]), "published": len(summary["published"]),
+        "went_live": len(summary["went_live"]), "pending": pending, "waiting": len(summary["waiting"]),
+        "left": len(summary["left"]), "stopped": summary["stopped"], "skipped": len(skipped),
+        "skipped_by": dict(skipped_by.most_common()), "spend_usd": round(_today_spend(tenant) - spend_before, 4),
+        "auto_publish": cfg["auto_publish"], "auto_go_live": cfg["auto_go_live"], "inbox_plan": cfg["inbox_plan"],
+        "items": items,
+    })
     return summary
 

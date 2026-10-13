@@ -327,7 +327,8 @@ def test_a_post_is_retried_on_a_rate_limit_but_never_after_a_server_error():
 def _publish_and_build(monkeypatch):
     """build_test_for_item for an inbox item whose test is built: publish is
     replaced by one that marks the record live with the split link."""
-    rec = live_record(status="built", split=None)
+    # Cycle 108: built by the pipeline after the lever went on (abtest.auto_since).
+    rec = live_record(status="built", split=None, created_at="2026-10-13T10:00:00")
 
     def publish(tenant, test_id, *, by):
         r = abtest.load_test(tenant, test_id)

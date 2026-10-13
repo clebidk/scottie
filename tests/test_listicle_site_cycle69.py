@@ -20,7 +20,7 @@ import pytest
 from harness import abevents, abtest, abtest_inbox, ads, budget, cli, jobs, meta_ingest, revise, runstate
 from harness import serve, site, upload
 from harness.publishers.shopify import ShopifyPublisher
-from tests.support import REPO_ROOT, TENANT
+from tests.support import REPO_ROOT, TENANT, tenant_copy
 from tests.test_abtest_cycle67 import FakeRunner, _insert
 from tests.test_publishers import FakeTransport
 
@@ -129,8 +129,9 @@ def _meta_item(ad_id, name, *, state="new", media=b"", media_file=None):
     directory.mkdir(parents=True, exist_ok=True)
     media_file = media_file or f"meta-{ad_id}.jpg"
     (directory / media_file).write_bytes(media or JPG)
-    item = {"ad_id": ad_id, "ad_name": name, "created_time": "2026-09-23T10:00:00+0000",
-            "media_type": "image", "media_file": media_file, "source": "meta",
+    # Cycle 108: an ACTIVE ad created on PEAK's abtest.auto_since, so from-inbox builds it.
+    item = {"ad_id": ad_id, "ad_name": name, "created_time": "2026-10-13T10:00:00+0000",
+            "effective_status": "ACTIVE", "media_type": "image", "media_file": media_file, "source": "meta",
             "state": state, "reason": "", "history": []}
     inbox.write(item)
     return item
@@ -567,6 +568,7 @@ def test_budget_ok_reads_the_daily_cap():
 def test_from_inbox_stops_at_the_budget_cap_and_resumes(monkeypatch, capsys):
     # the command loads its own Tenant from tenant.yaml (auto_publish: true)
     monkeypatch.setattr(abtest_inbox, "_auto_publish", lambda tenant: False)
+    tenant_copy(monkeypatch, {"abtest.inbox_plan": "generated"})  # cycle 108: 3 builds per test
     for i in range(3):
         _meta_item(f"12021000000020{i}", f"Inbox ad {i}")
 

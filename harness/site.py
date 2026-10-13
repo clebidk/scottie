@@ -54,7 +54,8 @@ from pathlib import Path
 from flask import Response, abort, current_app, g, redirect, request, send_file, url_for
 from PIL import Image
 
-from . import abevents, abtest, ads as ads_mod, budget, jobs, library, meta_ingest, postlive, runstate, site_ui, textutil
+from . import abevents, abtest, abtest_inbox, ads as ads_mod, budget, jobs, library, meta_ingest, postlive, runstate
+from . import site_ui, textutil
 from . import design_gate as design_gate_mod
 from . import heroes
 from . import look_import as look_import_mod
@@ -197,6 +198,12 @@ def _spend_line(tenant):
     if reserved:
         text += f", plus ${reserved:.2f} reserved by runs in progress"
     return f'<span>{e(text)}</span>'
+
+
+def _auto_line(tenant):
+    """Cycle 108: the hourly pipeline's last run (runs/auto-pipeline.json)."""
+    text = abtest_inbox.status_line(tenant)
+    return f'<span class="auto-run">{e(text)}</span>' if text else ""
 
 
 def _storefront_host(tenant):
@@ -714,12 +721,21 @@ def _ad_card(tenant, ad, index):
         f'<div class="ad-main"><div class="ad-title"><h2>{e(ad["name"])}</h2>{head_chip}</div>'
         f'<div class="ad-meta">{"".join(meta)}</div></div></div>'
     ]
+    if rec is None and item is not None and abtest_inbox.waiting_for_auto(item):
+        why = abtest_inbox.not_auto_built(tenant, item)
+        if why:
+            parts.append(f'<p class="muted small" style="margin:12px 0 0">not auto-built: {e(why[1])}</p>')
     if rec is not None:
         parts.append(f'<p class="muted small" style="margin:12px 0 0">A/B/C test {e(rec["test_id"])}'
                      + (f": {e(rec['reason'])}" if rec.get("reason") else "") + "</p>")
         if any(abtest.is_external(v) for v in rec.get("variants") or []):
             parts.append(f'<p class="small" style="margin:6px 0 0">Destinations: <b>{e(abtest.destinations_label(rec))}'
                          '</b> <span class="muted">(fixed when the test was created)</span></p>')
+        if rec.get("plan_rule"):
+            parts.append(f'<p class="muted small" style="margin:4px 0 0">Plan {e(rec.get("plan") or "")}: '
+                         f'{e(rec["plan_rule"])}</p>')
+        if rec.get("manual_link"):
+            parts.append(f'<p class="small" style="margin:6px 0 0"><b>Manual link:</b> {e(rec["manual_link"])}</p>')
         split = (rec.get("split") or {}).get("url")
         if split:
             parts.append(f'<div class="ad-split">{_copy_row(f"split-{index}", split)}</div>')
@@ -793,7 +809,7 @@ def render_home(tenant):
     if page_no < pages:
         pager += f'<a class="btn ghost sm" href="{link(page=page_no + 1)}">Older</a>'
     pager += "</div>"
-    statline = '<div class="statline">' + _spend_line(tenant)
+    statline = '<div class="statline">' + _spend_line(tenant) + _auto_line(tenant)
     if busy:
         statline += (f'<a class="busy" href="{url_for("job_list")}">{chip("running", "running")}'
                      f'{len(busy)} job(s) queued or running</a>')

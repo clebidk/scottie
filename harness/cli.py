@@ -1528,7 +1528,9 @@ def cmd_abtest_from_inbox(args):
     from . import abtest_inbox, jobs
 
     tenant = _abtest_tenant(args)
-    abtest.parse_plan(args.destinations)  # refuse a bad value before any build
+    for value in (args.destinations, abtest.settings(tenant)["inbox_plan"]):
+        if value != abtest.AUTO_PLAN:
+            abtest.parse_plan(value)  # refuse a bad value before any build
     by = args.by or abtest_inbox.default_by(tenant)
     if abtest.settings(tenant)["auto_publish"] and runstate.find_reviewer(tenant, by) is None:
         print(f"{by!r} is not a listed reviewer for tenant {tenant.name!r}; pass --by <reviewer email>",
@@ -1542,7 +1544,9 @@ def cmd_abtest_from_inbox(args):
         return exits.OK
     print(f"from-inbox: {len(summary['built'])} built, {len(summary['failed'])} failed, "
           f"{len(summary['left'])} left for the next run"
-          + (f" ({summary['stopped']})" if summary["stopped"] else ""))
+          + (f" ({summary['stopped']})" if summary["stopped"] else "")
+          + (f", {len(summary['waiting'])} over the per-run limit" if summary["waiting"] else "")
+          + (f", {len(summary['skipped'])} not auto-built" if summary["skipped"] else ""))
     return exits.OK
 
 
@@ -1659,6 +1663,13 @@ def cmd_meta_pull(args):
         print(f"{len(summary['ingested'])} ingested, {len(summary['failed'])} failed, "
               f"{len(summary['skipped'])} skipped, {len(summary['existing'])} already in the inbox"
               + (f", {len(summary['refused'])} not ingestable" if summary["refused"] else ""))
+        from . import abtest_inbox
+
+        # Cycle 108: the Ads page's "Auto pipeline" line shows the last pull.
+        abtest_inbox.write_status(tenant, "pull", {
+            "at": datetime.datetime.now().isoformat(timespec="seconds"), "ingested": len(summary["ingested"]),
+            "failed": len(summary["failed"]), "skipped": len(summary["skipped"]),
+            "existing": len(summary["existing"])})
     return exits.OK
 
 
@@ -2491,7 +2502,7 @@ def build_parser():
     p_ab_inbox.add_argument("--by", help="reviewer email recorded on auto publishes; default: the primary reviewer")
     p_ab_inbox.add_argument("--destinations", default=None, metavar="PLAN",
                             help=f"cycle 88: plan for items that name none (an upload's own choice wins); one of "
-                                 f"{', '.join(abtest.PLANS)}; default generated")
+                                 f"auto, {', '.join(abtest.PLANS)}; default abtest.inbox_plan (cycle 108: auto)")
     _add_tenant_flag(p_ab_inbox)
     p_ab_inbox.set_defaults(func=cmd_abtest_from_inbox)
     p_ab_library = ab_sub.add_parser("library", help="per-build pooled results and current sampling weights")
