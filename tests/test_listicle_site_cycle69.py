@@ -198,11 +198,14 @@ def test_ad_key_groups_names_and_source_files():
 
 
 def test_auto_publish_setting_defaults_false_and_is_off_for_peak():
-    # 2026-10-05 (owner, training wheels): PEAK's auto_publish is off again.
+    # The DEFAULT is off for a fresh tenant. PEAK's own value is the owner's to
+    # flip (off 2026-10-05, on 2026-10-13 for the cycle 108 pipeline), so for
+    # PEAK only check that it is the boolean read from its config.
     from tests.test_abtest_cycle67 import ConfigTenant
     assert abtest.settings(ConfigTenant())["auto_publish"] is False
     assert abtest.settings(ConfigTenant({"auto_publish": True}))["auto_publish"] is True
-    assert abtest.settings(TENANT)["auto_publish"] is False
+    assert abtest.settings(TENANT)["auto_publish"] is TENANT.config["abtest"]["auto_publish"]
+    assert isinstance(TENANT.config["abtest"]["auto_publish"], bool)
     template = (REPO_ROOT / "tenants" / "_template" / "tenant.yaml").read_text()
     assert re.search(r"^\s+auto_publish: false\s*$", template, re.M)
 

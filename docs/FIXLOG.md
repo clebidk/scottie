@@ -7218,3 +7218,11 @@ external first>'`, publish, and paste the new split link into the ad in Ads Mana
   checked here; at most 5 are built per hourly run.
 - The status line's spend is the day's ledger difference during the run (a job running at the same time
   adds to it).
+
+### Follow-up 108c (levers on for PEAK, 2026-10-13)
+The owner set PEAK's `abtest.auto_publish: true` and `abtest.auto_go_live: true` (9d736bf on master, merged
+into this branch). Four tests asserted the old `false` literals. As in cycle 103b (tests/support.tenant_copy):
+the DEFAULT is checked on a fresh tenant (both levers off, inbox_plan auto, no auto_since, 5 per run); for
+PEAK only that each lever is a boolean read from its config; the lever-off behaviour (no Meta call) runs on a
+tenant copy with the lever off; the cycle 108 build and status-file tests turn both levers off on their copy,
+so they do not depend on PEAK's values. Full suite: 3173 passed, 0 failed, 35 skipped.

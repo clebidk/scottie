@@ -46,8 +46,8 @@ def _letters(rec):
 
 
 def _off(monkeypatch, **extra):
-    """No auto publish (the builds only), unless a test turns it on."""
-    tenant_copy(monkeypatch, {"abtest.auto_publish": False, **extra})
+    """Both levers off (the builds only), whatever the real tenant.yaml says."""
+    tenant_copy(monkeypatch, {"abtest.auto_publish": False, "abtest.auto_go_live": False, **extra})
 
 
 # ---------------------------------------------------------------------------
@@ -362,10 +362,17 @@ def test_end_to_end_a_new_active_ad_with_its_own_page_goes_live(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_peak_has_the_automatic_plan_and_the_levers_are_left_to_the_owner():
+    from tests.test_abtest_cycle67 import ConfigTenant
+
     text = (TENANT.root / "tenant.yaml").read_text()
     cfg = TENANT.config["abtest"]
     assert (cfg["inbox_plan"], cfg["auto_since"], cfg["auto_max_per_run"]) == ("auto", "2026-10-13", 5)
-    assert cfg["auto_go_live"] is False and cfg["auto_publish"] is False
+    # the levers are the owner's (on 2026-10-13): only booleans read from the config
+    for lever in ("auto_publish", "auto_go_live"):
+        assert isinstance(cfg[lever], bool) and abtest.settings(TENANT)[lever] is cfg[lever]
+    fresh = abtest.settings(ConfigTenant())
+    assert (fresh["auto_publish"], fresh["auto_go_live"], fresh["inbox_plan"], fresh["auto_since"],
+            fresh["auto_max_per_run"]) == (False, False, "auto", None, 5)
     assert "lets turn it on. only exception is" in text
 
 
