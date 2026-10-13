@@ -1964,7 +1964,7 @@ CROSS_MAP = {
 }
 
 
-def build_system_prompt(cartridge, contract_, schema, exemplar=None):
+def build_system_prompt(cartridge, contract_, schema, exemplar=None, reference=True):
     """The rules file with the contract filled in, then ONE look to learn
     the contract's use from: the closest hand-made exemplar (its page's
     observation + its template) when there is one, else the cartridge's
@@ -2002,6 +2002,8 @@ def build_system_prompt(cartridge, contract_, schema, exemplar=None):
                   "them.\n\n### Its page's observation\n\n"
                 + json.dumps(exemplar["observation"], separators=(",", ":"))
                 + "\n\n### Its template.html\n\n" + exemplar["template"])
+    if not reference:   # cycle 102d: a revise -- the look being revised is the reference
+        return rules
     default = looks.DEFAULT_LOOKS.get(cartridge, "open")
     # Cycle 94: the shipped look includes the shared hero partial; an imported
     # look is one file, so the model sees the look with its first screen inline.

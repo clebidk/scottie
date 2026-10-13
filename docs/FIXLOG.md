@@ -6845,6 +6845,44 @@ fake browser that, like snap Chromium, cannot read the system temp folder now yi
 vision call, the sheets, the render and the source-vs-render card (it failed before the fix); an HTML job
 with no browser says why. Full suite: 3176 passed, 35 skipped, 0 failed.
 
+### Cycle 102d ("Revise this look", 2026-10-13)
+The owner wants to give feedback on an imported look the way he does on a generated page.
+- **`harness/look_revise.py`** (new): `revise_look` renders the look's current template with the demo page
+  and screenshots it at 390 and 1280 (the before shots), then runs the import's revise round: ONE streamed
+  claude-opus-5-5 call with the rules and the contract (no default reference look:
+  `build_system_prompt(..., reference=False)`), the source screenshots the look was modelled on, the before
+  shots, the observation, the template and the owner's note as a NAMED MISS ("fix exactly this, keep
+  everything else"), then the same validator and render, with one repair round when the validator refuses
+  it. A refused revision changes nothing. A valid one keeps the previous template as
+  `template.prev.html`, writes `template.html`, `review.html`, `look.json`, the before shots
+  (`revise-before-390.png`, `revise-before-1280.png`) and the after shots (`render-390.png`,
+  `render-1280.png`), and adds one line to `library.json` `history` (time, who, the note, the cost, the
+  fidelity when the look has an observation). A revision may keep as many dark bands as the look has
+  (`max_dark=None`). Cost: about $0.40 a revise (about 30k input tokens with the screenshots, 13k output),
+  about $0.80 with the repair round (estimated, not measured).
+- **Job** `look_revise` (`harness/jobs.py`): progress rendering, revising, validating, storing; audit
+  `look_revise` / `look_revise_done`; a revised look that is in the Library gets a `library_build` job for
+  its page type.
+- **Site**: a "Revise this look" box (a note up to 2,000 characters, the cost line) on the import job's
+  result card and on the Library card of every imported or hand-converted look (not on shipped looks);
+  POST `/looks/<c>/<slug>/revise` (form token, the import rate limit, one active revise a look); the
+  job page shows the note, before/after at 390 and at 1280, the cost, the history line and the box again;
+  a failed revise lists the errors and says the look is unchanged; `/looks/<c>/<slug>/shot/<name>` serves
+  the four shots only.
+- Tests: `tests/test_look_revise_cycle102d.py` (5): the named miss, the source and before shots in the
+  streamed call, the previous template kept, the history line, the shots; a refused revision leaves the
+  look unchanged; the site flow (form token, empty note, unknown look, the job, the Library rebuild, the
+  before/after page, the shot route); a failed job; the box on imported cards and the import result, not on
+  shipped cards.
+- **tonal-copy (owner note 2026-10-13)**: "on desktop the body sections sit in a narrow left column ...
+  the body column must share the same centred measure as the key facts". Cause in the template:
+  `.tc-story` and `.tc-product` became two-column grids from 768px whether or not their photo was there;
+  with no room photo the text took the left column only (about 600 of 1280px) while the key facts used
+  the full measure. Fix: two columns only beside a photo (`tc-story--photo`, `tc-product--photo`); without
+  one the rows take the full centred measure and the buy box is centred like the price band
+  (`tc-product--solo`). Checked on a local render of the prod template at 1280 (validator: no errors).
+  NOT written to prod (gitignored tenant file, prod deploys are by hand); the fixed file is ready to copy.
+
 ## Cycle 105 (Library: one picture per card, variants behind a click, real-run pictures, 2026-10-12)
 Branch `cycle105/library-cards` from origin/master 35114c7 (cycles 99, 102, 103 and the 15-structure
 hide list). No model or API call.

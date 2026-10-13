@@ -450,6 +450,11 @@ form.feedback select{width:auto;height:34px;margin-right:12px}
 .li-compare img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px}
 .li-compare figcaption{font-size:.72rem;color:var(--muted);margin-top:4px}
 .li-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+/* cycle 102d: "Revise this look" and a revise's before/after */
+.li-revise{margin:12px 0 0}
+.li-revise summary{cursor:pointer;font-size:.84rem;font-weight:500;color:var(--ink)}
+.li-revise form{margin-top:8px}
+.li-compare-1280 figure{max-width:none}
 .li-actions form{margin:0}
 .notice.pin{display:block;margin:0 0 16px}
 
