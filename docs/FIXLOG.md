@@ -6823,6 +6823,28 @@ tests/test_library_cycle86.py::test_cli_library_build, the three tests/test_list
 budget tests) fail on origin/master d0a739f without this change; the other 4 are the cycle 101 photo
 tests on this clone's stale gitignored tenant templates (above).
 
+### Cycle 102c (a worker URL import takes its screenshots too, 2026-10-13)
+On prod the review site's first URL import (job `look_import`, tonal.com, slug `tonal-copy`) stored
+`observed_from: "html"` with no `source-*.jpg` or `render-390.png`, while a CLI URL import the same day had
+both. The job and the CLI call the same `look_import.import_look` with the same source; the difference was
+the process. The import's scratch folders (the sanitised page copy the browser loads, the demo render the
+render shot is taken of) were `tempfile.TemporaryDirectory()` folders, under TMPDIR or `/tmp`. The prod
+browser is snap Chromium (`HARNESS_CHROME=/snap/bin/chromium`), which has a private `/tmp` and cannot
+read those files; `capture.probe`/`screenshot` returned None/False, `capture_page` returned no shots and
+the import went on from the HTML without saying so. The worker that ran the job had no TMPDIR (the
+running worker, pid 876523 on 2026-10-13, now has `TMPDIR=/home/deploy/tmp`, set after the job); the CLI
+shell had a home-folder TMPDIR. (Inferred from the code and the worker's environment; the old worker's
+environment was not inspected.) harness/capture.py already keeps its frame and profile beside the PNG for
+this reason.
+Fix: `look_import.work_root(tenant)` = `tenants/<t>/jobs/look-imports/work/`; the import's and the
+validation render's scratch folders are created there, whatever TMPDIR is, and removed when done. The
+result, `library.json` and the job summary record `capture` ("taken", "no headless browser on this host",
+"the browser wrote no screenshot of the page"); the job page says "Observed from the screenshots and the
+HTML." or "Observed from the HTML only (no screenshots: <why>)." Tests: a URL job through the site with a
+fake browser that, like snap Chromium, cannot read the system temp folder now yields `images+html`, the
+vision call, the sheets, the render and the source-vs-render card (it failed before the fix); an HTML job
+with no browser says why. Full suite: 3176 passed, 35 skipped, 0 failed.
+
 ## Cycle 105 (Library: one picture per card, variants behind a click, real-run pictures, 2026-10-12)
 Branch `cycle105/library-cards` from origin/master 35114c7 (cycles 99, 102, 103 and the 15-structure
 hide list). No model or API call.

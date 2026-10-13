@@ -1473,7 +1473,11 @@ def _import_result_card(tenant, job, result):
     html_ = f'<div class="li-compare">{"".join(figures)}</div>' if figures else ""
     observed = {"images": "the screenshots", "images+html": "the screenshots and the HTML",
                 "html": "the HTML"}.get(result.get("observed_from") or "html", "the HTML")
-    html_ += f'<p class="small muted li-observed">Observed from {e(observed)}.</p>'
+    if (result.get("observed_from") or "html") == "html":
+        # cycle 102c: an HTML-only import says why it has no screenshots
+        why = result.get("capture") or "none were taken"
+        observed = f"the HTML only (no screenshots: {why})"
+    html_ += f'<p class="li-observed">Observed from {e(observed)}.</p>'
     if state == "pending":
         job_field = f'<input type="hidden" name="job" value="{int(job["id"])}">'
         html_ += (
