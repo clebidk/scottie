@@ -224,7 +224,7 @@ still going (flock).
 Cycle 108: install it as the deploy user (never root) from the repo on prod:
 
 ```
-crons/install-cron.sh peak-saunas            # add (or replace) the line
+crons/install-cron.sh peak-saunas            # add the line (only if it is not there)
 crons/install-cron.sh --remove peak-saunas   # take it out
 crontab -l                                    # check
 ```
@@ -236,8 +236,11 @@ The line it writes runs the job at minute 7 of every hour; meta-pull.sh calls
 7 * * * * /home/deploy/advertorial/crons/meta-pull.sh peak-saunas
 ```
 
-Any other `meta-pull.sh peak-saunas` line (for example the older `:15` line)
-is replaced, and every other crontab line is kept. `harness meta pull` and
+The script is idempotent: when an active `crons/meta-pull.sh peak-saunas` line
+is already in the crontab (in any form, for example an older `:15` line), it
+changes nothing; otherwise it writes the crontab back as it was plus the one
+line. To change the minute of an existing line, run `--remove` first, then
+install again. `harness meta pull` and
 `harness abtest from-inbox` write the run's summary to
 `tenants/<tenant>/runs/auto-pipeline.json`, which the Ads page shows as the
 "Auto pipeline" line.

@@ -369,26 +369,55 @@ def test_peak_has_the_automatic_plan_and_the_levers_are_left_to_the_owner():
     assert "lets turn it on. only exception is" in text
 
 
-def _crontab_env(tmp_path, existing=""):
+def _crontab(tmp_path, existing):
+    """A fake `crontab` first on PATH: `-l` prints the stored file (and fails
+    with "no crontab" when there is none, like the real one); `-` stores stdin."""
     store = tmp_path / "crontab.txt"
-    store.write_text(existing)
+    if existing is not None:
+        store.write_text(existing)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     fake = bin_dir / "crontab"
-    fake.write_text(f'#!/bin/bash\nif [ "$1" = "-l" ]; then cat "{store}"; else cat > "{store}"; fi\n')
+    fake.write_text("#!/bin/bash\n"
+                    f'if [ "$1" = "-l" ]; then [ -f "{store}" ] || {{ echo "no crontab for deploy" >&2; exit 1; }}; '
+                    f'cat "{store}"; else cat > "{store}"; fi\n')
     fake.chmod(0o755)
-    return store, {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "HARNESS_REPO": "/home/deploy/advertorial"}
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "HARNESS_REPO": str(REPO_ROOT)}
+
+    def run(*args):
+        return subprocess.run(["bash", str(REPO_ROOT / "crons" / "install-cron.sh"), *args, "peak-saunas"],
+                              env=env, check=True, capture_output=True, text=True)
+    return store, run
+
+
+CRON_LINE = f"7 * * * * {REPO_ROOT}/crons/meta-pull.sh peak-saunas"
+BACKUP = "0 3 * * * /home/deploy/advertorial/crons/backup-tenant-data.sh peak-saunas"
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="the script refuses root")
-def test_install_cron_adds_the_minute_7_line_once_and_can_remove_it(tmp_path):
-    script = str(REPO_ROOT / "crons" / "install-cron.sh")
-    old = "MAILTO=ops@example.com\n15 * * * * /home/deploy/advertorial/crons/meta-pull.sh peak-saunas\n0 3 * * * backup\n"
-    store, env = _crontab_env(tmp_path, old)
-    env["HARNESS_REPO"] = str(REPO_ROOT)
-    line = f"7 * * * * {REPO_ROOT}/crons/meta-pull.sh peak-saunas"
-    for _ in range(2):
-        subprocess.run([script, "peak-saunas"], env=env, check=True, capture_output=True)
-        assert store.read_text().splitlines() == ["MAILTO=ops@example.com", "0 3 * * * backup", line]
-    subprocess.run([script, "--remove", "peak-saunas"], env=env, check=True, capture_output=True)
-    assert store.read_text().splitlines() == ["MAILTO=ops@example.com", "0 3 * * * backup"]
+@pytest.mark.parametrize("existing, expected", [
+    (None, [CRON_LINE]),  # no crontab yet
+    ("", [CRON_LINE]),  # an empty crontab
+    (BACKUP + "\n", [BACKUP, CRON_LINE]),  # one unrelated line (prod, 2026-10-13)
+    ("MAILTO=ops@example.com\n# 7 * * * * /x/crons/meta-pull.sh peak-saunas\n" + BACKUP,
+     ["MAILTO=ops@example.com", "# 7 * * * * /x/crons/meta-pull.sh peak-saunas", BACKUP, CRON_LINE]),
+])
+def test_install_cron_adds_the_line_once_and_a_second_run_changes_nothing(tmp_path, existing, expected):
+    store, run = _crontab(tmp_path, existing)
+    assert "installed: " + CRON_LINE in run().stdout
+    assert store.read_text().splitlines() == expected
+    second = run()
+    assert "already installed, crontab not changed" in second.stdout
+    assert store.read_text().splitlines() == expected
+    assert store.read_text().count("crons/meta-pull.sh peak-saunas\n") == 1 + (existing or "").count("# 7")
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="the script refuses root")
+def test_install_cron_leaves_an_existing_meta_pull_line_alone_and_remove_takes_it_out(tmp_path):
+    old = "15 * * * * /home/deploy/advertorial/crons/meta-pull.sh peak-saunas >> /tmp/x.log 2>&1\n" + BACKUP + "\n"
+    store, run = _crontab(tmp_path, old)
+    assert "already installed" in run().stdout and store.read_text() == old
+    run("--remove")
+    assert store.read_text().splitlines() == [BACKUP]
+    run()
+    assert store.read_text().splitlines() == [BACKUP, CRON_LINE]

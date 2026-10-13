@@ -7154,8 +7154,11 @@ validate_plan accepted external arms only after the generated ones.
   1 skipped (paused), $0.00 spend (auto publish off, auto go-live off)"; on an ad card "not auto-built:
   <reason>", "Plan auto-...: rule ..." and "Manual link: ...".
 - crons/install-cron.sh (new): run as the deploy user; adds `7 * * * * <repo>/crons/meta-pull.sh <tenant>`
-  to the user's crontab, replaces any other meta-pull line for the tenant, keeps every other line;
-  `--remove` takes it out; refuses root. Not run by this cycle.
+  to the user's crontab only when no active meta-pull line for the tenant is there (idempotent: a second
+  run changes nothing), and keeps every other line as it was; `--remove` takes the tenant's line(s) out;
+  refuses root. Follow-up 108b: the first version filtered the crontab and wrote it back; one run on prod
+  (2026-10-13, crontab with one unrelated backup line) left the meta-pull line twice. Not reproduced here
+  (macOS bash 3.2, BSD grep/sed; no Linux container); the add path no longer rewrites existing lines.
 - tenants/peak-saunas/tenant.yaml: `inbox_plan: auto`, `auto_since: "2026-10-13"`, `auto_max_per_run: 5`
   with comments. `auto_publish` and `auto_go_live` are unchanged (false): the owner turns them on at deploy.
 - docs/ABTEST.md ("Automatic pipeline (cycle 108)" with the runbook; Control arms: the order rule),
@@ -7173,7 +7176,7 @@ Re-point one ad: revert-go-live, then `harness abtest create --input <inbox medi
 external first>'`, publish, and paste the new split link into the ad in Ads Manager (docs/ABTEST.md).
 
 ### Verify
-- `tests/test_auto_pipeline_cycle108.py` (31): the three rules with their letters (a specific page with
+- `tests/test_auto_pipeline_cycle108.py` (35): the three rules with their letters (a specific page with
   and without www and a query, a model in the copy with a home or a PDP destination, a PDP destination
   with no model, a collection product path, another test's split page, an off-store URL); a built test's
   plan, rule and A = the page; an item's own plan and the flag still win; external first = A and every
@@ -7185,8 +7188,9 @@ external first>'`, publish, and paste the new split link into the ad in Ads Mana
   writes its count; end to end with a fake Meta transport that echoes the posted creative: a new ACTIVE ad
   with its own page -> test with A = that page, published (fake Shopify), live on the ad (read back
   verified), inbox destination = split link, the log names the rule, status file 1 built / 1 published /
-  1 live; PEAK's tenant.yaml values; install-cron.sh against a fake `crontab` (adds once, replaces the :15
-  line, keeps the others, removes).
+  1 live; PEAK's tenant.yaml values; install-cron.sh against a fake `crontab` on PATH (no crontab, an
+  empty one, one unrelated line, a commented line: one line added, the second run changes nothing; an
+  existing :15 line is left alone; --remove, then install). The first script fails all 5 of these.
 - Four mutations (external first refused, no status check, no per-run limit, no lever guard) each fail
   1 to 7 of these tests.
 - Changed neighbour tests: cycle 88's refused shapes lose the three that are now allowed (two other wrong
@@ -7194,7 +7198,7 @@ external first>'`, publish, and paste the new split link into the ad in Ads Mana
   created 2026-10-13 (else the new rules skip them); the cycle 69 budget-cap test pins `inbox_plan:
   generated` (it counts 3 builds per test); the cycle 107 lever tests build a test created 2026-10-13;
   test_meta_ingest reads `_pending`'s new (todo, skipped) result.
-- Full suite `PYTHONPATH=. python -m pytest -q`: 3169 passed, 0 failed, 35 skipped (before, origin/master 751bf37: 3139 passed,
+- Full suite `PYTHONPATH=. python -m pytest -q`: 3173 passed, 0 failed, 35 skipped (before, origin/master 751bf37: 3139 passed,
   35 skipped).
 
 ### Open
