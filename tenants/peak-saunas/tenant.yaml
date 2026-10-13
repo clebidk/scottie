@@ -375,14 +375,14 @@ abtest:
   beacon_url: https://listicle.peaksaunasteam.com/e
   # Cycle 69 (owner decision): tests go live as soon as their pages are built.
   # 2026-10-05 (owner): off while training wheels are on -- see publish_locked.
-  auto_publish: false
+  auto_publish: true   # owner: on 2026-10-13 (auto pipeline)
   # Cycle 107: the go-live lever. When true, from-inbox also puts each test it
   # publishes on its Meta ad (a copy of the creative with the split link) once
   # Meta has approved the ad (effective_status ACTIVE); never forced, never an
   # existing-post creative. Acts only on tests from-inbox publishes, so it
   # needs auto_publish: true too. Manual go-live (`harness abtest go-live`,
   # the Ads page's "Go live on Meta") works with the lever off.
-  auto_go_live: false  # owner: off until I turn it on (2026-10-12)
+  auto_go_live: true   # owner: on 2026-10-13 (auto pipeline)
   # Cycle 108 (owner decision 2026-10-13): "lets turn it on. only exception is
   # if ad is uploaded with specific landing page, that becomes A of the A/B/C
   # test and only 2 others are generated". The plan of each test from-inbox
