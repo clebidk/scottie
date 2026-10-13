@@ -6883,6 +6883,25 @@ The owner wants to give feedback on an imported look the way he does on a genera
   (`tc-product--solo`). Checked on a local render of the prod template at 1280 (validator: no errors).
   NOT written to prod (gitignored tenant file, prod deploys are by hand); the fixed file is ready to copy.
 
+### Cycle 102e (an imported look's review.html is self-contained, 2026-10-13)
+On prod the pending import `tonal-copy` showed four broken images on its review link: review.html pointed
+at "photo-library/asset-photo-<id>.jpg" (no such folder beside it) and at the cut-out's Shopify CDN url.
+Cause: the import stored the VALIDATION render's html. That render runs with `download_assets=False`
+(fast, no files), so the photo essay block prints the facts pack's library photos by their
+"photo-library/..." url and the product image by its CDN url; the Library build renders with assets
+copied into `assets/`, which is why an added look looked right. The render shot at 390 was taken of the
+same validation page.
+Fix: `look_import.review_document` renders the demo page in the look the way the Library build renders a
+version -- `download_assets=True`, offline (a fetch is refused, so a CDN-only image is dropped; library
+photos and cut-outs come from their local files) -- and makes it self-contained with
+`review.self_contained` (new, factored out of `build_review_for_page`: every `assets/` image a data: URI,
+the brand fonts inlined). The import (each valid candidate) and the 102d revise store THAT document as
+review.html and take the 390/1280 shots of it, so the job page's review link and its pictures show the
+same file. The fidelity score still reads the validation render. Tests: an import whose demo carries
+library photos and the photo essay block stores a review.html whose every `<img src>` is a data URI or a
+file beside it (no "photo-library/", no CDN url); with `review_document` disabled the same test fails on
+the CDN cut-out; a revise stores the same kind of document and shoots it four times.
+
 ## Cycle 105 (Library: one picture per card, variants behind a click, real-run pictures, 2026-10-12)
 Branch `cycle105/library-cards` from origin/master 35114c7 (cycles 99, 102, 103 and the 15-structure
 hide list). No model or API call.

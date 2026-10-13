@@ -132,8 +132,9 @@ def revise_look(tenant, *, cartridge, slug, note, by, client=None, model=None, p
             progress("rendering")
             # a revision may keep as many dark bands as the look has (the owner decides now)
             before_errors, _html = li.validate_template(template, cartridge, slug, tenant, demo, contract_=contract_,
-                                                        schema=schema, max_dark=None,
-                                                        shot=_shooter(browser, tenant, work, "before"))
+                                                        schema=schema, max_dark=None)
+            # cycle 102e: the shots are of the self-contained review document
+            li.review_document(template, cartridge, slug, tenant, demo, shot=_shooter(browser, tenant, work, "before"))
             system = li.build_system_prompt(cartridge, contract_, schema, exemplar=None, reference=False)
             messages = [{"role": "user", "content": _message(
                 cartridge=cartridge, template=template, observation=observation, library=library, folder=folder,
@@ -151,10 +152,12 @@ def revise_look(tenant, *, cartridge, slug, note, by, client=None, model=None, p
                 text = li.extract_template(raw)
                 progress("validating")
                 errors, review_html = li.validate_template(text, cartridge, slug, tenant, demo, contract_=contract_,
-                                                           schema=schema, max_dark=None,
-                                                           shot=_shooter(browser, tenant, work, f"after{attempt}"))
+                                                           schema=schema, max_dark=None)
                 if not errors:
-                    best = {"template": text, "review_html": review_html, "attempt": attempt}
+                    document = li.review_document(text, cartridge, slug, tenant, demo,
+                                                  shot=_shooter(browser, tenant, work, f"after{attempt}"))
+                    best = {"template": text, "review_html": review_html, "document": document or review_html,
+                            "attempt": attempt}
                     break
                 messages += [{"role": "assistant", "content": text},
                              {"role": "user", "content": "The harness refused this template:\n"
@@ -167,7 +170,7 @@ def revise_look(tenant, *, cartridge, slug, note, by, client=None, model=None, p
             fid = look_design.fidelity(observation, best["review_html"], tenant) if observation else None
             shutil.copyfile(folder / "template.html", folder / PREV_TEMPLATE)
             _write(folder / "template.html", best["template"])
-            _write(folder / "review.html", best["review_html"])
+            _write(folder / "review.html", best["document"])
             spec = li.look_spec_for(best["template"])
             if spec:
                 _write(folder / "look.json", json.dumps(spec, indent=2) + "\n")

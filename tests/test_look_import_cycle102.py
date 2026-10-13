@@ -550,3 +550,77 @@ def test_the_job_page_says_why_an_import_has_no_screenshots(client, monkeypatch)
     assert done["result"]["capture"] == "no headless browser on this host"
     page_html = client.get(f"/job/{done['id']}", headers=_auth()).get_data(as_text=True)
     assert "Observed from the HTML only (no screenshots: no headless browser on this host)." in page_html
+
+
+@pytest.fixture
+def photo_files(tmp_path, monkeypatch):
+    """Library photos on disk (a temporary files folder) and in the demo's
+    facts pack, as prod renders them: the validation render prints them as
+    "photo-library/asset-photo-<id>.jpg"."""
+    from harness import photo_library as pl
+
+    files = tmp_path / "photo-files"
+    monkeypatch.setenv(pl.FILES_DIR_ENV, str(files))
+    photos = [p for p in pl.load_manifest(TENANT).get("photos", []) if pl._usable(p)][:6]
+    assert photos
+    for photo in photos:
+        path = pl.local_file(TENANT, photo)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (800, 600), (150, 110, 80)).save(path, format="JPEG")
+    real = look_import.load_demo
+
+    def demo_with_photos(tenant, cartridge):
+        demo = real(tenant, cartridge)
+        demo["facts_pack"]["assets"] = [pl.facts_pack_asset(p) for p in photos] + demo["facts_pack"]["assets"]
+        return demo
+    monkeypatch.setattr(look_import, "load_demo", demo_with_photos)
+    return files
+
+
+def _essay_template():
+    """The valid template plus the photo essay block (it prints the facts
+    pack's photos, as the Tonal look does)."""
+    return _valid_template().replace(
+        '  <div data-look-pattern="faq-accordion">',
+        '  <section>{% include "blocks/photo_essay.html" %}</section>\n  <div data-look-pattern="faq-accordion">', 1)
+
+
+def _img_srcs(html):
+    import re
+
+    return re.findall(r'<img\b[^>]*?\ssrc="([^"]*)"', html)
+
+
+def test_the_stored_review_is_self_contained(tmp_path, photo_files):
+    """Cycle 102e: on prod a pending import's review.html pointed at
+    "photo-library/asset-photo-<id>.jpg" (no such folder beside it) and the
+    cut-out's CDN url -- the validation render's paths. The stored review is
+    now rendered like the Library's (local files into assets/) and inlined
+    like `harness review`."""
+    demo = look_import.load_demo(TENANT, "landing")
+    errors, validation_html = look_import.validate_template(_essay_template(), "landing", "probe", TENANT, demo)
+    assert errors == [] and any(s.startswith("photo-library/") for s in _img_srcs(validation_html))
+    fake = FakeClient([_vision(), _gen(_essay_template())])
+    look_import.import_look(TENANT, cartridge="landing", name="self-look", client=fake,
+                            source={"kind": "images", "paths": _image_files(tmp_path, 1)})
+    folder = TENANT.looks_dir / "landing" / "self-look"
+    srcs = _img_srcs((folder / "review.html").read_text())
+    assert srcs
+    for src in srcs:
+        assert src.startswith("data:image/") or (folder / src).is_file(), src[:80]
+        assert "photo-library/" not in src and "cdn.shopify.com" not in src, src[:80]
+
+
+def test_a_revised_look_stores_a_self_contained_review_too(tmp_path, photo_files, browser):  # noqa: F811
+    from harness import look_revise
+
+    folder = TENANT.looks_dir / "landing" / "rev-self"
+    folder.mkdir(parents=True)
+    (folder / "template.html").write_text(_essay_template())
+    (folder / "library.json").write_text(json.dumps({"name": "rev-self", "source": {"kind": "images"}}))
+    look_revise.revise_look(TENANT, cartridge="landing", slug="rev-self", note="Centre the body column.",
+                            by=REVIEWER, client=FakeClient([_gen(_essay_template())]))
+    shots = [kind for kind, *_ in browser if kind == "probe"]
+    assert len(shots) == 4                                  # before and after, 390 and 1280, of the document
+    for src in _img_srcs((folder / "review.html").read_text()):
+        assert src.startswith("data:image/"), src[:80]
