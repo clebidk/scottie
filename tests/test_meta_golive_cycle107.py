@@ -654,3 +654,19 @@ def test_the_copy_names_the_pages_connected_instagram_account_when_the_creative_
     summary = meta_golive.plan(TENANT, live_record(), client=make_client(fake))
     assert summary["payload"]["object_story_spec"]["instagram_user_id"] == "222"
     assert not [c for c in summary["changes"] if c["field"].endswith("instagram_user_id")]
+
+
+def test_the_read_back_is_repeated_when_meta_still_shows_the_old_creative(monkeypatch):
+    """Cycle 107d: the first read after the update can lag; a later read
+    that shows the new creative verifies the change."""
+    fake = MetaFake()
+    fake.add("GET", AD, {"id": AD, "effective_status": "ACTIVE", "creative": video_creative(OLD, "c1")})
+    fake.add("GET", AD, {"id": AD, "effective_status": "IN_PROCESS", "creative": video_creative(SPLIT, "c2")})
+    naps = []
+    back, verified, seen = meta_golive._read_back(make_client(fake), AD, "c2", SPLIT, sleep=naps.append)
+    assert verified and seen == SPLIT and naps == [meta_golive.READ_BACK_WAIT]
+    fake = MetaFake()
+    for _ in range(meta_golive.READ_BACK_TRIES):
+        fake.add("GET", AD, {"id": AD, "effective_status": "ACTIVE", "creative": video_creative(OLD, "c1")})
+    back, verified, seen = meta_golive._read_back(make_client(fake), AD, "c2", SPLIT, sleep=naps.append)
+    assert not verified and seen == OLD and len(naps) == meta_golive.READ_BACK_TRIES
