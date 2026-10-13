@@ -6,7 +6,6 @@
   "ad_overclaim_policy": "warn",
   "allow_ai_renders": true,
   "budget": {
-    "daily_usd": 40.0,
-    "note": "2026-10-12 launch: 10 + 10 tests and import tuning (owner); set back to 10 after"
+    "daily_usd": 10.0
   }
 }
