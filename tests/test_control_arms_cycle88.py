@@ -125,9 +125,9 @@ def test_a_json_plan_is_validated_and_named():
     [],
     [{"kind": "generated"}],
     [{"kind": "generated"}, {"kind": "generated"}],
-    [{"kind": "external", "target": "pdp"}, {"kind": "generated"}, {"kind": "generated"}],
-    [{"kind": "generated"}, {"kind": "external", "target": "home"}, {"kind": "external", "target": "pdp"}],
-    [{"kind": "generated"}, {"kind": "external", "target": "pdp"}, {"kind": "generated"}],
+    # cycle 108: the order is free (an external arm first is arm A), the shape is not
+    [{"kind": "external", "target": "pdp"}, {"kind": "external", "target": "pdp"}, {"kind": "generated"}],
+    [{"kind": "external", "target": "home"}, {"kind": "generated"}, {"kind": "external", "target": "home"}],
     [{"kind": "external", "target": "pdp"}, {"kind": "external", "target": "home"}],
     [{"kind": "external", "target": "cart"}],
     [{"kind": "external", "target": "url", "url": "javascript:alert(1)"}],

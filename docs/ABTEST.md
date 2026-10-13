@@ -210,7 +210,8 @@ review is marked `auto_go_live.state: pending`, and each later from-inbox run
 (the hourly meta-pull cron) tries it again, so it goes live as soon as Meta
 approves the ad. It never uses `--force` and never touches an existing-post ad
 (`state: refused`). Tests the lever did not publish (for example the 20 tests
-live on 2026-10-12) are never touched by it.
+live on 2026-10-12) are never touched by it. Cycle 108: nor a test created
+before `abtest.auto_since`, nor a "manual link" test ("Automatic pipeline").
 
 ## Replace a live variant (cycle 69)
 
@@ -284,7 +285,11 @@ destination can be changed later without a new link in the ad.
   upload's choice wins). The CLI also takes a JSON list of arms, for example
   `[{"kind":"generated"},{"kind":"generated"},{"kind":"external","target":"url","url":"https://..."}]`.
   Allowed shapes: 3 generated; 2 generated + 1 external; 1 generated + PDP +
-  home; one external arm alone. Generated arms always take the first keys.
+  home; one external arm alone. Cycle 108: the arms take the letters A, B, C
+  in the order of the list, so an external arm listed first is arm A (the
+  split page, `utm_content=<test_id>_<key>` and each variant's beacon use the
+  same letter). Every preset in the table lists its external arms last, so its
+  letters did not change. A pinned page version is the first GENERATED arm.
 - A plan is fixed when the test is created. To change it, make a new test.
 - **PDP** is the product page of the product the ad names: the
   `facts_pack.product.url` of the first built variant (the URL its CTA links
@@ -310,7 +315,97 @@ destination can be changed later without a new link in the ad.
   `finish` refuses a test with fewer than two generated arms; `--force`
   finishes it with no winner.
 - The harness never writes to Meta. You paste the split link into the ad in
-  Ads Manager by hand, as before.
+  Ads Manager by hand, as before. (Cycle 107: or `harness abtest go-live`.)
+
+## Automatic pipeline (cycle 108)
+
+Owner decision 2026-10-13: "lets turn it on. only exception is if ad is
+uploaded with specific landing page, that becomes A of the A/B/C test and only
+2 others are generated". Earlier: every new approved Meta ad gets versions, 2
+generated with the 3rd a control (the PDP or the home page).
+
+The hourly job `crons/meta-pull.sh` (installed by `crons/install-cron.sh`,
+minute 7, docs/META-INGEST.md section 5) pulls new ads, refreshes every ad's
+status and link, then runs `harness abtest from-inbox`:
+
+1. **Which ads.** Only Meta ads whose `effective_status` is `ACTIVE`,
+   `PENDING_REVIEW` or `IN_PROCESS` and whose `created_time` is on or after
+   `abtest.auto_since` (00:00 UTC of that date; PEAK: `2026-10-13`). Every
+   other item stays `new`, nothing is written to it, and its card on the Ads
+   page says `not auto-built: <reason>`. A paused ad that is turned on later
+   (after `auto_since`) is built on the next run after refresh-links sees it
+   ACTIVE. Uploads, `harness abtest create` and the site's upload form are not
+   limited by these rules.
+2. **How many.** At most `abtest.auto_max_per_run` items per run (default 5;
+   `0` stops auto builds), with the daily budget cap as before (queued items
+   resume on the next run). `--limit N` can only lower it. The rest wait as
+   `new` for the next run.
+3. **Which plan.** `abtest.inbox_plan` (default `auto`; or a preset id). An
+   upload's own Destinations choice wins, then `from-inbox --destinations`,
+   then `inbox_plan`. Under `auto`, `abtest_inbox.plan_for_item` takes the
+   first rule that fits, and the test records `plan` and `plan_rule`:
+
+   | Plan name | Rule | A | B | C |
+   |---|---|---|---|---|
+   | `auto-page` | 1: the ad links to a specific page on the store (not `/`, not a `/products/<handle>` page, not a harness `/pages/lp-...` page) | that URL | generated | generated |
+   | `auto-pdp` | 2: the ad's own words (ad name, headline, primary text, description) name a model the product map knows (the same detection as the PDP arm) | generated | generated | that model's PDP |
+   | `auto-home` | 3: anything else | generated | generated | home page |
+
+   Rule 2 names the PDP before any build, from the ad copy. A model named
+   only in the video's speech is not seen here, so such an ad gets rule 3.
+4. **Levers.** Unchanged from cycle 107: with `auto_publish` the test is
+   published, and with `auto_go_live` too it goes live on the ad once the ad
+   is ACTIVE (pending tests are tried each hour). The lever never goes live
+   for a test created before `auto_since`, and never for a "manual link" test.
+5. **Manual link.** An ad whose creative has no `object_story_spec` and no
+   `asset_feed_spec` (an existing Page post) is built and published, but the
+   test gets `manual_link` and the card says "Manual link": go-live cannot
+   change that ad, so paste the split link into it by hand.
+6. **Status.** Each from-inbox run writes `tenants/<t>/runs/auto-pipeline.json`
+   (`inbox`: at, built, failed, published, went_live, pending, waiting, left,
+   skipped and skipped_by, spend_usd for the run's builds, the levers, and per
+   item the plan and rule; `pull`: the last `harness meta pull` count). The Ads
+   page shows it as one line, for example "Auto pipeline: last run 14:07,
+   pulled 4, 2 built, 2 published, 1 live, 1 pending, 3 skipped (paused),
+   $0.84 spend (auto publish on, auto go-live on)". `meta-pull.log` names each
+   ad and the rule of its plan.
+
+### Runbook
+
+Turn it off (from the repo on prod, as the deploy user):
+
+```
+# stop going live on ads; tests still build and publish
+#   tenant.yaml abtest.auto_go_live: false
+# stop publishing too (builds still run, for review)
+#   tenant.yaml abtest.auto_publish: false
+# stop building new tests (pull and refresh-links still run)
+#   tenant.yaml abtest.auto_max_per_run: 0
+# stop the hourly job entirely
+crons/install-cron.sh --remove peak-saunas
+```
+
+A tenant.yaml change takes effect on the next hourly run. A test that is
+already live on its ad stays live; revert it with `harness abtest
+revert-go-live <test_id> --by <email>`.
+
+Re-point one ad by hand:
+
+```
+# take this ad's test off the ad (the ad links to its old page again)
+.venv/bin/harness abtest revert-go-live <test_id> --by <reviewer email> --tenant peak-saunas
+# build a new test with other destinations for the same ad's media
+.venv/bin/harness abtest create --tenant peak-saunas --name "<ad name>" \
+  --input tenants/peak-saunas/meta_inbox/<ad_id>/<media_file> \
+  --destinations '[{"kind":"external","target":"url","url":"https://peaksaunas.com/pages/<page>"},{"kind":"generated"},{"kind":"generated"}]'
+.venv/bin/harness abtest publish <new_test_id> --by <reviewer email> --tenant peak-saunas
+# or paste the new split link into the ad in Ads Manager by hand
+```
+
+`abtest create` has no option to name the Meta ad, so the new test cannot use
+`go-live`; paste its split link into the ad in Ads Manager. To build an ad the
+rules skipped (older or paused) with the automatic plan, use the same
+`abtest create` with the destinations the table above gives.
 
 ## First-screen styles (cycle 79)
 

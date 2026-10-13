@@ -163,6 +163,13 @@ test each, and stops at the daily budget cap (the rest stay `queued`, reason
 the id `up-<8 characters>`, `source: "upload"`, and `uploaded_by`. See
 docs/LISTICLE-SITE.md.
 
+Cycle 108: from-inbox builds only Meta ads whose `effective_status` is
+`ACTIVE`, `PENDING_REVIEW` or `IN_PROCESS` and whose `created_time` is on or
+after `abtest.auto_since`, at most `abtest.auto_max_per_run` per run, with a
+plan chosen per ad from `destination_url` and the ad copy. Other `new` items
+stay `new` (nothing is written to them) and the Ads page says why. See
+docs/ABTEST.md "Automatic pipeline (cycle 108)".
+
 ### Build pages from an item
 
 ```bash
@@ -212,13 +219,28 @@ The listicle site reads these fields for its linked-ad icon
 107) `harness abtest refresh-metrics` (cached orders and Meta insights for
 the Results page; GETs only), appends to
 `tenants/<tenant>/runs/meta-pull.log`, and skips a run if the last one is
-still going (flock). It is not installed. When the token is in place and
-`harness meta check` passes, add this line with `crontab -e` as the deploy
-user (every hour at :15):
+still going (flock).
+
+Cycle 108: install it as the deploy user (never root) from the repo on prod:
 
 ```
-15 * * * * /home/deploy/advertorial/crons/meta-pull.sh peak-saunas
+crons/install-cron.sh peak-saunas            # add (or replace) the line
+crons/install-cron.sh --remove peak-saunas   # take it out
+crontab -l                                    # check
 ```
+
+The line it writes runs the job at minute 7 of every hour; meta-pull.sh calls
+`$HOME/advertorial/.venv/bin/harness` (the venv), so cron needs no PATH:
+
+```
+7 * * * * /home/deploy/advertorial/crons/meta-pull.sh peak-saunas
+```
+
+Any other `meta-pull.sh peak-saunas` line (for example the older `:15` line)
+is replaced, and every other crontab line is kept. `harness meta pull` and
+`harness abtest from-inbox` write the run's summary to
+`tenants/<tenant>/runs/auto-pipeline.json`, which the Ads page shows as the
+"Auto pipeline" line.
 
 ## Graph API details
 

@@ -183,6 +183,11 @@ PLANS = {
     "home-only": ("Home only", ("home",)),
 }
 DEFAULT_PLAN = "generated"
+# Cycle 108: abtest.inbox_plan "auto" -- the plan of a test from-inbox builds
+# is chosen per ad (abtest_inbox.plan_for_item); the default for every tenant.
+AUTO_PLAN = "auto"
+DEFAULT_INBOX_PLAN = AUTO_PLAN
+DEFAULT_AUTO_MAX_PER_RUN = 5
 # The words ground.LocalFactsSource.pick_product_with_warning uses when the ad
 # names no model (the run then falls back to the default product).
 PRODUCT_NOT_NAMED = "product not named in ad"
@@ -219,9 +224,13 @@ def plan_specs(name):
 def validate_plan(specs):
     """The plan's arm specs, normalised, or AbtestError. A spec is
     {"kind": "generated"} or {"kind": "external", "target": "pdp"|"home"|"url"}
-    (target url also needs "url": an absolute http(s) URL). Allowed: 3
-    generated; 2 generated + 1 external; 1 generated + PDP + home; one
-    external arm alone (100% of the traffic)."""
+    (target url also needs "url": an absolute http(s) URL; cycle 108: a pdp
+    arm may carry its "url" too, already resolved). Allowed: 3 generated;
+    2 generated + 1 external; 1 generated + PDP + home; one external arm
+    alone (100% of the traffic).
+    Cycle 108: the arms take the letters A, B, C in the order given, so an
+    external arm listed first is arm A. Every preset lists its external arms
+    last, so a preset's letters are unchanged."""
     if not isinstance(specs, list) or not specs:
         raise AbtestError("a destination plan is a non-empty list of arms")
     out = []
@@ -234,7 +243,7 @@ def validate_plan(specs):
             raise AbtestError(f"destination arm {spec!r}: kind must be generated, or external with a target "
                               f"in {list(EXTERNAL_TARGETS)}")
         norm = {"kind": "external", "target": spec["target"]}
-        if spec["target"] == "url":
+        if spec["target"] == "url" or (spec["target"] == "pdp" and spec.get("url")):
             url = str(spec.get("url") or "").strip()
             parsed = urllib.parse.urlparse(url)
             if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -242,12 +251,12 @@ def validate_plan(specs):
             norm["url"] = url
         out.append(norm)
     shape = tuple("gen" if s["kind"] == "generated" else s["target"] for s in out)
-    if not (shape == ("gen", "gen", "gen")
-            or (len(shape) == 3 and shape[:2] == ("gen", "gen"))
-            or shape == ("gen", "pdp", "home")
-            or (len(shape) == 1 and shape[0] != "gen")):
+    gens, externals = shape.count("gen"), sorted(s for s in shape if s != "gen")
+    if not ((len(shape) == 3 and gens in (2, 3))
+            or (len(shape) == 3 and gens == 1 and externals == ["home", "pdp"])
+            or (len(shape) == 1 and gens == 0)):
         raise AbtestError(f"destination plan {'|'.join(shape)} is not allowed; use 3 generated, 2 generated + 1 "
-                          "external, 1 generated + PDP + home, or one external arm alone")
+                          "external, 1 generated + PDP + home (in any order), or one external arm alone")
     return out
 
 
@@ -322,6 +331,7 @@ def split_path(tenant, url):
 def settings(tenant):
     explore = tenant.get("abtest.explore")
     min_views = tenant.get("abtest.min_views")
+    max_per_run = tenant.get("abtest.auto_max_per_run")
     return {
         "explore": min(max(float(explore if explore is not None else DEFAULT_EXPLORE), 0.0), 1.0),
         "min_views": int(min_views if min_views is not None else DEFAULT_MIN_VIEWS),
@@ -332,6 +342,12 @@ def settings(tenant):
         # Cycle 107: the owner's lever -- from-inbox also puts each test it
         # publishes on its Meta ad once the ad is ACTIVE (harness/meta_golive.py).
         "auto_go_live": tenant.get("abtest.auto_go_live") is True,
+        # Cycle 108: the plan from-inbox gives an inbox item that names none
+        # ("auto": chosen per ad, abtest_inbox.plan_for_item), the date before
+        # which an ad is never auto-built, and the per-run build limit.
+        "inbox_plan": str(tenant.get("abtest.inbox_plan") or DEFAULT_INBOX_PLAN),
+        "auto_since": tenant.get("abtest.auto_since") or None,
+        "auto_max_per_run": int(max_per_run if max_per_run is not None else DEFAULT_AUTO_MAX_PER_RUN),
     }
 
 
@@ -805,18 +821,24 @@ def _new_variants(specs, ranking):
 
 
 def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None, on_record=None, plan=None,
-                brief_runner=None, pinned_arm=None):
+                brief_runner=None, pinned_arm=None, plan_name=None, plan_rule=None):
     """Chooses three builds, records the test, and builds them. `on_record`
     (cycle 69) is called with the record once it is saved, before the first
     build, so a caller can link it (an inbox item keeps the test id).
     Cycle 88: `plan` (parse_plan: a PLANS id or a list of arm specs; default
-    3 generated) makes some arms external; they take the last keys.
+    3 generated) makes some arms external. Cycle 108: the arms take the
+    letters in the plan's order (an external arm listed first is A); every
+    preset lists its external arms last. `plan_name` / `plan_rule` (from-
+    inbox's automatic plan) replace the recorded plan name and add the rule
+    that chose it.
     Cycle 86: `pinned_arm` (a build string, e.g. "landing:proof" -- the
-    Library's "Generate with this") is the first generated arm, so variant
-    A; the other generated arms are the usual ranked picks, and a failed A
-    is replaced from the ranking as usual. A plan with no generated arm
-    cannot take a pin (AbtestError)."""
-    plan_name, specs = parse_plan(plan)
+    Library's "Generate with this") is the first generated arm (variant A
+    unless an external arm comes first); the other generated arms are the
+    usual ranked picks, and a failed pinned arm is replaced from the
+    ranking as usual. A plan with no generated arm cannot take a pin
+    (AbtestError)."""
+    parsed_name, specs = parse_plan(plan)
+    plan_name = plan_name or parsed_name
     if pinned_arm and not any(s["kind"] == "generated" for s in specs):
         raise AbtestError(f"destinations {plan_name!r} build no page, so a pinned page version cannot be used")
     seed = seed if seed is not None else random.randrange(1_000_000)
@@ -843,6 +865,8 @@ def create_test(tenant, *, input_path, name, source=None, seed=None, runner=None
         "split": None,
         "winner": None,
     }
+    if plan_rule:
+        rec["plan_rule"] = plan_rule
     if pinned:
         rec["pinned_arm"] = pinned
     save_test(tenant, rec)

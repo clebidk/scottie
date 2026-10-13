@@ -7111,3 +7111,106 @@ against orders.
 - refresh-metrics calls Shopify once per live or finished test each run; not measured on prod.
 - A build whose variant has no recorded first screen (`hero_style` missing) pools as `<cartridge>:<look>`,
   apart from the same look with a known first screen.
+
+## Cycle 108 (automatic pipeline for new Meta ads, 2026-10-13)
+
+Branch `cycle108/auto-pipeline` from origin/master 751bf37 (cycle 107 a-d, then the budget change).
+
+### Problem
+Owner decision 2026-10-13, verbatim: "lets turn it on. only exception is if ad is uploaded with specific
+landing page, that becomes A of the A/B/C test and only 2 others are generated". Earlier: "any new ads
+approved to meta auto go through this and generate versions ... (for now 2 with the 3rd being control of PDP
+or home page)". On prod: crons/meta-pull.sh was not in the crontab (only the nightly backup is); from-inbox
+built every "new" item whatever the ad's status, with 3 generated pages; the preset gen2-pdp refuses an ad
+that names no model (most ads); the inbox held 106 "new" items (27 ACTIVE, 50 CAMPAIGN_PAUSED, 18 PAUSED,
+9 IN_PROCESS, 2 PENDING_REVIEW); most ads link to the home page, some to a PDP, a few to a specific page
+(/pages/i-regret-my-home-sauna, /pages/infrared-sauna-hsa-fsa). A plan could not put an external arm at A:
+validate_plan accepted external arms only after the generated ones.
+
+### Change
+- harness/abtest.py: `validate_plan` accepts the allowed shapes in any order and the arms take A, B, C in
+  the list's order (an external arm listed first is A); every preset still lists its external arms last, so
+  its letters are unchanged. A `pdp` arm may carry its `url` (resolved before the build). `create_test`
+  takes `plan_name` / `plan_rule` (recorded as `plan` and `plan_rule`). `settings` adds `inbox_plan`
+  (default `auto`), `auto_since` (default none) and `auto_max_per_run` (default 5). The split page, the
+  utm_content key and each variant's beacon already use the variant's own key, so they follow the letters.
+- harness/abtest_inbox.py: `plan_for_item(item, tenant)` -> (name, specs, rule): rule 1 `auto-page` (the
+  ad's destination_url is a page on the store that is not `/`, not a `/products/<handle>` page and not a
+  harness `/pages/lp-` page: that URL is arm A, B and C generated); rule 2 `auto-pdp` (the ad name,
+  headline, primary text or description names a model, by ground's own `pick_product_with_warning`, the
+  detection PRODUCT_NOT_NAMED comes from: generated, generated, that model's PDP); rule 3 `auto-home`
+  (generated, generated, home). `resolve_plan`: the item's own destinations, else `--destinations`, else
+  `inbox_plan`. `not_auto_built`: a Meta ad is built only when ACTIVE / PENDING_REVIEW / IN_PROCESS and
+  created on or after `auto_since` (00:00 UTC); uploads are exempt. `from_inbox` skips the others (state
+  and file unchanged), builds at most `auto_max_per_run` (`--limit` can only lower it; 0 builds nothing),
+  logs each ad with its plan and rule, and writes `runs/auto-pipeline.json` (`inbox`: built, failed,
+  published, went_live, pending, waiting, left, skipped by category, the run's model spend, the levers,
+  per-item plan and rule). An ad whose creative has no object_story_spec and no asset_feed_spec (an
+  existing Page post) is built, and its test gets `manual_link`; the lever skips it. The lever also skips a
+  test created before `auto_since` (a resumed older test). `status_line` formats the Ads page line.
+- harness/cli.py: `meta pull` writes the `pull` section of the status file; `from-inbox --destinations`
+  takes `auto`; its summary line adds "over the per-run limit" and "not auto-built" counts.
+- harness/site.py: the Ads page status line "Auto pipeline: last run 14:07, pulled 4, 1 built, 0 live,
+  1 skipped (paused), $0.00 spend (auto publish off, auto go-live off)"; on an ad card "not auto-built:
+  <reason>", "Plan auto-...: rule ..." and "Manual link: ...".
+- crons/install-cron.sh (new): run as the deploy user; adds `7 * * * * <repo>/crons/meta-pull.sh <tenant>`
+  to the user's crontab, replaces any other meta-pull line for the tenant, keeps every other line;
+  `--remove` takes it out; refuses root. Not run by this cycle.
+- tenants/peak-saunas/tenant.yaml: `inbox_plan: auto`, `auto_since: "2026-10-13"`, `auto_max_per_run: 5`
+  with comments. `auto_publish` and `auto_go_live` are unchanged (false): the owner turns them on at deploy.
+- docs/ABTEST.md ("Automatic pipeline (cycle 108)" with the runbook; Control arms: the order rule),
+  docs/META-INGEST.md (eligibility; section 5, the install script and the crontab line).
+
+### Operator runbook
+```
+crons/install-cron.sh peak-saunas              # as deploy: the hourly job at minute 7
+crontab -l                                      # 7 * * * * /home/deploy/advertorial/crons/meta-pull.sh peak-saunas
+# levers off (tenant.yaml, next hourly run): auto_go_live: false | auto_publish: false | auto_max_per_run: 0
+crons/install-cron.sh --remove peak-saunas      # stop the hourly job
+.venv/bin/harness abtest revert-go-live <test_id> --by <email> --tenant peak-saunas   # take one test off its ad
+```
+Re-point one ad: revert-go-live, then `harness abtest create --input <inbox media> --destinations '<JSON,
+external first>'`, publish, and paste the new split link into the ad in Ads Manager (docs/ABTEST.md).
+
+### Verify
+- `tests/test_auto_pipeline_cycle108.py` (31): the three rules with their letters (a specific page with
+  and without www and a query, a model in the copy with a home or a PDP destination, a PDP destination
+  with no model, a collection product path, another test's split page, an off-store URL); a built test's
+  plan, rule and A = the page; an item's own plan and the flag still win; external first = A and every
+  preset's letters; the split page's A/B/C paths, utm_content and B's beacon after a publish with the fake
+  Shopify transport; eligibility for 8 statuses; auto_since (before, the 00:00 UTC edge in another time
+  zone) and a paused ad built once ACTIVE; an upload and a manual create are not limited; the per-run limit
+  (5 of 7, the rest stay new, `--limit`, 0); manual link (built, published, no Meta call); the lever leaves
+  a test created before auto_since alone; the status file, `status_line` and the Ads page; `meta pull`
+  writes its count; end to end with a fake Meta transport that echoes the posted creative: a new ACTIVE ad
+  with its own page -> test with A = that page, published (fake Shopify), live on the ad (read back
+  verified), inbox destination = split link, the log names the rule, status file 1 built / 1 published /
+  1 live; PEAK's tenant.yaml values; install-cron.sh against a fake `crontab` (adds once, replaces the :15
+  line, keeps the others, removes).
+- Four mutations (external first refused, no status check, no per-run limit, no lever guard) each fail
+  1 to 7 of these tests.
+- Changed neighbour tests: cycle 88's refused shapes lose the three that are now allowed (two other wrong
+  shapes are added); the cycle 69 `_meta_item` helper and the cycle 86 pinned-version items are ACTIVE ads
+  created 2026-10-13 (else the new rules skip them); the cycle 69 budget-cap test pins `inbox_plan:
+  generated` (it counts 3 builds per test); the cycle 107 lever tests build a test created 2026-10-13;
+  test_meta_ingest reads `_pending`'s new (todo, skipped) result.
+- Full suite `PYTHONPATH=. python -m pytest -q`: 3169 passed, 0 failed, 35 skipped (before, origin/master 751bf37: 3139 passed,
+  35 skipped).
+
+### Open
+- Not run on prod, against Meta or against Shopify. The crontab line is not installed; run
+  `crons/install-cron.sh peak-saunas` as deploy after the deploy.
+- Rule 2 reads the ad's copy only. A model named only in the video's speech gives rule 3 (home), and a
+  short model name in ordinary words can match (for example "Mini" in "mini sauna"); that is the existing
+  detection, reused as asked. An ad whose destination is a PDP but whose copy names no model gets the home
+  page, not that PDP.
+- The manual-link check uses the pulled creative: an ad with neither object_story_spec nor
+  asset_feed_spec. The pull's field list has no object_story_id, so an existing-post ad is recognised by
+  the missing spec only.
+- `auto_since` compares UTC dates; the guard for older tests compares the test's local `created_at` date
+  with it.
+- Of the 106 "new" items on prod, the ones created before 2026-10-13 or not ACTIVE / in review are never
+  auto-built; the Ads page lists each as "not auto-built". How many were created on 2026-10-13 was not
+  checked here; at most 5 are built per hourly run.
+- The status line's spend is the day's ledger difference during the run (a job running at the same time
+  adds to it).
