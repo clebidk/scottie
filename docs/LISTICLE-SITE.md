@@ -631,6 +631,14 @@ says why). Since cycle 102 (`harness/look_vision.py`):
   about $0.40; the revise round about 15k new input + the cache read + 13k
   output, about $0.33. About **$0.55** an import, **$0.90** with the revise
   round, at most about $1.05. The daily-cap reservation is $1.00 an import.
+- **Revise this look (cycle 102d).** The import job page and the Library card of every imported or
+  hand-converted look have a **Revise this look** box: a note (up to 2,000 characters). It queues a
+  `look_revise` job: the look is rendered at 390 and 1280 px, Claude Opus gets the note as a named miss with
+  the template, the observation, the source screenshots and the renders, and the answer goes through the
+  same validator (one repair round). The job page shows the note and before/after at 390 and 1280. The
+  previous template is kept as `template.prev.html`; `library.json` `history` gets one line per revise; a
+  look in the Library is rebuilt. A refused revise changes nothing. About $0.40 a revise, $0.80 with the
+  repair round.
 
 ### Photos (cycle 96)
 

@@ -64,7 +64,7 @@ from .errors import HarnessError
 STATES = ("queued", "running", "done", "failed")
 JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
              "unpublish_live", "look_import", "library_build", "photos_import", "meta_go_live",
-             "meta_revert_go_live")
+             "meta_revert_go_live", "look_revise")
 # Cycle 87: the job the worker is running now, so a handler can report its
 # progress (set by run_one, one job at a time per worker).
 _RUNNING = {"id": None}
@@ -473,6 +473,32 @@ def handle_look_import(tenant, payload):
     return summary
 
 
+def handle_look_revise(tenant, payload):
+    """Cycle 102d: "Revise this look" (harness/look_revise.py). A refused
+    revision leaves the look unchanged. A revised look already in the
+    Library gets its card rebuilt (a queued library_build job)."""
+    from . import look_import
+    from . import look_revise
+
+    try:
+        result = look_revise.revise_look(tenant, cartridge=payload["cartridge"], slug=payload["slug"],
+                                         note=payload.get("note"), by=payload["by"],
+                                         progress=lambda step: progress(tenant, step))
+    except look_import.LookImportError as e:
+        raise JobFailed(look_import.format_errors(e)) from e
+    if not result["pending"]:
+        from . import library
+
+        if not active_job(tenant, job_type="library_build", target=library.JOB_TARGET):
+            result["library_job"] = enqueue(tenant, "library_build", {"by": payload["by"],
+                                                                       "only": [payload["cartridge"]]},
+                                            by=payload["by"], target=library.JOB_TARGET)
+    audit(tenant, by=payload["by"], action="look_revise_done",
+          target=f"look:{payload['cartridge']}/{payload['slug']}",
+          detail={"note": result["note"][:200], "cost_usd": result["cost_usd"], "fidelity": result["fidelity"]})
+    return result
+
+
 def handle_library_build(tenant, payload, log=print):
     """Cycle 86: (re)renders the Library (harness/library.py). Fails the job
     when a version failed to render; the other versions are still written."""
@@ -534,6 +560,7 @@ HANDLERS = {
     "unpublish_live": lambda tenant, payload: handle_post_live(tenant, payload, job_type="unpublish_live"),
     "library_build": handle_library_build,
     "look_import": handle_look_import,
+    "look_revise": handle_look_revise,
     "photos_import": handle_photos_import,
     "meta_go_live": handle_meta_go_live,
     "meta_revert_go_live": lambda tenant, payload: handle_meta_go_live(tenant, payload, revert=True),

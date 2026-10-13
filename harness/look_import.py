@@ -1849,7 +1849,7 @@ def render_errors(text, cartridge, slug, tenant, demo, shot=None):
     prev_tenant, prev_vocab = tenant_mod.active_or_none(), vocab.active_or_none()
     tenant_mod.activate(tenant)
     try:
-        with tempfile.TemporaryDirectory(prefix="look-import-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="look-import-", dir=work_root(tenant)) as tmp:
             tmp = Path(tmp)
             looks_root = tmp / "looks"
             (looks_root / cartridge / slug).mkdir(parents=True)
@@ -1964,7 +1964,7 @@ CROSS_MAP = {
 }
 
 
-def build_system_prompt(cartridge, contract_, schema, exemplar=None):
+def build_system_prompt(cartridge, contract_, schema, exemplar=None, reference=True):
     """The rules file with the contract filled in, then ONE look to learn
     the contract's use from: the closest hand-made exemplar (its page's
     observation + its template) when there is one, else the cartridge's
@@ -2002,6 +2002,8 @@ def build_system_prompt(cartridge, contract_, schema, exemplar=None):
                   "them.\n\n### Its page's observation\n\n"
                 + json.dumps(exemplar["observation"], separators=(",", ":"))
                 + "\n\n### Its template.html\n\n" + exemplar["template"])
+    if not reference:   # cycle 102d: a revise -- the look being revised is the reference
+        return rules
     default = looks.DEFAULT_LOOKS.get(cartridge, "open")
     # Cycle 94: the shipped look includes the shared hero partial; an imported
     # look is one file, so the model sees the look with its first screen inline.
@@ -2493,6 +2495,24 @@ def discard(tenant, cartridge, slug):
     return dest
 
 
+# Cycle 102c: the import's scratch folders (the page copy the screenshot
+# browser loads, the demo render the render shot is taken of) live under the
+# tenant's jobs folder, never under TMPDIR or /tmp: a snap-packaged Chromium
+# (prod) has a private /tmp and could not read them, so a worker import came
+# out "observed_from: html" with no screenshots (harness/capture.py keeps its
+# own frame and profile beside the PNG for the same reason).
+WORK_DIR = "work"
+
+
+def work_root(tenant):
+    """tenants/<t>/jobs/look-imports/work/ (created)."""
+    from .jobs import LOOK_IMPORT_PENDING
+
+    root = Path(tenant.jobs_dir) / LOOK_IMPORT_PENDING / WORK_DIR
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def _source_images(src, work, *, browser, progress):
     """[(PIL image, label)] of the source: the uploaded images, or (cycle
     102) the page's screenshots at 390 and 1280 when a browser is here."""
@@ -2531,13 +2551,19 @@ def import_look(tenant, *, cartridge, name, source, title=None, client=None, mod
     progress("reading")
     src = load_source(source, transport=transport, resolver=resolver)
     browser = look_vision.find_browser()
-    with tempfile.TemporaryDirectory(prefix="look-import-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="look-import-", dir=work_root(tenant)) as tmp:
         work = Path(tmp)
         html_obs, css_text = None, ""
         if src.get("html") and not src.get("over_cap"):
             progress("observing")
             html_obs, css_text = observe_with_css(src, transport=transport, resolver=resolver, tenant=tenant)
         images = _source_images(src, work, browser=browser, progress=progress)
+        # Cycle 102c: why an HTML source has no screenshots, for the job page
+        capture_note = ("taken" if images else
+                        "no headless browser on this host" if src["kind"] != "images" and not browser else
+                        "the browser wrote no screenshot of the page")
+        if log and src["kind"] != "images":
+            log.event("look_import", f"screenshots: {capture_note}")
         if src.get("over_cap") and not images:
             raise LookImportError(f"refused: {src['origin']} is larger than {MAX_SOURCE_BYTES // 1024} KB and no "
                                   "screenshot of it could be taken here (no headless browser, or the capture "
@@ -2546,7 +2572,7 @@ def import_look(tenant, *, cartridge, name, source, title=None, client=None, mod
         sheets = look_vision.prepare(images, sheets_dir) if images else []
         if images:
             look_vision.write_thumb(images[0][0], sheets_dir / look_vision.SOURCE_THUMB)
-        result = {"slug": slug, "cartridge": cartridge, "title": title, "images": sheets,
+        result = {"slug": slug, "cartridge": cartridge, "title": title, "images": sheets, "capture": capture_note,
                   "observed_from": "images+html" if html_obs and sheets else ("images" if sheets else "html")}
         if dry_run:
             chosen = (look_design.choose_exemplar(html_obs, look_design.exemplars(tenant, cartridge), exemplar)
@@ -2622,6 +2648,7 @@ def import_look(tenant, *, cartridge, name, source, title=None, client=None, mod
                        "imported_at": datetime.datetime.now().isoformat(timespec="seconds"), "observation_sha": sha,
                        "images": [s["file"] for s in sheets]},
             "observed_from": observation["observed_from"],
+            "capture": capture_note,
             "cartridge": cartridge,
             "derived_from_sections": roles,
             "abtest_entry": f"{cartridge}:{slug}",
@@ -2671,6 +2698,7 @@ def job_summary(result):
         "exemplar": result.get("exemplar"),
         # cycle 102: what the observation came from, and the result card's pictures
         "observed_from": result.get("observed_from") or obs.get("observed_from") or "html",
+        "capture": result.get("capture"),
         "images": len(result.get("images") or []),
         "source_thumb": bool((result.get("library") or {}).get("source_thumb")),
         "render_shot": bool((result.get("library") or {}).get("render_shot")),

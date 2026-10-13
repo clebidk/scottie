@@ -59,6 +59,7 @@ from . import site_ui, textutil
 from . import design_gate as design_gate_mod
 from . import heroes
 from . import look_import as look_import_mod
+from . import look_revise as look_revise_mod
 from . import look_vision as look_vision_mod
 from . import looks as looks_mod
 from . import meta_golive
@@ -73,6 +74,8 @@ ENDPOINTS = (
     "look_import", "look_review",
     # cycle 102: the import's result card and the Library chip
     "look_source", "look_render", "look_add", "look_discard",
+    # cycle 102d: "Revise this look"
+    "look_revise", "look_shot",
     # cycle 92: the design gate's shots
     "design_shot",
     # cycle 96: the Photos page (harness/site_photos.py)
@@ -83,7 +86,7 @@ ENDPOINTS = (
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
                             "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import",
                             "photos_upload", "photo_edit", "photos_pull_drive", "look_add", "look_discard",
-                            "test_go_live", "test_revert_go_live"})
+                            "test_go_live", "test_revert_go_live", "look_revise"})
 
 ADS_PER_PAGE = 20
 MAX_FEEDBACK_CHARS = 2000
@@ -107,6 +110,7 @@ FILTERS = (("all", "All"), ("review", "Needs review"), ("live", "Live"))
 JOB_LABELS = {"regenerate": "Regenerate", "create_test": "Build A/B/C test", "publish_page": "Publish new version",
               "replace_variant": "Replace live variant", "post_live": "Post live", "update_live": "Update live page",
               "unpublish_live": "Unpublish", "library_build": "Rebuild library", "look_import": "Import a page",
+              "look_revise": "Revise a look",
               "photos_import": "Add photos", "meta_go_live": "Go live on Meta", "meta_revert_go_live": "Revert Meta ad"}
 GO_LIVE_JOB_TYPES = ("meta_go_live", "meta_revert_go_live")
 # Cycle 107: what the go-live confirm says before anything changes on Meta.
@@ -1422,6 +1426,12 @@ def _job_result_html(tenant, job):
             source = payload.get("url") or payload.get("filename") or "pasted HTML"
             parts.append(f'<p>{e(payload.get("title") or payload.get("slug") or "")} &middot; '
                          f'{e(payload.get("cartridge") or "")} &middot; from {e(source)}</p>')
+    elif job["type"] == "look_revise":
+        if result.get("slug"):
+            parts.append(_revise_result_html(result))
+        else:
+            parts.append(f'<p>{e(payload.get("cartridge") or "")} look <code>{e(payload.get("slug") or "")}</code>'
+                         f' &middot; note: {e(payload.get("note") or "")}</p>')
     elif job["type"] == "photos_import":
         what = (f'{int(payload["files"])} photo{"s" if payload["files"] != 1 else ""} uploaded'
                 if payload.get("files") else "new photos from the Drive folder")
@@ -1473,7 +1483,11 @@ def _import_result_card(tenant, job, result):
     html_ = f'<div class="li-compare">{"".join(figures)}</div>' if figures else ""
     observed = {"images": "the screenshots", "images+html": "the screenshots and the HTML",
                 "html": "the HTML"}.get(result.get("observed_from") or "html", "the HTML")
-    html_ += f'<p class="small muted li-observed">Observed from {e(observed)}.</p>'
+    if (result.get("observed_from") or "html") == "html":
+        # cycle 102c: an HTML-only import says why it has no screenshots
+        why = result.get("capture") or "none were taken"
+        observed = f"the HTML only (no screenshots: {why})"
+    html_ += f'<p class="li-observed">Observed from {e(observed)}.</p>'
     if state == "pending":
         job_field = f'<input type="hidden" name="job" value="{int(job["id"])}">'
         html_ += (
@@ -1488,12 +1502,61 @@ def _import_result_card(tenant, job, result):
         link = (f' <a href="{url_for("library_home")}#lib-{e(cartridge)}-{e(slug)}">Open the Library</a>'
                 if state in ("added", "stored") else "")
         html_ += f'<p class="li-state">{e(text)}{link}</p>'
+    if state != "discarded":
+        html_ += _revise_box(cartridge, slug, job_id=job["id"])
     return html_
 
 
-def _import_steps(current):
+def _revise_box(cartridge, slug, *, job_id=None):
+    """Cycle 102d: "Revise this look" -- a note to the import's revise round."""
+    job_field = f'<input type="hidden" name="job" value="{int(job_id)}">' if job_id else ""
+    return (
+        '<details class="li-revise"><summary>Revise this look</summary>'
+        f'<form method="post" action="{url_for("look_revise", cartridge=cartridge, slug=slug)}">{_csrf_field()}'
+        f'{job_field}<label for="rv-{e(cartridge)}-{e(slug)}">What should change?</label>'
+        f'<textarea id="rv-{e(cartridge)}-{e(slug)}" name="note" required maxlength="{look_revise_mod.MAX_NOTE_CHARS}" '
+        'placeholder="e.g. On desktop the body column is narrow and off to the left; give it the centred measure of '
+        'the key facts." style="min-height:84px"></textarea>'
+        f'<p class="hint">The look is rendered at 390 and 1280 px and sent with your note to Claude Opus, which '
+        f'revises the template; our rules check it again. About ${look_revise_mod.EST_REVISE_USD:.2f} a revise '
+        '(about $0.80 if it needs a repair). The previous version is kept.</p>'
+        f'<button class="btn sm" type="submit">{icon("refresh")}Revise</button></form></details>')
+
+
+def _revise_result_html(result):
+    """Cycle 102d: the revise job's result -- the note, then before/after."""
+    cartridge, slug = result["cartridge"], result["slug"]
+    parts = [f'<p><b>{e(result.get("title") or slug)}</b> <span class="muted">{e(cartridge)} look '
+             f'<code>{e(slug)}</code></span></p>',
+             f'<p class="li-note">Note: {e(result.get("note") or "")}</p>']
+    have = set(result.get("before") or []) | set(result.get("after") or [])
+    rows = []
+    for width, before, after in ((390, look_revise_mod.BEFORE_SHOTS[0], look_revise_mod.AFTER_SHOTS[0]),
+                                 (1280, look_revise_mod.BEFORE_SHOTS[1], look_revise_mod.AFTER_SHOTS[1])):
+        figs = [f'<figure><img src="{url_for("look_shot", cartridge=cartridge, slug=slug, name=name)}" '
+                f'alt="{label} at {width} px" loading="lazy"><figcaption>{label}, {width} px</figcaption></figure>'
+                for name, label in ((before, "Before"), (after, "After")) if name in have]
+        if figs:
+            rows.append(f'<div class="li-compare li-compare-{width}">{"".join(figs)}</div>')
+    parts += rows or ['<p class="small muted">No renders: the worker has no headless browser.</p>']
+    cost = result.get("cost_usd")
+    parts.append(f'<p>Validation: PASS on attempt {int(result.get("attempts") or 1)}'
+                 + (f" &middot; model cost ${float(cost):.3f}" if cost is not None else "")
+                 + (f' &middot; fidelity <b>{float(result["fidelity"]):.2f}</b>' if result.get("fidelity") is not None
+                    else "") + "</p>")
+    parts.append(f'<p class="small muted">History: {e(result.get("history_line") or "")}. The previous template is '
+                 f'kept as <code>{e(look_revise_mod.PREV_TEMPLATE)}</code>.</p>')
+    parts.append(f'<p><a class="btn ghost sm" href="{url_for("look_review", cartridge=cartridge, slug=slug)}" '
+                 f'target="_blank" rel="noopener">{icon("external")}Reference render</a>'
+                 + (f' <a href="{url_for("job_detail", job_id=int(result["library_job"]))}">Library rebuild</a>'
+                    if result.get("library_job") else "") + "</p>")
+    parts.append(_revise_box(cartridge, slug))
+    return "".join(parts)
+
+
+def _import_steps(current, steps=None):
     """Cycle 102: the import's steps as a row, the current one marked."""
-    steps = look_import_mod.PROGRESS_STEPS
+    steps = steps or look_import_mod.PROGRESS_STEPS
     at = steps.index(current) if current in steps else -1
     return '<ol class="li-steps">' + "".join(
         f'<li class="{"done" if i < at else "now" if i == at else ""}">{e(s.capitalize())}</li>'
@@ -1714,13 +1777,16 @@ def _lib_card(structure):
         hidden = "" if item.get("arm") and item["state"] == "ready" else " hidden"
         href = e(_generate_url(item)) if not hidden else "#"
         actions += f'<a class="btn sm" href="{href}" data-lib-generate{hidden}>{icon("send")}Generate with this</a>'
+    # cycle 102d: an imported or hand-converted look takes the owner's notes
+    revise = (_revise_box(structure["cartridge"], structure["look"])
+              if structure["origin"] in ("imported", "hand-converted") and structure.get("look") else "")
     return (f'<div class="gen lib-card" id="lib-{e(card_id)}"><div class="lib-pic">{shot}{current}</div>'
             f'<div class="gen-body">'
             f'<div class="chips">{"".join(c for c in chips if c)}</div>'
             f'<div class="gen-title">{e(structure["title"])}</div>'
             f'<p class="small muted lib-summary" title="{e(structure["summary"])}">{e(structure["summary"])}</p>'
             f'{facts}{strip}'
-            f'<div class="gen-actions">{actions}</div></div></div>')
+            f'<div class="gen-actions">{actions}</div>{revise}</div></div>')
 
 
 def _plural(n, word):
@@ -2302,6 +2368,41 @@ def register(app, tenant):
         """Cycle 102: the look's render of the demo page at 390."""
         return _look_file(cartridge, slug, look_vision_mod.RENDER_SHOT, "image/png")
 
+    @app.route("/looks/<cartridge>/<slug>/shot/<name>")
+    def look_shot(cartridge, slug, name):
+        """Cycle 102d: a revise's before/after renders (look_revise.SHOT_NAMES only)."""
+        if name not in look_revise_mod.SHOT_NAMES:
+            abort(404)
+        return _look_file(cartridge, slug, name, "image/png")
+
+    @app.route("/looks/<cartridge>/<slug>/revise", methods=["POST"])
+    def look_revise(cartridge, slug):
+        """Cycle 102d: "Revise this look" -> a look_revise job."""
+        if cartridge not in look_import_mod.CARTRIDGES or not looks_mod.LOOK_SLUG_RE.match(slug) \
+                or not look_revise_mod.can_revise(tenant, cartridge, slug):
+            abort(404)
+        email = g.reviewer_email
+        note = " ".join((request.form.get("note") or "").split())
+        if not note:
+            return _page("Revise this look", _message("Write a note", "Say what should change in the look."), 400)
+        if len(note) > look_revise_mod.MAX_NOTE_CHARS:
+            return _page("Revise this look", _message("Note too long", f"At most {look_revise_mod.MAX_NOTE_CHARS} "
+                                                                       "characters."), 400)
+        if not look_import_limiter.allow(email.lower()):
+            return _page("Revise this look", _message("Too many", f"More than {LOOK_IMPORTS_PER_WINDOW} imports or "
+                                                                 f"revises in {UPLOAD_WINDOW_S // 60} minutes. Wait a "
+                                                                 "few minutes."), 429)
+        target = f"look:{cartridge}/{slug}"
+        job = jobs.active_job(tenant, job_type="look_revise", target=target)
+        if job is None:
+            job_id = jobs.enqueue(tenant, "look_revise", {"cartridge": cartridge, "slug": slug, "note": note,
+                                                          "by": email}, by=email, target=target)
+            jobs.audit(tenant, by=email, action="look_revise", target=target,
+                       detail={"note": note[:200], "job_id": job_id})
+        else:
+            job_id = job["id"]
+        return redirect(url_for("job_detail", job_id=job_id), code=303)
+
     def _back_to_job():
         job_id = request.form.get("job") or ""
         return redirect(url_for("job_detail", job_id=int(job_id)) if job_id.isdigit() else url_for("look_import"),
@@ -2432,17 +2533,19 @@ def register(app, tenant):
             f'<span class="muted">{who}</span><div class="t">{_when(at) if at else "&mdash;"}</div></li>'
             for name, who, at in steps)
         reason = f'<div class="error">Failed: {e(job["reason"])}</div>' if job["state"] == "failed" else ""
-        if job["state"] == "failed" and job["type"] == "look_import":
-            # Cycle 87: a refused import lists every validation error.
+        if job["state"] == "failed" and job["type"] in ("look_import", "look_revise"):
+            # Cycle 87: a refused import lists every validation error (cycle 102d: a revise too).
             head, *lines = (job["reason"] or "").split("\n- ")
+            kept = "Nothing was stored." if job["type"] == "look_import" else "The look is unchanged."
             reason = (f'<div class="error">Failed: {e(head)}'
                       + ("<ul>" + "".join(f"<li>{e(line)}</li>" for line in lines) + "</ul>" if lines else "")
-                      + "</div><p class=\"small muted\">Nothing was stored.</p>")
+                      + f"</div><p class=\"small muted\">{kept}</p>")
         wait = ('<p class="small muted">This page reloads every 10 seconds until the job ends.</p>' if busy else "")
         if busy and job.get("progress"):
-            steps = look_import_mod.PROGRESS_STEPS if job["type"] == "look_import" else ()
+            steps = {"look_import": look_import_mod.PROGRESS_STEPS,
+                     "look_revise": look_revise_mod.PROGRESS_STEPS}.get(job["type"], ())
             step = job["progress"]
-            wait = ((_import_steps(step) if job["type"] == "look_import" else "")
+            wait = ((_import_steps(step, steps) if steps else "")
                     + f'<p>Step: <b>{e(step)}</b>'
                     + (f' <span class="muted">({steps.index(step) + 1} of {len(steps)})</span>' if step in steps
                        else "") + "</p>" + wait)

@@ -490,3 +490,63 @@ def test_a_pending_look_is_not_tried_by_the_design_gate_until_it_is_added():
     assert not any(lay["look"] == "wait-look" for lay in design_gate.extra_layouts("landing", TENANT))
     look_import.add_to_library(TENANT, "landing", "wait-look", by="t@example.com")
     assert any(lay["look"] == "wait-look" for lay in design_gate.extra_layouts("landing", TENANT))
+
+
+def test_a_url_job_on_the_site_is_observed_from_screenshots_and_html(client, monkeypatch, browser, tmp_path):  # noqa: F811
+    """Cycle 102c: on prod the worker's URL import came out "observed_from:
+    html" with no screenshots while the CLI's had them. The import's work
+    folder was a tempfile folder (TMPDIR, else /tmp), which a snap-packaged
+    Chromium cannot read (it has a private /tmp), so both shots failed
+    silently. The browser here, like snap Chromium, sees nothing under the
+    system temp folder; the work folder now lives under the tenant."""
+    import tempfile
+
+    system_tmp = tmp_path / "system-tmp"
+    system_tmp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(system_tmp))
+    real_probe, real_shot = capture.probe, capture.screenshot
+
+    def blind(path):
+        return str(path).startswith(str(system_tmp))
+
+    monkeypatch.setattr(capture, "probe", lambda b, html_path, **kw: None if blind(html_path)
+                        else real_probe(b, html_path, **kw))
+    monkeypatch.setattr(capture, "screenshot", lambda b, html_path, png_path, **kw: False if blind(html_path)
+                        else real_shot(b, html_path, png_path, **kw))
+    page = FIXTURE.read_bytes()
+    transport = FakeTransport({"https://shop.example/lp": (200, {"Content-Type": "text/html"}, page),
+                               "https://shop.example/assets/site.css": (200, {"Content-Type": "text/css"}, b"")})
+    monkeypatch.setattr(look_import, "urllib_transport", transport)
+    monkeypatch.setattr(look_import, "_default_resolver", _public)
+    fake = FakeClient([_vision(), _gen(_valid_template())])
+    monkeypatch.setattr(look_import, "make_client", lambda: fake)
+    data = {"csrf": site.csrf_token(REVIEWER), "cartridge": "landing", "name": "Url job", "url": "https://shop.example/lp"}
+    assert client.post("/looks/import", data=data, headers=_auth(), content_type="multipart/form-data").status_code == 303
+    done = jobs.run_one(TENANT, log=lambda *_: None)
+    assert done["state"] == "done", done["reason"]
+    result = done["result"]
+    assert result["observed_from"] == "images+html" and result["images"] >= 2
+    assert result["source_thumb"] and result["render_shot"]
+    folder = TENANT.looks_dir / "landing" / "url-job"
+    assert json.loads((folder / "observation.json").read_text())["observed_from"] == "images+html"
+    assert (folder / "source-1.jpg").is_file() and (folder / "render-390.png").is_file()
+    assert len(_images(fake.messages.calls[0]["messages"][0]["content"])) >= 2     # the vision call ran
+    page_html = client.get(f"/job/{done['id']}", headers=_auth()).get_data(as_text=True)
+    assert "Observed from the screenshots and the HTML." in page_html
+    assert '<img src="/looks/landing/url-job/render.png"' in page_html
+    assert not list((TENANT.jobs_dir / jobs.LOOK_IMPORT_PENDING / look_import.WORK_DIR).iterdir())   # cleaned up
+
+
+def test_the_job_page_says_why_an_import_has_no_screenshots(client, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(look_import, "make_client", lambda: FakeClient([_gen(_valid_template())]))
+    with FIXTURE.open("rb") as fh:
+        data = {"csrf": site.csrf_token(REVIEWER), "cartridge": "landing", "name": "Html job",
+                "page_file": (fh, FIXTURE.name)}
+        assert client.post("/looks/import", data=data, headers=_auth(),
+                           content_type="multipart/form-data").status_code == 303
+    done = jobs.run_one(TENANT, log=lambda *_: None)
+    assert done["state"] == "done", done["reason"]
+    assert done["result"]["observed_from"] == "html"
+    assert done["result"]["capture"] == "no headless browser on this host"
+    page_html = client.get(f"/job/{done['id']}", headers=_auth()).get_data(as_text=True)
+    assert "Observed from the HTML only (no screenshots: no headless browser on this host)." in page_html
