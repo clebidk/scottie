@@ -206,6 +206,29 @@ def _meta_ad_id(rec):
     return ad_id
 
 
+
+def _use_the_pages_instagram_account(client, payload):
+    """Cycle 107c: an ad's creative can name an Instagram id Meta no longer
+    resolves (the first real go-live, 2026-10-12, carried 17841401298434556
+    while the Page's connected account is 17841465606493804, the same
+    @peaksaunas_usa). Meta refuses a new creative with the stale id (code
+    200 / 1815199 "Ad account does not have access to Instagram account").
+    The copy names the Page's connected Instagram account instead; the
+    handle shown on Instagram does not change. Returns the change list."""
+    spec = payload.get("object_story_spec") or {}
+    page_id, old = spec.get("page_id"), spec.get("instagram_user_id")
+    if not page_id or not old:
+        return []
+    try:
+        page = client.get(str(page_id), {"fields": "instagram_business_account"})
+    except meta_ingest.MetaError:
+        return []
+    new = str(((page or {}).get("instagram_business_account") or {}).get("id") or "")
+    if not new or new == str(old):
+        return []
+    spec["instagram_user_id"] = new
+    return [{"field": "object_story_spec.instagram_user_id", "old": str(old), "new": new}]
+
 def plan(tenant, rec, *, client, force=False):
     """Reads the ad and builds the creative copy; writes nothing. Returns the
     summary go_live prints (and the dry run shows). Raises GoLiveRefused."""
@@ -236,6 +259,7 @@ def plan(tenant, rec, *, client, force=False):
                         "use --force to change it anyway")
     name = f"{creative.get('name') or ad.get('name') or ad_id} | split {test_id}"[:250]
     payload, changes = copy_creative(creative, split_url, name=name)
+    changes += _use_the_pages_instagram_account(client, payload)
     return {"test_id": test_id, "ad_id": ad_id, "ad_name": ad.get("name") or "", "effective_status": status,
             "account": account, "old_creative_id": str(creative.get("id") or ""),
             "old_destination": meta_ingest.destination_of(creative), "split_url": split_url,
