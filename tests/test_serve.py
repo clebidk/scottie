@@ -429,3 +429,22 @@ def test_page_review_allows_same_origin_framing(app_client, run_dir):
     assert resp.status_code == 200
     assert resp.headers.get("X-Frame-Options") == "SAMEORIGIN"
     assert "frame-ancestors 'self'" in (resp.headers.get("Content-Security-Policy") or "")
+
+
+def test_same_origin_post_behind_the_https_proxy_is_allowed(app_client, run_dir):
+    """Cycle 108d: behind Caddy the app is reached over plain http, so
+    url_root said http:// while the browser's Origin said https:// and every
+    browser form POST on listicle.peaksaunasteam.com was refused as
+    cross-origin (seen 2026-10-13 on the import form). The proxy's
+    X-Forwarded-Proto is trusted for one hop."""
+    headers = _basic_auth_header(REVIEWER, PASSWORD)
+    headers["Origin"] = "https://listicle.example"
+    headers["X-Forwarded-Proto"] = "https"
+    resp = app_client.post(
+        f"/run/{run_dir.name}/page/article/action",
+        data={"action": "approve", "angle": "5", "brand": "5", "claims": "5", "publish": "5"},
+        headers=headers,
+        base_url="http://listicle.example/",
+    )
+    assert resp.status_code == 302
+    assert runstate.load_state(run_dir)["pages"]["article"] == "approved"

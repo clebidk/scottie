@@ -21,6 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, Response, abort, g, redirect, request, send_file, url_for
 from PIL import Image
 
@@ -774,6 +775,11 @@ def build_app(tenant):
         )
 
     app = Flask(__name__)
+    # Cycle 108d: the site runs behind Caddy on 127.0.0.1 and is reached over
+    # plain http, so trust the proxy's X-Forwarded-Proto/Host/For for one hop.
+    # Without this url_root says http:// and the Cycle 34 Origin check refused
+    # every browser form POST made over https.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     beacon_limiter = abevents.RateLimiter()
     beacon_limiter_salt = os.urandom(16).hex()
 
