@@ -25,6 +25,7 @@ Every call goes through meta_ingest.GraphClient; tests inject a fake
 transport. The token stays in the Authorization header.
 """
 import copy
+import time
 import datetime
 from decimal import Decimal, InvalidOperation
 
@@ -276,6 +277,23 @@ def _print_plan(summary, log):
     log(f"WARNING: {WARNING}")
 
 
+
+READ_BACK_TRIES, READ_BACK_WAIT = 6, 3.0
+
+
+def _read_back(client, ad_id, new_id, url, *, sleep=time.sleep):
+    """The ad read back after the update. Cycle 107d: Meta's read can lag
+    the write by a few seconds (the first real go-live showed the old
+    creative on the first read and the new one 40 s later), so the read is
+    repeated a few times before the change is called unverified."""
+    for attempt in range(READ_BACK_TRIES):
+        back = client.get(ad_id, {"fields": VERIFY_FIELDS})
+        verified, seen = _verify(back, new_id, url)
+        if verified or attempt == READ_BACK_TRIES - 1:
+            return back, verified, seen
+        sleep(READ_BACK_WAIT)
+    return back, verified, seen
+
 def go_live(tenant, test_id, *, by, client, dry_run=False, force=False, log=print):
     """`harness abtest go-live`: copy the creative with the split link, point
     the ad at the copy, read it back and verify, record it on the test, store
@@ -295,8 +313,7 @@ def go_live(tenant, test_id, *, by, client, dry_run=False, force=False, log=prin
         raise meta_ingest.MetaAPIError(f"Meta created no creative id for ad {summary['ad_id']}; the ad is unchanged")
     log(f"created creative {new_id}")
     client.post(summary["ad_id"], {"creative": {"creative_id": new_id}})
-    back = client.get(summary["ad_id"], {"fields": VERIFY_FIELDS})
-    verified, seen = _verify(back, new_id, summary["split_url"])
+    back, verified, seen = _read_back(client, summary["ad_id"], new_id, summary["split_url"])
     at = _utc_now()
     block = {"at": at, "by": by, "ad_id": summary["ad_id"], "ad_name": summary["ad_name"],
              "old_creative_id": summary["old_creative_id"], "new_creative_id": new_id,
