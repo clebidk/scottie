@@ -85,6 +85,7 @@ def golive_fake(creative=None, *, status="ACTIVE", verify_creative=None):
     creative = creative or video_creative()
     fake = MetaFake()
     fake.add("GET", AD, ad(creative, status))
+    fake.add("GET", "111", {"id": "111", "instagram_business_account": {"id": "222"}})
     fake.add("GET", AD, {"id": AD, "effective_status": status,
                          "creative": verify_creative or {**video_creative(SPLIT, "c2")}})
     fake.add("POST", f"{ACCOUNT}/adcreatives", {"id": "c2"})
@@ -182,13 +183,13 @@ def test_go_live_copies_the_creative_points_the_ad_verifies_and_records(meta, ca
     meta["fake"] = fake = golive_fake()
     assert cli.main(["abtest", "go-live", TEST_ID, "--by", REVIEWER, "--tenant", TENANT.name]) == 0
     out = capsys.readouterr().out
-    assert fake.methods() == [("GET", AD), ("POST", f"{ACCOUNT}/adcreatives"), ("POST", AD), ("GET", AD)]
-    created = fake.calls[1]["form"]
+    assert fake.methods() == [("GET", AD), ("GET", "111"), ("POST", f"{ACCOUNT}/adcreatives"), ("POST", AD), ("GET", AD)]
+    created = fake.calls[2]["form"]
     spec = json.loads(created["object_story_spec"])
     assert spec["video_data"]["call_to_action"]["value"]["link"] == SPLIT
     assert created["url_tags"] == TAGS and created["name"] == f"Cold mornings v1 | split {TEST_ID}"
-    assert json.loads(fake.calls[2]["form"]["creative"]) == {"creative_id": "c2"}
-    assert fake.calls[2]["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
+    assert json.loads(fake.calls[3]["form"]["creative"]) == {"creative_id": "c2"}
+    assert fake.calls[3]["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
     assert all(TOKEN not in c["path"] and TOKEN not in json.dumps(c["form"]) for c in fake.calls)
 
     rec = abtest.load_test(TENANT, TEST_ID)
@@ -635,3 +636,21 @@ def test_copy_drops_the_read_only_image_url_when_an_image_hash_is_present():
     only_url = {"id": "c3", "object_story_spec": {"page_id": "111", "link_data": {"link": OLD, "image_url": "https://x/y.jpg"}}}
     payload, _changes = meta_golive.copy_creative(only_url, SPLIT, name="copy")
     assert payload["object_story_spec"]["link_data"]["image_url"] == "https://x/y.jpg"
+
+
+def test_the_copy_names_the_pages_connected_instagram_account_when_the_creative_has_a_stale_one(meta):
+    """Cycle 107c: the first real go-live carried an Instagram id Meta no
+    longer resolves; the copy uses the Page's connected account instead."""
+    fake = MetaFake()
+    fake.add("GET", AD, ad(video_creative(), "ACTIVE"))
+    fake.add("GET", "111", {"id": "111", "instagram_business_account": {"id": "333"}})
+    summary = meta_golive.plan(TENANT, live_record(), client=make_client(fake))
+    assert summary["payload"]["object_story_spec"]["instagram_user_id"] == "333"
+    assert {"field": "object_story_spec.instagram_user_id", "old": "222", "new": "333"} in summary["changes"]
+    # the same account: nothing changes and nothing extra is listed
+    fake = MetaFake()
+    fake.add("GET", AD, ad(video_creative(), "ACTIVE"))
+    fake.add("GET", "111", {"id": "111", "instagram_business_account": {"id": "222"}})
+    summary = meta_golive.plan(TENANT, live_record(), client=make_client(fake))
+    assert summary["payload"]["object_story_spec"]["instagram_user_id"] == "222"
+    assert not [c for c in summary["changes"] if c["field"].endswith("instagram_user_id")]
