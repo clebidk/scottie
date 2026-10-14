@@ -565,6 +565,12 @@ def _append_product_page_guidance(hard_constraints, cartridge_name):
 # its look.json (harness/blocks/catalog/) -- only those blocks' fields reach
 # the prompt; a look that declares no writer block adds nothing.
 def _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=None, tenant=None):
+    if cartridge_name == "listicle":
+        # Cycle 109: the ad's offer -- the renderer shows a verified one; an
+        # unverified one is never mentioned, nor denied (harness/offer.py).
+        from . import offer as offer_mod
+
+        hard_constraints.extend(offer_mod.writer_lines(facts_pack, "listicle"))
     if cartridge_name != "landing":
         return
     from .blocks import catalog as block_catalog

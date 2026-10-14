@@ -210,7 +210,7 @@
         <p class="cn-big">{{ ld.price.text }}</p>
       </div>
       <div class="cn-pricecopy">
-        {% if ld.financing %}<p>{{ ld.financing }}</p>{% endif %}
+        {% if ld.financing %}<p>{{ ld.financing }}</p>{% endif %}{% if ld.offer %}<p><b>{{ ld.offer.line }}</b>{% if ld.offer.deadline %} {{ ld.offer.deadline }}{% endif %}</p>{% endif %}
         <div class="cn-ctas"><a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
       </div>
     </div>
@@ -235,7 +235,7 @@
   </section>
 
   <div class="ld-bar">
-    <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}</span>{% endif %}</p>
+    <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}{% if ld.offer %} &middot; {{ ld.offer.bar }}{% endif %}</span>{% endif %}</p>
     <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>

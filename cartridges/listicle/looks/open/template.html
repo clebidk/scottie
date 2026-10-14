@@ -223,7 +223,7 @@
       <p class="op-label">Everything included</p>
       <h3 class="op-h3">{{ stack.title }}</h3>
       <ul class="op-list op-yes">{% for it in stack["items"] %}<li>{{ it.text }}</li>{% endfor %}</ul>
-      {% if stack.price %}<p class="op-price">{{ stack.price.text }}</p>{% endif %}
+      {% if stack.price %}<p class="op-price">{{ stack.price.text }}</p>{% endif %}{% set offer = cartridge_data.offer %}{% if offer %}<p class="op-fine"><b>{{ offer.line }}</b>{% if offer.deadline %} {{ offer.deadline }}{% endif %}</p>{% endif %}
       {% if stack.financing %}<p class="op-fine">{{ stack.financing if (product.financing and product.financing.lender) else "Financing available" }}</p>{% endif %}
       <a class="op-btn" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>
     </section>
@@ -261,7 +261,7 @@
     {% if page.closing and page.closing.recap %}
     <ul class="op-list op-yes">{% for bullet in page.closing.recap %}<li>{{ bullet.text }}</li>{% endfor %}</ul>
     {% endif %}
-    <a class="op-btn" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>
+    <a class="op-btn" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>{% if cartridge_data.offer %}<p class="op-fine">{% if cartridge_data.offer.name %}{{ cartridge_data.offer.name }}: {% endif %}<b>{{ cartridge_data.offer.line }}</b>{% if cartridge_data.offer.cta_note %} {{ cartridge_data.offer.cta_note }}{% endif %}</p>{% endif %}
     {% if page.closing and page.closing.warranty_line %}<p class="op-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
     {% if page.closing and page.closing.financing_line %}
       {% if product.financing and product.financing.lender %}

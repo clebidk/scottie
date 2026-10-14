@@ -29,6 +29,7 @@ from urllib.parse import quote
 
 from . import first_screen
 from . import listicle
+from . import offer as offer_mod
 from . import pdp
 from . import tenant as tenant_mod
 from .prices import format_price
@@ -329,8 +330,26 @@ def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
     if look == "proof":
         ctx["proof_trust"] = proof_trust_items(facts_pack, tenant)
         ctx.update(proof_blocks(page or {}, facts_pack))
+    # Cycle 109: an ad about a verified offer gets an offer-led page: the sale
+    # name is the eyebrow, and the price block, the first CTA, the sticky bar
+    # and the first checked claim carry the offer (harness/offer.py).
+    ctx["offer"] = offer_mod.offer_view(facts_pack)
+    if ctx["offer"] and ctx["offer"]["name"]:
+        ctx["eyebrow"] = ctx["offer"]["name"]
     ctx["claim_ids"] = context_claim_ids(ctx)
     return ctx
+
+
+def template_page(page, ctx):
+    """Cycle 109: the page as the look renders it -- on an offer-led page the
+    offer is the first checked claim (the ad's sentence, the verified claim's
+    text). page.json itself is unchanged; every look (shipped or imported)
+    loops page.checked_claims, so each one gets the item."""
+    offer = (ctx or {}).get("offer")
+    if not offer or not isinstance(page, dict):
+        return page
+    items = [c for c in (page.get("checked_claims") or []) if isinstance(c, dict)]
+    return dict(page, checked_claims=[offer["check"]] + items)
 
 
 def context_claim_ids(ctx):
@@ -338,6 +357,8 @@ def context_claim_ids(ctx):
     for key in ("price", "warranty", "rating"):
         if ctx.get(key):
             ids.update(ctx[key].get("claim_ids") or [])
+    if ctx.get("offer"):
+        ids.add(ctx["offer"]["claim_id"])
     for row in (ctx.get("trust") or []) + (ctx.get("specs") or []) + (ctx.get("proof_trust") or []):
         ids.update(row.get("claim_ids") or [])
     return ids
@@ -452,7 +473,8 @@ def writer_lines(facts_pack, tenant=None, look=None):
         f"closing.headline: at most {CLOSING_MAX_WORDS} words. cta_text/cta_url are the page's ONE "
         "call to action -- never add a second link, button, url or phone number anywhere.",
     ] + (proof_writer_lines(facts_pack, tenant) if look == "proof" else
-         ["benefits and icon_row are for the proof look only: omit both."])
+         ["benefits and icon_row are for the proof look only: omit both."]
+         ) + offer_mod.writer_lines(facts_pack, "landing")
 
 
 # ---------------------------------------------------------------------------
@@ -876,6 +898,12 @@ def find_landing_violations(page, facts_pack=None):
     problems += find_renderer_owned_violations(page)
     problems += find_power_violations(page, facts_pack)
     problems += find_number_violations(page, facts_pack)
-    problems += listicle.find_urgency_violations(page, prefix=_PROBLEM_PREFIX)
+    problems += listicle.find_urgency_violations(page, prefix=_PROBLEM_PREFIX,
+                                                 allowed_deadlines=offer_mod.allowed_deadline_sentences(facts_pack))
+    # Cycle 109: an offer-led page's headline is about the offer; no page
+    # denies an offer the ad states (verified or not).
+    problems += offer_mod.find_offer_headline_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
+    problems += offer_mod.find_denial_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
+    problems += offer_mod.find_offer_in_checked_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
     return problems
 

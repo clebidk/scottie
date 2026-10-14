@@ -263,7 +263,7 @@
   </section>
 
   <div class="ld-bar">
-    <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}</span>{% endif %}</p>
+    <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}{% if ld.offer %} &middot; {{ ld.offer.bar }}{% endif %}</span>{% endif %}</p>
     <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>

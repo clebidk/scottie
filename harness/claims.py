@@ -475,6 +475,19 @@ def evaluate_price_claim(ad_claim_text, product_price):
     return False, f"quoted price {shown} matches no current product price"
 
 
+def _states_offer(claim_text, offer_claim):
+    """True when an ad claim states the matched offer: every dollar or percent
+    amount and every code in it is in the verified promo claim's text, and it
+    has at least one of them."""
+    from . import offer as offer_mod
+
+    found = offer_mod.extract_offer(claim_text) or {}
+    anchors = (found.get("amounts") or []) + (found.get("codes") or [])
+    return bool(anchors) and offer_mod.match_offer(
+        {k: found.get(k) for k in ("amounts", "codes")}, [dict(offer_claim, category=offer_mod.PROMO_CATEGORY,
+                                                               id=offer_claim["claim_id"])]) is not None
+
+
 def _overclaim_item(claim, topic, verified_fact):
     if verified_fact:
         message = f'AD OVERCLAIM: "{claim}" — verified fact: "{verified_fact}"'
@@ -502,7 +515,8 @@ def _not_repeated_item(item):
 
 
 def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_claim=None,
-                          financing_lender=None, policy="stop", log=None, semantic_mapping=None):
+                          financing_lender=None, policy="stop", log=None, semantic_mapping=None,
+                          offer_claim=None):
     """Runs the ad_brief.claims_made list through the gate against the FULL
     claims/verified.json universe (not the per-product facts_pack subset --
     an ad claim can reference anything approved in verified.json, regardless
@@ -550,6 +564,13 @@ def gate_ad_brief_claims(ad_brief, verified_claims, *, product=None, reviews_cla
         about = classify_ad_claim_about(claim)
         if about == "alternative":
             alternative_claims.append({"claim": claim, "about": about})
+            continue
+
+        # Cycle 109: a claim that states the ad's offer, when that offer
+        # matched a verified promo claim (facts_pack.offer, harness/offer.py),
+        # is that claim -- not a "price" that matches no product price.
+        if offer_claim and _states_offer(claim, offer_claim):
+            matched.append({"claim": claim, "matched_claim_id": offer_claim["claim_id"], "overlap": 1.0})
             continue
 
         topic = classify_locked_topic(claim, financing_lender)

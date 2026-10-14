@@ -3,7 +3,10 @@
    (harness/heroes/ad_first.py): headline, subhead, price + financing, the pill
    and the text link, the trust line, then the ad still or the cut-out. Its CSS
    stays in each look. No whitespace may change below this comment: the shipped
-   looks' output is pinned by a hash test (tests/test_heroes_cycle94.py). #}{% if look == "proof" %}<header class="ld-hero">
+   looks' output is pinned by a hash test (tests/test_heroes_cycle94.py). Cycle 109:
+   the offer lines and the note under the CTA (the same markup as
+   heroes/_parts.html offer_lines / offer_note; a look may not import) print
+   nothing on a page with no verified offer. #}{% if look == "proof" %}<header class="ld-hero">
     <div class="ld-hero-text">
       {% if ld.rating %}<p class="ld-stars"><span aria-hidden="true">★</span><b>{{ ld.rating.value }}</b> {{ ld.rating.label }}</p>{% endif %}
       {% if disclosure_label or ld.eyebrow %}<p class="ld-eyebrow">{{ disclosure_label }}{% if disclosure_label and ld.eyebrow %}<span aria-hidden="true">&middot;</span>{% endif %}{{ ld.eyebrow }}</p>{% endif %}
@@ -11,10 +14,10 @@
       {% if page.hero.subhead %}<p class="ld-dek">{{ page.hero.subhead }}</p>{% endif %}
       {% if ld.review_quote %}<blockquote class="ld-hq"><p>&ldquo;{{ ld.review_quote.text }}&rdquo;</p>{% if ld.review_quote.author %}<p class="ld-who">{{ ld.review_quote.author }}</p>{% endif %}</blockquote>{% endif %}
       {% if ld.price or ld.financing %}
-      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
+      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.offer %}<span class="ld-offer" style="font-weight:600;font-size:15px;opacity:1;color:inherit">{{ ld.offer.line }}</span>{% if ld.offer.deadline %}<span class="ld-deadline">{{ ld.offer.deadline }}</span>{% endif %}{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
       {% endif %}
       <div class="ld-act ld-act--proof">
-        <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+        <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% if ld.offer and ld.offer.cta_note %}<p class="ld-offer-note" style="margin:8px 0 0;font-size:13px;line-height:1.4;color:inherit">{{ ld.offer.cta_note }}</p>{% endif %}
         {% if ld.proof_trust %}<ul class="ld-trust">{% for t in ld.proof_trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}
         {% if ld.secondary %}<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>{% endif %}
       </div>
@@ -33,12 +36,12 @@
       <h1 class="ld-h1 {{ h1_cls }}">{{ ld.headline_html }}</h1>
       {% if page.hero.subhead %}<p class="ld-dek">{{ page.hero.subhead }}</p>{% endif %}
       {% if ld.price or ld.financing %}
-      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
+      <p class="ld-price">{% if ld.price %}<b>{{ ld.price.text }}</b>{% endif %}{% if ld.offer %}<span class="ld-offer" style="font-weight:600;font-size:15px;opacity:1;color:inherit">{{ ld.offer.line }}</span>{% if ld.offer.deadline %}<span class="ld-deadline">{{ ld.offer.deadline }}</span>{% endif %}{% endif %}{% if ld.financing %}<span>{{ ld.financing }}</span>{% endif %}</p>
       {% endif %}
       <div class="ld-act">
         <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
         {% if ld.secondary %}<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>{% endif %}
-      </div>
+      </div>{% if ld.offer and ld.offer.cta_note %}<p class="ld-offer-note" style="margin:8px 0 0;font-size:13px;line-height:1.4;color:inherit">{{ ld.offer.cta_note }}</p>{% endif %}
       {% if ld.trust %}
       <ul class="ld-trust">{% for t in ld.trust %}<li>{{ t.text }}</li>{% endfor %}</ul>
       {% endif %}

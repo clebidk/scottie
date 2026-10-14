@@ -20,6 +20,9 @@ The page may render in the `proof` look. Then the renderer puts the rating first
 - `icon_row`: 3-4 cells `{icon_key, label, claim_ids}` before the closing band. `icon_key` is one of the fixed keys the hard constraints list, each key once; the label is at most 3 words and its claim_ids state it.
 Both count toward the word range.
 
+## Offer-led pages (only when the hard constraints say so)
+When the ad is about a verified offer (a promo claim in facts_pack.offer), the renderer makes it the page's focus: the sale name as the eyebrow, the amount and code next to the price, the claim's deadline sentence, a note under the first CTA, the code in the sticky bar and the offer as the first checked claim. Write the headline about the offer in words (no figures, code or date); do not write the offer as a checked claim. When the ad's offer is NOT verified, say nothing about discounts, sales, codes or deadlines anywhere -- never that there is none.
+
 ## Rules
 - 250-450 words. Short, concrete, product first. Second person where it reads naturally.
 - One CTA: `cta_text` is exactly one of schema.json's `allowed_cta_texts` with `{short_name}`/`{model_name}` filled in with the model name alone (facts_pack.product.name), and `cta_url` is the one destination. Never add a second url, link, button, phone number or offer anywhere in page.json -- the gate fails it.

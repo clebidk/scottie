@@ -63,6 +63,7 @@ from . import look_revise as look_revise_mod
 from . import look_vision as look_vision_mod
 from . import looks as looks_mod
 from . import meta_golive
+from . import offer as offer_mod
 from . import serve as _serve
 from . import upload as upload_mod
 
@@ -700,6 +701,50 @@ def _meta_box(tenant, rec, index):
     return "".join(parts)
 
 
+OFFER_CLAIM_MAX_CHARS = 600
+
+
+def _offer_claim_prefill(hold):
+    """The form's starting text: the ad's own offer sentence, plus its
+    deadline as a plain sentence. The owner edits it into the store's offer
+    (codes, the year) before adding it."""
+    offer = hold.get("offer") or {}
+    text = (hold.get("sentence") or offer.get("sentence") or "").strip()
+    if offer.get("deadline") and offer["deadline"].lower() not in text.lower():
+        text += f" Prices go up on {offer['deadline']}."
+    return text.strip()
+
+
+def _offer_hold_box(rec, index):
+    """Cycle 109: a test held because the ad's offer is not a verified claim:
+    the ad's sentence, and a one-click path -- the form that adds the promo
+    claim (the next hourly run rebuilds the pages and takes the test live)."""
+    hold = rec.get("offer_hold") or {}
+    state = hold.get("state")
+    said = e(hold.get("sentence") or "")
+    if state == "released":
+        return (f'<p class="small" style="margin:6px 0 0">Offer verified by claim <code>{e(hold.get("claim_id") or "")}'
+                f'</code> {_when(hold.get("released_at"))}: the generated pages were rebuilt around it.</p>')
+    if state == "rebuild_failed":
+        return (f'<p class="small" style="margin:6px 0 0"><b>Offer verified, rebuild failed:</b> '
+                f'{e(hold.get("reason") or "")}. Run <code>harness abtest rebuild-arm {e(rec["test_id"])} --all --by '
+                '&lt;email&gt;</code>, then go live.</p>')
+    if state != "held":
+        return ""
+    dom = f"offer-{index}"
+    return (
+        f'<div class="hold" id="{dom}" style="margin:10px 0 0"><p class="small"><b>{e(offer_mod.HOLD_REASON.capitalize())}.'
+        f'</b> The ad says: &ldquo;{said}&rdquo;. No verified claim states this offer, so the pages say nothing '
+        "about it and the test is not taken live on Meta.</p>"
+        f'<form method="post" action="{url_for("test_offer_claim", test_id=rec["test_id"])}">{_csrf_field()}'
+        f'<label class="small" for="{dom}-text">Add the store\'s offer as a verified claim (the amount or the code, '
+        "and the date it ends). The next hourly run rebuilds the pages around it and takes the test live.</label>"
+        f'<textarea id="{dom}-text" name="text" required maxlength="{OFFER_CLAIM_MAX_CHARS}" style="min-height:72px">'
+        f'{e(_offer_claim_prefill(hold))}</textarea>'
+        f'<button class="btn sm" type="submit">{icon("check")}Add the claim</button></form></div>'
+    )
+
+
 def _ad_card(tenant, ad, index):
     rec = ad["tests"][0] if ad["tests"] else None
     item = ad["inbox"][-1] if ad["inbox"] else None
@@ -740,6 +785,8 @@ def _ad_card(tenant, ad, index):
                          f'{e(rec["plan_rule"])}</p>')
         if rec.get("manual_link"):
             parts.append(f'<p class="small" style="margin:6px 0 0"><b>Manual link:</b> {e(rec["manual_link"])}</p>')
+        if rec.get("offer_hold"):
+            parts.append(_offer_hold_box(rec, index))
         split = (rec.get("split") or {}).get("url")
         if split:
             parts.append(f'<div class="ad-split">{_copy_row(f"split-{index}", split)}</div>')
@@ -2485,6 +2532,31 @@ def register(app, tenant):
                    detail={"ad_id": gl["ad_id"], "split_url": gl["split"], "current_link": gl["current"],
                            "job_id": job_id})
         return redirect(url_for("job_detail", job_id=job_id), code=303)
+
+    # Cycle 109: the held test's one-click path -- add the ad's offer as a
+    # verified promo claim (harness/offer.py add_promo_claim).
+    @app.route("/test/<test_id>/offer-claim", methods=["POST"])
+    def test_offer_claim(test_id):
+        rec = abtest.find_test(tenant, test_id)
+        if rec is None:
+            abort(404)
+        back = url_for("ads_home", q=rec.get("name") or None)
+        email = g.reviewer_email
+        if runstate.find_reviewer(tenant, email) is None:
+            return _page("Not a reviewer", _message("Not a reviewer", f"{e(email)} is not in this tenant's reviewers "
+                                                    "list.", back=back), 403)
+        hold = rec.get("offer_hold") or {}
+        if hold.get("state") != "held":
+            return _page("Not held", _message("Not held", "This test is not held for an unverified offer.",
+                                              back=back), 409)
+        text = (request.form.get("text") or "").strip()[:OFFER_CLAIM_MAX_CHARS]
+        try:
+            entry = offer_mod.add_promo_claim(tenant, text, by=email, offer=hold.get("offer"))
+        except ValueError as err:
+            return _page("Claim not added", _message("Claim not added", e(str(err)), back=back), 400)
+        jobs.audit(tenant, by=email, action="offer_claim_added", target=f"test:{rec['test_id']}",
+                   detail={"claim_id": entry["id"], "text": entry["text"]})
+        return redirect(back, code=303)
 
     @app.route("/test/<test_id>/go-live", methods=["GET", "POST"])
     def test_go_live(test_id):
