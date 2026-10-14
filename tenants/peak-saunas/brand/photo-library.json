@@ -73,7 +73,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.75,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "outdoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -84,7 +84,8 @@
         "description": "Man lifting a dumbbell outdoors with a partially visible dark sauna cabin showing red lights in the background",
         "blurry": true,
         "cluttered": true,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -140,7 +141,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.6,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "indoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -152,7 +153,8 @@
         "description": "A woman sits inside a pale wood sauna cabin interior, seen through a doorway",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -1680,7 +1682,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.55,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "indoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -1694,7 +1696,8 @@
         "description": "Person standing beside an indoor wood sauna cabin with glass door and pink interior lighting visible",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": true
+        "old_logo_visible": true,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -1874,7 +1877,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.75,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "indoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -1887,7 +1890,8 @@
         "description": "A shirtless man sits inside a wood-paneled sauna cabin interior with visible speakers and slatted backrest",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -1942,7 +1946,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.75,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "indoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -1954,7 +1958,8 @@
         "description": "Shirtless man sitting inside a pale wood sauna cabin near illuminated heater panels",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -2009,7 +2014,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.75,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "indoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -2021,7 +2026,8 @@
         "description": "Man with towel around neck sits inside a pale wood sauna cabin near glowing heater panels",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -3783,7 +3789,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.0,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "outdoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -3795,7 +3801,8 @@
         "description": "Two workers assembling a black outdoor sauna cabin with slatted panels on a residential deck",
         "blurry": false,
         "cluttered": true,
-        "old_logo_visible": true
+        "old_logo_visible": true,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "patagonia",
@@ -3853,7 +3860,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.0,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "outdoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -3865,7 +3872,8 @@
         "description": "Two men carry a large pale wood sauna wall panel with slatted vents and windows across an outdoor patio",
         "blurry": false,
         "cluttered": true,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -4271,7 +4279,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.75,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "outdoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -4283,7 +4291,8 @@
         "description": "Two men carry an unassembled pale wood sauna panel with slatted vents outdoors near a fence",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": false
+        "old_logo_visible": false,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
@@ -4488,7 +4497,7 @@
       "tags": {
         "product": "unknown",
         "product_confidence": 0.6,
-        "model_agnostic": false,
+        "model_agnostic": true,
         "setting": "outdoor",
         "shot": "people-in-use",
         "features_visible": [
@@ -4500,7 +4509,8 @@
         "description": "Two people reviewing paperwork beside a partially assembled pale wood sauna panel with a control pad outside a house",
         "blurry": false,
         "cluttered": false,
-        "old_logo_visible": true
+        "old_logo_visible": true,
+        "model_agnostic_note": "owner 2026-10-14: use the real people photos on every model's pages"
       },
       "decision": {
         "vision_product": "unknown",
