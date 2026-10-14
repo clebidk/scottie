@@ -614,11 +614,18 @@ def _seed_jitter(seed, cid):
     return int(h[:6], 16) / 0xFFFFFF / 100
 
 
-# cycle 104: candidates of one tier and quality whose scores differ by at most
-# this much tie, and fill_slots rotates among them by the run seed. It is under
-# one step of the slot's wanted-shot order (1.0) and one quality point (1.5),
-# so it only merges photos that differ by crop fit and the seeded jitter.
-ROTATE_WINDOW = 0.5
+# cycle 104b: fill_slots rotates its pick by the run seed across the top
+# ROTATE_TOP library photos of the winning tier whose quality is within
+# ROTATE_QUALITY of the best (one point in, two points out); the crop fit and
+# the portrait rank do not split them. Cycle 104's 0.5 score window was too
+# narrow: one landscape people photo led 17 of 28 re-rendered first screens.
+ROTATE_TOP = 4
+ROTATE_QUALITY = 1.5
+
+
+def _quality(c):
+    """The vision quality 1-5; an unrated photo counts 3, as in score_candidate."""
+    return c["quality"] if c["quality"] is not None else 3
 
 
 def _seed_int(seed):
@@ -825,16 +832,24 @@ def fill_slots(slots, facts_pack, tenant, *, ad_frames=None, prefer_model=None, 
             portrait_last = strict and bool(want.get("fullbleed_ok"))
             scored.sort(key=lambda x: (shot_tier(x[1], shots), portrait_last and portrait_fullbleed(x[1]),
                                        -x[0], x[1]["id"]))
-            # cycle 104: the leading candidates that tie (same tier and portrait
-            # rank, same quality, score within ROTATE_WINDOW of the best) rotate
-            # by the run seed, so ten runs do not all lead with one photo; the
-            # best tier still wins and a given seed gives the same pick. Library
-            # photos only: an ad still keeps the ad_frames record's order
-            rank = lambda x: (shot_tier(x[1], shots), portrait_last and portrait_fullbleed(x[1]), x[1]["quality"])
-            tied = [x for x in scored if x[1]["source"] == "library" and rank(x) == rank(scored[0])
-                    and scored[0][0] - x[0] <= ROTATE_WINDOW] if scored and scored[0][1]["source"] == "library" else []
+            # cycle 104b: the top ROTATE_TOP library photos of the winning tier
+            # whose quality is within ROTATE_QUALITY of the tier's best rotate by
+            # the run seed, so runs do not all lead with one photo; a better
+            # tier always wins, a given seed gives the same pick, seed 0 leads
+            # with the best-ranked of them. Library photos only (an ad still keeps the
+            # ad_frames record's order); blurry, AI and retired-mark photos stay
+            # in rank order behind
+            tied = []
+            if scored and scored[0][1]["source"] == "library":
+                tier = shot_tier(scored[0][1], shots)
+                pool_q = [x for x in scored if x[1]["source"] == "library" and shot_tier(x[1], shots) == tier
+                          and not (x[1]["blurry"] or x[1]["ai_generated"] or x[1]["old_brand"])]
+                best_q = max((_quality(x[1]) for x in pool_q), default=0)
+                tied = [x for x in pool_q if best_q - _quality(x[1]) <= ROTATE_QUALITY][:ROTATE_TOP]
+                # one order for every seed (the score without its seeded jitter),
+                # so seeds 1..k land on k different photos
+                tied.sort(key=lambda x: (-round(x[0] - _seed_jitter(seed, x[1]["id"]), 2), x[1]["id"]))
             if len(tied) > 1:
-                tied.sort(key=lambda x: x[1]["id"])
                 k = _seed_int(seed) % len(tied)
                 tied_ids = {x[1]["id"] for x in tied}
                 scored = tied[k:] + tied[:k] + [x for x in scored if x[1]["id"] not in tied_ids]

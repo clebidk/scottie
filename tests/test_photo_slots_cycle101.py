@@ -335,3 +335,29 @@ def test_close_ad_stills_keep_the_record_order_for_every_seed():
     slot = {"name": "ad-still", "want": {"shot": ["ad-still"]}, "n": 1, "last_resort": None, "above_fold": True}
     for s in (1, 2, 3):
         assert _ids(_fill([slot], stills, seed=s)[0]) == ["asset-adframe-still-1"]
+
+
+# Cycle 104b (prod 2026-10-14): one landscape people photo led 17 of 28 first
+# screens; the crop fit and the portrait rank no longer split the top photos
+WIDE_HERO = {"name": "hero", "want": {"shot": "any"}, "n": 1, "crop": "16:9"}
+PEOPLE = [_cand("panel-wide", "lifestyle-person", quality=4)] + [
+    _cand(f"towel-tall-{i}", "lifestyle-person", aspect=0.667, fullbleed=False, quality=4) for i in (1, 2, 3)]
+
+
+def test_one_landscape_and_three_portrait_people_give_four_heroes_for_four_seeds():
+    picks = [_ids(_fill([WIDE_HERO], PEOPLE + [CUT], seed=s)[0])[0] for s in (1, 2, 3, 4)]
+    assert sorted(picks) == ["panel-wide", "towel-tall-1", "towel-tall-2", "towel-tall-3"]
+    assert _ids(_fill([WIDE_HERO], PEOPLE, seed=0)[0]) == ["panel-wide"]
+
+
+def test_a_photo_two_quality_points_lower_is_never_picked():
+    low = _cand("low-wide", "lifestyle-person", model="fuji", quality=2)
+    one_lower = _cand("one-lower-tall", "lifestyle-person", aspect=0.667, fullbleed=False, quality=3)
+    seen = {_ids(_fill([WIDE_HERO], [low, PEOPLE[1], one_lower], seed=s)[0])[0] for s in range(12)}
+    assert seen == {"towel-tall-1", "one-lower-tall"}
+
+
+def test_a_room_photo_still_beats_every_person_photo_for_every_seed():
+    room = _cand("room-tall", "room", aspect=0.667, fullbleed=False, quality=2)
+    for s in range(1, 9):
+        assert _ids(_fill([WIDE_HERO], PEOPLE + [room, CUT], seed=s)[0]) == ["room-tall"]
