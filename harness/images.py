@@ -619,7 +619,7 @@ def _seed_jitter(seed, cid):
 # ROTATE_QUALITY of the best (one point in, two points out); the crop fit and
 # the portrait rank do not split them. Cycle 104's 0.5 score window was too
 # narrow: one landscape people photo led 17 of 28 re-rendered first screens.
-ROTATE_TOP = 4
+ROTATE_TOP = 6  # cycle 104d (owner 2026-10-14): six, so the cabin-interior people photos rotate in too
 ROTATE_QUALITY = 1.5
 
 
