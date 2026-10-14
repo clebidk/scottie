@@ -27,7 +27,8 @@ def letters(tenant):
 def fields(page, ad_brief, facts_pack, tenant, *, cartridge, base, look):
     """eyebrow, headline_html, display_html, display_fits, dek, byline,
     rating, price, financing, trust, cta, secondary, quote, made_for,
-    scroll_cue, specs, product_name, claim_ids -- for any new composition."""
+    scroll_cue, specs, product_name, offer, claim_ids -- for any new
+    composition."""
     base = base or {}
     page = page or {}
     product = (facts_pack or {}).get("product") or {}
@@ -58,6 +59,7 @@ def fields(page, ad_brief, facts_pack, tenant, *, cartridge, base, look):
             "scroll_cue": base.get("scroll_cue") or "",
             "specs": [],
             "rating": first_screen.rating_stat(facts_pack),
+            "offer": None,
         })
     else:
         view = landing.headline_view(page)
@@ -77,6 +79,9 @@ def fields(page, ad_brief, facts_pack, tenant, *, cartridge, base, look):
             "scroll_cue": "",
             "specs": list(base.get("specs") or []),
             "rating": base.get("rating"),
+            # Cycle 109: the verified offer (harness/offer.py offer_view) on an
+            # offer-led page, else None; _parts.html prints it.
+            "offer": base.get("offer"),
         })
     if out["rating"]:
         out["claim_ids"].update(out["rating"].get("claim_ids") or [])

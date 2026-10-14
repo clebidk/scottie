@@ -399,6 +399,25 @@ def published_page_record(run_dir, page):
     return (data.get("published_pages") or {}).get(page)
 
 
+def carry_published(src_run_dir, dst_run_dir, page, *, note=""):
+    """Cycle 109 (`harness abtest rebuild-arm`): a new run of a live A/B/C
+    arm takes over the Shopify page the arm's old run published -- its
+    `published_pages[page]` record is copied, so `harness publish --update`
+    updates that page (same id, same handle) instead of creating a new one.
+    Returns the copied record; KeyError when the old run has none."""
+    record = published_page_record(src_run_dir, page)
+    if not record or not record.get("page_id"):
+        raise KeyError(f"page {page!r} of {Path(src_run_dir).name} has no published Shopify page")
+    data = load_state(dst_run_dir)
+    if page not in data["pages"]:
+        raise KeyError(f"unknown page {page!r} for this run; run has: {list(data['pages'])}")
+    data.setdefault("published_pages", {})[page] = dict(record, carried_from=Path(src_run_dir).name)
+    data["history"].append({"state": data.get("state"), "by": "harness", "at": _now(),
+                            "note": note or f"carries the published page of {Path(src_run_dir).name}"})
+    save_state(dst_run_dir, data)
+    return record
+
+
 def record_unlinked(run_dir, *, page, by, action, previous=None):
     """Cycle 80 (harness/postlive.py): marks `page`'s published record as an
     unlinked page -- live on its own handle, no A/B/C test, no redirect -- and

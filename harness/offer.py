@@ -1,0 +1,532 @@
+"""Cycle 109: an ad that states an offer (a discount, a code, a deadline or a
+sale name) gets an offer-led page -- when the offer is a verified claim.
+
+Owner instruction, 2026-10-14, verbatim: "we need to regenerate new landing
+pages. if the ad is about a sale, the landing page 100% needs to have that as
+primary focus". On 2026-10-13/14 the pipeline built five sale ads ("$300 off
+every indoor sauna. $500 off outdoor. Prices go up October 16, ...") with no
+verified sale claim, and their pages wrote "no discount applied" next to the
+full price. The sale was real.
+
+Four parts, all deterministic (no model call):
+
+  - extract_offer: the ad brief's `offer` block, read from the ad's own words
+    (transcript and the copy around the media): amounts, codes, a deadline, a
+    sale name, and the ad's own sentence that states the offer.
+  - match_offer / apply_to_run: the claims step. A verified claim of category
+    "promo" whose text holds every amount and code the ad states (and the
+    ad's deadline date, when both give one) and whose own deadline has not
+    passed is the offer's claim; its id is `offer.claim_id`, and facts_pack
+    gets `offer` (the claim and the ad's sentence). No match: facts_pack gets
+    `offer_unverified` and the writer is told to say nothing about discounts.
+  - offer_view: what the renderer prints, all from the claim text -- the sale
+    name (eyebrow), the product's amount and code in one line, the deadline as
+    one plain sentence, the note under the first CTA, the sticky bar's code,
+    and the first checked claim (the ad's sentence, the claim text).
+  - the gates: no page may deny an offer the ad states (find_denial_violations);
+    a deadline sentence is allowed only when it is the verified claim's own
+    words (deadline_violations, used by listicle.find_urgency_violations).
+
+Tenant-neutral: amounts, codes, names and dates come from the ad and from
+claims/verified.json; no company or product word lives here.
+"""
+import datetime
+import json
+import os
+import re
+
+from .textutil import NON_PROSE_KEYS, walk_page
+
+PROMO_CATEGORY = "promo"
+HOLD_REASON = "held: offer not verified"
+
+_MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september",
+           "october", "november", "december")
+_MONTH_RE = (r"(?P<month>Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
+             r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)")
+_DATE_RE = re.compile(_MONTH_RE + r"\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s+(?P<year>20\d\d))?",
+                      re.IGNORECASE)
+# a dollar or percent amount followed by "off", or "save <amount>"
+_AMOUNT = r"\$\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\$\s?\d+(?:\.\d{2})?|\b\d{1,2}\s?%"
+_AMOUNT_RE = re.compile(r"(?P<a>" + _AMOUNT + r")\s+off\b|\bsave\s+(?P<b>" + _AMOUNT + r")", re.IGNORECASE)
+# "code INDOOR300", "promo code: FALL10", "with coupon SAVE5" -- the token is caps/digits with a letter
+_CODE_RE = re.compile(r"(?i:\b(?:promo\s+|discount\s+|coupon\s+)?(?:code|coupon))\s*[:\-]?\s*[\"\u201c']?"
+                      r"(?P<code>(?=[A-Z0-9]*[A-Z])[A-Z0-9]{3,20})\b")
+# "Community Savings Sale", "Black Friday Sale", "Labor Day Savings Event"
+_NAME_RE = re.compile(r"\b(?P<name>(?:[A-Z][A-Za-z'&\-]+\s+){1,4}(?:Sale|Event|Days|Weekend))\b")
+_NAME_LEAD = {"The", "Our", "This", "Your", "A", "An", "Big", "Now", "Shop", "Join"}
+# what makes a date in the ad a deadline
+_DEADLINE_CUE_RE = re.compile(
+    r"\b(?:prices?\s+(?:go(?:es)?|will\s+go|are\s+going)\s+up|price\s+increase|prices?\s+rise|"
+    r"(?:sale|offer|deal|savings?)\s+ends?|ends?\s+(?:on\s+)?(?=[A-Z])|ending|until|through|thru|before|"
+    r"expires?|last\s+day|deadline)\b", re.IGNORECASE)
+_RAISE_CUE_RE = re.compile(r"\b(?:go(?:es)?\s+up|increase|rise|before)\b", re.IGNORECASE)
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+
+# The deadline phrases the urgency gate refuses unless the sentence is the
+# verified claim's own deadline sentence (cycle 109; tenant-neutral).
+DEADLINE_PHRASE_RE = re.compile(
+    r"\b(?:prices?\s+(?:go(?:es)?|will\s+go|are\s+going)\s+up|price\s+increase|prices?\s+rise|"
+    r"(?:sale|offer|deal|savings?)\s+ends?\b|(?:ends?|ending|until|through|before)\s+" + _MONTH_RE + r"\.?\s+\d)",
+    re.IGNORECASE)
+
+# Wording that tells the reader there is no offer. With an offer in the ad
+# (verified or not) no page may say it (the prod pages said "no discount
+# applied" next to the full price).
+_DENIAL_RE = re.compile(
+    r"\bno\s+(?:discounts?|sales?|promo(?:tion)?s?|coupons?|codes?|deals?)\b(?:\s+(?:is\s+|are\s+)?"
+    r"(?:applied|needed|required|available|offered|running))?|\bnot\s+(?:currently\s+)?on\s+sale\b|"
+    r"\bfull\s+(?:retail\s+)?price\b|\bdiscounts?\s+(?:do|does)\s+not\s+apply\b|\bwithout\s+(?:a|any)\s+"
+    r"(?:discount|sale|code|coupon)\b|\bnever\s+(?:discounted|on\s+sale)\b|\bthere\s+is\s+no\s+(?:sale|discount)\b",
+    re.IGNORECASE)
+
+
+def _norm_amount(text):
+    text = re.sub(r"\s+", "", str(text or ""))
+    return text if text.startswith("$") or text.endswith("%") else text
+
+
+def _month_index(token):
+    token = token.lower().rstrip(".")
+    return next((i for i, m in enumerate(_MONTHS, 1) if m.startswith(token[:3])), None)
+
+
+def _date_label(m):
+    month = _MONTHS[_month_index(m.group("month")) - 1].capitalize()
+    label = f"{month} {int(m.group('day'))}"
+    return label + (f", {m.group('year')}" if m.group("year") else "")
+
+
+def _sentences(text):
+    return [s.strip() for s in _SENTENCE_RE.split(str(text or "").replace("\n", " ")) if s.strip()]
+
+
+def _is_urgent(sentence):
+    from .listicle import URGENCY_PHRASES
+
+    low = sentence.lower()
+    return any(p in low for p in URGENCY_PHRASES)
+
+
+# ---------------------------------------------------------------------------
+# the ad brief's offer block
+# ---------------------------------------------------------------------------
+
+def extract_offer(*texts):
+    """The `offer` block for an ad whose words state a discount, a code, a
+    deadline or a sale name, else None: {"amounts", "amount", "codes",
+    "code", "deadline", "name", "sentence"}. `sentence` is the ad's own
+    sentence(s) that state the offer: the ones with an amount or a code (at
+    most two, in order), else the one with the sale name, else the deadline
+    one -- never a sentence with an urgency phrase ("last chance") when
+    another one states the offer."""
+    amounts, codes, names, deadline = [], [], [], None
+    offer_sentences, name_sentences, deadline_sentences = [], [], []
+    for text in texts:
+        for sentence in _sentences(text):
+            found = False
+            for m in _AMOUNT_RE.finditer(sentence):
+                amount = _norm_amount(m.group("a") or m.group("b"))
+                if amount not in amounts:
+                    amounts.append(amount)
+                found = True
+            for m in _CODE_RE.finditer(sentence):
+                if m.group("code") not in codes:
+                    codes.append(m.group("code"))
+                found = True
+            if found:
+                offer_sentences.append(sentence)
+            for m in _NAME_RE.finditer(sentence):
+                words = m.group("name").split()
+                while words and words[0] in _NAME_LEAD:
+                    words = words[1:]
+                if len(words) >= 2 and " ".join(words) not in names:
+                    names.append(" ".join(words))
+                    name_sentences.append(sentence)
+            date = _DATE_RE.search(sentence)
+            if date and _DEADLINE_CUE_RE.search(sentence):
+                deadline = deadline or _date_label(date)
+                deadline_sentences.append(sentence)
+    if not (amounts or codes or names or deadline):
+        return None
+    calm = [s for s in offer_sentences if not _is_urgent(s)] or offer_sentences
+    pick = calm[:2] or [s for s in name_sentences if not _is_urgent(s)][:1] or name_sentences[:1] or \
+        deadline_sentences[:1]
+    return {
+        "amounts": amounts, "amount": amounts[0] if amounts else None,
+        "codes": codes, "code": codes[0] if codes else None,
+        "deadline": deadline, "name": names[0] if names else None,
+        "sentence": " ".join(dict.fromkeys(pick)),
+    }
+
+
+def offer_from_brief(ad_brief, ad_copy=None):
+    """extract_offer over the copy around the media (primary text, headline,
+    description) and the transcript or on-image text."""
+    copy = ad_copy or {}
+    return extract_offer(*(copy.get(k) or "" for k in ("primary_text", "headline", "description")),
+                         (ad_brief or {}).get("transcript_or_text") or "")
+
+
+# ---------------------------------------------------------------------------
+# the claims step: the offer's verified promo claim
+# ---------------------------------------------------------------------------
+
+def _claim_date(text, claim):
+    """(date, raises) for the claim's own deadline: the first date in its text
+    next to a deadline cue (the year from the text, else the claim's date).
+    `raises` is True for "prices go up on <date>" (the sale is over ON that
+    date) and False for "ends <date>" / "through <date>" (over AFTER it)."""
+    for clause in re.split(r"[;.]\s+|;", str(text or "")):
+        m = _DATE_RE.search(clause)
+        if not m or not _DEADLINE_CUE_RE.search(clause):
+            continue
+        year = m.group("year") or str((claim or {}).get("date") or "")[:4]
+        try:
+            when = datetime.date(int(year), _month_index(m.group("month")), int(m.group("day")))
+        except (TypeError, ValueError):
+            return None, False
+        return when, bool(_RAISE_CUE_RE.search(clause))
+    return None, False
+
+
+def claim_expired(claim, today):
+    """True when the promo claim's own deadline has passed on `today`."""
+    when, raises = _claim_date(claim.get("text"), claim)
+    if when is None or today is None:
+        return False
+    today = today if isinstance(today, datetime.date) else datetime.date.fromisoformat(str(today)[:10])
+    return today >= when if raises else today > when
+
+
+def _amount_in(amount, text):
+    if amount.endswith("%"):
+        return re.search(r"(?<!\d)" + re.escape(amount[:-1]) + r"\s?%", text) is not None
+    digits = amount.lstrip("$")
+    return re.search(r"\$\s?" + re.escape(digits) + r"(?![\d,]|\.\d)", text) is not None
+
+
+def match_offer(offer, claims, today=None):
+    """The verified promo claim the ad's offer states, or None. Every amount
+    and code the ad states must be in the claim's text; with neither, the
+    sale name must be; when the ad and the claim both give a deadline date
+    they must be the same day; a claim whose deadline has passed never
+    matches."""
+    if not offer:
+        return None
+    for claim in claims or []:
+        if claim.get("category") != PROMO_CATEGORY:
+            continue
+        text = str(claim.get("text") or "")
+        if claim_expired(claim, today):
+            continue
+        if not all(_amount_in(a, text) for a in offer.get("amounts") or []):
+            continue
+        if not all(re.search(r"\b" + re.escape(c) + r"\b", text, re.IGNORECASE) for c in offer.get("codes") or []):
+            continue
+        if not (offer.get("amounts") or offer.get("codes")):
+            if not offer.get("name") or offer["name"].lower() not in text.lower():
+                continue
+        if offer.get("deadline"):
+            when, _ = _claim_date(text, claim)
+            m = _DATE_RE.search(offer["deadline"])
+            if when and m and (when.month, when.day) != (_month_index(m.group("month")), int(m.group("day"))):
+                continue
+        return claim
+    return None
+
+
+def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
+    """The claims step for one run: matches ad_brief.offer to a verified promo
+    claim. Match: ad_brief.offer.claim_id is set, the claim joins
+    facts_pack.verified_claims (so the page may cite it and Sources lists
+    it) and facts_pack.offer = {claim_id, text, sentence, ...}. No match:
+    facts_pack.offer_unverified = {sentence, ...}. No offer in the ad:
+    nothing changes. Returns the claim or None."""
+    offer = (ad_brief or {}).get("offer")
+    facts_pack.pop("offer", None)
+    facts_pack.pop("offer_unverified", None)
+    if not offer:
+        return None
+    claim = match_offer(offer, all_verified, today)
+    if claim is None:
+        offer.pop("claim_id", None)
+        facts_pack["offer_unverified"] = {k: offer.get(k) for k in ("sentence", "amounts", "codes", "deadline",
+                                                                     "name")}
+        if log is not None:
+            log.event("ground", f"offer in the ad, no verified promo claim matches: {offer.get('sentence')!r}")
+        return None
+    offer["claim_id"] = claim["id"]
+    entry = {k: claim.get(k) for k in ("id", "text", "category", "source")}
+    claims = facts_pack.setdefault("verified_claims", [])
+    if not any(c.get("id") == claim["id"] for c in claims):
+        claims.append(entry)
+    facts_pack["offer"] = {"claim_id": claim["id"], "text": claim["text"], "sentence": offer.get("sentence"),
+                           "amounts": offer.get("amounts"), "codes": offer.get("codes"),
+                           "deadline": offer.get("deadline"), "name": offer.get("name")}
+    if log is not None:
+        log.event("ground", f"offer matched verified claim {claim['id']}: {offer.get('sentence')!r}")
+    return claim
+
+
+# ---------------------------------------------------------------------------
+# what the renderer prints
+# ---------------------------------------------------------------------------
+
+_PAIR_RE = re.compile(
+    r"(?P<amount>" + _AMOUNT + r")\s+off\b(?P<scope>[^,;.]*?)"
+    r"(?:\s+(?:with|using)\s+(?:the\s+)?(?:promo\s+|discount\s+)?code\s+(?P<code>[A-Z0-9]{3,20}))?"
+    r"(?=\s*(?:[,;.]|\band\b|$))", re.IGNORECASE)
+_SCOPE_FILLER = {"sauna", "saunas", "all", "every", "any", "the", "on", "of", "models", "model", "orders", "order",
+                 "products", "product", "items", "item", "site", "sitewide", "everything"}
+
+
+def _pairs(text):
+    return [{"amount": _norm_amount(m.group("amount")), "scope": m.group("scope").strip(),
+             "code": m.group("code")} for m in _PAIR_RE.finditer(text)]
+
+
+def _product_words(product):
+    product = product or {}
+    blob = " ".join(str(product.get(k) or "") for k in ("slug", "title", "name", "short_name", "url"))
+    return set(re.findall(r"[a-z]+", blob.lower()))
+
+
+def _deadline_sentence(text, claim):
+    for clause in re.split(r"[;.]\s+|;", str(text or "")):
+        clause = clause.strip().rstrip(".")
+        if _DATE_RE.search(clause) and _DEADLINE_CUE_RE.search(clause):
+            return clause[0].upper() + clause[1:] + "."
+    return None
+
+
+def _sale_name(text, offer):
+    head = str(text or "").split(":", 1)
+    if len(head) == 2 and 1 <= len(head[0].split()) <= 6 and not re.search(r"\d|\$", head[0]):
+        return head[0].strip()
+    return (offer or {}).get("name")
+
+
+def offer_view(facts_pack):
+    """The offer as the renderer prints it, from facts_pack.offer (the
+    verified claim) and the product, or None when the page is not
+    offer-led: {name, line, code, codes, amount, deadline, cta_note, bar,
+    check, claim_id}. `line` is the product's own amount and code ("$300 off
+    with code INDOOR300"); a claim with several amounts whose scope matches
+    none (or several) of the product's words shows its whole offer clause."""
+    fp = facts_pack or {}
+    offer = fp.get("offer")
+    if not offer or not offer.get("claim_id"):
+        return None
+    text = str(offer.get("text") or "")
+    product_words = _product_words(fp.get("product"))
+    pairs = _pairs(text)
+
+    def applies(pair):
+        words = set(re.findall(r"[a-z]+", pair["scope"].lower())) - _SCOPE_FILLER
+        return not words or words <= product_words
+
+    mine = [p for p in pairs if applies(p)]
+    if len(mine) == 1 or (len(pairs) == 1 and mine):
+        pair = mine[0]
+        line = f"{pair['amount']} off" + (f" with code {pair['code']}" if pair["code"] else "")
+        codes = [pair["code"]] if pair["code"] else []
+        amount = pair["amount"]
+    else:
+        body = text.split(":", 1)[1] if ":" in text.split(";")[0] else text
+        line = re.split(r";", body, maxsplit=1)[0].strip().rstrip(".")
+        line = re.sub(r",?\s*applied at checkout$", "", line, flags=re.IGNORECASE)
+        codes = [p["code"] for p in pairs if p["code"]] or [m.group("code") for m in _CODE_RE.finditer(text)]
+        amount = None
+    at_checkout = bool(re.search(r"\bat\s+checkout\b", text, re.IGNORECASE))
+    bar = ("Code " + codes[0]) if len(codes) == 1 else ("Codes " + " / ".join(codes)) if codes else line
+    return {
+        "claim_id": offer["claim_id"],
+        "name": _sale_name(text, offer),
+        "line": line,
+        "amount": amount,
+        "code": codes[0] if len(codes) == 1 else None,
+        "codes": codes,
+        "deadline": _deadline_sentence(text, offer),
+        "cta_note": (("Offer applied at checkout with the code." if codes else "Offer applied at checkout.")
+                     if at_checkout else ""),
+        "bar": bar,
+        "check": {"ad_said": offer.get("sentence") or "", "fact": text, "claim_ids": [offer["claim_id"]],
+                  "offer": True},
+    }
+
+
+# ---------------------------------------------------------------------------
+# writer lines and gates
+# ---------------------------------------------------------------------------
+
+UNVERIFIED_LINE = (
+    "The ad states an offer (a sale, a discount, a code or a deadline) that is not a verified claim: say nothing "
+    "about discounts, sales, codes, coupons, promotions or deadlines anywhere on the page -- neither that the "
+    "offer exists nor that there is none. Never write \"no discount\", \"full price\" or \"not on sale\". Leave "
+    "the offer out of checked_claims and the FAQ."
+)
+
+
+def writer_lines(facts_pack, cartridge="landing"):
+    """The writer's offer lines: offer-led (landing) or the unverified rule."""
+    fp = facts_pack or {}
+    if fp.get("offer_unverified"):
+        return [UNVERIFIED_LINE]
+    view = offer_view(fp)
+    if view is None:
+        return []
+    deadline = (f" If the page states the deadline, it is exactly this sentence, with claim_ids "
+                f"[\"{view['claim_id']}\"]: \"{view['deadline']}\"" if view["deadline"] else "")
+    if cartridge != "landing":
+        return [f"The ad is about a verified offer (claim {view['claim_id']}). The renderer shows it with the price; "
+                "do not restate amounts, codes or the deadline in your copy." + deadline]
+    return [
+        f"This page is OFFER-LED: the ad is about a verified offer (claim {view['claim_id']}: "
+        + json.dumps(fp["offer"]["text"]) + "). The renderer shows the sale name as the eyebrow, the amount and "
+        "the code next to the price, the deadline sentence, the code at the first CTA and in the sticky bar, and "
+        "the offer as the FIRST checked claim -- do not write the offer as a checked_claims item yourself.",
+        "hero.headline is about the offer, in words (no figures, no code, no date): name what the reader saves or "
+        "the sale itself, e.g. \"Money off every indoor sauna during the sale\". hero.subhead may say the offer is "
+        "applied at checkout. No countdown, no \"last chance\", no \"hurry\", no invented scarcity." + deadline,
+    ]
+
+
+OFFER_HEADLINE_RE = re.compile(r"\b(?:sale|savings?|save|saving|off|discount\w*|deal|offer|code|price[sd]?|"
+                               r"pric(?:e|ing))\b", re.IGNORECASE)
+
+
+def find_offer_headline_violations(page, facts_pack, prefix="landing"):
+    """Offer-led landing page: the headline is about the offer (it names a
+    saving, the sale, a price or the code in words, or a word of the sale's
+    name)."""
+    view = offer_view(facts_pack)
+    if view is None:
+        return []
+    hero = page.get("hero") if isinstance(page.get("hero"), dict) else {}
+    headline = str(hero.get("headline") or "")
+    name_words = {w.lower() for w in re.findall(r"[A-Za-z]{4,}", view["name"] or "")} - {"sale"}
+    if OFFER_HEADLINE_RE.search(headline) or any(w in headline.lower().split() for w in name_words):
+        return []
+    return [{"path": "$.hero.headline", "key": f"{prefix}:offer_headline",
+             "issue": "the ad is about a sale, so the headline is about the offer: name the saving or the sale in "
+                      "words (no figures; the renderer shows the amount and the code)", "text": headline}]
+
+
+def find_denial_violations(page, facts_pack, prefix="landing"):
+    """With an offer in the ad (verified or not), no line may tell the reader
+    there is no offer ("no discount applied", "full price")."""
+    fp = facts_pack or {}
+    if not (fp.get("offer") or fp.get("offer_unverified")):
+        return []
+    problems = []
+    for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
+        if isinstance(node, str) and _DENIAL_RE.search(node):
+            problems.append({"path": path, "key": f"{prefix}:offer_denial:{path}",
+                             "issue": "the ad states an offer; never tell the reader there is no discount or sale "
+                                      "-- " + ("leave discounts out of the page entirely" if fp.get("offer_unverified")
+                                               else "the renderer shows the verified offer"), "text": node})
+    return problems
+
+
+_OFFER_WORDS_RE = re.compile(r"\b(?:sales?|discount\w*|promo\w*|coupons?|money\s+off|savings|"
+                             r"deals?)\b|(?:\$\s?\d[\d,]*|\d{1,2}\s?%)\s+off\b", re.IGNORECASE)
+
+
+def find_offer_in_checked_violations(page, facts_pack, prefix="landing"):
+    """With an offer in the ad, the writer's checked_claims never carry it:
+    on an offer-led page the renderer shows it as the first item (from the
+    verified claim); with an unverified offer the page leaves it out."""
+    fp = facts_pack or {}
+    if not (fp.get("offer") or fp.get("offer_unverified")):
+        return []
+    problems = []
+    for i, item in enumerate(page.get("checked_claims") or []):
+        if not isinstance(item, dict):
+            continue
+        for field in ("ad_said", "fact"):
+            text = str(item.get(field) or "")
+            if _OFFER_WORDS_RE.search(text):
+                problems.append({
+                    "path": f"$.checked_claims[{i}].{field}", "key": f"{prefix}:offer_in_checked:{i}",
+                    "issue": ("the renderer shows the verified offer as the first checked claim; pick another ad "
+                              "claim for this item" if fp.get("offer") else
+                              "the ad's offer is not verified: leave it out of checked_claims and pick another ad "
+                              "claim"), "text": text})
+                break
+    return problems
+
+
+def allowed_deadline_sentences(facts_pack):
+    """The verified promo claim's own deadline sentence, the one deadline
+    wording the urgency gate allows (empty when there is none)."""
+    view = offer_view(facts_pack)
+    return [view["deadline"]] if view and view["deadline"] else []
+
+
+def _norm_sentence(text):
+    return re.sub(r"\s+", " ", re.sub(r"[.!?\"'\u201c\u201d]+", "", str(text or ""))).strip().lower()
+
+
+def deadline_violations(text, allowed=()):
+    """The sentences of `text` that state a deadline ("prices go up ...",
+    "sale ends ...", "until October 16") and are not one of `allowed`."""
+    ok = {_norm_sentence(a) for a in allowed}
+    bad = []
+    for sentence in _sentences(text):
+        if DEADLINE_PHRASE_RE.search(sentence) and _norm_sentence(sentence) not in ok:
+            bad.append(sentence)
+    return bad
+
+
+# ---------------------------------------------------------------------------
+# the owner's claim form (pipeline hold)
+# ---------------------------------------------------------------------------
+
+def promo_claim_entry(text, *, by, today, existing_ids):
+    """A verified.json entry for the owner's promo claim: id promo-<slug>-<date>
+    (made unique), category promo, source "owner <email> <date>"."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not text:
+        raise ValueError("the claim text is empty")
+    slug = re.sub(r"[^a-z0-9]+", "-", text.split(":", 1)[0].lower()).strip("-")[:40].strip("-") or "offer"
+    base = f"promo-{slug}-{today}"
+    cid, n = base, 2
+    while cid in existing_ids:
+        cid, n = f"{base}-{n}", n + 1
+    return {"id": cid, "text": text, "category": PROMO_CATEGORY, "source": f"owner {by} {today}",
+            "approved_by": by, "date": today}
+
+
+def add_promo_claim(tenant, text, *, by, today=None, offer=None):
+    """Writes the owner's promo claim to claims/verified.json (atomic, the
+    file's own JSON style). With `offer` (the held ad's offer block), the text
+    must match it (match_offer), so the hold is released by this claim.
+    Returns the entry; raises ValueError with the reason otherwise."""
+    today = today or datetime.date.today().isoformat()
+    path = tenant.claims_dir / "verified.json"
+    verified = json.loads(path.read_text()) if path.exists() else []
+    entry = promo_claim_entry(text, by=by, today=today, existing_ids={c.get("id") for c in verified})
+    if offer and match_offer(offer, [entry], today) is None:
+        need = ", ".join((offer.get("amounts") or []) + (offer.get("codes") or [])) or offer.get("name") or "the offer"
+        raise ValueError(f"the claim does not state the ad's offer ({need}"
+                         + (f", deadline {offer['deadline']}" if offer.get("deadline") else "") + ") or its date "
+                         "has passed")
+    verified.append(entry)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(verified, indent=2) + "\n")
+    os.replace(tmp, path)
+    return entry
+
+
+def run_offer(run_dir):
+    """(offer block, matched claim id or None) from a built run's
+    ad_brief.json, or (None, None) when the ad states no offer."""
+    try:
+        brief = json.loads((run_dir / "ad_brief.json").read_text())
+    except (OSError, ValueError, TypeError):
+        return None, None
+    offer = brief.get("offer") if isinstance(brief, dict) else None
+    if not isinstance(offer, dict):
+        return None, None
+    return offer, offer.get("claim_id")

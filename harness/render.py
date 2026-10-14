@@ -34,6 +34,7 @@ from . import looks as looks_mod
 from . import pagechecks
 from . import quiz as quiz_mod
 from . import landing as landing_mod
+from . import offer as offer_mod
 from . import pdp as pdp_mod
 from . import quote_fidelity
 from . import tenant as tenant_mod
@@ -1424,6 +1425,21 @@ def render_page(
     # page.json field to invent one in. Empty for every other cartridge, whose
     # templates never read it.
     cartridge_data = listicle_mod.render_context(facts_pack, tenant=tenant) if cartridge_name == "listicle" else {}
+    if cartridge_name == "listicle":
+        # Cycle 109: the verified offer under the buy box's price and in the
+        # closing band (listicle.render_context's "offer"), a lighter touch
+        # than the landing page; its claim joins Sources.
+        if cartridge_data["offer"] and cartridge_data["offer"]["claim_id"] not in used_claim_ids:
+            used_claim_ids.add(cartridge_data["offer"]["claim_id"])
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+    # Cycle 109: an ad whose offer matched no verified claim -- recorded on
+    # page.json; the page says nothing about discounts (the writer line and
+    # the denial gate, harness/offer.py).
+    if cartridge_name in ("landing", "listicle") and facts_pack.get("offer_unverified"):
+        page["offer_unverified"] = True
     if comparison_context is not None:
         cartridge_data = comparison_context
     if quiz_data is not None:
@@ -1471,7 +1487,7 @@ def render_page(
 
     template = env.get_template("template.html")
     html = template.render(
-        page=page,
+        page=landing_mod.template_page(page, landing_context) if landing_context is not None else page,
         ad_brief=ad_brief,
         facts_pack=facts_pack,
         product=dict(facts_pack["product"], full_name=full_name, descriptor=product_names["descriptor"]),

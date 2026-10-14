@@ -34,6 +34,7 @@ import re
 
 from . import tenant as tenant_mod
 from .claims import _trigger_reason
+from .offer import offer_view
 from .textutil import NON_PROSE_KEYS, walk_page
 
 STYLES = ("reasons", "mistakes", "questions", "myths", "tested")
@@ -558,6 +559,8 @@ def render_context(facts_pack, tenant=None):
         "pull_quote": pull_quote(facts_pack),
         "model_options": model_options(facts_pack, tenant=tenant),
         "hsa_claim": hsa_claim(facts_pack),
+        # Cycle 109: the ad's verified offer (harness/offer.py), or None.
+        "offer": offer_view(facts_pack),
     }
 
 
@@ -827,10 +830,15 @@ def find_closing_violations(page):
     return []
 
 
-def find_urgency_violations(page, prefix="listicle"):
+def find_urgency_violations(page, prefix="listicle", allowed_deadlines=()):
     """No conversion-urgency vocabulary anywhere in writer-composed prose.
     `prefix` (cycle 54): the key namespace, reused by the product-page
-    cartridge."""
+    cartridge. Cycle 109: no deadline sentence either ("prices go up ...",
+    "sale ends ...", "until October 16"), except one that is exactly a
+    verified promo claim's own deadline sentence (`allowed_deadlines`,
+    offer.allowed_deadline_sentences)."""
+    from .offer import deadline_violations
+
     problems = []
     for path, node in walk_page(page, skip_keys=NON_PROSE_KEYS):
         if not isinstance(node, str):
@@ -843,6 +851,14 @@ def find_urgency_violations(page, prefix="listicle"):
                     "or a discount to push the reader",
                     text=node,
                 ))
+        for sentence in deadline_violations(node, allowed_deadlines):
+            problems.append(_problem(
+                path, f"{prefix}:urgency:deadline",
+                "deadline sentence found; this page never uses urgency to push the reader"
+                + (f" -- the one deadline it may state is the verified claim's own sentence, word for word: "
+                   f"{allowed_deadlines[0]!r}" if allowed_deadlines else ""),
+                text=sentence,
+            ))
     return problems
 
 

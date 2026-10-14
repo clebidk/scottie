@@ -68,6 +68,12 @@ name or attribute starting with `_`.
 - `quote` ({text, ...} or none) and `made_for` (string): the ad still's caption.
 - `frame` (record or none): the ad still's crop; `frame.object_position`.
 - `room_kinds` (list): the asset kinds that may fill the room photo slot.
+- `offer` ({name, line, deadline, cta_note, bar, code, ...} or none; cycle 109):
+  the ad's verified offer. When set, print `offer.line` and `offer.deadline`
+  right under the price, `offer.cta_note` under the first CTA and `offer.bar`
+  after the price in the sticky bar, each once, under `{% if ld.offer %}`.
+  The renderer already makes it the eyebrow and the first checked claim.
+  Never write an offer, a discount or a deadline yourself.
 
 Images: `assets.get(id)` gives an asset; render it ONLY with
 `render_image_slot(asset, ...)` (keywords `hero=True`, `frame="4x5"|"4x3"`,

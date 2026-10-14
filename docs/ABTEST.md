@@ -224,6 +224,48 @@ the test record lists them under the variant's `replacements`. `results` and
 statistics still count the old ones for the build. See
 docs/LISTICLE-SITE.md.
 
+## Rebuild an arm (cycle 109)
+
+```
+.venv/bin/harness abtest rebuild-arm <test_id> A --by <reviewer email> --tenant peak-saunas
+.venv/bin/harness abtest rebuild-arm <test_id> --all --by <reviewer email> --tenant peak-saunas
+```
+
+Builds a live test's generated arm again with the current code and claims and updates the arm's
+OWN Shopify page: same page id and handle, so the split link and the Meta ad that points at it are
+untouched. The build is the arm's own (same cartridge and style), pinned to the look and hero the
+arm rendered, with the next seed of the arm's seed family (`seed + 1000 * (letter index + 1) +
+attempts + 1`, as the first build). The design gate runs in warn mode for the record
+(`HARNESS_DESIGN_GATE=warn` for that run only): its score goes on the variant, a low score never
+stops the rebuild. The new run takes over the old run's published-page record and the test's
+beacon, then `harness publish --update` runs (approve and ship stamp first, as for every A/B/C
+publish). The variant's `run_dir` becomes the new run; the old one is kept under the variant's
+`history` with its design score, look, hero and the time it was replaced. The arm's views and
+clicks are not reset (Replace live variant does that). Refused, with nothing changed: a test that
+is not live, an external arm, an arm with no published page, an unlisted reviewer. A failed build
+leaves the live page as it was. `--all` checks every generated arm before it builds any.
+
+## Held offers (cycle 109)
+
+`from-inbox` reads each built arm's ad brief. When the ad states an offer (harness/offer.py) that
+matched no verified promo claim, the test is built and published but NOT taken live on Meta: it
+gets `offer_hold` (`state: held`, `reason: "held: offer not verified"`, the ad's offer sentence),
+the lever skips it (`auto_go_live.state: held`), the inbox item's reason says so, and the Ads page
+status line counts it ("1 held (offer not verified)"). The ad's card shows the sentence and a form,
+prefilled with that sentence and its deadline, that writes the store's offer to
+`claims/verified.json` as a `promo` claim (id `promo-<name>-<date>`, source `owner <email>
+<date>`, approved by the reviewer). The form refuses a text that does not state the ad's amounts
+and codes (or whose date has passed). Each later from-inbox run (`release_held`, the hourly cron)
+checks held live tests against verified.json: once the claim matches, it rebuilds every generated
+arm (`rebuild-arm --all`, so the pages become offer-led), marks the hold `released` and, with the
+lever on, sets the go-live `pending`; the same run's retry takes the test live on its ACTIVE ad.
+A failed rebuild marks the hold `rebuild_failed` (shown on the card, not retried): run
+`harness abtest rebuild-arm <test_id> --all`, then go live by hand. Go live by hand (the card's
+button or `abtest go-live`) still works on a held test; that is the owner's call.
+
+The form edits verified.json in the prod working tree; commit it (or copy the claim into the
+repository) so a later deploy does not overwrite it.
+
 ## How builds are picked
 
 - Library: `tenant.yaml` `abtest.library`. An entry is `cartridge`,

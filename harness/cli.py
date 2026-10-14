@@ -1475,6 +1475,28 @@ def cmd_abtest_revert_go_live(args):
     return exits.OK
 
 
+def cmd_abtest_rebuild_arm(args):
+    """`harness abtest rebuild-arm <test_id> <A|B|C> --by <email>` or `--all`
+    (cycle 109): build a live test's generated arm again with the current
+    code and claims (same build, look and hero, the arm's seed family, the
+    design gate in warn mode) and update the arm's own Shopify page; the split
+    link and the Meta ad are unchanged (harness/abtest_rebuild.py)."""
+    from . import abtest_rebuild
+
+    tenant = _abtest_tenant(args)
+    if bool(args.key) == bool(args.all):
+        print("name one arm (A, B or C) or pass --all", file=sys.stderr)
+        return exits.USAGE
+    if args.all:
+        results = abtest_rebuild.rebuild_all(tenant, args.test_id, by=args.by)
+    else:
+        results = [abtest_rebuild.rebuild_arm(tenant, args.test_id, args.key, by=args.by)]
+    for r in results:
+        print(f"arm {r['key']}: rebuilt in {Path(r['run_dir']).name}; page {r['handle']} updated ({r['url']})")
+    print(f"Test {args.test_id}: split link and Meta ad unchanged.")
+    return exits.OK
+
+
 def cmd_abtest_refresh_metrics(args):
     """`harness abtest refresh-metrics [--test <id>]` (cycle 107): for each live
     or finished test, cache its Shopify orders per arm and its Meta ad's
@@ -2524,6 +2546,15 @@ def build_parser():
     p_ab_revert.add_argument("--by", required=True, help="reviewer email recorded on the change")
     _add_tenant_flag(p_ab_revert)
     p_ab_revert.set_defaults(func=cmd_abtest_revert_go_live)
+    p_ab_rebuild = ab_sub.add_parser(
+        "rebuild-arm", help="build a live test's generated arm again and update its own page (cycle 109)")
+    p_ab_rebuild.add_argument("test_id")
+    p_ab_rebuild.add_argument("key", nargs="?", type=str.upper, choices=list(abtest.KEYS),
+                              help="the arm to rebuild (A, B or C)")
+    p_ab_rebuild.add_argument("--all", action="store_true", help="rebuild every generated arm of the test")
+    p_ab_rebuild.add_argument("--by", required=True, help="reviewer email; must match a tenant.yaml reviewers entry")
+    _add_tenant_flag(p_ab_rebuild)
+    p_ab_rebuild.set_defaults(func=cmd_abtest_rebuild_arm)
     p_ab_metrics = ab_sub.add_parser("refresh-metrics",
                                      help="cache Shopify orders and Meta spend/impressions/link clicks per test")
     p_ab_metrics.add_argument("--test", help="one test id; default: every live or finished test")
@@ -2559,7 +2590,8 @@ def build_parser():
 
     p_claims_add = claims_sub.add_parser("add")
     p_claims_add.add_argument("text")
-    p_claims_add.add_argument("--category", required=True, choices=["spec", "price", "comparison", "health", "trust"])
+    p_claims_add.add_argument("--category", required=True,
+                              choices=["spec", "price", "comparison", "health", "trust", "promo"])
     p_claims_add.add_argument("--source", required=True)
     p_claims_add.add_argument("--approved-by")
     _add_tenant_flag(p_claims_add)

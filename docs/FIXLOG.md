@@ -7305,3 +7305,125 @@ the DEFAULT is checked on a fresh tenant (both levers off, inbox_plan auto, no a
 PEAK only that each lever is a boolean read from its config; the lever-off behaviour (no Meta call) runs on a
 tenant copy with the lever off; the cycle 108 build and status-file tests turn both levers off on their copy,
 so they do not depend on PEAK's values. Full suite: 3173 passed, 0 failed, 35 skipped.
+
+## Cycle 109 (offer-led landing pages, pipeline hold for unverified offers, rebuild-arm, 2026-10-14)
+
+Branch `cycle109/offer-led-landing` from origin/master 1be16e7 (the verified Community Savings Sale claim).
+No model call, no Meta or Shopify write (FakeClient, the fake Shopify transport, cycle 107's MetaFake).
+
+### Problem
+On prod (2026-10-13/14) the automatic pipeline built five AIIR sale ads ("$300 off every indoor sauna. $500
+off outdoor. Prices go up October 16, so Thursday is your last chance") and their landing pages. With no
+verified sale claim, the ad claims gate filed the amounts as prices that match no product ("not repeated"),
+and the pages wrote lines like "no discount applied" next to the full price. The sale is real (the store's
+promo bar; claim `promo-community-savings-sale-2026-10`, added in 1be16e7). Owner instruction, verbatim: "we
+need to regenerate new landing pages. if the ad is about a sale, the landing page 100% needs to have that as
+primary focus".
+
+### Change
+- **harness/offer.py (new).** `extract_offer`: the ad brief's `offer` block {amounts, codes, deadline, name,
+  sentence} from the ad's own words (transcript and the ad copy around the media), deterministic; `sentence`
+  is the ad's sentence(s) with the amount or code, never the "last chance" one. `match_offer`: a verified claim
+  of category `promo` whose text holds every amount and code the ad states (with neither, the sale name), the
+  same deadline day when both give one, and whose own deadline has not passed ("prices go up on <date>" ends
+  ON that date, "ends <date>" after it). `apply_to_run`: match -> `ad_brief.offer.claim_id`, the claim in
+  `facts_pack.verified_claims`, `facts_pack.offer`; no match -> `facts_pack.offer_unverified`. `offer_view`:
+  what the renderer prints, all from the claim text (sale name, the product's amount and code, the deadline
+  sentence, the CTA note, the bar text, the first checked claim). Gates: `find_offer_headline_violations`,
+  `find_denial_violations`, `find_offer_in_checked_violations`, `deadline_violations`. `add_promo_claim`
+  (the Ads page form), `run_offer`.
+- **Wiring.** ingest.run_ingest adds the offer; pipeline.ground matches it (all verified claims, today) and
+  rewrites ad_brief.json and facts_pack.json; claims.gate_ad_brief_claims takes `offer_claim`: an ad claim
+  that states the matched offer is matched to the promo claim (no more "price that matches no product").
+- **Landing (offer-led).** `landing.render_context` adds `offer` and makes the sale name the eyebrow;
+  `landing.template_page` puts the offer first in the checked claims the look loops (page.json unchanged, so
+  shipped and imported looks all get it); the offer claim joins Sources. Markup once in the shared pieces:
+  `heroes/_parts.html` `offer_lines` (in `price`: "$300 off with code INDOOR300", then "Prices go up on
+  October 16, 2026.") and `offer_note` (after `act`: "Offer applied at checkout with the code."), for every
+  composition; the same two in `heroes/ad_first.html` (open, proof, imported looks with no look.json; a look
+  may not `{% import %}`, the cycle 87 validator refuses it, so the adapter carries the markup inline). Each
+  look's sticky bar: "$8,250 · Code INDOOR300"; the cinematic price band prints the line and the deadline.
+  Indoor/outdoor: the claim's "$X off <scope> with code C" pair whose scope words are in the product's slug,
+  title or URL; none or both -> the claim's whole offer clause and "Codes A / B" in the bar. Writer lines
+  (offer-led, or the unverified rule) and cartridge.md say the same; look_import_rules.md documents `offer`.
+- **Listicle (lighter).** `listicle.render_context` has `offer`; the open look prints the line and the
+  deadline under the buy box's price and "<sale name>: <line> <note>" in the closing band. The listicle writer
+  gets the offer lines; its gate gets the denial check. (The shipped listicle look has no sticky bar.)
+- **Gates.** `landing:offer_headline` (an offer-led headline names the saving or the sale in words),
+  `landing:offer_in_checked:<i>` (the writer never carries the offer in checked_claims, verified or not),
+  `landing:offer_denial:<path>` / `listicle:offer_denial:<path>` ("no discount", "full price", "not on sale",
+  only when the ad states an offer). `listicle.find_urgency_violations(allowed_deadlines=)`: every cartridge
+  that uses it now also refuses a deadline sentence ("prices go up ...", "sale ends ...", "until October
+  16"), key `<prefix>:urgency:deadline`; the landing page allows exactly the verified claim's own deadline
+  sentence. The urgency phrase list itself ("last chance", "countdown", ...) is unchanged.
+- **Unverified offer.** Writer: say nothing about discounts, sales, codes or deadlines, never that there is
+  none; render stamps `page.offer_unverified = true` (landing and listicle).
+- **Pipeline hold (harness/abtest_inbox.py).** After a build, `offer_hold(rec)` reads each generated arm's
+  ad_brief.json; an offer with no claim_id marks the test `offer_hold` {state held, reason "held: offer not
+  verified", sentence, offer}. It is still published; the lever skips it (`auto_go_live.state: held`); the
+  inbox reason and the status line say so. `release_held` (each from-inbox run, before the lever's retry):
+  a held live test whose offer now matches verified.json gets `rebuild_all` (offer-led pages), hold
+  `released`, and with the lever on `auto_go_live: pending`, so the same run's retry takes it live. A failed
+  rebuild -> `rebuild_failed`, not retried. Ads page: the ad's sentence and a form (prefilled with the
+  sentence and its deadline) -> `POST /test/<id>/offer-claim` -> `offer.add_promo_claim` writes
+  {id promo-<name>-<date>, category promo, source "owner <email> <date>", approved_by} to verified.json, only
+  when the text states the ad's offer; audited.
+- **rebuild-arm (harness/abtest_rebuild.py, CLI).** `harness abtest rebuild-arm <test_id> <A|B|C> --by
+  <email>` / `--all`: refuses a test that is not live, an external arm, an arm with no published page, an
+  unlisted reviewer (with --all, every arm is checked before any build). One run of the arm's own build
+  pinned to its look and hero, next seed of the arm's seed family, `HARNESS_DESIGN_GATE=warn` for that run;
+  `runstate.carry_published` gives the new run the old page record, `record_abtest` the beacon, then
+  `jobs._publish_update` (approve, ship, `publish --update`): a PUT to the arm's own page id. The variant's
+  run_dir becomes the new run; the old one goes to `history` with its design score, look and hero. Views and
+  clicks are not reset. `harness claims add --category promo` is accepted.
+
+### Exact rebuild command for the five AIIR tests
+```
+.venv/bin/harness abtest rebuild-arm <test_id> --all --by caleb@peaksaunas.com --tenant peak-saunas
+```
+(one per test; `harness abtest status` lists the ids). The claim is verified, so each new run is offer-led.
+
+### Verify
+- tests/test_offer_cycle109.py (50): extraction (AIIR, code, percent, sale name, no offer, a non-deadline
+  date, ad copy); matching (the real claim on 10-14 and 10-15, not on 10-16; wrong amount, code, deadline
+  day, name; category); the claims step both ways; the ad claims gate with and without the offer; the first
+  screen on all five looks and on open with each of five compositions (code and deadline sentence exactly
+  once in the first screen, eyebrow, CTA note, bar, offer first in the checked claims); outdoor and
+  Matterhorn lines; listicle; unverified (no offer text, flag, writer line); denial in a fact, an FAQ answer
+  and the closing; the offer kept out of checked claims; the listicle denial; the canned offer-led page
+  passes every gate; the deadline allow-list (5 cases); a deadline with no offer; the offer headline gate; a
+  fake run of the sale ad (ingest -> claims step -> one repair for `landing:offer_headline` -> offer-led
+  render); the hold (published, not live, no Meta POST, Ads page sentence and form, status line); the form
+  refuses a wrong claim, writes the right one; the next run rebuilds both arms (PUT 500 and 501) and goes
+  live (read back verified); a verified offer is not held; rebuild-arm (seed family, warn gate, one PUT,
+  beacon, history, split unchanged), --all, four refusals, a failed build, an unlisted reviewer.
+- Four mutations (no lever skip for a held test, no deadline allow-list, no claim expiry, no carried page
+  record) fail 1 to 3 of these tests each.
+- No hash pin re-recorded: the offer markup prints nothing on a page with no offer. 33 offer-free renders
+  (5 landing looks x 6 first screens, 3 listicle first screens) hash the same on master 1be16e7 and on this
+  branch (full index.html); tests/test_heroes_cycle94.py and tests/test_blocks_cycle91.py pass unchanged.
+- Headless Chrome shots at 390px (scratch only) of open, proof/split, cinematic/dark_statement,
+  cinematic-light/letters_pill and buybox offer-led renders: the line, the deadline and the note read on
+  light and dark first screens (the note first rendered dark-on-dark in dark_statement; fixed with
+  `color:inherit`).
+- Full suite `PYTHONPATH=. python -m pytest -q`: 3233 passed, 0 failed, 35 skipped (master 1be16e7 in a copy of this tree: 3183
+  passed, 35 skipped).
+
+### Open
+- Not run on prod, against Meta or against Shopify. The five live AIIR tests still show the old pages until
+  rebuild-arm runs on prod (up to ten model-billed runs: two generated arms per test under the automatic plan).
+- The prod tests were built before this cycle, so their ad briefs have no `offer` block and `release_held`
+  never sees them; rebuild-arm re-ingests the ad, so the new runs do.
+- "Offer applied at checkout with the code." follows the claim's "applied at checkout"; the CTA links to the
+  product page, so the buyer types the code. A Shopify discount link (/discount/<code>?redirect=...) would
+  apply it; not built.
+- Matterhorn and Denali have neither "indoor" nor "outdoor" in their slug, title or URL, so they get the
+  whole offer clause, not one amount.
+- The claim form edits verified.json in the prod working tree (uncommitted); commit it on prod, or the next
+  deploy that touches verified.json conflicts.
+- tenants/peak-saunas/guardrails.md still says "never hardcode a code into generated copy" and "we don't use
+  sale urgency as a hook". The code shown comes from the owner-approved claim, not from copy, and there is no
+  urgency wording; the guardrail text itself is not updated here.
+- A manual go-live (the card button, `abtest go-live`) still works on a held test.
+- The deadline phrases in the shared urgency gate apply to the listicle and the product page too; no current
+  fixture used them.

@@ -509,6 +509,10 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         # that restates its body, one brand spelling, no narration about the
         # ad, myths that are myths, the ad's hook at the top of the page.
         forms = _product_name_forms(facts_pack, tenant)
+        # Cycle 109: an ad that states an offer -- the page never denies it.
+        from . import offer as offer_mod
+
+        problems += offer_mod.find_denial_violations(page, facts_pack, prefix="listicle")
         problems += listicle_quality.find_quality_violations(
             page, style=listicle_style, ad_brief=ad_brief, facts_pack=facts_pack,
             brand_regex=_brand_spelling_regex(facts_pack, tenant), display_name=tenant.display_name,

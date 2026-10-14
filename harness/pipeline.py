@@ -20,6 +20,7 @@ from . import budget as budget_mod
 from . import design_gate as design_gate_mod
 from . import drafts as drafts_mod
 from . import jev
+from . import offer as offer_mod
 from . import pagechecks
 from . import repair
 from . import review_md
@@ -372,6 +373,16 @@ def ground(state):
         # so a facts source without the keyword is untouched.
         **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
     )
+    # Cycle 109: the ad's offer -> its verified promo claim (harness/offer.py).
+    # A match puts the claim into facts_pack (offer-led page); no match marks
+    # the offer unverified (the page says nothing about discounts).
+    if state.ad_brief.get("offer"):
+        offer_mod.apply_to_run(
+            state.ad_brief, state.facts_pack,
+            state.facts_source.all_verified_claims(state.live_price_claims_by_slug, extra_claims=state.pdp_claims),
+            today=state.today_iso, log=state.log,
+        )
+        (state.run_dir / "ad_brief.json").write_text(json.dumps(state.ad_brief, indent=2))
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
     if "quiz" in state.selected:
         _gate_quiz_rubric(state)
@@ -423,6 +434,7 @@ def gate_ad_claims(state):
         policy=policy,
         log=state.log,
         semantic_mapping=semantic_mapping,
+        offer_claim=(state.facts_pack or {}).get("offer"),
     )
     state.log.gate_result(
         "PASS",

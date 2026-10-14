@@ -7,11 +7,20 @@
 {% macro h1(p, hr, display=True) -%}
 {% if display %}<h1 class="{{ p }}h1{{ '' if hr.display_fits else ' ' ~ p ~ 'h1--long' }}">{{ hr.display_html }}</h1>{% else %}<h1 class="{{ p }}h1">{{ hr.headline_html }}</h1>{% endif %}
 {%- endmacro %}
+{# Cycle 109: the verified offer (harness/offer.py offer_view) where the price
+   shows -- the product's amount and code in one line, then the deadline as one
+   plain sentence from the claim. Nothing prints on a page with no offer. -#}
+{% macro offer_lines(p, offer) -%}
+{% if offer %}<span class="{{ p }}offer ld-offer" style="font-weight:600;font-size:15px;opacity:1;color:inherit">{{ offer.line }}</span>{% if offer.deadline %}<span class="{{ p }}deadline ld-deadline">{{ offer.deadline }}</span>{% endif %}{% endif %}
+{%- endmacro %}
+{% macro offer_note(p, offer) -%}
+{% if offer and offer.cta_note %}<p class="{{ p }}offer-note ld-offer-note" style="margin:8px 0 0;font-size:13px;line-height:1.4;color:inherit">{{ offer.cta_note }}</p>{% endif %}
+{%- endmacro %}
 {% macro price(p, hr) -%}
-{% if hr.price or hr.financing %}<p class="{{ p }}price">{% if hr.price %}<b>{{ hr.price.text }}</b>{% endif %}{% if hr.financing %}<span>{{ hr.financing }}</span>{% endif %}</p>{% endif %}
+{% if hr.price or hr.financing %}<p class="{{ p }}price">{% if hr.price %}<b>{{ hr.price.text }}</b>{% endif %}{{ offer_lines(p, hr.offer) }}{% if hr.financing %}<span>{{ hr.financing }}</span>{% endif %}</p>{% endif %}
 {%- endmacro %}
 {% macro act(p, hr, ghost=False) -%}
-<div class="{{ p }}act"><a class="{{ hr.cta.cls }} hr-cta" href="{{ hr.cta.url }}">{{ hr.cta.text }}</a>{% if hr.secondary %}<a class="{{ hr.secondary.cls }} {{ p }}{{ 'ghost' if ghost else 'text' }}" href="{{ hr.secondary.href }}">{{ hr.secondary.text }}</a>{% endif %}</div>
+<div class="{{ p }}act"><a class="{{ hr.cta.cls }} hr-cta" href="{{ hr.cta.url }}">{{ hr.cta.text }}</a>{% if hr.secondary %}<a class="{{ hr.secondary.cls }} {{ p }}{{ 'ghost' if ghost else 'text' }}" href="{{ hr.secondary.href }}">{{ hr.secondary.text }}</a>{% endif %}</div>{{ offer_note(p, hr.offer) }}
 {%- endmacro %}
 {% macro trust(p, hr) -%}
 {% if hr.trust %}<ul class="{{ p }}trust">{% for t in hr.trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}

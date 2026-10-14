@@ -41,6 +41,17 @@ Cycle 108 (owner decision 2026-10-13, docs/ABTEST.md "Automatic pipeline"):
   its test is marked "manual link": go-live cannot change that ad;
 - the lever never goes live for a test created before abtest.auto_since;
 - each run writes its summary to runs/auto-pipeline.json (the Ads page).
+
+Cycle 109 (owner, 2026-10-14: "if the ad is about a sale, the landing page
+100% needs to have that as primary focus"): an ad whose brief states an offer
+(harness/offer.py) that matched no verified promo claim is built and
+published but NOT taken live on Meta: the test gets `offer_hold` {state
+"held", reason "held: offer not verified", the ad's offer sentence}, the lever
+skips it and the Ads page shows the sentence with a form that adds the promo
+claim. Each later from-inbox run (`release_held`) checks the held tests
+against claims/verified.json; once the claim matches, it rebuilds the
+generated arms on their own pages (harness/abtest_rebuild.py, now offer-led)
+and marks the lever pending, so the lever's hourly retry takes the test live.
 """
 import argparse
 import collections
@@ -54,6 +65,7 @@ import urllib.parse
 from pathlib import Path
 
 from . import abtest, budget, exits, meta_ingest
+from . import offer as offer_mod
 
 BUDGET_REASON = "budget cap"
 # Cycle 108: the effective_status values from-inbox builds for: approved and
@@ -173,8 +185,34 @@ def manual_link_reason(item):
     return None
 
 
+def offer_hold(rec):
+    """Cycle 109: the ad's offer block when a built generated arm's ad brief
+    states an offer that matched no verified promo claim, else None."""
+    for v in rec.get("variants") or []:
+        if abtest.is_external(v) or not v.get("run_dir"):
+            continue
+        offer, claim_id = offer_mod.run_offer(Path(v["run_dir"]))
+        if offer and not claim_id:
+            return offer
+    return None
+
+
+def is_held(rec):
+    return (rec.get("offer_hold") or {}).get("state") == "held"
+
+
+def _mark_held(tenant, test_id, offer):
+    rec = abtest.load_test(tenant, test_id)
+    rec["offer_hold"] = {"state": "held", "reason": offer_mod.HOLD_REASON, "sentence": offer.get("sentence") or "",
+                         "offer": offer, "at": abtest._utc_now()}
+    abtest.save_test(tenant, rec)
+    return rec
+
+
 def _lever_skip(tenant, rec):
     """Why the go-live lever leaves this test alone, else None."""
+    if is_held(rec):
+        return offer_mod.HOLD_REASON
     if rec.get("manual_link"):
         return "manual link (the ad is an existing Page post)"
     since = _auto_since(tenant)
@@ -231,6 +269,8 @@ def status_line(tenant, today=None):
     parts.append(f"{run.get('went_live', 0)} live")
     if run.get("pending"):
         parts.append(f"{run['pending']} pending")
+    if run.get("held"):
+        parts.append(f"{run['held']} held (offer not verified)")
     if run.get("waiting") or run.get("left"):
         parts.append(f"{(run.get('waiting') or 0) + (run.get('left') or 0)} waiting")
     by = run.get("skipped_by") or {}
@@ -366,6 +406,9 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
         return {"outcome": "failed", "test_id": test_id, "split_url": None, "reason": rec.get("reason", ""),
                 **plan_info}
 
+    held = offer_hold(rec) if not rec.get("offer_hold") else None
+    if held:
+        rec = _mark_held(tenant, test_id, held)
     split_url, publish_error, published_now = None, None, False
     if _auto_publish(tenant) and rec.get("status") != "live":
         split_url, publish_error = publish_test(tenant, test_id, by=by)
@@ -385,14 +428,68 @@ def build_test_for_item(tenant, ad_id, *, by, runner=None, plan=None):
         skip = _lever_skip(tenant, abtest.load_test(tenant, test_id))
         if skip:
             reason += f"; Meta go-live skipped: {skip}"
+            if skip == offer_mod.HOLD_REASON:  # released (go-live pending) once the claim is verified
+                meta_golive._set_auto(tenant, test_id, "held", skip)
         else:
             go_live = meta_golive.auto_go_live(tenant, test_id, by=by)
         if go_live is not None:
             reason += f"; Meta go-live {go_live['state']}" + (f": {go_live['reason']}" if go_live["reason"] else "")
+    if held:
+        reason += f"; {offer_mod.HOLD_REASON}: {held.get('sentence')!r} (add the promo claim on the Ads page)"
     inbox.set_state(ad_id, "tested", reason)
     return {"outcome": "live" if split_url else "built", "test_id": test_id, "split_url": split_url,
             "reason": reason, "publish_error": publish_error, "meta_go_live": go_live,
-            "published": published_now, **plan_info}
+            "published": published_now, "held": bool(held), **plan_info}
+
+
+def release_held(tenant, *, by, runner=None, log=print, today=None):
+    """Cycle 109: each live test held for an unverified offer whose offer now
+    matches a verified promo claim (claims/verified.json, read fresh): its
+    generated arms are rebuilt on their own pages (offer-led now), the hold
+    is released, and with the lever on its go-live is marked pending for
+    meta_golive.retry_pending. A failed rebuild marks the hold
+    "rebuild_failed" (not retried; `harness abtest rebuild-arm --all`). Returns
+    the released test ids."""
+    import json as _json
+
+    from . import abtest_rebuild, meta_golive
+
+    held = [r for r in abtest.list_tests(tenant) if is_held(r) and r.get("status") == "live"]
+    if not held:
+        return []
+    try:
+        claims = _json.loads((tenant.claims_dir / "verified.json").read_text())
+    except (OSError, ValueError) as e:
+        log(f"held tests: cannot read verified.json ({e})")
+        return []
+    today = today or datetime.date.today().isoformat()
+    released = []
+    for rec in held:
+        test_id = rec["test_id"]
+        claim = offer_mod.match_offer(rec["offer_hold"].get("offer"), claims, today)
+        if claim is None:
+            continue
+        if not budget_ok(tenant):
+            log(f"held test {test_id}: claim {claim['id']} verified; daily budget cap reached, rebuilt next run")
+            break
+        log(f"held test {test_id}: offer verified by claim {claim['id']}; rebuilding its generated arms")
+        try:
+            abtest_rebuild.rebuild_all(tenant, test_id, by=by, runner=runner, log=log)
+        except abtest.AbtestError as e:
+            rec = abtest.load_test(tenant, test_id)
+            rec["offer_hold"].update(state="rebuild_failed", reason=f"rebuild failed: {e}", claim_id=claim["id"],
+                                     checked_at=abtest._utc_now())
+            abtest.save_test(tenant, rec)
+            log(f"  {test_id}: rebuild failed: {e}")
+            continue
+        rec = abtest.load_test(tenant, test_id)
+        rec["offer_hold"].update(state="released", claim_id=claim["id"], released_at=abtest._utc_now(),
+                                 reason=f"offer verified by claim {claim['id']}; arms rebuilt")
+        abtest.save_test(tenant, rec)
+        if abtest.settings(tenant)["auto_go_live"] and (rec.get("auto_go_live") or {}).get("state") == "held":
+            meta_golive._set_auto(tenant, test_id, "pending", f"offer verified by claim {claim['id']}")
+        released.append(test_id)
+    return released
 
 
 def _pending(inbox, tenant):
@@ -469,7 +566,7 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
         log(f"  {ad_id}: {outcome['outcome']} {outcome.get('test_id') or ''} {outcome.get('reason') or ''}".rstrip())
         items.append({"ad_id": ad_id, "ad_name": item.get("ad_name") or "", "outcome": outcome["outcome"],
                       "test_id": outcome.get("test_id"), "plan": outcome.get("plan"),
-                      "plan_rule": outcome.get("plan_rule")})
+                      "plan_rule": outcome.get("plan_rule"), "held": bool(outcome.get("held"))})
         if outcome.get("published"):
             summary["published"].append(ad_id)
         if (outcome.get("meta_go_live") or {}).get("state") == "done":
@@ -482,6 +579,9 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
             log(f"daily budget cap reached during {ad_id}: its test resumes on the next run")
             break
         summary["failed" if outcome["outcome"] == "failed" else "built"].append(ad_id)
+    # Cycle 109: held tests whose offer is now a verified claim: rebuilt
+    # offer-led, then (lever on) pending for the retry just below.
+    summary["released"] = release_held(tenant, by=by, runner=runner, log=log)
     if cfg["auto_go_live"]:
         # Cycle 107: tests the lever left pending (ad not ACTIVE yet) go live
         # as soon as Meta has approved their ad.
@@ -497,6 +597,7 @@ def from_inbox(tenant, *, by, limit=None, runner=None, log=print, plan=None):
         "left": len(summary["left"]), "stopped": summary["stopped"], "skipped": len(skipped),
         "skipped_by": dict(skipped_by.most_common()), "spend_usd": round(_today_spend(tenant) - spend_before, 4),
         "auto_publish": cfg["auto_publish"], "auto_go_live": cfg["auto_go_live"], "inbox_plan": cfg["inbox_plan"],
+        "held": sum(1 for r in abtest.list_tests(tenant) if is_held(r)), "released": len(summary["released"]),
         "items": items,
     })
     return summary

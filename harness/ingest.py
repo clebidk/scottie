@@ -358,4 +358,13 @@ def run_ingest(*, input_arg, workdir, client, model, budget, log, ffmpeg_bin, wh
     # sent to the writer), so it keeps the historical spelling; the function
     # behind it does not have to.
     ad_brief["_dropped_emf_claims"] = drop_banned_topic_claims(ad_brief, log)
+    # Cycle 109: the ad's offer (discount, code, deadline, sale name), read
+    # from its own words, not by the model; harness/offer.py. The claims step
+    # (pipeline.ground) matches it to a verified promo claim.
+    from .offer import offer_from_brief
+
+    offer = offer_from_brief(ad_brief, ad_copy)
+    if offer:
+        ad_brief["offer"] = offer
+        log.event("ingest", f"offer in the ad: {offer['sentence']!r}")
     return ad_brief

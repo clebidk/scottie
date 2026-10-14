@@ -356,6 +356,48 @@ renders from facts_pack; only its writer fields (`page.json` `blocks.<id>`) reac
 its gates run. See docs/BLOCKS.md for the catalog, how a look declares blocks, and how to write a
 block. `--look cinematic|buybox`, A/B/C `landing:cinematic` / `landing:buybox`.
 
+**Offer-led pages (cycle 109).** Owner, 2026-10-14: "if the ad is about a sale, the landing page
+100% needs to have that as primary focus". `harness ingest` adds an `offer` block to the ad brief
+when the ad's own words (the transcript and the copy around the media) state a discount, a code, a
+deadline or a sale name: `amounts`, `codes`, `deadline`, `name` and `sentence` (the ad's sentence
+that states the offer, never the "last chance" one). The read is deterministic (harness/offer.py),
+not a model call. The ground stage matches it to a verified claim of category `promo` whose text
+holds every amount and code the ad states (and the same deadline day) and whose own deadline has
+not passed; the match is `offer.claim_id`, the claim joins `facts_pack.verified_claims` and
+`facts_pack.offer` is set. Then the landing page is offer-led, all from the claim text:
+- eyebrow = the sale name (the claim's text before the colon);
+- the headline is the writer's, about the offer in words (gate `landing:offer_headline`);
+- under the price: the product's own amount and code in one line ("$300 off with code INDOOR300";
+  indoor/outdoor picked from the product's slug, title and URL; a product that matches neither or
+  both gets the claim's whole offer clause), then the claim's deadline as one sentence ("Prices go
+  up on October 16, 2026.");
+- under the first CTA: "Offer applied at checkout with the code." (only when the claim says "at
+  checkout");
+- the sticky bar: "$8,250 · Code INDOOR300";
+- the first checked claim: the ad's sentence as "the ad said", the claim text as the fact. The
+  renderer adds it (page.json is unchanged); the writer may not write an offer item
+  (`landing:offer_in_checked`).
+
+The markup is in the shared pieces: `heroes/_parts.html` (`offer_lines`, `offer_note`, used by
+every composition through `price` and `act`) and `heroes/ad_first.html` (the open and proof first
+screen, and every imported look with no look.json). Each look's sticky bar and the cinematic price
+band print `ld.offer`. With no offer every page renders byte for byte as before (the cycle 94 and
+91 hash pins hold). The listicle gets a lighter touch: the offer line and the deadline under the
+buy box's price, and "<sale name>: <line> Offer applied at checkout..." in the closing band.
+
+No countdown, no "last chance", no invented scarcity. The urgency gate
+(`listicle.find_urgency_violations`, every cartridge that uses it) now also refuses a deadline
+sentence ("prices go up ...", "sale ends ...", "until October 16"), except the verified claim's own
+deadline sentence, word for word, on an offer-led page.
+
+**Unverified offer.** When the ad states an offer and no promo claim matches, the facts pack gets
+`offer_unverified`, the writer is told to say nothing about discounts, sales, codes or deadlines
+(neither that one exists nor that there is none), page.json records `offer_unverified: true`, the
+checked claims may not carry the offer, and no line may deny it ("no discount applied", "full
+price", "not on sale": `landing:offer_denial`, `listicle:offer_denial`). The A/B/C pipeline holds
+such a test off Meta (docs/ABTEST.md "Held offers"). Add a promo claim with
+`harness claims add "<text>" --category promo --source "<where>"` or the Ads page form.
+
 ## Tenant looks (cycle 87, "Import a page")
 
 A look can also belong to a TENANT: `tenants/<t>/looks/<cartridge>/<slug>/`
