@@ -7462,3 +7462,44 @@ Same branch, origin/master 797f189 merged (cycle 109 merged as 2525d8d).
 - **Open.** Not run on prod; the two proof B arms are rebuilt by the owner after the merge. The outlet claim
   still needs a writer repair (one attempt); if the writer repeats it, the run STOPs as before. Dropping a
   checked claim can leave 2 items, which the gate reports as a count failure for the writer to fix.
+
+## Cycle 104b (hero photo rotation: top 4 of the winning tier, 2026-10-14)
+Branch `cycle104/hero-photo-rotation`, fast-forwarded to origin/master 49516cf (cycle 104 is in it).
+
+### Problem
+On prod on 2026-10-14 the owner marked ten real people photos "fits any model". A re-render of 28
+live arms put one photo (asset-photo-bcf3510b6579, two men carrying a panel, landscape, 1600 wide)
+on 17 of the 28 first screens. Cycle 104's tie (same portrait rank, score within 0.5) was too
+narrow: the landscape photo outscores every portrait people photo by the portrait rank and the
+crop fit, so nothing tied and nothing rotated.
+
+### Change
+- **`fill_slots` (harness/images.py)**: the rotation group is now the top `ROTATE_TOP` (4) library
+  photos of the winning shot tier whose quality is within `ROTATE_QUALITY` (1.5) of the best
+  quality in that tier (one point lower is in, two points lower is out). The crop fit, the
+  portrait rank, the model bonus and the wanted-shot order no longer split the group. The group is
+  ordered by its score without the seeded jitter, then by id, so the order is the same for every
+  seed and seeds 1 to k land on k different photos; seed 0 leads with the best-ranked of them.
+  `ROTATE_WINDOW` is gone.
+- Unchanged: a better tier always wins; ad stills keep the ad_frames record's order (the group is
+  library photos only, and nothing rotates when an ad still or a cut-out ranks first); the
+  `used` set and the no-repeat rule; the slot note `picked <id> by seed from <k> tied (<ids>)`.
+- Kept out of the group (they stay in rank order behind it): blurry, AI-generated and
+  retired-mark photos.
+
+### Tests (tests/test_photo_slots_cycle101.py)
+- One landscape and three portrait people photos of equal quality, 16:9 crop: seeds 1 to 4 give
+  four different heroes; seed 0 gives the landscape one. (Fails before this change.)
+- A photo two quality points lower is never picked over 12 seeds, even with the page's model.
+  (Fails before this change.)
+- A quality-2 portrait room photo beats every people photo for seeds 1 to 8.
+- The cycle 104 tests still pass unchanged.
+
+### Behaviour change to check
+A quality-3 photo of the page's own model now loses to an any-model quality-5 photo of the same
+tier (before: the +5 model bonus won). That follows the "two points lower is never picked" rule.
+
+### Verification
+- Targeted (photo slots 101, images 93, heroes 94, grading 97): 136 passed, 21 skipped.
+- Full suite `PYTHONPATH=. python -m pytest -q`: 3241 passed, 0 failed, 35 skipped.
+- Not run on prod: the 28-arm re-render is for the owner after the merge.
