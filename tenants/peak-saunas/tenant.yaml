@@ -382,7 +382,7 @@ abtest:
   # existing-post creative. Acts only on tests from-inbox publishes, so it
   # needs auto_publish: true too. Manual go-live (`harness abtest go-live`,
   # the Ads page's "Go live on Meta") works with the lever off.
-  auto_go_live: false  # owner: paused 2026-10-14 until offer-led pages (cycle 109) deploy; new ads still build + publish
+  auto_go_live: true   # owner: on 2026-10-13; paused and resumed 2026-10-14 after offer-led pages (cycle 109)
   # Cycle 108 (owner decision 2026-10-13): "lets turn it on. only exception is
   # if ad is uploaded with specific landing page, that becomes A of the A/B/C
   # test and only 2 others are generated". The plan of each test from-inbox
