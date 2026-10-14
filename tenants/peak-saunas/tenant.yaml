@@ -342,6 +342,9 @@ reviewers:
   - name: Caleb
     email: caleb@peaksaunas.com
     role: backup
+  - name: Nery
+    email: nery@aiir.agency
+    role: reviewer
 
 # harness/publishers/shopify.py -- needs SHOPIFY_STORE + SHOPIFY_TOKEN in
 # tenants/peak-saunas/.env (neither is set yet; every publish path fails
