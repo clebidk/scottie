@@ -7427,3 +7427,38 @@ primary focus".
 - A manual go-live (the card button, `abtest go-live`) still works on a held test.
 - The deadline phrases in the shared urgency gate apply to the listicle and the product page too; no current
   fixture used them.
+
+### Cycle 109b (the writer and the renderer agree on who owns the offer, 2026-10-14)
+Same branch, origin/master 797f189 merged (cycle 109 merged as 2525d8d).
+- **Problem.** On prod, `harness abtest rebuild-arm --all` on the five AIIR tests gave offer-led pages for 8 of
+  10 arms. Both `landing:proof` B arms STOPped at the page gate, twice each: `$.checked_claims[0]` "each item
+  needs both ad_said and fact" (twice), `$.checked_claims[5].ad_said` (the offer again: `offer_in_checked`),
+  `$.faq.questions[0].answer` (a denial: `offer_denial`) and `$.faq.questions[2].answer` (the outlet claim,
+  the pre-existing power rule). The renderer adds the offer as the first checked claim, but the writer was
+  still asked for 4-6 items and was not told what the renderer adds; it left a placeholder for the offer,
+  repeated it later and denied it in the FAQ.
+- **Change.** `offer.writer_lines` states exactly what the renderer adds (the sale name, the offer line, the
+  deadline sentence, the CTA note, the bar text, the first checked claim with its ad sentence) and what the
+  writer must not write: 3-5 checked claims about the ad's other claims, no offer item, placeholder or empty
+  item, nothing about discounts, sales, codes or deadlines outside the hero, no FAQ question about them.
+  `landing.checked_range`: an offer-led page asks for 3-5 and the gate accepts 3-6 (4-6 otherwise).
+  `offer.tidy_page`, run on every write attempt before the gate (landing and listicle, only when the ad states
+  an offer), fixes the slips in place instead of failing the run: drops a checked claim that cites the promo
+  claim or states the offer, drops one with no ad_said or fact, drops a FAQ entry whose question is about the
+  offer, removes a sentence that denies the offer (an answer or fact left empty drops its entry); each logged
+  "fix: ..." and counted as a deterministic fix. The `offer_in_checked` and `offer_denial` gates stay as the
+  backstop. "Sales call", "sales team", "no sales pressure" no longer count as offer words or denials (the
+  canned subhead says "without a sales call"); "deal" was dropped from both lists.
+- **Verify.** 5 new tests in tests/test_offer_cycle109.py (55): the writer lines name every renderer-added
+  piece and the 3-5 rule; the gate accepts 3, 5 and 6 writer items on an offer-led page; `tidy_page` restores
+  the canned proof page exactly from the four slips and does nothing without an offer; end-to-end fake runs
+  (FakeClient) of the sale ad in the **proof** and **cinematic** looks whose first writer answer carries the
+  four prod refusals and whose repair answer fixes only the outlet claim: the three offer slips are fixed in
+  place, the outlet claim costs one repair, `gate PASS on attempt 2`, the page renders offer-led with the code
+  and the deadline once in the first screen and the offer first in the checked claims. With the tidy step
+  switched off, both runs STOP (checked). `python -m evals.fake_run ... --cartridges landing --look proof` and
+  `--look cinematic` (founder fixture, no offer): exit 0; the run folders were deleted. Full suite
+  `PYTHONPATH=. python -m pytest -q`: 3238 passed, 0 failed, 35 skipped.
+- **Open.** Not run on prod; the two proof B arms are rebuilt by the owner after the merge. The outlet claim
+  still needs a writer repair (one attempt); if the writer repeats it, the run STOPs as before. Dropping a
+  checked claim can leave 2 items, which the gate reports as a count failure for the writer to fix.

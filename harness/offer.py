@@ -73,8 +73,11 @@ DEADLINE_PHRASE_RE = re.compile(
 # Wording that tells the reader there is no offer. With an offer in the ad
 # (verified or not) no page may say it (the prod pages said "no discount
 # applied" next to the full price).
+# "sales call", "sales team", "no sales pressure" are not about a sale (the
+# landing page's own subhead says "without a sales call").
+_NOT_SALES_TALK = r"(?!\s+(?:calls?|pitch(?:es)?|pressure|team|reps?|people|person|tax|staff|process))"
 _DENIAL_RE = re.compile(
-    r"\bno\s+(?:discounts?|sales?|promo(?:tion)?s?|coupons?|codes?|deals?)\b(?:\s+(?:is\s+|are\s+)?"
+    r"\bno\s+(?:discounts?|sales?|promo(?:tion)?s?|coupons?|codes?)\b" + _NOT_SALES_TALK + r"(?:\s+(?:is\s+|are\s+)?"
     r"(?:applied|needed|required|available|offered|running))?|\bnot\s+(?:currently\s+)?on\s+sale\b|"
     r"\bfull\s+(?:retail\s+)?price\b|\bdiscounts?\s+(?:do|does)\s+not\s+apply\b|\bwithout\s+(?:a|any)\s+"
     r"(?:discount|sale|code|coupon)\b|\bnever\s+(?:discounted|on\s+sale)\b|\bthere\s+is\s+no\s+(?:sale|discount)\b",
@@ -368,28 +371,145 @@ UNVERIFIED_LINE = (
 )
 
 
+# Cycle 109b: the offer-led page's checked claims. The renderer adds the
+# offer item before the writer's own items, so the writer is asked for 3-5
+# and the gate accepts 3-6 (a writer that still writes six is not refused).
+WRITER_CHECKED_RANGE = (3, 5)
+GATE_CHECKED_RANGE = (3, 6)
+
+
 def writer_lines(facts_pack, cartridge="landing"):
-    """The writer's offer lines: offer-led (landing) or the unverified rule."""
+    """The writer's offer lines: what the renderer adds and what the writer
+    must not write (offer-led), or the unverified rule. Cycle 109b: stated
+    exactly, after prod's proof-look runs left a half-filled offer item in
+    checked_claims[0], repeated the offer in a later item and denied it in
+    the FAQ."""
     fp = facts_pack or {}
     if fp.get("offer_unverified"):
         return [UNVERIFIED_LINE]
     view = offer_view(fp)
     if view is None:
         return []
-    deadline = (f" If the page states the deadline, it is exactly this sentence, with claim_ids "
-                f"[\"{view['claim_id']}\"]: \"{view['deadline']}\"" if view["deadline"] else "")
+    added = (f"the line \"{view['line']}\" under the price"
+             + (f", the sentence \"{view['deadline']}\" under it" if view["deadline"] else "")
+             + (f", \"{view['cta_note']}\" under the first CTA" if view["cta_note"] else "")
+             + f", \"{view['bar']}\" in the sticky bar")
     if cartridge != "landing":
-        return [f"The ad is about a verified offer (claim {view['claim_id']}). The renderer shows it with the price; "
-                "do not restate amounts, codes or the deadline in your copy." + deadline]
+        return [f"The ad is about a verified offer (claim {view['claim_id']}). The renderer adds {added}. Do not "
+                "write about discounts, sales, codes, prices going up or deadlines anywhere -- not that there is "
+                "an offer and not that there is none -- and no FAQ question about them."]
+    lo, hi = WRITER_CHECKED_RANGE
     return [
-        f"This page is OFFER-LED: the ad is about a verified offer (claim {view['claim_id']}: "
-        + json.dumps(fp["offer"]["text"]) + "). The renderer shows the sale name as the eyebrow, the amount and "
-        "the code next to the price, the deadline sentence, the code at the first CTA and in the sticky bar, and "
-        "the offer as the FIRST checked claim -- do not write the offer as a checked_claims item yourself.",
+        f"This page is OFFER-LED (verified claim {view['claim_id']}: " + json.dumps(fp["offer"]["text"]) + "). "
+        f"THE RENDERER ADDS, from that claim: the sale name \"{view['name'] or ''}\" as the eyebrow, {added}, and "
+        "the FIRST checked claim (the ad said: " + json.dumps(view["check"]["ad_said"]) + "; the fact: the claim "
+        "text).",
+        f"YOU WRITE checked_claims with {lo}-{hi} items about the ad's OTHER claims (the product, power, size, "
+        "delivery, warranty): every item has ad_said, fact and claim_ids; no offer item, no placeholder or empty "
+        "item for the offer, no item about the sale, a discount, a code or a deadline.",
+        "Nowhere outside hero.headline and hero.subhead do you write about discounts, sales, codes, money off, "
+        "prices going up or deadlines -- not that there is an offer and never that there is none (\"no discount\", "
+        "\"full price\", \"not on sale\" are refused). No FAQ question about discounts, sales, codes or deadlines.",
         "hero.headline is about the offer, in words (no figures, no code, no date): name what the reader saves or "
         "the sale itself, e.g. \"Money off every indoor sauna during the sale\". hero.subhead may say the offer is "
-        "applied at checkout. No countdown, no \"last chance\", no \"hurry\", no invented scarcity." + deadline,
+        "applied at checkout. No countdown, no \"last chance\", no \"hurry\", no invented scarcity.",
     ]
+
+
+def _cites(item, claim_id):
+    return claim_id is not None and claim_id in (item.get("claim_ids") or [])
+
+
+def _strip_denials(text):
+    """`text` without the sentences that deny an offer, or None when none."""
+    kept = [s for s in _sentences(text) if not _DENIAL_RE.search(s)]
+    if len(kept) == len(_sentences(text)):
+        return None
+    return " ".join(kept)
+
+
+def tidy_page(page, facts_pack, cartridge="landing"):
+    """Cycle 109b: the offer rules applied in place before the gate, so a
+    writer slip never costs a repair or STOPs a run. With an offer in the
+    ad (verified or not):
+      - checked_claims (landing): an item that cites the promo claim or
+        states the offer, and an item left without ad_said or fact (the
+        writer's placeholder for the offer), are dropped -- the renderer
+        adds the verified offer itself;
+      - FAQ: an entry whose question is about a discount, sale, code or
+        deadline is dropped;
+      - every prose field: a sentence that denies the offer ("no discount
+        applied", "full price") is removed; a FAQ answer or checked fact left
+        empty drops its entry.
+    Returns the notes it logged (empty when nothing changed)."""
+    fp = facts_pack or {}
+    if not isinstance(page, dict) or not (fp.get("offer") or fp.get("offer_unverified")):
+        return []
+    claim_id = (fp.get("offer") or {}).get("claim_id")
+    notes = []
+    items = page.get("checked_claims")
+    if cartridge == "landing" and isinstance(items, list):
+        kept = []
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                kept.append(item)
+                continue
+            said, fact = str(item.get("ad_said") or "").strip(), str(item.get("fact") or "").strip()
+            if _cites(item, claim_id) or _OFFER_WORDS_RE.search(said) or _OFFER_WORDS_RE.search(fact):
+                notes.append(f"dropped checked_claims[{i}]: the offer (the renderer adds it)")
+            elif not said or not fact:
+                notes.append(f"dropped checked_claims[{i}]: no {'ad_said' if not said else 'fact'} (an offer "
+                             "placeholder)")
+            else:
+                kept.append(item)
+        if len(kept) != len(items):
+            page["checked_claims"] = kept
+    faq = page.get("faq") if isinstance(page.get("faq"), dict) else None
+    questions = faq.get("questions") if faq else None
+    if isinstance(questions, list):
+        kept = []
+        for i, entry in enumerate(questions):
+            if isinstance(entry, dict) and (_OFFER_WORDS_RE.search(str(entry.get("question") or ""))
+                                            or _cites(entry, claim_id)):
+                notes.append(f"dropped faq.questions[{i}]: a question about the offer")
+                continue
+            kept.append(entry)
+        if len(kept) != len(questions):
+            faq["questions"] = kept
+
+    def scrub(node, path):
+        if isinstance(node, dict):
+            for key in list(node):
+                if key in NON_PROSE_KEYS:
+                    continue
+                value = node[key]
+                if isinstance(value, str):
+                    new = _strip_denials(value)
+                    if new is not None:
+                        notes.append(f"removed a denial of the offer from {path}.{key}")
+                        node[key] = new
+                else:
+                    scrub(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                if isinstance(value, str):
+                    new = _strip_denials(value)
+                    if new is not None:
+                        notes.append(f"removed a denial of the offer from {path}[{i}]")
+                        node[i] = new
+                else:
+                    scrub(value, f"{path}[{i}]")
+
+    scrub(page, "$")
+    if isinstance(questions, list) and faq:
+        before = faq["questions"]
+        faq["questions"] = [q for q in before if not (isinstance(q, dict) and not str(q.get("answer") or "").strip())]
+        notes += ["dropped a FAQ entry whose answer was only a denial"] * (len(before) - len(faq["questions"]))
+    if cartridge == "landing" and isinstance(page.get("checked_claims"), list):
+        before = page["checked_claims"]
+        page["checked_claims"] = [c for c in before if not (isinstance(c, dict) and not str(c.get("fact") or "").strip())]
+        notes += ["dropped a checked claim whose fact was only a denial"] * (len(before) - len(page["checked_claims"]))
+    return notes
 
 
 OFFER_HEADLINE_RE = re.compile(r"\b(?:sale|savings?|save|saving|off|discount\w*|deal|offer|code|price[sd]?|"
@@ -429,8 +549,9 @@ def find_denial_violations(page, facts_pack, prefix="landing"):
     return problems
 
 
-_OFFER_WORDS_RE = re.compile(r"\b(?:sales?|discount\w*|promo\w*|coupons?|money\s+off|savings|"
-                             r"deals?)\b|(?:\$\s?\d[\d,]*|\d{1,2}\s?%)\s+off\b", re.IGNORECASE)
+_OFFER_WORDS_RE = re.compile(r"\b(?:sales?\b" + _NOT_SALES_TALK + r"|discount\w*|promo\w*|coupons?|money\s+off|"
+                             r"promo\s+codes?|(?:discount|coupon)\s+codes?)|(?:\$\s?\d[\d,]*|\d{1,2}\s?%)\s+off\b",
+                             re.IGNORECASE)
 
 
 def find_offer_in_checked_violations(page, facts_pack, prefix="landing"):

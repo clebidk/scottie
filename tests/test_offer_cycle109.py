@@ -355,6 +355,118 @@ def test_a_fake_run_of_the_sale_ad_matches_the_claim_and_renders_an_offer_led_pa
 
 
 # ---------------------------------------------------------------------------
+# 5b. cycle 109b: the writer and the renderer agree on who owns the offer
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def promo_2099(tmp_path, monkeypatch):
+    """claims/ copied to tmp with the real promo claim's deadline in 2099."""
+    root = tmp_path / "claims"
+    shutil.copytree(TENANT.claims_dir, root)
+    verified = json.loads((root / "verified.json").read_text())
+    for c in verified:
+        if c["category"] == "promo":
+            c["text"] = c["text"].replace("2026", "2099")
+    (root / "verified.json").write_text(json.dumps(verified, indent=2) + "\n")
+    monkeypatch.setattr(type(TENANT), "claims_dir", property(lambda self: root))
+    return root
+
+
+WRONG_OUTLET = "It plugs into any standard household outlet, so no electrician is needed."
+DENIAL = "There is no discount applied; you pay the full price."
+
+
+def _prod_like(base, *, outlet_wrong=True):
+    """The four refusals the prod proof-look runs hit on rebuild-arm
+    (2026-10-14), on a canned page: checked_claims[0] half-filled (an offer
+    placeholder with no fact), the offer again at checked_claims[5], a denial
+    in faq.questions[0].answer and a wrong outlet claim in
+    faq.questions[2].answer."""
+    page = copy.deepcopy(base)
+    page["hero"] = dict(page["hero"], headline="Money off every indoor sauna during the sale", accent_phrase="Money off")
+    items = page["checked_claims"]
+    half = {"ad_said": "What the ad led with.", "claim_ids": ["spec-fuji-capacity"]}   # no fact: a placeholder
+    repeat = {"ad_said": "A sale with money off every indoor sauna.",
+              "fact": "The sale takes money off at checkout.", "claim_ids": [PROMO["id"]]}
+    page["checked_claims"] = [half] + items[:4] + [repeat] + items[4:]
+    faq = page["faq"]["questions"]
+    faq[0] = dict(faq[0], answer=faq[0]["answer"] + " " + DENIAL)
+    if outlet_wrong:
+        faq[2] = dict(faq[2], answer=WRONG_OUTLET)
+    return page
+
+
+def test_the_writer_is_told_exactly_what_the_renderer_adds_and_what_it_must_not_write():
+    fp, _ = _offer_facts()
+    text = "\n".join(landing.writer_lines(fp, look="proof"))
+    for added in ('"Community Savings Sale"', '"$300 off with code INDOOR300"', f'"{DEADLINE}"',
+                  '"Offer applied at checkout with the code."', '"Code INDOOR300"', "the FIRST checked claim"):
+        assert added in text, added
+    assert "checked_claims with 3-5 items" in text and "no placeholder or empty item" in text
+    assert "No FAQ question about discounts" in text and '"no discount"' in text
+    assert "checked_claims has 4-6 items" not in text   # the old count is not also asked for
+
+
+def test_the_gate_accepts_the_writers_list_without_the_offer_item():
+    fp, _ = _offer_facts()
+    page = _landing("open")
+    for n in (3, 5, 6):
+        page["checked_claims"] = (copy.deepcopy(fake_run.LANDING_PAGE["checked_claims"]) * 2)[:n]
+        assert not any(p["key"] == "landing:checked_count" for p in landing.find_landing_violations(page, fp)), n
+    page["checked_claims"] = page["checked_claims"][:2]
+    assert any(p["key"] == "landing:checked_count" for p in landing.find_landing_violations(page, fp))
+
+
+def test_tidy_drops_the_offer_items_strips_the_denial_and_keeps_the_rest():
+    fp, _ = _offer_facts()
+    base = _proof_page()
+    page = _prod_like(base, outlet_wrong=False)
+    page["faq"]["questions"].append({"question": "Is there a discount code?", "answer": "Yes, at checkout."})
+    notes = offer.tidy_page(page, fp, "landing")
+    assert page["checked_claims"] == base["checked_claims"]
+    assert page["faq"]["questions"] == base["faq"]["questions"]
+    assert len(notes) == 4 and any("checked_claims[0]: no fact" in n for n in notes)
+    # nothing to do on a page whose ad states no offer, or with no offer words
+    assert offer.tidy_page(_prod_like(base), _facts_pack(), "landing") == []
+    assert offer.tidy_page(copy.deepcopy(base), fp, "landing") == []
+
+
+@pytest.mark.parametrize("look", ["proof", "cinematic"])
+def test_the_prod_refusals_are_fixed_and_the_page_passes_after_one_repair(look, promo_2099, tmp_path, monkeypatch):
+    """End-to-end fake run (FakeClient) of the sale ad: the writer's first
+    answer has the four prod refusals; the offer ones are fixed in place, the
+    outlet claim goes back to the writer once, the repair answer still
+    repeats the offer slips, and the page passes and renders offer-led."""
+    from tests.conftest import json_response
+
+    base = fake_run._canned_page("landing", None, "peak-saunas", None, None, None, look)
+    real = fake_run._canned_page
+    monkeypatch.setattr(fake_run, "_canned_page",
+                        lambda cartridge, *a, **kw: _prod_like(base) if cartridge == "landing" else real(cartridge, *a, **kw))
+    fixture = tmp_path / "aiir-sale.txt"
+    fixture.write_text(AIIR + "\n")
+    # the writer's repair answer fixes the outlet claim only; the offer slips are still in it
+    repair_answer = json_response(_prod_like(base, outlet_wrong=False))
+    rc, run_dir, _pages = fake_run.run_once(str(fixture), tenant="peak-saunas", cartridges="landing", look=look,
+                                            extra_responses=[repair_answer])
+    assert rc == 0
+    log = next(TENANT.runs_dir.glob("*.log")).read_text()
+    assert "fix: dropped checked_claims[0]: no fact" in log and "fix: dropped checked_claims[5]: the offer" in log
+    assert "fix: removed a denial of the offer from $.faq.questions[0].answer" in log
+    assert "landing:power" in log and "gate PASS on attempt 2" in log
+    page = json.loads((run_dir / "landing" / "page.json").read_text())
+    assert page["look"] == look and len(page["checked_claims"]) == 6
+    assert not any(PROMO["id"] in (c.get("claim_ids") or []) for c in page["checked_claims"])
+    assert DENIAL not in json.dumps(page) and WRONG_OUTLET not in json.dumps(page)
+    html = (run_dir / "landing" / "index.html").read_text()
+    first = _first_screen(html)
+    assert first.count("INDOOR300") == 1 and first.count("Prices go up on October 16, 2099.") == 1
+    checks = html[html.index("$300 off every indoor sauna. $500 off outdoor."):]
+    assert checks.index(PROMO["text"].replace("2026", "2099")) < checks.index(page["checked_claims"][0]["fact"])
+    assert "no discount" not in html.lower() and "full price" not in html.lower()
+
+
+# ---------------------------------------------------------------------------
 # 6. the pipeline hold and the claim form
 # ---------------------------------------------------------------------------
 
