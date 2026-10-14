@@ -385,6 +385,16 @@ band print `ld.offer`. With no offer every page renders byte for byte as before 
 91 hash pins hold). The listicle gets a lighter touch: the offer line and the deadline under the
 buy box's price, and "<sale name>: <line> Offer applied at checkout..." in the closing band.
 
+Cycle 109b: the writer is told exactly what the renderer adds (the eyebrow, the offer line, the
+deadline sentence, the CTA note, the bar, the first checked claim) and what it must not write: 3-5
+checked claims about the ad's other claims (the gate accepts 3-6), no offer item or placeholder,
+nothing about discounts, sales, codes or deadlines outside the hero, no FAQ question about them. A
+slip is fixed in place before the gate, never sent for repair (`offer.tidy_page`, every attempt,
+landing and listicle): an item that cites the promo claim or states the offer and an item with no
+ad_said or fact are dropped, a FAQ entry whose question is about the offer is dropped, a sentence that
+denies the offer is removed (an answer or fact left empty drops its entry). Each fix is logged
+"fix: ...". "Sales call", "sales team", "no sales pressure" are not offer words.
+
 No countdown, no "last chance", no invented scarcity. The urgency gate
 (`listicle.find_urgency_violations`, every cartridge that uses it) now also refuses a deadline
 sentence ("prices go up ...", "sale ends ...", "until October 16"), except the verified claim's own

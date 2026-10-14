@@ -434,9 +434,18 @@ def quote_writer_line(facts_pack):
             "never a quote -- the renderer already shows it. Never invent a quote.")
 
 
+def checked_range(facts_pack, *, writer=False):
+    """CHECKED_RANGE, or on an offer-led page (cycle 109b) the writer's own
+    3-5 items (the renderer adds the offer before them) and a gate that
+    accepts 3-6."""
+    if offer_mod.offer_view(facts_pack) is None:
+        return CHECKED_RANGE
+    return offer_mod.WRITER_CHECKED_RANGE if writer else offer_mod.GATE_CHECKED_RANGE
+
+
 def writer_lines(facts_pack, tenant=None, look=None):
     tenant = tenant or tenant_mod.active()
-    clo, chi = CHECKED_RANGE
+    clo, chi = checked_range(facts_pack, writer=True)
     flo, fhi = FAQ_RANGE
     candidates = _room_candidates(facts_pack, tenant)
     room = (
@@ -558,7 +567,7 @@ AD_SAID_FIGURES_LINE = (
 def find_checked_claims_violations(page, facts_pack):
     items = page.get("checked_claims")
     items = items if isinstance(items, list) else []
-    lo, hi = CHECKED_RANGE
+    lo, hi = checked_range(facts_pack)
     problems = []
     if not lo <= len(items) <= hi:
         problems.append(_problem(

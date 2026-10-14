@@ -28,6 +28,7 @@ from . import pagepatch
 from . import quote_fidelity
 from . import quiz
 from . import landing
+from . import offer as offer_mod
 from . import pdp
 from . import simplicity
 from . import skeletons
@@ -1668,6 +1669,13 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         dropped = cartridge_name == "landing" and landing.drop_unverifiable_quote(page, facts_pack)
         if dropped:
             log.event(f"write.{cartridge_name}", "fix: dropped unverifiable proof.quote")
+        # Cycle 109b: the offer rules the renderer owns (the offer item, no
+        # FAQ about it, no denial) are applied here, never sent for repair.
+        offer_notes = (offer_mod.tidy_page(page, facts_pack, cartridge_name)
+                       if cartridge_name in ("landing", "listicle") else [])
+        for note in offer_notes:
+            log.event(f"write.{cartridge_name}", f"fix: {note}")
+        dropped = int(dropped) + len(offer_notes)
         degenerate = prev_page is not None and degenerate_repair(prev_page, page, prev_problems)
         if degenerate:
             log.event(f"write.{cartridge_name}", f"attempt {attempt}: degenerate repair discarded "
@@ -1687,7 +1695,7 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
             if fixed:
                 log.event(f"write.{cartridge_name}", f"deterministic fix applied: {fixed} field(s)")
                 problems = _gate(page)
-            fixed += int(dropped)
+            fixed += dropped
         deterministic_fix_counts.append(fixed)
         attempts.append(problems)
 

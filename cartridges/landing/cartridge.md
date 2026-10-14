@@ -21,7 +21,7 @@ The page may render in the `proof` look. Then the renderer puts the rating first
 Both count toward the word range.
 
 ## Offer-led pages (only when the hard constraints say so)
-When the ad is about a verified offer (a promo claim in facts_pack.offer), the renderer makes it the page's focus: the sale name as the eyebrow, the amount and code next to the price, the claim's deadline sentence, a note under the first CTA, the code in the sticky bar and the offer as the first checked claim. Write the headline about the offer in words (no figures, code or date); do not write the offer as a checked claim. When the ad's offer is NOT verified, say nothing about discounts, sales, codes or deadlines anywhere -- never that there is none.
+When the ad is about a verified offer (a promo claim in facts_pack.offer), the renderer makes it the page's focus: the sale name as the eyebrow, the amount and code next to the price, the claim's deadline sentence, a note under the first CTA, the code in the sticky bar and the offer as the first checked claim. Write the headline about the offer in words (no figures, code or date). Write 3-5 checked claims about the ad's other claims -- no offer item, no placeholder -- and nothing elsewhere about discounts, sales, codes or deadlines, including no FAQ question about them. When the ad's offer is NOT verified, say nothing about discounts, sales, codes or deadlines anywhere -- never that there is none.
 
 ## Rules
 - 250-450 words. Short, concrete, product first. Second person where it reads naturally.
