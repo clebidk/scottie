@@ -7,7 +7,9 @@
 # claim backs the sentence. The EMF ban is absolute for this tenant and is not
 # negotiable by any cartridge, prompt, or override.
 emf_terms: [emf, electromagnetic]
-banned_names: [sunlighten, crown, olympus, aspen]
+# CLEARLIGHT_GUARD_20261013: legal hold (Sauna Works, Inc. demand letter). Advertorials never name Clearlight
+# or Jacuzzi; see tenants/peak-saunas/clearlight_policy.md.
+banned_names: [sunlighten, crown, olympus, aspen, clearlight, clear light, jacuzzi]
 hype_words: [game-changer, unlock, elevate, journey, revolutionary, unleash, crate-protected]
 ban_exclamation_mark: true
 
@@ -61,7 +63,7 @@ allowed_warranty_spec_label: "Warranty"
 allowed_warranty_spec_value: "7-year residential warranty (terms by component)"
 
 # Scanned in the rendered page as a reader would see it, after tags are stripped.
-visible_text_forbidden_terms: [emf, electromagnetic]
+visible_text_forbidden_terms: [emf, electromagnetic, clearlight, clear light, jacuzzi, "sauna works, inc"]  # CLEARLIGHT_GUARD_20261013
 
 # Competitor naming: what to say instead of the full brand name.
 competitor_aliases:
