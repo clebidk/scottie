@@ -137,9 +137,13 @@ def test_a_landscape_room_photo_beats_the_portrait_one():
 def test_the_portrait_rule_needs_a_long_side_of_1600_no_white_edge_and_a_room_or_exterior():
     for c in (dict(PORTRAIT_ROOM, long_side=1200), dict(PORTRAIT_ROOM, white_edge=True),
               dict(PORTRAIT_ROOM, white_edge=None),   # not measured
-              dict(_cand("p", "lifestyle-person", aspect=0.667, fullbleed=False), long_side=1600, white_edge=False)):
+              dict(_cand("m", "detail-macro", aspect=0.667, fullbleed=False), long_side=1600, white_edge=False)):
         assert not images.portrait_fullbleed(c)
         assert _ids(_fill([FULL_BLEED], [c])[0]) == []
+    # Cycle 104c (owner 2026-10-14): a portrait people photo qualifies too.
+    person = dict(_cand("p", "lifestyle-person", aspect=0.667, fullbleed=False), long_side=1600, white_edge=False)
+    assert images.portrait_fullbleed(person)
+    assert _ids(_fill([FULL_BLEED], [person])[0]) == ["p"]
 
 
 # ---------------------------------------------------------------------------
