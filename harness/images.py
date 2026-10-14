@@ -653,13 +653,20 @@ def shot_tier(c, shots=None):
     return min((SHOT_TIER.get(s, len(SHOT_TIERS)) for s in own), default=len(SHOT_TIERS))
 
 
+PORTRAIT_FULLBLEED_SHOTS = {"room", "exterior", "lifestyle-person"}
+
+
 def portrait_fullbleed(c):
     """Cycle 101 (owner decision 2026-10-09): a room or exterior photo that is
     not fullbleed_ok only because it is portrait (long side >= 1600px, no
     white studio edge, e.g. 1067 x 1600) may fill a full-bleed hero; the
     hero's cover crop on the focal point handles the shape. It ranks after
     the landscape full-bleed photos of its tier (fill_slots)."""
-    return (not c["fullbleed_ok"] and bool(c["shots"] & {"room", "exterior"})
+    # Cycle 104c (owner 2026-10-14, "use more of these other images, especially
+    # ones with people"): portrait people photos qualify the same way, so the
+    # hero can rotate across the real people photos and not only the two
+    # landscape ones.
+    return (not c["fullbleed_ok"] and bool(c["shots"] & PORTRAIT_FULLBLEED_SHOTS)
             and (c.get("long_side") or 0) >= FULLBLEED_MIN_WIDTH and c.get("white_edge") is False)
 
 
