@@ -445,3 +445,43 @@ def test_results_show_clicks_by_element_and_lcp_when_the_beacon_has_them():
     assert site._clicks_by_element({}) == "&mdash;"
     assert site._lcp_p75({"engagement": {"lcp_p75": 2310.4, "lcp_n": 12}}).startswith("2310 ms")
     assert site._lcp_p75({"clicks": 3}) == "&mdash;"
+
+
+# ---------------------------------------------------------------------------
+# The warranty once; a writer-copied review keeps its "!"
+# ---------------------------------------------------------------------------
+
+def _closing(html):
+    return _text(html[html.index('class="op-close"'):])
+
+
+def test_the_closing_leaves_out_the_warranty_sentence_when_the_stack_states_it(tmp_path):
+    page = dict(clean_cgyn(), hero_style="story")
+    sentence = page["closing"]["warranty_line"]["text"]
+    # agent A's included list carries "7-year warranty on the heaters and the cabinet" (warranty-terms)
+    html = _render(tmp_path / "a", page, with_a_fields(CGYN["facts_pack"]))
+    assert "7-year warranty on the heaters and the cabinet" in _text(html)
+    assert sentence not in _closing(html)
+
+
+def test_the_closing_keeps_the_warranty_sentence_when_the_stack_has_none(tmp_path):
+    page = dict(clean_cgyn(proof_refs=("reviews-live", "reviews-live")), hero_style="story")
+    page["reasons"][4]["proof"] = copy.deepcopy(CGYN["page"]["reasons"][4]["proof"])
+    html = _render(tmp_path / "b", page, CGYN["facts_pack"])   # the fallback stack: no warranty row
+    assert lp.warranty_in_stack({"items": [{"text": "Free shipping", "claim_ids": ["shipping-policy"]}]}) is False
+    assert page["closing"]["warranty_line"]["text"] in _closing(html)
+
+
+def test_a_review_quote_copied_word_for_word_keeps_its_exclamation_mark():
+    page = clean_cgyn()
+    quote = FIELDS["review_quotes"][1]            # "Assembly was very easy! ... We love our Fuji!"
+    page["reasons"][0]["proof"] = {"text": quote["text"], "claim_ids": [quote["claim_id"]]}
+    assert _gate(page) == []
+
+
+def test_a_review_quote_that_is_not_word_for_word_still_fails_on_its_exclamation_mark():
+    page = clean_cgyn()
+    quote = FIELDS["review_quotes"][1]
+    page["reasons"][0]["proof"] = {"text": quote["text"].replace("very easy!", "so easy!"),
+                                   "claim_ids": [quote["claim_id"]]}
+    assert any(p.get("term") == "!" for p in _gate(page))

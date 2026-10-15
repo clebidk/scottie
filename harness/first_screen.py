@@ -461,6 +461,7 @@ def render_context(page, *, ad_brief, facts_pack, tenant, hero_style, frame=None
         "review_wall": sell["wall"],
         "pull_quote": sell["pull"],
         "item_proofs": sell["item_proofs"],
+        "warranty_in_stack": sell["warranty_in_stack"],
         "claim_ids": claim_ids,
     }
 

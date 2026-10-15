@@ -451,6 +451,10 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
         )
     except ClaimsGateFailure as e:
         problems += e.items
+    if cartridge_name == "listicle":   # cycle 110 (C): a verbatim review keeps its "!"
+        from . import listicle_persuasion
+
+        problems = listicle_persuasion.drop_review_quote_style_hits(problems, facts_pack)
     # Cycle 70: a listicle is held to its headline template -- the run's plan,
     # else the one its page.json was stamped with (a revise) -- and that
     # template's own headline words (h04's "Must-Have") are allowed

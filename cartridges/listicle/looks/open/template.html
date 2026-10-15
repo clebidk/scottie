@@ -150,9 +150,9 @@
 .adv-listicle.look-open .op-close .op-fine{color:var(--pk-on-dark);opacity:.72;margin:16px 0 0}
 /* cycle 110: proof row + CTA under the first screen, the price line, item
    proof elements, the value stack's price block, the review wall */
-.adv-listicle.look-open .op-first{padding:18px 20px 6px}
+.adv-listicle.look-open .op-first{padding:6px 20px 6px}
 .adv-listicle.look-open .op-first--center{text-align:center}
-.adv-listicle.look-open .op-proofrow{margin:0 0 14px;font:500 14px/1.5 var(--pk-sans);color:var(--pk-ink)}
+.adv-listicle.look-open .op-proofrow{margin:10px 0 0;font:500 14px/1.5 var(--pk-sans);color:var(--pk-ink)}
 .adv-listicle.look-open .op-proofrow i{font-style:normal;color:var(--pk-muted);padding:0 6px}
 .adv-listicle.look-open .op-star{color:var(--pk-red);font-weight:600}
 .adv-listicle.look-open .op-pl{margin:10px 0 0}
@@ -201,9 +201,10 @@
   {% macro price_line() %}{% set pl = fs.price_line %}{% if pl %}<p class="op-fine op-pl">{% if pl.net %}<b>{{ pl.net }}</b>{% if pl.code %} with code {{ pl.code }}{% endif %} <s>{{ pl.list }}</s>{% else %}{{ pl.price }}{% endif %}{% if pl.monthly %} &middot; or {{ pl.monthly }}{% endif %}</p>{% endif %}{% endmacro %}
   {% if fs.hero_style in ("face", "story", "display") %}
   <div class="op-narrow op-first{{ ' op-first--center' if fs.hero_style == 'display' else '' }}">
-    {% if fs.proof_row and fs.hero_style != "display" %}<p class="op-proofrow">{% for p in fs.proof_row %}{% if not loop.first %}<i aria-hidden="true">&middot;</i>{% endif %}<span>{% if p.kind == "rating" %}<b class="op-star" aria-hidden="true">&#9733;</b> {{ p.text | replace(" ★", "") }}{% else %}{{ p.text }}{% endif %}</span>{% endfor %}</p>{% endif %}
+
     <a class="op-btn" data-el="hero" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>
     {{ price_line() }}
+    {% if fs.proof_row and fs.hero_style != "display" %}<p class="op-proofrow">{% for p in fs.proof_row %}{% if not loop.first %}<i aria-hidden="true">&middot;</i>{% endif %}<span>{% if p.kind == "rating" %}<b class="op-star" aria-hidden="true">&#9733;</b> {{ p.text | replace(" ★", "") }}{% else %}{{ p.text }}{% endif %}</span>{% endfor %}</p>{% endif %}
   </div>
   {% endif %}
 
@@ -312,7 +313,8 @@
     <ul class="op-list op-yes">{% for bullet in page.closing.recap %}<li>{{ bullet.text }}</li>{% endfor %}</ul>
     {% endif %}
     <a class="op-btn" data-el="closing" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>{% if cartridge_data.offer %}<p class="op-fine">{% if cartridge_data.offer.name %}{{ cartridge_data.offer.name }}: {% endif %}<b>{{ cartridge_data.offer.line }}</b>{% if cartridge_data.offer.cta_note %} {{ cartridge_data.offer.cta_note }}{% endif %}</p>{% endif %}
-    {% if page.closing and page.closing.warranty_line %}<p class="op-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
+    {# cycle 110: the warranty shows once -- not here when the value stack states it #}
+    {% if page.closing and page.closing.warranty_line and not fs.warranty_in_stack %}<p class="op-fine">{{ page.closing.warranty_line.text }}</p>{% endif %}
     {% if page.closing and page.closing.financing_line %}
       {% if product.financing and product.financing.lender %}
       <p class="op-fine">{{ page.closing.financing_line.text }}</p>

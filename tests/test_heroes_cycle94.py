@@ -370,17 +370,21 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 # the display strip led by the rating, and the shorter test filler (items at
 # most 45 words, short sentences: the new reasons and reading-level gates);
 # face-frame again: the caption under the still credits the speaker, not the ad.
+# Again for all six: the first-screen CTA moved directly after the scroll cue (proof row under
+# it) and the closing band drops the warranty sentence when the value stack states it.
+# Re-pinned cycle 110 integration: the six listicle keys from the merged templates (C listicle
+# parity + B face still framed 4:3).
 SHIPPED = {
     "landing-open-dry": "7513037f31a2955a",
     "landing-open-frame": "b3a118f453e25126",
     "landing-proof-dry": "f35169064da7c94a",
     "landing-proof-frame": "1d8e0624c049b59f",
-    "listicle-display-dry": "82210181d7883749",
-    "listicle-display-frame": "357c14edaab33c17",
-    "listicle-face-dry": "362a467b6702176d",     # no still: face falls back to story
-    "listicle-face-frame": "b27e9282238eaf2a",   # cycle 110: the face still framed 4:3 (was 4:5)
-    "listicle-story-dry": "362a467b6702176d",
-    "listicle-story-frame": "f99ea0d8c1846331",
+    "listicle-display-dry": "923baa75a0dd4644",
+    "listicle-display-frame": "456c6ec876d79a5c",
+    "listicle-face-dry": "9b4f3d09ff76e7d5",     # no still: face falls back to story
+    "listicle-face-frame": "4606e937def7dc29",   # cycle 110: the face still framed 4:3 (was 4:5)
+    "listicle-story-dry": "9b4f3d09ff76e7d5",
+    "listicle-story-frame": "a8ba4d543ad8d4d0",
 }
 
 
