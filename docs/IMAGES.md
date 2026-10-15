@@ -669,3 +669,19 @@ changes here that the CLI sees too:
   `removed` (moved to `photo-library/.trash/`; also excluded).
 - `images.audit` also returns `wants` (each audit want with its count), which
   the page turns into "what to shoot next".
+
+
+## Cycle 110: the pre-sell look's images
+
+- First screen (`peak_first`): the ad's still only for a creator ad (`persuasion.ad_angle` = story, a
+  first-person speaker); otherwise the product cut-out (owner rule), else a room/exterior library photo. Cropped
+  4:5 (cut-outs contained), at most 420px tall, right under the CTA; preloaded (`image_preload`, WebP first)
+  with `fetchpriority="high"`; budget 60 KB WebP.
+- Reasons: one library photo per reason by its `asset_role` (people -> lifestyle-person, room, detail ->
+  detail-macro, exterior -> exterior/hero-wide; default by lever), never the hero or a photo already on the
+  page, 4:3 focal crops, lazy.
+- Audience: when the ad names who it is for in its hook or audience ("Women over 40"), a library photo whose
+  description names the other audience (a shirtless man) is never the hero or a reason photo, on every landing
+  look (`landing_sell.audience_excluded_ids`); the design gate's vision judge is also asked whether the product
+  or the ad's person is recognizable in the 390px crop.
+- Model cards: each model's own cut-out.

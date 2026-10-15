@@ -52,5 +52,5 @@
     {% elif hr.price %}<p class="pf-price"><b>{{ hr.price.text }}</b>{% if hr.offer %} &middot; <em>{{ hr.offer.line }}</em>{% elif s.monthly %} &middot; <em>{{ s.monthly.line }}</em>{% endif %}</p>{% endif %}
     <div class="pf-act"><a class="{{ hr.cta.cls }} hr-cta" data-el="hero" href="{{ hr.cta.url }}">{{ hr.cta.text }}</a></div>
   </div>
-  {% if img %}<figure class="pf-photo{{ ' pf-photo--cut' if cut else '' }}" style="--hr-pos:{{ hr.image.position }}">{{ render_image_slot(img, hero=True, crop=None if cut else "4:5") }}</figure>{% endif %}
+  {% if img %}{{ image_preload(img, crop=None if cut else "4:5") }}<figure class="pf-photo{{ ' pf-photo--cut' if cut else '' }}" style="--hr-pos:{{ hr.image.position }}">{{ render_image_slot(img, hero=True, crop=None if cut else "4:5") }}</figure>{% endif %}
 </header>

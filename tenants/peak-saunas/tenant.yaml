@@ -357,6 +357,16 @@ shopify_publish:
   # (deploy/shopify/templates/), pushed to BOTH themes of the store's theme A/B
   # test. The default page template of one theme strips the body <style> block.
   template_suffix: pk-harness
+  # Cycle 110: the two themes of the store's theme split (Intelligems cookie
+  # pk_ab_theme_split_2026_10); `harness theme verify-landing-layout` checks
+  # both hold the lean landing files.
+  theme_ids: [182943580461, 188604088621]
+
+# Cycle 110: true -> landing pages publish with template_suffix "landing"
+# (deploy/shopify/lean/: no promo bar, header, sales popup or chat bar). Both
+# themes need the lean files first (`harness theme push-landing-layout`);
+# owner approved 2026-10-15, to be tried on one unlinked page first.
+landing_lean_layout: false
 
 # Cycle 67 (owner decision 2026-09-23): every new Meta ad gets an A/B/C test
 # -- three builds from this library, one split link pasted into the ad in
@@ -370,9 +380,11 @@ abtest:
   library:
     # 2026-10-12 launch (owner): landing pages are the test arms; the
     # design gate picks the first screen within each look.
-    - landing:cinematic
-    - landing:open
+    # Cycle 110: `open` retired from the library (it lost head to head, the
+    # files stay); `peak` (the pre-sell look) joins proof and cinematic.
+    - landing:peak
     - landing:proof
+    - landing:cinematic
   explore: 0.2
   min_views: 300
   beacon_url: https://listicle.peaksaunasteam.com/e

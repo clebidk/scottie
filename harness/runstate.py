@@ -124,6 +124,28 @@ def record_look(run_dir, cartridge, look):
     return data
 
 
+QUALITY_KEYS = ("hook_match", "grade_level", "cta_count", "proof_count", "lcp_ms", "cls", "first_screen_ok")
+
+
+def record_quality(run_dir, cartridge, values):
+    """Cycle 110: the page's quality numbers under state.json
+    "<cartridge>".quality = {hook_match, grade_level, cta_count, proof_count,
+    lcp_ms, cls, first_screen_ok} (the review site shows them). Merged: the
+    renderer writes the copy numbers, the design gate the measured ones. A
+    folder with no state.json (a dry render in a test) is left alone."""
+    try:
+        data = load_state(run_dir)
+    except FileNotFoundError:
+        return None
+    entry = dict(data.get(cartridge) or {})
+    quality = dict(entry.get("quality") or {k: None for k in QUALITY_KEYS})
+    quality.update({k: v for k, v in (values or {}).items() if k in QUALITY_KEYS})
+    entry["quality"] = quality
+    data[cartridge] = entry
+    save_state(run_dir, data)
+    return quality
+
+
 def record_hero(run_dir, cartridge, hero_style):
     """Cycle 94: the hero composition a non-listicle page rendered
     (harness/heroes/), under state.json's "<cartridge>" key next to its

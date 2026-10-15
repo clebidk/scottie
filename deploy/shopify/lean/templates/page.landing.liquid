@@ -1,0 +1,9 @@
+{%- comment -%}
+  The advertorial harness's lean landing page template (cycle 110).
+  Source of truth: deploy/shopify/lean/templates/page.landing.liquid in the harness repo.
+  Renders page.content raw in layout/landing.liquid. The page body carries all of
+  its own CSS in one <style> block (harness/page_body.py), so no section, snippet
+  or .rte wrapper is used.
+{%- endcomment -%}
+{%- layout 'landing' -%}
+{{ page.content }}

@@ -7503,3 +7503,45 @@ tier (before: the +5 model bonus won). That follows the "two points lower is nev
 - Targeted (photo slots 101, images 93, heroes 94, grading 97): 136 passed, 21 skipped.
 - Full suite `PYTHONPATH=. python -m pytest -q`: 3241 passed, 0 failed, 35 skipped.
 - Not run on prod: the 28-arm re-render is for the owner after the merge.
+
+## Cycle 110 B (from fact-check pages to pre-sell pages: the page side, 2026-10-15)
+Branch `cycle110b/persuasion-page` from master 79d2ef3 (agent B; agent A does claims, grounding, the beacon and
+the test library in parallel; agent C takes listicle parity and the review-site display). Brief
+~/asset-inbox/c110/BRIEF.md, teardown ~/asset-inbox/teardown/TEARDOWN.md.
+
+### Problem
+40 live landing arms, 16 CTA clicks / 820 views (2.0%). The page graded the ad the reader had just believed ("The
+ad, checked", "not lifetime coverage", "priced plainly"), its headline was a spec label instead of the hook, the
+proof was one rating, the price a bare $8,250 on sale pages, one CTA placement for 84% of readers; two live
+pages printed a placeholder row, three "PEAK' warranty", one a blank subhead, one a returns FAQ, two said a coded
+discount "applies automatically".
+
+### Change
+- **Phase 0.** Gates `landing:placeholder`, `landing:returns`, `landing:auto_offer`, `landing:hero_required`;
+  a rendered visible-text placeholder scan on every cartridge (`pagechecks.find_placeholder_visible_text`);
+  `landing.tidy_for_render` (render time and before every gate) drops a writer item that cites the offer claim
+  or holds placeholder text and a FAQ entry about returns or "applies automatically"; `offer` gate also covers
+  `reasons` and items that only cite the promo claim; the retired-name pass writes "PEAK's" for "Peak Saunas'";
+  the warranty sentence is not repeated in the closing band or cinematic's proof block; "Text us" moved to the
+  closing band (`closing_link`, data-el="sms"); every CTA carries `data-el`.
+- **Phase 2.** `reasons` replace `checked_claims` (schema, cartridge.md v0.2.0, writer lines, gates, every look;
+  a legacy page still renders). Hook match, ad-reference ban (+ vocab `banned_phrases`, the "Unlock" paragraph
+  trimmed), reading level (FK <= 7.5), figure tokens in the first screen, the CTA phrase by angle, the buyer FAQ
+  (one logistics question, no medical question, HSA only when verified), sale rendering (net price, struck list
+  price, code, the claim's last day). Details: docs/GENERATOR.md "Cycle 110".
+- **Phase 3.** The `peak` look (look.json "sell") and its first screen `peak_first`, built for the store's
+  visible window (y 116-600 at 375px); the PEAK library is peak / proof / cinematic (open retired, files kept).
+  Design gate: `chrome_window`, `cta_spacing`, `dead_clicks`, `load_budget` (harness/perf.py, LCP/CLS over the
+  DevTools protocol with Slow 4G and 4x CPU), the hero-subject line for the judge; audience-mismatched people
+  photos never shown. state.json `landing.quality`.
+- **Lean layout.** deploy/shopify/lean/ (layout + template + README), `harness theme push-landing-layout` /
+  `verify-landing-layout`, tenant `landing_lean_layout` (default false) and `shopify_publish.theme_ids`.
+- **Real-browser tests.** The 6 screenshot tests failing on master: snap Chromium (first on PATH) has a private
+  /tmp and cannot read pytest's tmp_path. tests/conftest.py now points them at google-chrome via HARNESS_CHROME.
+
+### Shared-file hunks
+harness/claims.py (the landing benefit section counts `reasons`), harness/offer.py
+(`find_offer_in_checked_violations` covers reasons and promo-claim citations), harness/repair.py (possessive,
+landing gate args, the tidy call, the degenerate guard, the CTA map), harness/pipeline.py (model rows for a
+"sell" look, `_record_measured_quality`), harness/runstate.py (`record_quality`), harness/cli.py (`_lean_suffix`,
+`theme` commands), harness/look_import.py (+ rules md: reasons / closing_link contract).

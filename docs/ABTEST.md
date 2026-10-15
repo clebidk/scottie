@@ -283,6 +283,15 @@ repository) so a later deploy does not overwrite it.
   than a proven build's CTR (about 10-20%). Thus the harness tries every
   build at least once before it favors the best ones.
 
+### Cycle 110: the PEAK library and the beacon's `data-el`
+
+PEAK's `abtest.library` is `landing:peak`, `landing:proof`, `landing:cinematic`: `open` is retired from the
+library (it lost head to head; its files stay and `--look open` still works). Agent A's test library
+(`landing:peak` vs `landing:proof` vs `external:home`) replaces it when merged. Every landing CTA carries
+`data-el` = hero | mid | stack | cards | reviews | closing | sticky, and "Text us" `data-el="sms"` (not a CTA
+class), for the beacon's per-element counts. Model cards on the `peak` look link to each model's own product
+page with class `ld-link` (a CTA class).
+
 ## Data
 
 - Test records: `tenants/<t>/abtests/<test_id>.json`.

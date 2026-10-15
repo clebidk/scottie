@@ -124,7 +124,8 @@ AD_REFERENCE_RE = re.compile(
     r"\bthe\s+ad\b|\bthe\s+ad's\b|\bactually\b|\breal\s+(?:price|prices|numbers?|specs?)\b"
     r"|\bnot\s+(?:verified|part\s+of|lifetime)\b|\bdoes\s+not\s+verify\b|\bdoesn't\s+verify\b|\bno\s+separate\b"
     r"|\bplainly\b|\bnothing\s+to\s+submit\b|\bno\s+form\s+required\b|\bwhat\s+holds\s+up\b"
-    r"|\bwhat'?s\s+(?:actually\s+)?verified\b|\bthe\s+ad\s+(?:said|says|claimed|promised|implied|shows?)\b",
+    r"|\bwhat'?s\s+(?:actually\s+)?verified\b|\bthe\s+ad\s+(?:said|says|claimed|promised|implied|shows?)\b"
+    r"|\breally\s+(?:says?|is|are|costs?|offers?|means?|includes?)\b|\bexplained\s+plainly\b",
     re.IGNORECASE)
 # The one way the page may name the ad: crediting the speaker's own words
 # ("In the ad, she says ..."), the framing quote_fidelity requires.
@@ -211,7 +212,7 @@ def _norm_quote(text):
     return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", "", str(text or "").lower())).strip()
 
 
-def hook_match(hero_text, ad_brief, exclude=(), quotes=()):
+def hook_match(hero_text, ad_brief, exclude=(), quotes=(), headline=None):
     """{"overlap": [...], "score": overlap / hook words, "quoted": bool,
     "ok": bool} -- content-word overlap between the first screen and the
     ad's hook + angle + promise (>= 2 words), or a quoted ad sentence."""
@@ -222,8 +223,16 @@ def hook_match(hero_text, ad_brief, exclude=(), quotes=()):
     overlap = sorted(hero_words & ad_words)
     norm_hero = _norm_quote(hero_text)
     quoted = any(len(_norm_quote(q).split()) >= 5 and _norm_quote(q) in norm_hero for q in quotes)
-    return {"overlap": overlap, "score": round(len(set(overlap) & hook_words) / len(hook_words), 2) if hook_words
-            else 0.0, "quoted": quoted, "ok": len(overlap) >= 2 or quoted}
+    # teardown D1: the headline itself shares a word with the hook or the
+    # promise (an eyebrow that echoes the hook over a spec headline is not a
+    # match -- "Full-spectrum heat and red light, built into one cabin" under
+    # "Tired, stressed, aching? This is for you", 0 clicks / 221 views)
+    promise_words = content_words(" ".join(str(brief.get(k) or "") for k in ("hook", "promise")), exclude)
+    head_overlap = sorted(content_words(headline, exclude) & promise_words) if headline is not None else None
+    ok = (len(overlap) >= 2 and (head_overlap is None or bool(head_overlap))) or quoted
+    return {"overlap": overlap, "headline_overlap": head_overlap,
+            "score": round(len(set(overlap) & hook_words) / len(hook_words), 2) if hook_words else 0.0,
+            "quoted": quoted, "ok": ok}
 
 
 def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=None, exclude=(), quotes=(),
@@ -236,13 +245,14 @@ def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=N
         return []
     hero = filled_hero if filled_hero is not None else (page.get("hero") or {})
     text = " ".join(str(hero.get(k) or "") for k in ("eyebrow", "headline", "subhead"))
-    result = hook_match(text, brief, exclude=exclude, quotes=quotes)
+    result = hook_match(text, brief, exclude=exclude, quotes=quotes, headline=str(hero.get("headline") or ""))
     if result["ok"]:
         return []
     return [_problem("$.hero.headline", f"{prefix}:hook_match",
-                     "the first screen must pay off the ad's hook: restate it as closely as the verified facts "
-                     f"allow -- same words, same number, same person. The hook: {brief.get('hook')!r}. Shared "
-                     f"content words now: {result['overlap'] or 'none'}", text=text)]
+                     "the first screen must pay off the ad's hook: the headline restates it as closely as the "
+                     f"verified facts allow -- same words, same number, same person. The hook: {brief.get('hook')!r}. "
+                     f"Shared content words now: {result['overlap'] or 'none'} (headline: "
+                     f"{result['headline_overlap'] or 'none'})", text=text)]
 
 
 # ---------------------------------------------------------------------------
@@ -362,6 +372,12 @@ def cta_texts_for_angle(templates, angle, *, short_name, offer_amount=None, pron
 LOGISTICS_Q_RE = re.compile(r"\b(?:deliver\w*|ship\w*|freight|assembl\w*|install\w*|set\s?up|outlet|electric\w*|"
                             r"wir(?:e|ing)|volt\w*|amps?|circuit|breaker|plug\w*|warrant\w*)\b", re.IGNORECASE)
 HSA_Q_RE = re.compile(r"\bhsa\b|\bfsa\b|health\s+savings|flexible\s+spending", re.IGNORECASE)
+# The FAQ never asks a medical question for the brand to answer ("Is this a
+# treatment for RA or lupus? No." -- the PA ad's page, 0 clicks / 129 views):
+# the speaker's own words carry health, the brand's FAQ carries the purchase.
+HEALTH_Q_RE = re.compile(r"\b(?:treat(?:s|ment|ing)?|cures?|heal(?:s|ing)?|disease|conditions?|arthritis|lupus|"
+                         r"rheumat\w*|inflammat\w*|pain|diagnos\w*|doctors?|physicians?|symptoms?|"
+                         r"blood\s+pressure|fibromyalgia)\b|\bRA\b")
 MAX_LOGISTICS_QUESTIONS = 1
 
 
@@ -382,6 +398,12 @@ def find_faq_rule_violations(page, facts_pack=None, prefix="landing"):
                                  "warranty); at most one -- the page already shows a Delivery & setup row. Ask what "
                                  "a buyer asks before spending this much: will I use it, how long is a session, how "
                                  "fast does it heat, will it fit, can I pay over time"))
+    for i, q in enumerate(questions):
+        if isinstance(q, dict) and HEALTH_Q_RE.search(str(q.get("question") or "")):
+            problems.append(_problem(f"$.faq.questions[{i}]", f"{prefix}:faq_health:{i}",
+                                     "no medical question in the FAQ (a treatment, a condition, pain): the brand "
+                                     "never answers health questions -- ask what a buyer asks about owning it",
+                                     text=q.get("question")))
     hsa = landing_sell.hsa_line(facts_pack)
     for i, q in enumerate(questions):
         if isinstance(q, dict) and HSA_Q_RE.search(str(q.get("question") or "")) and not hsa:

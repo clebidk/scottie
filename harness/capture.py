@@ -151,6 +151,30 @@ PROBE_JS = r"""
       out.cta=ctas.length ? (function(el){ var r=el.getBoundingClientRect();
         return {sel:sel(el), top:Math.round(r.top+sy), text:el.textContent.replace(/\s+/g,' ').trim().slice(0,40)};
       })(ctas[0]) : null;
+      // cycle 110: every in-flow CTA's top (a CTA within every 1.5 screens),
+      // where the footer starts, the pre-sell first screen's blocks, and
+      // anything that looks tappable but is not a link (dead-click bait)
+      out.cta_tops=[].slice.call(document.querySelectorAll(CTA_SEL+',a.ld-link[href],a.op-link[href]')).filter(function(el){
+        var r=el.getBoundingClientRect(); if(!shown(el,r,getComputedStyle(el))){return false;}
+        for(var a=el; a && a!==document.documentElement; a=a.parentElement){
+          var pos=getComputedStyle(a).position; if(pos==='fixed'||pos==='sticky'){return false;} }
+        return true; }).map(function(el){ return Math.round(el.getBoundingClientRect().top+sy); }).sort(function(a,b){return a-b;});
+      var foot=document.querySelector('.adv-footer');
+      out.footer_top=foot ? Math.round(foot.getBoundingClientRect().top+sy) : out.height;
+      var fs={eyebrow:'.pf .pf-eyebrow',h1:'.pf .pf-h1',dek:'.pf .pf-dek',proof:'.pf .pf-proof',price:'.pf .pf-price',
+              cta:'.pf .pf-act .ld-btn',photo:'.pf .pf-photo'};
+      out.first_screen={};
+      Object.keys(fs).forEach(function(k){ var el=document.querySelector(fs[k]); if(!el){return;}
+        var r=el.getBoundingClientRect(); out.first_screen[k]={top:Math.round(r.top+sy), bottom:Math.round(r.bottom+sy)}; });
+      out.dead_bait=[];
+      all.forEach(function(el){
+        if(out.dead_bait.length>=12){return;}
+        var tag=el.tagName.toLowerCase();
+        if(/^(a|button|summary|label|input|select|textarea|details|script|style)$/.test(tag)){return;}
+        var cs=getComputedStyle(el); if(cs.cursor!=='pointer' && el.getAttribute('role')!=='button'){return;}
+        for(var a=el.parentElement; a; a=a.parentElement){ if(/^(A|BUTTON|SUMMARY|LABEL|DETAILS)$/.test(a.tagName)){return;} }
+        var r=el.getBoundingClientRect(); if(!shown(el,r,cs)){return;}
+        out.dead_bait.push({sel:sel(el), text:el.textContent.replace(/\s+/g,' ').trim().slice(0,40)}); });
     }catch(e){ out.error=String(e); }
     parent.postMessage({__designProbe: out}, '*');
   });
