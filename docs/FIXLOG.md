@@ -7503,3 +7503,66 @@ tier (before: the +5 model bonus won). That follows the "two points lower is nev
 - Targeted (photo slots 101, images 93, heroes 94, grading 97): 136 passed, 21 skipped.
 - Full suite `PYTHONPATH=. python -m pytest -q`: 3241 passed, 0 failed, 35 skipped.
 - Not run on prod: the 28-arm re-render is for the owner after the merge.
+
+## Cycle 110 A (proof and offer facts, units, beacon detail, 2026-10-15)
+
+Branch `cycle110a/claims-data` from master 79d2ef3. Agent A of cycle 110 (brief: `~/asset-inbox/c110/BRIEF.md`
+§3.1, §3.2, §3.5 items 1 and 4, §3.0 item 6). Agent B builds the page on the same contract.
+Live reads only: the Judge.me store page and public review endpoints, the Fuji PDP, Shopify Admin (read-only
+orders). No model call, no Shopify, Meta or model write. Spend $0.
+
+### Problem
+The teardown of the 40 live landing arms: proof is one number ("4.8 · 49 reviews") while the store shows 4,260
+reviews; `review_quotes` is empty on 40/40; no per-month figure (`financing.monthly: null`); the verified
+HSA/FSA and Wellness Club claims reach no facts_pack; no net sale price; the beacon stores only view and CTA (no
+element, no scroll, no "Text us" count).
+
+### Change
+- **harness/proof.py (new)**: the facts_pack fields of the §3.2 contract (docs/GENERATOR.md "Proof and offer
+  facts"): `reviews_store`, `review_quotes`, `product.financing.monthly`, `units`, `included`, `hsa_fsa`,
+  `support`, plus `founder` and `us_owned` for B's trust block. `live_claims` (pipeline.ground): the store
+  claim, the quote claims, the cached unit claims. Quote rules in `quote_problems`.
+- **harness/sources/judgeme.py**: `fetch_store_claim` (`reviews-store-live`), `fetch_reviews` (product widget
+  JSON, store-wide HTML; URL templates and the shop domain in tenant.yaml `reviews`), parsers.
+- **harness/units.py (new)**, `harness claims refresh-units`, crons/units-refresh.{service,timer} (monthly);
+  `ShopifyPublisher.list_orders` takes `fields`, `max_pages`, `page_size`, `pause_s`.
+- **harness/offer.py**: `offer_view` + `facts_pack.offer` get `net_price`, `list_price`, `code`,
+  `deadline_short`.
+- **Beacon** (harness/abtest.py, abevents.py, serve.py): `el`, `y`, `sms_tap`, `leave` (max scroll, seconds,
+  LCP/FCP/DCL, ms to first interaction), viewport and connection on `view`; columns added in place;
+  `abtest results` detail lines; `ad_angle` on test records, in `status` and `results` (docs/ABTEST.md "Beacon
+  detail").
+- **harness/textutil.py**: `grade_level` (Flesch-Kincaid), `syllables`.
+- **Claims (owner decisions 2026-10-15)**: `pwc-value-588`; `hsa-fsa-redo` (`hsa-fsa-truemed` kept for old
+  references, TrueMed alias removed, `superseded_by`); claims/config.json `financing_monthly` (the PDP line and
+  disclosure, 0% APR approved). tenant.yaml: `reviews.*`, `proof`, `units`, three claim-id prefixes, a TODO for
+  the `landing:peak` library (refused by parse_arm until B's look exists). tenants/_template/tenant.yaml
+  declares the new keys.
+
+### Numbers (2026-10-15)
+- Judge.me store page: 4.6 out of 5, 4,260 reviews. Fuji: 49 reviews, 6 quotable (rules above; 12 marked as
+  machine-made media, 31 with a figure, 26 over 70 words, 19 with no last initial, 18 complaints, 11 health).
+- Shopify (5,750 orders since 2023-09): PEAK units, last 365 days 2,039 sold / 2,026 delivered; all time 2,440
+  sold / 2,296 delivered; the first PEAK unit sold in 2025 (2023-2024 sales were third-party resale saunas,
+  Dynamic and Maxxus, which never count). Claim: "2,000+ saunas delivered to US homes in the last 12 months
+  (Shopify, Oct 2026)". All time also rounds to 2,000, so no all-time claim; "10,000+" is not supported.
+
+### Verify
+- tests/test_proof_cycle110.py (31), tests/test_units_cycle110.py (9), tests/test_beacon_cycle110.py (21), on the
+  real fetched samples in tests/fixtures/c110/ (store page head, Fuji widget pages 1-2, store-wide page 1, Fuji
+  PDP financing line and disclosure). tests/test_abtest_cycle67.py's beacon prelude gained a window, viewport and
+  performance stubs; its selector assertion now checks the anchor lookup (the class regex is tested here).
+  tests/test_ground.py and tests/test_photo_library.py: facts_pack size proxy 4,000 -> 5,000 tokens.
+- A re-grounded copy of prod run 20261014-171628-meta-120259310329850746-pwkv (AIIR Fuji sale ad, no model
+  call): every new field present, offer $7,950 / $8,250 / INDOOR300 / "today's price ends Thu, Oct 15";
+  facts_pack ~7,200 tokens with 6 quotes (was ~4,600).
+- Full suite `python -m pytest -q -p no:cacheprovider`: 3298 passed, 6 failed, 33 skipped. The 6 are the failures of master
+  79d2ef3 in this environment (3237 passed, 6 failed): browser/screenshot tests in design_gate_cycle92 and grading_cycle97.
+
+### Open
+- Owner: units wording says "delivered to US homes"; the count is units shipped with carrier tracking.
+- Prompt size: +~2,600 tokens per writer call with 6 quotes (each quote's text is in `review_quotes` and in its
+  claim).
+- Verbatim quotes keep their exclamation marks; B's visible-text gates must exempt review quote text.
+- After the merge: run `harness claims refresh-units` once on prod (about 20 minutes, read-only) and install the
+  timer; live pages keep the old beacon until rebuilt.

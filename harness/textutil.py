@@ -114,3 +114,38 @@ TENANT_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]*$")
 
 def is_safe_tenant_name(name):
     return bool(name) and ".." not in name and bool(TENANT_NAME_RE.match(name))
+
+
+# ---------------------------------------------------------------------------
+# Cycle 110: reading level (the landing page's grade gate)
+# ---------------------------------------------------------------------------
+
+_GRADE_WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+_GRADE_SENTENCE_END_RE = re.compile(r"[.!?]+(?=\s|$)|\n\s*\n")
+
+
+def syllables(word):
+    """A plain English syllable estimate: vowel groups, minus a silent final
+    "e", at least one."""
+    w = word.lower().strip("'")
+    if not w:
+        return 0
+    if len(w) <= 3:
+        return 1
+    w = re.sub(r"(?:[^laeiouy]es|(?<![td])ed|[^laeiouy]e)$", "", w)
+    w = re.sub(r"^y", "", w)
+    return max(1, len(re.findall(r"[aeiouy]+", w)))
+
+
+def grade_level(text):
+    """The Flesch-Kincaid grade of `text`:
+    0.39 * words/sentences + 11.8 * syllables/words - 15.59.
+    0.0 for text with no words. Digits and symbols are not words; a text with
+    no sentence end counts as one sentence."""
+    text = str(text or "")
+    words = _GRADE_WORD_RE.findall(text)
+    if not words:
+        return 0.0
+    sentences = max(1, len([s for s in _GRADE_SENTENCE_END_RE.split(text) if _GRADE_WORD_RE.search(s)]))
+    syl = sum(syllables(w) for w in words)
+    return round(0.39 * len(words) / sentences + 11.8 * syl / len(words) - 15.59, 2)

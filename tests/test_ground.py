@@ -59,9 +59,12 @@ def test_facts_pack_stays_small():
     facts_pack = source.facts_for(FUJI_SLUG, {"transcript_or_text": "", "hook": "", "promise": "", "angle": ""})
     import json
 
-    # rough proxy for "~4k tokens": chars / 4
+    # rough proxy for "~4k tokens": chars / 4. Cycle 110: ~5k -- the proof
+    # and offer fields (financing line and its full lender disclosure, the
+    # included stack, HSA/FSA, support, founder, US-owned) add ~800 tokens;
+    # tests/test_proof_cycle110.py bounds a pack with review quotes too.
     approx_tokens = len(json.dumps(facts_pack)) / 4
-    assert approx_tokens < 4000, f"facts_pack too large: ~{approx_tokens:.0f} tokens"
+    assert approx_tokens < 5000, f"facts_pack too large: ~{approx_tokens:.0f} tokens"
 
 
 # ---------------------------------------------------------------------------

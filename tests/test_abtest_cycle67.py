@@ -553,14 +553,30 @@ def _beacon_prelude(cookie=""):
 var OUT = {{beacons: [], cookies: [], fetches: []}};
 var _c = {json.dumps(cookie)};
 var _h = [];
-var document = {{addEventListener: function(t, f){{_h.push(f);}}}};
+var _w = {{}};
+function on(k, f){{ (_w[k] = _w[k] || []).push(f); }}
+var document = {{addEventListener: function(t, f){{ if (t == 'click') _h.push(f); else on('d:' + t, f); }},
+  documentElement: {{scrollHeight: 4000}}, visibilityState: 'visible'}};
 Object.defineProperty(document, 'cookie', {{get: function(){{return _c;}}, set: function(v){{OUT.cookies.push(v);}}}});
 function G(n, v){{ Object.defineProperty(globalThis, n, {{value: v, configurable: true, writable: true}}); }}
-G('navigator', {{sendBeacon: function(u, d){{OUT.beacons.push({{u: u, d: JSON.parse(d)}}); return true;}}}});
+G('navigator', {{sendBeacon: function(u, d){{OUT.beacons.push({{u: u, d: JSON.parse(d)}}); return true;}},
+  connection: {{effectiveType: '4g'}}}});
 G('crypto', {{getRandomValues: function(a){{for (var i=0;i<a.length;i++) a[i]=3735928559+i; return a;}}}});
 G('fetch', function(u, o){{OUT.fetches.push({{u: u, b: JSON.parse(o.body), k: o.keepalive}});}});
-function click(sel, path){{ var a = sel ? {{pathname: path}} : null;
+// cycle 110: the window, the viewport and the load timings the beacon reads
+G('window', {{addEventListener: function(t, f){{ on(t, f); }}}});
+G('innerHeight', 800); G('innerWidth', 390); G('scrollY', 0);
+G('performance', {{getEntriesByType: function(){{ return [{{domContentLoadedEventEnd: 812.4}}]; }},
+  getEntriesByName: function(){{ return [{{startTime: 640.2}}]; }}}});
+G('PerformanceObserver', function(cb){{ this.observe = function(){{
+  cb({{getEntries: function(){{ return [{{startTime: 1500}}, {{startTime: 2710.6}}]; }}}}); }}; }});
+function click(sel, path, cls, el, href){{
+  var a = sel ? {{pathname: path, className: cls === undefined ? 'ld-btn' : cls,
+    getAttribute: function(n){{ return n == 'data-el' ? (el || null) : (href || path); }}}} : null;
   _h.forEach(function(f){{ f({{target: {{closest: function(s){{ OUT.sel = s; return a; }}}}}}); }}); }}
+function fire(k){{ (_w[k] || []).forEach(function(f){{ f(); }}); }}
+function scrollTo(y){{ G('scrollY', y); fire('scroll'); }}
+function hide(){{ document.visibilityState = 'hidden'; fire('d:visibilitychange'); }}
 """
 
 
@@ -578,8 +594,10 @@ def test_beacon_sends_view_then_cta_for_a_product_link_only():
     assert out["cookies"][0].startswith("pk_vid=") and "SameSite=Lax" in out["cookies"][0]
     # the CTA click tags the cart so the order carries the variant
     assert out["fetches"] == [{"u": "/cart/update.js", "b": {"attributes": {"pk_ab": "t1:B"}}, "k": True}]
-    for cls in abtest.CTA_CLASSES:
-        assert "." + cls in out["sel"]
+    # cycle 110: the beacon finds the anchor, then matches its classes
+    # against abtest.cta_class_regex() (tests/test_beacon_cycle110.py covers
+    # every class)
+    assert out["sel"] == "a"
 
 
 @needs_node

@@ -267,6 +267,10 @@ def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
     facts_pack["offer"] = {"claim_id": claim["id"], "text": claim["text"], "sentence": offer.get("sentence"),
                            "amounts": offer.get("amounts"), "codes": offer.get("codes"),
                            "deadline": offer.get("deadline"), "name": offer.get("name")}
+    # Cycle 110: the figures the page prints (facts_pack contract: offer.net_price,
+    # offer.list_price, offer.code, offer.deadline_short), from offer_view.
+    view = offer_view(facts_pack)
+    facts_pack["offer"].update({k: view[k] for k in ("net_price", "list_price", "code", "deadline_short")})
     if log is not None:
         log.event("ground", f"offer matched verified claim {claim['id']}: {offer.get('sentence')!r}")
     return claim
@@ -310,6 +314,40 @@ def _sale_name(text, offer):
     return (offer or {}).get("name")
 
 
+def _price_figures(facts_pack, amount):
+    """(list_price, net_price) as "$8,250" / "$7,950" from the product's price
+    and the offer amount ("$300" or "10%"); net is None without a single
+    amount for this product or when it would not be a positive price."""
+    from decimal import Decimal, InvalidOperation
+
+    from .prices import format_price
+
+    raw = ((facts_pack or {}).get("product") or {}).get("price")
+    try:
+        price = Decimal(str(raw).replace("$", "").replace(",", ""))
+    except (InvalidOperation, ValueError):
+        return None, None
+    if not amount:
+        return format_price(price), None
+    if amount.endswith("%"):
+        net = price * (100 - Decimal(amount[:-1])) / 100
+    else:
+        net = price - Decimal(amount.lstrip("$").replace(",", ""))
+    return format_price(price), (format_price(net.quantize(Decimal("0.01"))) if net > 0 else None)
+
+
+def deadline_short(text, claim=None):
+    """The claim's last sale day as "today's price ends Thu, Oct 15", or None.
+    "prices go up on <date>" ends the day BEFORE that date; "ends <date>" /
+    "through <date>" ends ON it (claim_expired's rule)."""
+    when, raises = _claim_date(text, claim)
+    if when is None:
+        return None
+    last = when - datetime.timedelta(days=1) if raises else when
+    return (f"today's price ends {('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')[last.weekday()]}, "
+            f"{_MONTHS[last.month - 1][:3].capitalize()} {last.day}")
+
+
 def offer_view(facts_pack):
     """The offer as the renderer prints it, from facts_pack.offer (the
     verified claim) and the product, or None when the page is not
@@ -343,9 +381,16 @@ def offer_view(facts_pack):
         amount = None
     at_checkout = bool(re.search(r"\bat\s+checkout\b", text, re.IGNORECASE))
     bar = ("Code " + codes[0]) if len(codes) == 1 else ("Codes " + " / ".join(codes)) if codes else line
+    list_price, net_price = _price_figures(fp, amount)
     return {
         "claim_id": offer["claim_id"],
         "name": _sale_name(text, offer),
+        # Cycle 110: the deal in figures, all from the claim and the product's
+        # price: "$7,950" (None when the line holds no single amount for this
+        # product), "$8,250", and the last sale day in short form.
+        "net_price": net_price,
+        "list_price": list_price,
+        "deadline_short": deadline_short(text, offer),
         "line": line,
         "amount": amount,
         "code": codes[0] if len(codes) == 1 else None,

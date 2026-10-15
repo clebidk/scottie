@@ -2,6 +2,7 @@
 the writer can cite from. `FactsSource` is a protocol so `write`/`cli` don't
 care whether facts came from the local JSON files or (later) g Brain.
 """
+import datetime
 import json
 import re
 from collections import Counter
@@ -14,6 +15,7 @@ from . import quiz as quiz_mod
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
 from .prices import format_price
+from . import proof as proof_mod
 from .textutil import DOLLAR_AMOUNT_RE, product_name_slug, walk_page
 from .tenant import DEFAULT_CLAIMS_CONFIG as DEFAULT_CONFIG
 
@@ -1275,7 +1277,7 @@ class LocalFactsSource:
         }
         return compare, backing
 
-    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, include_product_page=False, include_quiz=False, live_price_claims=None, log=None, include_models=False):
+    def facts_for(self, product_slug, ad_brief, *, config=None, live_price_claim=None, reviews_claim=None, pdp_claims=None, include_comparison=False, include_listicle=False, include_product_page=False, include_quiz=False, live_price_claims=None, log=None, include_models=False, live_claims=None, today_iso=None):
         self._load()
         product = self.pick_product(product_slug, ad_brief)
         config = config or load_claims_config(self.claims_dir)
@@ -1470,6 +1472,15 @@ class LocalFactsSource:
                 else _lean_slot_plan(build_slot_plan(assets, allow_ai_renders=bool(config.get("allow_ai_renders"))))
             ),
         }
+        # Cycle 110: the proof and offer fields (store rating, review quotes,
+        # financing per month, units, the included stack, HSA/FSA, support,
+        # founder, US-owned), each from a verified or live-fetched claim
+        # (harness/proof.py); their claims join verified_claims.
+        proof_mod.enrich(
+            pack, product, list(self._verified) + pdp_claims_for_product, config=config,
+            live_claims=live_claims or (), price=product.get("price"),
+            today_iso=today_iso or datetime.date.today().isoformat(),
+        )
         if include_listicle or include_product_page:
             # Cycle 41: only a run whose selected cartridges include listicle
             # gets the model picker's rows (and their backing claims joined

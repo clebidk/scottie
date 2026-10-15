@@ -1303,6 +1303,7 @@ def cmd_abtest_status(args):
             print(f"  reason: {rec['reason']}")
         print(f"  source: {json.dumps(rec.get('source'))}  input: {rec.get('input')}")
         print(f"  destinations: {abtest.destinations_label(rec)}")
+        print(f"  ad angle: {abtest.ad_angle_of(rec)}")
         for v in rec["variants"]:
             if abtest.is_external(v):
                 print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {v.get('url') or '-'}")
@@ -1324,7 +1325,7 @@ def cmd_abtest_status(args):
         return exits.OK
     for rec in tests:
         arms = ", ".join(f"{v['key']}={v['arm']}" for v in rec["variants"])
-        print(f"{rec['test_id']:40s} {rec['status']:9s} {arms}")
+        print(f"{rec['test_id']:40s} {rec['status']:9s} {abtest.ad_angle_of(rec):9s} {arms}")
     return exits.OK
 
 
@@ -2064,6 +2065,32 @@ def cmd_claims_list(args):
     return 0
 
 
+def cmd_claims_refresh_units(args):
+    """Cycle 110: `harness claims refresh-units` -- a read-only Shopify count
+    of sauna units delivered (harness/units.py), written with the fetch date
+    to tenants/<t>/runs/units-claims.json, which every run's claims step
+    reads. Monthly from crons/units-refresh.timer."""
+    from . import units as units_mod
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant.load_env()
+    try:
+        data = units_mod.refresh(tenant, ShopifyPublisher(), since=args.since)
+    except (ShopifyCredentialsMissing, HarnessError) as e:
+        print(f"units refresh failed: {e}", file=sys.stderr)
+        return exits.USAGE
+    c = data["counts"]
+    print(f"{c['orders']:,} orders, first unit sold in {c['first_year']}; last 365 days "
+          f"({c['window_start']} to {c['window_end']}): {c['sold_12mo']:,} sold, {c['delivered_12mo']:,} delivered; all time: {c['sold_all']:,} sold, "
+          f"{c['delivered_all']:,} delivered")
+    for claim in data["claims"]:
+        print(f"  {claim['id']}: {claim['text']}")
+    if not data["claims"]:
+        print("  no unit claim (under 1,000 delivered)")
+    print(f"written: {units_mod.cache_path(tenant)}")
+    return exits.OK
+
+
 # ---------------------------------------------------------------------------
 # harness score -- see evals/rubric.md for what each axis means.
 # ---------------------------------------------------------------------------
@@ -2600,6 +2627,13 @@ def build_parser():
     p_claims_list = claims_sub.add_parser("list")
     _add_tenant_flag(p_claims_list)
     p_claims_list.set_defaults(func=cmd_claims_list)
+
+    p_claims_units = claims_sub.add_parser(
+        "refresh-units", help="count sauna units delivered (read-only Shopify) into runs/units-claims.json")
+    p_claims_units.add_argument("--since", default="2000-01-01T00:00:00Z",
+                                help="count orders created at or after this ISO time (default: all time)")
+    _add_tenant_flag(p_claims_units)
+    p_claims_units.set_defaults(func=cmd_claims_refresh_units)
 
     p_score = sub.add_parser("score", help="record a human score for a run (see evals/rubric.md)")
     p_score.add_argument("run_dir")

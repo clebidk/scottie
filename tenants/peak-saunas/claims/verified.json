@@ -1102,6 +1102,19 @@
     ]
   },
   {
+    "id": "pwc-value-588",
+    "text": "Peak Wellness Club, a $588-per-year membership, is included free with every Peak sauna.",
+    "category": "trust",
+    "source": "owner (Caleb) confirmation 2026-10-15 (cycle 110); pwc-included-free",
+    "approved_by": "Caleb",
+    "date": "2026-10-15",
+    "aliases": [
+      "$588/yr value",
+      "$588 per year",
+      "$588 a year membership"
+    ]
+  },
+  {
     "id": "pwc-leaderboard-lounge",
     "text": "Leaderboard: live streak tracking, see how your usage compares across the community. The Sauna Lounge: private owner community, find other members, share results, ask questions.",
     "category": "benefit",
@@ -1146,8 +1159,20 @@
     "approved_by": "Caleb",
     "date": "2026-09-10",
     "aliases": [
+      "HSA/FSA eligible"
+    ],
+    "superseded_by": "hsa-fsa-redo"
+  },
+  {
+    "id": "hsa-fsa-redo",
+    "text": "Peak saunas may be eligible for HSA/FSA purchase through Redo.",
+    "category": "trust",
+    "source": "gbrain:policy/financing-and-payment; owner (Caleb) 2026-10-15: the HSA/FSA provider is Redo (replaces hsa-fsa-truemed, kept for old references)",
+    "approved_by": "Caleb",
+    "date": "2026-10-15",
+    "aliases": [
       "HSA/FSA eligible",
-      "HSA and FSA through TrueMed"
+      "HSA and FSA through Redo"
     ]
   },
   {

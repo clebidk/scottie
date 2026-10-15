@@ -473,7 +473,7 @@ def test_facts_for_with_the_real_library_offers_only_the_products_own_photos(mon
         assert t["product"] == model or (t["product"] == "unknown" and t["model_agnostic"])
     assert not any(a["id"].startswith(("asset-drive-", "asset-listicle-")) for a in fp["assets"])
     assert any(a["id"].startswith(f"asset-{handle}-") for a in fp["assets"])   # storefront fallback kept
-    assert len(json.dumps(fp)) / 4 < 4000
+    assert len(json.dumps(fp)) / 4 < 5000  # cycle 110: the proof and offer fields (tests/test_ground.py)
 
 
 def test_the_heading_topic_beats_passing_mentions_in_the_body(tenant):
