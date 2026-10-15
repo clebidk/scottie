@@ -744,3 +744,51 @@ message and no network call, until those are configured.
 ## Design skills
 
 `harness design-skills list` shows the take/adapt/decline rules from the vendored skill; `explain <rule-id>` prints one; `check <run-dir>` runs the deterministic design checks (they also run inside the page gate on every write). Reference site analyses live in harness/design_skills/design-md/ and are evidence only.
+
+## Proof and offer facts (cycle 110)
+
+`harness/proof.py` adds these fields to every facts_pack (the landing renderer reads them and falls
+back when one is absent). Every field comes from a verified claim, a claim fetched this run, or the
+units cache, and every backing claim joins `facts_pack.verified_claims`.
+
+```
+reviews_store: {text, rating, count, claim_ids}            # reviews-store-live, the store page's own rating
+review_quotes: [{claim_id, text, author, date, stars, product}]   # review-quote-<n>, verbatim
+product.financing.monthly: {text, amount, months, apr, disclosure, claim_ids}   # financing-monthly-<model>
+units: {last_12mo: {text, claim_ids}, all_time: {text, claim_ids} | null}       # units-delivered-*
+included: [{text, claim_ids}]
+hsa_fsa: {text, claim_ids} | null
+support: {text, claim_ids}
+founder: {text, claim_ids}
+us_owned: {text, claim_ids}
+offer.net_price, offer.list_price, offer.code, offer.deadline_short   # harness/offer.py, also in offer_view
+```
+
+- **Store rating.** The ground stage reads the review platform's store page (tenant.yaml
+  `reviews.store_url`) and builds `reviews-store-live` ("Rated 4.6 out of 5 from 4,260 reviews on
+  Judge.me (fetched 2026-10-15)."). The product's own `reviews-live` claim stays (`reviews_summary`).
+- **Review quotes.** The platform's public product-review JSON (two pages of 30) and one page of its
+  store-wide reviews (tenant.yaml `reviews.widget_url_template`, `reviews.all_reviews_url_template`,
+  `reviews.shop_domain`). A review is quoted only when it is from a verified buyer, 4 or 5 stars,
+  12 to 70 words, by a "First L." author, not marked as machine-made media, and holds no health
+  outcome, no price, discount or lender word, no figure, no complaint or hedge, no link, no banned
+  vocab term (EMF, competitor and lender names, hype words) and is a sentence (not a product title).
+  The product's own reviews come first, the store's next; reviews of 20 words or more first, newest
+  first; at most `reviews.quotes_max` (6). The text is never cut or mended. A quote is a claim of
+  category `review`; it never verifies an ad claim. Nothing readable: no quotes, and the log says why.
+- **Financing per model.** claims/config.json `financing_monthly` holds the product page's own line
+  and disclosure as templates; the claim is price / 18 at 0% APR, rounded to cents
+  ("$458.33/mo for 18 months at 0% APR*"). A price under the lender's $5,000 minimum gets no claim.
+  The owner approved the 0% APR wording on 2026-10-15. Render it only with its disclosure.
+- **Units.** `harness claims refresh-units` (monthly: crons/units-refresh.timer) counts the tenant's
+  own units in non-cancelled fulfillments with carrier tracking, read-only from the Shopify Admin
+  API (tenant.yaml `units`), and writes `runs/units-claims.json` with the fetch date. Figures are
+  rounded down to the thousand; an all-time figure that rounds to the 12-month figure is left out.
+- **Included stack and trust fields.** tenant.yaml `proof` names the claims behind each line
+  (`{model}` is the run's model slug, the first claim found wins). `compare_at_price` stays null
+  until legal confirms a former price.
+- **Offer figures.** `offer_view` adds `net_price` (the product's price less the product's own
+  amount; None when the claim gives no single amount for it), `list_price`, and `deadline_short`
+  ("today's price ends Thu, Oct 15": "prices go up on <date>" ends the day before that date,
+  "ends <date>" on it). `apply_to_run` copies them and `code` into `facts_pack.offer`.
+- **Reading level.** `textutil.grade_level(text)` is the Flesch-Kincaid grade for the landing gate.

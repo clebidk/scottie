@@ -297,13 +297,42 @@ repository) so a later deploy does not overwrite it.
 ## The receiver (`POST /e`)
 
 This is the one route in `harness serve` that is not behind the login. It
-accepts only a JSON body of 1 KB or less. The event must be `view`, `cta` or
-`assign` (cycle 88, from the split page)
+accepts only a JSON body of 1 KB or less. The event must be `view`, `cta`,
+`assign` (cycle 88, from the split page), `sms_tap` or `leave` (cycle 110)
 and must name a live or finished test and one of its variants. The receiver
 drops crawlers and link previewers (for example facebookexternalhit)
 silently. A repeat event from the same visitor is a no-op. The limit is 60
 events per minute per IP. Replies: 204 (stored, duplicate, or bot), 400,
 413, 429.
+
+## Beacon detail (cycle 110)
+
+The variant beacon (`abtest.beacon_script`, under 2 KB, no library) sends
+more than view and CTA. Each field is optional, checked and bounded by
+`abevents.parse_event`; a bad field is dropped, never the event.
+
+| Event | When | Fields (wire -> column) |
+|---|---|---|
+| `view` | on load | `vh`, `vw` (viewport px), `cn` -> `conn` (effective connection type) |
+| `cta` | a click on a CTA anchor (`CTA_CLASSES`) to /products/ or /collections/ | `el` (the anchor's `data-el`: hero, mid, cards, reviews, closing, sticky, sms, other), `y` (scroll depth % at the click) |
+| `sms_tap` | a tap on an `sms:` link (never a CTA) | `el`, `y` |
+| `leave` | pagehide, or the page goes hidden | `m` -> `max_scroll` (%), `s` -> `secs`, `lcp`/`fcp`/`dcl` -> `lcp_ms`/`fcp_ms`/`dcl_ms`, `hid` -> `hidden_ms` (ms to the first tap/key or the first hide) |
+
+One row per (test, variant, visitor, event) as before, so CTA counts stay
+unique visitors and `el` is the visitor's first CTA click. A repeat `leave`
+updates its row: the deepest scroll and the longest stay win, the first load
+timings stay. `abevents.connect` adds the new columns to an old database in
+place; old rows keep NULL and read as before. `harness abtest results` adds,
+per generated arm with new data: clicks by element and sms taps, the scroll
+depth at the click, the deepest-scroll distribution of visitors who left and
+their median time on the page, p50/p75 LCP with the share over 2.5 s, and the
+share of viewports under 700 px tall. Pages published before cycle 110 carry
+the old beacon until they are re-rendered (`harness abtest rebuild-arm`).
+
+Every test record also carries `ad_angle` (sale, financing, recovery, story,
+apartment, other; `abtest.ad_angle` from the arm's ad brief, set when the
+test is built, derived on read for older tests), shown by `abtest status`
+and `abtest results`.
 
 ## Control arms (cycle 88)
 
