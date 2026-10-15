@@ -58,3 +58,36 @@ def test_f1_landing_writer_is_given_the_evidenced_pronoun_or_the_creator():
     assert "In the ad, she" not in text and "<she/he/the creator>" not in text
     text = " ".join(landing.writer_lines(_rich(), TENANT, look="peak", ad_brief=dict(LREB_BRIEF, speaker_pronoun="she")))
     assert '"In the ad, she says"' in text and "never she/he" not in text
+
+
+# ---------------------------------------------------------------------------
+# F2: words in quotation marks on the first screen are the source's own words
+# ---------------------------------------------------------------------------
+
+REVIEW_FP = {"review_quotes": [{"text": "We use it every night and it is the best part of my day!",
+                                "claim_id": "review-quote-1"}]}
+
+
+def test_f2_the_lreb_quote_is_verbatim_in_its_transcript_and_a_changed_word_fails():
+    # the real subhead quotes the transcript word for word ("It feels great in her joints and ...")
+    fields = [("$.hero.subhead", LREB_HERO["subhead"])]
+    assert quote_fidelity.find_unquoted_first_screen(fields, LREB_BRIEF, REVIEW_FP, "landing") == []
+    changed = LREB_HERO["subhead"].replace("her joints", "my joints")
+    problems = quote_fidelity.find_unquoted_first_screen([("$.hero.subhead", changed)], LREB_BRIEF, REVIEW_FP,
+                                                         "landing")
+    assert [p["key"] for p in problems] == ["landing:quote_fidelity:$.hero.subhead"]
+    assert "restore the exact words" in problems[0]["issue"] and "feels great in my joints" in problems[0]["issue"]
+    page = {"hero": dict(LREB_HERO, subhead=changed)}
+    keys = [p["key"] for p in landing.find_landing_violations(page, _facts_pack(), ad_brief=LREB_BRIEF,
+                                                              tenant=TENANT)]
+    assert "landing:quote_fidelity:$.hero.subhead" in keys
+    keys = [p["key"] for p in listicle_persuasion.find_persuasion_violations({"lede": changed}, {},
+                                                                             ad_brief=LREB_BRIEF)]
+    assert "listicle:quote_fidelity:$.lede" in keys
+
+
+def test_f2_a_review_quote_counts_case_and_punctuation_aside():
+    fields = [("$.hero.headline", "“The best part of my day,” one owner says")]
+    assert quote_fidelity.find_unquoted_first_screen(fields, LREB_BRIEF, REVIEW_FP, "landing") == []
+    fields = [("$.hero.headline", '"The best part of the day," one owner says')]
+    assert quote_fidelity.find_unquoted_first_screen(fields, LREB_BRIEF, REVIEW_FP, "landing") != []

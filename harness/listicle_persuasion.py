@@ -36,6 +36,7 @@ from pathlib import Path
 from . import landing_sell, persuasion
 from .claims import _QUOTED_SPAN_RE
 from .persuasion import MAX_GRADE, grade_level
+from . import quote_fidelity
 from .quote_fidelity import _content_stems
 from .textutil import NON_PROSE_KEYS, product_name_slug, walk_page
 
@@ -446,6 +447,10 @@ def find_persuasion_violations(page, facts_pack, ad_brief=None, name_words=(), p
     problems += find_ad_reference_violations(page, prefix)
     problems += find_reading_level_violations(page, name_words, prefix)
     problems += persuasion.find_copy_hygiene_violations(_unquoted(page), facts_pack, prefix=prefix)
+    if ad_brief:
+        problems += quote_fidelity.find_unquoted_first_screen(
+            [(f"$.{k}", page.get(k)) for k in ("eyebrow", "headline", "display_headline", "dek", "lede")],
+            ad_brief, facts_pack, prefix)
     return problems
 
 

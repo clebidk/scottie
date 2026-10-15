@@ -301,6 +301,44 @@ def repair_instruction(ad_speaker_verified=False):
     )
 
 
+def _verbatim_norm(text):
+    """Lower case, curly apostrophes straight, punctuation dropped, whitespace collapsed."""
+    text = str(text or "").replace("\u2019", "'").replace("\u2018", "'").lower()
+    return " ".join(re.findall(r"[a-z0-9']+", text))
+
+
+def verbatim_sources(ad_brief, facts_pack):
+    """The words a first screen may put in quotation marks: the ad's
+    transcript / on-image text, its primary text, and each
+    facts_pack.review_quotes[].text."""
+    brief = ad_brief or {}
+    out = [brief.get("transcript_or_text"), brief.get("primary_text"),
+           (brief.get("ad_copy") or {}).get("primary_text") if isinstance(brief.get("ad_copy"), dict) else None]
+    out += [q.get("text") for q in ((facts_pack or {}).get("review_quotes") or []) if isinstance(q, dict)]
+    return [_verbatim_norm(t) for t in out if isinstance(t, str) and t.strip()]
+
+
+def find_unquoted_first_screen(fields, ad_brief, facts_pack, prefix):
+    """<prefix>:quote_fidelity:<path> -- each run of text in double
+    quotation marks in `fields` ([(path, text)]) is a verbatim substring
+    (case, punctuation and spacing aside) of verbatim_sources()."""
+    sources = [f" {s} " for s in verbatim_sources(ad_brief, facts_pack)]
+    hits = []
+    for path, text in fields:
+        if not isinstance(text, str):
+            continue
+        for span in quoted_spans(text):
+            norm = _verbatim_norm(span)
+            if norm and not any(f" {norm} " in src for src in sources):
+                hits.append({"path": path, "key": f"{prefix}:quote_fidelity:{path}", "text": text,
+                             "issue": f"{span!r} is in quotation marks but is not word for word in the ad's "
+                                      "transcript or text or in a facts_pack.review_quotes text -- restore the "
+                                      "exact words (copy them from the source), or drop the quotation marks "
+                                      "and the credit with them"})
+                break
+    return hits
+
+
 def find_unfaithful_attribution(page_json, ad_brief, ad_speaker_verified=False):
     """One {"path", "key", "issue", "text"} per attributed_to_customer node
     whose text is not grounded in the ad speaker's own words, embellishes

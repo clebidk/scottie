@@ -34,6 +34,7 @@ from . import offer as offer_mod
 from . import pdp
 from . import landing_sell
 from . import persuasion
+from . import quote_fidelity
 from . import tenant as tenant_mod
 from .prices import format_price
 from .textutil import product_name_slug, walk_page
@@ -1246,5 +1247,8 @@ def find_landing_violations(page, facts_pack=None, ad_brief=None, tenant=None):
     problems += persuasion.find_hero_required_violations(page, prefix=_PROBLEM_PREFIX)
     if ad_brief:
         problems += find_speaker_pronoun_violations(page, ad_brief, tenant)
+        hero = page.get("hero") or {}
+        problems += quote_fidelity.find_unquoted_first_screen(
+            [(f"$.hero.{k}", hero.get(k)) for k in HERO_TEXT_FIELDS], ad_brief, facts_pack, _PROBLEM_PREFIX)
     return problems
 
