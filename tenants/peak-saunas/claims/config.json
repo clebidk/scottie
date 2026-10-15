@@ -7,5 +7,16 @@
   "allow_ai_renders": true,
   "budget": {
     "daily_usd": 10.0
+  },
+  "financing_monthly": {
+    "_note": "Cycle 110: the product page own financing line and disclosure (peaksaunas.com PDPs, read 2026-10-15), filled per model with price / months. Owner approved the 0% APR wording 2026-10-15.",
+    "months": 18,
+    "apr": "0%",
+    "min_purchase": "5000.00",
+    "line_template": "{monthly}/mo for {months} months at {apr} APR*",
+    "claim_template": "Est. {monthly}/mo for {months} months at {apr} APR with $0 down through {lender}; your actual rate, term, and payment are set by {lender} when you apply.",
+    "disclosure_template": "Est. {monthly}/mo is based on {price} financed over {months} monthly payments at {apr} APR with $0 down; your actual rate, term, and payment are set by {lender} when you apply. A minimum purchase of $5,000.00 is required. Availability of terms may vary based on purchase price, product, and state of residence. Down payment may be required. Subject to approval of credit application. Rates range from 0% to 34.99% APR, resulting in, for example 36 monthly payments of $38.19 at 21.99% APR, per $1,000.00 borrowed. APRs will vary depending on credit qualifications, loan amount, and term. Bread Pay® loans are made by Comenity Capital Bank, a Bread Financial® company.",
+    "source": "{url} (financing line and disclosure, read 2026-10-15; owner approved the 0% APR wording 2026-10-15)",
+    "approved_by": "Caleb"
   }
 }
