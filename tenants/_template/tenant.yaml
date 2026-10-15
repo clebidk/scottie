@@ -22,6 +22,11 @@ reviews:
   platform_name: CHANGE ME
   store_url: ""
   claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
+  store_claim_template: "Rated {rating} out of 5 from {count} reviews on {platform_name} (fetched {date})."
+  shop_domain: ""            # the store's *.myshopify.com domain (review quotes); else SHOPIFY_STORE
+  quotes_max: 6
+  widget_url_template: ""     # the platform's public product-review JSON ({shop} {page} {per_page} {product_id})
+  all_reviews_url_template: ""  # its store-wide reviews ({shop} {page} {per_page})
 
 # {product_name} is the model alone; {product_full_name} is the model named
 # by product_name_format (cycle 64).
@@ -83,6 +88,25 @@ photo_library:                  # the tenant photo library (harness/photo_librar
 warranty_claim_id: ""
 excluded_benefit_ids: []
 claim_id_prefixes: [spec-, price-, pdp-, reviews-]
+
+# Cycle 110 (harness/proof.py): the facts_pack proof fields. Each entry names
+# the verified claims that back it, first found wins; "{model}" is the run's
+# model slug. Optional: a field with no claim is left out of the pack.
+proof:
+  hsa_fsa: {claims: []}           # e.g. {claims: [hsa-fsa-<provider>]}
+  support: {text: "", claims: []}
+  founder: {claims: []}
+  us_owned: {claims: []}
+  included: []                    # [{text: "...", claims: [...], also: [...]}]
+# Cycle 110 (harness/units.py): units delivered, read-only from Shopify.
+units:
+  sku_prefixes: []                # e.g. [ACME-]
+  extra_models: []                # retired models that still count
+  sku_aliases: {}                 # SKU body -> model name
+  third_party_sku: ""             # regex of resale SKUs that never count
+  category_word: ""               # the word a no-SKU unit title holds
+  last_12mo_template: "{count}+ units delivered in the last 12 months (Shopify, {month})"
+  all_time_template: "{count}+ units delivered since {year} (Shopify, {month})"
 
 default_cartridge_pool: [article, product-page, longform]
 

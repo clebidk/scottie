@@ -27,6 +27,47 @@ reviews:
   platform_name: Judge.me
   store_url: https://judge.me/reviews/stores/peaksaunas.com
   claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
+  # Cycle 110: the store-wide rating (the store page's own "4.6 out of 5 stars
+  # based on 4260 reviews") and verbatim review quotes (harness/proof.py). The
+  # review platform's public endpoints key the store by its *.myshopify.com
+  # domain (Judge.me answered with PEAK's own reviews for this one, 2026-10-15).
+  store_claim_template: "Rated {rating} out of 5 from {count} reviews on {platform_name} (fetched {date})."
+  shop_domain: bd4b8d-2.myshopify.com
+  quotes_max: 6
+  widget_url_template: "https://judge.me/reviews/reviews_for_widget?url={shop}&shop_domain={shop}&platform=shopify&page={page}&per_page={per_page}&product_id={product_id}"
+  all_reviews_url_template: "https://judge.me/reviews/all_reviews_js_based?url={shop}&shop_domain={shop}&platform=shopify&page={page}&per_page={per_page}&review_type=all-reviews"
+
+# Cycle 110: units delivered (harness/units.py, `harness claims refresh-units`).
+# A unit is a line whose SKU is <prefix><MODEL>[n] for a catalog model (plus
+# the retired ones below), or a no-SKU "<n>-Person ... Sauna" title naming
+# one; third-party resale SKUs (Dynamic, Maxxus, Golden Designs, SaunaLife)
+# never count. Figures are rounded DOWN to the thousand.
+units:
+  sku_prefixes: [PEAK-, KING-]
+  extra_models: [Olympus, Aspen, Zion]
+  sku_aliases: {WHITNEY: Crown, ELCAPITAN: El Capitan}
+  third_party_sku: "^((DYN|MX|GDI|SL)[- ]|HL\\d)"
+  category_word: sauna
+  last_12mo_template: "{count}+ saunas delivered to US homes in the last 12 months (Shopify, {month})"
+  all_time_template: "{count}+ saunas delivered since {year} (Shopify, {month})"
+
+# Cycle 110: the facts_pack proof and offer fields (harness/proof.py). Each
+# entry names the verified claims that back it, first found wins; "{model}" is
+# the run's model slug. A field whose claims are all missing is left out.
+proof:
+  hsa_fsa: {claims: [hsa-fsa-redo]}
+  support: {text: "Lifetime U.S.-based support", claims: [gbrain-warranty-lifetime-definition]}
+  founder: {claims: [founder-ceo]}
+  us_owned: {claims: [gbrain-allowlist-us-owned]}
+  included:
+    - {text: "Medical-grade red light therapy, standard", claims: ["spec-{model}-red-light", "gbrain-{model}-rlt", gbrain-allowlist-red-light]}
+    - {text: "Full-spectrum infrared heat: near, mid and far", claims: ["spec-{model}-infrared-wavelength-range", "gbrain-{model}-wavelengths", gbrain-allowlist-360-full-spectrum]}
+    - {text: "Peak Wellness Club, a $588-a-year membership, included free", claims: [pwc-value-588]}
+    - {text: "Free shipping", claims: [gbrain-allowlist-free-shipping, shipping-policy]}
+    - {text: "7-year warranty on the heaters and the cabinet", claims: [warranty-terms], also: [gbrain-allowlist-lifetime-warranty]}
+    - {text: "Lifetime U.S.-based support", claims: [gbrain-warranty-lifetime-definition]}
+    - {text: "App control: preheat from your phone", claims: ["pdp-{model}-app-control"]}
+    - {text: "Two Bluetooth speakers", claims: ["spec-{model}-audio"]}
 
 # One in-memory price claim per product, built fresh every run. Cycle 64:
 # the product is named by its full name ("The Peak Fuji ..."), never the
@@ -172,7 +213,7 @@ photo_library:
 
 warranty_claim_id: warranty-terms
 excluded_benefit_ids: [warranty-terms, shipping-policy, returns-policy]
-claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-, returns-, founder-]
+claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-, returns-, founder-, review-quote-, financing-monthly-, units-delivered-]
 
 # `harness run` with no --cartridges draws three at random from this pool.
 # listicle is opt-in only until it is approved for the default rotation.
@@ -373,6 +414,17 @@ abtest:
     - landing:cinematic
     - landing:open
     - landing:proof
+    # TODO(cycle 110, at the merge of Agent B's `peak` look): the cycle 110
+    # brief's library is landing:peak vs landing:proof vs the home page.
+    # "landing:peak" cannot be listed before that look exists: parse_arm
+    # refuses an unknown look and library() then fails every new test. At the
+    # merge, replace the three lines above with:
+    #   - landing:peak
+    #   - landing:proof
+    #   - landing:cinematic   # reserve: library() needs 3 builds, and a failed arm needs a substitute
+    # The home page is a destination, not a build: abtest.inbox_plan auto adds
+    # it as arm C only when the ad names no model (cycle 108 rule 2 adds the
+    # PDP instead); a home arm on every test needs an owner decision.
   explore: 0.2
   min_views: 300
   beacon_url: https://listicle.peaksaunasteam.com/e

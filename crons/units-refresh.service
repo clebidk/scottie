@@ -1,0 +1,6 @@
+[Unit]
+Description=Count sauna units delivered (read-only Shopify) into the units claims cache for tenant @@TENANT@@
+
+[Service]
+Type=oneshot
+ExecStart=@@REPO@@/.venv/bin/harness claims refresh-units --tenant @@TENANT@@

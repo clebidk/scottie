@@ -819,23 +819,28 @@ class ShopifyPublisher(Publisher):
     _ORDERS_PAGE = 250
     _ORDERS_MAX_PAGES = 40
 
-    def list_orders(self, *, created_at_min):
+    def list_orders(self, *, created_at_min, fields=None, max_pages=None, page_size=None, pause_s=0):
         """Every order (any status) created at or after `created_at_min` (ISO
         8601), with only ORDER_FIELDS. Pages by since_id -- the transport
         returns no headers, so Link-header pagination is not available -- and
-        stops after _ORDERS_MAX_PAGES pages (10,000 orders)."""
+        stops after _ORDERS_MAX_PAGES pages (10,000 orders). Cycle 110: the
+        units count (harness/units.py) asks for other `fields`, more pages,
+        smaller pages and a pause between them."""
         orders, since_id = [], 0
-        for _ in range(self._ORDERS_MAX_PAGES):
+        page_size = page_size or self._ORDERS_PAGE
+        for page in range(max_pages or self._ORDERS_MAX_PAGES):
+            if page and pause_s:
+                self._sleep(pause_s)
             query = urllib.parse.urlencode({
-                "status": "any", "created_at_min": created_at_min, "limit": self._ORDERS_PAGE,
-                "fields": self.ORDER_FIELDS, "since_id": since_id,
+                "status": "any", "created_at_min": created_at_min, "limit": page_size,
+                "fields": fields or self.ORDER_FIELDS, "since_id": since_id,
             })
             status, data = self._request("GET", f"orders.json?{query}")
             if status != 200 or "orders" not in data:
                 raise PublishFailed(f"order list failed: status={status} body={data}")
             batch = data["orders"]
             orders.extend(batch)
-            if len(batch) < self._ORDERS_PAGE:
+            if len(batch) < page_size:
                 break
             since_id = max(o["id"] for o in batch)
         return orders

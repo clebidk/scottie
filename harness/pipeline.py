@@ -39,6 +39,7 @@ from .prices import refresh_price_data
 from .render import http_fetch_bytes, render_page
 from .semantic_match import semantic_match_claims
 from .sources.judgeme import fetch_reviews_claim
+from . import proof as proof_mod
 
 CARTRIDGES_DIR = REPO_ROOT / "cartridges"
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -349,6 +350,13 @@ def ground(state):
         if state.claims_config.get("reviews_source") not in (None, "none")
         else None
     )
+    # Cycle 110: the store rating, verbatim review quotes and the cached unit
+    # counts (harness/proof.py); passed to facts_for only when there are any.
+    state.live_claims = proof_mod.live_claims(
+        state.tenant, state.product, today_iso=state.today_iso,
+        live_products=getattr(state, "live_products", None) or (),
+        reviews=state.claims_config.get("reviews_source") not in (None, "none"), log=state.log,
+    )
     state.facts_pack = state.facts_source.facts_for(
         state.product["slug"],
         state.ad_brief,
@@ -372,6 +380,7 @@ def ground(state):
         # that declares that block (harness/blocks/catalog/); passed only then,
         # so a facts source without the keyword is untouched.
         **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
+        **({"live_claims": state.live_claims, "today_iso": state.today_iso} if state.live_claims else {}),
     )
     # Cycle 109: the ad's offer -> its verified promo claim (harness/offer.py).
     # A match puts the claim into facts_pack (offer-led page); no match marks
@@ -415,7 +424,11 @@ def gate_ad_claims(state):
     approved, not just the eventual product's curated facts_pack subset."""
     policy = state.claims_config.get("ad_overclaim_policy", "stop")
     all_verified = state.facts_source.all_verified_claims(
-        state.live_price_claims_by_slug, extra_claims=state.pdp_claims
+        state.live_price_claims_by_slug,
+        # cycle 110: the store rating and unit counts may match an ad claim; a
+        # customer's review quote never verifies one
+        extra_claims=list(state.pdp_claims or []) + [c for c in getattr(state, "live_claims", None) or []
+                                                     if c.get("category") != "review"],
     )
     semantic_mapping = semantic_match_claims(
         state.ad_brief.get("claims_made", []),
