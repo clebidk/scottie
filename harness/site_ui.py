@@ -692,7 +692,9 @@ QUALITY_FIELDS = (
     ("proof_count", "Proof", "Verified proof elements shown: rating, units line, review quotes"),
     ("lcp_ms", "LCP", "Largest contentful paint, ms"),
     ("cls", "CLS", "Cumulative layout shift"),
-    ("first_screen_ok", "First screen", "Hook match, proof and a CTA in the first screen"),
+    ("first_screen_ok", "First screen", "Hook match, proof, and the first CTA's top edge inside 844 px at 390 wide "
+                                        "(measured in a browser; blank when not measured)"),
+    ("ad_reference_rendered", "Ad refs", "Banned ad-grading phrases in the rendered page (\"actually\", \"the ad\", ...)"),
 )
 DASH = "&mdash;"
 
@@ -703,6 +705,8 @@ def quality_value(key, value):
         return DASH
     if isinstance(value, bool):
         return "&#10003;" if value else "&#10007;"
+    if isinstance(value, list):
+        return str(len(value))
     if key == "hook_match" and isinstance(value, (int, float)):
         return f"{float(value):.2f}"
     if key == "grade_level" and isinstance(value, (int, float)):

@@ -335,6 +335,34 @@ def find_ad_reference_violations(page, prefix=PREFIX, extra_phrases=None):
     return persuasion.find_ad_reference_violations(scan, prefix=prefix, extra_phrases=extra_phrases)
 
 
+_RENDER_SKIP_RE = re.compile(r"<(script|style|blockquote|cite|figcaption)\b.*?</\1>", re.IGNORECASE | re.DOTALL)
+
+
+def find_rendered_ad_reference_violations(html):
+    """The ad-reference ban over the page as a reader sees it (the body from
+    <main> to the footer, tags stripped): fixed template copy and a page
+    written before the gate cannot slip past it. Customer and speaker words
+    are exempt: blockquotes, cites, captions and quoted spans are dropped, and
+    the attribution frame ("In the ad, she says,") is allowed.
+    [{"term", "issue"}]."""
+    from .claims import strip_html_to_visible_text
+    from .listicle_quality import _ALLOWED_FRAME_RE
+
+    text = html or ""
+    if "<main" in text:
+        text = text[text.index("<main"):]
+    if "<footer" in text:
+        text = text[:text.index("<footer")]
+    text = strip_html_to_visible_text(_RENDER_SKIP_RE.sub(" ", text))
+    text = _QUOTED_SPAN_RE.sub(" ", text)
+    text = persuasion.ATTRIBUTION_FRAME_RE.sub(" ", _ALLOWED_FRAME_RE.sub(" ", text))
+    hits = []
+    for m in persuasion.AD_REFERENCE_RE.finditer(text):
+        around = " ".join(text[max(0, m.start() - 50): m.end() + 50].split())
+        hits.append({"term": m.group(0), "issue": f"{m.group(0)!r} in the rendered page: {around!r}"})
+    return hits
+
+
 READING_FIELDS_RE = re.compile(
     r"^\$\.(?:headline|dek|lede|reasons\[\d+\]\.(?:heading|text|proof\.text)"
     r"|audience_fit\.(?:for_you|not_for_you)\[\d+\]\.text|faq\.questions\[\d+\]\.(?:question|answer)"
@@ -573,7 +601,8 @@ def sell_context(page, facts_pack, tenant=None, base_stats=None):
 # Quality numbers -> state.json listicle.quality (the review site)
 # ---------------------------------------------------------------------------
 
-QUALITY_KEYS = ("hook_match", "grade_level", "cta_count", "proof_count", "lcp_ms", "cls", "first_screen_ok")
+QUALITY_KEYS = ("hook_match", "grade_level", "cta_count", "proof_count", "lcp_ms", "cls", "first_screen_ok",
+                "first_cta_top", "ad_reference_rendered")
 
 
 def _name_words(facts_pack, tenant=None):
@@ -586,14 +615,29 @@ def _name_words(facts_pack, tenant=None):
     return tuple(sorted((n for n in names if n), key=len, reverse=True))
 
 
-def quality(page, html, ad_brief, facts_pack, tenant=None):
+PHONE_SCREEN = (390, 844)
+
+
+def first_cta_top(layout):
+    """The first CTA's top edge (px) in a capture.probe() layout at 390 wide,
+    or None when the layout has no CTA or there is no layout."""
+    cta = (layout or {}).get("cta") if isinstance(layout, dict) else None
+    top = cta.get("top") if isinstance(cta, dict) else None
+    return int(top) if isinstance(top, (int, float)) else None
+
+
+def quality(page, html, ad_brief, facts_pack, tenant=None, layout=None):
     """{hook_match, grade_level, cta_count, proof_count, lcp_ms, cls,
-    first_screen_ok} for one rendered listicle. hook_match is the share of
-    the hook's content words the first screen carries (1.0 when it quotes
-    the speaker); cta_count the links to the page's cta_url; proof_count the
-    verified proof elements shown (rating, units, review quotes);
-    first_screen_ok: the hook matches and the first screen carries proof
-    and a CTA. lcp_ms / cls stay None until a browser measures them."""
+    first_screen_ok, ad_reference_rendered} for one rendered listicle.
+    hook_match is the share of the hook's content words the first screen
+    carries (1.0 when it quotes the speaker); cta_count the links to the
+    page's cta_url; proof_count the verified proof elements shown (rating,
+    units, review quotes). first_screen_ok is positional: the hook matches,
+    the first screen carries proof, and the first CTA's top edge is inside
+    the first 844 px at 390 wide in `layout` (capture.probe at 390 x 844);
+    None when no layout was measured. ad_reference_rendered: the banned
+    phrases in the page as a reader sees it (find_rendered_ad_reference_
+    violations). lcp_ms / cls stay None until a browser measures them."""
     import html as html_mod
 
     page = page or {}
@@ -609,16 +653,24 @@ def quality(page, html, ad_brief, facts_pack, tenant=None):
     shown = {p["claim_ids"][0] for p in ctx["proof_row"]}
     shown |= {p["claim_ids"][0] for p in ctx["item_proofs"] if p and p["kind"] != "text"}
     shown |= {q["claim_ids"][0] for q in ctx["wall"] + ([ctx["pull"]] if ctx["pull"] else [])}
-    first_cta = 'data-el="hero"' in (html or "")
+    top = first_cta_top(layout)
+    first_ok = None
+    if layout is not None:
+        first_ok = bool(hm["ok"] and ctx["proof_row"] and top is not None and top < PHONE_SCREEN[1])
     return {"hook_match": 1.0 if hm["quoted"] else hm["score"], "grade_level": grade, "cta_count": cta,
-            "proof_count": len(shown), "lcp_ms": None, "cls": None,
-            "first_screen_ok": bool(hm["ok"] and ctx["proof_row"] and first_cta)}
+            "proof_count": len(shown), "lcp_ms": None, "cls": None, "first_screen_ok": first_ok,
+            "first_cta_top": top, "ad_reference_rendered": [h["term"] for h in
+                                                            find_rendered_ad_reference_violations(html)]}
 
 
-def record_quality(run_dir, cartridge="listicle", tenant=None):
+def record_quality(run_dir, cartridge="listicle", tenant=None, layout=None, browser=None):
     """Computes quality() from the run's own files and writes it under
     state.json[<cartridge>]["quality"]; returns it (None when a file is
-    missing). Measured values another step wrote (lcp_ms, cls) are kept."""
+    missing). `layout`: a capture.probe() result at 390 x 844 the caller
+    already has (the design gate's, a screenshot step's); `browser`: measure
+    one here. With neither, first_screen_ok is None ("—" on the site), never
+    a guess. Measured values another step wrote (lcp_ms, cls, a layout-based
+    first_screen_ok) are kept."""
     from . import runstate
     from . import tenant as tenant_mod
 
@@ -637,10 +689,16 @@ def record_quality(run_dir, cartridge="listicle", tenant=None):
             tenant = tenant_mod.active()
         except Exception:  # noqa: BLE001
             tenant = None
-    q = quality(page, html, ad_brief, facts_pack, tenant)
+    if layout is None and browser:
+        from . import capture
+
+        layout = capture.probe(browser, run_dir / cartridge / "index.html", width=PHONE_SCREEN[0],
+                               height=PHONE_SCREEN[1], tenant=tenant)
+    q = quality(page, html, ad_brief, facts_pack, tenant, layout=layout)
     entry = dict(data.get(cartridge) or {})
     old = entry.get("quality") or {}
-    for key in ("lcp_ms", "cls"):
+    keep = ("lcp_ms", "cls") + (("first_screen_ok", "first_cta_top") if layout is None else ())
+    for key in keep:
         if q[key] is None and old.get(key) is not None:
             q[key] = old[key]
     entry["quality"] = q

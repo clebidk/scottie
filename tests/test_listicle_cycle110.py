@@ -333,9 +333,67 @@ def test_quality_numbers_are_recorded_in_state_json(tmp_path):
     runstate.init_state(run_dir, pages=["listicle"])
     q = lp.record_quality(run_dir, "listicle", tenant=TENANT)
     assert set(q) == set(lp.QUALITY_KEYS)
-    assert q["hook_match"] == 1.0 and q["first_screen_ok"] is True and q["grade_level"] <= 7.5
+    assert q["hook_match"] == 1.0 and q["grade_level"] <= 7.5 and q["ad_reference_rendered"] == []
     assert q["cta_count"] >= 5 and q["proof_count"] >= 5 and q["lcp_ms"] is None
+    # no browser measured the layout: unknown, never a guess
+    assert q["first_screen_ok"] is None
     assert runstate.load_state(run_dir)["listicle"]["quality"] == q
+
+
+@pytest.mark.parametrize("top,ok", [(560, True), (843, True), (844, False), (1210, False), (None, False)])
+def test_first_screen_ok_is_positional(tmp_path, top, ok):
+    """capture.probe's first CTA top edge at 390 x 844 (run cgyn's face
+    screen put it at about 1,210 px: the ad still fills the screen)."""
+    fp = with_a_fields(CGYN["facts_pack"])
+    page = dict(clean_cgyn(), hero_style="face")
+    html = _render(tmp_path, page, fp)
+    layout = {"cta": {"top": top, "sel": "a.op-btn"}} if top is not None else {"cta": None}
+    q = lp.quality(page, html, CGYN["ad_brief"], fp, TENANT, layout=layout)
+    assert q["first_screen_ok"] is ok and q["first_cta_top"] == top
+
+
+def test_a_layout_measured_earlier_is_kept_when_the_next_record_has_none(tmp_path):
+    fp = with_a_fields(CGYN["facts_pack"])
+    run_dir = tmp_path / "run"
+    _render(tmp_path, dict(clean_cgyn(), hero_style="face"), fp)
+    (run_dir / "facts_pack.json").write_text(json.dumps(fp))
+    (run_dir / "ad_brief.json").write_text(json.dumps(CGYN["ad_brief"]))
+    runstate.init_state(run_dir, pages=["listicle"])
+    assert lp.record_quality(run_dir, tenant=TENANT, layout={"cta": {"top": 1210}})["first_screen_ok"] is False
+    assert lp.record_quality(run_dir, tenant=TENANT)["first_screen_ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# The rendered page: fixed copy and old pages cannot slip past the ban
+# ---------------------------------------------------------------------------
+
+def test_the_rendered_scan_catches_a_banned_phrase_page_json_gates_never_saw(tmp_path):
+    fp = with_a_fields(CGYN["facts_pack"])
+    page = dict(clean_cgyn(), hero_style="display")
+    # live run zhp2 (2026-10-05, before the gate): its scroll cue
+    page["scroll_cue"] = "6 things the Fuji actually gives you"
+    hits = lp.find_rendered_ad_reference_violations(_render(tmp_path, page, fp))
+    assert [h["term"] for h in hits] == ["actually"]
+
+
+def test_the_rendered_scan_allows_quote_frames_captions_and_customer_words(tmp_path):
+    fp = with_a_fields(CGYN["facts_pack"])
+    fp["review_quotes"][1] = dict(fp["review_quotes"][1])
+    for style in ("face", "story", "display"):
+        html = _render(tmp_path / style, dict(clean_cgyn(), hero_style=style), fp)
+        assert lp.find_rendered_ad_reference_violations(html) == [], style
+    assert lp.find_rendered_ad_reference_violations(
+        '<main><blockquote>"It actually heats fast!"</blockquote><p>In the ad, he says, "I love it."</p></main>') == []
+
+
+def test_the_face_caption_credits_the_speaker_without_naming_the_ad(tmp_path):
+    from harness import first_screen
+
+    # live run cgyn printed "In the ad he made for PEAK"
+    assert first_screen.speaker_caption(CGYN["ad_brief"], CGYN["facts_pack"], TENANT) == "A PEAK creator"
+    named = dict(CGYN["ad_brief"], speaker_name="Austin")
+    assert first_screen.speaker_caption(named, CGYN["facts_pack"], TENANT) == "Austin, for PEAK"
+    assert "customer" not in first_screen.speaker_caption(named, CGYN["facts_pack"], TENANT)   # not verified
 
 
 # ---------------------------------------------------------------------------
