@@ -1120,7 +1120,7 @@ def cmd_theme_push_landing_layout(args):
 def cmd_theme_verify_landing_layout(args):
     """`harness theme verify-landing-layout <url>` (cycle 110): fetches a page
     published with the lean layout and checks it carries no promo bar,
-    sales popup, chat bar or Judge.me widget markup, that the HTML plus what
+    sales popup, chat bar or review-widget markup, that the HTML plus what
     it references is at most 800 KB, and that every theme in tenant.yaml
     `shopify_publish.theme_ids` holds both lean files. Exit 1 on a failure."""
     from . import theme_lean

@@ -629,7 +629,7 @@ def test_verify_landing_layout_reports_chrome_markup_and_the_transfer(tmp_path):
     pages["https://x.test/pages/lp"] = b'<div id="shopify-section-announcement-bar"></div><script src="https://cdn.judge.me/w.js"></script>'
     pages["https://cdn.judge.me/w.js"] = b"y" * 900_000
     failures = theme_lean.verify("https://x.test/pages/lp", fetch=lambda u: pages[u], out=lines.append)
-    assert any("promo bar" in f for f in failures) and any("Judge.me" in f for f in failures)
+    assert any("promo bar" in f for f in failures) and any("review widget" in f for f in failures)
     assert any("transfer" in f for f in failures)
     client = _FakeShopify({})
     failures = theme_lean.verify("https://x.test/pages/lp", fetch=lambda u: pages[u], client=client,

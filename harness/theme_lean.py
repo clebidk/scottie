@@ -15,7 +15,7 @@ template_suffix "landing" on landing pages when tenant.yaml has
       PUT (layout before template: the template names the layout). Dry run:
       prints what it would write and changes nothing.
   verify(url, ...): fetches a published page and reports: no promo bar,
-      sales-pop, assist/chat bar or Judge.me widget markup; the transfer of
+      sales-pop, assist/chat bar or review-widget markup; the transfer of
       the HTML plus the stylesheets, scripts and images it references is at
       most VERIFY_MAX_BYTES; the template keys are present in every theme
       named in tenant.yaml `shopify_publish.theme_ids`.
@@ -41,8 +41,8 @@ USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit
 FORBIDDEN_MARKUP = {
     "promo bar": re.compile(r"announcement[-_]bar|promo[-_]bar|pk_promo|shopify-section-announcement", re.I),
     "sales popup": re.compile(r"sales?[-_ ]?pop|sales[-_]notification|recent[-_]sales|fomo", re.I),
-    "assist / chat bar": re.compile(r"peak[-_]assist|assist[-_]bar|chat[-_]with|chat-bar", re.I),
-    "Judge.me widget": re.compile(r"cdn\.judge\.me|judgeme[-_.]|jdgm[-_]", re.I),
+    "assist / chat bar": re.compile(r"[-_]assist[-_]|assist[-_]bar|chat[-_]with|chat-bar", re.I),
+    "review widget": re.compile(r"cdn\.judge\.me|judgeme[-_.]|jdgm[-_]", re.I),
     "theme header": re.compile(r"shopify-section-header|shopify-section-group-header", re.I),
 }
 

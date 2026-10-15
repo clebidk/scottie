@@ -40,7 +40,6 @@ LCP_MAX_MS = 2500
 CLS_MAX = 0.1
 SLOW_4G = {"offline": False, "latency": 150, "downloadThroughput": 1_600_000 / 8, "uploadThroughput": 750_000 / 8}
 CPU_SLOWDOWN = 4
-ALLOWED_FONTS = ("DM Sans", "Poppins", "Peak Grotesk Wide")
 TIMEOUT_S = 60
 
 _IMG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)

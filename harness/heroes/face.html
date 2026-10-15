@@ -1,16 +1,16 @@
 {# Cycle 94 adapter: the face first screen exactly as cartridges/listicle/looks/open printed it
    before hero compositions (harness/heroes/face.py). Its CSS stays in the look.
    No whitespace may change below this comment: the shipped look's output is
-   pinned by a hash test (tests/test_heroes_cycle94.py). Cycle 110: the still is capped at
-   min(30svh, 260px) so the first screen's proof row and CTA stay above the fold at 390x844. #}
+   pinned by a hash test (tests/test_heroes_cycle94.py). Cycle 110: the still is framed 4:3
+   (was 4:5, ~490px tall at 390) so the first screen's proof row and CTA stay above the fold. #}
   <header class="op-hero op-hero--face op-narrow">
     {% if disclosure_label %}<p class="op-eyebrow">{{ disclosure_label }}</p>{% endif %}
     <h1 class="op-h1">{{ fs.headline_html }}</h1>
     {{ byline_line() }}
     {% set frame_asset = assets.get("asset-adframe") %}
     {% if frame_asset %}
-    <figure class="op-face" style="--op-pos:{{ fs.frame.object_position if fs.frame else '50% 30%' }}"><style>.adv-listicle .op-hero--face .op-face .adv-img{max-height:min(30svh,260px)}</style>
-      {{ render_image_slot(frame_asset, hero=True, frame="4x5") }}
+    <figure class="op-face" style="--op-pos:{{ fs.frame.object_position if fs.frame else '50% 30%' }}">
+      {{ render_image_slot(frame_asset, hero=True, frame="4x3") }}
       {% if fs.quote %}<figcaption>&ldquo;{{ fs.quote.text }}&rdquo;<small>{{ fs.made_for }}</small></figcaption>{% endif %}
     </figure>
     {% endif %}
