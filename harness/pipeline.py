@@ -757,6 +757,9 @@ def _record_rendered_hero(run_dir, cartridge_name):
         return
     if cartridge_name == "listicle":
         runstate.record_listicle_choice(run_dir, hero_style=rendered)
+        from . import listicle_persuasion   # cycle 110 (C): state.json listicle.quality
+
+        listicle_persuasion.record_quality(run_dir, "listicle")
     else:
         runstate.record_hero(run_dir, cartridge_name, rendered)
 

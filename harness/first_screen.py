@@ -399,10 +399,17 @@ def display_font(tenant):
 def render_context(page, *, ad_brief, facts_pack, tenant, hero_style, frame=None, updated=None):
     """Everything the look's first screen and value stack render that the
     writer did not write as such. `frame` is ad_frames.load(run_dir)."""
+    from . import listicle_persuasion
+
     quote = hero_quote(page, ad_brief, facts_pack)
-    strip = stats(facts_pack)
+    # Cycle 110: the proof row and CTA under the first screen, the value stack
+    # (included, price, net price, monthly, rating, units), the review wall
+    # and each item's proof element (harness/listicle_persuasion.py); the
+    # display strip leads with the rating and the units line.
+    sell = listicle_persuasion.sell_context(page, facts_pack, tenant, base_stats=stats(facts_pack))
+    strip = sell["stats"]
     stack = value_stack(facts_pack, page, tenant)
-    claim_ids = set()
+    claim_ids = set(sell["claim_ids"])
     for s in strip:
         claim_ids.update(s["claim_ids"])
     if stack:
@@ -433,6 +440,12 @@ def render_context(page, *, ad_brief, facts_pack, tenant, hero_style, frame=None
         "byline": byline(tenant, page, updated),
         "stats": strip,
         "value_stack": stack,
+        "proof_row": sell["proof_row"],
+        "price_line": sell["price_line"],
+        "stack": sell["stack"],
+        "review_wall": sell["wall"],
+        "pull_quote": sell["pull"],
+        "item_proofs": sell["item_proofs"],
         "claim_ids": claim_ids,
     }
 
