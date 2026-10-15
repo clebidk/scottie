@@ -368,7 +368,8 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 # Cycle 110 (C) re-pin of the six listicle keys: the proof row and CTA under
 # the first screen, data-el on every CTA, the value stack's fallback rows,
 # the display strip led by the rating, and the shorter test filler (items at
-# most 45 words, short sentences: the new reasons and reading-level gates).
+# most 45 words, short sentences: the new reasons and reading-level gates);
+# face-frame again: the caption under the still credits the speaker, not the ad.
 SHIPPED = {
     "landing-open-dry": "7513037f31a2955a",
     "landing-open-frame": "b3a118f453e25126",
@@ -377,7 +378,7 @@ SHIPPED = {
     "listicle-display-dry": "2ed5289c14ee0300",
     "listicle-display-frame": "2e8522597af3b4b7",
     "listicle-face-dry": "154c8161d82df44a",     # no still: face falls back to story
-    "listicle-face-frame": "8d9000aced9fb089",
+    "listicle-face-frame": "a133b861a83e8079",
     "listicle-story-dry": "154c8161d82df44a",
     "listicle-story-frame": "e938914183542a78",
 }
