@@ -625,7 +625,20 @@ def sell_context(page, facts_pack, tenant=None, base_stats=None):
                       "list": sale["list"] if sale else None, "code": sale["code"] if sale else None,
                       "monthly": fm["short"] if fm and stack else None}
     return {"stats": _stats(fp, base_stats), "proof_row": proof_row, "price_line": price_line, "stack": stack,
-            "wall": wall, "pull": pull, "item_proofs": item_proofs, "claim_ids": ids}
+            "wall": wall, "pull": pull, "item_proofs": item_proofs, "claim_ids": ids,
+            "warranty_in_stack": warranty_in_stack(stack, page)}
+
+
+_WARRANTY_RE = re.compile(r"\bwarrant", re.IGNORECASE)
+
+
+def warranty_in_stack(stack, page=None):
+    """True when the value stack already states the warranty: an item cites
+    the tenant's warranty claim (or the closing warranty line's own claim)
+    or reads as a warranty line. The closing band then leaves its fixed
+    warranty sentence out, so the warranty shows once."""
+    if not stack:
+        return False
     from .claims import warranty_claim_id
 
     try:

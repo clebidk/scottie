@@ -451,6 +451,27 @@ def test_results_show_clicks_by_element_and_lcp_when_the_beacon_has_them():
 # The warranty once; a writer-copied review keeps its "!"
 # ---------------------------------------------------------------------------
 
+def _closing(html):
+    return _text(html[html.index('class="op-close"'):])
+
+
+def test_the_closing_leaves_out_the_warranty_sentence_when_the_stack_states_it(tmp_path):
+    page = dict(clean_cgyn(), hero_style="story")
+    sentence = page["closing"]["warranty_line"]["text"]
+    # agent A's included list carries "7-year warranty on the heaters and the cabinet" (warranty-terms)
+    html = _render(tmp_path / "a", page, with_a_fields(CGYN["facts_pack"]))
+    assert "7-year warranty on the heaters and the cabinet" in _text(html)
+    assert sentence not in _closing(html)
+
+
+def test_the_closing_keeps_the_warranty_sentence_when_the_stack_has_none(tmp_path):
+    page = dict(clean_cgyn(proof_refs=("reviews-live", "reviews-live")), hero_style="story")
+    page["reasons"][4]["proof"] = copy.deepcopy(CGYN["page"]["reasons"][4]["proof"])
+    html = _render(tmp_path / "b", page, CGYN["facts_pack"])   # the fallback stack: no warranty row
+    assert lp.warranty_in_stack({"items": [{"text": "Free shipping", "claim_ids": ["shipping-policy"]}]}) is False
+    assert page["closing"]["warranty_line"]["text"] in _closing(html)
+
+
 def test_a_review_quote_copied_word_for_word_keeps_its_exclamation_mark():
     page = clean_cgyn()
     quote = FIELDS["review_quotes"][1]            # "Assembly was very easy! ... We love our Fuji!"

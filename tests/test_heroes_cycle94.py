@@ -370,17 +370,19 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 # the display strip led by the rating, and the shorter test filler (items at
 # most 45 words, short sentences: the new reasons and reading-level gates);
 # face-frame again: the caption under the still credits the speaker, not the ad.
+# Again for all six: the first-screen CTA moved directly after the scroll cue (proof row under
+# it) and the closing band drops the warranty sentence when the value stack states it.
 SHIPPED = {
     "landing-open-dry": "7513037f31a2955a",
     "landing-open-frame": "b3a118f453e25126",
     "landing-proof-dry": "f35169064da7c94a",
     "landing-proof-frame": "1d8e0624c049b59f",
-    "listicle-display-dry": "2ed5289c14ee0300",
-    "listicle-display-frame": "2e8522597af3b4b7",
-    "listicle-face-dry": "154c8161d82df44a",     # no still: face falls back to story
-    "listicle-face-frame": "a133b861a83e8079",
-    "listicle-story-dry": "154c8161d82df44a",
-    "listicle-story-frame": "e938914183542a78",
+    "listicle-display-dry": "923baa75a0dd4644",
+    "listicle-display-frame": "456c6ec876d79a5c",
+    "listicle-face-dry": "9b4f3d09ff76e7d5",     # no still: face falls back to story
+    "listicle-face-frame": "849fd2737e302dce",
+    "listicle-story-dry": "9b4f3d09ff76e7d5",
+    "listicle-story-frame": "a8ba4d543ad8d4d0",
 }
 
 
