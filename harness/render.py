@@ -872,6 +872,16 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     return Markup(img_tag)
 
 
+_STYLE_BLOCK_RE = re.compile(r"(<style\b[^>]*>)(.*?)(</style>)", re.S | re.I)
+_CSS_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+
+
+def _strip_css_comments(html):
+    """Comments out of every <style> block (CSS only; markup untouched)."""
+    return _STYLE_BLOCK_RE.sub(lambda m: m.group(1) + re.sub(r"\n\s*\n+", "\n", _CSS_COMMENT_RE.sub("", m.group(2)))
+                               + m.group(3), html)
+
+
 def image_preload(asset, *, crop=None):
     """Cycle 110: a <link rel="preload"> for the first screen's photo -- the
     same variants (and focal crop) render_image_slot(hero=True) prints, WebP
@@ -1677,6 +1687,10 @@ def render_page(
     if structural_hits:
         raise ClaimsGateFailure(f"html_structure:{cartridge_name}", structural_hits)
 
+    if landing_context is not None and (landing_context.get("sell_flags") or {}):
+        # cycle 110: a pre-sell look ships its CSS without comments (the
+        # 60 KB HTML budget, harness/perf.py); every other look is unchanged
+        html = _strip_css_comments(html)
     (out_dir / "index.html").write_text(html)
     if landing_context is not None:
         # cycle 110: the copy-side quality numbers into state.json (the

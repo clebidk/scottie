@@ -24,7 +24,9 @@ import re
 # Cycle 85: "icon_key" is the landing proof look's icon name ("red_light"),
 # a key into a fixed set, never copy and never counted as a word.
 NON_PROSE_KEYS = frozenset({"url", "cta_url", "asset_id", "claim_ids", "claim_id", "id", "sku", "gallery_order",
-                            "icon_key"})
+                            "icon_key",
+                            # cycle 110: a landing reason's structured fields (a claim id, a lever, a photo role)
+                            "proof_ref", "lever", "asset_role"})
 
 # "$8,250" / "$ 8250.00" -- the dollar figure itself is group 1, without the
 # sign, so a caller can float() it after stripping commas.

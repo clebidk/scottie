@@ -277,7 +277,8 @@ def _check(status, detail, items=None):
 def first_screen_cta(probe_phone):
     """Cycle 97: on a 390 x 844 phone, the primary CTA's top edge is inside
     the first screen. Only for a page whose first screen carries the pill (a
-    landing page, a cycle 94 composition: the probe's `cta_expected`); an
+    landing page, a cycle 94 composition, a listicle whose first screen
+    carries a data-el="hero" CTA (cycle 110): the probe's `cta_expected`); an
     article first screen (listicle face/story/display) passes with a note."""
     if not probe_phone.get("cta_expected"):
         return _check("pass", "no first-screen CTA by design (article first screen)")

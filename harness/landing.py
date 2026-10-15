@@ -696,7 +696,9 @@ def writer_lines(facts_pack, tenant=None, look=None):
         "time frame; for a testimonial ad (speaker_pov first_person) the speaker's strongest line from "
         "transcript_or_text, word for word in quotes, credited \"In the ad, <she/he/the creator> says\". "
         "hero.accent_phrase: 1-4 words copied from the headline. The first screen shares at least two content "
-        "words with the hook, angle and promise, or quotes the speaker (gate landing:hook_match). "
+        "words with the hook, angle and promise, or quotes the speaker (gate landing:hook_match); the HEADLINE "
+        "itself repeats at least one word of the hook or promise. An ad that sells paying over time gets a "
+        "headline in its own words about payments (with {monthly} when this page has it). "
         "hero.hero_image.asset_id: the product photo to show when the ad has no usable still.",
         token_line(facts_pack),
         f"reasons has {lo}-{hi} items, each {{headline, body, claim_ids, lever, proof_ref, asset_role}}: headline "

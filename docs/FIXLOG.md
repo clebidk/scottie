@@ -7545,3 +7545,40 @@ harness/claims.py (the landing benefit section counts `reasons`), harness/offer.
 landing gate args, the tidy call, the degenerate guard, the CTA map), harness/pipeline.py (model rows for a
 "sell" look, `_record_measured_quality`), harness/runstate.py (`record_quality`), harness/cli.py (`_lean_suffix`,
 `theme` commands), harness/look_import.py (+ rules md: reasons / closing_link contract).
+
+### Host note: pytest on a tmpfs /tmp (read before running the suite on prod)
+On prod /tmp is tmpfs. pytest's basetemps (/tmp/pytest-of-deploy) from several agents' suites grew to 2.2 GB of
+shmem charged to the deploy user's memory cgroup (memory.max 3 GB): the kernel cannot reclaim it, deploy
+processes stalled in D state (mem_cgroup_handle_over_high) and ssh timed out for most of an hour (2026-10-15
+~20:40-23:00 UTC). Rule: every pytest run on prod uses `--basetemp=$HOME/<scratch>/pt` (disk; pytest clears it
+per run), and one full suite runs at a time. The same tmpfs explains the 6 real-browser failures on master: snap
+Chromium has its own private /tmp and cannot read a page under /tmp/pytest-of-deploy.
+
+### Verify
+- tests/test_presell_cycle110.py: every gate from the teardown's own failing text (the placeholder row, the
+  returns FAQ, "applies automatically", "PEAK'", the blank subhead, "not lifetime coverage", "What the research
+  really says", "priced plainly", "Here is what's actually true", "no separate list price", "Is this a treatment
+  for RA or lupus?", the women-over-40 spec headline); the look's order, CTAs and every facts_pack fallback; the
+  design-gate checks; the load budget; the lean layout push/verify; a fake run in the look. Existing suites
+  updated for reasons (test_landing_cycle82, test_offer_cycle109, the look-import and library tests); the
+  open/proof/listicle-face render hashes re-pinned with the reason in each comment.
+- Phase 0 re-render (copies, no model call) of the two placeholder pages (ks3s, lcxf): no placeholder, no
+  returns FAQ, no "automatically" in the visible text.
+- Six live arms re-rendered in the peak look (sale x2, financing, PA video, regret story, women 40+): every
+  first-screen block inside y 116..h-212 at 360/375/390 wide, CTA spacing and dead clicks pass, LCP 0.69-1.29 s,
+  CLS <= 0.043, HTML 50-52 KB after the CSS-comment strip. Shots: ~/asset-inbox/c110-shots/rerender-*.
+- Live smoke runs in the worktree (`--look peak`, design gate off, total $0.56 with two STOPs): sale ad PASS
+  ($0.087, 2 attempts), PA video PASS ($0.090), financing PASS on the second run ($0.107). The first sale run
+  STOPped on a proof_ref read as copy (fixed: proof_ref/lever/asset_role are non-prose keys); the first
+  financing run on "Pay monthly" vs "payment plans" (fixed: the stem strips -ment/-ly). Jev (cycle 76 rubric)
+  composite new vs the arms they replace: sale 0.551 vs 0.535/0.574, PA 0.522 vs 0.545/0.469, financing 0.588 vs
+  0.630/0.634.
+
+### Open
+- The design gate was off in the smoke runs (budget); its new checks were measured offline with the same code.
+- Copy the gates cannot see: "heat ready in minutes" (time claim with no verified claim), "start easing sore
+  joints" (a health outcome in the brand's voice, financing STOP run). A health-outcome gate for brand copy is
+  not built.
+- A writer proof.quote that copies a review with "!" still fails the always-forbidden "!" (claims.py, agent A);
+  the peak look's review wall is renderer-built and keeps the "!".
+- Listicle: warranty twice with A's value stack (listicle files, agent C).

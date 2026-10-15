@@ -147,7 +147,8 @@ PROBE_JS = r"""
         return true; });
       // a landing page or a cycle 94 hero composition puts its pill in the
       // first screen; an article first screen (listicle face/story/display) has none
-      out.cta_expected=!!document.querySelector('.hr-root,.adv-landing');
+      // cycle 110: a listicle whose first screen carries the pill (data-el="hero") is held to it too
+      out.cta_expected=!!document.querySelector('.hr-root,.adv-landing,.adv-listicle a[data-el="hero"]');
       out.cta=ctas.length ? (function(el){ var r=el.getBoundingClientRect();
         return {sel:sel(el), top:Math.round(r.top+sy), text:el.textContent.replace(/\s+/g,' ').trim().slice(0,40)};
       })(ctas[0]) : null;

@@ -396,7 +396,8 @@ def test_the_look_renders_its_sections_in_order_with_six_ctas_and_the_sticky_bar
                          'data-look-pattern="presell:reviews"', 'data-look-pattern="presell:setup"',
                          'data-look-pattern="faq"', 'data-look-pattern="presell:closing"', 'class="ld-bar"'])
     els = re.findall(r'class="ld-btn[^"]*" data-el="(\w+)"', html)
-    assert els == ["hero", "mid", "stack", "reviews", "closing", "sticky"]   # no model rows in this pack
+    # after reasons 1 and 3 (never after the last), so no stretch passes 1.5 phone screens; no model rows here
+    assert els == ["hero", "mid", "mid", "stack", "reviews", "closing", "sticky"]
     # every CTA anchor is a class the beacon counts and carries data-el
     for a in re.findall(r"<a [^>]*>", html):
         if 'href="' + _page()["cta_url"] in a:
@@ -668,3 +669,36 @@ def test_a_fake_run_in_the_peak_look_exits_zero_and_renders_offline(tmp_path):
     html = (run_dir / "landing" / "index.html").read_text()
     assert page["look"] == "peak" and page["hero_style"] == "peak_first"
     assert 'data-look-pattern="presell:reasons"' in html
+
+
+def test_a_proof_ref_is_a_claim_id_field_not_copy():
+    """Smoke run 20261015-230453-...-gcmk STOPped four times on
+    "claim id leaked into copy: reviews-live in $.reasons[1].proof_ref"."""
+    page = _page()
+    page["reasons"][1]["proof_ref"] = "reviews-live"
+    assert _gates(page) == []
+
+
+def test_pay_monthly_matches_a_payment_plans_hook():
+    """The financing smoke run (20261015-230849-...-nik3) STOPped on attempt 4:
+    "Pay monthly for the Fuji instead of all at once" shared no stem with
+    "Major Updates: new flexible payment plans" before the suffix strip."""
+    brief = dict(LANDING_BRIEF, hook="Major Updates: new flexible payment plans",
+                 promise="Skip large upfront costs with flexible financing",
+                 angle="Low monthly payment options instead of a full upfront investment.")
+    hero = "For anyone putting off a Fuji over cost Pay monthly for the Fuji instead of all at once"
+    result = persuasion.hook_match(hero, brief, exclude={"fuji"}, headline="Pay monthly for the Fuji instead of all at once")
+    assert result["ok"] and "pay" in result["headline_overlap"]
+    assert persuasion.content_words("shopping payments") == {"shopp", "pay"}
+
+
+def test_a_review_quote_keeps_its_exclamation_mark(tmp_path):
+    """Review quotes are verbatim (agent A's rule): the renderer prints them as
+    written, and no rendered-text check refuses their "!"."""
+    fp = _rich()
+    loud = "Love it! Heats up fast and the cedar smells great every single night."
+    fp["verified_claims"] = [dict(c, text=loud) if c["id"] == "review-quote-1" else c for c in fp["verified_claims"]]
+    fp["review_quotes"][0]["text"] = loud
+    html, _ = _render(tmp_path, _page(), fp)
+    assert "&ldquo;" + loud + "&rdquo;" in html or loud in _visible(html)
+    assert pagechecks.find_placeholder_visible_text(html) == []

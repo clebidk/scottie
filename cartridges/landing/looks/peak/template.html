@@ -6,8 +6,9 @@
    Order: the first screen (hero composition `peak_first`: offer bar, eyebrow,
    hook headline, subhead, proof row, price line, pill, then the photo); the
    stats strip (rating, units delivered, free shipping, warranty); the reasons
-   (the sale first on an offer-led page, a library photo by topic beside
-   each, the CTA after reason 2); "What's included" with the price, the
+   (the sale first on an offer-led page, a 16:9 library photo by topic beside
+   each, the CTA after reasons 1, 3 and 5 -- not after the last -- so no stretch
+   passes 1.5 phone screens); "What's included" with the price, the
    monthly figure and the CTA; model cards; the review wall, the trust
    block (founder line, support, US-owned) and the "Delivery & setup" row
    with the CTA after them (so no stretch runs past 1.5 phone screens); the FAQ; the closing recap with the CTA and the text link;
@@ -50,7 +51,7 @@
   --pk-heading:var(--ps-heading);
   --pk-display-wide:var(--ps-display-wide,var(--pk-heading));
   --pk-radius:var(--ps-radius-box,4px);
-  --pk-gap:40px;
+  --pk-gap:32px;
   background:var(--pk-bg);color:var(--pk-body);font-family:var(--pk-sans);font-size:16px;line-height:1.55;overflow-x:clip
 }
 .adv-wrap .pk-ps h2,.adv-wrap .pk-ps h3{font-family:var(--pk-heading)!important}
@@ -68,13 +69,12 @@
 .pk-ps .pk-cta .ld-btn{width:100%;box-sizing:border-box}
 .pk-ps .pk-note{margin:8px 0 0;font-size:13px;line-height:1.45;color:var(--pk-muted)}
 /* stats: plain figures on hairlines, no affordance */
-.pk-ps .pk-stats{list-style:none;margin:20px 0 0;padding:0 16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border-top:1px solid var(--pk-line)}
-.pk-ps .pk-stat{padding:14px 0;border-bottom:1px solid var(--pk-line)}
-.pk-ps .pk-stat b{display:block;font:400 22px/1.1 var(--pk-display-wide);color:var(--pk-ink)}
-.pk-ps .pk-stat span{display:block;margin-top:4px;font-size:13px;line-height:1.35;color:var(--pk-muted)}
+.pk-ps .pk-stats{list-style:none;margin:16px 16px 0;padding:10px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 8px;border-top:1px solid var(--pk-line);border-bottom:1px solid var(--pk-line)}
+.pk-ps .pk-stat b{display:block;font:400 15px/1.15 var(--pk-display-wide);color:var(--pk-ink);overflow-wrap:anywhere}
+.pk-ps .pk-stat span{display:block;margin-top:3px;font-size:11.5px;line-height:1.3;color:var(--pk-muted)}
 /* reasons */
 .pk-ps .pk-reasons{list-style:none;margin:0;padding:0}
-.pk-ps .pk-reason{padding:28px 0;border-top:1px solid var(--pk-line)}
+.pk-ps .pk-reason{padding:22px 0;border-top:1px solid var(--pk-line)}
 .pk-ps .pk-reason:last-child{border-bottom:1px solid var(--pk-line)}
 .pk-ps .pk-num{display:block;margin:0 0 6px;font:500 12px/1.4 var(--pk-sans);letter-spacing:.14em;color:var(--pk-red)}
 .adv-wrap .pk-ps .pk-rh.pk-rh{margin:0 0 8px!important;font-weight:600!important;font-size:21px!important;line-height:1.25!important;color:var(--pk-ink)!important;text-transform:none!important}
@@ -82,7 +82,7 @@
 .pk-ps .pk-rproof{margin:12px 0 0;padding-left:12px;border-left:2px solid var(--pk-red);font-size:15px;line-height:1.5;color:var(--pk-ink)}
 .pk-ps .pk-rproof small{display:block;margin-top:2px;font-size:13px;color:var(--pk-muted)}
 .pk-ps .pk-rphoto{margin:16px 0 0}
-.pk-ps .pk-rphoto .adv-img{display:block;width:100%;max-width:none;margin:0;border-radius:var(--pk-radius);object-fit:cover}
+.pk-ps .pk-rphoto .adv-img{display:block;width:100%;max-width:none;max-height:180px;margin:0;border-radius:var(--pk-radius);object-fit:cover}
 .pk-ps .pk-reason--offer{border-top:0}
 .pk-ps .pk-reason--offer .pk-rh{color:var(--pk-red)!important}
 /* what's included */
@@ -90,7 +90,7 @@
 .pk-ps .pk-incl li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--pk-line)}
 .pk-ps .pk-incl li:last-child{border-bottom:1px solid var(--pk-line)}
 .pk-ps .pk-tick{color:var(--pk-red);font-weight:600}
-.pk-ps .pk-buy{margin:20px 0 0}
+.pk-ps .pk-buy{margin:0}
 .pk-ps .pk-buy b{font:600 26px/1.15 var(--pk-heading);color:var(--pk-ink)}
 .pk-ps .pk-buy s{margin-left:8px;color:var(--pk-muted)}
 .pk-ps .pk-buy span{display:block;margin-top:4px;font-size:14px;color:var(--pk-muted)}
@@ -138,7 +138,9 @@
   .adv-landing.pk-ps{--pk-gap:72px;font-size:17px}
   .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
   .pk-ps .pk-c{padding:0 32px}
-  .pk-ps .pk-stats{max-width:1120px;margin:32px auto 0;padding:0 32px;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .pk-ps .pk-stats{max-width:1056px;margin:32px auto 0;padding:16px 0;gap:0 24px}
+  .pk-ps .pk-stat b{font-size:22px}
+  .pk-ps .pk-stat span{font-size:13px}
   .adv-wrap .pk-ps .pk-h2.pk-h2{font-size:34px!important}
   .pk-ps .pk-reason{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 48px;align-items:center}
   .pk-ps .pk-rphoto{margin:0}
@@ -177,9 +179,9 @@
             {% if r.body %}<p class="pk-rb">{{ r.body }}</p>{% endif %}
             {% if r.proof %}<p class="pk-rproof">{% if r.proof.kind == "quote" %}&ldquo;{{ r.proof.text }}&rdquo;{% if r.proof.author %}<small>{{ r.proof.author }}, verified buyer</small>{% endif %}{% else %}{{ r.proof.text }}{% endif %}</p>{% endif %}
           </div>
-          {% if ph %}<figure class="pk-rphoto">{{ render_image_slot(ph, crop="4:3") }}</figure>{% endif %}
+          {% if ph %}<figure class="pk-rphoto">{{ render_image_slot(ph, crop="16:9") }}</figure>{% endif %}
         </li>
-        {% if loop.index == 2 %}<li class="pk-cta" style="list-style:none;border:0;padding:0 0 8px"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></li>{% endif %}
+        {% if loop.index in (1, 3, 5) and not loop.last %}<li class="pk-cta" style="list-style:none;border:0;padding:0 0 8px"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></li>{% endif %}
         {% endfor %}
       </ol>
       {% if page.reasons | length < 2 %}<p class="pk-cta"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>{% endif %}
@@ -209,11 +211,11 @@
         <h2 class="pk-h2">Everything that comes with the {{ product.name }}</h2>
       </div>
       <div>
-        {% if s.included %}<ul class="pk-incl">{% for it in s.included %}<li><span class="pk-tick" aria-hidden="true">&#10003;</span><span>{{ it.text }}</span></li>{% endfor %}</ul>{% endif %}
         {% if price_text %}<p class="pk-buy"><b>{{ price_text }}</b>{% if s.sale %} {{ s.sale.line }}<s>{{ s.sale.list }}</s>{% elif ld.offer %}<span>{{ ld.offer.line }}</span>{% endif %}{% if s.monthly %}<span>{{ s.monthly.line }}</span>{% elif ld.financing %}<span>{{ ld.financing }}</span>{% endif %}{% if s.product_rating %}<span>{{ s.product_rating.text }} for the {{ product.name }}</span>{% endif %}</p>{% endif %}
         {% if s.hsa %}<p class="pk-note">{{ s.hsa.text }}</p>{% endif %}
         <p class="pk-cta"><a class="ld-btn" data-el="stack" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
         {% if ld.offer and ld.offer.cta_note %}<p class="pk-note">{{ ld.offer.cta_note }}</p>{% endif %}
+        {% if s.included %}<ul class="pk-incl" style="margin-top:20px">{% for it in s.included %}<li><span class="pk-tick" aria-hidden="true">&#10003;</span><span>{{ it.text }}</span></li>{% endfor %}</ul>{% endif %}
       </div>
     </div>
   </section>

@@ -373,7 +373,7 @@ SHIPPED = {
     "listicle-display-dry": "82210181d7883749",
     "listicle-display-frame": "357c14edaab33c17",
     "listicle-face-dry": "362a467b6702176d",     # no still: face falls back to story
-    "listicle-face-frame": "032a6f545514ef35",
+    "listicle-face-frame": "8016ac25ca4bcba1",   # cycle 110: the face still capped at min(30svh, 260px)
     "listicle-story-dry": "362a467b6702176d",
     "listicle-story-frame": "f99ea0d8c1846331",
 }

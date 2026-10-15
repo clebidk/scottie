@@ -176,15 +176,17 @@ each one get got make makes made new now own same than out about over off""".spl
 
 
 def _stem(word):
-    for suf in ("'s", "’s"):
+    """A light suffix strip so "payment plans" meets "pay monthly" (the
+    financing smoke run, 2026-10-15) and "shopping" meets "shop"."""
+    for suf in ("'s", "\u2019s"):
         if word.endswith(suf):
             word = word[: -len(suf)]
-    if len(word) > 5 and word.endswith("ing"):
-        word = word[:-3]
-    elif len(word) > 4 and word.endswith("ed"):
-        word = word[:-2]
-    elif len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
         word = word[:-1]
+    for suf, min_len in (("ment", 6), ("ing", 6), ("ly", 6), ("ed", 5), ("er", 6)):
+        if len(word) >= min_len and word.endswith(suf):
+            word = word[: -len(suf)]
+            break
     return word
 
 
