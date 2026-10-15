@@ -271,6 +271,7 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 .gen-title:hover{text-decoration:underline}
 .facts{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.76rem;color:var(--muted)}
 .facts b{color:var(--ink);font:500 .76rem var(--mono)}
+.facts.quality{margin-top:4px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .gen-actions{display:flex;gap:8px;margin-top:auto;padding-top:4px}
 .gen-actions .btn{flex:1}
@@ -679,6 +680,56 @@ def icon(name, cls=""):
 
 def chip(text, kind="", *, dot=False):
     return f'<span class="chip {e(kind)}{" dot" if dot else ""}">{e(str(text))}</span>'
+
+
+# Cycle 110: a page's quality numbers (state.json <page>.quality: the landing
+# page's from its gates, the listicle's from listicle_persuasion), "—" for
+# each one a run did not record.
+QUALITY_FIELDS = (
+    ("hook_match", "Hook", "First screen vs the ad's hook: share of the hook's words (1.00 = quotes the speaker)"),
+    ("grade_level", "Grade", "Reading grade (Flesch-Kincaid); 7.5 or lower passes"),
+    ("cta_count", "CTAs", "Links to the CTA url on the page"),
+    ("proof_count", "Proof", "Verified proof elements shown: rating, units line, review quotes"),
+    ("lcp_ms", "LCP", "Largest contentful paint, ms"),
+    ("cls", "CLS", "Cumulative layout shift"),
+    ("first_screen_ok", "First screen", "Hook match, proof and a CTA in the first screen"),
+)
+DASH = "&mdash;"
+
+
+def quality_value(key, value):
+    """One quality number as text (HTML-safe); DASH when absent."""
+    if value is None or value == "":
+        return DASH
+    if isinstance(value, bool):
+        return "&#10003;" if value else "&#10007;"
+    if key == "hook_match" and isinstance(value, (int, float)):
+        return f"{float(value):.2f}"
+    if key == "grade_level" and isinstance(value, (int, float)):
+        return f"{float(value):.1f}"
+    if key == "cls" and isinstance(value, (int, float)):
+        return f"{float(value):.2f}"
+    if key == "lcp_ms" and isinstance(value, (int, float)):
+        return f"{int(round(value))} ms"
+    return e(str(value))
+
+
+def quality_facts(quality):
+    """The quality numbers as a card's fact row: every field, DASH for each
+    one the run did not record."""
+    quality = quality if isinstance(quality, dict) else {}
+    bits = "".join(f'<span title="{e(title)}">{e(label)} <b>{quality_value(key, quality.get(key))}</b></span>'
+                   for key, label, title in QUALITY_FIELDS)
+    return f'<div class="facts quality" aria-label="Quality">{bits}</div>'
+
+
+def quality_compact(quality):
+    """Hook / grade / first screen in one short cell (the results table)."""
+    quality = quality if isinstance(quality, dict) else {}
+    if not quality:
+        return DASH
+    return " &middot; ".join(f'{label} {quality_value(key, quality.get(key))}' for key, label, _t in QUALITY_FIELDS
+                             if key in ("hook_match", "grade_level", "first_screen_ok"))
 
 
 def copy_field(elem_id, value, *, label=None, live=False, open_link=True):
