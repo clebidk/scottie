@@ -1,0 +1,237 @@
+{
+  "style": "myths",
+  "headline": "No guessing. No wasted space. Still real recovery.",
+  "dek": "A lot of what you hear about home saunas is about the hassle, not the heat.",
+  "hero": {
+    "asset_id": "asset-cutout-fuji"
+  },
+  "eyebrow": "For people who train most days",
+  "accent_phrase": "Still real recovery",
+  "display_headline": "Recovery, built into training days",
+  "lede": "Recovery days matter as much as training days. Before you write off a home sauna as too complicated or too big a project, it's worth checking what's actually true.",
+  "scroll_cue": "5 myths about home saunas, checked",
+  "hero_quote_id": "q1",
+  "reasons": [
+    {
+      "number": 1,
+      "heading": "A home sauna needs an electrician",
+      "text": "People assume a sauna means ripping open a wall and calling an electrician. The Fuji runs on a dedicated outlet you likely already have the capacity for in a garage, basement, or spare room.",
+      "image": {
+        "asset_id": "asset-cutout-fuji"
+      },
+      "proof": {
+        "text": "The Peak Fuji runs on a 120V / 20A outlet.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      "claim_ids": [
+        "spec-fuji-electrical-requirement"
+      ]
+    },
+    {
+      "number": 2,
+      "heading": "It will take over the room",
+      "text": "A two-person cabin sounds like a lot of square footage. In practice it's sized to fit into a corner of a bedroom, garage, or basement without turning the room into a sauna showroom.",
+      "image": {
+        "asset_id": "asset-cutout-fuji"
+      },
+      "proof": {
+        "text": "The Peak Fuji is built as a 2-Person cabin in Canadian red cedar.",
+        "claim_ids": [
+          "spec-fuji-capacity",
+          "spec-fuji-cabin-material"
+        ]
+      },
+      "claim_ids": [
+        "spec-fuji-capacity"
+      ]
+    },
+    {
+      "number": 3,
+      "heading": "Red light therapy always costs extra",
+      "text": "Red light panels are often sold as a pricey add-on elsewhere. Here it's part of the cabin itself, not a line item you have to opt into after the fact.",
+      "image": {
+        "asset_id": "asset-photo-ff0e06a0da3a"
+      },
+      "proof": {
+        "text": "Medical-grade red light therapy is included standard, not an add-on.",
+        "claim_ids": [
+          "gbrain-allowlist-red-light"
+        ]
+      },
+      "claim_ids": [
+        "gbrain-allowlist-red-light"
+      ]
+    },
+    {
+      "number": 4,
+      "heading": "Full-spectrum heat means a complicated setup",
+      "text": "Near, mid, and far infrared sounds like a feature you'd have to manually dial in. It's built into the cabin's heater placement, so there's no extra step before a session.",
+      "image": {
+        "asset_id": "asset-photo-b10cab04076d"
+      },
+      "proof": {
+        "text": "The Fuji's infrared wavelength range spans 700 to 25,000nm across near, mid, and far, reaching a max temperature of 150\u00b0F.",
+        "claim_ids": [
+          "spec-fuji-infrared-wavelength-range",
+          "spec-fuji-max-temperature"
+        ]
+      },
+      "claim_ids": [
+        "spec-fuji-infrared-wavelength-range",
+        "spec-fuji-max-temperature"
+      ]
+    },
+    {
+      "number": 5,
+      "heading": "Shipping something this big is a hassle",
+      "text": "A unit this size seems like it would mean a complicated freight ordeal and a shipping bill to match. It arrives with nothing extra to pay on delivery.",
+      "image": {
+        "asset_id": null
+      },
+      "proof": {
+        "text": "PEAK offers free shipping on all orders.",
+        "claim_ids": [
+          "shipping-policy",
+          "gbrain-allowlist-free-shipping"
+        ]
+      },
+      "claim_ids": [
+        "shipping-policy"
+      ]
+    }
+  ],
+  "audience_fit": {
+    "for_you": [
+      {
+        "text": "You train most days and want recovery you don't have to drive to."
+      },
+      {
+        "text": "You have space for a two-person cabin and a dedicated 120V / 20A outlet nearby.",
+        "claim_ids": [
+          "spec-fuji-capacity",
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "text": "You want red light therapy included rather than an upsell.",
+        "claim_ids": [
+          "gbrain-allowlist-red-light"
+        ]
+      }
+    ],
+    "not_for_you": [
+      {
+        "text": "You need a sauna that fits more than two people at once.",
+        "claim_ids": [
+          "spec-fuji-capacity"
+        ]
+      },
+      {
+        "text": "You don't have a 120V / 20A outlet available where you'd place it.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "text": "You want to return it without handling disassembly and repacking.",
+        "claim_ids": [
+          "returns-policy"
+        ]
+      }
+    ]
+  },
+  "faq": {
+    "questions": [
+      {
+        "question": "Do I need an electrician to install the Fuji?",
+        "answer": "The Fuji runs on a dedicated outlet rather than specialized wiring, so there's no need to open a wall or call an electrician first. Just confirm an outlet like this is available where you plan to place it before it arrives.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "question": "How much space does the Fuji actually need?",
+        "answer": "The Fuji is built as a two-person cabin from Canadian red cedar, sized for a corner of a room rather than a dedicated structure. Measure your space against the cabin before ordering.",
+        "claim_ids": [
+          "spec-fuji-capacity",
+          "spec-fuji-cabin-material"
+        ]
+      },
+      {
+        "question": "Is red light therapy really included, or is it an upgrade?",
+        "answer": "Medical-grade red light therapy is included standard on the Fuji, not sold separately. It's part of the cabin as shipped.",
+        "claim_ids": [
+          "gbrain-allowlist-red-light"
+        ]
+      },
+      {
+        "question": "What's the difference between full-spectrum and regular infrared?",
+        "answer": "The Fuji's infrared range covers near, mid, and far wavelengths, from 700 to 25,000nm, reaching a max temperature of 150\u00b0F. That range is built into the heater placement, not something you configure session to session.",
+        "claim_ids": [
+          "spec-fuji-infrared-wavelength-range",
+          "spec-fuji-max-temperature"
+        ]
+      },
+      {
+        "question": "Does free shipping really mean no extra fees?",
+        "answer": "PEAK offers free shipping on all orders, including heavy freight items delivered with a scheduled appointment. There's nothing added at checkout for delivery.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      },
+      {
+        "question": "What if I need to return it?",
+        "answer": "Returns require the sauna to be disassembled and repacked in its original packaging, and are subject to a 25% restocking fee with the customer covering return shipping. Orders cancelled before shipping incur a 5% cancellation fee.",
+        "claim_ids": [
+          "returns-policy"
+        ]
+      },
+      {
+        "question": "What does the warranty actually cover?",
+        "answer": "7-year residential warranty; full terms by component are published on the warranty page. Coverage starts from the date of delivery and applies to the original purchaser.",
+        "claim_ids": [
+          "warranty-terms"
+        ]
+      }
+    ]
+  },
+  "cta_text": "Shop the Fuji",
+  "cta_url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+  "closing": {
+    "headline": "The myths were the hard part",
+    "recap": [
+      {
+        "text": "The Fuji runs on a 120V / 20A outlet, not special wiring.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "text": "Medical-grade red light therapy comes included, not as an add-on.",
+        "claim_ids": [
+          "gbrain-allowlist-red-light"
+        ]
+      },
+      {
+        "text": "Every order ships free, including freight delivery.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      }
+    ],
+    "financing_line": {
+      "text": "Financing is available through Bread Pay at checkout."
+    },
+    "warranty_line": {
+      "text": "7-year residential warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    }
+  },
+  "look": "open",
+  "headline_template_id": "o2",
+  "hero_style": "face"
+}
