@@ -121,6 +121,8 @@ def find_proof_restates_body_violations(page, exempt=frozenset()):
         proof = item.get("proof")
         if not isinstance(proof, dict) or proof.get("attributed_to_customer") is True:
             continue
+        if str(proof.get("proof_ref") or "").strip():
+            continue  # cycle 110: the renderer prints the proof element, not this text
         score = restate_score(_proof_text(item), item.get("text") or "", exempt)
         if score is not None and score >= RESTATE_THRESHOLD:
             problems.append(_problem(
@@ -397,6 +399,13 @@ def find_quality_violations(page, *, style=None, ad_brief=None, facts_pack=None,
                                           [display_name, *name_words])
     if ad_brief:
         problems += find_message_match_violations(page, ad_brief, exempt)
+    # Cycle 110: items as reasons (lever, proof_ref, 10/45 words), the hook on
+    # the first screen, no item heading as a spec label, the ad-reference ban,
+    # the reading level, the copy hygiene (placeholder, returns, "automatic").
+    from . import listicle_persuasion
+
+    problems += listicle_persuasion.find_persuasion_violations(
+        page, facts_pack, ad_brief, name_words=[n for n in (display_name, *name_words) if n])
     return problems
 
 

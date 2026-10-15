@@ -1,10 +1,23 @@
 {
   "type": "object",
-  "allowed_cta_texts": [
-    "See the models",
-    "Shop the {model_name}",
-    "Book a consult"
-  ],
+  "allowed_cta_texts": {
+    "sale": [
+      "Get {offer_amount} off the {short_name}",
+      "Shop the sale"
+    ],
+    "financing": [
+      "See monthly payments"
+    ],
+    "story": [
+      "See the {short_name} {pronoun} uses"
+    ],
+    "default": [
+      "Shop the {model_name}",
+      "See the {short_name} price",
+      "See the models",
+      "Book a consult"
+    ]
+  },
   "headline_word_band": [
     6,
     14
@@ -95,11 +108,15 @@
           },
           "heading": {
             "type": "string",
-            "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test."
+            "description": "H2 heading for this item, <=10 words, no numeral (the renderer draws the number) and no price. What it asserts follows the page's style: a reason, a mistake, a question, a myth, or what held up under test. Cycle 110: the outcome first, never a spec label (gate listicle:hook_match:item)."
+          },
+          "lever": {
+            "type": "string",
+            "description": "Cycle 110: which part of the reader's decision this item answers -- outcome (the ad's promise) | likelihood (proof it works for this reader) | time (how fast) | effort (how little work). All four across the items."
           },
           "text": {
             "type": "string",
-            "description": "Short body for this item: one idea, a few sentences, matching the winner's density. No word minimum and no padding; never empty."
+            "description": "Short body for this item: one idea, at most 45 words -- one sentence on how it works, one with the spec that makes it true. No word minimum and no padding; never empty."
           },
           "claim_ids": {
             "type": "array",
@@ -115,8 +132,11 @@
           },
           "proof": {
             "type": "object",
-            "description": "The item's closing proof line -- one short sentence that either cites a verified claim_id or is an attributed customer statement (attributed_to_customer: true, phrased as the customer's own words). An item with neither fails the gate.",
+            "description": "The item's closing proof line -- one short sentence that either cites a verified claim_id or is an attributed customer statement (attributed_to_customer: true, phrased as the customer's own words). An item with neither fails the gate. Cycle 110: or {\"proof_ref\": \"<id>\"} with one id from proof_refs -- the renderer prints that verified review (word for word), the store rating or the units line.",
             "properties": {
+              "proof_ref": {
+                "type": "string"
+              },
               "text": {
                 "type": "string"
               },

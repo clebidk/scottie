@@ -187,7 +187,8 @@ _LISTICLE_PROOFS = (
     {"text": 'In the ad, the creator says, "I hated how confusing sauna shopping used to be."',
      "attributed_to_customer": True},
     {"text": "Every order ships free.", "claim_ids": ["shipping-policy"]},
-    {"text": "Returns are accepted once the cabin is repacked in its original crate.", "claim_ids": ["returns-policy"]},
+    # cycle 110: no copy about returns (persuasion.RETURNS_RE)
+    {"text": "There is no freight charge at checkout on any model.", "claim_ids": ["shipping-policy"]},
     {"text": "In-stock orders leave the warehouse within a few business days.", "claim_ids": ["shipping-policy"]},
     {"text": "Shipping is free whatever the model.", "claim_ids": ["shipping-policy"]},
 )
@@ -202,6 +203,31 @@ def _filler_words(n, offset=0, tag=None):
     overlapping filler windows never repeat a sentence across fields (the
     repeated-sentence gate)."""
     stream = " ".join(_FILLER_SENTENCES * 4).split()
+    text = " ".join(stream[offset:offset + n])
+    if tag is None:
+        return text
+    return re.sub(r"([.!?:])(\s|$)", rf" ({_TAG_WORDS[tag]})\1\2", text) + f" ({_TAG_WORDS[tag]})"
+
+
+# Cycle 110: the listicle's own filler -- short, plain sentences (the reading
+# level gate) with no "actually" (the ad-reference ban); items at most 45 words.
+_LISTICLE_SENTENCES = (
+    "Good choices rarely come from one glossy photo.",
+    "They come from a few calm minutes with the facts side by side.",
+    "A shopper who got burned once learns to slow down.",
+    "Read past the big words and look for plain ones.",
+    "Ask what the cabin is made of and how it is built.",
+    "Ask who helps you once the box is at the door.",
+    "A brand worth your trust shows it in small things.",
+    "It answers a direct question with a direct answer.",
+    "Write down the two or three things you need most.",
+    "Then check each option against that short list.",
+)
+_LISTICLE_LEVERS = ("outcome", "likelihood", "time", "effort")
+
+
+def _listicle_words(n, offset=0, tag=None):
+    stream = " ".join(_LISTICLE_SENTENCES * 4).split()
     text = " ".join(stream[offset:offset + n])
     if tag is None:
         return text
@@ -225,7 +251,7 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
         "accent_phrase": " ".join(headline.rstrip(".").split()[-2:]),
         "display_headline": display_line or "Check the cabin before it comes home",
         # Cycle 74: the dek carries the fixtures' hooks (message match).
-        "dek": "A plain look at the price and what holds up once the box arrives, without a sales call.",
+        "dek": "A plain look at the price and what you get once the box arrives, without a sales call.",
         "lede": "What should you check before a cabin like this comes home? The answers start below.",
         "scroll_cue": "Start with the first check",
         "hero": {"asset_id": _LISTICLE_ASSET_IDS[0]},
@@ -233,7 +259,8 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
             {
                 "number": i,
                 "heading": f"What a careful buyer checks first, part {i}",
-                "text": _filler_words(130, offset=i * 17, tag=i),
+                "text": _listicle_words(30, offset=i * 7, tag=i),
+                "lever": _LISTICLE_LEVERS[(i - 1) % len(_LISTICLE_LEVERS)],
                 "image": {"asset_id": _LISTICLE_ASSET_IDS[i]},
                 "proof": _LISTICLE_PROOFS[i - 1],
             }
@@ -255,7 +282,7 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
             "questions": [
                 {
                     "question": f"A question a careful buyer asks before ordering, part {i}?",
-                    "answer": _filler_words(40, offset=i * 29, tag=7 + i),
+                    "answer": _listicle_words(30, offset=i * 9, tag=7 + i),
                 }
                 for i in range(1, 6)
             ]
@@ -288,29 +315,29 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
 # traced to one skipped question, the wiring; every spec cites a Fuji claim
 # the offline facts pack verifies, and item 1's proof is the ad's own words.
 _NAMED_CAUSE_ITEMS = (
-    {"heading": "A sauna is an appliance before it is a cabin",
+    {"heading": "A sauna is an appliance before it is a cabin", "lever": "outcome",
      "text": "The confusing part of sauna shopping is rarely the wood or the heat. It is the circuit behind the "
              "wall, and a listing that leaves it for later leaves every other choice waiting on it.",
      "proof": _LISTICLE_PROOFS[0]},
-    {"heading": "You cannot say which outlet it needs",
+    {"heading": "You cannot say which outlet it needs", "lever": "effort",
      "text": "That is the cause showing up first. The cabin needs a circuit of its own, so the page should say "
              "which one before you pick anything else.",
      "claim_ids": ["gbrain-fuji-power"],
      "proof": {"text": "The Fuji needs a dedicated 120V / 20A outlet; a standard 15A outlet is not sufficient.",
                "claim_ids": ["gbrain-fuji-power"]}},
-    {"heading": "The measurements only come up on a call",
+    {"heading": "The measurements only come up on a call", "lever": "likelihood",
      "text": "When the footprint is missing, the room question waits on someone else's schedule. Published "
              "dimensions let you tape out the corner tonight.",
      "claim_ids": ["gbrain-fuji-dimensions"],
      "proof": {"text": "Assembled, the Fuji measures 53 inches wide, 44 inches deep and 75 inches high.",
                "claim_ids": ["gbrain-fuji-dimensions"]}},
-    {"heading": "Nobody says where the heat comes from",
+    {"heading": "Nobody says where the heat comes from", "lever": "likelihood",
      "text": "A vague listing hides the heater layout too. When the page shows where the heaters sit, you know "
              "where the warmth reaches before the crate arrives.",
      "claim_ids": ["gbrain-allowlist-360-full-spectrum"],
      "proof": {"text": "The infrared heaters use a 360° placement around you.",
                "claim_ids": ["gbrain-allowlist-360-full-spectrum"]}},
-    {"heading": "Why another sales call did not settle it",
+    {"heading": "Why another sales call did not settle it", "lever": "time",
      "text": "More opinions answer the sign, not the cause. The facts that settle the choice are the circuit, the "
              "footprint and the delivery, and they belong on the page before checkout.",
      "proof": {"text": "Every order ships free, and heavy freight arrives on a delivery appointment you schedule.",
@@ -322,6 +349,7 @@ _NAMED_CAUSE_ITEMS = (
 # sign and why the usual fixes did not hold in one.
 _NAMED_CAUSE_MERGED_ITEM = {
     "heading": "The measurements only come up on a call",
+    "lever": "likelihood",
     "text": "When the footprint is missing, the room question waits on someone else's schedule, and another "
             "sales call answers the sign, not the cause. Published dimensions let you tape out the corner "
             "tonight.",
@@ -345,9 +373,10 @@ _NAMED_CAUSE_FAQ = (
     {"question": "How hot does it get?",
      "answer": "The Fuji reaches up to 150°F.",
      "claim_ids": ["spec-fuji-max-temperature"]},
-    {"question": "What if I change my mind?",
-     "answer": "Returns are accepted once the cabin is taken apart and repacked in its original crate.",
-     "claim_ids": ["returns-policy"]},
+    # cycle 110: no copy about returns (persuasion.RETURNS_RE)
+    {"question": "How does it get to my house?",
+     "answer": "It ships to your door, and the shipping is free on every order.",
+     "claim_ids": ["shipping-policy"]},
 )
 
 

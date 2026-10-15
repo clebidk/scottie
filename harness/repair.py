@@ -1510,6 +1510,10 @@ def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_b
     if cartridge_name == "landing" and isinstance(schema.get("allowed_cta_texts"), dict):
         # Cycle 110: the CTA phrase by the ad's angle (sale, financing, story).
         allowed_cta_texts = landing.allowed_cta_texts(schema, facts_pack, ad_brief, tenant)
+    elif cartridge_name == "listicle" and isinstance(schema.get("allowed_cta_texts"), dict):
+        from . import listicle_persuasion   # cycle 110 (C): the same map for the listicle
+
+        allowed_cta_texts = listicle_persuasion.allowed_cta_texts(schema, facts_pack, ad_brief, tenant)
     else:
         allowed_cta_texts = resolve_allowed_cta_texts(
             schema, facts_pack["product"]["name"], model_name=facts_pack["product"]["name"],

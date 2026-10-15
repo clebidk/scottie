@@ -16,6 +16,7 @@ from .jsonutil import extract_json_tolerant
 from . import comparison
 from . import listicle
 from . import listicle_quality
+from . import listicle_persuasion
 from . import pagepatch
 from . import skeletons
 from . import quiz
@@ -525,6 +526,8 @@ def _listicle_payload(cartridge_name, ad_brief, facts_pack):
     return {
         "ad_quotes": safe_quote_candidates(ad_brief, facts_pack),
         "allowed_numbers": listicle_quality.allowed_numbers(facts_pack),
+        # Cycle 110: the verified proof elements an item's proof_ref may name.
+        "proof_refs": listicle_persuasion.proof_refs_for_writer(facts_pack),
     }
 
 

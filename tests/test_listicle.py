@@ -79,10 +79,12 @@ AD_BRIEF = {
 
 ALLOWED_CTA_TEXTS = ["See the models", "Shop the Fuji", "Book a consult"]
 
+# Cycle 110: short sentences (the reading-level gate) and no "actually" (the
+# ad-reference ban).
 _FILLER = (
-    "It gives a shopper a specific, concrete reason to trust the switch instead of a vague "
-    "promise, the kind of plain detail that actually holds up once the box arrives at the door "
-    "and the cabin is standing in a real room, measured against a real wall, in a real home."
+    "It gives a shopper a clear reason to trust the switch. It is not a vague "
+    "promise. The detail still holds when the box comes to the door. The cabin stands "
+    "in a room you use, against a wall you know, in your own home."
 )
 
 
@@ -94,7 +96,8 @@ _TAGS = {i: w for i, w in enumerate((
 def _words(n, tag=None):
     """n filler words. Cycle 74: `tag` makes every sentence of this field its
     own (the repeated-sentence gate fails one sentence used in two fields)."""
-    filler = _FILLER.replace("a shopper", f"a shopper ({_TAGS[tag]})") if tag else _FILLER
+    # cycle 110: the filler is several short sentences, so each one carries the tag
+    filler = f"({_TAGS[tag]}) " + _FILLER.replace(". ", f". ({_TAGS[tag]}) ") if tag else _FILLER
     words = (filler + " ") * ((n // len(filler.split())) + 1)
     return " ".join(words.split()[:n])
 
@@ -121,13 +124,18 @@ HEADLINES = {
 }
 
 
+_LEVERS = ("outcome", "likelihood", "time", "effort")
+
+
 def _items(n=5, with_proof=True):
     items = []
     for i in range(1, n + 1):
         item = {
             "number": i,
             "heading": f"A plain heading number {i}",
-            "text": _words(120, tag=i),
+            # cycle 110: at most 45 words, and a lever per item (all four covered)
+            "text": _words(40, tag=i),
+            "lever": _LEVERS[(i - 1) % len(_LEVERS)],
             "image": {"asset_id": f"asset-{i + 1}"},
         }
         if with_proof:
@@ -168,7 +176,7 @@ def _listicle_page(style="reasons", n_items=5):
         "faq": {
             "questions": [
                 {
-                    "question": f"A question a buyer actually asks, number {i}?",
+                    "question": f"A question a buyer asks, number {i}?",
                     "answer": _words(35, tag=8 + i),
                 }
                 for i in range(1, 6)
@@ -306,8 +314,13 @@ def test_cartridge_md_declares_v0_2_0():
 
 
 def test_allowed_cta_texts_resolve_model_name_placeholder():
-    resolved = resolve_allowed_cta_texts(SCHEMA, "Peak Fuji 2-Person Infrared Sauna", model_name="Fuji")
-    assert resolved == ALLOWED_CTA_TEXTS
+    # Cycle 110: schema.json's allowed_cta_texts is a map by the ad's angle; an
+    # ad with no offer, no payments and no first-person speaker gets the
+    # default phrases, which keep the three this cartridge always allowed.
+    assert isinstance(SCHEMA["allowed_cta_texts"], dict)
+    _schema, _word_range, resolved = _listicle_constraints()
+    assert resolved == ["Shop the Fuji", "See the Fuji price", "See the models", "Book a consult"]
+    assert set(ALLOWED_CTA_TEXTS) <= set(resolved)
 
 
 # ---------------------------------------------------------------------------

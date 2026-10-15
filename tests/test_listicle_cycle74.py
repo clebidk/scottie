@@ -602,6 +602,19 @@ def test_a_listicle_repair_is_a_patch_of_the_flagged_item_only(tmp_path):
     good.update(eyebrow="For careful buyers", display_headline="The price, right where you can find it", accent_phrase=" ".join(good["headline"].split()[-2:]),
                 lede="What would you want to know before you buy?", scroll_cue="Start with the first myth",
                 hero_quote_id="q1")
+    # Cycle 110: the live page's ad-grading tics ("actually holds up", "a real
+    # price", "nothing to submit first") and its returns line fail the new
+    # gates (listicle_persuasion); items get their Value Equation lever.
+    for item, lever in zip(good["reasons"], ("outcome", "likelihood", "effort", "time", "likelihood", "outcome")):
+        item["lever"] = lever
+    good["dek"] = good["dek"].replace("here's what actually holds up", "here is what you get")
+    good["reasons"][0]["heading"] = "You have to call to get the price"
+    good["reasons"][3]["heading"] = "Free shipping is just a line in an email"
+    good["reasons"][4]["heading"] = "You must talk to a salesperson first"
+    good["faq"]["questions"][0]["answer"] = good["faq"]["questions"][0]["answer"].replace(
+        ", with nothing to submit first", "")
+    good["closing"]["recap"][0]["text"] = "The Peak Fuji is priced at $8,250, listed on the page."
+    good["audience_fit"]["not_for_you"][2]["text"] = "You want a cabin you never have to put together."
     bad = copy.deepcopy(good)
     bad["reasons"][4]["text"] = "As the ad speaker found, some brands hide everything. " + good["reasons"][4]["text"]
 

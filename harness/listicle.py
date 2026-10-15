@@ -152,6 +152,8 @@ RENDERER_OWNED_KEYS = (
     "hsa_line", "sticky_cta", "rating_line",
     # cycle 79: the first screen's stats strip and the value stack
     "value_stack", "stats_strip",
+    # cycle 110: the review wall (verbatim review quotes, listicle_persuasion)
+    "review_wall",
 )
 
 # facts_pack.verified_claims text that makes a claim usable as the HSA/FSA
@@ -391,9 +393,11 @@ def writer_rules_lines():
 
 
 def _first_screen_lines():
-    from . import first_screen
+    from . import first_screen, listicle_persuasion
 
-    return first_screen.writer_lines()
+    # Cycle 110: items as reasons, proof_ref, the ad-reference ban, the
+    # reading level, the hook on the first screen.
+    return first_screen.writer_lines() + listicle_persuasion.writer_lines()
 
 
 def writer_style_lines(style, headline=None):
@@ -732,13 +736,16 @@ def find_item_violations(page, item_range=None):
                 "item has no image.asset_id; every item carries exactly one image",
             ))
         proof = item.get("proof")
-        if not isinstance(proof, dict) or not (proof.get("text") or "").strip():
+        # Cycle 110: a proof_ref (a review quote, the store rating or the units
+        # line, listicle_persuasion) is a proof line the renderer prints.
+        has_ref = isinstance(proof, dict) and bool(str(proof.get("proof_ref") or "").strip())
+        if not isinstance(proof, dict) or not ((proof.get("text") or "").strip() or has_ref):
             problems.append(_problem(
                 path, f"listicle:item_proof:{i}",
                 "item has no proof line; every item closes with one, either citing a verified "
                 "claim_id or stating an attributed customer statement",
             ))
-        elif not proof.get("claim_ids") and proof.get("attributed_to_customer") is not True:
+        elif not has_ref and not proof.get("claim_ids") and proof.get("attributed_to_customer") is not True:
             problems.append(_problem(
                 f"{path}.proof", f"listicle:item_proof:{i}",
                 "proof line carries neither a claim_id nor attributed_to_customer: true",
