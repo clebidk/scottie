@@ -240,7 +240,7 @@ def test_the_import_validator_allows_shop_now_only_in_the_sticky_bar():
     from harness import landing
     ctx = landing.render_context(page, demo["facts_pack"], ad_brief=demo["ad_brief"], tenant=TENANT)
     url, text = page["cta_url"], page["cta_text"]
-    text_link = f'<a class="ld-text" href="{ctx["secondary"]["href"]}">Text us</a>'
+    text_link = f'<a class="ld-text" href="{ctx["closing_link"]["href"]}">Text us</a>'
 
     def errors(body):
         return look_import.cta_errors(f'<html><body><div class="pk-lp adv-landing">{body}{text_link}</div>'

@@ -1,0 +1,282 @@
+{
+ "reviews_store": {
+  "text": "Rated 4.6 out of 5 from 4,260 reviews on Judge.me (fetched 2026-10-15).",
+  "rating": 4.6,
+  "count": 4260,
+  "claim_ids": [
+   "reviews-store-live"
+  ]
+ },
+ "review_quotes": [
+  {
+   "claim_id": "review-quote-1",
+   "text": "I cannot say enough, how happy I am with the purchase of my peak sauna Fuji model! It is incredible craftsmanship, and fits perfectly in our garage where we get to use it almost daily! Through the entire process from initial purchase to post set up we have had outstanding customer service. The response time is incredibly fast and very supportive. I cannot recommend Peak Sauna highly enough!!!",
+   "author": "Kristi W.",
+   "date": "2026-07-25",
+   "stars": 5,
+   "product": "Peak Fuji"
+  },
+  {
+   "claim_id": "review-quote-2",
+   "text": "Assembly was very easy! We had a few questions and the customer support was second to none. Thanks Peak Sauna for a great experience. We love our Fuji!",
+   "author": "David H.",
+   "date": "2026-03-23",
+   "stars": 5,
+   "product": "Peak Fuji"
+  },
+  {
+   "claim_id": "review-quote-3",
+   "text": "Our experience with Peak Saunas has been very positive, from ordering, to installation, to putting our sauna to use. It warms up quickly and holds the temperature perfectly. Very easy and straightforward. The customer service has been very responsive and helpful. We are extremely satisfied.",
+   "author": "Mike B.",
+   "date": "2026-02-25",
+   "stars": 5,
+   "product": "Peak Fuji"
+  },
+  {
+   "claim_id": "review-quote-4",
+   "text": "Love our new Sauna. A great buying experience, customer support is outstanding from initial questions prior to ordering to a text on a Sunday to confirm a question about installation. My wife and I easily assembled the Sauna. Highly Recommend.",
+   "author": "David C.",
+   "date": "2025-11-18",
+   "stars": 5,
+   "product": "Peak Fuji"
+  },
+  {
+   "claim_id": "review-quote-5",
+   "text": "I am going on week four with my sauna! It has been everything I wanted, plus some. Customer service has also been incredible to work with. This sauna is definitely above and beyond. Thank you for all your help and meeting expectations.",
+   "author": "Stacy H.",
+   "date": "2025-08-25",
+   "stars": 5,
+   "product": "Peak Fuji"
+  },
+  {
+   "claim_id": "review-quote-6",
+   "text": "I was very pleased to accept delivery a few days ago. My Fuji sauna is excellent, high-quality and fairly easy to assemble. Any questions I had during the ordering process, delivery process, and assembly were addressed by staff with excellent customer service.",
+   "author": "John H.",
+   "date": "2025-08-03",
+   "stars": 5,
+   "product": "Peak Fuji"
+  }
+ ],
+ "units": {
+  "last_12mo": {
+   "text": "2,000+ saunas delivered to US homes in the last 12 months (Shopify, Oct 2026)",
+   "claim_ids": [
+    "units-delivered-12mo"
+   ]
+  },
+  "all_time": null
+ },
+ "included": [
+  {
+   "text": "Medical-grade red light therapy, standard",
+   "claim_ids": [
+    "gbrain-fuji-rlt"
+   ]
+  },
+  {
+   "text": "Full-spectrum infrared heat: near, mid and far",
+   "claim_ids": [
+    "spec-fuji-infrared-wavelength-range"
+   ]
+  },
+  {
+   "text": "Peak Wellness Club, a $588-a-year membership, included free",
+   "claim_ids": [
+    "pwc-value-588"
+   ]
+  },
+  {
+   "text": "Free shipping",
+   "claim_ids": [
+    "gbrain-allowlist-free-shipping"
+   ]
+  },
+  {
+   "text": "7-year warranty on the heaters and the cabinet",
+   "claim_ids": [
+    "warranty-terms",
+    "gbrain-allowlist-lifetime-warranty"
+   ]
+  },
+  {
+   "text": "Lifetime U.S.-based support",
+   "claim_ids": [
+    "gbrain-warranty-lifetime-definition"
+   ]
+  },
+  {
+   "text": "App control: preheat from your phone",
+   "claim_ids": [
+    "pdp-fuji-app-control"
+   ]
+  },
+  {
+   "text": "Two Bluetooth speakers",
+   "claim_ids": [
+    "spec-fuji-audio"
+   ]
+  }
+ ],
+ "hsa_fsa": {
+  "text": "Peak saunas may be eligible for HSA/FSA purchase through Redo.",
+  "claim_ids": [
+   "hsa-fsa-redo"
+  ]
+ },
+ "support": {
+  "text": "Lifetime U.S.-based support",
+  "claim_ids": [
+   "gbrain-warranty-lifetime-definition"
+  ]
+ },
+ "founder": {
+  "text": "Austin Laudenslager is the Founder & CEO of Peak Saunas.",
+  "claim_ids": [
+   "founder-ceo"
+  ]
+ },
+ "us_owned": {
+  "text": "US-owned company.",
+  "claim_ids": [
+   "gbrain-allowlist-us-owned"
+  ]
+ },
+ "financing_monthly": {
+  "text": "$458.33/mo for 18 months at 0% APR*",
+  "amount": "$458.33",
+  "months": 18,
+  "apr": "0%",
+  "disclosure": "Est. $458.33/mo is based on $8,250 financed over 18 monthly payments at 0% APR with $0 down; your actual rate, term, and payment are set by Bread Pay when you apply. A minimum purchase of $5,000.00 is required. Availability of terms may vary based on purchase price, product, and state of residence. Down payment may be required. Subject to approval of credit application. Rates range from 0% to 34.99% APR, resulting in, for example 36 monthly payments of $38.19 at 21.99% APR, per $1,000.00 borrowed. APRs will vary depending on credit qualifications, loan amount, and term. Bread Pay\u00ae loans are made by Comenity Capital Bank, a Bread Financial\u00ae company.",
+  "claim_ids": [
+   "financing-monthly-fuji"
+  ]
+ },
+ "claims": [
+  {
+   "id": "founder-ceo",
+   "text": "Austin Laudenslager is the Founder & CEO of Peak Saunas.",
+   "category": "trust",
+   "source": "https://peaksaunas.com/pages/austin-laudenslager"
+  },
+  {
+   "id": "warranty-terms",
+   "text": "Peak Saunas warranty covers, from date of delivery: heating elements 7 years; cabinetry and structure 7 years; control system and power supply 3 years; red light therapy panels 3 years; chromotherapy lighting 1 year; audio system 1 year; WiFi/app connectivity 1 year; accessories 1 year. Coverage applies to the original purchaser only and requires installation within 6 months of delivery.",
+   "category": "trust",
+   "source": "https://peaksaunas.com/pages/warranty"
+  },
+  {
+   "id": "spec-fuji-infrared-wavelength-range",
+   "text": "Fuji -- Infrared wavelength range: 700\u201325,000nm (near, mid, far).",
+   "category": "spec",
+   "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+  },
+  {
+   "id": "spec-fuji-audio",
+   "text": "Fuji -- Audio: Two Bluetooth speakers.",
+   "category": "spec",
+   "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+  },
+  {
+   "id": "gbrain-allowlist-free-shipping",
+   "text": "Free shipping (included, always).",
+   "category": "trust",
+   "source": "gbrain:competitors/overview; gbrain:policy/shipping-and-delivery; https://peaksaunas.com/policies/shipping-policy"
+  },
+  {
+   "id": "gbrain-allowlist-us-owned",
+   "text": "US-owned company.",
+   "category": "trust",
+   "source": "gbrain:competitors/overview"
+  },
+  {
+   "id": "gbrain-allowlist-lifetime-warranty",
+   "text": "7-year residential warranty.",
+   "category": "trust",
+   "source": "gbrain:competitors/overview; gbrain:policy/warranty; https://peaksaunas.com/pages/warranty"
+  },
+  {
+   "id": "gbrain-fuji-rlt",
+   "text": "Fuji red light therapy: included standard, 1 RLT panel, seated distance 7\u20138 in from panel.",
+   "category": "spec",
+   "source": "gbrain:spec/fuji"
+  },
+  {
+   "id": "pdp-fuji-app-control",
+   "text": "Preheat from anywhere; adjust temperature, lighting, and session length in the Peak Saunas app (iOS & Android).",
+   "category": "spec",
+   "source": "https://peaksaunas.com/products/x"
+  },
+  {
+   "id": "reviews-store-live",
+   "text": "Rated 4.6 out of 5 from 4,260 reviews on Judge.me (fetched 2026-10-15).",
+   "category": "trust",
+   "source": "https://judge.me/reviews/stores/peaksaunas.com"
+  },
+  {
+   "id": "review-quote-1",
+   "text": "I cannot say enough, how happy I am with the purchase of my peak sauna Fuji model! It is incredible craftsmanship, and fits perfectly in our garage where we get to use it almost daily! Through the entire process from initial purchase to post set up we have had outstanding customer service. The response time is incredibly fast and very supportive. I cannot recommend Peak Sauna highly enough!!!",
+   "category": "review",
+   "source": "Judge.me verified-buyer review 1d47e129-8c99-4787-9bb6-39bfaa8a57f0 by Kristi W., 2026-07-25, 5 stars, Peak Fuji (https://judge.me/reviews/stores/peaksaunas.com)"
+  },
+  {
+   "id": "review-quote-2",
+   "text": "Assembly was very easy! We had a few questions and the customer support was second to none. Thanks Peak Sauna for a great experience. We love our Fuji!",
+   "category": "review",
+   "source": "Judge.me verified-buyer review e8a6f0a6-c5df-484e-b5a7-72d21210a519 by David H., 2026-03-23, 5 stars, Peak Fuji (https://judge.me/reviews/stores/peaksaunas.com)"
+  },
+  {
+   "id": "review-quote-3",
+   "text": "Our experience with Peak Saunas has been very positive, from ordering, to installation, to putting our sauna to use. It warms up quickly and holds the temperature perfectly. Very easy and straightforward. The customer service has been very responsive and helpful. We are extremely satisfied.",
+   "category": "review",
+   "source": "Judge.me verified-buyer review 61d092d4-e733-4dc7-aced-dae75b89375e by Mike B., 2026-02-25, 5 stars, Peak Fuji (https://judge.me/reviews/stores/peaksaunas.com)"
+  },
+  {
+   "id": "review-quote-4",
+   "text": "Love our new Sauna. A great buying experience, customer support is outstanding from initial questions prior to ordering to a text on a Sunday to confirm a question about installation. My wife and I easily assembled the Sauna. Highly Recommend.",
+   "category": "review",
+   "source": "Judge.me verified-buyer review b1b9c770-817e-42d0-9bfe-6739318c8293 by David C., 2025-11-18, 5 stars, Peak Fuji (https://judge.me/reviews/stores/peaksaunas.com)"
+  },
+  {
+   "id": "review-quote-5",
+   "text": "I am going on week four with my sauna! It has been everything I wanted, plus some. Customer service has also been incredible to work with. This sauna is definitely above and beyond. Thank you for all your help and meeting expectations.",
+   "category": "review",
+   "source": "Judge.me verified-buyer review fe8a5867-683d-464f-96d6-1e6b224c3c8e by Stacy H., 2025-08-25, 5 stars, Peak Fuji (https://judge.me/reviews/stores/peaksaunas.com)"
+  },
+  {
+   "id": "review-quote-6",
+   "text": "I was very pleased to accept delivery a few days ago. My Fuji sauna is excellent, high-quality and fairly easy to assemble. Any questions I had during the ordering process, delivery process, and assembly were addressed by staff with excellent customer service.",
+   "category": "review",
+   "source": "Judge.me verified-buyer review e995600d-08c3-4c43-8c15-584bf4f2adbf by John H., 2025-08-03, 5 stars, Peak Fuji (https://judge.me/reviews/stores/peaksaunas.com)"
+  },
+  {
+   "id": "financing-monthly-fuji",
+   "text": "Est. $458.33/mo for 18 months at 0% APR with $0 down through Bread Pay; your actual rate, term, and payment are set by Bread Pay when you apply.",
+   "category": "price",
+   "source": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy (financing line and disclosure, read 2026-10-15; owner approved the 0% APR wording 2026-10-15)"
+  },
+  {
+   "id": "units-delivered-12mo",
+   "text": "2,000+ saunas delivered to US homes in the last 12 months (Shopify, Oct 2026)",
+   "category": "trust",
+   "source": "Shopify Admin API, read-only count of sauna units in non-cancelled fulfillments with carrier tracking (5,750 orders scanned, first unit sold in 2025), fetched 2026-10-15"
+  },
+  {
+   "id": "hsa-fsa-redo",
+   "text": "Peak saunas may be eligible for HSA/FSA purchase through Redo.",
+   "category": "trust",
+   "source": "gbrain:policy/financing-and-payment; owner (Caleb) 2026-10-15: the HSA/FSA provider is Redo (replaces hsa-fsa-truemed, kept for old references)"
+  },
+  {
+   "id": "gbrain-warranty-lifetime-definition",
+   "text": "Peak Saunas 7-Year Residential Warranty: residential use only, original purchaser, non-transferable, auto-registered at order. Cabin and heaters are covered for 7 years from delivery; lifetime U.S.-based support.",
+   "category": "policy",
+   "source": "gbrain:policy/warranty; https://peaksaunas.com/pages/warranty"
+  },
+  {
+   "id": "pwc-value-588",
+   "text": "Peak Wellness Club, a $588-per-year membership, is included free with every Peak sauna.",
+   "category": "trust",
+   "source": "owner (Caleb) confirmation 2026-10-15 (cycle 110); pwc-included-free"
+  }
+ ]
+}

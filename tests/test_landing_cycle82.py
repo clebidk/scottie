@@ -38,6 +38,9 @@ PHONE = "+14706653747"
 # The trust line shows the first clause of the tenant's fixed warranty sentence.
 WARRANTY_TERM = ALLOWED_WARRANTY_SENTENCE.split(";")[0]
 SRC = "https://peaksaunas.com/products/fuji"
+# Cycle 110: the founder fixture's own brief -- the canned page restates its
+# hook (landing:hook_match); the suite's AD_BRIEF ("hook") matches nothing.
+LANDING_BRIEF = fake_run._brief_for(str(TENANT.fixtures_dir / "founder-warranty-demo.txt"))
 
 
 def _facts_pack():
@@ -82,10 +85,10 @@ def _gates(page, facts_pack=None):
     facts_pack = facts_pack or _facts_pack()
     md = (CARTRIDGE_DIR / "cartridge.md").read_text()
     schema = json.loads(TENANT.render((CARTRIDGE_DIR / "schema.json").read_text()))
-    ctas = write.resolve_allowed_cta_texts(schema, "Fuji", model_name="Fuji", tenant=TENANT)
+    ctas = landing.allowed_cta_texts(schema, facts_pack, LANDING_BRIEF, TENANT)
     return repair.check_page_gates(
         page, facts_pack, "landing", financing_lender="Bread Pay", speaker_pov="first_person",
-        word_range=write.parse_word_range(md), allowed_cta_texts=ctas, ad_brief=AD_BRIEF, tenant=TENANT,
+        word_range=write.parse_word_range(md), allowed_cta_texts=ctas, ad_brief=LANDING_BRIEF, tenant=TENANT,
     )
 
 
@@ -116,22 +119,24 @@ def test_the_canned_page_passes_every_gate():
     assert _gates(_page()) == []
 
 
-def test_a_checked_claim_with_no_claim_ids_fails():
+def test_a_reason_with_no_claim_ids_fails():
     page = _page()
-    page["checked_claims"][0]["claim_ids"] = []
-    assert "landing:checked_claims_ids:0" in _keys(_gates(page))
+    page["reasons"][0]["claim_ids"] = []
+    assert "landing:reason_ids:0" in _keys(_gates(page))
 
 
-def test_seven_checked_claims_fail():
+def test_six_reasons_fail_and_a_page_with_checked_claims_fails():
     page = _page()
-    page["checked_claims"] = (page["checked_claims"] * 2)[:7]
-    assert "landing:checked_count" in _keys(landing.find_landing_violations(page, _facts_pack()))
+    page["reasons"] = (page["reasons"] * 2)[:6]
+    assert "landing:reasons_count" in _keys(landing.find_landing_violations(page, _facts_pack()))
+    legacy = _page(checked_claims=[{"ad_said": "x", "fact": "y", "claim_ids": ["spec-fuji-capacity"]}])
+    assert "landing:checked_claims_retired" in _keys(landing.find_landing_violations(legacy, _facts_pack()))
 
 
 @pytest.mark.parametrize("where", [
     lambda p: p["closing"].__setitem__("cta_url", "/collections/all"),
     lambda p: p["hero"].__setitem__("url", "/pages/contact"),
-    lambda p: p["checked_claims"][0].__setitem__("button", "Book a call"),
+    lambda p: p["reasons"][0].__setitem__("button", "Book a call"),
     lambda p: p["faq"]["questions"][0].__setitem__("cta_text", "Text us"),
 ])
 def test_a_page_can_never_carry_a_second_cta(where):
@@ -154,7 +159,7 @@ def test_a_price_typed_into_the_first_screen_fails():
 
 def test_a_phone_number_anywhere_fails():
     page = _page()
-    page["checked_claims"][4]["fact"] = "Text us at +1 (470) 665-3747 with any question."
+    page["reasons"][1]["body"] = "Text us at +1 (470) 665-3747 with any question."
     assert any(k.startswith("landing:phone:") for k in _keys(_gates(page)))
 
 
@@ -178,7 +183,7 @@ def test_a_quote_must_be_verbatim_in_one_of_the_review_quotes():
 
 def test_fewer_than_three_benefit_claims_fail():
     page = _page()
-    for item in page["checked_claims"]:
+    for item in page["reasons"]:
         item["claim_ids"] = ["shipping-policy"]
     problems = claims.find_benefit_claim_shortfall(page, _facts_pack(), "landing")
     assert problems and problems[0]["path"] == "$.landing-benefit-claims"
@@ -186,7 +191,7 @@ def test_fewer_than_three_benefit_claims_fail():
 
 def test_power_wording_must_match_the_electrical_claim():
     page = _page()
-    page["checked_claims"][1]["fact"] = "It plugs into any standard outlet, no electrician needed."
+    page["reasons"][3]["body"] = "It plugs into any standard outlet, no electrician needed."
     assert any(k.startswith("landing:power:") for k in _keys(landing.find_landing_violations(page, _facts_pack())))
 
 
@@ -195,14 +200,14 @@ def test_a_renderer_owned_key_fails():
     assert "landing:renderer_owned:$.price_line" in _keys(landing.find_landing_violations(page, _facts_pack()))
 
 
-def test_the_writer_lines_ask_for_logistics_and_a_real_room_photo():
+def test_the_writer_lines_ask_for_reasons_the_hook_and_the_buyers_faq():
     text = " ".join(landing.writer_lines(_facts_pack(), TENANT))
-    for word in ("electrical requirement", "footprint", "delivery", "assembly", "warranty"):
-        assert word in text
-    assert "asset-drive-lifestyle-1" in text            # the one real-room candidate
-    no_room = _facts_pack()
-    no_room["assets"] = [a for a in no_room["assets"] if a["kind"] != "lifestyle"]
-    assert "omit room_photo" in " ".join(landing.writer_lines(no_room, TENANT))
+    for words in ("reasons has 3-5 items", "outcome", "likelihood", "time", "effort", "restates ad_brief.hook",
+                  "Grade 5-7 reading level", "Never quote, paraphrase, grade or correct the ad",
+                  "At most one logistics question", "Never a question about returns",
+                  "room_photo, checked_claims and ad_said are retired"):
+        assert words in text, words
+    assert "checked_claims has" not in text and "ad_said is what" not in text
 
 
 # ---------------------------------------------------------------------------
@@ -233,15 +238,19 @@ def test_no_price_claim_means_no_price(tmp_path):
 
 def test_the_cta_phrase_appears_three_times(tmp_path):
     html = (_render(tmp_path) / "index.html").read_text()
-    # cycle 97: the sticky bar's button reads "Shop now" beside the model name
-    assert html.count(">Shop the Fuji<") == 2 and html.count(">Shop now<") == 1
-    assert html.count('class="ld-btn"') == 3
+    # cycle 97: the sticky bar's button reads "Shop now" beside the model name;
+    # cycle 110: hero, after the reasons, closing -- every one tagged for the beacon
+    assert html.count(">Shop the Fuji<") == 3 and html.count(">Shop now<") == 1
+    assert html.count('class="ld-btn"') == 4
+    assert re.findall(r'class="ld-btn" data-el="(\w+)"', html) == ["hero", "mid", "closing", "sticky"]
     assert '<p class="ld-bar-name">Peak Fuji<span>$8,250</span></p>' in html
 
 
 def test_the_secondary_link_is_an_sms_link_from_tenant_config(tmp_path):
     html = (_render(tmp_path) / "index.html").read_text()
-    hrefs = re.findall(r'<a class="ld-text" href="([^"]*)">([^<]*)</a>', html)
+    # cycle 110: in the closing band (data-el="sms"), never beside the hero's pill
+    hrefs = re.findall(r'<a class="ld-text" data-el="sms" href="([^"]*)"[^>]*>([^<]*)</a>', html)
+    assert html.index('class="ld-close"') < html.index('class="ld-text"')
     assert hrefs == [(f"sms:{PHONE}?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20Fuji.", "Text us")]
     # the number appears once: in that href, nowhere else on the page
     assert html.count("4706653747") == 1
@@ -373,24 +382,24 @@ def test_the_first_screen_word_limits(field, limit, key):
     assert key in _keys(landing.find_landing_violations(over, _facts_pack()))
 
 
-def test_the_checked_claim_word_limits():
+def test_the_reason_word_limits():
     page = _page()
-    page["checked_claims"][0]["fact"] = _words(36)
-    page["checked_claims"][1]["fact"] = _words(37)
-    page["checked_claims"][2]["ad_said"] = _words(19)
-    page["checked_claims"][3]["ad_said"] = _words(18)
+    page["reasons"][0]["body"] = _words(45)
+    page["reasons"][1]["body"] = _words(46)
+    page["reasons"][2]["headline"] = _words(11, "")
+    page["reasons"][3]["headline"] = _words(10, "")
     keys = _keys(landing.find_landing_violations(page, _facts_pack()))
-    assert "landing:fact_words:0" not in keys
-    assert "landing:fact_words:1" in keys and "landing:ad_said_words:2" in keys
-    assert "landing:ad_said_words:3" not in keys
+    assert "landing:reason_body_words:0" not in keys
+    assert "landing:reason_body_words:1" in keys and "landing:reason_headline_words:2" in keys
+    assert "landing:reason_headline_words:3" not in keys
 
 
 def test_the_accent_phrase_matches_case_and_punctuation_insensitively(tmp_path):
     page = _page()
-    page["hero"]["accent_phrase"] = "\u201cNothing  Hidden.\u201d"
+    page["hero"]["accent_phrase"] = "\u201cThis  Confusing.\u201d"
     assert _gates(page) == []
     html = (_render(tmp_path, page=page) / "index.html").read_text()
-    assert '<span class="ld-accent">nothing hidden</span>' in html
+    assert '<span class="ld-accent">this confusing</span>' in html
 
 
 def test_an_accent_phrase_not_in_the_headline_renders_no_accent_and_passes(tmp_path):
@@ -403,22 +412,17 @@ def test_an_accent_phrase_not_in_the_headline_renders_no_accent_and_passes(tmp_p
     assert 'class="ld-accent"' not in html
 
 
-def test_ad_said_may_quote_the_ads_outlet_claim():
-    page = _page()
-    page["checked_claims"][1]["ad_said"] = "It plugs right into a normal outlet, no electrician involved"
-    assert not [p for p in landing.find_landing_violations(page, _facts_pack()) if "power" in p["key"]]
-
-
 def test_the_hero_may_not_repeat_a_contradicted_outlet_claim_and_the_repair_says_where_it_goes():
     page = _page()
     page["hero"]["headline"] = "A small-footprint sauna that plugs into a standard outlet"
     hits = [p for p in landing.find_landing_violations(page, _facts_pack()) if "power" in p["key"]]
     assert [p["path"] for p in hits] == ["$.hero.headline"]
-    assert "move it into checked_claims[].ad_said" in hits[0]["issue"]
+    assert "never repeats an ad claim the verified facts contradict" in hits[0]["issue"]
 
 
-def test_the_writer_prompt_carries_the_contradicted_claim_rule():
-    assert landing.CONTRADICTED_AD_CLAIM_LINE in landing.writer_lines(_facts_pack(), TENANT)
+def test_the_writer_prompt_never_lets_the_page_argue_with_the_ad():
+    text = " ".join(landing.writer_lines(_facts_pack(), TENANT))
+    assert "An ad claim the facts do not support is simply left out" in text
 
 
 def test_trim_to_limit_cuts_only_at_a_sentence_or_clause_boundary():
@@ -442,9 +446,9 @@ def _write_loop(page, tmp_path):
     log = RunLog("test-run", tmp_path / "run.log")
     try:
         return write_and_gate_page(
-            cartridge_name="landing", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=AD_BRIEF,
+            cartridge_name="landing", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=LANDING_BRIEF,
             facts_pack=_facts_pack(), client=client, model="claude-sonnet-5", budget=Budget(), log=log,
-            financing_lender="Bread Pay", speaker_pov=AD_BRIEF["speaker_pov"], tenant=TENANT,
+            financing_lender="Bread Pay", speaker_pov=LANDING_BRIEF["speaker_pov"], tenant=TENANT,
         ), client
     finally:
         log.close()
@@ -502,8 +506,8 @@ def test_the_minis_own_wording_passes_the_power_rule():
     mini["product"]["name"] = "Mini"
     mini["verified_claims"] += MINI_CLAIMS
     page = _page()
-    page["checked_claims"][1]["fact"] = MINI_SENTENCES[0]
-    page["checked_claims"][1]["claim_ids"] = ["pdp-mini-electrical"]
+    page["reasons"][3]["body"] = MINI_SENTENCES[0]
+    page["reasons"][3]["claim_ids"] = ["pdp-mini-electrical"]
     page["faq"]["questions"][0]["answer"] = MINI_SENTENCES[1]
     page["faq"]["questions"][1]["answer"] = MINI_SENTENCES[2]
     assert [p for p in landing.find_landing_violations(page, mini) if ":power:" in p["key"]] == []
@@ -533,58 +537,13 @@ def test_states_dedicated_ignores_a_negated_dedicated_circuit():
     assert not pdp.states_dedicated("you don't need a dedicated circuit")
 
 
-def test_the_last_attempt_may_trim_ad_said():
-    page = _page()
-    page["checked_claims"][0]["ad_said"] = ("I can start it from an app on my phone. "
-                                            "It has Bluetooth for music and podcasts while I sit in there.")
-    item = {"key": "landing:ad_said_words:0", "path": "$.checked_claims[0].ad_said"}
-    assert landing.trim_word_limit_violation(page, item)[2] == "I can start it from an app on my phone."
-
-
-def test_the_warranty_fix_never_rewrites_ad_said():
-    from harness import repair as repair_mod
-
-    page = _page()
-    page["checked_claims"][1]["ad_said"] = "Every sauna comes with a lifetime warranty."
-    # Cycle 82d: the landing gate no longer reports ad_said for wording; the
-    # fix must still leave it alone if a wording failure ever names it.
-    problems = [{"path": "$.checked_claims[1].ad_said", "key": "warranty:$.checked_claims[1].ad_said",
-                 "issue": "warranty wording must be exactly 'x'"}]
-    valid = {c["id"] for c in _facts_pack()["verified_claims"]}
-    repair_mod.apply_deterministic_fixes(page, problems, valid, cartridge_name="landing", facts_pack=_facts_pack(),
-                                         financing_lender="Bread Pay", tenant=TENANT)
-    assert page["checked_claims"][1]["ad_said"] == "Every sauna comes with a lifetime warranty."
-
-
-@pytest.mark.parametrize("said,bad", [
-    ("Fall Sale: $4,025+ off every model, extra $250 with code CRISP250", True),
-    ("Save 20% this week", True),
-    ("Use code SAUNAS at checkout", True),
-    ("It runs on 120V", True),
-    ("A fall sale with money off every model", False),
-    ("It plugs right into a normal outlet, no electrician involved", False),
-])
-def test_ad_said_carries_no_figure_or_code(said, bad):
-    page = _page()
-    page["checked_claims"][0]["ad_said"] = said
-    hits = [p for p in landing.find_landing_violations(page, _facts_pack()) if p["key"] == "landing:ad_said_figures:0"]
-    assert bool(hits) is bad
-    if bad:
-        assert "paraphrase a price or promo claim without figures" in hits[0]["issue"]
-
-
-def test_digits_stay_allowed_in_a_cited_fact():
-    assert "landing:ad_said_figures:2" not in _keys(landing.find_landing_violations(_page(), _facts_pack()))
-    assert any(ch.isdigit() for ch in _page()["checked_claims"][2]["fact"])
-
-
-def test_the_writer_prompt_says_to_paraphrase_promos():
-    assert landing.AD_SAID_FIGURES_LINE in landing.writer_lines(_facts_pack(), TENANT)
-    assert "money off every model" in landing.AD_SAID_FIGURES_LINE
+def test_digits_stay_allowed_in_a_cited_reason():
+    assert _gates(_page()) == []
+    assert any(ch.isdigit() for ch in _page()["reasons"][3]["body"])
 
 
 # ---------------------------------------------------------------------------
-# Cycle 82d: ad_said quotes the ad, so the fixed-wording gates skip it
+# Cycle 82d: the fixed-wording gates (cycle 110: ad_said is retired)
 # ---------------------------------------------------------------------------
 
 _LIFETIME = "Backed by a lifetime warranty"
@@ -595,20 +554,13 @@ def _wording(problems):
     return [p for p in problems if "wording must be exactly" in p["issue"] or "financing_line must be" in p["issue"]]
 
 
-@pytest.mark.parametrize("said", [_LIFETIME, _FINANCING])
-def test_ad_said_may_quote_the_ads_warranty_or_financing_claim(said):
-    page = _page()
-    page["checked_claims"][1]["ad_said"] = said
-    assert not [p for p in _wording(_gates(page)) if p["path"] == "$.checked_claims[1].ad_said"]
-
-
 @pytest.mark.parametrize("said,word", [(_LIFETIME, "warranty"), (_FINANCING, "financing")])
-@pytest.mark.parametrize("path", ["fact", "faq"])
-def test_the_same_words_in_fact_or_faq_still_fail(said, word, path):
+@pytest.mark.parametrize("path", ["reason", "faq"])
+def test_the_same_words_in_a_reason_or_faq_still_fail(said, word, path):
     page = _page()
-    if path == "fact":
-        page["checked_claims"][1]["fact"] = said + "."
-        where = "$.checked_claims[1].fact"
+    if path == "reason":
+        page["reasons"][1]["body"] = said + "."
+        where = "$.reasons[1].body"
     else:
         page["faq"]["questions"][1]["answer"] = said + "."
         where = "$.faq.questions[1].answer"
@@ -618,23 +570,13 @@ def test_the_same_words_in_fact_or_faq_still_fail(said, word, path):
 
 def test_a_wording_failure_carries_a_key():
     page = _page()
-    page["checked_claims"][1]["fact"] = _LIFETIME + "."
+    page["reasons"][1]["body"] = _LIFETIME + "."
     page["faq"]["questions"][1]["answer"] = _FINANCING + "."
     keys = {p["path"]: p.get("key") for p in _wording(_gates(page))}
-    assert keys["$.checked_claims[1].fact"] == "warranty:$.checked_claims[1].fact"
+    assert keys["$.reasons[1].body"] == "warranty:$.reasons[1].body"
     assert keys["$.faq.questions[1].answer"] == "financing:$.faq.questions[1].answer"
     line = claims.find_financing_violations({"offer": {"financing_line": "Pay later."}}, financing_lender="Bread Pay")
     assert line[0]["key"] == "financing_line:$.offer.financing_line"
-
-
-def test_ad_said_keeps_its_own_rules_and_the_exemption_is_landing_only():
-    page = _page()
-    page["checked_claims"][1]["ad_said"] = "Lifetime warranty, call 404-555-0123"
-    keys = _keys(_gates(page))
-    assert "landing:ad_said_figures:1" in keys and "landing:phone:$.checked_claims[1].ad_said" in keys
-    # The finder itself still reports ad_said; only the landing gate skips it.
-    hits = claims.find_warranty_violations({"checked_claims": [{"ad_said": _LIFETIME}]}, [])
-    assert hits and hits[0]["path"] == "$.checked_claims[0].ad_said"
 
 
 # ---------------------------------------------------------------------------
@@ -736,9 +678,9 @@ def _loop(responses, tmp_path, facts_pack=None):
     log = RunLog("test-run", tmp_path / "run.log")
     try:
         result = repair.write_and_gate_page(
-            cartridge_name="landing", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=AD_BRIEF,
+            cartridge_name="landing", cartridges_dir=REPO_ROOT / "cartridges", ad_brief=LANDING_BRIEF,
             facts_pack=facts_pack or _facts_pack(), client=client, model="claude-sonnet-5", budget=Budget(),
-            log=log, financing_lender="Bread Pay", speaker_pov=AD_BRIEF["speaker_pov"], tenant=TENANT,
+            log=log, financing_lender="Bread Pay", speaker_pov=LANDING_BRIEF["speaker_pov"], tenant=TENANT,
         )
     finally:
         log.close()
@@ -787,7 +729,7 @@ def test_the_prompt_says_do_not_write_a_quote_when_there_are_none():
 def _degenerate_page():
     page = _page()
     return {"cta_text": page["cta_text"], "cta_url": page["cta_url"], "hero": page["hero"],
-            "checked_claims": [], "faq": {"questions": []}, "closing": {}}
+            "reasons": [], "faq": {"questions": []}, "closing": {}}
 
 
 def test_a_degenerate_repair_is_discarded_and_sent_again(tmp_path):
@@ -817,9 +759,9 @@ def test_the_degenerate_guard_is_general():
     full = _page()
     assert not repair.degenerate_repair(full, copy.deepcopy(full))
     assert repair.degenerate_repair(full, _degenerate_page())
-    for drop in ("checked_claims", "faq", "closing"):
+    for drop in ("reasons", "faq", "closing"):
         lost = copy.deepcopy(full)
-        lost[drop] = [] if drop == "checked_claims" else {}
+        lost[drop] = [] if drop == "reasons" else {}
         lost["hero"]["subhead"] += " word" * 200                                  # keep the word count up
         assert repair.count_words(lost) >= 0.6 * repair.count_words(full), drop   # the section rule, not words
         assert repair.degenerate_repair(full, lost), drop

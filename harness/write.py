@@ -16,6 +16,7 @@ from .jsonutil import extract_json_tolerant
 from . import comparison
 from . import listicle
 from . import listicle_quality
+from . import listicle_persuasion
 from . import pagepatch
 from . import skeletons
 from . import quiz
@@ -159,7 +160,7 @@ def global_voice_block(tenant=None):
 
     return f"""## Voice and output rules
 
-Voice: plain, specific, no hype words ({hype_words_list}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing, in two different situations: (1) a feature that isn't gated behind an upgrade or extra payment -- say "included standard", "there's no extra step", or "it's included, not an add-on" instead; (2) information (like a price) that isn't gated behind a form or a sales call -- say "nothing to submit first", "no form required to see it", or "it's just on the page" instead of "nothing to unlock" / "unlock the price".
+Voice: plain, specific, no hype words ({hype_words_list}). No exclamation marks. Prefer short declarative sentences. "Unlock" is the one writers reach for most often without noticing: never write it, and do not replace it with a defensive phrase either -- say what the reader gets.
 
 Never write the byline, publish/update dates, the "Advertisement" label, or the disclosure paragraph -- the renderer injects those automatically.
 
@@ -525,6 +526,8 @@ def _listicle_payload(cartridge_name, ad_brief, facts_pack):
     return {
         "ad_quotes": safe_quote_candidates(ad_brief, facts_pack),
         "allowed_numbers": listicle_quality.allowed_numbers(facts_pack),
+        # Cycle 110: the verified proof elements an item's proof_ref may name.
+        "proof_refs": listicle_persuasion.proof_refs_for_writer(facts_pack),
     }
 
 

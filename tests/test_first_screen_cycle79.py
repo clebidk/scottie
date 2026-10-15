@@ -116,7 +116,8 @@ def test_face_renders_the_ad_still_with_the_verbatim_quote(tmp_path):
     assert f"&ldquo;{quote}&rdquo;" in html.replace("“", "&ldquo;").replace("”", "&rdquo;")
     # review fix 1: no evidence of the pronoun here (the still check gave none,
     # the writer's "she" is not evidence) -> the neutral caption
-    assert "From the creator&#39;s ad for PEAK" in html or "From the creator's ad for PEAK" in html
+    # cycle 110 (C): the caption credits the speaker without naming the ad
+    assert "A PEAK creator" in html and "ad for PEAK" not in html
     assert "she made for" not in html
     assert "min read" in html and "&#10003;" in html            # one-line byline with the tick
     assert json.loads((run_dir / "listicle" / "page.json").read_text())["hero_style"] == "face"

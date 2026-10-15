@@ -178,6 +178,37 @@ def _no_network(request, monkeypatch):
     monkeypatch.setattr(socket, "create_connection", _blocked)
 
 
+def _unconfined_browser():
+    """Cycle 110: a snap-packaged Chromium (/snap/bin/chromium, first on PATH
+    on the prod host) runs in a sandbox with its OWN private /tmp, so it can
+    neither read a page under pytest's tmp_path (/tmp/pytest-of-<user>/...)
+    nor write the screenshot there: every `real_browser` test failed with an
+    empty shot/probe (the first, test_hard_checks_on_three_synthetic_pages,
+    reports the page name "overflow"). A run's own pages live under the
+    tenant folder in $HOME, which the snap can read, so production is not
+    affected. The suite points capture at a non-snap browser when one is
+    installed (google-chrome on prod) via HARNESS_CHROME; with none, the snap
+    one stays (and those tests fail as before on that host)."""
+    import shutil
+
+    from harness import capture
+
+    if os.environ.get(capture.BROWSER_ENV):
+        return
+    found = capture.find_browser()
+    if not found or not os.path.realpath(found).startswith("/snap/") and "/snap/" not in found:
+        return
+    for name in capture.BROWSERS:
+        for folder in os.environ.get("PATH", "").split(os.pathsep):
+            path = os.path.join(folder, name)
+            if os.access(path, os.X_OK) and "/snap/" not in os.path.realpath(path) and "/snap/" not in path:
+                os.environ[capture.BROWSER_ENV] = path
+                return
+
+
+_unconfined_browser()
+
+
 @pytest.fixture(autouse=True)
 def _no_real_browser(request, monkeypatch):
     """Cycle 92: harness/capture.py finds Chrome in the macOS application

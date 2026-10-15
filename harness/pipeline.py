@@ -379,7 +379,10 @@ def ground(state):
         # Cycle 91: the model_grid block's model rows, only for a landing look
         # that declares that block (harness/blocks/catalog/); passed only then,
         # so a facts source without the keyword is untouched.
-        **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
+        # cycle 110: a pre-sell look's model cards (look.json "sell": model_cards)
+        **({"include_models": True} if _landing_look_uses(state, "model_grid")
+           or looks.sell_flags("landing", getattr(state, "landing_look", None), state.tenant).get("model_cards")
+           else {}),
         **({"live_claims": state.live_claims, "today_iso": state.today_iso} if state.live_claims else {}),
     )
     # Cycle 109: the ad's offer -> its verified promo claim (harness/offer.py).
@@ -767,6 +770,9 @@ def _record_rendered_hero(run_dir, cartridge_name):
         return
     if cartridge_name == "listicle":
         runstate.record_listicle_choice(run_dir, hero_style=rendered)
+        from . import listicle_persuasion   # cycle 110 (C): state.json listicle.quality
+
+        listicle_persuasion.record_quality(run_dir, "listicle")
     else:
         runstate.record_hero(run_dir, cartridge_name, rendered)
 

@@ -53,6 +53,9 @@ class Vocabulary:
         self.allowed_warranty_spec_value = data.get("allowed_warranty_spec_value", "")
         self.visible_text_forbidden_terms = tuple(data.get("visible_text_forbidden_terms") or ())
         self.competitor_aliases = dict(data.get("competitor_aliases") or {})
+        # Cycle 110: defensive or ad-grading phrases the landing/listicle
+        # copy never uses (harness/persuasion.py find_ad_reference_violations).
+        self.banned_phrases = tuple(data.get("banned_phrases") or ())
 
     # -- derived -------------------------------------------------------------
 

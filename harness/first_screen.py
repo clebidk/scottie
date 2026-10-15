@@ -396,13 +396,35 @@ def display_font(tenant):
     return value if value in DISPLAY_FONTS else "wide"
 
 
+def speaker_caption(ad_brief, facts_pack, tenant):
+    """The credit under the speaker's quote on the face first screen, in the
+    page's own voice without naming the ad (cycle 110, the ad-reference ban):
+    "<name>, <brand> customer" only when the tenant marks its ad speakers as
+    verified customers and the name is known; "<name>, for <brand>" with a
+    known name; else "A <brand> creator". Never a guessed name or status."""
+    brand = getattr(tenant, "display_name", "") or ""
+    name = str((ad_brief or {}).get("speaker_name") or (facts_pack or {}).get("speaker_name") or "").strip()
+    if name and tenant is not None and tenant.get("ad_speaker_is_verified_customer") is True:
+        return f"{name}, {brand} customer"
+    if name:
+        return f"{name}, for {brand}"
+    return f"A {brand} creator"
+
+
 def render_context(page, *, ad_brief, facts_pack, tenant, hero_style, frame=None, updated=None):
     """Everything the look's first screen and value stack render that the
     writer did not write as such. `frame` is ad_frames.load(run_dir)."""
+    from . import listicle_persuasion
+
     quote = hero_quote(page, ad_brief, facts_pack)
-    strip = stats(facts_pack)
+    # Cycle 110: the proof row and CTA under the first screen, the value stack
+    # (included, price, net price, monthly, rating, units), the review wall
+    # and each item's proof element (harness/listicle_persuasion.py); the
+    # display strip leads with the rating and the units line.
+    sell = listicle_persuasion.sell_context(page, facts_pack, tenant, base_stats=stats(facts_pack))
+    strip = sell["stats"]
     stack = value_stack(facts_pack, page, tenant)
-    claim_ids = set()
+    claim_ids = set(sell["claim_ids"])
     for s in strip:
         claim_ids.update(s["claim_ids"])
     if stack:
@@ -427,12 +449,18 @@ def render_context(page, *, ad_brief, facts_pack, tenant, hero_style, frame=None
         "quote": quote,
         "pronoun": pronoun,
         "quote_frame": quote_frame(pronoun),
-        "made_for": (f"In the ad {pronoun} made for {tenant.display_name}" if pronoun
-                     else f"From the creator's ad for {tenant.display_name}"),
+        # Cycle 110 (C): the caption under the ad still names the speaker, not the ad
+        "made_for": speaker_caption(ad_brief, facts_pack, tenant),
         "frame": frame,
         "byline": byline(tenant, page, updated),
         "stats": strip,
         "value_stack": stack,
+        "proof_row": sell["proof_row"],
+        "price_line": sell["price_line"],
+        "stack": sell["stack"],
+        "review_wall": sell["wall"],
+        "pull_quote": sell["pull"],
+        "item_proofs": sell["item_proofs"],
         "claim_ids": claim_ids,
     }
 
@@ -531,8 +559,8 @@ def longform_context(page, *, ad_brief, facts_pack, tenant, frame=None, updated=
         "display_font": display_font(tenant),
         "quote": quote,
         "quote_frame": quote_frame(pronoun),
-        "made_for": (f"In the ad {pronoun} made for {tenant.display_name}" if pronoun
-                     else f"From the creator's ad for {tenant.display_name}"),
+        # Cycle 110 (C): the caption under the ad still names the speaker, not the ad
+        "made_for": speaker_caption(ad_brief, facts_pack, tenant),
         "frame": frame,
         "byline": byline(tenant, page, updated),
         "stats": strip,

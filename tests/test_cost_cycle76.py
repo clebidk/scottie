@@ -51,7 +51,7 @@ def test_both_drafts_send_a_byte_identical_cached_prefix(two_drafts, monkeypatch
     assert "Its headline must follow this formula exactly" in tail1
     # the shared block carries the ad brief and the listicle extras, once
     shared = json.loads(c1["messages"][0]["content"][0]["text"])
-    assert set(shared) == {"facts_pack", "ad_brief", "ad_quotes", "allowed_numbers"}
+    assert set(shared) == {"facts_pack", "ad_brief", "ad_quotes", "allowed_numbers", "proof_refs"}  # cycle 110
 
 
 def test_a_repair_reuses_draft_ones_cached_prefix(two_drafts, monkeypatch):

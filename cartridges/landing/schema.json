@@ -1,23 +1,37 @@
 {
   "type": "object",
-  "allowed_cta_texts": [
-    "See pricing",
-    "Shop the {short_name}",
-    "Shop the {model_name}"
+  "allowed_cta_texts": {
+    "sale": [
+      "Get {offer_amount} off the {short_name}",
+      "Shop the sale"
+    ],
+    "financing": [
+      "See monthly payments"
+    ],
+    "story": [
+      "See the {short_name} {pronoun} uses"
+    ],
+    "default": [
+      "Shop the {short_name}",
+      "See the {short_name} price"
+    ]
+  },
+  "headline_word_band": [
+    6,
+    12
   ],
-  "headline_word_band": [6, 12],
   "required": [
     "cta_text",
     "cta_url",
     "hero",
-    "checked_claims",
+    "reasons",
     "faq",
     "closing"
   ],
   "properties": {
     "cta_text": {
       "type": "string",
-      "description": "The ONE CTA phrase, one of allowed_cta_texts. The renderer reuses it verbatim in the first screen, the closing band and the sticky bar."
+      "description": "The ONE CTA phrase, one of allowed_cta_texts for the ad's angle (sale, financing, story, else default; the hard constraints list the phrases for this run). The renderer repeats it down the page and in the sticky bar."
     },
     "cta_url": {
       "type": "string",
@@ -26,33 +40,92 @@
     "hero": {
       "type": "object",
       "properties": {
-        "eyebrow": {"type": "string", "description": "The ad's hook in at most 8 words, no number."},
-        "headline": {"type": "string", "description": "6-12 words, from the ad's angle."},
-        "accent_phrase": {"type": "string", "description": "1-4 words copied from headline; shown in brand red (no accent when not found)."},
-        "subhead": {"type": "string", "description": "The ad's promise in plain words, at most 30 words."},
+        "eyebrow": {
+          "type": "string",
+          "description": "Who the page is for (or the sale), at most 8 words. Figures only as tokens ({rating}, {offer_amount}, ...)."
+        },
+        "headline": {
+          "type": "string",
+          "description": "6-12 words: the ad's hook restated as closely as the verified facts allow (same words, same number, same person). Figures only as tokens: \"{offer_amount} off the <model>, today's price ends {deadline_day}\"."
+        },
+        "accent_phrase": {
+          "type": "string",
+          "description": "1-4 words copied from headline; shown in brand red (no accent when not found)."
+        },
+        "subhead": {
+          "type": "string",
+          "description": "The outcome and the time frame, about 20 words (at most 30). Testimonial ads: the speaker's strongest line from transcript_or_text, word for word in quotes, credited \"In the ad, she says\"."
+        },
         "hero_image": {
           "type": "object",
           "description": "Fallback product photo; the ad still (when the run has one) or the product cut-out is shown first.",
-          "properties": {"asset_id": {"type": "string"}}
+          "properties": {
+            "asset_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "description": "3-5 reasons to believe the ad's promise (3-4 on an offer-led page: the renderer adds the sale first). Cover the Value Equation: outcome, likelihood, time, effort.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "headline": {
+            "type": "string",
+            "description": "At most 10 words, the reader's outcome first."
+          },
+          "body": {
+            "type": "string",
+            "description": "At most 45 words: one sentence on how it works, one with the spec that makes it true."
+          },
+          "claim_ids": {
+            "type": "array",
+            "description": "At least 1 id from facts_pack.verified_claims."
+          },
+          "lever": {
+            "type": "string",
+            "description": "outcome | likelihood | time | effort"
+          },
+          "proof_ref": {
+            "type": "string",
+            "description": "Optional: the claim_id of one review quote, the store rating or the units line that backs this reason."
+          },
+          "asset_role": {
+            "type": "string",
+            "description": "Optional: the photo beside it -- people | room | detail | exterior."
+          }
         }
       }
     },
     "checked_claims": {
       "type": "array",
-      "description": "4-6 items: what the ad said, and the verified fact behind it. Cover electrical requirement, footprint, delivery, assembly, warranty where facts exist. At least 3 items cite a product spec or benefit claim.",
+      "description": "RETIRED (cycle 110): never write it -- the gate refuses it. Pages written before cycle 110 still render their verified facts.",
       "items": {
         "type": "object",
         "properties": {
-          "ad_said": {"type": "string", "description": "What the ad said or implied, at most 18 words. The one place an ad claim the facts contradict may appear; fact corrects it."},
-          "fact": {"type": "string", "description": "The verified statement, at most 36 words."},
-          "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims."}
+          "ad_said": {
+            "type": "string"
+          },
+          "fact": {
+            "type": "string"
+          },
+          "claim_ids": {
+            "type": "array"
+          }
         }
       }
     },
     "room_photo": {
       "type": "object",
-      "description": "Optional: one photo of the product in a real room (asset kind lifestyle/installation). Omit when facts_pack has none -- never a render.",
-      "properties": {"asset_id": {"type": "string"}}
+      "description": "Retired (cycle 110): omit it; the renderer picks every photo from the library.",
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        }
+      }
     },
     "benefits": {
       "type": "array",
@@ -60,8 +133,14 @@
       "items": {
         "type": "object",
         "properties": {
-          "text": {"type": "string", "description": "A plain noun phrase, at most 8 words, no full stop."},
-          "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims."}
+          "text": {
+            "type": "string",
+            "description": "A plain noun phrase, at most 8 words, no full stop."
+          },
+          "claim_ids": {
+            "type": "array",
+            "description": "At least 1 id from facts_pack.verified_claims."
+          }
         }
       }
     },
@@ -71,9 +150,18 @@
       "items": {
         "type": "object",
         "properties": {
-          "icon_key": {"type": "string", "description": "One of: shipping, warranty, red_light, full_spectrum, wood, us_owned, delivery, assembly."},
-          "label": {"type": "string", "description": "At most 3 words."},
-          "claim_ids": {"type": "array", "description": "At least 1 id from facts_pack.verified_claims that states it."}
+          "icon_key": {
+            "type": "string",
+            "description": "One of: shipping, warranty, red_light, full_spectrum, wood, us_owned, delivery, assembly."
+          },
+          "label": {
+            "type": "string",
+            "description": "At most 3 words."
+          },
+          "claim_ids": {
+            "type": "array",
+            "description": "At least 1 id from facts_pack.verified_claims that states it."
+          }
         }
       }
     },
@@ -84,9 +172,15 @@
         "quote": {
           "type": "object",
           "properties": {
-            "text": {"type": "string"},
-            "author": {"type": "string"},
-            "claim_ids": {"type": "array"}
+            "text": {
+              "type": "string"
+            },
+            "author": {
+              "type": "string"
+            },
+            "claim_ids": {
+              "type": "array"
+            }
           }
         }
       }
@@ -96,13 +190,19 @@
       "properties": {
         "questions": {
           "type": "array",
-          "description": "3-5 entries from the ad's objections and buyer logistics. Question <= 12 words; answer first, <= 35 words; claim_ids on any number, price, spec or trigger word.",
+          "description": "3-5 questions a buyer asks before spending this much (will I use it, session length or heat-up time when verified, will it fit, paying over time, HSA/FSA only when verified); at most one logistics question; never returns. Question <= 12 words; answer first, <= 35 words; claim_ids on any number, price, spec or trigger word.",
           "items": {
             "type": "object",
             "properties": {
-              "question": {"type": "string"},
-              "answer": {"type": "string"},
-              "claim_ids": {"type": "array"}
+              "question": {
+                "type": "string"
+              },
+              "answer": {
+                "type": "string"
+              },
+              "claim_ids": {
+                "type": "array"
+              }
             }
           }
         }
@@ -110,9 +210,12 @@
     },
     "closing": {
       "type": "object",
-      "description": "The closing band. The renderer adds the CTA pill and the financing and warranty sentences.",
+      "description": "The closing band. The renderer adds the price, the deadline and the CTA pill.",
       "properties": {
-        "headline": {"type": "string", "description": "At most 10 words."}
+        "headline": {
+          "type": "string",
+          "description": "At most 10 words: the outcome or the offer in one line (figures only as tokens)."
+        }
       }
     }
   }

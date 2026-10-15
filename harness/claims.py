@@ -1727,7 +1727,7 @@ _BENEFIT_SECTION_GETTERS = {
     "product-page": lambda page: (page.get("proof_bullets") or []) + (page.get("included") or []),
     "longform": lambda page: (page.get("how_it_works") or {}).get("steps", []),
     # Cycle 82: the landing page's checked claims are its persuasive section.
-    "landing": lambda page: page.get("checked_claims") or [],
+    "landing": lambda page: page.get("reasons") or page.get("checked_claims") or [],   # cycle 110: reasons
     "article": lambda page: (page.get("turn_section") or {}).get("criteria", []),
 }
 

@@ -56,15 +56,24 @@ name or attribute starting with `_`.
 - `headline_html` (safe markup): the h1's content with the accent span.
 - `headline_fits` (bool): true when the headline fits the wide display face.
 - `price` ({text, claim_ids} or none), `financing` (the fixed financing
-  sentence, string or none), `warranty` ({text, claim_ids} or none).
+  sentence, string or none), `warranty` ({text, claim_ids} or none; cycle
+  110: the trust line already carries its term -- do not print it again).
 - `trust` ([{text, claim_ids}]): the small trust line under the CTA.
 - `specs` ([{label, value, claim_ids}]): the 4-cell spec strip.
 - `rating` ({value, label, claim_ids} or none).
 - `review_quote` ({text, author, ...} or none): the one customer review
   quote the renderer verified word for word. Print the proof quote from
   here, never from `page.proof.quote`.
-- `secondary` ({text, href} or none): the tenant's secondary TEXT link
-  ("Text us"). Render it exactly once, as `<a class="ld-text" href="{{ ld.secondary.href }}">{{ ld.secondary.text }}</a>`.
+- `closing_link` ({text, href} or none; cycle 110): the tenant's secondary
+  TEXT link ("Text us"). Render it exactly once, in the closing band, as
+  `<a class="ld-text" data-el="sms" href="{{ ld.closing_link.href }}">{{ ld.closing_link.text }}</a>`.
+  `secondary` is always none now (it was the same link beside the hero pill).
+- `sell` (cycle 110): the persuasion pieces -- `store_rating`, `units`,
+  `monthly` ({line, short, disclosure}), `sale` ({net, list, code, line}),
+  `deadline` ({day, date, short}), `offer_bar`, `stats`, `reasons` (the sale
+  first), `included`, `hsa`, `quotes`, `trust_block`, `delivery`, `models`,
+  `bar`. Each is none or empty when the facts do not verify it.
+- `sell_flags` (cycle 110): the look.json "sell" switches of the look.
 - `quote` ({text, ...} or none) and `made_for` (string): the ad still's caption.
 - `frame` (record or none): the ad still's crop; `frame.object_position`.
 - `room_kinds` (list): the asset kinds that may fill the room photo slot.
@@ -72,7 +81,7 @@ name or attribute starting with `_`.
   the ad's verified offer. When set, print `offer.line` and `offer.deadline`
   right under the price, `offer.cta_note` under the first CTA and `offer.bar`
   after the price in the sticky bar, each once, under `{% if ld.offer %}`.
-  The renderer already makes it the eyebrow and the first checked claim.
+  The renderer already makes it the eyebrow and the first reason (cycle 110).
   Never write an offer, a discount or a deadline yourself.
 
 Images: `assets.get(id)` gives an asset; render it ONLY with
@@ -174,7 +183,7 @@ reference look below still has a colour literal, it is legacy: write a token
   (first screen, after sections, the closing band, the sticky bar).
 - The ONLY hrefs a rendered look may hold: (1) `{{ page.cta_url }}` on the
   CTAs; (2) the renderer's secondary text link
-  `{{ cartridge_data.secondary.href }}`, exactly once, never a CTA class;
+  `{{ cartridge_data.closing_link.href }}`, exactly once, never a CTA class;
   (3) the links inside `{{ byline_html | safe }}` -- byline_html is the ONLY
   way to mention or link the founder or the author; never write a founder,
   about or author link of your own; (4) on the listicle, the renderer's
@@ -197,7 +206,7 @@ reference look below still has a colour literal, it is legacy: write a token
 Price + financing sentence, the CTA, the secondary text link, the trust line,
 the spec strip, the rating, the warranty sentence, the eyebrow with the
 disclosure label, the byline block, and the writer's sections (hero,
-checked claims, room photo, proof quote, FAQ, closing). You may reorder,
+reasons, room photo, proof quote, FAQ, closing). You may reorder,
 regroup and re-lay them out to follow the observation; you may not drop one.
 A section of the source with no matching block (a logo wall, a video, a
 pricing table) maps to the closest block or is left out.
@@ -257,7 +266,7 @@ the renderer data that fill them:
   which reads exactly `Shop now` (cycle 97 on the landing page; cycle 102 also on the listicle, class
   `ld-bar op-bar`).
 - `check-rows`: rows with a check mark (an inline SVG in `currentColor`)
-  from `page.checked_claims` or `cartridge_data.trust`.
+  from `page.reasons` or `cartridge_data.trust`.
 - `icon-row`: a row of small inline SVG icons (currentColor) with short
   labels from renderer data.
 - `stat-strip`: big values with small labels from `cartridge_data.specs`

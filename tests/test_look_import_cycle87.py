@@ -258,7 +258,7 @@ BAD_TEMPLATE = (
     _valid_template()
     .replace("{{ page.hero.subhead }}", "{{ page.hero.tagline }}")
     .replace("</style>", ".adv-landing .ld-x{color:#ff0000}\n</style>", 1)
-    .replace('<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n        {% if ld.secondary %}',
+    .replace('<a class="ld-btn" data-el="hero" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n        {% if ld.secondary %}',
              '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n'
              '        <a class="ld-btn" href="{{ page.cta_url }}">Buy it now</a>\n        {% if ld.secondary %}', 1)
 )
@@ -278,7 +278,7 @@ def test_the_validator_passes_the_approved_look_and_names_each_broken_rule():
     assert any("literal href='/collections/all'" in e for e in _errors(SECOND_LINK_TEMPLATE))
     # the second CTA phrase is a render-time check: alone it is the only error
     second_cta = _valid_template().replace(
-        '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n        {% if ld.secondary %}',
+        '<a class="ld-btn" data-el="hero" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n        {% if ld.secondary %}',
         '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n'
         '        <a class="ld-btn" href="{{ page.cta_url }}">Buy it now</a>\n        {% if ld.secondary %}', 1)
     assert [e for e in _errors(second_cta) if "one CTA phrase" in e]
@@ -335,7 +335,7 @@ def test_an_invalid_template_is_repaired_then_refused_and_nothing_is_stored():
 
 def test_a_second_cta_phrase_is_refused():
     second_cta = _valid_template().replace(
-        '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n        {% if ld.secondary %}',
+        '<a class="ld-btn" data-el="hero" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n        {% if ld.secondary %}',
         '<a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>\n'
         '        <a class="ld-btn" href="{{ page.cta_url }}">Buy it now</a>\n        {% if ld.secondary %}', 1)
     with pytest.raises(look_import.LookImportError) as info:

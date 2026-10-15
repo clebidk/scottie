@@ -23,7 +23,8 @@ from tests.test_listicle_site_cycle69 import JPG, _auth, _csrf, _upload, client 
 
 # cycle 91: the landing cartridge has four looks (cinematic and buybox are built from the block catalog);
 # cycle 97: five (cinematic-light, the cinematic look on a white page)
-LANDING_KEYS = ["landing/buybox", "landing/cinematic", "landing/cinematic-light", "landing/open", "landing/proof"]
+LANDING_KEYS = ["landing/buybox", "landing/cinematic", "landing/cinematic-light", "landing/open", "landing/peak",
+                "landing/proof"]   # cycle 110: peak
 META_FIELDS = ("cartridge", "look", "first_screen", "style", "title", "summary", "audience_temperature",
                "word_range", "built_at", "sha")
 
@@ -165,7 +166,7 @@ def test_no_browser_means_no_thumbs_and_a_browser_gets_one(monkeypatch):
     monkeypatch.setattr(library, "find_browser", lambda: "/usr/bin/chromium")
     monkeypatch.setattr(library, "capture_thumb", fake_capture)
     summary = _build(only=["landing"], force=True)
-    assert summary["thumbs"] == 5 and shots == [("/usr/bin/chromium", "review.html")] * 5
+    assert summary["thumbs"] == 6 and shots == [("/usr/bin/chromium", "review.html")] * 6
     assert (TENANT.library_dir / "landing/proof/thumb.png").exists() and _meta("landing/proof")["thumb"] is True
 
 
@@ -265,7 +266,7 @@ def test_imported_looks_are_listed_rendered_and_described(monkeypatch, tmp_path,
     _tenant_looks(monkeypatch, tmp_path)
     landing = [v for v in library.versions(TENANT) if v.cartridge == "landing"]
     assert [v.key for v in landing] == ["landing/open", "landing/proof", "landing/cinematic", "landing/buybox",
-                                        "landing/cinematic-light", "landing/bold"]
+                                        "landing/cinematic-light", "landing/peak", "landing/bold"]
     assert landing[-1].tenant_look
     summary = _build(only=["landing"])
     assert sorted(summary["built"]) == sorted(LANDING_KEYS + ["landing/bold"])
@@ -439,10 +440,10 @@ def test_library_build_job_runs_through_the_worker(client):  # noqa: F811
                           by="caleb@peaksaunas.com", target=library.JOB_TARGET)
     done = jobs.run_one(TENANT, log=lambda _m: None)
     assert done["id"] == job_id and done["state"] == "done", done
-    assert done["result"]["built"] == 5 and done["result"]["failed"] == [] and done["result"]["browser"] is False
+    assert done["result"]["built"] == 6 and done["result"]["failed"] == [] and done["result"]["browser"] is False
     assert (TENANT.library_dir / "landing/proof/review.html").exists()
     page = client.get(f"/job/{job_id}", headers=_auth()).get_data(as_text=True)
-    assert "Rebuild library" in page and "5 built" in page and 'href="/library"' in page
+    assert "Rebuild library" in page and "6 built" in page and 'href="/library"' in page
 
 
 def test_library_build_job_fails_when_a_version_fails(monkeypatch):

@@ -163,7 +163,26 @@
 
   {% include "heroes/_pick.html" %}
 
-  {% if page.checked_claims %}
+  {% if page.reasons %}
+  <section class="ld-sec">
+    <div class="ld-c">
+      <p class="ld-label">Why it works</p>
+      <h2 class="ld-h2">What you get</h2>
+      <ol class="ld-checks">
+        {% for item in page.reasons %}
+        <li class="ld-check">
+          <span class="ld-num">{{ "%02d" | format(loop.index) }}</span>
+          <div>
+            <p class="ld-said">{{ item.headline }}</p>
+            <p class="ld-fact">{{ item.body }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      <p style="margin:24px 0 0"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
+    </div>
+  </section>
+  {% elif page.checked_claims %}
   <section class="ld-sec">
     <div class="ld-c">
       <p class="ld-label">The ad, checked</p>
@@ -215,14 +234,13 @@
   <section class="ld-close">
     <p class="ld-label">{{ product.full_name or product.name }}</p>
     <h2 class="ld-h2">{{ page.closing.headline }}</h2>
-    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    <a class="ld-btn" data-el="closing" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% if ld.closing_link %}<a class="ld-text" data-el="sms" href="{{ ld.closing_link.href }}" style="display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:inherit;text-decoration:underline;text-underline-offset:3px">{{ ld.closing_link.text }}</a>{% endif %}
     {% if ld.financing %}<p class="ld-fine">{{ ld.financing }}</p>{% endif %}
-    {% if ld.warranty %}<p class="ld-fine">{{ ld.warranty.text }}</p>{% endif %}
   </section>
 
   <div class="ld-bar">
     <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}{% if ld.offer %} &middot; {{ ld.offer.bar }}{% endif %}</span>{% endif %}</p>
-    <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
+    <a class="ld-btn" data-el="sticky" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>
 <script>

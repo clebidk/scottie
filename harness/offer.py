@@ -607,19 +607,26 @@ def find_offer_in_checked_violations(page, facts_pack, prefix="landing"):
     if not (fp.get("offer") or fp.get("offer_unverified")):
         return []
     problems = []
-    for i, item in enumerate(page.get("checked_claims") or []):
-        if not isinstance(item, dict):
-            continue
-        for field in ("ad_said", "fact"):
-            text = str(item.get(field) or "")
-            if _OFFER_WORDS_RE.search(text):
+    claim_id = (fp.get("offer") or {}).get("claim_id")
+    # Cycle 110: the same rule over `reasons`, and an item that cites the
+    # promo claim is the offer even with no offer word ("placeholder").
+    for section, fields in (("checked_claims", ("ad_said", "fact")), ("reasons", ("headline", "body"))):
+        for i, item in enumerate(page.get(section) or []):
+            if not isinstance(item, dict):
+                continue
+            hits = [(f, str(item.get(f) or "")) for f in fields if _OFFER_WORDS_RE.search(str(item.get(f) or ""))]
+            if not hits and _cites(item, claim_id):
+                hits = [("claim_ids", str(item.get(fields[0]) or ""))]
+            if hits:
+                field, text = hits[0]
+                key = f"{prefix}:offer_in_checked:{i}" if section == "checked_claims" else \
+                    f"{prefix}:offer_in_reasons:{i}"
                 problems.append({
-                    "path": f"$.checked_claims[{i}].{field}", "key": f"{prefix}:offer_in_checked:{i}",
-                    "issue": ("the renderer shows the verified offer as the first checked claim; pick another ad "
+                    "path": f"$.{section}[{i}].{field}", "key": key,
+                    "issue": (f"the renderer shows the verified offer as the first item of {section}; pick another "
                               "claim for this item" if fp.get("offer") else
-                              "the ad's offer is not verified: leave it out of checked_claims and pick another ad "
-                              "claim"), "text": text})
-                break
+                              f"the ad's offer is not verified: leave it out of {section} and pick another claim"),
+                    "text": text})
     return problems
 
 

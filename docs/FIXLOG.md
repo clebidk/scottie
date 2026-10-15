@@ -7566,3 +7566,44 @@ element, no scroll, no "Text us" count).
 - Verbatim quotes keep their exclamation marks; B's visible-text gates must exempt review quote text.
 - After the merge: run `harness claims refresh-units` once on prod (about 20 minutes, read-only) and install the
   timer; live pages keep the old beacon until rebuilt.
+
+## Cycle 110 (C) (listicle parity with the pre-sell page, review-site quality numbers, 2026-10-15)
+
+Branch `cycle110c/listicle-parity`, worktree `~/adv-c110c`, from B's 9cb65a7. Not merged, not pushed.
+Brief `~/asset-inbox/c110/BRIEF.md` section 3.3 item 9; teardown D1, D2, D5, D10. No model calls.
+
+### Gates (writer copy, `harness/listicle_persuasion.py`, run from `listicle_quality.find_quality_violations`)
+| key | rule | real text it catches |
+|---|---|---|
+| `listicle:item_lever:<i>`, `listicle:item_levers` | every item has a Value Equation lever; all four covered | every 2026-10-05 lp page (no levers) |
+| `listicle:item_heading_words:<i>` / `item_body_words:<i>` | heading <= 10 words, body <= 45 | i6zr "What happens if it ships damaged or you need to return it?"; xlbx item 1 (47 words) |
+| `listicle:item_proof_ref:<i>`, `item_proof_refs` | `proof.proof_ref` names a review quote, the store rating or the units line; >= min(2, available) items use one, each once | cgyn, i6zr (rating available, unused) |
+| `listicle:hook_match` | first screen (eyebrow, headline, display line, dek, lede, hero quote) shares >= 2 hook words or quotes the speaker (persuasion.hook_match) | TEARDOWN 2.2 "Women over 40" hook vs "Full-spectrum heat and red light, built into one cabin" |
+| `listicle:hook_match:item:<i>` | an item heading is never a spec label (a figure with a unit, or >= 80% product spec words; questions pages: figures only) | the same H1 as an item heading; "Runs on a 120V / 20A outlet" |
+| `listicle:ad_reference:<path>` | persuasion.AD_REFERENCE_RE + vocab banned_phrases over the writer's words (quoted words exempt; "the ad" stays listicle_quality's meta_reference, reported once) | 2sxl "what actually holds up", "a real price", "nothing to submit first"; "actually" on 4 of 5 lp pages |
+| `listicle:reading_level` | Flesch-Kincaid <= 7.5 (persuasion.grade_level), problem points at the hardest field | xlbx 8.0 (cgyn 7.4, i6zr 6.1 pass) |
+| `listicle:placeholder/returns/auto_offer` | B's copy hygiene, now on the listicle | returns FAQ on 3 of 5 lp pages |
+`textutil.NON_PROSE_KEYS` gains `proof_ref` (the claim-id leak check read it as copy).
+
+### Rendered page
+- Under the face/story/display first screens: proof row (store rating, else product rating; units line) + CTA (`data-el="hero"`) + price line (net price with code over the struck list price, else price; monthly when verified). Value stack from `facts_pack.included` (else the model's feature lines + free shipping), price, deadline, monthly + disclosure, rating, units. Review wall: 3 verbatim quotes (author, stars, date); the pull band takes the fourth. Item proof lines print the proof element word for word. Every CTA carries `data-el`. Each piece falls back when agent A's field is absent.
+- `find_rendered_ad_reference_violations(html)`: the ban over the visible page (main to footer; blockquotes, cites, captions, quoted spans and the attribution frame exempt). Recorded as `quality.ad_reference_rendered`; not yet a hard render stop (that line belongs in render.py's rendered checks, B's file).
+- The face caption credits the speaker: "A PEAK creator" / "<name>, for PEAK" ("<name>, PEAK customer" only with `ad_speaker_is_verified_customer`), never "In the ad he made for PEAK".
+
+### CTA by angle
+`schema.json allowed_cta_texts` is a map (sale / financing / story / default) resolved by `listicle_persuasion.allowed_cta_texts` (consult mode keeps the tenant's list).
+
+### Quality numbers
+`state.json listicle.quality` = {hook_match, grade_level, cta_count, proof_count, lcp_ms, cls, first_screen_ok, first_cta_top, ad_reference_rendered}, written after every render (`pipeline._record_rendered_hero`). `first_screen_ok` is positional: the first CTA's top edge < 844 px at 390 wide in a capture.probe layout; None when no browser measured it. The review site shows them on cards, the details card and a Quality column on /results, with clicks by element and LCP p75 from A's `engagement` ("—" until merged).
+
+### Results on copies of three live runs (no model call; `~/asset-inbox/c110-shots/listicle/`)
+| run | hero | hook | grade | first CTA top | first_screen_ok | rendered ad refs |
+|---|---|---|---|---|---|---|
+| cgyn | face | 1.00 | 7.4 | 1,054-1,075 px | false (the still fills the screen; hero is B's) | 3 x "actually" (old copy) |
+| i6zr | story | 1.00 | 6.1 | 503-524 px | true | 1 |
+| zhp2 | display | 0.75 | 7.3 | 656-670 px | true | 2 (incl. scroll cue "6 things the Fuji actually gives you", writer copy) |
+
+### Open
+- The face first screen puts the CTA below 844 px (B's hero composition).
+- With A's `included`, the 7-year warranty shows in the stack and in the fixed closing sentence.
+- B's design gate `first_screen_cta` still treats listicle face/story/display as "no CTA by design" (capture.py `cta_expected`).

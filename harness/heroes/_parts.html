@@ -20,7 +20,7 @@
 {% if hr.price or hr.financing %}<p class="{{ p }}price">{% if hr.price %}<b>{{ hr.price.text }}</b>{% endif %}{{ offer_lines(p, hr.offer) }}{% if hr.financing %}<span>{{ hr.financing }}</span>{% endif %}</p>{% endif %}
 {%- endmacro %}
 {% macro act(p, hr, ghost=False) -%}
-<div class="{{ p }}act"><a class="{{ hr.cta.cls }} hr-cta" href="{{ hr.cta.url }}">{{ hr.cta.text }}</a>{% if hr.secondary %}<a class="{{ hr.secondary.cls }} {{ p }}{{ 'ghost' if ghost else 'text' }}" href="{{ hr.secondary.href }}">{{ hr.secondary.text }}</a>{% endif %}</div>{{ offer_note(p, hr.offer) }}
+<div class="{{ p }}act"><a class="{{ hr.cta.cls }} hr-cta" data-el="hero" href="{{ hr.cta.url }}">{{ hr.cta.text }}</a>{% if hr.secondary %}<a class="{{ hr.secondary.cls }} {{ p }}{{ 'ghost' if ghost else 'text' }}" href="{{ hr.secondary.href }}">{{ hr.secondary.text }}</a>{% endif %}</div>{{ offer_note(p, hr.offer) }}
 {%- endmacro %}
 {% macro trust(p, hr) -%}
 {% if hr.trust %}<ul class="{{ p }}trust">{% for t in hr.trust %}<li>{{ t.text }}</li>{% endfor %}</ul>{% endif %}

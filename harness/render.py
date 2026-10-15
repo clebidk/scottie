@@ -1272,10 +1272,21 @@ def render_page(
     # one. Their claim ids join Sources.
     landing_context = None
     if cartridge_name == "landing":
+        # Cycle 110: a placeholder item, the offer as a writer item, a
+        # returns FAQ -- removed before anything below reads the page.
+        for note in landing_mod.tidy_for_render(page, facts_pack):
+            if log:
+                log.event("render", f"fix: {note}")
         frame_record = ad_frames.load(run_dir)
         frame_asset = ad_frames.page_assets(run_dir).get(ad_frames.FRAME_ID)
         if frame_asset:
             assets_by_id[ad_frames.FRAME_ID] = dict(frame_asset)
+        # Cycle 110: figure tokens in the first screen ({offer_amount},
+        # {deadline_day}, ...) filled from verified claims; the writer's own
+        # text goes back into page.json below, so a re-render refills them.
+        token_restore, token_claim_ids = landing_mod.landing_sell.fill_page_tokens(
+            page, facts_pack, landing_mod.price(facts_pack))
+        used_claim_ids |= token_claim_ids
         landing_context = landing_mod.render_context(page, facts_pack, ad_brief=ad_brief, tenant=tenant, look=look)
         if landing_context.get("accent_note") and log:
             log.event("render", landing_context["accent_note"])
@@ -1298,10 +1309,19 @@ def render_page(
     hero_ctx = None
     if heroes_mod.has_heroes(cartridge_name):
         hero_base = first_screen if cartridge_name == "listicle" else (landing_context or {})
+        # Cycle 110: a people photo that does not fit the ad's named audience
+        # (a shirtless man on a "Women over 40" ad) is never the hero.
+        audience_ids = (set(landing_mod.landing_sell.audience_excluded_ids(ad_brief, tenant))
+                        if cartridge_name == "landing" else set())
         hero_ctx, hero_note = heroes_mod.render_context(
             cartridge_name, page, look=look, ad_brief=ad_brief, facts_pack=facts_pack, tenant=tenant,
-            base=hero_base, assets=assets_by_id, frame=ad_frames.load(run_dir), seed=run_dir.name,
-            exclude_ids=collect_asset_ids(page), quote=hero_base.get("quote") is not None,
+            base=hero_base, assets=assets_by_id,
+            # Cycle 110: a pre-sell look shows the ad's still only for a creator
+            # ad (a first-person speaker); otherwise the product cut-out.
+            frame=(None if ((landing_context or {}).get("sell_flags") or {}).get("still_for_creator_ads_only")
+                   and ((landing_context or {}).get("sell") or {}).get("angle") != "story"
+                   else ad_frames.load(run_dir)), seed=run_dir.name,
+            exclude_ids=collect_asset_ids(page) | audience_ids, quote=hero_base.get("quote") is not None,
         )
         hero_image = hero_ctx.get("image")
         if hero_image and not assets_by_id[hero_image["id"]].get("alt"):
@@ -1319,6 +1339,37 @@ def render_page(
         hero_claims = set(hero_ctx.get("claim_ids") or ())
         if not hero_claims <= used_claim_ids:
             used_claim_ids |= hero_claims
+            sources = build_sources_list(
+                used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
+                tenant=tenant,
+            )
+
+    # Cycle 110: a pre-sell look's reason photos (the photo library by each
+    # reason's topic, never the hero or a photo already on the page, never a
+    # people photo that misses the ad's audience) and its model cards
+    # (look.json "sell": reason_photos, model_cards).
+    landing_extra_ids = set()
+    flags = (landing_context or {}).get("sell_flags") or {}
+    if landing_context is not None and (flags.get("reason_photos") or flags.get("model_cards")):
+        sell = landing_context["sell"]
+        taken = collect_asset_ids(page) | ({hero_ctx["image"]["id"]} if hero_ctx and hero_ctx.get("image") else set())
+        audience = landing_mod.landing_sell.audience_excluded_ids(ad_brief, tenant)
+        photos = landing_mod.landing_sell.reason_photos(
+            sell["reasons"] if flags.get("reason_photos") else [], facts_pack, tenant, assets=assets_by_id,
+            exclude=tuple(taken | set(audience)))
+        for reason, pid in zip(sell["reasons"], photos):
+            reason["photo_id"] = pid
+            if pid:
+                landing_extra_ids.add(pid)
+                if not assets_by_id[pid].get("alt"):
+                    assets_by_id[pid]["alt"] = asset_alt(assets_by_id[pid], full_name, tenant=tenant)
+        sell["models"] = [] if not flags.get("model_cards") else landing_mod.landing_sell.model_cards(
+            facts_pack, tenant, assets=assets_by_id, asset_alt=lambda a, name=None: asset_alt(a, name or full_name,
+                                                                                              tenant=tenant))
+        landing_extra_ids |= {c["asset_id"] for c in sell["models"] if c.get("asset_id")}
+        model_ids = {c for card in sell["models"] for c in card["claim_ids"]}
+        if model_ids - used_claim_ids:
+            used_claim_ids |= model_ids
             sources = build_sources_list(
                 used_claim_ids, verified_by_id, product_name=product_name, product_url=product.get("url"),
                 tenant=tenant,
@@ -1373,7 +1424,7 @@ def render_page(
             collect_asset_ids(page) | comparison_asset_ids | set(gallery_ids)
             | ({promise_id} if promise_id else set()) | quiz_asset_ids | block_asset_ids
             | {a for a in assets_by_id if a.startswith(ad_frames.FRAME_ID)}
-            | ({hero_ctx["image"]["id"]} if hero_ctx and hero_ctx.get("image") else set())
+            | ({hero_ctx["image"]["id"]} if hero_ctx and hero_ctx.get("image") else set()) | landing_extra_ids
             | {a["id"] for v in image_slots.values() for a in v}
         )
         assets_dir = out_dir / "assets"
@@ -1553,6 +1604,9 @@ def render_page(
     # leak into visible prose (or a Sources-list link's text) once
     # rendered, and that must still STOP the run rather than publish.
     hits = find_forbidden_visible_text(html)
+    # Cycle 110: placeholder text ("Placeholder for offer, rendered
+    # separately by the page.") never reaches a reader, on any cartridge.
+    hits += pagechecks.find_placeholder_visible_text(html)
     hits += find_leaked_claim_ids_visible_text(html, valid_claim_ids)
     # Fix cycle 11 problem A item 3: post-render backstop for the same check
     # gate_page_json already ran pre-write -- an attributed_to_customer item
@@ -1603,5 +1657,8 @@ def render_page(
         raise ClaimsGateFailure(f"html_structure:{cartridge_name}", structural_hits)
 
     (out_dir / "index.html").write_text(html)
+    if landing_context is not None:
+        for node, key, text in token_restore:   # cycle 110: the writer's tokens, not today's figures
+            node[key] = text
     (out_dir / "page.json").write_text(json.dumps(page, indent=2))
     return out_dir / "index.html"

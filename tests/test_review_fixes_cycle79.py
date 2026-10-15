@@ -105,7 +105,7 @@ def test_the_renderer_never_guesses_the_pronoun(tmp_path):
         published="2026-10-05", updated="2026-10-05", tenant=TENANT, download_assets=True,
         fetch_url=lambda url: _make_image_bytes(600, 450),
     ).read_text()
-    assert "From the creator&#39;s ad for PEAK" in html or "From the creator's ad for PEAK" in html
+    assert "A PEAK creator" in html   # cycle 110 (C): the caption no longer names the ad
     assert "she made for" not in html and "she says" not in html
 
 

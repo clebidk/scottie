@@ -403,6 +403,8 @@ def _gen_info(tenant, run_id, page, *, test=None, variant=None, taken=None):
         "skeleton": choice.get("skeleton_id") or "",
         "jev": _jev_composite(shipped), "jev_note": _jev_note(jev), "jev_record": jev, "gate": gate,
         "design": design_gate_mod.load_scores(run_dir / page),
+        # Cycle 110: state.json <page>.quality (hook match, grade, CTAs, proof, LCP, CLS, first screen)
+        "quality": choice.get("quality") if isinstance(choice.get("quality"), dict) else {},
         "created": _first_at(state), "rendered": rendered, "can_post": bool(can_post),
         "gen_url": url_for("generation", run_id=run_id, page=page),
         "review_url": url_for("page_review", run_id=run_id, page=page),
@@ -506,7 +508,7 @@ def _facts(info):
     design = info.get("design")
     if design:
         bits.append(_design_fact(design))
-    return '<div class="facts">' + "".join(bits) + "</div>"
+    return '<div class="facts">' + "".join(bits) + "</div>" + site_ui.quality_facts(info.get("quality"))
 
 
 DESIGN_STATUS_LABELS = {"pass": "passed", "warn": "below min score (warn)", "stop": "below min score (STOP)",
@@ -1143,6 +1145,7 @@ def _details_card(tenant, run_dir, info, name):
         ("Gate", chip(info["gate"], "pass" if info["gate"] == "PASS" else "fail") if info["gate"] else "-"),
         ("Design score", e(str(info["design"].get("score")) if info["design"].get("score") is not None else "not scored")
          if info.get("design") else '<span class="muted">gate off</span>'),
+        ("Quality", site_ui.quality_facts(info.get("quality"))),
         ("Cost", e(f"${cost:.4f}") if cost is not None else "-"),
         ("Run", f'<code>{e(run_dir.name)}</code>'),
         ("Created", _when(info["created"])),
@@ -1927,6 +1930,7 @@ def _test_results(tenant, rec):
             '<p class="muted small">No Meta numbers cached yet (harness abtest refresh-metrics).</p>')
     orders_note = (f'<span class="muted small">orders as of {_when(cache.get("fetched_at"))}</span>' if cache else
                    '<span class="muted small">no orders cached yet</span>')
+    variants = {v.get("key"): v for v in rec.get("variants") or []}
     body = "".join(
         f'<tr><td data-label="Arm">{e(r["key"])}</td><td data-label="Build"><code>{e(r["arm"])}</code></td>'
         f'<td data-label="Assigned">{r.get("assigns", 0)}</td><td data-label="Views">{_cell(r["views"])}</td>'
@@ -1934,12 +1938,46 @@ def _test_results(tenant, rec):
         f'<td data-label="Orders">{_cell(r.get("orders"))}</td><td data-label="Revenue">{_cell(r.get("revenue"))}</td>'
         f'<td data-label="P(best)">{_cell(r["p_best"], ".0%")}</td>'
         f'<td data-label="Spend">{"$" + e(r["spend"]) if r.get("spend") else "-"}</td>'
-        f'<td data-label="Cost / order">{"$" + e(r["cost_per_order"]) if r.get("cost_per_order") else "-"}</td></tr>'
+        f'<td data-label="Cost / order">{"$" + e(r["cost_per_order"]) if r.get("cost_per_order") else "-"}</td>'
+        f'<td data-label="Quality">{site_ui.quality_compact(_arm_quality(tenant, variants.get(r["key"])))}</td>'
+        f'<td data-label="Clicks by element">{_clicks_by_element(r)}</td>'
+        f'<td data-label="LCP p75">{_lcp_p75(r)}</td></tr>'
         for r in rows)
     return ('<div class="card" style="margin-bottom:16px">' + head + meta + orders_note
             + '<div class="table-wrap"><table class="rtable"><thead><tr><th>Arm</th><th>Build</th><th>Assigned</th>'
             '<th>Views</th><th>CTA</th><th>CTR</th><th>Orders</th><th>Revenue</th><th>P(best)</th><th>Spend</th>'
-            f'<th>Cost / order</th></tr></thead><tbody>{body}</tbody></table></div></div>')
+            '<th>Cost / order</th><th>Quality</th><th>Clicks by element</th><th>LCP p75</th></tr></thead>'
+            f'<tbody>{body}</tbody></table></div></div>')
+
+
+def _arm_quality(tenant, variant):
+    """Cycle 110: the arm's state.json <page>.quality ({} when the variant
+    has no run, or the run recorded none)."""
+    if not variant or not variant.get("run_id") or not variant.get("page"):
+        return {}
+    try:
+        state = runstate.load_state(Path(tenant.out_dir) / variant["run_id"])
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+    q = (state.get(variant["page"]) or {}).get("quality")
+    return q if isinstance(q, dict) else {}
+
+
+def _clicks_by_element(row):
+    """Cycle 110: the beacon's CTA clicks by page element (abtest.results
+    row["engagement"]["by_el"], agent A); "—" before that data exists."""
+    by_el = ((row.get("engagement") or {}).get("by_el") or {}) if isinstance(row.get("engagement"), dict) else {}
+    if not by_el:
+        return site_ui.DASH
+    return ", ".join(f"{e(str(k))} {int(n)}" for k, n in by_el.items())
+
+
+def _lcp_p75(row):
+    eng = row.get("engagement") if isinstance(row.get("engagement"), dict) else {}
+    value = eng.get("lcp_p75")
+    if value is None:
+        return site_ui.DASH
+    return f'{int(round(value))} ms <span class="muted small">(n={int(eng.get("lcp_n") or 0)})</span>'
 
 
 def render_results(tenant):

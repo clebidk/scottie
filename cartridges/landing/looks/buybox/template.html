@@ -102,6 +102,7 @@
   .adv-landing .bb-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
   .adv-landing .ld-bar{display:none}
 }
+.adv-landing .ld-text{display:inline-flex;align-items:center;min-height:44px}
 </style>
 <div class="pk-lp adv-landing">
   {% include "blocks/trust_bar.html" %}
@@ -115,7 +116,26 @@
   </section>
   {% endif %}
 
-  {% if page.checked_claims %}
+  {% if page.reasons %}
+  <section class="bb-c">
+    <div class="bb-sec">
+      <p class="bb-eyebrow">Why it works</p>
+      <h2 class="bb-h2">What you get</h2>
+      <ol class="bb-checks">
+        {% for item in page.reasons %}
+        <li class="bb-check">
+          <span class="bb-num">{{ "%02d" | format(loop.index) }}</span>
+          <div>
+            <p class="bb-said">{{ item.headline }}</p>
+            <p class="bb-fact">{{ item.body }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      <p style="margin:24px 0 0"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
+    </div>
+  </section>
+  {% elif page.checked_claims %}
   <section class="bb-c">
     <div class="bb-sec">
       <h2 class="bb-h2">What the ad said, and what the facts say</h2>
@@ -151,14 +171,13 @@
   <section class="ld-close">
     <p class="bb-eyebrow">{{ product.full_name or product.name }}</p>
     <h2 class="bb-h2">{{ page.closing.headline }}</h2>
-    <a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+    <a class="ld-btn" data-el="closing" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% if ld.closing_link %}<a class="ld-text" data-el="sms" href="{{ ld.closing_link.href }}" style="display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:inherit;text-decoration:underline;text-underline-offset:3px">{{ ld.closing_link.text }}</a>{% endif %}
     {% if ld.financing %}<p class="bb-fine">{{ ld.financing }}</p>{% endif %}
-    {% if ld.warranty %}<p class="bb-fine">{{ ld.warranty.text }}</p>{% endif %}
   </section>
 
   <div class="ld-bar">
     <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}{% if ld.offer %} &middot; {{ ld.offer.bar }}{% endif %}</span>{% endif %}</p>
-    <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
+    <a class="ld-btn" data-el="sticky" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>
 <script>

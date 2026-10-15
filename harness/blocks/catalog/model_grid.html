@@ -31,7 +31,7 @@
     <p class="bk-model_grid-name">{{ c.name }}</p>
     {%- if c.specs or c.rating %}<p class="bk-model_grid-meta">{% for s in c.specs %}{{ s.value }}{% endfor %}{% if c.rating %}{% if c.specs %} &middot; {% endif %}<span aria-hidden="true">&#9733;</span> {{ c.rating.value }}{% endif %}</p>{% endif %}
     <p class="bk-model_grid-price">{{ c.price.text }}</p>
-    <div class="bk-model_grid-act"><a class="{{ bk_cta }}" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+    <div class="bk-model_grid-act"><a class="{{ bk_cta }}" data-el="cards" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
   </li>
 {%- endfor %}
 </ul>

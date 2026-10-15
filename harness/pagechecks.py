@@ -350,3 +350,16 @@ def find_forbidden_term_urls(facts_pack, terms=None):
         if source.startswith("http") and any(t in source.lower() for t in terms) and source not in urls:
             urls.append(source)
     return urls
+
+
+def find_placeholder_visible_text(html):
+    """Cycle 110: placeholder / lorem / TODO / "rendered separately" in the
+    page as a reader sees it (tags, scripts, styles and attributes
+    stripped) -- two live landing pages printed "Placeholder for offer,
+    rendered separately by the page." as a checked claim."""
+    from .claims import strip_html_to_visible_text
+    from .persuasion import PLACEHOLDER_RE
+
+    text = strip_html_to_visible_text(html)
+    return [{"term": m.group(0), "issue": f"placeholder text {m.group(0)!r} in visible text: "
+             f"{text[max(0, m.start() - 40): m.end() + 40].strip()!r}"} for m in PLACEHOLDER_RE.finditer(text)][:5]

@@ -61,8 +61,34 @@ CARTRIDGE_LOOKS = {
     # Cycle 97: `cinematic-light`, the cinematic look on a white page (owner,
     # 2026-10-08: "keep the dark one as is, but I also want a white
     # version"): the same template, look.json "palette": "light".
+    # Cycle 110: plus every pre-sell look folder (look.json "sell", e.g. the
+    # tenant-named look built from the persuasion model), found on disk so
+    # this registry names no tenant (_presell_looks).
     "landing": ("open", "proof", "cinematic", "buybox", "cinematic-light"),
 }
+
+def _presell_looks(cartridge_name, known):
+    """Cycle 110: the look folders of a cartridge whose look.json declares
+    "sell" (a pre-sell look), not already registered, in name order."""
+    import json
+
+    from .config import REPO_ROOT
+
+    folder = REPO_ROOT / "cartridges" / cartridge_name / "looks"
+    out = []
+    for path in sorted(folder.iterdir()) if folder.is_dir() else ():
+        spec = path / "look.json"
+        if path.name in known or not (path / "template.html").is_file() or not spec.is_file():
+            continue
+        try:
+            if json.loads(spec.read_text()).get("sell"):
+                out.append(path.name)
+        except (OSError, ValueError):
+            continue
+    return tuple(out)
+
+
+CARTRIDGE_LOOKS["landing"] = CARTRIDGE_LOOKS["landing"] + _presell_looks("landing", CARTRIDGE_LOOKS["landing"])
 
 PALETTES = ("dark", "light")
 
@@ -222,6 +248,31 @@ def palette(cartridge_name, look, tenant=None, looks_dir=None):
     except (OSError, ValueError, AttributeError):
         return None
     return value if value in PALETTES else None
+
+
+SELL_FLAGS = ("offer_bar", "model_cards", "reason_photos", "still_for_creator_ads_only", "facts_only_legacy")
+
+
+def sell_flags(cartridge_name, look, tenant=None, looks_dir=None):
+    """Cycle 110: the look.json "sell" switches of a pre-sell look -- the
+    renderer pieces it prints that other looks do not (an offer bar in the
+    first screen, model cards, a library photo per reason, the ad still only
+    for a creator ad, a legacy page's verified facts without the ad lines).
+    {} for a look that declares none."""
+    import json
+
+    from .blocks import catalog
+
+    if not look:
+        return {}
+    path = catalog.look_spec_path(cartridge_name, look, tenant, looks_dir)
+    if path is None:
+        return {}
+    try:
+        value = json.loads(path.read_text()).get("sell") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return {k: True for k in SELL_FLAGS if isinstance(value, dict) and value.get(k) is True}
 
 
 def requested_for(cartridge_name, requested, tenant=None):

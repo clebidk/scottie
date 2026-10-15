@@ -1,0 +1,235 @@
+{
+  "style": "mistakes",
+  "headline": "She wanted a sauna. Her apartment had a small footprint.",
+  "dek": "A bulky cabin and a complicated install stop a lot of apartment dwellers before they ever start a sauna practice.",
+  "accent_phrase": "a small footprint",
+  "display_headline": "Small space, no excuses",
+  "eyebrow": "For apartment dwellers",
+  "lede": "Most sauna research starts with a tape measure and ends with a list of reasons it won't work. The real mistakes happen before anyone even gets to the outlet.",
+  "scroll_cue": "5 mistakes apartment buyers make first",
+  "hero_quote_id": "q1",
+  "hero": {
+    "asset_id": "asset-cutout-mini"
+  },
+  "reasons": [
+    {
+      "number": 1,
+      "heading": "Treating sauna time as an occasional spa trip",
+      "text": "If a sauna lives thirty minutes away at a gym or spa, it only gets used when the schedule lines up, which isn't often. A unit built for a single person fits in a bedroom or office corner, so using it stops depending on anyone else's hours.",
+      "claim_ids": [
+        "spec-mini-capacity"
+      ],
+      "image": {
+        "asset_id": "asset-cutout-mini"
+      },
+      "proof": {
+        "text": "In the ad, the creator says, \"I've been looking at a bunch of different saunas and this one really stuck out to me because it's small footprint so it's easy to fit into my apartment.\"",
+        "attributed_to_customer": true
+      }
+    },
+    {
+      "number": 2,
+      "heading": "Paying for access instead of owning it",
+      "text": "A membership only pays off if the visits actually happen, and a studio's hours rarely match a real week. Owning a compact, one-person cabin removes that math entirely -- it's there whenever the day allows for it.",
+      "claim_ids": [
+        "spec-mini-capacity"
+      ],
+      "image": {
+        "asset_id": "asset-cutout-mini"
+      },
+      "proof": {
+        "text": "Mini is built as a 1-person cabin meant to sit in a single room.",
+        "claim_ids": [
+          "spec-mini-capacity"
+        ]
+      }
+    },
+    {
+      "number": 3,
+      "heading": "Choosing heat without red light built in",
+      "text": "Some units offer infrared heat alone and treat red light as a separate purchase, or skip it altogether. The Mini includes a red light therapy panel as part of the cabin, not an upgrade tacked on later.",
+      "claim_ids": [
+        "spec-mini-red-light",
+        "gbrain-allowlist-red-light"
+      ],
+      "image": {
+        "asset_id": "asset-photo-f96ac9043d8d"
+      },
+      "proof": {
+        "text": "The Mini's red light therapy panel is included standard, not sold separately.",
+        "claim_ids": [
+          "spec-mini-red-light",
+          "gbrain-allowlist-red-light"
+        ]
+      }
+    },
+    {
+      "number": 4,
+      "heading": "Assuming setup means calling an electrician",
+      "text": "A lot of buyers rule out a home sauna before checking the actual power requirement, assuming it means rewiring a wall. The Mini plugs into a standard 120V/15A household outlet on a dedicated 15A circuit.",
+      "claim_ids": [
+        "spec-mini-electrical",
+        "pdp-mini-electrical"
+      ],
+      "image": {
+        "asset_id": "asset-photo-0d82c7db36be"
+      },
+      "proof": {
+        "text": "In the ad, she says, \"It plugs right into a normal outlet so no need to get an electrician involved.\"",
+        "attributed_to_customer": true
+      }
+    },
+    {
+      "number": 5,
+      "heading": "Comparing price without reading the warranty or shipping terms",
+      "text": "Two listings at similar prices can carry very different coverage once something breaks, and shipping cost can swing the real total. Check what's actually covered, for how long, and whether delivery is free before deciding on price alone.",
+      "claim_ids": [
+        "warranty-terms",
+        "shipping-policy"
+      ],
+      "image": {
+        "asset_id": null
+      },
+      "proof": {
+        "text": "PEAK warranty covers heating elements and cabinetry for 7 years, and ships free on every order.",
+        "claim_ids": [
+          "warranty-terms",
+          "shipping-policy"
+        ]
+      }
+    }
+  ],
+  "audience_fit": {
+    "for_you": [
+      {
+        "text": "You want a sauna that fits a single room in an apartment or small home.",
+        "claim_ids": [
+          "spec-mini-capacity"
+        ]
+      },
+      {
+        "text": "You'd rather plug into a standard outlet than schedule an electrician.",
+        "claim_ids": [
+          "spec-mini-electrical",
+          "pdp-mini-electrical"
+        ]
+      },
+      {
+        "text": "You want red light therapy included, not a separate add-on purchase.",
+        "claim_ids": [
+          "spec-mini-red-light"
+        ]
+      }
+    ],
+    "not_for_you": [
+      {
+        "text": "You want a cabin built for two or more people at once.",
+        "claim_ids": [
+          "spec-mini-capacity"
+        ]
+      },
+      {
+        "text": "You don't have a dedicated 15A circuit available near the install spot.",
+        "claim_ids": [
+          "spec-mini-electrical",
+          "pdp-mini-electrical"
+        ]
+      }
+    ]
+  },
+  "faq": {
+    "questions": [
+      {
+        "question": "Does the Mini need special electrical work?",
+        "answer": "No. The Peak Mini plugs into a standard 120V/15A household outlet on a dedicated 15A circuit, so there's no electrician required to get it running.",
+        "claim_ids": [
+          "spec-mini-electrical",
+          "pdp-mini-electrical"
+        ]
+      },
+      {
+        "question": "How much space does the Mini actually take up?",
+        "answer": "The Mini is built as a 1-person cabin, sized to sit in a bedroom, office, or similar room rather than needing a dedicated sauna room.",
+        "claim_ids": [
+          "spec-mini-capacity"
+        ]
+      },
+      {
+        "question": "Is red light therapy included, or is it extra?",
+        "answer": "It's included standard. The Mini ships with a red light therapy panel built into the cabin, so there's nothing extra to add afterward.",
+        "claim_ids": [
+          "spec-mini-red-light",
+          "gbrain-allowlist-red-light"
+        ]
+      },
+      {
+        "question": "What's actually covered under warranty?",
+        "answer": "7-year residential warranty; full terms by component are published on the warranty page.",
+        "claim_ids": [
+          "warranty-terms"
+        ]
+      },
+      {
+        "question": "Is shipping included in the price?",
+        "answer": "Yes. PEAK ships every order free, with in-stock items handled within 2-4 business days before transit.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      },
+      {
+        "question": "Can I control the Mini from my phone?",
+        "answer": "Yes, through the Peak Saunas app you can preheat the cabin and adjust temperature, lighting, and session length from your phone.",
+        "claim_ids": [
+          "pdp-mini-app-control"
+        ]
+      },
+      {
+        "question": "What if I want to return it?",
+        "answer": "Returns require the sauna disassembled and repacked in its original crate, and are subject to a 25% restocking fee with the customer covering return shipping.",
+        "claim_ids": [
+          "returns-policy"
+        ]
+      }
+    ]
+  },
+  "cta_text": "Shop the Mini",
+  "cta_url": "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+  "closing": {
+    "headline": "Stop waiting for the space to be perfect",
+    "recap": [
+      {
+        "text": "A 1-person cabin that fits a room you already have.",
+        "claim_ids": [
+          "spec-mini-capacity"
+        ]
+      },
+      {
+        "text": "Plugs into a standard 120V/15A outlet -- no electrician needed.",
+        "claim_ids": [
+          "spec-mini-electrical",
+          "pdp-mini-electrical"
+        ]
+      },
+      {
+        "text": "Red light therapy included standard, backed by a 7-year warranty on heating elements and cabinetry.",
+        "claim_ids": [
+          "spec-mini-red-light",
+          "warranty-terms"
+        ]
+      }
+    ],
+    "warranty_line": {
+      "text": "7-year residential warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    },
+    "financing_line": {
+      "text": "Financing is available through Bread Pay at checkout.",
+      "claim_ids": []
+    }
+  },
+  "look": "open",
+  "headline_template_id": "o4",
+  "hero_style": "face"
+}

@@ -1106,9 +1106,12 @@ CARTRIDGE_RULES = {
         "required": {
             # Cycle 82e: the review quote is the renderer-checked
             # cartridge_data.review_quote, not page.proof.quote.
-            "cartridge_data": ("eyebrow", "headline_html", "price", "financing", "secondary", "trust", "specs",
-                               "rating", "warranty", "review_quote"),
-            "page": ("hero", "checked_claims", "faq", "closing", "cta_url", "cta_text", "room_photo"),
+            # Cycle 110: the reasons replace the checked claims; the warranty
+            # prints once (the trust line's term); "Text us" is the closing
+            # band's `closing_link`.
+            "cartridge_data": ("eyebrow", "headline_html", "price", "financing", "closing_link", "trust", "specs",
+                               "rating", "review_quote"),
+            "page": ("hero", "reasons", "faq", "closing", "cta_url", "cta_text", "room_photo"),
             "names": ("disclosure_label", "render_image_slot", "byline_html", "product"),
         },
     },
@@ -1760,8 +1763,9 @@ def cta_errors(html_text, cartridge, page, ctx, byline_links=()):
         return ["render: the page wrapper (class pk-lp) is missing"]
     cta_url, cta_text = page.get("cta_url"), _norm(page.get("cta_text"))
     renderer = set()
-    if ctx.get("secondary"):
-        renderer.add(ctx["secondary"]["href"])
+    secondary = ctx.get("closing_link") or ctx.get("secondary")
+    if secondary:
+        renderer.add(secondary["href"])
     for option in ctx.get("model_options") or []:
         if option.get("url"):
             renderer.add(option["url"])
@@ -1770,8 +1774,8 @@ def cta_errors(html_text, cartridge, page, ctx, byline_links=()):
     byline_links = set(byline_links or ())
     renderer |= byline_links
     allowed = [f"page.cta_url ({cta_url})"]
-    if ctx.get("secondary"):
-        allowed.append(f"the secondary text link cartridge_data.secondary.href ({ctx['secondary']['href']})")
+    if secondary:
+        allowed.append(f"the secondary text link cartridge_data.closing_link.href ({secondary['href']})")
     if cartridge == "listicle":
         allowed.append("the renderer's model links and byline link")
     if byline_links:
@@ -1794,15 +1798,15 @@ def cta_errors(html_text, cartridge, page, ctx, byline_links=()):
                 errors.append(f"a CTA link has class {sorted(classes)} -- use {rules['cta_class']} (a class the "
                               "A/B beacon counts)")
         elif href in renderer:
-            if ctx.get("secondary") and href == ctx["secondary"]["href"] and classes & set(abtest.CTA_CLASSES):
+            if secondary and href == secondary["href"] and classes & set(abtest.CTA_CLASSES):
                 errors.append("the secondary text link must not carry a CTA class")
         elif not href.startswith("#"):
             errors.append(f"a second link target {href[:60]!r} -- a look has ONE CTA; the only hrefs allowed are "
                           + "; ".join(allowed))
     if not ctas:
         errors.append("the rendered page has no CTA link to page.cta_url")
-    if ctx.get("secondary"):
-        n = sum(1 for a in wrapper.iter() if _tag(a) == "a" and a.get("href") == ctx["secondary"]["href"])
+    if secondary:
+        n = sum(1 for a in wrapper.iter() if _tag(a) == "a" and a.get("href") == secondary["href"])
         if n != 1:
             errors.append(f"the secondary text link appears {n} times (exactly once)")
     for tag in ("button", "form", "input", "iframe"):
@@ -1816,14 +1820,14 @@ def expected_texts(cartridge, page, ctx):
     blocks the demo has, and the writer's sections."""
     out = []
     if cartridge == "landing":
-        for key in ("price", "warranty", "rating"):
+        for key in ("price", "rating"):
             if ctx.get(key):
                 out.append((key, ctx[key].get("text") or ctx[key].get("value")))
         if ctx.get("financing"):
             out.append(("financing", ctx["financing"]))
         out += [("trust", t["text"]) for t in ctx.get("trust") or []]
         out += [("specs", s["value"]) for s in ctx.get("specs") or []]
-        out += [("checked_claims", c.get("fact")) for c in page.get("checked_claims") or []]
+        out += [("reasons", c.get("body")) for c in page.get("reasons") or []]
         out += [("faq", q.get("question")) for q in (page.get("faq") or {}).get("questions") or []]
         out.append(("closing", (page.get("closing") or {}).get("headline")))
         out.append(("hero.subhead", (page.get("hero") or {}).get("subhead")))
@@ -2004,16 +2008,16 @@ def contract_markdown(cartridge, contract_, schema):
 CROSS_MAP = {
     ("listicle", "landing"): """- `first_screen.headline_html` -> `cartridge_data.headline_html`; `page.dek` / `first_screen.lede` ->
   `page.hero.subhead`; `first_screen.eyebrow` -> `cartridge_data.eyebrow`.
-- `page.reasons[]` {heading, text, image} -> `page.checked_claims[]` {ad_said, fact} (no photo per item: place
+- `page.reasons[]` {heading, text, image} -> `page.reasons[]` {headline, body} (no photo per item: place
   the landing photos -- hero photo, room photo, ad still -- between sections where the source has photos).
 - `first_screen.byline` -> nothing in the content: the landing byline is `byline_html` in the `byline` block.
 - `cartridge_data.rating_line` -> `cartridge_data.rating` {value, label}; `cartridge_data.pull_quote` ->
   `cartridge_data.review_quote` {text, author}.
 - `cartridge_data.trust_items` -> `cartridge_data.trust`; `first_screen.stats` -> `cartridge_data.specs`.
-- `first_screen.value_stack` / the model option price -> `cartridge_data.price`, `cartridge_data.financing`,
-  `cartridge_data.warranty`; `cartridge_data.model_options`, `page.audience_fit`, `about_author_html` -> none.
+- `first_screen.value_stack` / the model option price -> `cartridge_data.price`, `cartridge_data.financing`;
+  `cartridge_data.model_options`, `page.audience_fit`, `about_author_html` -> none.
 - `page.closing.*` -> `page.closing.headline`; the FAQ is `page.faq` in both.
-- classes: wrapper `pk-lp adv-landing`, CTA `ld-btn`, secondary `ld-text` (once, `cartridge_data.secondary`),
+- classes: wrapper `pk-lp adv-landing`, CTA `ld-btn`, secondary `ld-text` (once, `cartridge_data.closing_link`, in the closing band),
   sticky bar `ld-bar`; every selector holds `.adv-landing`.""",
 }
 
@@ -2073,7 +2077,7 @@ def allowed_links_text(cartridge):
     rules = CARTRIDGE_RULES[cartridge]
     text = (f"Links (the one-CTA rule): the ONLY hrefs allowed are (1) `{{{{ page.cta_url }}}}` on every CTA, "
             f"class `{rules['cta_class']}`, text `{{{{ page.cta_text }}}}`; (2) the renderer's secondary text link "
-            f"`{{{{ cartridge_data.secondary.href }}}}`, exactly once, class `{rules['secondary_class']}`, never a "
+            f"`{{{{ cartridge_data.{'closing_link' if cartridge == 'landing' else 'secondary'}.href }}}}`, exactly once, class `{rules['secondary_class']}`, never a "
             "CTA class; (3) the links inside `{{ byline_html | safe }}` -- byline_html is the ONLY way to mention "
             "or link the founder or the author.")
     if cartridge == "landing":
@@ -2120,17 +2124,17 @@ DATA_MAP = {
   foot); do not move it up. Leave the author row out (it is not scored on the landing page).
 - star rating line (rating-line): `ld.rating` {value, label} with inline SVG stars, under `{% if ld.rating %}`.
 - review / pull quote (pull-quote): `ld.review_quote` {text, author} in `var(--ps-serif)`, under `{% if %}`.
-- story sections or numbered items: `page.checked_claims[]` -- `ad_said` is the section's subhead (set it as the
-  source sets its subheads: serif caps, heavy sans, a bold lead-in), `fact` the paragraph. Number them only if
+- story sections or numbered items: `page.reasons[]` -- `headline` is the section's subhead (set it as the
+  source sets its subheads: serif caps, heavy sans, a bold lead-in), `body` the paragraph. Number them only if
   the source numbers them.
 - photos: the hero product photo `assets.get(page.hero.hero_image.asset_id)`, the room photo (see above), the
   ad still `assets.get("asset-adframe")`; place them where the source's photos sit (after the intro, between
-  story sections), each at most once. The checked claims carry no photo of their own.
+  story sections), each at most once. The reasons carry no photo of their own.
 - spec list or key facts (info-box / stat-strip): `ld.specs` [{label, value}].
 - CTA band between sections (cta-band): `ld.price` + the CTA, after the section where the source puts its first
   button; a model/product section (product-card): `product.full_name`, the hero photo, `ld.price`,
-  `ld.financing`, `ld.warranty`, the CTA.
-- questions: `page.faq.questions[]`; closing band: `page.closing.headline` + the CTA + `ld.secondary`.""",
+  `ld.financing`, the CTA.
+- questions: `page.faq.questions[]`; closing band: `page.closing.headline` + the CTA + `ld.closing_link`.""",
     "listicle": """- promo / guarantee / disclosure strip at the very top (promo-bar): `disclosure_label`, `first_screen.eyebrow`
   and `cartridge_data.trust_items` texts, one thin line (never an offer or a discount).
 - headline (h1): `first_screen.headline_html`; deck: `page.dek` and/or `first_screen.lede`.
