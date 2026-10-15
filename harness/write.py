@@ -567,7 +567,7 @@ def _append_product_page_guidance(hard_constraints, cartridge_name):
 # Cycle 91: plus the writer lines of the catalog blocks the look declares in
 # its look.json (harness/blocks/catalog/) -- only those blocks' fields reach
 # the prompt; a look that declares no writer block adds nothing.
-def _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=None, tenant=None):
+def _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=None, tenant=None, ad_brief=None):
     if cartridge_name == "listicle":
         # Cycle 109: the ad's offer -- the renderer shows a verified one; an
         # unverified one is never mentioned, nor denied (harness/offer.py).
@@ -578,7 +578,7 @@ def _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=
         return
     from .blocks import catalog as block_catalog
 
-    hard_constraints.extend(landing.writer_lines(facts_pack, look=look))
+    hard_constraints.extend(landing.writer_lines(facts_pack, look=look, ad_brief=ad_brief))
     if look:
         tenant = tenant or tenant_mod.active()
         hard_constraints.extend(block_catalog.writer_lines(
@@ -786,7 +786,8 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
-    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=landing_look, tenant=tenant)
+    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=landing_look, tenant=tenant,
+                             ad_brief=ad_brief)
     system = _build_system(cartridge_md, schema, tenant, hard_constraints, ad_not_repeated)
     messages = [_build_initial_user_message(
         ad_brief, facts_pack, exemplars, skeleton=skeleton,
@@ -880,7 +881,8 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
-    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=landing_look, tenant=tenant)
+    _append_landing_guidance(hard_constraints, cartridge_name, facts_pack, look=landing_look, tenant=tenant,
+                             ad_brief=ad_brief)
     # Fix cycle 6 item 3: the forbidden-word list, verbatim, goes at the very
     # top of the system prompt (and again inside every REVISION REQUIRED
     # block below) -- observed cycling on the hidden-costs-v2 verification

@@ -671,8 +671,13 @@ def offer_writer_lines(facts_pack):
     ]
 
 
-def writer_lines(facts_pack, tenant=None, look=None):
+def writer_lines(facts_pack, tenant=None, look=None, ad_brief=None):
     tenant = tenant or tenant_mod.active()
+    # cycle 110 integration F1: the quote frame names the speaker's pronoun only from evidence
+    pronoun = first_screen.evidence_pronoun(ad_brief, None, tenant) if ad_brief else None
+    frame = f"In the ad, {pronoun} says" if pronoun else "In the ad, the creator says"
+    frame_rule = "" if pronoun else (" (or the speaker's name when the ad gives it); nothing shows the "
+                                     "speaker's pronoun, so never she/he")
     lo, hi = landing_sell.writer_reasons_range(facts_pack)
     flo, fhi = FAQ_RANGE
     refs = sorted(landing_sell.proof_ref_ids(facts_pack))
@@ -688,13 +693,13 @@ def writer_lines(facts_pack, tenant=None, look=None):
         "words of one or two syllables. Never quote, paraphrase, grade or correct the ad -- never \"the ad\", "
         "\"actually\", \"real price\", \"plainly\", \"not verified\", \"not lifetime\", \"no separate\", "
         "\"nothing to submit\", \"no form required\", \"what holds up\". An ad claim the facts do not support "
-        "is simply left out. The one way to name the ad is to credit the speaker's own words: \"In the ad, she "
-        "says, ...\".",
+        "is simply left out. The one way to name the ad is to credit the speaker's own words: "
+        f"\"{frame}, ...\"{frame_rule}.",
         f"hero.headline (6-12 words) restates ad_brief.hook as closely as the verified facts allow: same words, "
         f"same number, same person. hero.eyebrow (at most {EYEBROW_MAX_WORDS} words) names who the page is for, "
         f"or the sale. hero.subhead (at most 20 words is best, never over {SUBHEAD_MAX_WORDS}): the outcome and the "
         "time frame; for a testimonial ad (speaker_pov first_person) the speaker's strongest line from "
-        "transcript_or_text, word for word in quotes, credited \"In the ad, <she/he/the creator> says\". "
+        f"transcript_or_text, word for word in quotes, credited \"{frame}\"{frame_rule}. "
         "hero.accent_phrase: 1-4 words copied from the headline. The first screen shares at least two content "
         "words with the hook, angle and promise, or quotes the speaker (gate landing:hook_match); the HEADLINE "
         "itself repeats at least one word of the hook or promise. An ad that sells paying over time gets a "
@@ -1190,6 +1195,24 @@ def quality(page, facts_pack, ad_brief, html, *, tenant=None):
             "proof_count": proof}
 
 
+HERO_TEXT_FIELDS = ("eyebrow", "headline", "subhead")
+
+
+def find_speaker_pronoun_violations(page, ad_brief, tenant=None):
+    """landing:speaker_pronoun -- the listicle rule (first_screen.
+    find_speaker_pronoun_violations) on hero.eyebrow/headline/subhead: a
+    quote frame says she/he only when the evidence (ad_brief.speaker_pronoun
+    or the tenant override) says so; no evidence -> "the creator"."""
+    hero = (page or {}).get("hero") or {}
+    fields = {k: hero[k] for k in HERO_TEXT_FIELDS if isinstance(hero.get(k), str)}
+    evidence = {"speaker_pronoun": first_screen.evidence_pronoun(ad_brief, None, tenant)}
+    out = []
+    for item in first_screen.find_speaker_pronoun_violations(fields, evidence):
+        path = "$.hero." + item["path"][2:]
+        out.append(_problem(path, f"speaker_pronoun:{path}", item["issue"], text=item.get("text")))
+    return out
+
+
 def find_landing_violations(page, facts_pack=None, ad_brief=None, tenant=None):
     """Every landing structural check, combined. Wired into
     harness/repair.py's check_page_gates for the landing cartridge. The
@@ -1221,5 +1244,7 @@ def find_landing_violations(page, facts_pack=None, ad_brief=None, tenant=None):
     # automatically" next to a coded offer, a blank first-screen line.
     problems += persuasion.find_copy_hygiene_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
     problems += persuasion.find_hero_required_violations(page, prefix=_PROBLEM_PREFIX)
+    if ad_brief:
+        problems += find_speaker_pronoun_violations(page, ad_brief, tenant)
     return problems
 
