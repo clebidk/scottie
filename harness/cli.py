@@ -1303,6 +1303,7 @@ def cmd_abtest_status(args):
             print(f"  reason: {rec['reason']}")
         print(f"  source: {json.dumps(rec.get('source'))}  input: {rec.get('input')}")
         print(f"  destinations: {abtest.destinations_label(rec)}")
+        print(f"  ad angle: {abtest.ad_angle_of(rec)}")
         for v in rec["variants"]:
             if abtest.is_external(v):
                 print(f"  {v['key']}  {v['arm']:32s} {v.get('status', '-'):8s} {v.get('url') or '-'}")
@@ -1324,7 +1325,7 @@ def cmd_abtest_status(args):
         return exits.OK
     for rec in tests:
         arms = ", ".join(f"{v['key']}={v['arm']}" for v in rec["variants"])
-        print(f"{rec['test_id']:40s} {rec['status']:9s} {arms}")
+        print(f"{rec['test_id']:40s} {rec['status']:9s} {abtest.ad_angle_of(rec):9s} {arms}")
     return exits.OK
 
 

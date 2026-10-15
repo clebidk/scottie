@@ -25,8 +25,23 @@ RATE_LIMIT_PER_MIN = 60
 # Cycle 88: "assign" comes from the split page itself, once per visitor and
 # arm, before it redirects -- the only count for an external arm (the PDP or
 # home page carries no beacon). Same receiver, same rate limit.
-EVENTS = ("view", "cta", "assign")
-_COUNT_FIELD = {"view": "views", "cta": "clicks", "assign": "assigns"}
+# Cycle 110: "sms_tap" (a tap on an sms: link -- not a CTA, its own metric)
+# and "leave" (sent on pagehide / hide: the deepest scroll, the seconds on
+# the page and the load timings). Optional fields, all checked and bounded
+# (wire name -> column): el -> el, y -> y (scroll depth % at the click),
+# m -> max_scroll (%), s -> secs, lcp/fcp/dcl -> lcp_ms/fcp_ms/dcl_ms,
+# hid -> hidden_ms (ms to the first interaction or the first hide), vh, vw
+# (viewport px), cn -> conn (effective connection type). Old rows have NULLs.
+EVENTS = ("view", "cta", "assign", "sms_tap", "leave")
+_COUNT_FIELD = {"view": "views", "cta": "clicks", "assign": "assigns", "sms_tap": "sms_taps"}
+ELEMENTS = ("hero", "mid", "cards", "reviews", "closing", "sticky", "sms", "other")
+CONNECTIONS = ("slow-2g", "2g", "3g", "4g")
+_INT_FIELDS = {  # wire name: (column, max)
+    "y": ("y", 100), "m": ("max_scroll", 100), "s": ("secs", 86400), "lcp": ("lcp_ms", 600000),
+    "fcp": ("fcp_ms", 600000), "dcl": ("dcl_ms", 600000), "hid": ("hidden_ms", 86400000),
+    "vh": ("vh", 20000), "vw": ("vw", 20000),
+}
+EXTRA_COLUMNS = (("el", "TEXT"), ("conn", "TEXT")) + tuple((col, "INTEGER") for col, _ in _INT_FIELDS.values())
 
 VID_RE = re.compile(r"^[a-z0-9]{8,40}$")
 # Crawlers, link previewers (Meta fetches every ad destination with
@@ -56,6 +71,10 @@ def connect(path):
         " UNIQUE (test_id, variant, vid, event))"
     )
     conn.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+    have = {row[1] for row in conn.execute("PRAGMA table_info(events)")}
+    for col, kind in EXTRA_COLUMNS:  # cycle 110: added in place; old rows keep NULL
+        if col not in have:
+            conn.execute(f"ALTER TABLE events ADD COLUMN {col} {kind}")
     conn.commit()
     return conn
 
@@ -73,12 +92,23 @@ def hash_ip(ip, salt):
     return hashlib.sha256(f"{salt}:{ip}".encode()).hexdigest()[:16]
 
 
-def record_event(conn, *, test_id, key, event, vid, iph, ts=None):
-    """True when the row is new; False for a duplicate."""
-    cur = conn.execute(
-        "INSERT OR IGNORE INTO events (ts, test_id, variant, event, vid, iph) VALUES (?, ?, ?, ?, ?, ?)",
-        (ts if ts is not None else time.time(), test_id, key, event, vid, iph),
-    )
+def record_event(conn, *, test_id, key, event, vid, iph, ts=None, extra=None):
+    """True when the row is new; False for a duplicate. Cycle 110: `extra`
+    ({column: value}, from parse_event) is stored with the row. A repeat
+    "leave" from the same visitor updates its row instead: the deepest
+    scroll and the longest stay win, and the first load timings are kept."""
+    extra = {k: v for k, v in (extra or {}).items() if v is not None}
+    cols = ["ts", "test_id", "variant", "event", "vid", "iph"] + list(extra)
+    vals = [ts if ts is not None else time.time(), test_id, key, event, vid, iph] + list(extra.values())
+    sql = f"INSERT INTO events ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})"
+    if event == "leave" and extra:
+        sets = ", ".join(
+            f"{c} = MAX(COALESCE({c}, 0), excluded.{c})" if c in ("max_scroll", "secs")
+            else f"{c} = COALESCE({c}, excluded.{c})" for c in extra)
+        sql += f" ON CONFLICT (test_id, variant, vid, event) DO UPDATE SET {sets}"
+    else:
+        sql = sql.replace("INSERT INTO", "INSERT OR IGNORE INTO", 1)
+    cur = conn.execute(sql, vals)
     conn.commit()
     return cur.rowcount == 1
 
@@ -141,7 +171,68 @@ def parse_event(raw):
         return None, "unknown event"
     if not VID_RE.match(vid):
         return None, "bad vid"
-    return {"t": t, "v": v, "e": e, "vid": vid}, None
+    event = {"t": t, "v": v, "e": e, "vid": vid}
+    extra = _extra_fields(data, e)
+    if extra:
+        event["extra"] = extra
+    return event, None
+
+
+def _extra_fields(data, event):
+    """Cycle 110: the optional fields, bounded; anything malformed is dropped
+    (never the whole event)."""
+    extra = {}
+    if event in ("cta", "sms_tap"):
+        el = data.get("el")
+        extra["el"] = el if el in ELEMENTS else ("sms" if event == "sms_tap" else "other")
+    for wire, (col, top) in _INT_FIELDS.items():
+        value = data.get(wire)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if 0 <= value <= top:
+            extra[col] = int(value)
+    if data.get("cn") in CONNECTIONS:
+        extra["conn"] = data["cn"]
+    return extra
+
+
+def engagement(path, test_id):
+    """{key: {...}} per variant, from the cycle 110 fields: clicks by
+    element (each visitor's first CTA click), the scroll depth at that click,
+    sms taps, the deepest-scroll distribution and the seconds on the page of
+    visitors who left, the LCP figures and the share of small screens. {}
+    when there is no database yet."""
+    if not path.exists():
+        return {}
+    conn = sqlite3.connect(str(path), timeout=10)
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(events)")}
+        if "el" not in cols:
+            return {}
+        rows = conn.execute(
+            "SELECT variant, event, el, y, max_scroll, secs, lcp_ms, vh FROM events WHERE test_id = ? "
+            "AND event IN ('cta', 'sms_tap', 'leave', 'view')", (test_id,)).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        conn.close()
+    out = {}
+    for variant, event, el, y, max_scroll, secs, lcp, vh in rows:
+        slot = out.setdefault(variant, {"by_el": {}, "click_depth": [], "sms_taps": 0, "max_scroll": [],
+                                        "secs": [], "lcp_ms": [], "vh": []})
+        if event == "cta":
+            slot["by_el"][el or "unknown"] = slot["by_el"].get(el or "unknown", 0) + 1
+            if y is not None:
+                slot["click_depth"].append(y)
+        elif event == "sms_tap":
+            slot["sms_taps"] += 1
+        elif event == "leave":
+            for field, value in (("max_scroll", max_scroll), ("secs", secs), ("lcp_ms", lcp)):
+                if value is not None:
+                    slot[field].append(value)
+        elif event == "view" and vh is not None:
+            slot["vh"].append(vh)
+    return out
 
 
 def is_bot(user_agent):

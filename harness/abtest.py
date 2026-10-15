@@ -25,6 +25,7 @@ is in harness/cli.py; the beacon receiver is harness/serve.py's POST /e.
 import argparse
 import datetime
 import json
+import math
 import random
 import re
 import secrets
@@ -803,8 +804,59 @@ def build_variants(tenant, rec, runner, brief_runner=None):
         except AbtestError as e:
             return _stop(tenant, rec, "failed", str(e), exits.USAGE)
     rec["status"] = "built"
+    rec["ad_angle"] = ad_angle_of(rec)
     save_test(tenant, rec)
     return exits.OK, rec
+
+
+# Cycle 110: what the ad sells, for reading results by angle (sale ads click
+# ~3.5x non-sale ads in the cycle 110 teardown). First rule that matches wins.
+AD_ANGLES = ("sale", "financing", "recovery", "story", "apartment", "other")
+_ANGLE_RULES = (
+    ("sale", re.compile(r"\$\s?\d[\d,]*\s+off\b|\d+\s?%\s+off\b|\b(?:sale|discount\w*|promo\w*|coupon\w*|"
+                        r"prices? go(?:es)? up|save \$)", re.I)),
+    ("financing", re.compile(r"/\s?mo\b|\bper month\b|\ba month\b|\bmonthly\b|\bfinanc\w*|\bapr\b|"
+                             r"payment plan|pay over time|bread pay", re.I)),
+    ("recovery", re.compile(r"\brecover\w*|\bsore\w*|\bmuscles?\b|\bworkouts?\b|\bathlet\w*|\btraining\b|"
+                            r"\bgym\b|\bpost-?workout\b", re.I)),
+    ("apartment", re.compile(r"\bapartments?\b|\bcondos?\b|small spaces?|tiny|\brent(?:er|ing)\b|"
+                             r"standard outlet|plugs? (?:in|into)|no electrician|spare (?:room|corner)", re.I)),
+    ("story", re.compile(r"\bmy (?:story|wife|husband|family|kids|routine|mornings?|evenings?)\b|\bfounder\b|"
+                         r"\bI (?:bought|was|started|use|love|have)\b|testimonial", re.I)),
+)
+
+
+def ad_angle(ad_brief):
+    """One of AD_ANGLES for an ad brief: a verified or stated offer is
+    "sale"; else the first rule whose words are in the hook, angle or
+    promise; a first-person video or still with no other match is "story"."""
+    ab = ad_brief or {}
+    offer = ab.get("offer") or {}
+    if offer.get("amounts") or offer.get("codes") or offer.get("name") or offer.get("claim_id"):
+        return "sale"
+    text = " ".join(str(ab.get(k) or "") for k in ("hook", "angle", "promise"))
+    for name, rule in _ANGLE_RULES:
+        if rule.search(text):
+            return name
+    if ab.get("speaker_pov") == "first_person":
+        return "story"
+    return "other"
+
+
+def ad_angle_of(rec):
+    """The test record's ad angle: its stored tag, else derived from the
+    first generated arm's (or the brief run's) ad_brief.json; "other" when
+    there is none."""
+    if rec.get("ad_angle") in AD_ANGLES:
+        return rec["ad_angle"]
+    dirs = [v.get("run_dir") for v in rec.get("variants") or () if v.get("run_dir")]
+    dirs.append((rec.get("brief") or {}).get("run_dir"))
+    for run_dir in dirs:
+        if run_dir:
+            brief = _read_json(Path(run_dir) / "ad_brief.json")
+            if brief:
+                return ad_angle(brief)
+    return "other"
 
 
 def _new_variants(specs, ranking):
@@ -940,6 +992,22 @@ def split_body(test_id, variant_paths, title=None, *, beacon_url=""):
     return f"<script>{script}</script>\n<noscript><ul>{links}</ul></noscript>\n"
 
 
+def cta_class_regex(classes=CTA_CLASSES):
+    """Cycle 110: CTA_CLASSES as one short JS regex over " <className> "
+    ("/ (?:(?:lst|ed|ld)-btn|...) /"), so the beacon stays under 2 KB. The
+    "-btn" and "-link" families are grouped by prefix; the rest are literal."""
+    groups = {}
+    rest = []
+    for c in classes:
+        prefix, _, suffix = c.rpartition("-")
+        if suffix in ("btn", "link") and prefix and "-" not in prefix:
+            groups.setdefault(suffix, []).append(prefix)
+        else:
+            rest.append(c)
+    parts = [f"(?:{'|'.join(p)})-{suffix}" for suffix, p in groups.items()] + rest
+    return "/ (?:" + "|".join(parts) + ") /"
+
+
 def beacon_script(test_id, key, beacon_url):
     """The inline tracking beacon for a variant page: a first-party visitor
     id (cookie pk_vid, 1 year), a "view" event on load and a "cta" event on
@@ -947,21 +1015,45 @@ def beacon_script(test_id, key, beacon_url):
     /collections/.... Events go by navigator.sendBeacon as text/plain, so the
     cross-origin POST needs no CORS preflight. A CTA click also tags the
     visitor's cart (attribute pk_ab=<test_id>:<key>) so an order that
-    follows carries the variant (see attribute_orders)."""
-    selector = ",".join(f"a.{c}" for c in CTA_CLASSES)
+    follows carries the variant (see attribute_orders).
+
+    Cycle 110 (harness/abevents.py has the fields): the view carries the
+    viewport (vh, vw) and the connection type (cn); a CTA click carries the
+    anchor's data-el (hero|mid|cards|reviews|closing|sticky|sms|other) and
+    the scroll depth at the click (y, %); a tap on an sms: link is its own
+    "sms_tap" event, never a CTA; on pagehide or hide a "leave" event sends
+    the deepest scroll (m, %), the seconds on the page (s), LCP / FCP /
+    DOMContentLoaded (ms) and the ms to the first interaction or hide (hid).
+    No library; every handler is passive or fires once."""
     script = (
         "(function(){var T=" + _js_str(test_id) + ",V=" + _js_str(key) + ",U=" + _js_str(beacon_url) + ","
-        "d=document,m=d.cookie.match(/(?:^|; )pk_vid=([a-z0-9]{8,40})/),id='';"
+        "d=document,w=window,P=performance,A='addEventListener',R=Math.round,t0=Date.now(),mx=0,lcp,fi,"
+        "m=d.cookie.match(/(?:^|; )pk_vid=([a-z0-9]{8,40})/),id='';"
         "if(m)id=m[1];else{var r=crypto.getRandomValues(new Uint32Array(4));"
         "for(var i=0;i<4;i++)id+=('000000'+r[i].toString(36)).slice(-7);"
         "d.cookie='pk_vid='+id+';path=/;max-age=31536000;SameSite=Lax'}"
-        "function s(e){try{navigator.sendBeacon(U,JSON.stringify({t:T,v:V,e:e,vid:id}))}catch(x){}}"
-        "s('view');d.addEventListener('click',function(ev){"
-        "var a=ev.target&&ev.target.closest&&ev.target.closest(" + _js_str(selector) + ");if(!a)return;"
-        "var p=a.pathname||'';if(p.indexOf('/products/')&&p.indexOf('/collections/'))return;"
-        "s('cta');try{fetch('/cart/update.js',{method:'POST',keepalive:true,"
+        "function s(e,x){try{var o={t:T,v:V,e:e,vid:id};for(var k in x)if(x[k]!=null)o[k]=x[k];"
+        "navigator.sendBeacon(U,JSON.stringify(o))}catch(z){}}"
+        "function y(){var v=Math.min(100,R((scrollY+innerHeight)*100/Math.max(d.documentElement.scrollHeight,1)));"
+        "if(v>mx)mx=v;return v}"
+        "function f(){if(fi==null)fi=Date.now()-t0}"
+        "s('view',{vh:innerHeight,vw:innerWidth,cn:(navigator.connection||{}).effectiveType});"
+        "y();w[A]('scroll',y,{passive:true});w[A]('pointerdown',f);w[A]('keydown',f);"
+        "try{new PerformanceObserver(function(l){var e=l.getEntries();lcp=R(e[e.length-1].startTime)})"
+        ".observe({type:'largest-contentful-paint',buffered:true})}catch(z){}"
+        "d[A]('click',function(ev){var a=ev.target.closest('a');if(!a)return;"
+        "var el=a.getAttribute('data-el')||'other';"
+        "if(/^sms:/i.test(a.getAttribute('href')))return s('sms_tap',{el:el,y:y()});"
+        "if(!" + cta_class_regex() + ".test(' '+a.className+' '))return;"
+        "var p=a.pathname;if(p.indexOf('/products/')&&p.indexOf('/collections/'))return;"
+        "s('cta',{el:el,y:y()});try{fetch('/cart/update.js',{method:'POST',keepalive:true,"
         "headers:{'Content-Type':'application/json'},body:JSON.stringify({attributes:{pk_ab:T+':'+V}})})}catch(x){}"
-        "},true)})();"
+        "},true);"
+        "function b(){f();var n=P.getEntriesByType('navigation')[0]||{},"
+        "c=P.getEntriesByName('first-contentful-paint')[0]||{};"
+        "s('leave',{m:mx,s:R((Date.now()-t0)/1000),lcp:lcp,fcp:R(c.startTime),"
+        "dcl:R(n.domContentLoadedEventEnd),hid:fi})}"
+        "w[A]('pagehide',b);d[A]('visibilitychange',function(){if(d.visibilityState=='hidden')b()})})();"
     )
     return f"<script>{script}</script>"
 
@@ -1022,6 +1114,7 @@ def results(tenant, rec, orders=None, *, draws=None):
     are at least two. Cycle 107: `draws` (default abstats' own) lets the
     site's Results page, which shows every test, use fewer Monte Carlo draws."""
     counts = abevents.counts(abevents.db_path(tenant), rec["test_id"])
+    eng = abevents.engagement(abevents.db_path(tenant), rec["test_id"])
     data = {}
     for v in rec["variants"]:
         if is_external(v):
@@ -1039,18 +1132,82 @@ def results(tenant, rec, orders=None, *, draws=None):
             continue
         clicks, views = data[v["key"]]
         row = {"key": v["key"], "arm": v["arm"], "kind": "generated", "assigns": assigns, "views": views,
-               "clicks": clicks, "ctr": abstats.ctr(clicks, views), "p_best": pb.get(v["key"])}
+               "clicks": clicks, "ctr": abstats.ctr(clicks, views), "p_best": pb.get(v["key"]),
+               "engagement": engagement_summary(eng.get(v["key"]))}
         if orders is not None:
             row.update(orders.get(v["key"]) or {"orders": 0, "revenue": "0.00"})
         rows.append(row)
     return rows
 
 
+SCROLL_BUCKETS = ((0, 24, "0-24%"), (25, 49, "25-49%"), (50, 74, "50-74%"), (75, 99, "75-99%"),
+                  (100, 100, "100%"))
+LCP_GOOD_MS = 2500
+SMALL_VIEWPORT_PX = 700
+
+
+def _pct(values, q):
+    values = sorted(values)
+    if not values:
+        return None
+    return values[max(0, math.ceil(q * len(values)) - 1)]  # nearest rank
+
+
+def engagement_summary(raw):
+    """Cycle 110: one arm's beacon detail for the report (abevents.engagement
+    output): clicks by element, scroll depth at the click and at leave
+    (bucketed), sms taps, the median seconds on the page, p50/p75 LCP, the
+    share of LCPs over 2.5 s and the share of viewports under 700 px."""
+    raw = raw or {}
+
+    def buckets(values):
+        return {label: sum(1 for x in values if lo <= x <= hi) for lo, hi, label in SCROLL_BUCKETS}
+
+    lcp, vh = raw.get("lcp_ms") or [], raw.get("vh") or []
+    return {
+        "by_el": dict(sorted((raw.get("by_el") or {}).items(), key=lambda kv: (-kv[1], kv[0]))),
+        "click_depth": buckets(raw.get("click_depth") or []),
+        "sms_taps": raw.get("sms_taps", 0),
+        "leaves": len(raw.get("max_scroll") or []),
+        "max_scroll": buckets(raw.get("max_scroll") or []),
+        "secs_p50": _pct(raw.get("secs") or [], 0.5),
+        "lcp_n": len(lcp), "lcp_p50": _pct(lcp, 0.5), "lcp_p75": _pct(lcp, 0.75),
+        "lcp_slow_share": (sum(1 for x in lcp if x > LCP_GOOD_MS) / len(lcp)) if lcp else None,
+        "vh_n": len(vh),
+        "small_vh_share": (sum(1 for x in vh if x < SMALL_VIEWPORT_PX) / len(vh)) if vh else None,
+    }
+
+
+def format_engagement(rows):
+    """The per-arm beacon detail lines under the results table ([] when no
+    arm has any cycle 110 data yet)."""
+    lines = []
+    for r in rows:
+        e = r.get("engagement") or {}
+        new_style = set(e.get("by_el") or ()) - {"unknown"}  # "unknown": clicks from before cycle 110
+        if not (new_style or e.get("leaves") or e.get("sms_taps") or e.get("vh_n")):
+            continue
+        share = lambda x: "-" if x is None else f"{x:.0%}"  # noqa: E731
+        ms = lambda x: "-" if x is None else f"{x / 1000:.1f}s"  # noqa: E731
+        lines.append(f"{r['key']}  clicks by element: "
+                     + (", ".join(f"{k} {n}" for k, n in e["by_el"].items()) or "-")
+                     + f" | sms taps {e['sms_taps']}")
+        lines.append("   scroll at click: " + " ".join(f"{k} {n}" for k, n in e["click_depth"].items()))
+        lines.append(f"   deepest scroll ({e['leaves']} left): "
+                     + " ".join(f"{k} {n}" for k, n in e["max_scroll"].items())
+                     + f" | median time on page {'-' if e['secs_p50'] is None else str(e['secs_p50']) + 's'}")
+        lines.append(f"   LCP ({e['lcp_n']}): p50 {ms(e['lcp_p50'])} p75 {ms(e['lcp_p75'])}, over 2.5s "
+                     f"{share(e['lcp_slow_share'])} | viewport under {SMALL_VIEWPORT_PX}px tall "
+                     f"{share(e['small_vh_share'])} of {e['vh_n']}")
+    return lines
+
+
 def format_results(rec, rows):
     def cell(value, width, fmt=""):
         return f"{'-':>{width}}" if value is None else f"{value:>{width}{fmt}}"
 
-    lines = [f"{rec['test_id']} ({rec['status']})  split: {(rec.get('split') or {}).get('url') or '-'}",
+    lines = [f"{rec['test_id']} ({rec['status']})  ad angle: {ad_angle_of(rec)}  "
+             f"split: {(rec.get('split') or {}).get('url') or '-'}",
              f"{'':3}{'build':32} {'assigned':>8} {'views':>7} {'CTA':>6} {'CTR':>7} {'P(best)':>8} "
              f"{'orders':>7} {'revenue':>11}"]
     for r in rows:
@@ -1067,6 +1224,7 @@ def format_results(rec, rows):
                      "order data for it.")
     elif sum(1 for r in rows if r["p_best"] is not None) < 2 and len(rows) > 1:
         lines.append("P(best) needs two generated pages; compare the arms in GA4/Shopify by utm_content.")
+    lines.extend(format_engagement(rows))
     return "\n".join(lines)
 
 

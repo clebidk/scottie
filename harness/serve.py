@@ -752,7 +752,7 @@ def _handle_beacon(tenant, limiter, limiter_salt):
     try:
         iph = abevents.hash_ip(ip, abevents.ip_salt(conn))
         abevents.record_event(conn, test_id=event["t"], key=event["v"], event=event["e"],
-                              vid=event["vid"], iph=iph)
+                              vid=event["vid"], iph=iph, extra=event.get("extra"))
     finally:
         conn.close()
     return empty(204)
