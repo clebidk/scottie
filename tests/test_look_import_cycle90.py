@@ -222,7 +222,7 @@ def test_the_prompt_holds_the_brief_the_css_and_the_closest_exemplar(pack_dir):
     assert "Design brief" in user and result["brief"] in user
     assert ".mark{display:grid" in user and "Build observation" in user
     assert "display-letters, pill-image" in user
-    assert "`{{ page.cta_url }}`" in user and "`{{ cartridge_data.secondary.href }}`" in user
+    assert "`{{ page.cta_url }}`" in user and "`{{ cartridge_data.closing_link.href }}`" in user
     assert "byline_html is the ONLY way to mention" in user
     # the Plunge-style page gets the Plunge-style exemplar
     client = _client(_marked(), _marked(), _marked())
@@ -348,8 +348,8 @@ def test_the_bylines_own_link_is_accepted_inside_the_page():
     links = look_import.byline_hrefs(TENANT, "landing")
     assert "/pages/austin-laudenslager" in links
     # page 03's refusal: the byline printed inside the wrapper
-    t = OPEN_LOOK.replace('  {% if page.checked_claims %}',
-                          '  <div class="ld-c">{{ byline_html | safe }}</div>\n  {% if page.checked_claims %}', 1)
+    t = OPEN_LOOK.replace('  {% if page.reasons %}',
+                          '  <div class="ld-c">{{ byline_html | safe }}</div>\n  {% if page.reasons %}', 1)
     demo = look_import.load_demo(TENANT, "landing")
     errors, html = look_import.validate_template(t, "landing", "by-look", TENANT, demo)
     assert errors == [] and 'href="/pages/austin-laudenslager"' in html
@@ -361,12 +361,12 @@ def test_any_other_extra_href_is_refused_with_the_allowed_list():
     from harness import landing
     ctx = landing.render_context(page, demo["facts_pack"], ad_brief=demo["ad_brief"], tenant=TENANT)
     html = (f'<html><body><div class="pk-lp adv-landing"><a class="ld-btn" href="{page["cta_url"]}">'
-            f'{page["cta_text"]}</a><a class="ld-text" href="{ctx["secondary"]["href"]}">x</a>'
+            f'{page["cta_text"]}</a><a class="ld-text" href="{ctx["closing_link"]["href"]}">x</a>'
             '<a href="/pages/austin-laudenslager">Austin</a><a href="/pages/someone-else">Other</a></div></body></html>')
     errors = look_import.cta_errors(html, "landing", page, ctx, look_import.byline_hrefs(TENANT, "landing"))
     assert len(errors) == 1
     assert "'/pages/someone-else'" in errors[0] and "the only hrefs allowed are page.cta_url" in errors[0]
-    assert "cartridge_data.secondary.href" in errors[0] and "byline_html (/pages/austin-laudenslager" in errors[0]
+    assert "cartridge_data.closing_link.href" in errors[0] and "byline_html (/pages/austin-laudenslager" in errors[0]
     # without the byline's links the founder link is a second target too (the cycle 87 behaviour)
     assert len(look_import.cta_errors(html, "landing", page, ctx)) == 2
 
@@ -391,7 +391,7 @@ def test_the_rules_file_states_the_allowed_hrefs_and_the_patterns():
     rules = look_import.RULES_PATH.read_text()
     assert "byline_html` -- byline_html is the ONLY" not in rules   # one wording, below
     assert "byline_html | safe }}` -- byline_html is the ONLY" in rules
-    assert "`{{ cartridge_data.secondary.href }}`" in rules
+    assert "`{{ cartridge_data.closing_link.href }}`" in rules
     for name in look_design.PATTERN_NAMES:
         assert f"`{name}`" in rules, name
 

@@ -102,8 +102,8 @@ def test_the_benefits_are_check_rows_with_verified_claim_ids(tmp_path):
     assert rows == [b["text"] for b in page["benefits"]]
     ctx = landing.render_context(page, _facts_pack(), tenant=TENANT, look="proof")
     assert all(b["claim_ids"] for b in ctx["benefits"])
-    # right after the first screen, before the checked claims
-    assert html.index("</header>") < html.index('class="ld-benefits"') < html.index("The ad, checked")
+    # right after the first screen, before the reasons (cycle 110)
+    assert html.index("</header>") < html.index('class="ld-benefits"') < html.index("Why it works")
 
 
 def test_a_benefit_row_whose_ids_do_not_verify_is_not_rendered(tmp_path):
@@ -116,14 +116,16 @@ def test_a_benefit_row_whose_ids_do_not_verify_is_not_rendered(tmp_path):
 
 def test_the_room_photo_follows_the_benefits(tmp_path):
     html = _html(tmp_path, _proof_page(room_photo={"asset_id": "asset-drive-lifestyle-1"}))
-    assert html.index('class="ld-benefits"') < html.index('class="ld-room') < html.index("The ad, checked")
+    assert html.index('class="ld-benefits"') < html.index('class="ld-room') < html.index("Why it works")
     assert "ld-split" not in html
 
 
-def test_the_trust_line_sits_under_the_cta_and_the_text_link_under_it(tmp_path):
+def test_the_trust_line_sits_under_the_cta_and_the_text_link_is_in_the_closing_band(tmp_path):
     html = _html(tmp_path, _proof_page())
     act = re.search(r'<div class="ld-act ld-act--proof">(.*?)</div>', html, re.S).group(1)
-    assert act.index('class="ld-btn"') < act.index('class="ld-trust"') < act.index('class="ld-text"')
+    assert act.index('class="ld-btn"') < act.index('class="ld-trust"') and 'class="ld-text"' not in act
+    # cycle 110 (teardown D9): "Text us" moved from the hero to the closing band
+    assert html.index('class="ld-close"') < html.index('class="ld-text"')
     trust = re.findall(r"<li>([^<]*)</li>", re.search(r'<ul class="ld-trust">(.*?)</ul>', act).group(1))
     assert trust[:2] == ["Free shipping", WARRANTY_TERM] and len(trust) <= landing.PROOF_TRUST_MAX
     assert "secure" not in act.lower() and "guarantee" not in act.lower()

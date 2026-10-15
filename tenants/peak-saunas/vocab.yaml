@@ -62,6 +62,13 @@ allowed_warranty_sentence: "7-year residential warranty; full terms by component
 allowed_warranty_spec_label: "Warranty"
 allowed_warranty_spec_value: "7-year residential warranty (terms by component)"
 
+# Cycle 110: phrases the pre-sell copy never uses -- the defensive tics the
+# 2026-10-15 teardown counted on the live pages (they came from write.py's own
+# suggested replacements for "unlock"). Enforced on landing and listicle copy
+# (harness/persuasion.py); "not an add-on" is limited to once a page there.
+banned_phrases: [plainly, actually, "the real", "nothing to submit", "no form required", "what holds up",
+                 "just on the page", "markup math", "no gimmicks", "what's verified", "what is verified"]
+
 # Scanned in the rendered page as a reader would see it, after tags are stripped.
 visible_text_forbidden_terms: [emf, electromagnetic, clearlight, clear light, jacuzzi, "sauna works, inc"]  # CLEARLIGHT_GUARD_20261013
 

@@ -33,5 +33,9 @@ allowed_warranty_sentence: "CHANGE ME"
 allowed_warranty_spec_label: "Warranty"
 allowed_warranty_spec_value: "CHANGE ME"
 
+# Cycle 110: defensive or ad-grading phrases the landing and listicle copy
+# never uses (harness/persuasion.py).
+banned_phrases: []
+
 visible_text_forbidden_terms: []
 competitor_aliases: {}

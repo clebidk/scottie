@@ -47,6 +47,6 @@
   {%- elif bk.specs %}
   <ul class="bk-model_card-specs">{% for s in bk.specs %}<li class="bk-model_card-spec"><b>{{ s.value }}</b><span>{{ s.label }}</span></li>{% endfor %}</ul>
   {%- endif %}
-  <div class="bk-model_card-act"><a class="{{ bk_cta }}" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+  <div class="bk-model_card-act"><a class="{{ bk_cta }}" data-el="cards" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
 </div>
 {%- endif %}

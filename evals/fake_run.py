@@ -57,31 +57,34 @@ LANDING_PAGE = {
     "cta_text": "Shop the Fuji",
     "cta_url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
     "hero": {
-        "eyebrow": "Sauna shopping, made plain",
-        "headline": "The home sauna with nothing hidden before checkout",
-        "accent_phrase": "nothing hidden",
-        "subhead": "The price, the power it needs and what arrives at your door, stated up front so you can decide without a sales call.",
+        "eyebrow": "From the founder, for first-time sauna buyers",
+        "headline": "Sauna shopping should not be this confusing",
+        "accent_phrase": "this confusing",
+        "subhead": "Heat, red light and a clear price, so you can relax at home without the guesswork.",
         "hero_image": {"asset_id": "asset-peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy-1"},
     },
-    "checked_claims": [
-        {"ad_said": "Sauna shopping used to be confusing.",
-         "fact": "The Fuji page lists its capacity, cabin wood and heat range before you buy: two people, Canadian red cedar, up to 150°F.",
-         "claim_ids": ["spec-fuji-capacity", "spec-fuji-cabin-material", "spec-fuji-max-temperature"]},
-        {"ad_said": "It plugs into your home.",
-         "fact": "The Fuji runs on a 120V / 20A dedicated outlet; a standard 15A outlet is not sufficient.",
-         "claim_ids": ["gbrain-fuji-power"]},
-        {"ad_said": "It fits a spare corner.",
-         "fact": "Assembled, the cabin measures 53 inches wide, 44 inches deep and 75 inches high.",
-         "claim_ids": ["gbrain-fuji-dimensions"]},
-        {"ad_said": "Real infrared, not a gimmick.",
-         "fact": "Infrared heaters cover near, mid and far wavelengths, from 700 to 25,000nm.",
-         "claim_ids": ["spec-fuji-infrared-wavelength-range"]},
-        {"ad_said": "Red light comes with it.",
-         "fact": "Medical-grade red light therapy is included standard, with one panel you sit facing from about seven to eight inches away.",
-         "claim_ids": ["gbrain-allowlist-red-light", "gbrain-fuji-rlt"]},
-        {"ad_said": "Getting it home is simple.",
-         "fact": "Every order ships free. In-stock orders leave the warehouse within a few business days, and heavy freight arrives on a delivery appointment you schedule.",
-         "claim_ids": ["shipping-policy"]},
+    # Cycle 110: reasons (the Value Equation) replace the checked claims.
+    "reasons": [
+        {"headline": "Heat that reaches your whole body",
+         "body": "Heaters sit all around you, so the warmth gets to your back, sides and legs. The cabin heats up "
+                 "to 150°F with near, mid and far infrared.",
+         "claim_ids": ["gbrain-allowlist-360-full-spectrum", "spec-fuji-max-temperature",
+                       "spec-fuji-infrared-wavelength-range"],
+         "lever": "outcome", "asset_role": "people"},
+        {"headline": "Red light comes with every cabin",
+         "body": "Medical-grade red light therapy is included standard. You sit about seven to eight inches from "
+                 "the panel while the cabin warms.",
+         "claim_ids": ["gbrain-allowlist-red-light", "gbrain-fuji-rlt"], "lever": "likelihood",
+         "asset_role": "detail"},
+        {"headline": "At your door in days",
+         "body": "Every order ships free. In-stock orders leave the warehouse in a few business days, and the "
+                 "freight comes on a delivery day you set.",
+         "claim_ids": ["shipping-policy"], "lever": "time", "asset_role": "exterior"},
+        {"headline": "Fits a spare corner of the house",
+         "body": "Two people sit side by side in Canadian red cedar. Built, the cabin is 53 inches wide and 44 "
+                 "inches deep. It runs on a 120V / 20A dedicated outlet.",
+         "claim_ids": ["spec-fuji-capacity", "spec-fuji-cabin-material", "gbrain-fuji-dimensions",
+                       "gbrain-fuji-power"], "lever": "effort", "asset_role": "room"},
     ],
     "faq": {
         "questions": [
@@ -94,12 +97,13 @@ LANDING_PAGE = {
             {"question": "How hot does the cabin get?",
              "answer": "The Fuji reaches up to 150°F, with heaters placed around you so the warmth reaches your back, sides and legs, not just the front.",
              "claim_ids": ["spec-fuji-max-temperature", "gbrain-allowlist-360-full-spectrum"]},
-            {"question": "What happens if I change my mind?",
-             "answer": "Returns are accepted once the cabin is taken apart and repacked in its original crate.",
-             "claim_ids": ["returns-policy"]},
+            {"question": "Does red light come with it?",
+             "answer": "Yes. Medical-grade red light therapy is included standard, with one panel you face from "
+                       "about seven to eight inches away.",
+             "claim_ids": ["gbrain-allowlist-red-light", "gbrain-fuji-rlt"]},
         ]
     },
-    "closing": {"headline": "See the Fuji with every number on the page"},
+    "closing": {"headline": "See the Fuji and its price up close"},
 }
 
 # Cycle 85: the same page in the landing `proof` look -- plus the two blocks

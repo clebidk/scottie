@@ -126,7 +126,7 @@ def test_a_story_page_imported_as_landing_learns_from_a_hand_made_listicle_look(
     assert result["exemplar"] == "hand-story"
     system = fake.messages.calls[1]["system"]
     assert "## Exemplar: the hand-made listicle look `hand-story`" in system
-    assert "`page.reasons[]` {heading, text, image} -> `page.checked_claims[]`" in system
+    assert "`page.reasons[]` {heading, text, image} -> `page.reasons[]` {headline, body}" in system
     # a landing page that is not a story keeps the landing candidates
     assert not look_design.is_story(look_vision.to_observation(VISION, origin="x"))
 

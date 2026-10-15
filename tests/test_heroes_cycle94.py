@@ -76,11 +76,11 @@ def _partial_css(hero_id):
 # ---------------------------------------------------------------------------
 
 def test_every_composition_is_registered_with_its_partial_needs_and_cartridges():
-    assert set(heroes.ids()) == set(NEW) | set(ADAPTERS)
+    assert set(heroes.ids()) == set(NEW) | set(ADAPTERS) | {"peak_first"}   # cycle 110
     assert heroes.ids("listicle") == ("face", "story", "display", "caps_over_photo", "dark_statement",
                                       "letters_pill", "split")
     assert set(heroes.ids("landing")) == {"ad_first", "caps_over_photo", "dark_statement", "split",
-                                          "letters_pill", "buybox"}
+                                          "letters_pill", "buybox", "peak_first"}
     for hero_id in heroes.ids():
         hero = heroes.get(hero_id)
         assert (heroes.PACKAGE_DIR / f"{hero_id}.html").is_file(), hero_id
@@ -177,7 +177,7 @@ def test_every_composition_renders_with_and_without_an_ad_still(tmp_path, cartri
     assert len(re.findall(r"<h1[\s>]", html)) == 1
     # the pill is the page's one CTA, on a class the A/B beacon counts
     head = html[html.index("data-look-pattern"):html.index("</header>", html.index("data-look-pattern"))]
-    cta = re.search(r'<a class="([^"]*)\bhr-cta" href="([^"]*)">', head)
+    cta = re.search(r'<a class="([^"]*)\bhr-cta" data-el="hero" href="([^"]*)">', head)
     assert cta and set(cta.group(1).split()) & set(abtest.CTA_CLASSES) and cta.group(2) == page["cta_url"]
     messages = [m for _s, m in log.events]
     assert any(m.startswith(f"hero composition: {want_id} (") for m in messages)
@@ -205,7 +205,9 @@ def test_landing_compositions_carry_price_financing_trust_and_the_text_link(tmp_
         start = html.index("data-look-pattern")
         head = html[start:html.index("</header>", start)]
         assert "$" in head and "Bread Pay" in head, hero_id            # price + the fixed financing sentence
-        assert 'href="sms:+14706653747?&amp;body=' in head, hero_id     # the one secondary link, not a CTA class
+        # cycle 110: the one secondary link moved to the closing band (teardown D9)
+        assert 'href="sms:+14706653747?&amp;body=' not in head, hero_id
+        assert html.count('href="sms:+14706653747?&amp;body=') == 1, hero_id
         assert "Free shipping" in head, hero_id
         # the sticky bar observes the composition's root
         assert 'document.querySelector(".adv-landing .hr-root")' in html
@@ -360,11 +362,14 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 # Cycle 97 re-pin of the four landing keys (owner grading pass): the sticky bar
 # shows the model name with the price beneath and its button reads "Shop now";
 # the body diff against master ee2bd55 is that bar only.
+# Cycle 110 re-pin of the four landing keys: the reasons section ("Why it
+# works", mid CTA) replaces the checked claims, CTAs carry data-el, "Text us"
+# is in the closing band, the closing band drops the warranty sentence.
 SHIPPED = {
-    "landing-open-dry": "5cc974a404bce141",
-    "landing-open-frame": "6b819b8d2ec88c85",
-    "landing-proof-dry": "c72dbdbc5bf76140",
-    "landing-proof-frame": "bbaeab40adc7a476",
+    "landing-open-dry": "7513037f31a2955a",
+    "landing-open-frame": "b3a118f453e25126",
+    "landing-proof-dry": "f35169064da7c94a",
+    "landing-proof-frame": "1d8e0624c049b59f",
     "listicle-display-dry": "82210181d7883749",
     "listicle-display-frame": "357c14edaab33c17",
     "listicle-face-dry": "362a467b6702176d",     # no still: face falls back to story

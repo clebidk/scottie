@@ -29,8 +29,11 @@ from urllib.parse import quote
 
 from . import first_screen
 from . import listicle
+from . import looks as looks_mod
 from . import offer as offer_mod
 from . import pdp
+from . import landing_sell
+from . import persuasion
 from . import tenant as tenant_mod
 from .prices import format_price
 from .textutil import product_name_slug, walk_page
@@ -303,6 +306,93 @@ def headline_view(page):
     }
 
 
+def allowed_cta_texts(schema, facts_pack, ad_brief=None, tenant=None):
+    """Cycle 110: schema.json `allowed_cta_texts` is a map by the ad's angle
+    (persuasion.ad_angle): sale -> "Get {offer_amount} off the {short_name}"
+    / "Shop the sale"; financing -> "See monthly payments"; story -> "See the
+    {short_name} {pronoun} uses" (only with an evidenced pronoun); default ->
+    "Shop the {short_name}" / "See the {short_name} price"."""
+    from . import first_screen
+
+    tenant = tenant or tenant_mod.active()
+    fp = facts_pack or {}
+    name = (fp.get("product") or {}).get("name") or ""
+    angle = persuasion.ad_angle(ad_brief, fp)
+    view = offer_mod.offer_view(fp)
+    pronoun = first_screen.speaker_pronoun(ad_brief=ad_brief or {}, tenant=tenant) if angle == "story" else None
+    return persuasion.cta_texts_for_angle(schema.get("allowed_cta_texts") or [], angle, short_name=name,
+                                          offer_amount=(view or {}).get("amount"),
+                                          pronoun=pronoun if pronoun in ("she", "he") else None)
+
+
+def sell_context(page, facts_pack, *, ad_brief=None, tenant=None, base=None):
+    """Cycle 110: the persuasion pieces every look may print (all renderer-
+    owned, from facts_pack; see harness/landing_sell.py for each fallback)."""
+    fp = facts_pack or {}
+    base = base or {}
+    pr = base.get("price")
+    store = landing_sell.store_rating(fp)
+    fm = landing_sell.financing_monthly(fp)
+    sale = landing_sell.sale_prices(fp, pr)
+    dl = landing_sell.deadline(fp)
+    unit = landing_sell.units(fp)
+    view = base.get("offer")
+    bar_price = (sale or {}).get("net") or (pr or {}).get("text")
+    term = warranty_term(fp)
+    strip = []
+    if store:
+        strip.append({"value": f"{store['value']} ★", "label": f"{store['count']} reviews" if store["count"] else
+                      "rating", "claim_ids": store["claim_ids"]})
+    if unit:
+        strip.append({"value": unit["value"], "label": unit["label"], "claim_ids": unit["claim_ids"]})
+    ship = listicle.free_shipping_claim(fp)
+    if ship:
+        strip.append({"value": "Free", "label": "shipping", "claim_ids": [ship["id"]]})
+    if term:
+        m = re.match(r"(\d+)-year", term["text"])
+        strip.append({"value": f"{m.group(1)}-year" if m else term["text"], "label": "warranty" if m else "",
+                      "claim_ids": term["claim_ids"]})
+    if len(strip) < 4:
+        for row in spec_strip(fp):
+            if len(strip) == 4:
+                break
+            strip.append({"value": row["value"], "label": row["label"].lower(), "claim_ids": row["claim_ids"]})
+    return {
+        "angle": persuasion.ad_angle(ad_brief, fp),
+        "store_rating": store,
+        "product_rating": landing_sell.product_rating(fp),
+        "units": unit,
+        "monthly": fm,
+        "sale": sale,
+        "deadline": dl,
+        "offer_bar": (" · ".join(x for x in ((view or {}).get("name"), (view or {}).get("line"),
+                                                 ("ends " + dl["date"]) if dl else None) if x) if view else ""),
+        "stats": strip[:4],
+        "reasons": landing_sell.reasons_view(page, fp, pr),
+        "included": landing_sell.included(fp, page, tenant),
+        "hsa": landing_sell.hsa_line(fp),
+        "quotes": landing_sell.review_quotes(fp),
+        "trust_block": landing_sell.trust_block(fp, tenant),
+        "delivery": landing_sell.delivery_setup(fp),
+        "bar": {"price": bar_price, "was": (sale or {}).get("list"), "monthly": (fm or {}).get("short"),
+                "code": (view or {}).get("bar") if view and not sale else ((sale or {}).get("code") and
+                                                                          f"Code {sale['code']}")},
+    }
+
+
+def sell_claim_ids(sell):
+    ids = set()
+    for key in ("store_rating", "product_rating", "units", "monthly", "sale", "deadline", "hsa"):
+        if sell.get(key):
+            ids |= set(sell[key].get("claim_ids") or [])
+    for key in ("stats", "reasons", "included", "quotes", "trust_block", "delivery"):
+        for row in sell.get(key) or []:
+            ids |= set(row.get("claim_ids") or [])
+            if isinstance(row.get("proof"), dict):
+                ids |= set(row["proof"].get("claim_ids") or [])
+    return ids
+
+
 def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
     """Everything the landing template renders that the writer did not
     write, plus the first screen's eyebrow and headline markup. Cycle 85:
@@ -320,7 +410,10 @@ def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
         "trust": trust_items(facts_pack),
         "specs": spec_strip(facts_pack),
         "rating": first_screen.rating_stat(facts_pack),
-        "secondary": secondary_link(tenant, facts_pack),
+        # Cycle 110 (teardown D9): "Text us" moved from the hero, beside the
+        # only button, to the closing band (`closing_link`, data-el="sms").
+        "secondary": None,
+        "closing_link": secondary_link(tenant, facts_pack),
         "quote": first_screen.hero_quote(page, ad_brief, facts_pack),
         "review_quote": review_quote(page or {}, facts_pack),
         "room_kinds": ROOM_KINDS,
@@ -334,10 +427,74 @@ def render_context(page, facts_pack, *, ad_brief=None, tenant=None, look=None):
     # name is the eyebrow, and the price block, the first CTA, the sticky bar
     # and the first checked claim carry the offer (harness/offer.py).
     ctx["offer"] = offer_mod.offer_view(facts_pack)
-    if ctx["offer"] and ctx["offer"]["name"]:
+    flags = looks_mod.sell_flags("landing", look, tenant) if look else {}
+    if ctx["offer"] and ctx["offer"]["name"] and not flags.get("offer_bar"):
         ctx["eyebrow"] = ctx["offer"]["name"]
-    ctx["claim_ids"] = context_claim_ids(ctx)
+    # Cycle 110: the persuasion pieces (reasons, proof, offer stack, sale
+    # prices, monthly figure); a pre-sell look (look.json "sell") prints them.
+    ctx["sell"] = sell_context(page or {}, facts_pack, ad_brief=ad_brief, tenant=tenant, base=ctx)
+    ctx["sell_flags"] = flags
+    ctx["claim_ids"] = context_claim_ids(ctx) | sell_claim_ids(ctx["sell"])
     return ctx
+
+
+def tidy_for_render(page, facts_pack):
+    """Cycle 110 phase 0: what a page already written may not show, removed
+    at render time (so `harness rerender` fixes a live page with no model
+    call) -- an item of checked_claims/reasons that cites the verified offer
+    claim (the renderer adds the offer itself) or carries placeholder text,
+    and a FAQ entry about returns, with placeholder text, or saying a coded
+    offer applies automatically. In place; returns the notes to log."""
+    if not isinstance(page, dict):
+        return []
+    fp = facts_pack or {}
+    view = offer_mod.offer_view(fp)
+    claim_id = view["claim_id"] if view else None
+    auto = persuasion.offer_has_code(fp) or bool(fp.get("offer"))
+    notes = []
+
+    def strings(node):
+        return [v for _p, v in walk_page(node, skip_keys=persuasion.NON_PROSE_KEYS) if isinstance(v, str)]
+
+    for section in ("checked_claims", "reasons"):
+        items = page.get(section)
+        if not isinstance(items, list):
+            continue
+        kept = []
+        offer_in_ad = bool(fp.get("offer") or fp.get("offer_unverified"))
+        for i, item in enumerate(items):
+            if isinstance(item, dict) and claim_id and claim_id in (item.get("claim_ids") or []):
+                notes.append(f"dropped {section}[{i}]: it cites the offer claim (the renderer adds the offer)")
+            elif isinstance(item, dict) and any(persuasion.PLACEHOLDER_RE.search(t) for t in strings(item)):
+                notes.append(f"dropped {section}[{i}]: placeholder text")
+            elif section == "reasons" and offer_in_ad and isinstance(item, dict) and (
+                    not str(item.get("headline") or "").strip() or not str(item.get("body") or "").strip()):
+                notes.append(f"dropped reasons[{i}]: no {'headline' if not str(item.get('headline') or '').strip() else 'body'} "
+                             "(an offer placeholder)")
+            elif section == "reasons" and offer_in_ad and isinstance(item, dict) and any(
+                    offer_mod._OFFER_WORDS_RE.search(t) for t in strings(item)):
+                notes.append(f"dropped reasons[{i}]: the offer (the renderer adds it)")
+            else:
+                kept.append(item)
+        if len(kept) != len(items):
+            page[section] = kept
+    faq = page.get("faq") if isinstance(page.get("faq"), dict) else None
+    questions = faq.get("questions") if faq else None
+    if isinstance(questions, list):
+        kept = []
+        for i, entry in enumerate(questions):
+            texts = strings(entry) if isinstance(entry, dict) else []
+            if any(persuasion.RETURNS_RE.search(t) for t in texts):
+                notes.append(f"dropped faq.questions[{i}]: about returns")
+            elif any(persuasion.PLACEHOLDER_RE.search(t) for t in texts):
+                notes.append(f"dropped faq.questions[{i}]: placeholder text")
+            elif auto and any(persuasion.says_automatic_offer(t) for t in texts):
+                notes.append(f"dropped faq.questions[{i}]: says the offer applies automatically")
+            else:
+                kept.append(entry)
+        if len(kept) != len(questions):
+            faq["questions"] = kept
+    return notes
 
 
 def template_page(page, ctx):
@@ -346,9 +503,19 @@ def template_page(page, ctx):
     text). page.json itself is unchanged; every look (shipped or imported)
     loops page.checked_claims, so each one gets the item."""
     offer = (ctx or {}).get("offer")
-    if not offer or not isinstance(page, dict):
+    if not isinstance(page, dict):
         return page
+    if isinstance(page.get("reasons"), list):
+        # Cycle 110: the reasons as the look prints them -- the offer first.
+        return dict(page, reasons=list(((ctx or {}).get("sell") or {}).get("reasons") or []))
     items = [c for c in (page.get("checked_claims") or []) if isinstance(c, dict)]
+    if ((ctx or {}).get("sell_flags") or {}).get("facts_only_legacy"):
+        # a page written before cycle 110 in a pre-sell look: its verified
+        # facts only, never a line that grades the ad ("not lifetime coverage")
+        return dict(page, checked_claims=[c for c in items if c.get("fact") and not
+                                          persuasion.AD_REFERENCE_RE.search(str(c["fact"]))])
+    if not offer:
+        return page
     return dict(page, checked_claims=[offer["check"]] + items)
 
 
@@ -443,47 +610,122 @@ def checked_range(facts_pack, *, writer=False):
     return offer_mod.WRITER_CHECKED_RANGE if writer else offer_mod.GATE_CHECKED_RANGE
 
 
+def name_words(facts_pack, tenant=None):
+    """The brand and product names, which never count as shared words with
+    the hook and never as hard words for the reading level."""
+    tenant = tenant or tenant_mod.active()
+    product = (facts_pack or {}).get("product") or {}
+    names = {str(product.get("name") or ""), str(getattr(tenant, "display_name", "") or "")}
+    try:
+        names.add(tenant.product_names(product)["full_name"] or "")
+    except Exception:  # noqa: BLE001 -- a bare test tenant
+        pass
+    return tuple(sorted((n for n in names if n), key=len, reverse=True))
+
+
+def _exclude_words(facts_pack, tenant=None):
+    words = set()
+    for n in name_words(facts_pack, tenant):
+        words |= {w.lower() for w in re.findall(r"[A-Za-z]{3,}", n)}
+    return words
+
+
+def token_line(facts_pack):
+    values = landing_sell.token_values(facts_pack, price(facts_pack))
+    if not values:
+        return ("This page has no figure tokens: write the first screen in words; the renderer shows the price "
+                "under it.")
+    shown = ", ".join(f"{{{k}}} = {v['text']}" for k, v in values.items())
+    return ("FIGURES IN THE FIRST SCREEN: hero.eyebrow, hero.headline, hero.subhead and closing.headline may carry "
+            "a figure only as a token the renderer fills from the verified claim -- " + shown + ". Write the words "
+            "around them, e.g. \"{offer_amount} off the <model>, today's price ends {deadline_day}\" or \"Rated "
+            "{rating} by {review_count} owners\". Never type a digit, price or date there yourself; never a token "
+            "anywhere else.")
+
+
+def offer_writer_lines(facts_pack):
+    """Cycle 110: the offer-led page in the reasons model -- the renderer
+    adds the sale (net price or offer line, code, deadline) as the first
+    reason, under the price, in the CTA note and the sticky bar."""
+    fp = facts_pack or {}
+    if fp.get("offer_unverified"):
+        return [offer_mod.UNVERIFIED_LINE.replace("checked_claims", "reasons")]
+    view = offer_mod.offer_view(fp)
+    if view is None:
+        return []
+    dl = landing_sell.deadline(fp)
+    return [
+        f"This page is OFFER-LED (verified claim {view['claim_id']}: " + json.dumps(fp["offer"]["text"]) + "). "
+        f"THE RENDERER ADDS from that claim: the sale name \"{view['name'] or ''}\" in the offer bar, the offer "
+        f"line \"{view['line']}\" under the price" + (f", \"{dl['short']}\"" if dl else "") + ", the CTA note, "
+        "the sticky bar, and the sale as the FIRST reason. Your reasons are about the product; no reason, FAQ "
+        "entry or placeholder about the sale, a discount, a code or a deadline, and never that there is none "
+        "(\"no discount\", \"full price\", \"not on sale\" are refused).",
+        "hero.headline states the saving (and the deadline when the ad leads with it) with the figure tokens -- "
+        "\"{offer_amount} off the <model>, today's price ends {deadline_day}\" -- or names the sale in words. "
+        "The offer needs its code at checkout: never say it applies automatically. No countdown, no \"last "
+        "chance\", no \"hurry\", no invented scarcity.",
+    ]
+
+
 def writer_lines(facts_pack, tenant=None, look=None):
     tenant = tenant or tenant_mod.active()
-    clo, chi = checked_range(facts_pack, writer=True)
+    lo, hi = landing_sell.writer_reasons_range(facts_pack)
     flo, fhi = FAQ_RANGE
-    candidates = _room_candidates(facts_pack, tenant)
-    room = (
-        "room_photo.asset_id: one of these photos of the product in a real room or yard -- "
-        + json.dumps(candidates) + " -- the one whose setting best fits the ad's buyer. Never a studio "
-        "render, a cut-out or a plain product shot."
-        if candidates else
-        "room_photo: this run has no photo of the product in a real room -- omit room_photo entirely."
-    )
-    return [
-        "This is a short landing page for a visitor who just saw the ad, mostly on a phone. Its job: "
-        "say what the product is, what the ad's claims really mean, and offer one next step. The "
-        "renderer shows the price, financing, warranty, rating, shipping and the spec strip from "
-        "facts_pack -- never write a price, a spec value, a rating, a phone number or a link yourself.",
-        f"hero.eyebrow: the ad's hook in at most {EYEBROW_MAX_WORDS} words (no number). hero.headline: "
-        "6-12 words from the ad's angle; hero.accent_phrase: 1-4 words copied from the headline "
-        f"(shown in brand red). hero.subhead: the ad's promise in plain words, at most {SUBHEAD_MAX_WORDS} "
-        "words. hero.hero_image.asset_id: the product photo to show when the ad has no usable still.",
-        f"checked_claims has {clo}-{chi} items, each {{ad_said, fact, claim_ids}}: ad_said is what the "
-        f"ad said or implied, at most {AD_SAID_MAX_WORDS} words; fact is the verified statement that "
-        f"answers it, at most {FACT_MAX_WORDS} words; claim_ids has at least one id from "
-        "facts_pack.verified_claims. At least 3 items cite a product spec or benefit claim (not price, "
-        "shipping, warranty terms or returns). Cover the buyer's logistics where facts exist: the "
-        "electrical requirement, the footprint/dimensions, delivery and shipping, assembly, the warranty.",
+    refs = sorted(landing_sell.proof_ref_ids(facts_pack))
+    hsa = landing_sell.hsa_line(facts_pack)
+    lines = [
+        "This is a pre-sell page for a visitor who just clicked the ad, mostly on a phone. Its job: pay off the "
+        "ad's promise in the ad's own words, prove it will work for this reader, show the deal, and send the click "
+        "to the product page. The renderer shows the price, the offer, financing, the rating, customer reviews, "
+        "what is included, delivery and setup and the spec strip from facts_pack -- never write a price, a figure, "
+        "a rating, a phone number or a link yourself.",
+        "VOICE: write to the reader's outcome first (recovery, sleep, the evening ritual, the deal, the founder's "
+        "note), then the spec that makes it true. Grade 5-7 reading level: sentences under 14 words, everyday "
+        "words of one or two syllables. Never quote, paraphrase, grade or correct the ad -- never \"the ad\", "
+        "\"actually\", \"real price\", \"plainly\", \"not verified\", \"not lifetime\", \"no separate\", "
+        "\"nothing to submit\", \"no form required\", \"what holds up\". An ad claim the facts do not support "
+        "is simply left out. The one way to name the ad is to credit the speaker's own words: \"In the ad, she "
+        "says, ...\".",
+        f"hero.headline (6-12 words) restates ad_brief.hook as closely as the verified facts allow: same words, "
+        f"same number, same person. hero.eyebrow (at most {EYEBROW_MAX_WORDS} words) names who the page is for, "
+        f"or the sale. hero.subhead (at most 20 words is best, never over {SUBHEAD_MAX_WORDS}): the outcome and the "
+        "time frame; for a testimonial ad (speaker_pov first_person) the speaker's strongest line from "
+        "transcript_or_text, word for word in quotes, credited \"In the ad, <she/he/the creator> says\". "
+        "hero.accent_phrase: 1-4 words copied from the headline. The first screen shares at least two content "
+        "words with the hook, angle and promise, or quotes the speaker (gate landing:hook_match). "
+        "hero.hero_image.asset_id: the product photo to show when the ad has no usable still.",
+        token_line(facts_pack),
+        f"reasons has {lo}-{hi} items, each {{headline, body, claim_ids, lever, proof_ref, asset_role}}: headline "
+        f"at most {landing_sell.REASON_HEADLINE_MAX} words, the outcome first (\"Heat that reaches your whole "
+        f"body\"); body at most {landing_sell.REASON_BODY_MAX} words -- one sentence on how it works, one with "
+        "the spec that makes it true; claim_ids from facts_pack.verified_claims, and across the reasons at least 3 "
+        "product spec or benefit claims. lever is one of outcome (the ad's promise), likelihood (proof it works "
+        "for this reader), time (how fast -- ships in days, heats quickly, short sessions, only what a verified "
+        "claim states), effort (how little effort -- assembly, the outlet, app control); cover "
+        f"{min(4, hi)} different levers. proof_ref (optional) is the claim_id of one review quote, the store "
+        f"rating or the units line that backs that reason: {json.dumps(refs) if refs else 'none on this page, omit it'}. "
+        "asset_role (optional) is the photo shown beside it: people, room, detail or exterior.",
         "Power and outlet: state only what this product's own electrical claim says, in its own terms. "
         "Never say an electrician or a dedicated circuit is or is not needed unless that claim says so.",
-        CONTRADICTED_AD_CLAIM_LINE,
-        AD_SAID_FIGURES_LINE,
-        room,
         quote_writer_line(facts_pack),
-        f"faq.questions has {flo}-{fhi} entries from the ad's objections and the buyer's logistics: "
-        f"each question at most {QUESTION_MAX_WORDS} words; each answer first, at most "
-        f"{ANSWER_MAX_WORDS} words; any answer with a number, price, spec or trigger word carries claim_ids.",
-        f"closing.headline: at most {CLOSING_MAX_WORDS} words. cta_text/cta_url are the page's ONE "
-        "call to action -- never add a second link, button, url or phone number anywhere.",
-    ] + (proof_writer_lines(facts_pack, tenant) if look == "proof" else
-         ["benefits and icon_row are for the proof look only: omit both."]
-         ) + offer_mod.writer_lines(facts_pack, "landing")
+        f"faq.questions has {flo}-{fhi} questions a buyer asks before spending this much: will I use it, how long "
+        "is a session or how fast does it heat (only with a verified claim), will it fit (the dimensions claim), "
+        "can I pay over time (the fixed financing sentence)"
+        + (f", is it HSA/FSA eligible (answer with the claim's own words: {json.dumps(hsa['text'])})" if hsa else
+           "; no HSA/FSA question (none verified)")
+        + ". At most one logistics question (delivery, assembly, power, warranty): the renderer shows a Delivery "
+        "and setup row. Never a question about returns, refunds or a trial. Each question at most "
+        f"{QUESTION_MAX_WORDS} words; answer first, at most {ANSWER_MAX_WORDS} words; any answer with a number, "
+        "price, spec or trigger word carries claim_ids.",
+        f"closing.headline: at most {CLOSING_MAX_WORDS} words, the outcome or the offer in one line (the renderer "
+        "adds the price, the deadline and the CTA under it). cta_text/cta_url are the page's ONE call to action "
+        "(the renderer repeats it down the page) -- never add a second link, button, url or phone number anywhere.",
+        "room_photo, checked_claims and ad_said are retired: omit them (the renderer picks every photo).",
+    ]
+    lines += (proof_writer_lines(facts_pack, tenant) if look == "proof" else
+              ["benefits and icon_row are for the proof look only: omit both."])
+    return lines + offer_writer_lines(facts_pack)
 
 
 # ---------------------------------------------------------------------------
@@ -862,8 +1104,8 @@ def find_number_violations(page, facts_pack):
 _AD_SAID_PATH_RE = re.compile(r"^\$\.checked_claims\[\d+\]\.ad_said$")
 
 CONTRADICTED_AD_CLAIM_LINE = (
-    "Never put an ad claim the facts contradict in the hero, eyebrow, subhead, FAQ or closing; "
-    "quote it in checked_claims[].ad_said and correct it in fact."
+    "Never put an ad claim the facts contradict anywhere on the page: leave it out (cycle 110: the page never "
+    "quotes or corrects the ad)."
 )
 
 
@@ -881,22 +1123,52 @@ def find_power_violations(page, facts_pack):
             continue
         problems.append(dict(
             p, key=p["key"].replace("product-page:", f"{_PROBLEM_PREFIX}:", 1),
-            issue=p["issue"] + ". If the ad made this outlet claim, move it into checked_claims[].ad_said and "
-            "write the correction in that item's fact; the hero must not repeat an ad claim the verified "
-            "facts contradict." + fix,
+            issue=p["issue"] + ". The page never repeats an ad claim the verified facts contradict: state the "
+            "product's own electrical claim instead." + fix,
         ))
     return problems
 
 
-def find_landing_violations(page, facts_pack=None):
+def filled_hero(page, facts_pack):
+    """The first-screen lines with the figure tokens filled (what the reader
+    sees), for the hook-match gate."""
+    hero = dict(page.get("hero") or {}) if isinstance(page.get("hero"), dict) else {}
+    values = landing_sell.token_values(facts_pack, price(facts_pack))
+    for key in ("eyebrow", "headline", "subhead"):
+        if isinstance(hero.get(key), str):
+            hero[key] = landing_sell.fill_tokens(hero[key], values)[0]
+    return hero
+
+
+def find_persuasion_violations(page, facts_pack=None, ad_brief=None, tenant=None):
+    """Cycle 110: the reasons, the figure tokens, the ad-reference ban, the
+    hook match, the reading level and the buyer FAQ (brief section 3.3)."""
+    from .claims import safe_quote_candidates
+
+    problems = landing_sell.find_reasons_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
+    problems += landing_sell.find_token_violations(page, facts_pack, price(facts_pack), prefix=_PROBLEM_PREFIX)
+    problems += persuasion.find_ad_reference_violations(page, prefix=_PROBLEM_PREFIX)
+    if ad_brief:
+        quotes = [q["text"] for q in safe_quote_candidates(ad_brief, facts_pack or {})]
+        problems += persuasion.find_hook_match_violations(
+            page, ad_brief, filled_hero=filled_hero(page, facts_pack), exclude=_exclude_words(facts_pack, tenant),
+            quotes=quotes, prefix=_PROBLEM_PREFIX)
+    problems += persuasion.find_reading_level_violations(page, exclude=name_words(facts_pack, tenant),
+                                                         prefix=_PROBLEM_PREFIX)
+    problems += persuasion.find_faq_rule_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
+    return problems
+
+
+def find_landing_violations(page, facts_pack=None, ad_brief=None, tenant=None):
     """Every landing structural check, combined. Wired into
     harness/repair.py's check_page_gates for the landing cartridge. The
     product-benefit minimum is claims.find_benefit_claim_shortfall (via
-    gate_page_json), as for longform."""
+    gate_page_json), as for longform. Cycle 110: `reasons` replaces the
+    checked claims (find_persuasion_violations)."""
     if not isinstance(page, dict):
         return []
     problems = []
-    problems += find_checked_claims_violations(page, facts_pack)
+    problems += find_persuasion_violations(page, facts_pack, ad_brief=ad_brief, tenant=tenant)
     problems += find_word_limit_violations(page)
     problems += find_faq_violations(page)
     problems += find_one_cta_violations(page)
@@ -914,5 +1186,9 @@ def find_landing_violations(page, facts_pack=None):
     problems += offer_mod.find_offer_headline_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
     problems += offer_mod.find_denial_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
     problems += offer_mod.find_offer_in_checked_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
+    # Cycle 110 phase 0: placeholder text, returns copy, "applies
+    # automatically" next to a coded offer, a blank first-screen line.
+    problems += persuasion.find_copy_hygiene_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
+    problems += persuasion.find_hero_required_violations(page, prefix=_PROBLEM_PREFIX)
     return problems
 

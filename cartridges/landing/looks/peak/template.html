@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{# The pre-sell landing look (cycle 110, ~/asset-inbox/c110/BRIEF.md section 3.4): the
+   pre-sell page built from the persuasion model -- match the ad, then the
+   Value Equation (outcome, likelihood, time, effort) and the offer.
+
+   Order: the first screen (hero composition `peak_first`: offer bar, eyebrow,
+   hook headline, subhead, proof row, price line, pill, then the photo); the
+   stats strip (rating, units delivered, free shipping, warranty); the reasons
+   (the sale first on an offer-led page, a library photo by topic beside
+   each, the CTA after reason 2); "What's included" with the price, the
+   monthly figure and the CTA; model cards; the review wall and the trust
+   block (founder line, support, US-owned) with the CTA; the "Delivery &
+   setup" row; the FAQ; the closing recap with the CTA and the text link;
+   the sticky bar (net price or price, monthly figure, the CTA).
+
+   One CTA repeated: six placements plus the sticky bar, every one with
+   `data-el` for the beacon (hero, mid, stack, cards, reviews, closing,
+   sticky; "Text us" is sms). Model cards link to each model's own product
+   page with the beacon class `ld-link`. Nothing that looks tappable is
+   dead: the stats and the trust items carry no button styling.
+
+   White page, no gradients, no shadows, 4px radius, Basalt pills. Fonts:
+   DM Sans (body) and Poppins (headings), both the theme's own; the wide display face
+   only for the stat figures. Montserrat, Acid Grotesk and Epika are
+   never used here (the --ps-heading chain is set to Poppins on .pk-ps).
+   Mobile first at 375/390px. Prefix pk-. #}
+{% block title %}{{ page.hero.headline }}{% endblock %}
+{% block byline %}<div class="adv-byline ld-about">{{ byline_html | safe }}</div>{% endblock %}
+{% block content %}
+{% set ld = cartridge_data %}
+{% set s = ld.sell or {} %}
+{% set disclosure_line = (disclosure_text or "").split(". ")[0] | trim %}
+{% set disclosure_line = disclosure_line ~ "." if disclosure_line and not disclosure_line.endswith(".") else disclosure_line %}
+{% set price_text = (s.sale.net if s.sale else (ld.price.text if ld.price else "")) %}
+<style>
+.adv-wrap:has(.adv-landing){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.pk-ps){--ps-heading:"Poppins","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.adv-wrap:has(.adv-landing) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px;padding-bottom:88px}
+.adv-landing.pk-ps{
+  --ps-heading:"Poppins","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted-alt,var(--ps-muted,var(--adv-muted)));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-red:var(--ps-red,var(--ps-accent-hover,var(--adv-accent)));
+  --pk-line:var(--ps-hairline,var(--ps-border,var(--adv-border)));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-heading:var(--ps-heading);
+  --pk-display-wide:var(--ps-display-wide,var(--pk-heading));
+  --pk-radius:var(--ps-radius-box,4px);
+  --pk-gap:48px;
+  background:var(--pk-bg);color:var(--pk-body);font-family:var(--pk-sans);font-size:16px;line-height:1.55;overflow-x:clip
+}
+.adv-wrap .pk-ps h2,.adv-wrap .pk-ps h3{font-family:var(--pk-heading)!important}
+.adv-landing.pk-lp{display:block}
+.pk-ps .ld-link{color:inherit}
+.pk-ps .ld-about{margin-top:0}
+.pk-ps p{color:var(--pk-body)}
+.pk-ps .pk-c{max-width:1120px;margin:0 auto;padding:0 16px}
+.pk-ps .pk-sec{padding:var(--pk-gap) 0 0}
+.pk-ps .pk-label{margin:0 0 8px;font:500 11.5px/1.4 var(--pk-sans);letter-spacing:.16em;text-transform:uppercase;color:var(--pk-muted)}
+.adv-wrap .pk-ps .pk-h2.pk-h2{margin:0 0 20px!important;font-weight:600!important;font-size:25px!important;line-height:1.18!important;letter-spacing:-.01em!important;color:var(--pk-ink)!important;text-transform:none!important;text-wrap:balance}
+.pk-ps .ld-btn{display:inline-flex;align-items:center;justify-content:center;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:var(--ps-radius-btn,999px);padding:14px 32px;min-height:52px;font:600 16px/1.2 var(--pk-heading);text-decoration:none;text-align:center}
+.pk-ps .ld-btn:hover{background:var(--pk-red)}
+.pk-ps .pk-cta{margin:24px 0 0}
+.pk-ps .pk-cta .ld-btn{width:100%;box-sizing:border-box}
+.pk-ps .pk-note{margin:8px 0 0;font-size:13px;line-height:1.45;color:var(--pk-muted)}
+/* stats: plain figures on hairlines, no affordance */
+.pk-ps .pk-stats{list-style:none;margin:20px 0 0;padding:0 16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border-top:1px solid var(--pk-line)}
+.pk-ps .pk-stat{padding:14px 0;border-bottom:1px solid var(--pk-line)}
+.pk-ps .pk-stat b{display:block;font:400 22px/1.1 var(--pk-display-wide);color:var(--pk-ink)}
+.pk-ps .pk-stat span{display:block;margin-top:4px;font-size:13px;line-height:1.35;color:var(--pk-muted)}
+/* reasons */
+.pk-ps .pk-reasons{list-style:none;margin:0;padding:0}
+.pk-ps .pk-reason{padding:28px 0;border-top:1px solid var(--pk-line)}
+.pk-ps .pk-reason:last-child{border-bottom:1px solid var(--pk-line)}
+.pk-ps .pk-num{display:block;margin:0 0 6px;font:500 12px/1.4 var(--pk-sans);letter-spacing:.14em;color:var(--pk-red)}
+.adv-wrap .pk-ps .pk-rh.pk-rh{margin:0 0 8px!important;font-weight:600!important;font-size:21px!important;line-height:1.25!important;color:var(--pk-ink)!important;text-transform:none!important}
+.pk-ps .pk-rb{margin:0;max-width:60ch}
+.pk-ps .pk-rproof{margin:12px 0 0;padding-left:12px;border-left:2px solid var(--pk-red);font-size:15px;line-height:1.5;color:var(--pk-ink)}
+.pk-ps .pk-rproof small{display:block;margin-top:2px;font-size:13px;color:var(--pk-muted)}
+.pk-ps .pk-rphoto{margin:16px 0 0}
+.pk-ps .pk-rphoto .adv-img{display:block;width:100%;max-width:none;margin:0;border-radius:var(--pk-radius);object-fit:cover}
+.pk-ps .pk-reason--offer{border-top:0}
+.pk-ps .pk-reason--offer .pk-rh{color:var(--pk-red)!important}
+/* what's included */
+.pk-ps .pk-incl{list-style:none;margin:0;padding:0}
+.pk-ps .pk-incl li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--pk-line)}
+.pk-ps .pk-incl li:last-child{border-bottom:1px solid var(--pk-line)}
+.pk-ps .pk-tick{color:var(--pk-red);font-weight:600}
+.pk-ps .pk-buy{margin:20px 0 0}
+.pk-ps .pk-buy b{font:600 26px/1.15 var(--pk-heading);color:var(--pk-ink)}
+.pk-ps .pk-buy s{margin-left:8px;color:var(--pk-muted)}
+.pk-ps .pk-buy span{display:block;margin-top:4px;font-size:14px;color:var(--pk-muted)}
+/* model cards: each card is one link */
+.pk-ps .pk-models{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.pk-ps a.pk-model{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center;padding:12px;border:1px solid var(--pk-line);border-radius:var(--pk-radius);color:var(--pk-body);text-decoration:none}
+.pk-ps a.pk-model:hover{border-color:var(--pk-ink)}
+.pk-ps .pk-model .adv-img{display:block;width:96px;height:96px;margin:0;object-fit:contain;background:transparent}
+.pk-ps .pk-model b{display:block;font:600 16px/1.3 var(--pk-heading);color:var(--pk-ink)}
+.pk-ps .pk-model span{display:block;font-size:14px;line-height:1.45;color:var(--pk-muted)}
+.pk-ps .pk-model u{display:inline-block;margin-top:4px;font-size:14px;color:var(--pk-ink);text-underline-offset:3px}
+/* reviews + trust */
+.pk-ps .pk-quotes{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+.pk-ps .pk-quote{margin:0;padding:16px 0 0;border-top:1px solid var(--pk-line)}
+.pk-ps .pk-quote p{margin:0;font-size:16px;line-height:1.5;color:var(--pk-ink)}
+.pk-ps .pk-quote footer{margin-top:6px;font-size:13px;color:var(--pk-muted)}
+.pk-ps .pk-stars{color:var(--pk-red);letter-spacing:.1em}
+.pk-ps .pk-trust{list-style:none;margin:24px 0 0;padding:0}
+.pk-ps .pk-trust li{padding:8px 0;font-size:15px;line-height:1.5;color:var(--pk-ink)}
+.pk-ps .pk-trust li.pk-founder{font-size:16px}
+/* delivery & setup */
+.pk-ps .pk-setup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:0;padding:16px 0;border-top:1px solid var(--pk-line);border-bottom:1px solid var(--pk-line)}
+.pk-ps .pk-setup dt{margin:0;font:500 11.5px/1.4 var(--pk-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--pk-muted)}
+.pk-ps .pk-setup dd{margin:2px 0 0;font-size:14.5px;line-height:1.4;color:var(--pk-ink)}
+/* closing */
+.pk-ps .pk-close{margin:var(--pk-gap) 0 0;padding:40px 0 48px;background:var(--pk-dark);color:var(--pk-on-dark)}
+.adv-wrap .pk-ps .pk-close .pk-h2.pk-h2{color:var(--pk-on-dark)!important;margin-bottom:12px!important}
+.pk-ps .pk-close p{color:var(--pk-on-dark)}
+.pk-ps .pk-close .pk-recap{margin:0;font-size:16px;line-height:1.5}
+.pk-ps .pk-close .ld-btn{background:var(--pk-on-dark);color:var(--pk-dark)}
+.pk-ps .pk-close .ld-text{color:var(--pk-on-dark)}
+.pk-ps .pk-close .pk-note{color:var(--pk-on-dark);opacity:.8}
+/* sticky bar */
+.pk-ps .ld-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--pk-bg);border-top:1px solid var(--pk-line);transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility .25s;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.pk-ps .ld-bar.ld-bar--on{transform:none;visibility:visible}
+.pk-ps .ld-bar .ld-bar-name{margin:0;min-width:0;font:600 16px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--pk-ink)}
+.pk-ps .ld-bar .ld-bar-name s{margin-left:4px;font-weight:400;color:var(--pk-muted)}
+.pk-ps .ld-bar .ld-bar-name span{display:block;margin-top:2px;font:400 12.5px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--pk-muted);white-space:nowrap}
+.pk-ps .ld-bar .ld-btn{min-height:46px;padding:10px 18px;font:600 14.5px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+@media (min-width:768px){
+  .adv-landing.pk-ps{--pk-gap:72px;font-size:17px}
+  .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
+  .pk-ps .pk-c{padding:0 32px}
+  .pk-ps .pk-stats{max-width:1120px;margin:32px auto 0;padding:0 32px;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .adv-wrap .pk-ps .pk-h2.pk-h2{font-size:34px!important}
+  .pk-ps .pk-reason{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 48px;align-items:center}
+  .pk-ps .pk-rphoto{margin:0}
+  .pk-ps .pk-cta .ld-btn{width:auto}
+  .pk-ps .pk-models{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .pk-ps a.pk-model{grid-template-columns:minmax(0,1fr);text-align:center}
+  .pk-ps .pk-model .adv-img{width:100%;height:180px}
+  .pk-ps .pk-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 64px}
+  .pk-ps .pk-setup{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .pk-ps .ld-bar{justify-content:center;gap:24px}
+}
+@media (min-width:1024px){.pk-ps .ld-bar{display:none}}
+</style>
+<div class="pk-lp adv-landing pk-ps">
+
+  {% include "heroes/_pick.html" %}
+
+  {% if s.stats %}
+  <ul class="pk-stats" data-look-pattern="presell:stats">
+    {% for st in s.stats %}<li class="pk-stat"><b>{{ st.value }}</b><span>{{ st.label }}</span></li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if page.reasons %}
+  <section class="pk-sec" data-look-pattern="presell:reasons">
+    <div class="pk-c">
+      <p class="pk-label">Why it works</p>
+      <h2 class="pk-h2">What you get with the {{ product.name }}</h2>
+      <ol class="pk-reasons">
+        {% for r in page.reasons %}
+        {% set ph = assets.get(r.photo_id) if r.photo_id else None %}
+        <li class="pk-reason{{ ' pk-reason--offer' if r.offer else '' }}">
+          <div>
+            <span class="pk-num">{{ "%02d" | format(loop.index) }}</span>
+            <h3 class="pk-rh">{{ r.headline }}</h3>
+            {% if r.body %}<p class="pk-rb">{{ r.body }}</p>{% endif %}
+            {% if r.proof %}<p class="pk-rproof">{% if r.proof.kind == "quote" %}&ldquo;{{ r.proof.text }}&rdquo;{% if r.proof.author %}<small>{{ r.proof.author }}, verified buyer</small>{% endif %}{% else %}{{ r.proof.text }}{% endif %}</p>{% endif %}
+          </div>
+          {% if ph %}<figure class="pk-rphoto">{{ render_image_slot(ph, crop="4:3") }}</figure>{% endif %}
+        </li>
+        {% if loop.index == 2 %}<li class="pk-cta" style="list-style:none;border:0;padding:0 0 8px"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></li>{% endif %}
+        {% endfor %}
+      </ol>
+      {% if page.reasons | length < 2 %}<p class="pk-cta"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>{% endif %}
+    </div>
+  </section>
+  {% elif page.checked_claims %}
+  {# a page written before cycle 110: its verified facts only, never the ad lines #}
+  <section class="pk-sec" data-look-pattern="presell:reasons">
+    <div class="pk-c">
+      <p class="pk-label">Why it works</p>
+      <h2 class="pk-h2">What you get with the {{ product.name }}</h2>
+      <ol class="pk-reasons">
+        {% for item in page.checked_claims if not item.offer %}
+        <li class="pk-reason"><div><span class="pk-num">{{ "%02d" | format(loop.index) }}</span><p class="pk-rb">{{ item.fact }}</p></div></li>
+        {% if loop.index == 2 %}<li class="pk-cta" style="list-style:none;border:0;padding:0 0 8px"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></li>{% endif %}
+        {% endfor %}
+      </ol>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if s.included or ld.price %}
+  <section class="pk-sec" data-look-pattern="presell:included">
+    <div class="pk-c pk-two">
+      <div>
+        <p class="pk-label">What's included</p>
+        <h2 class="pk-h2">Everything that comes with the {{ product.name }}</h2>
+      </div>
+      <div>
+        {% if s.included %}<ul class="pk-incl">{% for it in s.included %}<li><span class="pk-tick" aria-hidden="true">&#10003;</span><span>{{ it.text }}</span></li>{% endfor %}</ul>{% endif %}
+        {% if price_text %}<p class="pk-buy"><b>{{ price_text }}</b>{% if s.sale %} {{ s.sale.line }}<s>{{ s.sale.list }}</s>{% elif ld.offer %}<span>{{ ld.offer.line }}</span>{% endif %}{% if s.monthly %}<span>{{ s.monthly.line }}</span>{% elif ld.financing %}<span>{{ ld.financing }}</span>{% endif %}{% if s.product_rating %}<span>{{ s.product_rating.text }} for the {{ product.name }}</span>{% endif %}</p>{% endif %}
+        {% if s.hsa %}<p class="pk-note">{{ s.hsa.text }}</p>{% endif %}
+        <p class="pk-cta"><a class="ld-btn" data-el="stack" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
+        {% if ld.offer and ld.offer.cta_note %}<p class="pk-note">{{ ld.offer.cta_note }}</p>{% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if s.models %}
+  <section class="pk-sec" data-look-pattern="presell:models">
+    <div class="pk-c">
+      <p class="pk-label">Pick your size</p>
+      <h2 class="pk-h2">Compare the models</h2>
+      <ul class="pk-models">
+        {% for m in s.models %}{% set ma = assets.get(m.asset_id) if m.asset_id else None %}
+        <li><a class="pk-model ld-link" data-el="cards" href="{{ m.url }}">{% if ma %}{{ render_image_slot(ma) }}{% else %}<span></span>{% endif %}<span><b>{{ m.name }}</b>{% if m.capacity %}<span>{{ m.capacity }}</span>{% endif %}<span>{{ m.price }}{% if m.monthly %} &middot; {{ m.monthly }}*{% endif %}</span><u>See the {{ m.name }}</u></span></a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if s.quotes or s.trust_block %}
+  <section class="pk-sec" data-look-pattern="presell:reviews">
+    <div class="pk-c pk-two">
+      <div>
+        <p class="pk-label">{% if s.store_rating %}{{ s.store_rating.value }} &#9733; &middot; {{ s.store_rating.count }} reviews{% else %}Who stands behind it{% endif %}</p>
+        <h2 class="pk-h2">{% if s.quotes %}What owners say{% else %}Who stands behind it{% endif %}</h2>
+        {% if s.quotes %}
+        <ul class="pk-quotes">
+          {% for q in s.quotes %}<li><blockquote class="pk-quote"><p>&ldquo;{{ q.text }}&rdquo;</p><footer><span class="pk-stars" aria-hidden="true">{% for _ in range((q.stars or 5) | int) %}&#9733;{% endfor %}</span> {{ q.author }}{% if q.date %} &middot; {{ q.date }}{% endif %}</footer></blockquote></li>{% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      <div>
+        {% if s.trust_block %}<ul class="pk-trust">{% for t in s.trust_block %}<li{% if t.kind == "founder" %} class="pk-founder"{% endif %}>{{ t.text }}</li>{% endfor %}</ul>{% endif %}
+        <p class="pk-cta"><a class="ld-btn" data-el="reviews" href="{{ page.cta_url }}">{{ page.cta_text }}</a></p>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if s.delivery %}
+  <section class="pk-sec" data-look-pattern="presell:setup">
+    <div class="pk-c">
+      <p class="pk-label">Delivery &amp; setup</p>
+      <dl class="pk-setup">{% for d in s.delivery %}<div><dt>{{ d.label }}</dt><dd>{{ d.text }}</dd></div>{% endfor %}</dl>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if blocks.faq and blocks.faq.questions %}
+  <section class="pk-sec">
+    <div class="pk-c pk-two">
+      <div><p class="pk-label">Questions</p><h2 class="pk-h2">Before you buy</h2></div>
+      {% include "blocks/faq.html" %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="pk-close" data-look-pattern="presell:closing">
+    <div class="pk-c">
+      <h2 class="pk-h2">{{ page.closing.headline }}</h2>
+      {% if s.sale %}<p class="pk-recap">{{ s.sale.net }} {{ s.sale.line }}{% if s.deadline %}. {{ s.deadline.short }}.{% endif %}</p>
+      {% elif ld.offer %}<p class="pk-recap">{{ ld.offer.line }}{% if s.deadline %}. {{ s.deadline.short }}.{% endif %}</p>
+      {% elif price_text %}<p class="pk-recap">{{ price_text }}{% if s.monthly %} &middot; {{ s.monthly.line }}{% endif %}</p>{% endif %}
+      {% set ship = (s.stats | selectattr("label", "equalto", "shipping") | list) %}
+      <p class="pk-recap">{% if ship %}Free shipping{% endif %}{% if ship and ld.warranty %} &middot; {% endif %}{% if ld.warranty %}{{ ld.warranty.text.split(";")[0] }}{% endif %}</p>
+      <p class="pk-cta"><a class="ld-btn" data-el="closing" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% if ld.closing_link %}<a class="ld-text" data-el="sms" href="{{ ld.closing_link.href }}" style="display:inline-flex;align-items:center;min-height:44px;padding:0 12px;color:inherit;text-decoration:underline;text-underline-offset:3px">{{ ld.closing_link.text }}</a>{% endif %}</p>
+      {% if s.monthly %}<p class="pk-note">*{{ s.monthly.disclosure }}</p>{% endif %}
+    </div>
+  </section>
+
+  <div class="ld-bar">
+    <p class="ld-bar-name">{{ s.bar.price or product.name }}{% if s.bar.was %}<s>{{ s.bar.was }}</s>{% endif %}<span>{% if s.bar.monthly %}{{ s.bar.monthly }}{% elif s.bar.code %}{{ s.bar.code }}{% else %}{{ product.full_name or product.name }}{% endif %}</span></p>
+    <a class="ld-btn" data-el="sticky" href="{{ page.cta_url }}">{{ page.cta_text }}</a>
+  </div>
+</div>
+<script>
+(function(){var h=document.querySelector("{{ hero.anchor }}"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
+</script>
+{% endblock %}

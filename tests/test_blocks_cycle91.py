@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 from evals import fake_run
-from harness import library, looks, pagechecks, photo_library, repair, write
+from harness import landing, library, looks, pagechecks, photo_library, repair, write
 from harness.blocks import catalog
 from harness.blocks.catalog import feature_grid, hotspot_image, photo_essay, stat_strip
 from harness.page_body import build_shopify_body
@@ -52,9 +52,14 @@ ALL_IDS = ("stat_strip", "photo_essay", "hotspot_image", "feature_grid", "model_
 # with the price beneath and its button reads "Shop now"; nothing else in the
 # render changed (diffed against master ee2bd55, which gave the old values
 # 0a748b00... and bea34247...).
+# Cycle 110 re-pin: the canned page is a reasons-model page now (the "Why it
+# works" section with a mid-page CTA replaces "The ad, checked"), every CTA
+# carries data-el, "Text us" moved from the hero to the closing band and the
+# closing band no longer repeats the warranty sentence (it stays in the trust
+# line).
 DEFAULT_LOOK_HASHES = {
-    "open": "d07bea208d336af7dae06ee670fceac3c6f5d8da9df626e75b015d5efae13597",
-    "proof": "a497c8324284544d3b1d5c6154f1e2100bec9688b3f75f0fb8fbaa4955186f89",
+    "open": "aad8a7785b4310483d759370c1fa6c5379d3d82bc66c81cf3a500010efbc4903",
+    "proof": "792c8f267f1f70919b1c6897138aa26bba8688d3f5418e6f3249838b2ef9d666",
 }
 
 
@@ -155,7 +160,8 @@ def test_the_two_looks_declare_their_blocks_and_the_default_looks_declare_none()
     assert catalog.look_spec("landing", "cinematic", tenant=TENANT)["options"]["stat_strip"] == {"layout": "inline"}
     for look in ("open", "proof"):
         assert catalog.look_blocks("landing", look, tenant=TENANT) == ()
-    assert looks.cartridge_looks("landing") == ("open", "proof", "cinematic", "buybox", "cinematic-light")  # cycle 97
+    assert looks.cartridge_looks("landing") == ("open", "proof", "cinematic", "buybox", "cinematic-light",
+                                                "peak")  # cycle 97, cycle 110
     assert looks.DEFAULT_LOOKS["landing"] == "open"
 
 
@@ -260,7 +266,7 @@ def test_model_grid_shows_every_priced_model_with_a_cutout_and_one_cta(tmp_path)
     html = (out / "index.html").read_text()
     grid = html[html.index('data-look-pattern="model_grid '):]
     grid = grid[:grid.index("</ul>")]
-    assert grid.count(f'<a class="ld-btn" href="{page["cta_url"]}">See pricing</a>') == 3
+    assert grid.count(f'<a class="ld-btn" data-el="cards" href="{page["cta_url"]}">See pricing</a>') == 3
     assert "$7,950" in grid and "Peak Everest" in grid
 
 
@@ -445,10 +451,13 @@ def _page_gates(page, look):
 
     md = (CARTRIDGE_DIR / "cartridge.md").read_text()
     schema = json.loads(TENANT.render((CARTRIDGE_DIR / "schema.json").read_text()))
-    ctas = write.resolve_allowed_cta_texts(schema, "Fuji", model_name="Fuji", tenant=TENANT)
+    from tests.test_landing_cycle82 import LANDING_BRIEF
+
+    ctas = landing.allowed_cta_texts(schema, _facts_pack(), LANDING_BRIEF, TENANT)
     return repair.check_page_gates(
         page, _facts_pack(), "landing", financing_lender="Bread Pay", speaker_pov="first_person",
-        word_range=write.parse_word_range(md), allowed_cta_texts=ctas, ad_brief=AD_BRIEF, tenant=TENANT, look=look,
+        word_range=write.parse_word_range(md), allowed_cta_texts=ctas, ad_brief=LANDING_BRIEF, tenant=TENANT,
+        look=look,
     )
 
 
@@ -552,11 +561,11 @@ def test_the_cinematic_look_renders_its_blocks_in_order(tmp_path):
     order = [hero_at] + [html.index(f'data-look-pattern="{b}')
                          for b in ("stat_strip", "feature_grid", "statement_band", "faq")]
     assert order == sorted(order)
-    assert html.index('data-look-pattern="stat_strip ') < html.index("The ad, checked")   # right under the hero
+    assert html.index('data-look-pattern="stat_strip ') < html.index("Why it works")   # right under the hero
     assert 'class="cn-stats cn-stats--dark"' in html and "bk-stat_strip--inline" in html
     assert "A real sauna session at home, on your own schedule" in html
     url = fake_run.LANDING_PAGE["cta_url"]
-    ctas = re.findall(r'<a class="([^"]*)" href="([^"]*)">', html)
+    ctas = re.findall(r'<a class="([^"]*)"(?: data-el="\w+")? href="([^"]*)"', html)
     assert {href for cls, href in ctas if "btn" in cls or "cta" in cls} == {url}
     assert len(re.findall(r"<h1[\s>]", html)) == 1 and _lint(html) == []
 

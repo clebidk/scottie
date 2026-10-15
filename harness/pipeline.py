@@ -371,7 +371,10 @@ def ground(state):
         # Cycle 91: the model_grid block's model rows, only for a landing look
         # that declares that block (harness/blocks/catalog/); passed only then,
         # so a facts source without the keyword is untouched.
-        **({"include_models": True} if _landing_look_uses(state, "model_grid") else {}),
+        # cycle 110: a pre-sell look's model cards (look.json "sell": model_cards)
+        **({"include_models": True} if _landing_look_uses(state, "model_grid")
+           or looks.sell_flags("landing", getattr(state, "landing_look", None), state.tenant).get("model_cards")
+           else {}),
     )
     # Cycle 109: the ad's offer -> its verified promo claim (harness/offer.py).
     # A match puts the claim into facts_pack (offer-led page); no match marks

@@ -1,0 +1,7 @@
+{
+  "heroes": ["peak_first"],
+  "default_heroes": ["peak_first"],
+  "blocks": ["faq"],
+  "sell": {"offer_bar": true, "model_cards": true, "reason_photos": true, "still_for_creator_ads_only": true,
+           "facts_only_legacy": true}
+}

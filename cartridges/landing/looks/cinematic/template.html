@@ -113,6 +113,7 @@
 .adv-landing .ld-bar .ld-bar-name{margin:0;min-width:0;font:600 16px/1.2 var(--pk-heading);color:var(--pk-ink)}
 .adv-landing .ld-bar .ld-bar-name span{display:block;margin-top:2px;font:400 12.5px/1.3 var(--pk-sans);color:var(--pk-muted);white-space:nowrap}
 .adv-landing .ld-bar .ld-btn.ld-btn{min-height:46px!important;padding:10px 24px!important;font-size:15px!important}
+.adv-landing .ld-text{display:inline-flex;align-items:center;min-height:44px}
 {%- if cn_light %}
 /* cycle 97, look cinematic-light (look.json "palette": "light"): the statement
    first screen is near-black type on the white page with the basalt pill;
@@ -145,7 +146,19 @@
   {% include "heroes/_pick.html" %}
   <div class="cn-stats {{ 'cn-stats--dark' if cn_dark else 'cn-stats--light' }}">{% include "blocks/stat_strip.html" %}</div>
 
-  {% if page.checked_claims %}
+  {% if page.reasons %}
+  <section class="cn-sec">
+    <div class="cn-c">
+      <p class="cn-eyebrow">Why it works</p>
+      <h2 class="cn-h2">What you get</h2>
+      <ol class="cn-steps">
+        {% for item in page.reasons %}
+        <li class="cn-step"><span class="cn-num" aria-hidden="true">{{ "%02d" | format(loop.index) }}</span><div><p class="cn-said">{{ item.headline }}</p><p class="cn-fact">{{ item.body }}</p></div></li>
+        {% endfor %}
+      </ol>
+    </div>
+  </section>
+  {% elif page.checked_claims %}
   <section class="cn-sec">
     <div class="cn-c{{ ' cn-steps-grid' if show_room and not (hero.image and hero.image.id == room_asset.id) else '' }}">
       <div>
@@ -185,7 +198,7 @@
   <div class="cn-sec">{% include "blocks/statement_band.html" %}</div>
   {% endif %}
 
-  {% if ld.warranty or ld.rating or q %}
+  {% if ld.rating or q %}
   <section class="cn-sec">
     <div class="cn-c cn-split">
       <div>
@@ -195,7 +208,6 @@
       <ul class="cn-proof">
         {% if ld.rating %}<li><b>{{ ld.rating.value }}</b><span>{{ ld.rating.label }}</span></li>{% endif %}
         {% if q %}<li><blockquote><p>&ldquo;{{ q.text }}&rdquo;</p>{% if q.author %}<span>{{ q.author }}</span>{% endif %}</blockquote></li>{% endif %}
-        {% if ld.warranty %}<li><span>{{ ld.warranty.text }}</span></li>{% endif %}
       </ul>
     </div>
   </section>
@@ -211,7 +223,7 @@
       </div>
       <div class="cn-pricecopy">
         {% if ld.financing %}<p>{{ ld.financing }}</p>{% endif %}{% if ld.offer %}<p><b>{{ ld.offer.line }}</b>{% if ld.offer.deadline %} {{ ld.offer.deadline }}{% endif %}</p>{% endif %}
-        <div class="cn-ctas"><a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
+        <div class="cn-ctas"><a class="ld-btn" data-el="mid" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
       </div>
     </div>
   </section>
@@ -229,14 +241,13 @@
   <section class="cn-close">
     <div class="cn-c">
       <h2 class="cn-h2">{{ page.closing.headline }}</h2>
-      <div class="cn-ctas"><a class="ld-btn" href="{{ page.cta_url }}">{{ page.cta_text }}</a></div>
-      {% if ld.warranty %}<p class="cn-fine">{{ ld.warranty.text }}</p>{% endif %}
+      <div class="cn-ctas"><a class="ld-btn" data-el="closing" href="{{ page.cta_url }}">{{ page.cta_text }}</a>{% if ld.closing_link %}<a class="ld-text" data-el="sms" href="{{ ld.closing_link.href }}" style="display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:inherit;text-decoration:underline;text-underline-offset:3px">{{ ld.closing_link.text }}</a>{% endif %}</div>
     </div>
   </section>
 
   <div class="ld-bar">
     <p class="ld-bar-name">{{ product.full_name or product.name }}{% if ld.price %}<span>{{ ld.price.text }}{% if ld.offer %} &middot; {{ ld.offer.bar }}{% endif %}</span>{% endif %}</p>
-    <a class="ld-btn" href="{{ page.cta_url }}">Shop now</a>
+    <a class="ld-btn" data-el="sticky" href="{{ page.cta_url }}">Shop now</a>
   </div>
 </div>
 <script>

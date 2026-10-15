@@ -76,6 +76,7 @@ def _landing(look, hero=None, headline="Money off every indoor sauna during the 
     page = copy.deepcopy(fake_run.LANDING_PAGE) if look != "proof" else _proof_page()
     page["look"] = look
     page["hero"]["headline"] = headline
+    page["cta_text"] = "Shop the sale"   # cycle 110: the sale angle's CTA phrase
     if hero:
         page["hero_style"] = hero
     return page
@@ -188,10 +189,10 @@ def test_every_landing_look_leads_with_the_offer(tmp_path, look, hero):
     assert first.index("$8,250") < first.index("INDOOR300")      # next to the price
     bar = html[html.index('class="ld-bar"'):]
     assert "$8,250 &middot; Code INDOOR300" in bar[:400]
-    # the offer is the first checked claim: the ad's sentence, the verified claim's text
-    said = html.index("$300 off every indoor sauna. $500 off outdoor.")
-    assert said < html.index(PROMO["text"]) and said < html.index("Sauna shopping used to be confusing.")
-    assert all(not i.get("offer") for i in page["checked_claims"])
+    # cycle 110: the offer is the first reason (renderer-owned), before the writer's own
+    why = html.index("Why it works")
+    assert why < html.index("$300 off with code INDOOR300", why) < html.index("Heat that reaches your whole body")
+    assert all(not i.get("offer") for i in page["reasons"]) and "checked_claims" not in page
     assert "offer_unverified" not in page and "last chance" not in html.lower()
 
 
@@ -239,11 +240,12 @@ def test_an_unverified_offer_page_says_nothing_about_it_and_records_the_flag(tmp
     for text in ("$300", "INDOOR300", "Prices go up", "no discount", "Offer applied", "Community Savings Sale"):
         assert text not in html, text
     lines = landing.writer_lines(fp, look="open")
-    assert offer.UNVERIFIED_LINE in lines and not any("OFFER-LED" in line for line in lines)
+    assert offer.UNVERIFIED_LINE.replace("checked_claims", "reasons") in lines
+    assert not any("OFFER-LED" in line for line in lines)
 
 
 @pytest.mark.parametrize("path, text", [
-    (("checked_claims", 0, "fact"), "The Fuji is $8,250 at full price, no discount applied."),
+    (("reasons", 0, "body"), "The Fuji is $8,250 at full price, no discount applied."),
     (("faq", "questions", 0, "answer"), "There is no sale right now; the price is the price."),
     (("closing", "headline"), "Not on sale, still worth it"),
 ])
@@ -263,12 +265,12 @@ def test_no_page_denies_an_offer_the_ad_states(path, text):
     assert not any(":offer_denial:" in p["key"] for p in plain)
 
 
-def test_an_unverified_offer_stays_out_of_the_checked_claims():
+def test_an_unverified_offer_stays_out_of_the_reasons():
     fp, _ = _unverified_facts()
     page = _landing("open")
-    page["checked_claims"][0]["ad_said"] = "A fall sale with money off every model."
+    page["reasons"][0]["headline"] = "A fall sale with money off every model"
     keys = {p["key"] for p in landing.find_landing_violations(page, fp)}
-    assert "landing:offer_in_checked:0" in keys
+    assert "landing:offer_in_reasons:0" in keys
 
 
 def test_the_listicle_gate_refuses_a_denial_too(monkeypatch):
@@ -320,7 +322,7 @@ def test_an_offer_led_headline_is_about_the_offer_and_the_writer_is_told():
     assert "landing:offer_headline" in keys
     lines = landing.writer_lines(fp, look="open")
     assert any("OFFER-LED" in line and PROMO["id"] in line for line in lines)
-    assert any(DEADLINE in line for line in lines)
+    assert any("Today's price ends Thu, Oct 15" in line for line in lines)   # the last day before Oct 16
 
 
 def test_a_fake_run_of_the_sale_ad_matches_the_claim_and_renders_an_offer_led_page(tmp_path, monkeypatch):
@@ -338,8 +340,8 @@ def test_a_fake_run_of_the_sale_ad_matches_the_claim_and_renders_an_offer_led_pa
     monkeypatch.setattr(type(TENANT), "claims_dir", property(lambda self: root))
     fixture = tmp_path / "aiir-sale.txt"
     fixture.write_text(AIIR + "\n")
-    fixed = dict(copy.deepcopy(fake_run.LANDING_PAGE), hero=dict(fake_run.LANDING_PAGE["hero"],
-                 headline="Money off every indoor sauna during the sale", accent_phrase="Money off"))
+    fixed = dict(copy.deepcopy(fake_run.LANDING_PAGE), cta_text="Shop the sale", hero=dict(
+        fake_run.LANDING_PAGE["hero"], headline="Money off every indoor sauna during the sale", accent_phrase="Money off"))
     rc, run_dir, _pages = fake_run.run_once(str(fixture), tenant="peak-saunas", cartridges="landing", look="open",
                                             extra_responses=[json_response(fixed)])
     assert rc == 0
@@ -378,17 +380,18 @@ DENIAL = "There is no discount applied; you pay the full price."
 
 def _prod_like(base, *, outlet_wrong=True):
     """The four refusals the prod proof-look runs hit on rebuild-arm
-    (2026-10-14), on a canned page: checked_claims[0] half-filled (an offer
-    placeholder with no fact), the offer again at checked_claims[5], a denial
-    in faq.questions[0].answer and a wrong outlet claim in
-    faq.questions[2].answer."""
+    (2026-10-14), on a canned page (cycle 110: in reasons): reasons[0]
+    half-filled (an offer placeholder with no body), the offer again at
+    reasons[5], a denial in faq.questions[0].answer and a wrong outlet claim
+    in faq.questions[2].answer."""
     page = copy.deepcopy(base)
+    page["cta_text"] = "Shop the sale"
     page["hero"] = dict(page["hero"], headline="Money off every indoor sauna during the sale", accent_phrase="Money off")
-    items = page["checked_claims"]
-    half = {"ad_said": "What the ad led with.", "claim_ids": ["spec-fuji-capacity"]}   # no fact: a placeholder
-    repeat = {"ad_said": "A sale with money off every indoor sauna.",
-              "fact": "The sale takes money off at checkout.", "claim_ids": [PROMO["id"]]}
-    page["checked_claims"] = [half] + items[:4] + [repeat] + items[4:]
+    items = page["reasons"]
+    half = {"headline": "What the ad led with", "claim_ids": ["spec-fuji-capacity"], "lever": "outcome"}
+    repeat = {"headline": "Money off every indoor sauna", "body": "The sale takes money off at checkout.",
+              "claim_ids": [PROMO["id"]], "lever": "outcome"}
+    page["reasons"] = [half] + items[:4] + [repeat] + items[4:]
     faq = page["faq"]["questions"]
     faq[0] = dict(faq[0], answer=faq[0]["answer"] + " " + DENIAL)
     if outlet_wrong:
@@ -399,22 +402,22 @@ def _prod_like(base, *, outlet_wrong=True):
 def test_the_writer_is_told_exactly_what_the_renderer_adds_and_what_it_must_not_write():
     fp, _ = _offer_facts()
     text = "\n".join(landing.writer_lines(fp, look="proof"))
-    for added in ('"Community Savings Sale"', '"$300 off with code INDOOR300"', f'"{DEADLINE}"',
-                  '"Offer applied at checkout with the code."', '"Code INDOOR300"', "the FIRST checked claim"):
+    for added in ('"Community Savings Sale"', '"$300 off with code INDOOR300"', "Today's price ends Thu, Oct 15",
+                  "the CTA note", "the sticky bar", "the sale as the FIRST reason"):
         assert added in text, added
-    assert "checked_claims with 3-5 items" in text and "no placeholder or empty item" in text
-    assert "No FAQ question about discounts" in text and '"no discount"' in text
-    assert "checked_claims has 4-6 items" not in text   # the old count is not also asked for
+    assert "reasons has 3-4 items" in text and "no reason, FAQ entry or placeholder about the sale" in text
+    assert "never say it applies automatically" in text and '"no discount"' in text
+    assert "checked_claims has" not in text
 
 
 def test_the_gate_accepts_the_writers_list_without_the_offer_item():
     fp, _ = _offer_facts()
     page = _landing("open")
-    for n in (3, 5, 6):
-        page["checked_claims"] = (copy.deepcopy(fake_run.LANDING_PAGE["checked_claims"]) * 2)[:n]
-        assert not any(p["key"] == "landing:checked_count" for p in landing.find_landing_violations(page, fp)), n
-    page["checked_claims"] = page["checked_claims"][:2]
-    assert any(p["key"] == "landing:checked_count" for p in landing.find_landing_violations(page, fp))
+    for n in (3, 4, 5):
+        page["reasons"] = (copy.deepcopy(fake_run.LANDING_PAGE["reasons"]) * 2)[:n]
+        assert not any(p["key"] == "landing:reasons_count" for p in landing.find_landing_violations(page, fp)), n
+    page["reasons"] = page["reasons"][:2]
+    assert any(p["key"] == "landing:reasons_count" for p in landing.find_landing_violations(page, fp))
 
 
 def test_tidy_drops_the_offer_items_strips_the_denial_and_keeps_the_rest():
@@ -422,10 +425,10 @@ def test_tidy_drops_the_offer_items_strips_the_denial_and_keeps_the_rest():
     base = _proof_page()
     page = _prod_like(base, outlet_wrong=False)
     page["faq"]["questions"].append({"question": "Is there a discount code?", "answer": "Yes, at checkout."})
-    notes = offer.tidy_page(page, fp, "landing")
-    assert page["checked_claims"] == base["checked_claims"]
+    notes = offer.tidy_page(page, fp, "landing") + landing.tidy_for_render(page, fp)
+    assert page["reasons"] == base["reasons"]
     assert page["faq"]["questions"] == base["faq"]["questions"]
-    assert len(notes) == 4 and any("checked_claims[0]: no fact" in n for n in notes)
+    assert len(notes) == 4 and any("reasons[0]: no body" in n for n in notes)
     # nothing to do on a page whose ad states no offer, or with no offer words
     assert offer.tidy_page(_prod_like(base), _facts_pack(), "landing") == []
     assert offer.tidy_page(copy.deepcopy(base), fp, "landing") == []
@@ -451,18 +454,18 @@ def test_the_prod_refusals_are_fixed_and_the_page_passes_after_one_repair(look, 
                                             extra_responses=[repair_answer])
     assert rc == 0
     log = next(TENANT.runs_dir.glob("*.log")).read_text()
-    assert "fix: dropped checked_claims[0]: no fact" in log and "fix: dropped checked_claims[5]: the offer" in log
+    assert "fix: dropped reasons[0]: no body" in log and "fix: dropped reasons[5]: it cites the offer claim" in log
     assert "fix: removed a denial of the offer from $.faq.questions[0].answer" in log
     assert "landing:power" in log and "gate PASS on attempt 2" in log
     page = json.loads((run_dir / "landing" / "page.json").read_text())
-    assert page["look"] == look and len(page["checked_claims"]) == 6
-    assert not any(PROMO["id"] in (c.get("claim_ids") or []) for c in page["checked_claims"])
+    assert page["look"] == look and len(page["reasons"]) == 4
+    assert not any(PROMO["id"] in (c.get("claim_ids") or []) for c in page["reasons"])
     assert DENIAL not in json.dumps(page) and WRONG_OUTLET not in json.dumps(page)
     html = (run_dir / "landing" / "index.html").read_text()
     first = _first_screen(html)
     assert first.count("INDOOR300") == 1 and first.count("Prices go up on October 16, 2099.") == 1
-    checks = html[html.index("$300 off every indoor sauna. $500 off outdoor."):]
-    assert checks.index(PROMO["text"].replace("2026", "2099")) < checks.index(page["checked_claims"][0]["fact"])
+    why = html[html.index("Why it works"):]
+    assert why.index("$300 off with code INDOOR300") < why.index(page["reasons"][0]["headline"])
     assert "no discount" not in html.lower() and "full price" not in html.lower()
 
 

@@ -182,9 +182,12 @@ def _replace_retired_name(text, retired, display_name, exceptions):
         s, e = m.span()
         if any(ps <= s and e <= pe for ps, pe in protected):
             return m.group(0)
-        return display_name
+        # Cycle 110: a retired plural name's bare apostrophe is a possessive:
+        # "Acme Saunas' warranty" -> "ACME's warranty", never "ACME' warranty"
+        return display_name + (m.group(1) + "s" if m.group(1) else "")
 
-    return re.sub(re.escape(retired), _sub, text)
+    pattern = re.escape(retired) + ("(['\u2019](?![A-Za-z]))?" if retired.endswith("s") else "()")
+    return re.sub(pattern, _sub, text)
 
 
 def find_retired_name_violations(page_json, facts_pack, tenant, *, log=None, cartridge_name=None):
@@ -545,7 +548,7 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
     # claims, word limits, FAQ, one CTA, room photo, quote, renderer-owned
     # keys, power wording) -- harness/landing.py. Keys are "landing:*".
     if cartridge_name == "landing":
-        problems += landing.find_landing_violations(page, facts_pack)
+        problems += landing.find_landing_violations(page, facts_pack, ad_brief=ad_brief, tenant=tenant)
     # Cycle 91: the catalog blocks (harness/blocks/catalog/) -- the fields of
     # the blocks this page's look declares (`look`: the run's resolved look;
     # else the page's own recorded one), an unknown or undeclared block, a
@@ -1480,7 +1483,9 @@ def degenerate_repair(prev, page, prev_problems=None):
     if any(isinstance(v, dict) and v and not page_blocks.get(k) and k not in told_to_drop
            for k, v in prev_blocks.items()):
         return True
-    return ((len(prev.get("checked_claims") or []) >= 4 and not page.get("checked_claims"))
+    return ((len(prev.get("checked_claims") or []) >= 4 and not page.get("checked_claims")
+             and not page.get("reasons"))
+            or (len(prev.get("reasons") or []) >= 3 and not page.get("reasons"))
             or (bool(sub(prev, "faq", "questions")) and not sub(page, "faq", "questions"))
             or (bool(sub(prev, "closing", "headline")) and not sub(page, "closing", "headline")))
 
@@ -1502,10 +1507,14 @@ def cartridge_write_constraints(cartridge_name, cartridges_dir, facts_pack, ad_b
     # name -- pass it for both placeholders, matching what model_name
     # already did (and what the listicle cartridge already renders
     # correctly).
-    allowed_cta_texts = resolve_allowed_cta_texts(
-        schema, facts_pack["product"]["name"], model_name=facts_pack["product"]["name"],
-        tenant=tenant, ad_angle=(ad_brief or {}).get("angle"),
-    )
+    if cartridge_name == "landing" and isinstance(schema.get("allowed_cta_texts"), dict):
+        # Cycle 110: the CTA phrase by the ad's angle (sale, financing, story).
+        allowed_cta_texts = landing.allowed_cta_texts(schema, facts_pack, ad_brief, tenant)
+    else:
+        allowed_cta_texts = resolve_allowed_cta_texts(
+            schema, facts_pack["product"]["name"], model_name=facts_pack["product"]["name"],
+            tenant=tenant, ad_angle=(ad_brief or {}).get("angle"),
+        )
     return schema, word_range, allowed_cta_texts
 
 
@@ -1673,6 +1682,8 @@ def write_and_gate_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack,
         # FAQ about it, no denial) are applied here, never sent for repair.
         offer_notes = (offer_mod.tidy_page(page, facts_pack, cartridge_name)
                        if cartridge_name in ("landing", "listicle") else [])
+        # Cycle 110: a reason citing the offer, placeholder text, a returns FAQ.
+        offer_notes += landing.tidy_for_render(page, facts_pack) if cartridge_name == "landing" else []
         for note in offer_notes:
             log.event(f"write.{cartridge_name}", f"fix: {note}")
         dropped = int(dropped) + len(offer_notes)
