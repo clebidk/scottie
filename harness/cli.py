@@ -783,6 +783,19 @@ class LockedShopifyPublisher(ShopifyPublisher):
         raise PublishLocked(self.MESSAGE)
 
 
+LEAN_LANDING_SUFFIX = "landing"
+
+
+def _lean_suffix(publisher, tenant, cartridge):
+    """Cycle 110: with tenant.yaml `landing_lean_layout: true` a landing page
+    renders through templates/page.landing.liquid + layout/landing.liquid
+    (deploy/shopify/lean/): no promo bar, header, sales popup or chat bar.
+    Every other page keeps shopify_publish.template_suffix."""
+    if cartridge == "landing" and tenant.get("landing_lean_layout") is True and hasattr(publisher, "template_suffix"):
+        publisher.template_suffix = LEAN_LANDING_SUFFIX
+    return publisher
+
+
 def _make_publisher(tenant, *, export_dir, unlinked_live=False):
     """tenant.yaml's `publisher` key picks the adapter; `export` (the
     default) needs no credentials at all. `publish_locked: true` swaps in
@@ -915,7 +928,7 @@ def cmd_publish(args):
     export_dir = cartridge_dir / "export"
 
     if args.dry_run:
-        publisher = _make_publisher(tenant, export_dir=export_dir)
+        publisher = _lean_suffix(_make_publisher(tenant, export_dir=export_dir), tenant, args.page)
         report = publisher.dry_run({"body_html": shopify_body_html, "assets": assets_manifest})
         # Cycle 95: which brand/fonts files the next real publish uploads
         # (once per tenant; brand/fonts/cdn-manifest.json remembers them).
@@ -967,6 +980,7 @@ def cmd_publish(args):
         publisher = _make_publisher(tenant, export_dir=export_dir, unlinked_live=True)
     else:
         publisher = _make_publisher(tenant, export_dir=export_dir)
+    publisher = _lean_suffix(publisher, tenant, args.page)
     if (update or unlinked) and not isinstance(publisher, ShopifyPublisher):
         print(f"--{'update' if update else 'unlinked live'} is only supported for the shopify publisher",
               file=sys.stderr)
@@ -1072,6 +1086,60 @@ def cmd_post_live(args):
     print(f"{action}: {args.page} of {Path(args.run_dir).name} is {state} at {record.get('url')} "
           f"(unlinked: no ad, no test, no redirect)")
     return exits.OK
+
+
+def _theme_client(tenant):
+    from .publishers.shopify import ShopifyPublisher
+
+    tenant.load_env()
+    return ShopifyPublisher()
+
+
+def cmd_theme_push_landing_layout(args):
+    """`harness theme push-landing-layout --theme <id> [--theme <id>] [--dry-run]`
+    (cycle 110): writes deploy/shopify/lean/{layout/landing.liquid,
+    templates/page.landing.liquid} to each theme through the Admin asset API,
+    backing up a differing theme copy first (tenants/<t>/out/theme-backups/).
+    `--dry-run` reads and lists what it would write."""
+    from . import theme_lean
+    from .publishers.shopify import ShopifyCredentialsMissing
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    try:
+        client = _theme_client(tenant)
+        n = theme_lean.push(client, args.theme, dry_run=args.dry_run,
+                            backup_dir=Path(tenant.out_dir) / "theme-backups")
+    except (ShopifyCredentialsMissing, HarnessError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    print(f"{'dry run: nothing written' if args.dry_run else f'{n} asset(s) written'}")
+    return exits.OK
+
+
+def cmd_theme_verify_landing_layout(args):
+    """`harness theme verify-landing-layout <url>` (cycle 110): fetches a page
+    published with the lean layout and checks it carries no promo bar,
+    sales popup, chat bar or review-widget markup, that the HTML plus what
+    it references is at most 800 KB, and that every theme in tenant.yaml
+    `shopify_publish.theme_ids` holds both lean files. Exit 1 on a failure."""
+    from . import theme_lean
+    from .publishers.shopify import ShopifyCredentialsMissing
+
+    tenant = tenant_mod.load_tenant(args.tenant)
+    tenant_mod.activate(tenant)
+    theme_ids = [int(t) for t in (tenant.get("shopify_publish.theme_ids") or [])]
+    try:
+        client = _theme_client(tenant) if theme_ids else None
+    except ShopifyCredentialsMissing:
+        client = None
+    try:
+        failures = theme_lean.verify(args.url, client=client, theme_ids=theme_ids)
+    except (HarnessError, OSError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    print("PASS" if not failures else f"FAIL ({len(failures)})")
+    return exits.OK if not failures else 1
 
 
 def cmd_pages_set_template(args):
@@ -2495,6 +2563,20 @@ def build_parser():
     p_post_live.add_argument("--note")
     _add_tenant_flag(p_post_live)
     p_post_live.set_defaults(func=cmd_post_live)
+
+    p_theme = sub.add_parser("theme", help="the lean landing layout in the store's themes (cycle 110)")
+    theme_sub = p_theme.add_subparsers(dest="theme_command", required=True)
+    p_theme_push = theme_sub.add_parser("push-landing-layout",
+                                        help="write layout/landing.liquid + templates/page.landing.liquid to a theme")
+    p_theme_push.add_argument("--theme", action="append", required=True, type=int, help="theme id (repeatable)")
+    p_theme_push.add_argument("--dry-run", action="store_true", help="read and list what would be written")
+    _add_tenant_flag(p_theme_push)
+    p_theme_push.set_defaults(func=cmd_theme_push_landing_layout)
+    p_theme_verify = theme_sub.add_parser("verify-landing-layout",
+                                          help="check a page published with the lean layout")
+    p_theme_verify.add_argument("url")
+    _add_tenant_flag(p_theme_verify)
+    p_theme_verify.set_defaults(func=cmd_theme_verify_landing_layout)
 
     p_pages = sub.add_parser("pages", help="operations on the Shopify pages this tenant's runs published")
     pages_sub = p_pages.add_subparsers(dest="pages_command", required=True)

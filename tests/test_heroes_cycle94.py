@@ -375,12 +375,12 @@ SHIPPED = {
     "landing-open-frame": "b3a118f453e25126",
     "landing-proof-dry": "f35169064da7c94a",
     "landing-proof-frame": "1d8e0624c049b59f",
-    "listicle-display-dry": "2ed5289c14ee0300",
-    "listicle-display-frame": "2e8522597af3b4b7",
-    "listicle-face-dry": "154c8161d82df44a",     # no still: face falls back to story
-    "listicle-face-frame": "a133b861a83e8079",
-    "listicle-story-dry": "154c8161d82df44a",
-    "listicle-story-frame": "e938914183542a78",
+    "listicle-display-dry": "82210181d7883749",
+    "listicle-display-frame": "357c14edaab33c17",
+    "listicle-face-dry": "362a467b6702176d",     # no still: face falls back to story
+    "listicle-face-frame": "b27e9282238eaf2a",   # cycle 110: the face still framed 4:3 (was 4:5)
+    "listicle-story-dry": "362a467b6702176d",
+    "listicle-story-frame": "f99ea0d8c1846331",
 }
 
 

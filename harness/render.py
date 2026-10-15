@@ -34,6 +34,7 @@ from . import looks as looks_mod
 from . import pagechecks
 from . import quiz as quiz_mod
 from . import landing as landing_mod
+from . import runstate as runstate_mod
 from . import offer as offer_mod
 from . import pdp as pdp_mod
 from . import quote_fidelity
@@ -871,6 +872,35 @@ def render_image_slot(asset, *, hero=False, css_class="", caption=None, sizes=No
     return Markup(img_tag)
 
 
+_STYLE_BLOCK_RE = re.compile(r"(<style\b[^>]*>)(.*?)(</style>)", re.S | re.I)
+_CSS_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+
+
+def _strip_css_comments(html):
+    """Comments out of every <style> block (CSS only; markup untouched)."""
+    return _STYLE_BLOCK_RE.sub(lambda m: m.group(1) + re.sub(r"\n\s*\n+", "\n", _CSS_COMMENT_RE.sub("", m.group(2)))
+                               + m.group(3), html)
+
+
+def image_preload(asset, *, crop=None):
+    """Cycle 110: a <link rel="preload"> for the first screen's photo -- the
+    same variants (and focal crop) render_image_slot(hero=True) prints, WebP
+    first -- so the LCP image starts with the HTML. "" with nothing to load.
+    A <link rel="preload"> is allowed in the body (body-ok)."""
+    if not asset:
+        return Markup("")
+    if crop and crop in images_mod.CROPS:
+        asset = images_mod.crop_asset(asset, crop)
+    variants = asset.get("variants") or []
+    webp = ", ".join(f"{v['webp']} {v['width']}w" for v in variants if v.get("webp"))
+    jpg = ", ".join(f"{v['jpg']} {v['width']}w" for v in variants)
+    srcset, kind = (webp, ' type="image/webp"') if webp else (jpg, "")
+    if not srcset:
+        return Markup("")
+    return Markup(f'<link rel="preload" as="image"{kind} imagesrcset="{escape(srcset)}" '
+                  f'imagesizes="{escape(IMAGE_SIZES_HERO)}" fetchpriority="high">')
+
+
 # Cycle 52 (rebrand): a brand may ask for uppercase headlines. That is a
 # CASE rule, not a copy rule -- the writer's own words are never rewritten,
 # and nothing downstream (the claims gate, the visible-text scans, REVIEW.md)
@@ -1013,6 +1043,7 @@ def render_page(
     # block.html partials (loaded via {% include %}, not Python) can call
     # it too.
     env.globals["render_image_slot"] = render_image_slot
+    env.globals["image_preload"] = image_preload
     env.globals["image_fit"] = image_fit
 
     structure_css = load_structure_css()
@@ -1656,8 +1687,16 @@ def render_page(
     if structural_hits:
         raise ClaimsGateFailure(f"html_structure:{cartridge_name}", structural_hits)
 
+    if landing_context is not None and (landing_context.get("sell_flags") or {}):
+        # cycle 110: a pre-sell look ships its CSS without comments (the
+        # 60 KB HTML budget, harness/perf.py); every other look is unchanged
+        html = _strip_css_comments(html)
     (out_dir / "index.html").write_text(html)
     if landing_context is not None:
+        # cycle 110: the copy-side quality numbers into state.json (the
+        # design gate adds LCP, CLS and the first-screen window)
+        runstate_mod.record_quality(run_dir, "landing", landing_mod.quality(page, facts_pack, ad_brief, html,
+                                                                            tenant=tenant))
         for node, key, text in token_restore:   # cycle 110: the writer's tokens, not today's figures
             node[key] = text
     (out_dir / "page.json").write_text(json.dumps(page, indent=2))

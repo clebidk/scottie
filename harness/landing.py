@@ -365,8 +365,11 @@ def sell_context(page, facts_pack, *, ad_brief=None, tenant=None, base=None):
         "monthly": fm,
         "sale": sale,
         "deadline": dl,
-        "offer_bar": (" · ".join(x for x in ((view or {}).get("name"), (view or {}).get("line"),
-                                                 ("ends " + dl["date"]) if dl else None) if x) if view else ""),
+        # one line at 375px: the sale, the amount (the code is in the price line), the last day
+        "offer_bar": (" · ".join(x for x in ((view or {}).get("name"),
+                                                 (f"{view['amount']} off" if view.get("amount") else view.get("line")),
+                                                 (f"ends {dl['short'].split('ends ', 1)[-1]}") if dl else None) if x)
+                      if view else ""),
         "stats": strip[:4],
         "reasons": landing_sell.reasons_view(page, fp, pr),
         "included": landing_sell.included(fp, page, tenant),
@@ -693,7 +696,9 @@ def writer_lines(facts_pack, tenant=None, look=None):
         "time frame; for a testimonial ad (speaker_pov first_person) the speaker's strongest line from "
         "transcript_or_text, word for word in quotes, credited \"In the ad, <she/he/the creator> says\". "
         "hero.accent_phrase: 1-4 words copied from the headline. The first screen shares at least two content "
-        "words with the hook, angle and promise, or quotes the speaker (gate landing:hook_match). "
+        "words with the hook, angle and promise, or quotes the speaker (gate landing:hook_match); the HEADLINE "
+        "itself repeats at least one word of the hook or promise. An ad that sells paying over time gets a "
+        "headline in its own words about payments (with {monthly} when this page has it). "
         "hero.hero_image.asset_id: the product photo to show when the ad has no usable still.",
         token_line(facts_pack),
         f"reasons has {lo}-{hi} items, each {{headline, body, claim_ids, lever, proof_ref, asset_role}}: headline "
@@ -1157,6 +1162,32 @@ def find_persuasion_violations(page, facts_pack=None, ad_brief=None, tenant=None
                                                          prefix=_PROBLEM_PREFIX)
     problems += persuasion.find_faq_rule_violations(page, facts_pack, prefix=_PROBLEM_PREFIX)
     return problems
+
+
+def quality(page, facts_pack, ad_brief, html, *, tenant=None):
+    """Cycle 110: the copy-side quality numbers of a rendered landing page
+    (runstate.record_quality): hook_match (share of the hook's content words
+    the first screen restates, 0-1), grade_level (Flesch-Kincaid of the
+    writer's copy), cta_count (CTA placements carrying data-el, the sticky bar
+    included, "Text us" not), proof_count (rating, units line, review quotes,
+    the ad speaker's quote, trust items the page prints)."""
+    from .claims import safe_quote_candidates
+
+    hero = filled_hero(page, facts_pack)
+    text = " ".join(str(hero.get(k) or "") for k in ("eyebrow", "headline", "subhead"))
+    quotes = [q["text"] for q in safe_quote_candidates(ad_brief or {}, facts_pack or {})] if ad_brief else []
+    match = persuasion.hook_match(text, ad_brief or {}, exclude=_exclude_words(facts_pack, tenant), quotes=quotes,
+                                  headline=str(hero.get("headline") or ""))
+    els = re.findall(r'data-el="(\w+)"', html or "")
+    proof = 0
+    proof += 1 if re.search(r'class="pf-proof"|class="ld-stars"|ld-rating|bk-stat_strip', html or "") else 0
+    proof += 1 if "pf-proof" in (html or "") and " delivered" in (html or "") else 0
+    proof += len(re.findall(r'class="pk-quote"', html or ""))
+    proof += len(re.findall(r'class="pk-founder"', html or ""))
+    return {"hook_match": 1.0 if match["quoted"] else match["score"],
+            "grade_level": persuasion.grade_level(persuasion.reading_text(page, name_words(facts_pack, tenant))),
+            "cta_count": len([e for e in els if e != "sms"]),
+            "proof_count": proof}
 
 
 def find_landing_violations(page, facts_pack=None, ad_brief=None, tenant=None):

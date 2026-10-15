@@ -7607,3 +7607,82 @@ Brief `~/asset-inbox/c110/BRIEF.md` section 3.3 item 9; teardown D1, D2, D5, D10
 - The face first screen puts the CTA below 844 px (B's hero composition).
 - With A's `included`, the 7-year warranty shows in the stack and in the fixed closing sentence.
 - B's design gate `first_screen_cta` still treats listicle face/story/display as "no CTA by design" (capture.py `cta_expected`).
+
+## Cycle 110 B (from fact-check pages to pre-sell pages: the page side, 2026-10-15)
+Branch `cycle110b/persuasion-page` from master 79d2ef3 (agent B; agent A does claims, grounding, the beacon and
+the test library in parallel; agent C takes listicle parity and the review-site display). Brief
+~/asset-inbox/c110/BRIEF.md, teardown ~/asset-inbox/teardown/TEARDOWN.md.
+
+### Problem
+40 live landing arms, 16 CTA clicks / 820 views (2.0%). The page graded the ad the reader had just believed ("The
+ad, checked", "not lifetime coverage", "priced plainly"), its headline was a spec label instead of the hook, the
+proof was one rating, the price a bare $8,250 on sale pages, one CTA placement for 84% of readers; two live
+pages printed a placeholder row, three "PEAK' warranty", one a blank subhead, one a returns FAQ, two said a coded
+discount "applies automatically".
+
+### Change
+- **Phase 0.** Gates `landing:placeholder`, `landing:returns`, `landing:auto_offer`, `landing:hero_required`;
+  a rendered visible-text placeholder scan on every cartridge (`pagechecks.find_placeholder_visible_text`);
+  `landing.tidy_for_render` (render time and before every gate) drops a writer item that cites the offer claim
+  or holds placeholder text and a FAQ entry about returns or "applies automatically"; `offer` gate also covers
+  `reasons` and items that only cite the promo claim; the retired-name pass writes "PEAK's" for "Peak Saunas'";
+  the warranty sentence is not repeated in the closing band or cinematic's proof block; "Text us" moved to the
+  closing band (`closing_link`, data-el="sms"); every CTA carries `data-el`.
+- **Phase 2.** `reasons` replace `checked_claims` (schema, cartridge.md v0.2.0, writer lines, gates, every look;
+  a legacy page still renders). Hook match, ad-reference ban (+ vocab `banned_phrases`, the "Unlock" paragraph
+  trimmed), reading level (FK <= 7.5), figure tokens in the first screen, the CTA phrase by angle, the buyer FAQ
+  (one logistics question, no medical question, HSA only when verified), sale rendering (net price, struck list
+  price, code, the claim's last day). Details: docs/GENERATOR.md "Cycle 110".
+- **Phase 3.** The `peak` look (look.json "sell") and its first screen `peak_first`, built for the store's
+  visible window (y 116-600 at 375px); the PEAK library is peak / proof / cinematic (open retired, files kept).
+  Design gate: `chrome_window`, `cta_spacing`, `dead_clicks`, `load_budget` (harness/perf.py, LCP/CLS over the
+  DevTools protocol with Slow 4G and 4x CPU), the hero-subject line for the judge; audience-mismatched people
+  photos never shown. state.json `landing.quality`.
+- **Lean layout.** deploy/shopify/lean/ (layout + template + README), `harness theme push-landing-layout` /
+  `verify-landing-layout`, tenant `landing_lean_layout` (default false) and `shopify_publish.theme_ids`.
+- **Real-browser tests.** The 6 screenshot tests failing on master: snap Chromium (first on PATH) has a private
+  /tmp and cannot read pytest's tmp_path. tests/conftest.py now points them at google-chrome via HARNESS_CHROME.
+
+### Shared-file hunks
+harness/claims.py (the landing benefit section counts `reasons`), harness/offer.py
+(`find_offer_in_checked_violations` covers reasons and promo-claim citations), harness/repair.py (possessive,
+landing gate args, the tidy call, the degenerate guard, the CTA map), harness/pipeline.py (model rows for a
+"sell" look, `_record_measured_quality`), harness/runstate.py (`record_quality`), harness/cli.py (`_lean_suffix`,
+`theme` commands), harness/look_import.py (+ rules md: reasons / closing_link contract).
+
+### Host note: pytest on a tmpfs /tmp (read before running the suite on prod)
+On prod /tmp is tmpfs. pytest's basetemps (/tmp/pytest-of-deploy) from several agents' suites grew to 2.2 GB of
+shmem charged to the deploy user's memory cgroup (memory.max 3 GB): the kernel cannot reclaim it, deploy
+processes stalled in D state (mem_cgroup_handle_over_high) and ssh timed out for most of an hour (2026-10-15
+~20:40-23:00 UTC). Rule: every pytest run on prod uses `--basetemp=$HOME/<scratch>/pt` (disk; pytest clears it
+per run), and one full suite runs at a time. The same tmpfs explains the 6 real-browser failures on master: snap
+Chromium has its own private /tmp and cannot read a page under /tmp/pytest-of-deploy.
+
+### Verify
+- tests/test_presell_cycle110.py: every gate from the teardown's own failing text (the placeholder row, the
+  returns FAQ, "applies automatically", "PEAK'", the blank subhead, "not lifetime coverage", "What the research
+  really says", "priced plainly", "Here is what's actually true", "no separate list price", "Is this a treatment
+  for RA or lupus?", the women-over-40 spec headline); the look's order, CTAs and every facts_pack fallback; the
+  design-gate checks; the load budget; the lean layout push/verify; a fake run in the look. Existing suites
+  updated for reasons (test_landing_cycle82, test_offer_cycle109, the look-import and library tests); the
+  open/proof/listicle-face render hashes re-pinned with the reason in each comment.
+- Phase 0 re-render (copies, no model call) of the two placeholder pages (ks3s, lcxf): no placeholder, no
+  returns FAQ, no "automatically" in the visible text.
+- Six live arms re-rendered in the peak look (sale x2, financing, PA video, regret story, women 40+): every
+  first-screen block inside y 116..h-212 at 360/375/390 wide, CTA spacing and dead clicks pass, LCP 0.69-1.29 s,
+  CLS <= 0.043, HTML 50-52 KB after the CSS-comment strip. Shots: ~/asset-inbox/c110-shots/rerender-*.
+- Live smoke runs in the worktree (`--look peak`, design gate off, total $0.56 with two STOPs): sale ad PASS
+  ($0.087, 2 attempts), PA video PASS ($0.090), financing PASS on the second run ($0.107). The first sale run
+  STOPped on a proof_ref read as copy (fixed: proof_ref/lever/asset_role are non-prose keys); the first
+  financing run on "Pay monthly" vs "payment plans" (fixed: the stem strips -ment/-ly). Jev (cycle 76 rubric)
+  composite new vs the arms they replace: sale 0.551 vs 0.535/0.574, PA 0.522 vs 0.545/0.469, financing 0.588 vs
+  0.630/0.634.
+
+### Open
+- The design gate was off in the smoke runs (budget); its new checks were measured offline with the same code.
+- Copy the gates cannot see: "heat ready in minutes" (time claim with no verified claim), "start easing sore
+  joints" (a health outcome in the brand's voice, financing STOP run). A health-outcome gate for brand copy is
+  not built.
+- A writer proof.quote that copies a review with "!" still fails the always-forbidden "!" (claims.py, agent A);
+  the peak look's review wall is renderer-built and keeps the "!".
+- Listicle: warranty twice with A's value stack (listicle files, agent C).

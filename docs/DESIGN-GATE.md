@@ -55,6 +55,29 @@ tenant-neutral rubric) and `tenants/<t>/design-rubric.md` (the brand rules and i
    A refusal, an API error, a cut-off or unreadable answer makes that variant "not judged" (logged), never a
    crash.
 
+### Cycle 110 hard checks
+
+- `chrome_window` -- for the pre-sell first screen (`peak_first`), probed at 375x812, 390x844 and 360x780: the
+  eyebrow, headline, subhead, proof row, price line and CTA pill each end above `h - 212` once the store's
+  116px of header chrome sit on top (the visible window on load, measured 2026-10-15), and the photo's top
+  edge shows. Any other first screen passes with a note.
+- `cta_spacing` -- in-flow CTAs (`ld-btn`, `ld-link`, `hr-cta`, ...) no more than 1.5 phone screens (1266px)
+  apart, from the top of the page to the footer. Fails on a pre-sell look (look.json "sell"), warns elsewhere.
+- `dead_clicks` -- nothing with a pointer cursor or role=button that is not a link or button. Fail on a
+  pre-sell look, warn elsewhere.
+- `load_budget` (harness/perf.py) -- HTML <= 60 KB, the hero image <= 60 KB WebP with a reserved box, no
+  eager image below the hero, no external script; and on a pre-sell look the page's own LCP <= 2.5 s and CLS
+  <= 0.1 in headless Chromium over the DevTools protocol with Slow 4G (1.6 Mbps, 150 ms RTT) and a 4x CPU
+  slowdown at 390x844, the page served from 127.0.0.1. The numbers show in REVIEW.md's hard-check line and
+  on the generation page; state.json `landing.quality` keeps lcp_ms, cls and first_screen_ok.
+- The judge's context for a landing page asks whether the product or the ad's person is recognizable in the
+  390px crop and, when the ad names an audience, whether a people photo matches it.
+
+Real-browser tests: a snap-packaged Chromium (/snap/bin/chromium, first on the prod PATH) has its own
+private /tmp and cannot read pytest's tmp_path, so tests/conftest.py points `real_browser` tests at a non-snap
+browser (google-chrome) through HARNESS_CHROME when one is installed. Production renders live under $HOME and
+are unaffected.
+
 ## The rubric
 
 `harness/design_rubric.md` (engine, tenant-neutral) + `tenants/<t>/design-rubric.md` (tenant). A tenant

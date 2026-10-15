@@ -277,7 +277,8 @@ def _check(status, detail, items=None):
 def first_screen_cta(probe_phone):
     """Cycle 97: on a 390 x 844 phone, the primary CTA's top edge is inside
     the first screen. Only for a page whose first screen carries the pill (a
-    landing page, a cycle 94 composition: the probe's `cta_expected`); an
+    landing page, a cycle 94 composition, a listicle whose first screen
+    carries a data-el="hero" CTA (cycle 110): the probe's `cta_expected`); an
     article first screen (listicle face/story/display) passes with a note."""
     if not probe_phone.get("cta_expected"):
         return _check("pass", "no first-screen CTA by design (article first screen)")
@@ -290,7 +291,104 @@ def first_screen_cta(probe_phone):
     return _check("pass", f"the primary CTA starts at {top}px, inside the first {PHONE[1]}px screen")
 
 
-def hard_checks(probe_phone, phone_png, page_dir):
+# Cycle 110: the first phone window a visitor sees on the live store. Measured
+# 2026-10-15 at 375 x 812 inside the theme: promo bar + header take y 0-116;
+# the chat bar and the sales popup cover the bottom 212px. Our page starts
+# under the header, so an element at y in the standalone render shows at
+# y + CHROME_TOP. Checked at three phones.
+CHROME_TOP = 116
+CHROME_BOTTOM = 212
+CHROME_SCREENS = ((375, 812), (390, 844), (360, 780))
+FIRST_SCREEN_KEYS = ("eyebrow", "h1", "dek", "proof", "price", "cta")
+CTA_GAP_SCREENS = 1.5
+
+
+def chrome_window(probes):
+    """{(w, h): probe} -> check: every first-screen block of the pre-sell
+    first screen (eyebrow, headline, subhead, proof row, price line, pill)
+    lies fully inside y CHROME_TOP .. h - CHROME_BOTTOM once the theme's
+    header is above it, and the photo's top edge shows. "pass" with a note
+    for a first screen that is not the pre-sell one."""
+    measured = {k: p for k, p in (probes or {}).items() if p and (p.get("first_screen") or {})}
+    if not measured:
+        return _check("pass", "not the pre-sell first screen (no chrome window check)")
+    bad = []
+    for (w, h), probe in sorted(measured.items()):
+        limit = h - CHROME_BOTTOM - CHROME_TOP   # bottom edge allowed in standalone coordinates
+        fs = probe["first_screen"]
+        for key in FIRST_SCREEN_KEYS:
+            box = fs.get(key)
+            if box and box["bottom"] > limit:
+                bad.append({"screen": f"{w}x{h}", "block": key, "bottom": box["bottom"] + CHROME_TOP,
+                            "window_bottom": h - CHROME_BOTTOM})
+        photo = fs.get("photo")
+        if photo and photo["top"] >= limit:
+            bad.append({"screen": f"{w}x{h}", "block": "photo top", "top": photo["top"] + CHROME_TOP,
+                        "window_bottom": h - CHROME_BOTTOM})
+    screens = ", ".join(f"{w}x{h}" for w, h in sorted(measured))
+    if bad:
+        return _check("fail", f"{len(bad)} first-screen block(s) below the visible window under the theme's "
+                              f"chrome (y {CHROME_TOP}..h-{CHROME_BOTTOM}) at {screens}", bad)
+    return _check("pass", f"every first-screen block inside y {CHROME_TOP}..h-{CHROME_BOTTOM} at {screens}")
+
+
+def cta_spacing(probe_phone, presell=False):
+    """A CTA within every CTA_GAP_SCREENS phone screens of in-flow scroll
+    (top of the page to the first CTA, between CTAs, the last CTA to the
+    footer). Fails on a pre-sell look, warns on the others."""
+    tops = list((probe_phone or {}).get("cta_tops") or [])
+    if not probe_phone or not probe_phone.get("cta_expected"):
+        return _check("pass", "no in-page CTA expected (article first screen)")
+    if not tops:
+        return _check("fail" if presell else "warn", "no in-flow CTA found")
+    limit = int(CTA_GAP_SCREENS * PHONE[1])
+    edges = [0] + tops + [int(probe_phone.get("footer_top") or tops[-1])]
+    gaps = [(a, b) for a, b in zip(edges, edges[1:]) if b - a > limit]
+    if gaps:
+        return _check("fail" if presell else "warn",
+                      f"{len(gaps)} stretch(es) longer than {CTA_GAP_SCREENS} phone screens ({limit}px) with no CTA",
+                      [{"from": a, "to": b} for a, b in gaps])
+    return _check("pass", f"{len(tops)} in-flow CTAs, none more than {limit}px apart")
+
+
+def dead_clicks(probe_phone, presell=False):
+    """No dead-click bait: an element that looks tappable (a pointer cursor
+    or role=button) but is not a link or a button."""
+    bait = list((probe_phone or {}).get("dead_bait") or [])
+    if not bait:
+        return _check("pass", "nothing looks tappable that is not a link")
+    return _check("fail" if presell else "warn", f"{len(bait)} element(s) look tappable but are not links", bait)
+
+
+def load_budget(page_dir, browser):
+    """Cycle 110: the page's own load budget (harness/perf.py): static sizes
+    always; LCP and CLS under Slow 4G + 4x CPU at 390px for a pre-sell look.
+    A miss fails a pre-sell look and warns on the others."""
+    from . import perf
+
+    presell = _presell(page_dir)
+    try:
+        static = perf.static_budget(page_dir)
+    except OSError:
+        static = None
+    measured = perf.measure(browser, Path(page_dir) / "index.html") if presell and browser else None
+    check = perf.budget_check(static, measured)
+    if check["status"] == "fail" and not presell:
+        check["status"] = "warn"
+    return check
+
+
+def _presell(page_dir):
+    try:
+        page = json.loads((Path(page_dir) / "page.json").read_text())
+    except (OSError, ValueError):
+        return False
+    from . import looks
+
+    return bool(page.get("look") and looks.sell_flags("landing", page.get("look")))
+
+
+def hard_checks(probe_phone, phone_png, page_dir, chrome_probes=None):
     """Every hard check, each {"status": pass|warn|fail|unknown, "detail",
     "items"}. A missing probe makes the DOM checks "unknown"."""
     checks = {}
@@ -301,7 +399,8 @@ def hard_checks(probe_phone, phone_png, page_dir):
         f"{mb:.2f} MB (aim under {WEIGHT_WARN_BYTES / 1e6:.1f} MB on a phone)")
     if not probe_phone or probe_phone.get("error"):
         why = (probe_phone or {}).get("error") or "no DOM probe (browser missing or failed)"
-        for name in ("overflow_390", "first_screen_cta", "contrast_hero", "empty_images", "text_cut", "tap_targets"):
+        for name in ("overflow_390", "first_screen_cta", "contrast_hero", "empty_images", "text_cut", "tap_targets",
+                     "cta_spacing", "dead_clicks", "chrome_window"):
             checks[name] = _check("unknown", why)
         checks["fonts"] = _check("unknown", why)
         return checks
@@ -331,6 +430,10 @@ def hard_checks(probe_phone, phone_png, page_dir):
         "fail" if small_cta else "warn" if taps else "pass",
         (f"{len(small_cta)} button(s) under 44px" if small_cta else
          f"{len(taps)} link(s) under 44px (not buttons)" if taps else "every tap target is 44px or more"), taps)
+    presell = _presell(page_dir)
+    checks["cta_spacing"] = cta_spacing(probe_phone, presell)
+    checks["dead_clicks"] = dead_clicks(probe_phone, presell)
+    checks["chrome_window"] = chrome_window(chrome_probes or {})
     fonts = font_report(probe_phone)
     checks["fonts"] = _check(
         "warn" if fonts["status"] == "fallback" else "pass",
@@ -366,6 +469,19 @@ def take_shots(page_dir, design_dir, n, *, tenant, browser):
                               screen_height=screen):
             shots[name] = filename
     return shots, probe_phone, probe_desk
+
+
+def chrome_probes(page_dir, *, tenant, browser, probe_phone=None):
+    """Cycle 110: probes at the CHROME_SCREENS phones for a page whose first
+    screen is the pre-sell one (the 390 probe is reused); {} otherwise."""
+    if not probe_phone or not probe_phone.get("first_screen"):
+        return {}
+    html = Path(page_dir) / "index.html"
+    out = {}
+    for w, h in CHROME_SCREENS:
+        out[(w, h)] = probe_phone if (w, h) == PHONE else capture.probe(browser, html, width=w, height=h,
+                                                                        tenant=tenant)
+    return out
 
 
 def _jpeg_b64(image):
@@ -447,7 +563,21 @@ def rubric_text(tenant=None):
     return text + "\n" + OUTPUT_SPEC
 
 
-def _context_text(*, cartridge, layout, checks, tenant_name):
+def _audience_line(page_dir):
+    """Cycle 110: the ad's named audience (from the run's ad brief), for the
+    judge's hero-subject check; "" when the ad names none."""
+    from . import landing_sell
+
+    try:
+        brief = json.loads((Path(page_dir).parent / "ad_brief.json").read_text())
+    except (OSError, ValueError, TypeError):
+        return ""
+    gender = landing_sell.audience_gender(brief)
+    hook = str(brief.get("hook") or "").strip()
+    return (f"The ad speaks to {gender} (hook: {hook!r})." if gender else "")
+
+
+def _context_text(*, cartridge, layout, checks, tenant_name, audience=""):
     fonts = (checks.get("fonts") or {}).get("items") or [{}]
     fonts = fonts[0] if fonts else {}
     lines = [f"Brand: {tenant_name}. Page type: {cartridge}."]
@@ -461,6 +591,13 @@ def _context_text(*, cartridge, layout, checks, tenant_name):
                      "not by the face itself.")
     measured = "; ".join(f"{name}: {c['status']} ({c['detail']})" for name, c in checks.items())
     lines.append(f"Hard checks measured without a model: {measured}.")
+    if cartridge == "landing":
+        # cycle 110 (brief 3.4 item 7): the hero subject, judged on the 390px crop
+        lines.append("Hero subject check: in the phone screenshot's first screen, the product (the sauna) or the "
+                     "ad's own person must be recognizable in the crop; a wall of slats, a building or an unrelated "
+                     "person is an imagery issue with where = \"first screen\"." + (
+                         f" {audience} A people photo must match that audience; one that does not is an imagery "
+                         "issue." if audience else ""))
     lines.append("Score this page design against the rubric and return the JSON object.")
     return "\n".join(lines)
 
@@ -575,7 +712,10 @@ class PageScorer:
         shots, probe_phone, _probe_desk = take_shots(page_dir, design_dir, n, tenant=self.tenant, browser=self.browser)
         record["shots"] = shots
         phone_png = Path(design_dir) / shots["phone"] if shots.get("phone") else None
-        record["hard_checks"] = hard_checks(probe_phone, phone_png, page_dir)
+        record["hard_checks"] = hard_checks(probe_phone, phone_png, page_dir,
+                                            chrome_probes(page_dir, tenant=self.tenant, browser=self.browser,
+                                                          probe_phone=probe_phone))
+        record["hard_checks"]["load_budget"] = load_budget(page_dir, self.browser)
         record["hard_fail"] = hard_fail(record["hard_checks"])
         record["fonts"] = font_report(probe_phone)
         if record["hard_checks"].get("first_screen_cta", {}).get("status") == "fail":
@@ -593,6 +733,7 @@ class PageScorer:
             record["budget_stop"] = True
             return record
         context = _context_text(cartridge=cartridge, layout=layout, checks=record["hard_checks"],
+                                audience=_audience_line(page_dir),
                                 tenant_name=getattr(self.tenant, "display_name", "") or "")
         try:
             result, cost = judge(self.client, model=self.cfg["model"], effort=self.cfg["effort"],

@@ -1,0 +1,44 @@
+{%- comment -%}
+  The advertorial harness's lean landing layout (cycle 110, 2026-10-15).
+  Source of truth: the harness repo, deploy/shopify/lean/layout/landing.liquid.
+  Push it with `harness theme push-landing-layout`; do not edit it in the theme editor.
+
+  Used only by templates/page.landing.liquid (template_suffix "landing"), which the
+  publisher sets on landing pages when tenant.yaml has `landing_lean_layout: true`.
+  It keeps: content_for_header (Shopify analytics, the pixel, consent, and the app
+  embeds Shopify injects into every layout), the two body fonts the theme already
+  serves (DM Sans 400/500, Poppins 500/600), a small wordmark linking home, the page.
+  It drops: the theme's stylesheets and scripts, the promo/announcement bar, the
+  header and its navigation, the footer, the theme's own sales-notification and
+  chat-bar snippets, theme-loaded review widgets, and every other web font.
+  README: deploy/shopify/lean/README.md.
+{%- endcomment -%}
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }} | PEAK</title>
+  {%- if page_description %}
+  <meta name="description" content="{{ page_description | escape }}">
+  {%- endif %}
+  <link rel="canonical" href="{{ canonical_url }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Poppins:wght@500;600&display=swap">
+  <style>
+    html,body{margin:0;padding:0;background:#fff;color:#1A1A1A}
+    body{font-family:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+    .lp-top{display:flex;align-items:center;justify-content:center;height:44px;border-bottom:1px solid #E6E6E6}
+    .lp-top a{font:600 15px/1 "Poppins","DM Sans",sans-serif;letter-spacing:.24em;color:#161817;text-decoration:none}
+  </style>
+  {{ content_for_header }}
+</head>
+<body class="lp-lean">
+  {%- comment -%} The wordmark is text, not the store's shop.name (which may still carry a retired name). {%- endcomment -%}
+  <div class="lp-top"><a href="{{ routes.root_url }}" aria-label="PEAK home">PEAK</a></div>
+  <main id="MainContent" role="main">
+    {{ content_for_layout }}
+  </main>
+</body>
+</html>

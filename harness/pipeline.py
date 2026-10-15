@@ -843,6 +843,8 @@ def design_gate(state):
                     runstate.record_look(state.run_dir, cartridge_name, final_page["look"])
                 _record_rendered_hero(state.run_dir, cartridge_name)   # cycle 94: what actually rendered
             state.design[cartridge_name] = result
+            if cartridge_name == "landing":   # cycle 110: the measured quality numbers
+                _record_measured_quality(state.run_dir, result)
             print(f"{cartridge_name}: {design_gate_mod.summary_line(result)}")
     finally:
         state.budget.wall_s += time.monotonic() - started
@@ -853,6 +855,22 @@ def design_gate(state):
     stops = [c for c, r in state.design.items() if r["status"] == "stop"]
     if stops:
         raise design_gate_mod.DesignGateStop(stops, state.design)
+
+
+def _record_measured_quality(run_dir, result):
+    """Cycle 110: LCP, CLS (design gate load_budget) and whether the first
+    screen fits the phone window under the store's chrome (chrome_window),
+    from the chosen variant, into state.json landing.quality."""
+    from . import runstate
+
+    checks = result.get("hard_checks") or {}
+    measured = ((checks.get("load_budget") or {}).get("items") or [{}])[0] or {}
+    window = checks.get("chrome_window") or {}
+    measured_window = window.get("status") in ("pass", "fail") and \
+        not str(window.get("detail") or "").startswith("not the pre-sell")
+    runstate.record_quality(run_dir, "landing", {
+        "lcp_ms": measured.get("lcp_ms"), "cls": measured.get("cls"),
+        "first_screen_ok": (window["status"] == "pass") if measured_window else None})
 
 
 def review_notify(state):

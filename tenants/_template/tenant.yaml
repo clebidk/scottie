@@ -261,6 +261,13 @@ shopify_publish:
   # Set it only after deploy/shopify/push_template.py has put the template in
   # every theme the store runs -- see docs/PUBLISHING.md.
   template_suffix: null
+  # Cycle 110: the themes `harness theme verify-landing-layout` checks for the
+  # lean landing files ([] = none checked).
+  theme_ids: []
+
+# Cycle 110: true -> landing pages use the lean layout (template_suffix
+# "landing", deploy/shopify/lean/); push it to every theme first.
+landing_lean_layout: false
 
 # Cycle 67: A/B/C tests (`harness abtest`, docs/ABTEST.md). Each new ad gets
 # three page builds from `library`, one split link, and a CTA click-through

@@ -478,9 +478,12 @@ def _brief_for(input_arg):
             "transcript_or_text": text,
             "audience": "",
         }
+    # Cycle 110: the hook is the ad's own opening sentence (the landing page's
+    # first screen is gated on it, landing:hook_match).
+    first = re.split(r"(?<=[.!?])\s+", text.strip(), maxsplit=1)[0] if text.strip() else ""
     return {
-        "hook": "A plain statement about the product.",
-        "promise": "See the details without talking to anyone.",
+        "hook": first or "A plain statement about the product.",
+        "promise": "A home sauna, explained without a sales call.",
         "angle": "Plain information beats a sales call.",
         "claims_made": [],
         "speaker_experience": [],

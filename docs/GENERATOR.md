@@ -408,6 +408,54 @@ price", "not on sale": `landing:offer_denial`, `listicle:offer_denial`). The A/B
 such a test off Meta (docs/ABTEST.md "Held offers"). Add a promo claim with
 `harness claims add "<text>" --category promo --source "<where>"` or the Ads page form.
 
+### Cycle 110: the persuasion model and the `peak` look
+
+The landing page is a pre-sell page now, not a fact-check (brief ~/asset-inbox/c110/BRIEF.md, teardown
+~/asset-inbox/teardown/TEARDOWN.md). What changed for the writer and the renderer:
+
+- **`reasons` replace `checked_claims`.** 3-5 items `{headline <= 10 words, body <= 45 words, claim_ids, lever,
+  proof_ref?, asset_role?}`; `lever` is outcome / likelihood / time / effort (the Value Equation), covering
+  min(4, n) levers. On an offer-led page the renderer adds the sale as reason 1 (the writer is told 3-4).
+  `checked_claims` and `ad_said` are retired: the gate refuses a page that writes them
+  (`landing:checked_claims_retired`); a page written before cycle 110 still renders its verified facts.
+- **Gates** (harness/persuasion.py, harness/landing_sell.py): `landing:hook_match` (the first screen shares two
+  content words with the hook/angle/promise and the headline one with the hook/promise, or quotes the
+  speaker), `landing:ad_reference` (+ vocab.yaml `banned_phrases`; "not an add-on" once), `landing:reading_level`
+  (Flesch-Kincaid <= 7.5 over the writer's copy; `textutil.grade_level` when present), `landing:placeholder`,
+  `landing:returns`, `landing:auto_offer`, `landing:hero_required`, `landing:faq_logistics` (one at most),
+  `landing:faq_health`, `landing:faq_hsa`, `landing:hero_token`, `landing:reason_*`. The rendered page is also
+  scanned for placeholder text (`pagechecks.find_placeholder_visible_text`, every cartridge).
+- **Figure tokens.** hero.eyebrow / headline / subhead and closing.headline may carry `{offer_amount}`,
+  `{offer_code}`, `{net_price}`, `{price}`, `{monthly}`, `{deadline_day}`, `{deadline_date}`, `{rating}`,
+  `{review_count}`; the renderer fills them from the verified claims and writes the tokens (not the figures)
+  back to page.json, so a re-render refills today's numbers.
+- **CTA by angle.** schema.json `allowed_cta_texts` is a map: sale ("Get {offer_amount} off the {short_name}",
+  "Shop the sale"), financing ("See monthly payments"), story ("See the {short_name} {pronoun} uses", only with
+  an evidenced pronoun), default ("Shop the {short_name}", "See the {short_name} price").
+- **Render-time tidy** (`landing.tidy_for_render`, also before every gate): a writer item that cites the offer
+  claim or holds placeholder text, a reason that is only the offer, and a FAQ entry about returns or saying a
+  coded offer applies automatically are dropped -- `harness rerender` fixes a live page with no model call.
+- **"Text us"** moved from the hero to the closing band (`cartridge_data.closing_link`, data-el="sms"); the
+  warranty sentence is no longer repeated in the closing band or cinematic's proof block.
+
+**The `peak` look** (cartridges/landing/looks/peak/, look.json `"sell"` flags; first screen `peak_first`):
+offer bar (sale only) -> eyebrow -> hook headline -> subhead -> proof row (store rating, units delivered) ->
+price line (net price + struck list price + code, or price + monthly figure) -> CTA pill -> the photo (the ad
+still for a creator ad, else the product cut-out), all inside y 116-600 at 375px under the store's chrome;
+then the stats strip, the reasons (a library photo by topic beside each, CTA after reason 2), "What's
+included" (price, monthly figure, HSA/FSA line, CTA), model cards (each to its own product page, `ld-link`
+data-el="cards"), the review wall + trust block (founder line, U.S.-based support, US-owned) + "Delivery &
+setup" + CTA, the FAQ, the closing (CTA, recap, "Text us", the financing disclosure) and the sticky bar (net
+price or price, monthly figure, the CTA). Every CTA carries `data-el` (hero, mid, stack, cards, reviews,
+closing, sticky). Each facts_pack field (brief 3.2) has a fallback: no `reviews_store` -> the product rating;
+no `financing.monthly` (or no disclosure) -> the price and the fixed financing sentence; no `review_quotes` ->
+no wall; no `units` -> no units line; no `included` -> the model's verified feature lines + free shipping +
+the Wellness Club line; no `offer.net_price` -> the list price and the offer line. The look's name is the
+tenant's (`peak`); the engine knows it only through look.json `"sell"` (harness/looks.py `sell_flags`).
+
+Quality numbers: state.json `landing.quality` = {hook_match, grade_level, cta_count, proof_count, lcp_ms,
+cls, first_screen_ok} (render + design gate).
+
 ## Tenant looks (cycle 87, "Import a page")
 
 A look can also belong to a TENANT: `tenants/<t>/looks/<cartridge>/<slug>/`

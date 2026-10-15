@@ -124,7 +124,8 @@ AD_REFERENCE_RE = re.compile(
     r"\bthe\s+ad\b|\bthe\s+ad's\b|\bactually\b|\breal\s+(?:price|prices|numbers?|specs?)\b"
     r"|\bnot\s+(?:verified|part\s+of|lifetime)\b|\bdoes\s+not\s+verify\b|\bdoesn't\s+verify\b|\bno\s+separate\b"
     r"|\bplainly\b|\bnothing\s+to\s+submit\b|\bno\s+form\s+required\b|\bwhat\s+holds\s+up\b"
-    r"|\bwhat'?s\s+(?:actually\s+)?verified\b|\bthe\s+ad\s+(?:said|says|claimed|promised|implied|shows?)\b",
+    r"|\bwhat'?s\s+(?:actually\s+)?verified\b|\bthe\s+ad\s+(?:said|says|claimed|promised|implied|shows?)\b"
+    r"|\breally\s+(?:says?|is|are|costs?|offers?|means?|includes?)\b|\bexplained\s+plainly\b",
     re.IGNORECASE)
 # The one way the page may name the ad: crediting the speaker's own words
 # ("In the ad, she says ..."), the framing quote_fidelity requires.
@@ -175,15 +176,17 @@ each one get got make makes made new now own same than out about over off""".spl
 
 
 def _stem(word):
-    for suf in ("'s", "’s"):
+    """A light suffix strip so "payment plans" meets "pay monthly" (the
+    financing smoke run, 2026-10-15) and "shopping" meets "shop"."""
+    for suf in ("'s", "\u2019s"):
         if word.endswith(suf):
             word = word[: -len(suf)]
-    if len(word) > 5 and word.endswith("ing"):
-        word = word[:-3]
-    elif len(word) > 4 and word.endswith("ed"):
-        word = word[:-2]
-    elif len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
         word = word[:-1]
+    for suf, min_len in (("ment", 6), ("ing", 6), ("ly", 6), ("ed", 5), ("er", 6)):
+        if len(word) >= min_len and word.endswith(suf):
+            word = word[: -len(suf)]
+            break
     return word
 
 
@@ -211,7 +214,7 @@ def _norm_quote(text):
     return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", "", str(text or "").lower())).strip()
 
 
-def hook_match(hero_text, ad_brief, exclude=(), quotes=()):
+def hook_match(hero_text, ad_brief, exclude=(), quotes=(), headline=None):
     """{"overlap": [...], "score": overlap / hook words, "quoted": bool,
     "ok": bool} -- content-word overlap between the first screen and the
     ad's hook + angle + promise (>= 2 words), or a quoted ad sentence."""
@@ -222,8 +225,16 @@ def hook_match(hero_text, ad_brief, exclude=(), quotes=()):
     overlap = sorted(hero_words & ad_words)
     norm_hero = _norm_quote(hero_text)
     quoted = any(len(_norm_quote(q).split()) >= 5 and _norm_quote(q) in norm_hero for q in quotes)
-    return {"overlap": overlap, "score": round(len(set(overlap) & hook_words) / len(hook_words), 2) if hook_words
-            else 0.0, "quoted": quoted, "ok": len(overlap) >= 2 or quoted}
+    # teardown D1: the headline itself shares a word with the hook or the
+    # promise (an eyebrow that echoes the hook over a spec headline is not a
+    # match -- "Full-spectrum heat and red light, built into one cabin" under
+    # "Tired, stressed, aching? This is for you", 0 clicks / 221 views)
+    promise_words = content_words(" ".join(str(brief.get(k) or "") for k in ("hook", "promise")), exclude)
+    head_overlap = sorted(content_words(headline, exclude) & promise_words) if headline is not None else None
+    ok = (len(overlap) >= 2 and (head_overlap is None or bool(head_overlap))) or quoted
+    return {"overlap": overlap, "headline_overlap": head_overlap,
+            "score": round(len(set(overlap) & hook_words) / len(hook_words), 2) if hook_words else 0.0,
+            "quoted": quoted, "ok": ok}
 
 
 def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=None, exclude=(), quotes=(),
@@ -236,13 +247,14 @@ def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=N
         return []
     hero = filled_hero if filled_hero is not None else (page.get("hero") or {})
     text = " ".join(str(hero.get(k) or "") for k in ("eyebrow", "headline", "subhead"))
-    result = hook_match(text, brief, exclude=exclude, quotes=quotes)
+    result = hook_match(text, brief, exclude=exclude, quotes=quotes, headline=str(hero.get("headline") or ""))
     if result["ok"]:
         return []
     return [_problem("$.hero.headline", f"{prefix}:hook_match",
-                     "the first screen must pay off the ad's hook: restate it as closely as the verified facts "
-                     f"allow -- same words, same number, same person. The hook: {brief.get('hook')!r}. Shared "
-                     f"content words now: {result['overlap'] or 'none'}", text=text)]
+                     "the first screen must pay off the ad's hook: the headline restates it as closely as the "
+                     f"verified facts allow -- same words, same number, same person. The hook: {brief.get('hook')!r}. "
+                     f"Shared content words now: {result['overlap'] or 'none'} (headline: "
+                     f"{result['headline_overlap'] or 'none'})", text=text)]
 
 
 # ---------------------------------------------------------------------------
@@ -251,28 +263,7 @@ def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=N
 
 MAX_GRADE = 7.5
 
-try:  # agent A's helper when it is merged (same name and signature)
-    from .textutil import grade_level  # noqa: F401
-except ImportError:  # pragma: no cover - exercised until A's textutil lands
-    def _syllables(word):
-        w = re.sub(r"[^a-z]", "", word.lower())
-        if not w:
-            return 1
-        groups = re.findall(r"[aeiouy]+", w)
-        n = len(groups)
-        if w.endswith("e") and not w.endswith(("le", "ee")) and n > 1:
-            n -= 1
-        return max(1, n)
-
-    def grade_level(text):
-        """Flesch-Kincaid grade of `text` (0.0 for no words)."""
-        text = str(text or "")
-        sentences = [s for s in re.split(r"[.!?]+(?:\s|$)|\n+", text) if re.search(r"[A-Za-z0-9]", s)]
-        words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", text)
-        if not words:
-            return 0.0
-        syll = sum(sum(_syllables(p) for p in w.split("-")) for w in words)
-        return round(0.39 * len(words) / max(1, len(sentences)) + 11.8 * syll / len(words) - 15.59, 1)
+from .textutil import grade_level  # noqa: F401  (cycle 110 integration: the one Flesch-Kincaid helper)
 
 
 READING_FIELDS_RE = re.compile(r"^\$\.(?:hero\.(?:headline|subhead)|reasons\[\d+\]\.(?:headline|body)|"
@@ -362,6 +353,12 @@ def cta_texts_for_angle(templates, angle, *, short_name, offer_amount=None, pron
 LOGISTICS_Q_RE = re.compile(r"\b(?:deliver\w*|ship\w*|freight|assembl\w*|install\w*|set\s?up|outlet|electric\w*|"
                             r"wir(?:e|ing)|volt\w*|amps?|circuit|breaker|plug\w*|warrant\w*)\b", re.IGNORECASE)
 HSA_Q_RE = re.compile(r"\bhsa\b|\bfsa\b|health\s+savings|flexible\s+spending", re.IGNORECASE)
+# The FAQ never asks a medical question for the brand to answer ("Is this a
+# treatment for RA or lupus? No." -- the PA ad's page, 0 clicks / 129 views):
+# the speaker's own words carry health, the brand's FAQ carries the purchase.
+HEALTH_Q_RE = re.compile(r"\b(?:treat(?:s|ment|ing)?|cures?|heal(?:s|ing)?|disease|conditions?|arthritis|lupus|"
+                         r"rheumat\w*|inflammat\w*|pain|diagnos\w*|doctors?|physicians?|symptoms?|"
+                         r"blood\s+pressure|fibromyalgia)\b|\bRA\b")
 MAX_LOGISTICS_QUESTIONS = 1
 
 
@@ -382,6 +379,12 @@ def find_faq_rule_violations(page, facts_pack=None, prefix="landing"):
                                  "warranty); at most one -- the page already shows a Delivery & setup row. Ask what "
                                  "a buyer asks before spending this much: will I use it, how long is a session, how "
                                  "fast does it heat, will it fit, can I pay over time"))
+    for i, q in enumerate(questions):
+        if isinstance(q, dict) and HEALTH_Q_RE.search(str(q.get("question") or "")):
+            problems.append(_problem(f"$.faq.questions[{i}]", f"{prefix}:faq_health:{i}",
+                                     "no medical question in the FAQ (a treatment, a condition, pain): the brand "
+                                     "never answers health questions -- ask what a buyer asks about owning it",
+                                     text=q.get("question")))
     hsa = landing_sell.hsa_line(facts_pack)
     for i, q in enumerate(questions):
         if isinstance(q, dict) and HSA_Q_RE.search(str(q.get("question") or "")) and not hsa:
