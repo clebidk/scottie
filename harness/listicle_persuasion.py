@@ -137,6 +137,37 @@ def proof_elements(facts_pack):
     return out
 
 
+_QUOTE_MARKS = "\"'\u201c\u201d\u2018\u2019 "
+
+
+def is_verbatim_review_quote(text, facts_pack):
+    """True when `text` (outer quotation marks and spaces aside) is exactly
+    one of the facts pack's verified review quotes."""
+    want = str(text or "").strip(_QUOTE_MARKS)
+    return bool(want) and any(want == q["text"].strip(_QUOTE_MARKS) for q in review_quotes(facts_pack))
+
+
+def drop_review_quote_style_hits(problems, facts_pack):
+    """The claims gate bans "!" and hype words in writer prose. A field whose
+    whole text is a verified customer review, word for word, is the
+    customer's voice, not the brand's: its "!" and hype-word hits are
+    dropped (BRIEF 3.2). Any other "!" still fails, and every other check on
+    that field stands."""
+    from . import vocab
+
+    try:
+        hype = {w.lower() for w in (vocab.HYPE_WORDS or ())}
+    except Exception:  # noqa: BLE001 -- a stand-in vocabulary
+        hype = set()
+    out = []
+    for p in problems:
+        term = str(p.get("term") or "").lower()
+        if (term == "!" or term in hype) and is_verbatim_review_quote(p.get("text"), facts_pack):
+            continue
+        out.append(p)
+    return out
+
+
 def proof_refs_for_writer(facts_pack):
     """The writer's menu (user message `proof_refs`): [{"id", "kind",
     "text"}]."""
@@ -595,6 +626,19 @@ def sell_context(page, facts_pack, tenant=None, base_stats=None):
                       "monthly": fm["short"] if fm and stack else None}
     return {"stats": _stats(fp, base_stats), "proof_row": proof_row, "price_line": price_line, "stack": stack,
             "wall": wall, "pull": pull, "item_proofs": item_proofs, "claim_ids": ids}
+    from .claims import warranty_claim_id
+
+    try:
+        wanted = {warranty_claim_id()}
+    except Exception:  # noqa: BLE001 -- a bare test tenant
+        wanted = set()
+    line = (((page or {}).get("closing") or {}).get("warranty_line") or {})
+    wanted |= set(line.get("claim_ids") or []) if isinstance(line, dict) else set()
+    wanted.discard(None)
+    for row in stack.get("items") or []:
+        if set(row.get("claim_ids") or []) & wanted or _WARRANTY_RE.search(str(row.get("text") or "")):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------

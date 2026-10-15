@@ -445,3 +445,22 @@ def test_results_show_clicks_by_element_and_lcp_when_the_beacon_has_them():
     assert site._clicks_by_element({}) == "&mdash;"
     assert site._lcp_p75({"engagement": {"lcp_p75": 2310.4, "lcp_n": 12}}).startswith("2310 ms")
     assert site._lcp_p75({"clicks": 3}) == "&mdash;"
+
+
+# ---------------------------------------------------------------------------
+# The warranty once; a writer-copied review keeps its "!"
+# ---------------------------------------------------------------------------
+
+def test_a_review_quote_copied_word_for_word_keeps_its_exclamation_mark():
+    page = clean_cgyn()
+    quote = FIELDS["review_quotes"][1]            # "Assembly was very easy! ... We love our Fuji!"
+    page["reasons"][0]["proof"] = {"text": quote["text"], "claim_ids": [quote["claim_id"]]}
+    assert _gate(page) == []
+
+
+def test_a_review_quote_that_is_not_word_for_word_still_fails_on_its_exclamation_mark():
+    page = clean_cgyn()
+    quote = FIELDS["review_quotes"][1]
+    page["reasons"][0]["proof"] = {"text": quote["text"].replace("very easy!", "so easy!"),
+                                   "claim_ids": [quote["claim_id"]]}
+    assert any(p.get("term") == "!" for p in _gate(page))
