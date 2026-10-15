@@ -91,3 +91,47 @@ def test_f2_a_review_quote_counts_case_and_punctuation_aside():
     assert quote_fidelity.find_unquoted_first_screen(fields, LREB_BRIEF, REVIEW_FP, "landing") == []
     fields = [("$.hero.headline", '"The best part of the day," one owner says')]
     assert quote_fidelity.find_unquoted_first_screen(fields, LREB_BRIEF, REVIEW_FP, "landing") != []
+
+
+# ---------------------------------------------------------------------------
+# F3: a spoken ad's first screen restates the HOOK, generic words aside
+# ---------------------------------------------------------------------------
+
+# ddqi: ad_brief.json and the hero as rendered (tokens filled)
+DDQI_BRIEF = {
+    "hook": "$300 off every indoor sauna",
+    "angle": "Limited-time discount offer with an urgent price-increase deadline to drive immediate purchase.",
+    "promise": "Save $300–$500 on saunas before prices increase on October 16",
+    "transcript_or_text": "BEFORE PRICES GO UP OCT 16\n\n$300 off\n\nEVERY INDOOR SAUNA.\n\n$500 OFF OUTDOOR\n"
+                          "TODAY'S PRICE ENDS THU, OCT 15\n\nPEAK",
+    "speaker_pov": "brand",
+    "input_type": "still",
+}
+DDQI_HERO = {
+    "eyebrow": "For anyone ready to buy an indoor sauna",
+    "headline": "$300 off the Fuji, today's price ends Thursday",
+    "subhead": "Save on a two-person infrared sauna built for your evening reset, with heat ready in minutes from "
+               "your phone.",
+}
+
+
+def test_f3_the_lreb_first_screen_does_not_restate_the_pa_hook():
+    problems = persuasion.find_hook_match_violations({"hero": LREB_HERO}, LREB_BRIEF, exclude={"peak", "fuji"})
+    assert [p["key"] for p in problems] == ["landing:hook_match"]
+    # before F3 the promise's "wellness"/"recovery"/"routine" carried it
+    text = " ".join(LREB_HERO.values())
+    assert persuasion.hook_match(text, dict(LREB_BRIEF, input_type="still", speaker_pov="brand"))["ok"]
+    # restating the hook passes; so does quoting a whole transcript sentence
+    hero = dict(LREB_HERO, headline="Medical conditions that may benefit from an infrared sauna")
+    assert persuasion.find_hook_match_violations({"hero": hero}, LREB_BRIEF, exclude={"peak", "fuji"}) == []
+    sentence = "One area I found particularly interesting was rheumatology."
+    assert persuasion.hook_match(text + ' "' + sentence + '"', LREB_BRIEF, quotes=[sentence])["ok"]
+
+
+def test_f3_the_ddqi_sale_still_passes_and_generic_words_count_only_for_a_static_ad():
+    assert persuasion.find_hook_match_violations({"hero": DDQI_HERO}, DDQI_BRIEF, exclude={"peak", "fuji"}) == []
+    hook = {"hook": "Peak home sauna heat, infrared", "transcript_or_text": "Peak home sauna heat, infrared."}
+    match = persuasion.hook_match("A home infrared sauna with heat", dict(hook, input_type="video"))
+    assert match["overlap"] == [] and not match["ok"]
+    assert persuasion.hook_match("A home infrared sauna with heat", dict(hook, input_type="still",
+                                                                          speaker_pov="brand"))["ok"]

@@ -214,12 +214,32 @@ def _norm_quote(text):
     return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", "", str(text or "").lower())).strip()
 
 
+# cycle 110 integration F3: words every page in the category shares; they never count for a spoken ad
+# (the brand and product names are already in each caller's `exclude`)
+GENERIC_HOOK_WORDS = ("sauna", "saunas", "infrared", "home", "heat")
+
+
+def spoken_ad(ad_brief):
+    """True for a brief with a transcript from a person: a video, or a still
+    testimonial (first person). Its first screen is matched on the hook only,
+    without GENERIC_HOOK_WORDS. A text input keeps the static rule."""
+    brief = ad_brief or {}
+    kind = brief.get("input_type")
+    return bool(str(brief.get("transcript_or_text") or "").strip()) and (
+        kind == "video" or (kind == "still" and brief.get("speaker_pov") == "first_person"))
+
+
 def hook_match(hero_text, ad_brief, exclude=(), quotes=(), headline=None):
     """{"overlap": [...], "score": overlap / hook words, "quoted": bool,
     "ok": bool} -- content-word overlap between the first screen and the
-    ad's hook + angle + promise (>= 2 words), or a quoted ad sentence."""
+    ad's hook + angle + promise (>= 2 words), or a quoted ad sentence.
+    For a spoken_ad() only the hook's own words count (angle and promise do
+    not) and GENERIC_HOOK_WORDS never do; a static ad keeps the old rule."""
     brief = ad_brief or {}
-    ad_words = content_words(" ".join(str(brief.get(k) or "") for k in ("hook", "angle", "promise")), exclude)
+    spoken = spoken_ad(brief)
+    exclude = (set(exclude) | set(GENERIC_HOOK_WORDS)) if spoken else exclude
+    ad_keys = ("hook",) if spoken else ("hook", "angle", "promise")
+    ad_words = content_words(" ".join(str(brief.get(k) or "") for k in ad_keys), exclude)
     hook_words = content_words(brief.get("hook"), exclude) or ad_words
     hero_words = content_words(hero_text, exclude)
     overlap = sorted(hero_words & ad_words)
@@ -229,7 +249,8 @@ def hook_match(hero_text, ad_brief, exclude=(), quotes=(), headline=None):
     # promise (an eyebrow that echoes the hook over a spec headline is not a
     # match -- "Full-spectrum heat and red light, built into one cabin" under
     # "Tired, stressed, aching? This is for you", 0 clicks / 221 views)
-    promise_words = content_words(" ".join(str(brief.get(k) or "") for k in ("hook", "promise")), exclude)
+    head_keys = ("hook",) if spoken else ("hook", "promise")
+    promise_words = content_words(" ".join(str(brief.get(k) or "") for k in head_keys), exclude)
     head_overlap = sorted(content_words(headline, exclude) & promise_words) if headline is not None else None
     ok = (len(overlap) >= 2 and (head_overlap is None or bool(head_overlap))) or quoted
     return {"overlap": overlap, "headline_overlap": head_overlap,
