@@ -10,7 +10,8 @@ OUT ?= ./review
 test:
 	python3 -m venv .venv-local
 	.venv-local/bin/pip install -q --upgrade pip
-	.venv-local/bin/pip install -q -e . pytest
+	.venv-local/bin/pip install -q -e . pytest ruff
+	.venv-local/bin/ruff check .
 	.venv-local/bin/python -m pytest -q
 
 # INPUT is a local path or a Drive link/id, e.g.

@@ -7858,3 +7858,6 @@ version can do".
   a run being written is left alone, the archive index is read-only (snapshot before and after, capture
   staged outside the archive), both routes with 0 runs and with fixture runs, thumb and archive routes (path
   traversal 404), the export files and links.
+
+## Cycle 113 (CI green)
+- GitHub CI had never run pytest (Ruff failed first): ruff check . is now clean (109 findings: 17 auto-fixes, 23 zip strict=, 58 F811 from imported pytest fixtures, rest by hand), the real_browser tests skip when CI is set (tests/conftest.py), and make test runs ruff check . before pytest.
