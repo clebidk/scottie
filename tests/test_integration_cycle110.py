@@ -8,6 +8,9 @@ from tests.support import TENANT
 from tests.test_landing_cycle82 import _facts_pack
 from tests.test_presell_cycle110 import _offer_facts, _page, _render, _rich
 
+# the real offer.render_today (tests/conftest.py pins it for every test)
+REAL_RENDER_TODAY = offer.render_today
+
 # lreb: ad_brief.json (hook, angle, promise; the transcript sentence the subhead quotes)
 LREB_BRIEF = {
     "hook": "I'm a board certified PA and I think a lot about what medical conditions or types of people would "
@@ -232,3 +235,20 @@ def test_d4_the_face_composition_orders_proof_row_cta_and_price_before_the_lede(
     order = [face.index(k) for k in ("<figcaption>", 'class="op-proofrow"', 'data-el="hero"', 'class="op-fine op-pl"',
                                      'class="op-lede"', 'class="op-cue"')]
     assert order == sorted(order)
+
+
+# ---------------------------------------------------------------------------
+# D5: the render date is the tenant's local day
+# ---------------------------------------------------------------------------
+
+def test_d5_the_render_date_is_peaks_mountain_time_day():
+    from zoneinfo import ZoneInfo
+
+    assert TENANT.get("timezone") == "America/Denver"
+    assert REAL_RENDER_TODAY(TENANT) == datetime.datetime.now(ZoneInfo("America/Denver")).date()
+
+    class NoZone:
+        def get(self, key, default=None):
+            return default
+
+    assert REAL_RENDER_TODAY(NoZone()) == datetime.datetime.now(datetime.timezone.utc).date()

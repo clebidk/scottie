@@ -12,6 +12,8 @@ name: PEAK
 slug: peak-saunas
 site_url: https://peaksaunas.com
 site_host: peaksaunas.com
+# The business day a sale's last day is counted in (offer.render_today): Mountain time.
+timezone: America/Denver
 
 # Shopify storefront. products.json is the public product feed; no Admin API
 # call is ever made by this harness.

@@ -12,6 +12,7 @@ name: CHANGE ME            # display name, e.g. "Acme Saunas"
 slug: CHANGE ME            # directory name, e.g. "acme-saunas"
 site_url: https://CHANGE-ME.example
 site_host: CHANGE-ME.example
+timezone:                  # IANA name, e.g. America/New_York: the day a sale's last day is counted in; empty = UTC
 
 shopify:
   products_json: https://CHANGE-ME.example/products.json
