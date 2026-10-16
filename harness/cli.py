@@ -725,6 +725,112 @@ def cmd_versions_export(args):
     return exits.OK
 
 
+def cmd_library_list(args):
+    """`harness library list [--tenant <t>]` (cycle 114,
+    harness/library_publish.py): every approved library entry
+    (design/library/approved/), its variants, their handles and live status."""
+    from . import library_publish as lp
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    state = lp.sale_state(tenant)
+    for e in lp.entries():
+        if not e["variants"]:
+            note = "; its index.html is at the entry root, which is not a variant" if e["root_index"] else ""
+            print(f"{e['entry']}: no variant folders{note}")
+            continue
+        live = lp.load_live(lp.APPROVED_DIR, e["entry"])
+        print(f"{e['entry']}:")
+        for v in e["variants"]:
+            rec, done = live.get(v) or {}, state.get(lp.target_of(e["entry"], v)) or {}
+            if done.get("status") == "hidden":
+                status = f"hidden by the sale sweep at {done.get('at')} ({rec.get('url')})"
+            elif rec.get("url"):
+                try:
+                    html, files = lp.load_variant(lp.APPROVED_DIR, e["entry"], v)
+                    changed = ", changed since" if lp.content_hash(html, files) != rec.get("content_hash") else ""
+                except HarnessError as err:
+                    changed = f", {err}"
+                status = f"live {rec['url']} (page {rec['page_id']}, published {rec.get('published_at')}{changed})"
+            else:
+                status = "not published"
+            print(f"  {v:<13} {'sale' if lp.is_sale(v) else 'no-sale':<8} {lp.handle_for(e['entry'], v):<38} {status}")
+    return exits.OK
+
+
+def cmd_library_publish(args):
+    """`harness library publish <entry>/<variant> --tenant <t> [--dry-run]
+    [--all]` (cycle 114, harness/library_publish.py): an approved library
+    page goes live on the store at lp-lib-<entry>-<variant>, unlinked and
+    hidden from search, then a GET of the live URL checks it. --dry-run
+    prints the plan (a read-only handle lookup at most)."""
+    from . import library_publish as lp
+
+    if bool(args.target) == bool(args.all):
+        print("give one <entry>/<variant> or --all", file=sys.stderr)
+        return exits.USAGE
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    tenant.load_env()
+    if args.all:
+        found = lp.entries()
+        for e in found:
+            if not e["variants"]:
+                print(f"{e['entry']}: no variant folders; nothing to publish")
+        targets = [(e["entry"], v) for e in found for v in e["variants"]]
+    else:
+        entry, _, variant = args.target.strip("/").partition("/")
+        if not entry or not variant or "/" in variant:
+            print(f"{args.target!r}: give <entry>/<variant>, e.g. A1-statement/indoor", file=sys.stderr)
+            return exits.USAGE
+        targets = [(entry, variant)]
+    publisher = _make_publisher(tenant, export_dir=Path(tenant.runs_dir) / "library-export")
+    rc = exits.OK
+    if args.dry_run:
+        print(f"library publish plan (dry run, nothing written) for {tenant.name}: template_suffix "
+              f"{getattr(publisher, 'template_suffix', None)}"
+              + ("; publish_locked: true, a real publish is refused" if isinstance(publisher, LockedShopifyPublisher)
+                 else ""))
+        for entry, variant in targets:
+            try:
+                plan = lp.plan_variant(tenant, entry, variant)
+            except HarnessError as e:
+                print(f"{entry}/{variant}: REFUSED: {e}")
+                rc = exits.USAGE
+                continue
+            note = ""
+            if plan["action"] == "create" and isinstance(publisher, ShopifyPublisher):
+                try:
+                    taken = publisher.find_page_by_handle(plan["handle"])
+                    note = f" | handle used by page {taken.get('id')}" if taken else " | handle free"
+                except (ShopifyCredentialsMissing, HarnessError) as e:
+                    note = f" | handle not checked ({e})"
+            sale = f"sale, hidden after {plan['offer_expires']}" if plan["sale"] else "no-sale"
+            print(f"{plan['target']} -> {plan['handle']} | {plan['action']} | {sale} | assets "
+                  f"{len(plan['upload'])} to upload, {len(plan['cached'])} on the CDN{note} | "
+                  f"title {plan['title']!r} | h1 {plan['h1']!r}")
+        return rc
+    for entry, variant in targets:
+        try:
+            out = lp.publish_variant(tenant, entry, variant, publisher=publisher, log=print)
+        except (ShopifyCredentialsMissing, HarnessError) as e:   # PublishLocked is a ShopifyCredentialsMissing
+            print(f"{entry}/{variant}: {e}", file=sys.stderr)
+            if isinstance(e, PublishLocked):
+                return exits.USAGE
+            rc = exits.USAGE
+            continue
+        if out["result"] not in ("created", "updated"):
+            continue
+        check = lp.verify_live(out["record"])
+        good = sum(1 for status in check["assets"].values() if status == 200)
+        print(f"{out['target']}: verify {'OK' if check['ok'] else 'FAILED'}: status {check['status']}, h1 "
+              f"{'present' if check['h1'] else 'MISSING'}, assets {good}/{len(check['assets'])} answer 200, "
+              f"relative assets/ paths left: {len(check['relative'])}")
+        if not check["ok"]:
+            print(json.dumps(check, indent=2), file=sys.stderr)
+            rc = exits.USAGE
+    return rc
+
+
 def _library_design_score(tenant, *, force=False):
     """Cycle 92: `library build --design-score` -- one judge call per
     Library version that has a page and no design score yet (every version
@@ -2568,6 +2674,19 @@ def build_parser():
              "version without a score; every version with --force); the score shows on the Library card")
     _add_tenant_flag(p_library_build)
     p_library_build.set_defaults(func=cmd_library_build)
+    # Cycle 114: the approved design library on the store (harness/library_publish.py)
+    p_library_list = library_sub.add_parser(
+        "list", help="the approved library pages (design/library/approved/): variants, handles, live status")
+    _add_tenant_flag(p_library_list)
+    p_library_list.set_defaults(func=cmd_library_list)
+    p_library_publish = library_sub.add_parser(
+        "publish", help="publish an approved library page LIVE at lp-lib-<entry>-<variant>: unlinked, "
+                        "hidden from search; a sale variant is hidden by the sale sweep when the sale ends")
+    p_library_publish.add_argument("target", nargs="?", help="<entry>/<variant>, e.g. A1-statement/indoor")
+    p_library_publish.add_argument("--all", action="store_true", help="every variant of every entry")
+    p_library_publish.add_argument("--dry-run", action="store_true", help="print the plan; write nothing")
+    _add_tenant_flag(p_library_publish)
+    p_library_publish.set_defaults(func=cmd_library_publish)
 
     # Cycle 112: harness versions (harness/versions.py, harness/site_versions.py).
     p_versions = sub.add_parser("versions", help="the harness version of each run: backfill, static export")

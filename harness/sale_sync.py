@@ -376,9 +376,10 @@ def _item(tenant, run_dir, page, **extra):
 
 
 def live_offer_pages(tenant):
-    """Every LIVE published page with a dated offer: A/B/C arms of live tests
-    and unlinked post-live pages."""
-    from . import abtest, postlive
+    """Every LIVE published page with a dated offer: A/B/C arms of live tests,
+    unlinked post-live pages and (cycle 114) library sale pages
+    (harness/library_publish.py)."""
+    from . import abtest, library_publish, postlive
 
     items, seen = [], set()
     for rec in abtest.list_tests(tenant):
@@ -405,7 +406,7 @@ def live_offer_pages(tenant):
                              page_id=record.get("page_id"), handle=record.get("handle"))
                 if item:
                     items.append(item)
-    return items
+    return items + library_publish.live_sale_pages(tenant)
 
 
 # ---------------------------------------------------------------------------
@@ -530,6 +531,12 @@ def sweep(tenant, *, now=None, fetch=None, dry_run=False, by=None, log=print):
             decision = {"action": "wait", "reason": f"already extended to {decision['end_local']}"}
         if decision["action"] == "end" and done.get("status") in ("ending", "rebuilding", "switched", "deferred"):
             decision = {"action": "wait", "reason": f"already {done['status']}"}
+        if item["kind"] == "library":   # cycle 114: a static page; its end action is hide only
+            from . import library_publish
+
+            out["decisions"].append((item, decision, library_publish.sweep_action(
+                tenant, item, decision, by=by, dry_run=dry_run, log=log)))
+            continue
         job_id = None
         label = f"run {item['run_id']} page {item['page']} ({item['kind']}" + \
             (f" {item['test_id']} {item['key']}" if item["kind"] == "abtest" else "") + ")"
