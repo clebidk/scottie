@@ -7686,3 +7686,92 @@ Chromium has its own private /tmp and cannot read a page under /tmp/pytest-of-de
 - A writer proof.quote that copies a review with "!" still fails the always-forbidden "!" (claims.py, agent A);
   the peak look's review wall is renderer-built and keeps the "!".
 - Listicle: warranty twice with A's value stack (listicle files, agent C).
+
+## Cycle 110 (integration) (2026-10-15/16)
+
+Branch `cycle110/integration`, worktree `~/adv-c110`, from master 79d2ef3. Not merged into master, not pushed.
+
+### Merge order and conflicts
+- A `cycle110a/claims-data` (857ff4b): no conflict.
+- C `cycle110c/listicle-parity` (7f50a86, brings B's 9cb65a7): `docs/FIXLOG.md` (both entries kept);
+  `harness/pipeline.py` (C's `include_models` condition and A's `live_claims`/`today_iso` kwargs, both kept).
+- B `cycle110b/persuasion-page` (f0c85a9): `docs/FIXLOG.md` (A, C, B entries); `harness/textutil.py`
+  `NON_PROSE_KEYS` = both sides + `proof_ref`, `proof_refs`, `lever`, `asset_role`; `tenants/peak-saunas/tenant.yaml`
+  abtest library = peak, proof, cinematic (B), with the home-page note kept; heroes pins (re-pinned below).
+- C again (bce2b90: the exclamation mark kept in a verbatim review quote, warranty shown once): heroes pins only. The six
+  listicle keys were re-pinned once from the merged templates; the four landing keys did not change.
+
+### One reading-grade formula
+A's `textutil.grade_level` and B's fallback copy in `persuasion.py` gave different grades (xlbx 7.45 vs 8.0 at the
+7.5 cap). Referee: textstat 0.7.13 `flesch_kincaid_grade` on C's scored prose of xlbx and cgyn plus three control
+paragraphs.
+
+| text | words | textstat | A | B | abs(A-ts) | abs(B-ts) |
+|---|---|---|---|---|---|---|
+| xlbx | 646 | 7.80 | 7.45 | 8.00 | 0.35 | 0.20 |
+| cgyn | 675 | 7.07 | 6.91 | 7.40 | 0.16 | 0.33 |
+| control ~4 | 40 | 4.83 | 4.24 | 4.80 | 0.59 | 0.03 |
+| control ~8 | 45 | 8.88 | 8.88 | 9.40 | 0.00 | 0.52 |
+| control ~12 | 52 | 13.18 | 12.95 | 13.40 | 0.23 | 0.22 |
+| sum | | | | | 1.34 | 1.29 |
+
+B's counting is closer and gives the same pass/fail as textstat at 7.5 on both pages. `textutil.grade_level` now
+counts B's way (a number is a one-syllable word, hyphenated parts add up, silent final "e" except -le/-ee), with
+A's sentence split and 2-decimal rounding. B's fallback copy is removed; `persuasion` imports the one helper.
+The 7.5 cap is not changed.
+
+### Fixes (each with a test in tests/test_integration_cycle110.py from B's smoke runs lreb / ddqi)
+- F1 `landing:speaker_pronoun`: the first_screen pronoun rule on hero.eyebrow/headline/subhead; the writer is given
+  the evidenced pronoun, else "In the ad, the creator says". Real text: lreb subhead 'In the ad, she says heat
+  "feels great in her joints."' (no pronoun evidence).
+- F2 `landing:quote_fidelity` / `listicle:quote_fidelity`: words in double quotation marks on the first screen are
+  verbatim (case, punctuation, spacing aside) in the ad transcript / primary text or a `review_quotes` text; the
+  issue says "restore the exact words". The lreb quote IS in its transcript ("It feels great in her joints and
+  ..."), so it passes; "my joints" fails.
+- F3 `landing:hook_match`: for a video or a first-person still, only the hook's own words count, and sauna,
+  saunas, infrared, home, heat never count (brand and product names are already excluded by each caller). Static
+  and text briefs keep the old rule. Real text: the lreb first screen ("wellness and recovery routine") now fails
+  against the PA hook; the ddqi sale first screen passes.
+- F4 render date: `offer.render_today()` (tenant timezone, else UTC). On the last sale day, `deadline_day` =
+  "tonight" and the line = "Today's price ends tonight"; after it, `offer_view` returns None, so a rerender shows
+  no sale. Before, only grounding (`match_offer`) checked expiry. Grounding passes its own date to `offer_view`.
+  Real text: ddqi H1 "today's price ends Thursday" rendered on Thu Oct 15.
+- F5 net price: the ddqi rerender shows "$7,950 with code INDOOR300" over a struck $8,250. The stored facts_pack
+  has no `offer.net_price`; A's `offer_view` works it out at render time from the price and the $300 amount.
+- D1 `landing:ad_reference` / `listicle:ad_reference`: "really" only as "what ... really means/says/is" or
+  "Really says/means" at a sentence start. C's cgyn buyer question "Does free shipping really mean no extra fees?"
+  passes; B's "What the research really says" still fails.
+- D2 offer tests expect the net form ("$7,950 with code INDOOR300"); the no-net-price fallback is tested with a
+  "save up to $300 ... with code INDOOR300" claim (one amount, or a percent, always gives a net price).
+- D3 fake runs: the fake listicle and named-cause pages point item 2 at `reviews-store-live`
+  (`listicle:item_proof_refs`).
+- D4 face first screen: headline, byline, photo, quote caption, proof row, CTA, price line, lede, scroll cue.
+  `design_gate.first_screen_cta` and listicle `first_screen_ok` need the CTA's BOTTOM edge under 844 at 390
+  (`capture.probe` now records it). Copies of the live runs with A's fields: cgyn face 680-735 px (was 806-861),
+  i6zr story 456-512, zhp2 display 658-714. listicle-face-frame re-pinned once.
+- D5 `tenants/peak-saunas/tenant.yaml` `timezone: America/Denver` (the owner's sale day is his local day); the
+  template declares `timezone:` empty (= UTC). Checked at 00:29 UTC Oct 16: render date Oct 15, ddqi "tonight".
+
+### Fake runs read judge.me over the network
+A's `proof.live_claims` fetched the live judge.me store page in every fake run and test, so the fake facts (and
+`listicle:item_proof_refs`) depended on the network and the live rating. `evals/fake_run.py` now returns the real
+2026-10-15 store page fixture (`tests/fixtures/c110`) and fails soft for every other judge.me URL.
+
+### Render date in tests
+`tests/conftest.py` pins `offer.render_today` to 2000-01-01 for every test (no fixture deadline has passed;
+output as before). Tests that need a day set their own. Grounding in tests passes an explicit date. The suite
+passed after midnight UTC on Oct 16, past the Oct 15 sale deadline.
+
+### Host note
+pytest on prod: `--basetemp` on disk and one full suite at a time (B's entry, "Host note: pytest on a tmpfs /tmp").
+
+### Verify
+- Targeted (cycle110 tests, heroes 94, listicle, listicle 74, cost 76, design gate 92): 444 passed.
+- Full suite with `--basetemp`: 3405 passed, 33 skipped, 0 failed (real-browser tests on google-chrome).
+
+### Open
+- Rerender reuses the run's facts_pack: live pages show the store-wide proof (4.6 from 4,260 reviews, units, the
+  monthly figure) only after a fresh run.
+- A home-page arm in the A/B library is the owner's decision (tenant.yaml note under `abtest.library`).
+- After the merge: run `harness claims refresh-units` once on prod and install the `units-refresh` timer
+  (`crons/units-refresh.{service,timer}`).
