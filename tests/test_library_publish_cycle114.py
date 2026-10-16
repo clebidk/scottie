@@ -106,7 +106,7 @@ def test_library_list_on_the_real_folder(monkeypatch, capsys):
         if not e["variants"]:
             assert f"{entry}: no variant folders" in out
         for v in e["variants"]:
-            kind = "sale" if v.endswith("sale") else "no-sale"
+            kind = "sale" if v in ("sale", "indoor-sale", "outdoor-sale") else "no-sale"
             assert re.search(rf"^  {re.escape(v)}\s+{kind}\s+{lp.handle_for(entry, v)}\s", out, re.MULTILINE)
     assert "lp-lib-a1-statement-indoor-sale" in out and "lp-lib-a8-offer-kit-outdoor" in out
     assert [v for v in PAIRS if lp.is_sale(v)] == ["indoor-sale", "outdoor-sale"]
@@ -177,6 +177,9 @@ def test_publish_creates_the_page_records_it_and_republish_is_a_no_op(lib):
     assert rec["content_hash"] == lp.content_hash(*lp.load_variant(lib, "A8-offer-kit", "indoor"))
     assert len(rec["assets"]) == 5 and all(a["url"] in page["body_html"] for a in rec["assets"].values())
     assert shop.count("UPLOAD") == 5 and "offer_expires" not in rec
+    # cycle 114b: the offer-card and sticky buttons go to the product page
+    assert len(rec["links"]) == 1 and rec["links"][0].startswith("https://peaksaunas.com/products/peak-saunas-fuji-")
+    assert page["body_html"].count(rec["links"][0]) == 2 and 'id="pk-lib-shield"' in page["body_html"]
     readme = (lib / "A8-offer-kit" / "README.md").read_text()
     assert "Live (unlinked, hidden from search): indoor https://peaksaunas.com/pages/lp-lib-a8-offer-kit-indoor" in readme
     # the same content again: nothing is sent
@@ -274,7 +277,11 @@ def test_verify_reads_status_h1_assets_and_relative_paths(lib):
            f"{shop.pages[rec['page_id']]['body_html']}</body></html>"
     answers = {rec["url"]: (200, page.encode())}
     fetch = lambda url: answers.get(url, (200, b"x"))  # noqa: E731
-    assert lp.verify_live(rec, fetch=fetch, sleep=lambda s: None)["ok"] is True
+    good = lp.verify_live(rec, fetch=fetch, sleep=lambda s: None)
+    assert good["ok"] is True and list(good["links"].values()) == [200] and "/products/" in rec["links"][0]
+    answers[rec["links"][0]] = (404, b"")
+    assert lp.verify_live(rec, fetch=fetch, sleep=lambda s: None)["ok"] is False
+    del answers[rec["links"][0]]
     broken = next(iter(rec["assets"].values()))["url"]
     answers[broken] = (404, b"")
     check = lp.verify_live(rec, fetch=fetch, sleep=lambda s: None)
