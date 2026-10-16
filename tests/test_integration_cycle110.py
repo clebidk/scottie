@@ -135,3 +135,42 @@ def test_f3_the_ddqi_sale_still_passes_and_generic_words_count_only_for_a_static
     assert match["overlap"] == [] and not match["ok"]
     assert persuasion.hook_match("A home infrared sauna with heat", dict(hook, input_type="still",
                                                                           speaker_pov="brand"))["ok"]
+
+
+# ---------------------------------------------------------------------------
+# F4: the sale's last day against the render date
+# ---------------------------------------------------------------------------
+
+def _render_on(monkeypatch, day):
+    monkeypatch.setattr(offer, "render_today", lambda tenant=None: datetime.date(2026, 10, day))
+
+
+def _first_screen_text(html):
+    import html as html_mod
+    import re
+
+    first = html[html.index('data-look-pattern="hero:peak_first"'):html.index("</header>")]
+    return " ".join(html_mod.unescape(re.sub(r"<[^>]+>", " ", first)).split())
+
+
+def test_f4_the_ddqi_headline_rendered_on_thursday_oct_15_says_tonight(monkeypatch, tmp_path):
+    fp, brief = _offer_facts()          # the ddqi claim: "... prices go up on October 16, 2026."
+    assert fp["offer"]["text"].endswith("prices go up on October 16, 2026.")
+    page = _page(cta_text="Shop the sale")
+    page["hero"]["headline"] = "{offer_amount} off the Fuji, today's price ends {deadline_day}"   # ddqi H1
+    _render_on(monkeypatch, 14)
+    assert landing_sell.deadline(fp)["day"] == "Thursday"
+    _render_on(monkeypatch, 15)
+    dl = landing_sell.deadline(fp)
+    assert (dl["day"], dl["short"]) == ("tonight", "Today's price ends tonight")
+    assert landing_sell.token_values(fp)["deadline_day"]["text"] == "tonight"
+    text = _first_screen_text(_render(tmp_path, page, fp, brief)[0])
+    assert "today's price ends tonight" in text and "ends Thursday" not in text
+
+
+def test_f4_a_sale_past_its_deadline_is_not_rendered(monkeypatch, tmp_path):
+    fp, brief = _offer_facts()
+    _render_on(monkeypatch, 16)
+    assert offer.offer_view(fp) is None and landing_sell.deadline(fp) is None
+    html, _ = _render(tmp_path, _page(cta_text="Shop the Fuji"), fp, brief)
+    assert "INDOOR300" not in html and "$300 off" not in html and "Community Savings Sale" not in html

@@ -505,3 +505,15 @@ def _real_tenant_fonts_are_already_on_the_cdn(monkeypatch, _real_tenant_font_man
         return real(tenant)
 
     monkeypatch.setattr(shopify_pub, "font_cdn_manifest_path", manifest_path)
+
+
+@pytest.fixture(autouse=True)
+def _pin_render_today(monkeypatch):
+    """Cycle 110 integration F4: a sale's deadline is compared with the render
+    date (harness/offer.render_today). Every test renders on a fixed day
+    before all fixture deadlines; a test that needs another day patches it."""
+    import datetime
+
+    from harness import offer
+
+    monkeypatch.setattr(offer, "render_today", lambda tenant=None: datetime.date(2000, 1, 1))

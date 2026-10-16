@@ -348,6 +348,23 @@ def deadline_short(text, claim=None):
             f"{_MONTHS[last.month - 1][:3].capitalize()} {last.day}")
 
 
+def render_today(tenant=None):
+    """Today in the tenant's timezone (tenant.yaml `timezone`, else UTC):
+    the render date a sale's deadline is compared with (cycle 110
+    integration F4). tests/conftest.py pins it."""
+    from zoneinfo import ZoneInfo
+
+    from . import tenant as tenant_mod
+
+    tenant = tenant or tenant_mod.active_or_none()
+    name = tenant.get("timezone") if tenant is not None else None
+    try:
+        tz = ZoneInfo(str(name)) if name else datetime.timezone.utc
+    except (ValueError, KeyError):
+        tz = datetime.timezone.utc
+    return datetime.datetime.now(tz).date()
+
+
 def offer_view(facts_pack):
     """The offer as the renderer prints it, from facts_pack.offer (the
     verified claim) and the product, or None when the page is not
@@ -358,6 +375,9 @@ def offer_view(facts_pack):
     fp = facts_pack or {}
     offer = fp.get("offer")
     if not offer or not offer.get("claim_id"):
+        return None
+    # cycle 110 integration F4: a sale whose deadline has passed is not shown (a rerender reuses facts_pack)
+    if claim_expired(offer, render_today()):
         return None
     text = str(offer.get("text") or "")
     product_words = _product_words(fp.get("product"))

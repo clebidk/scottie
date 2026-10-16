@@ -107,7 +107,11 @@ def deadline(facts_pack):
     short = view.get("deadline_short") or (fp.get("offer") or {}).get("deadline_short") or \
         f"Today's price ends {last.strftime('%a')}, {last.strftime('%b')} {last.day}"
     short = short[0].upper() + short[1:]
-    return {"day": last.strftime("%A"), "date": f"{last.strftime('%b')} {last.day}", "short": short,
+    day = last.strftime("%A")
+    # cycle 110 integration F4: the last sale day is the render date -> "tonight"
+    if last == offer_mod.render_today():
+        day, short = "tonight", "Today's price ends tonight"
+    return {"day": day, "date": f"{last.strftime('%b')} {last.day}", "short": short,
             "iso": last.isoformat(), "claim_ids": [view["claim_id"]]}
 
 
