@@ -11,7 +11,7 @@ sell a sale that is over. The renderer marks, on an offer-led page only:
   - every price line with a struck price: data-offer-expires,
     data-offer-net / data-offer-list / data-offer-strip -> the struck price
     is hidden, the sale price becomes the list price, "with code X" goes;
-  - every sale CTA ("Get $300 off the Fuji", "Shop the sale"):
+  - every sale CTA (the schema's sale group):
     data-offer-expires, data-offer-cta -> the tenant's default CTA text;
 
 and adds one inline script (no network, no dependency) that does this when
