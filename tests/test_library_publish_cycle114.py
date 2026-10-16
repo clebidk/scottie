@@ -26,7 +26,7 @@ pytestmark = pytest.mark.frozen_tenant   # the promo claim of 9bdb996 (tests/con
 UTC = datetime.timezone.utc
 BEFORE = datetime.datetime(2026, 10, 17, 4, 29, tzinfo=UTC)    # 22:29 MDT
 SWEEP = datetime.datetime(2026, 10, 17, 4, 40, tzinfo=UTC)     # 22:40 MDT, the sweep 10 min after the end
-REAL = lp.APPROVED_DIR
+REAL = lp.REPO_ROOT / "design" / "library" / "approved"   # conftest points APPROVED_DIR at an empty folder
 PAIRS = ("indoor", "indoor-sale", "outdoor", "outdoor-sale")
 
 
@@ -96,6 +96,7 @@ def lib(tmp_path, monkeypatch):
 
 
 def test_library_list_on_the_real_folder(monkeypatch, capsys):
+    monkeypatch.setattr(lp, "APPROVED_DIR", REAL)
     monkeypatch.setattr(type(TENANT), "load_env", lambda self: None)
     found = {e["entry"]: e for e in lp.entries()}
     assert found["A1-statement"]["variants"] == sorted(PAIRS) and found["A8-offer-kit"]["variants"] == sorted(PAIRS)
@@ -113,6 +114,7 @@ def test_library_list_on_the_real_folder(monkeypatch, capsys):
 
 
 def test_publish_dry_run_plans_every_real_variant_and_writes_nothing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(lp, "APPROVED_DIR", REAL)
     monkeypatch.setattr(lp, "_utcnow", lambda: FETCHED)
     monkeypatch.setattr(type(TENANT), "load_env", lambda self: None)
     monkeypatch.setattr(lp, "load_live", lambda root, entry: {})      # the plan of a first publish

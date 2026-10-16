@@ -8036,3 +8036,5 @@ peaksaunas.com at its own URL, linked to no ad, hidden from search.
   the log line, audit, off the list, publish refuses after the end, the no-sale page stays live; an extended sale is a
   WARNING only; publish_locked refusal; verify (404 asset, relative path, theme comment ignored).
 - With the sale_sync hook removed, the two sweep tests fail.
+- tests/conftest.py: every test gets an empty `library_publish.APPROVED_DIR` (the committed live.json files put 4
+  real sale pages into the sweep of 3 cycle 111 tests in the first full run); the real-folder tests set it back.

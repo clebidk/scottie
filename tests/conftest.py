@@ -312,6 +312,11 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     # this host; no test starts one unless it puts its own fake here.
     from harness import look_vision
     monkeypatch.setattr(look_vision, "find_browser", lambda: None)
+    # Cycle 114: design/library/approved/*/live.json holds the store's real
+    # library pages; the sale sweep reads them. No test sees them unless it
+    # points library_publish.APPROVED_DIR at a folder itself.
+    from harness import library_publish
+    monkeypatch.setattr(library_publish, "APPROVED_DIR", base / "library-approved")
     return base
 
 
