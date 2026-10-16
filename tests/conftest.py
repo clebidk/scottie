@@ -33,6 +33,10 @@ os.environ.pop("TYPESAFE_API_KEY", None)
 # drive a browser, so every test runs with the gate off unless it sets
 # HARNESS_DESIGN_GATE itself (tests/test_design_gate_cycle92.py).
 os.environ["HARNESS_DESIGN_GATE"] = "off"
+# Cycle 111: PEAK writes a non-sale twin of every offer-led page (tenant.yaml
+# sale_twin). The canned runs answer one write per cartridge, so the twin is
+# off unless a test removes this (tests/test_sale_cycle111.py).
+os.environ["HARNESS_SALE_TWIN"] = "off"
 
 
 class FakeUsage:

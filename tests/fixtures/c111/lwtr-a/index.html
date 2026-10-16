@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Money off every indoor sauna during the sale</title>
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&amp;family=Poppins:wght@500;600&amp;display=swap">
+<style>/* Structural stylesheet (fix cycle 23, renamed from fallback.css) -- ALWAYS
+   loaded first by harness/templates/base.html, before a tenant's own
+   brand/base.css. This is the layout/component/responsive layer every
+   cartridge template's classes are defined against: every class any
+   cartridge/*/template.html emits has a rule here (see
+   tests/test_css_coverage.py, which greps the templates and checks). A
+   tenant's base.css loads second, as an override layer for tokens, fonts
+   and colors -- not a replacement, since a tenant stylesheet is never
+   required to (and cycle 23's finding showed a real tenant's own base.css
+   does not) redefine the adv-* structural classes at all. */
+:root {
+  --adv-fg: #1a1a1a;
+  --adv-bg: #ffffff;
+  --adv-muted: #5a5a5a;
+  --adv-border: #dddddd;
+  --adv-accent: #b3541e;
+  --adv-max-width: 760px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--adv-bg);
+  color: var(--adv-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.55;
+}
+
+/* Fix cycle 23 (FIXLOG Cycle 19 mobile pass, task_9b60a503): every cartridge
+   template renders bare <img> tags with no width/height attributes on some
+   images (a fully known-dimension attribute pair is added by the renderer
+   itself when it downloaded and downscaled the asset -- see
+   harness/render.py's download_asset/_image_dimensions), so this rule is the
+   CSS-side guarantee that an image never overflows its container or renders
+   at native (often multi-megapixel) size regardless of whether width/height
+   attributes made it onto the tag. */
+img { max-width: 100%; height: auto; }
+
+/* Cycle 52: an opt-in case rule. A tenant whose brand sets headline_case
+   to "upper" gets this class on .adv-wrap (harness/render.py) and every
+   heading renders uppercase through CSS -- the writer's copy is never
+   rewritten, and a tenant that does not ask for it is unaffected. Each
+   listicle look restates the same rule inside its own <style> block, which
+   is what `harness shopify-body` carries to a storefront. */
+.adv-case-upper h1,
+.adv-case-upper h2,
+.adv-case-upper h3 { text-transform: uppercase; }
+
+.adv-wrap {
+  max-width: var(--adv-max-width);
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.adv-badge {
+  display: inline-block;
+  font-size: var(--ps-eyebrow-size, 11px);
+  letter-spacing: var(--ps-eyebrow-spacing, 0.08em);
+  text-transform: uppercase;
+  color: var(--ps-eyebrow-color, var(--adv-muted));
+  border: 1px solid var(--ps-border, var(--adv-border));
+  border-radius: var(--ps-radius-btn, 3px);
+  padding: 2px 8px;
+  margin-bottom: 12px;
+}
+
+/* Cycle 27 (brand import): the tenant logo a page header shows when
+   tenants/<t>/brand/logo.<ext> exists (harness/render.py's find_tenant_logo).
+   Height-capped, not width-capped, so a wide wordmark and a square mark both
+   sit at a consistent header scale. */
+.adv-brand-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+  margin-bottom: 12px;
+}
+
+h1, h2, h3 { line-height: 1.2; }
+h1 { font-size: 2rem; margin: 0 0 8px; }
+h2 { font-size: 1.4rem; margin: 2em 0 0.5em; }
+
+.adv-dek { color: var(--ps-muted, var(--adv-muted)); font-size: 1.1rem; margin: 0 0 20px; }
+
+.adv-cta {
+  display: inline-block;
+  background: var(--ps-accent, var(--adv-accent));
+  color: var(--ps-on-accent, #fff);
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: var(--ps-radius-btn, 4px);
+  font-weight: 600;
+}
+
+.adv-price { font-size: 1.6rem; font-weight: 700; }
+.adv-compare-at { color: var(--ps-muted, var(--adv-muted)); text-decoration: line-through; margin-left: 8px; }
+.adv-financing { color: var(--ps-muted, var(--adv-muted)); font-size: 0.95rem; }
+
+table.adv-specs { width: 100%; border-collapse: collapse; margin: 16px 0; }
+table.adv-specs th, table.adv-specs td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ps-border, var(--adv-border));
+}
+
+.adv-trust-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 20px 0;
+}
+.adv-trust-item { border: 1px solid var(--ps-border, var(--adv-border)); border-radius: var(--ps-radius-card, 6px); padding: 12px; }
+
+.adv-images { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.adv-images img { max-width: 100%; border-radius: var(--ps-radius-card, 6px); }
+
+.adv-footer {
+  margin-top: 48px;
+  border-top: 1px solid var(--ps-border, var(--adv-border));
+  padding-top: 20px;
+  font-size: 0.9rem;
+  color: var(--ps-muted, var(--adv-muted));
+}
+
+.adv-byline { font-size: 0.95rem; }
+.adv-byline p { margin: 2px 0; }
+.adv-disclosure { margin-top: 12px; }
+.adv-sources ul { padding-left: 18px; }
+
+/* Sticky CTA bar (longform only). Fix cycle 23: this had NO rule at all
+   under a tenant stylesheet that never defines it -- previously it only
+   ever rendered correctly by accident, when the tenant had no base.css and
+   fallback.css's copy of these same rules was used wholesale instead. See
+   the mobile block below for the <=480px enhancement. */
+.adv-sticky-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: var(--ps-bg, var(--adv-bg));
+  border-top: 1px solid var(--ps-border, var(--adv-border));
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.adv-hero-image { width: 100%; border-radius: var(--ps-radius-card, 8px); }
+
+/* Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md problem 9) reserved a box for
+   every image slot so the layout can't jump while the image decodes.
+   Cycle 45 fixes WHICH box: render.render_image_slot now writes the ratio
+   inline, per image, from the width/height Pillow measured on the
+   downloaded original (render.aspect_ratio_css). The old
+   .adv-img--4x3/--1x1 pair came from a near-white-border test -- a check
+   on an image's BACKGROUND being read as a claim about its SHAPE -- so a
+   1067x1600 portrait was cropped square and a 1024x1024 square was cropped
+   to 4:3. There is no ratio here any more, only the fit.
+
+   `height: auto` is what keeps an image un-stretched: with the inline
+   ratio matching the source, the box is the picture. object-fit then only
+   bites for a slot that asked for a named `frame=` (render.IMAGE_FRAMES)
+   -- a product cutout is contained whole on a neutral band, a
+   lifestyle/installation photo fills the frame. A block that opts out
+   (aspect_box=False -- press-logo-strip's brand marks) gets no box and no
+   fit class, and keeps its natural ratio via the plain `img` rule above. */
+.adv-img { display: block; width: 100%; height: auto; border-radius: var(--ps-radius-card, 8px); background: var(--ps-bg-muted, var(--adv-border)); }
+.adv-img--cover { object-fit: cover; }
+.adv-img--contain { object-fit: contain; background: var(--ps-bg-muted, var(--adv-bg-muted, #f4f5f6)); }
+/* Desktop default: contained within .adv-wrap's own padding, same as any
+   other image. Mobile full-bleed override is in the <=480px block below. */
+.adv-img--hero { border-radius: var(--ps-radius-card, 8px); }
+
+.adv-step { margin: 20px 0; }
+.adv-step img { max-width: 100%; border-radius: var(--ps-radius-card, 6px); }
+.adv-quotes { list-style: none; padding: 0; }
+.adv-quotes li { font-style: italic; margin: 10px 0; }
+.adv-faq-item { margin: 16px 0; }
+.adv-proof-bullets ul { padding-left: 18px; }
+
+/* Root elements per cartridge -- no visual rules of their own beyond
+   establishing the block, but every cartridge's root class must resolve to
+   *some* rule (see tests/test_css_coverage.py). */
+.adv-article, .adv-longform, .adv-product-page { display: block; }
+
+/* Hero section (longform, product-page) */
+.adv-hero { margin: 0 0 24px; }
+
+/* Longform proof-stats row */
+.adv-proof-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.adv-proof-value { display: block; font-size: 1.5rem; font-weight: 700; }
+.adv-proof-label { display: block; color: var(--ps-muted, var(--adv-muted)); font-size: 0.85rem; }
+
+.adv-problem { margin: 32px 0; }
+.adv-how-it-works { margin: 32px 0; }
+.adv-alternatives { margin: 32px 0; }
+.adv-turn { margin: 32px 0; }
+.adv-close { margin: 32px 0; }
+.adv-specs-proof { margin: 24px 0; }
+.adv-social-proof { margin: 24px 0; }
+.adv-faq { margin: 32px 0; }
+.adv-final-cta { margin: 32px 0; text-align: center; }
+.adv-warranty { color: var(--ps-muted, var(--adv-muted)); font-size: 0.9rem; }
+.adv-angle { margin: 24px 0; }
+.adv-angle img { max-width: 100%; border-radius: var(--ps-radius-card, 6px); margin-top: 12px; }
+
+/* ---------------------------------------------------------------------
+   Mobile (<=480px) -- fix cycle 23 / FIXLOG Cycle 19 mobile pass
+   --------------------------------------------------------------------- */
+/* Comparison cartridge (phase 6) -- the page wrapper and its non-block
+   sections. Section components (proof row, table, FAQ, verdict) come from
+   the included blocks' own block.css. */
+.adv-comparison { margin: 0; }
+.adv-comparison-header { margin: 0 0 24px; }
+.adv-eyebrow { color: var(--ps-eyebrow-color, var(--adv-muted)); text-transform: uppercase; letter-spacing: var(--ps-eyebrow-spacing, 0.08em); font-size: var(--ps-eyebrow-size, 0.8rem); margin: 0 0 8px; }
+.adv-risk-reversal { color: var(--ps-muted, var(--adv-muted)); font-size: 0.9rem; margin: 8px 0 0; }
+.adv-comparison-table { margin: 0 0 24px; }
+.adv-deep-dive { margin: 0 0 20px; }
+.adv-deep-dive h2 { margin: 0 0 8px; }
+.adv-alternative-strengths { margin: 0 0 24px; }
+
+@media (max-width: 480px) {
+  .adv-wrap { padding: 16px 14px 96px; }
+
+  /* Cycle 31 (docs/IMAGES-AUDIT-2026-09-14.md's markup summary: no mobile/
+     desktop distinction existed for the hero before this). Full-bleed on
+     mobile -- pull the hero out to the viewport edge by exactly .adv-wrap's
+     own side padding (14px here); desktop stays contained (no override,
+     see .adv-img--hero above). */
+  .adv-img--hero {
+    width: calc(100% + 28px);
+    margin-left: -14px;
+    margin-right: -14px;
+    border-radius: 0;
+  }
+
+  /* Sticky bar: full-bleed, roomier tap target, CTA fills the width. */
+  .adv-sticky-cta {
+    left: 0;
+    right: 0;
+    padding: 10px 14px;
+  }
+  .adv-sticky-cta .adv-cta {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Hero: smaller display type, tighter spacing on small screens. */
+  .adv-hero { margin: 0 0 16px; }
+  .adv-hero h1 { font-size: 1.5rem; }
+  .adv-hero .adv-dek { font-size: 1rem; }
+  .adv-proof-stats { gap: 12px 20px; }
+
+  /* Tables: horizontal scroll instead of squeezing columns or wrapping
+     text -- no extra wrapper element needed, display:block on the table
+     itself becomes the scroll container. */
+  table.adv-specs {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Proof rows: stack to one column instead of wrapping awkwardly. */
+  .adv-proof-stats,
+  .adv-trust-strip {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}
+</style>
+<style>/* PEAK -- standalone brand stylesheet for generated landing pages.
+
+   Cycle 78 (2026-10-05): matches the LIVE storefront theme ("mono", theme
+   182943580461, published 2026-10-05). The 2026-09-22 rebrand palette
+   (stone ground, fossil-dust panels, cedar rules, solar-flare CTA, Acid
+   Grotesk uppercase headlines) is retired; the owner banned all orange on
+   2026-09-28. Spec: docs/FIXLOG.md cycle 78.
+
+   Cycle 79 (2026-10-05, owner-approved round 2/3 design): BOXLESS. White
+   background everywhere -- the stone accent panels and the light grey
+   panels are retired (--ps-bg-muted is now white, so every panel a
+   template still draws reads as page ground); sections separate by white
+   space and one hairline; proof lines and stats carry a 3px brand-red left
+   bar instead of a box; the one filled block is the Basalt closing band.
+   Any remaining box: 4px radius.
+
+   Palette: basalt #161817 (dark band, primary CTA), ink #1A1A1A (text),
+   brand red #702B34 (accent phrase, numerals, proof bars, CTA hover), white
+   page, muted text #616161/#6B6B6B, hairlines rgba(22,24,23,.14). No
+   orange, green, cyan, cream, stone, sage or grey panels; no gradients,
+   glows or shadows.
+
+   Type: body DM Sans 400/500, headings Poppins 600 in sentence case (cycle
+   95: Montserrat first, Poppins is now its fallback). DM Sans and Poppins
+   are loaded site-wide by the storefront theme; the review/standalone page
+   loads them from Google Fonts (tenant.yaml brand.font_stylesheet, a
+   <link> in the document head that the storefront export never carries).
+   Cycle 79: the two DISPLAY faces the owner approved for the "display"
+   first screen -- Peak Grotesk Wide (upper case) and Acid Grotesk -- are
+   declared below with ABSOLUTE https URLs on the live theme's CDN (the
+   theme serves both, CORS *). A page body has no Liquid, and a relative
+   path would 404 on the storefront and in the review file; the export
+   carries these rules verbatim (harness/page_body.py font_face_css). A copy
+   of Peak Grotesk Wide is in brand/fonts-display/ (not brand/fonts/, so
+   publish never re-uploads it).
+
+   Cycle 95 (2026-10-07, owner: "add Epika, Montserrat, Peak Grotesk and
+   Acid Grotesk"): four web families, roles in brand/tokens.json --
+     Peak Grotesk Wide  display headline, upper case   (theme CDN, absolute URL)
+     Acid Grotesk       second display face, licensed  (brand/fonts/)
+     Montserrat         headings, Poppins next          (brand/fonts/, OFL)
+     Epika              serif voice: quotes, statements (brand/fonts/, Superior Type)
+   A brand/fonts/ url is repo-relative on purpose: `harness publish` uploads
+   brand/fonts/* to Shopify Files once (brand/fonts/cdn-manifest.json) and
+   rewrites the url by filename; the review page and the thumbnails get
+   every face as a data: URI from the local file (harness/render.py
+   inline_font_face_urls). Licences: brand/fonts/LICENSES.md. Never rename,
+   subset or convert Epika or Acid Grotesk (Superior Type EULA).
+
+   The "live theme layer" at the end of this file uses !important on
+   purpose. The storefront theme's assets/pk-mono.css (html.pk-mono) sets
+   buttons, radii and headings with !important; the export scopes every
+   rule here under .adv-wrap.adv-wrap, and each CTA selector below doubles
+   its class, so ours reach (0,4,0) > html.pk-mono .x .btn (0,3,1). The
+   same rules also win over each look's own (non-important) CTA rules on
+   the review page, so every look gets one CTA system.
+
+   Headline case is NOT set here: tenant.yaml's brand.headline_case drives
+   it (harness/render.py). (Never write a literal body/head/script tag in
+   this file, even inside a comment: this stylesheet is inlined into the
+   page HEAD and harness/page_body.py reads the document by locating those
+   tags.) */
+
+@font-face{font-family:"Peak Grotesk Wide";font-style:normal;font-weight:400;font-display:swap;
+  src:url("https://cdn.shopify.com/s/files/1/0825/8312/6317/t/64/assets/pk-peak-grotesk-wide.woff2") format("woff2");}
+@font-face{font-family:"Acid Grotesk";font-style:normal;font-weight:400;font-display:swap;
+  src:url("brand/fonts/FFF-AcidGrotesk-Regular.woff2") format("woff2");}
+@font-face{font-family:"Montserrat";font-style:normal;font-weight:100 900;font-display:swap;
+  src:url("brand/fonts/Montserrat-Variable.woff2") format("woff2");}
+@font-face{font-family:"Epika";font-style:normal;font-weight:400;font-display:swap;
+  src:url("brand/fonts/Epika-Regular.woff2") format("woff2");}
+
+:root{
+  /* ---- palette, by role ---- */
+  --ps-accent:#161817;         /* basalt: primary CTA fill (no orange anywhere) */
+  --ps-on-accent:#FFFFFF;
+  --ps-accent-hover:#702B34;   /* brand red: CTA hover/pressed */
+  --ps-link:#1A1A1A;
+  --ps-text:#1A1A1A;
+  --ps-text-strong:#161817;
+  --ps-muted:#616161;
+  --ps-muted-alt:#6B6B6B;
+  --ps-bg:#FFFFFF;             /* white page */
+  --ps-bg-muted:#FFFFFF;       /* cycle 79: no grey panels -- white everywhere */
+  --ps-border:rgba(22,24,23,.18);
+  --ps-hairline:rgba(22,24,23,.14); /* section rules, list rows */
+  --ps-ink-dark:#161817;       /* basalt: dark bands, footer */
+  --ps-on-dark:#FFFFFF;
+  --ps-editorial:#702B34;      /* brand red: item numerals, editorial accents */
+  --ps-band:#161817;
+  --ps-red:#702B34;
+  --ps-star-on:#161817;
+  --ps-star-off:rgba(22,24,23,.2);
+  --ps-pill-bg:#FFFFFF;        /* best-seller badge / savings pill (cycle 79: no grey fill) */
+  --ps-pill-text:#712B33;
+  --ps-pill-border:rgba(113,43,51,.35);
+  --ps-focus:#702B34;
+  /* ---- shape ---- */
+  --ps-radius-card:4px;
+  --ps-radius-btn:999px;       /* pill CTA */
+  --ps-radius-pill:999px;
+  --ps-radius-round:50%;
+  --ps-radius-box:4px;         /* every box, card, input */
+  /* ---- type ---- */
+  --ps-sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --ps-heading:"Montserrat","Poppins","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  /* cycle 95: Epika, the editorial serif -- pull quotes, review quotes, the founder line, statement lines */
+  --ps-serif:"Epika",Georgia,"Times New Roman",serif;
+  /* cycle 79: the approved display faces (the "display" first screen) */
+  --ps-display-wide:"Peak Grotesk Wide","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --ps-display-acid:"Acid Grotesk","Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --ps-eyebrow-size:12px;
+  --ps-eyebrow-spacing:.2em;
+  --ps-eyebrow-color:#6B6B6B;
+  --ps-max-width:1320px;
+}
+
+.adv-listicle .byline,
+.adv-comparison .byline {
+  border-radius: var(--ps-radius-box, 4px);
+}
+.adv-product-page .adv-badge,
+.adv-product-page .adv-cta,
+.adv-product-page .adv-trust-item,
+.adv-product-page .adv-images img,
+.adv-product-page .adv-hero-image,
+.adv-product-page .adv-img,
+.adv-product-page .adv-angle img {
+  border-radius: var(--ps-radius-box, 4px);
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:var(--ps-bg);
+  color:var(--ps-text);
+  font-family:var(--ps-sans);
+  font-size:16px;
+  line-height:1.55;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+}
+
+strong,b{font-weight:500}
+
+h1,h2,h3,h4{
+  margin:0 0 16px;
+  color:var(--ps-text-strong);
+  font-family:var(--ps-heading);
+  font-weight:600;
+  letter-spacing:-.01em;
+  text-transform:none;
+}
+h1{font-size:48px;line-height:1.12}
+h2{font-size:32px;line-height:1.2}
+h3{font-size:22px;line-height:1.3}
+h4{font-size:18px;line-height:1.35}
+p{margin:0 0 16px;color:var(--ps-text);line-height:1.55}
+small,.ps-small{font-size:14px;line-height:20px}
+
+a{color:var(--ps-link);text-decoration:underline}
+a:hover{color:var(--ps-accent-hover)}
+
+:focus-visible{outline:2px solid var(--ps-focus);outline-offset:2px}
+
+.container{
+  width:100%;
+  max-width:var(--ps-max-width);
+  margin:0 auto;
+  padding:0 72px;
+}
+@media (max-width:640px){.container{padding:0 20px}}
+
+.section{padding:64px 0}
+.section--lg{padding:72px 0}
+
+.btn-primary,.btn-secondary{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:52px;
+  padding:17px 44px;
+  border-radius:var(--ps-radius-btn);
+  font-family:var(--ps-heading);
+  font-size:16px;
+  font-weight:600;
+  line-height:1.2;
+  text-align:center;
+  text-decoration:none;
+  cursor:pointer;
+  border:1.5px solid var(--ps-ink-dark);
+}
+.btn-primary{background:var(--ps-ink-dark);color:var(--ps-on-dark)}
+.btn-secondary{background:transparent;color:var(--ps-text)}
+
+/* Tables: plain rows, hairline rules, no chips. */
+table{
+  border-collapse:collapse;
+  width:100%;
+  font-size:16px;
+  line-height:1.5;
+  margin:18px 0 26px;
+  border-radius:var(--ps-radius-card);
+  border:1px solid var(--ps-border);
+}
+th{background:var(--ps-bg-muted);color:var(--ps-text-strong);padding:10px 12px;font-weight:500;text-align:left;font-size:15px}
+td{padding:9px 12px;border-top:1px solid var(--ps-border);vertical-align:top}
+
+/* Cards (cycle 79): no panel -- white ground, a hairline, 4px. */
+.card{
+  background:var(--ps-bg);
+  border:1px solid var(--ps-hairline);
+  border-radius:var(--ps-radius-card);
+  padding:20px 24px;
+}
+
+/* Badges: the best-seller treatment -- red text on white, red hairline. */
+.badge,.financing-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:var(--ps-pill-bg);
+  color:var(--ps-pill-text);
+  border:1px solid var(--ps-pill-border);
+  border-radius:var(--ps-radius-box);
+  padding:4px 10px;
+  font-size:var(--ps-eyebrow-size);
+  font-weight:500;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.ad-label{
+  display:block;
+  font-family:var(--ps-sans);
+  font-size:var(--ps-eyebrow-size);
+  font-weight:500;
+  letter-spacing:var(--ps-eyebrow-spacing);
+  text-transform:uppercase;
+  color:var(--ps-eyebrow-color);
+  margin-bottom:8px;
+}
+
+.disclosure{
+  font-size:14px;
+  color:var(--ps-muted);
+  line-height:20px;
+}
+
+/* Cycle 79: the byline is a line of text, never a box. */
+.byline{
+  background:var(--ps-bg);
+  border:0;
+  border-radius:0;
+  padding:0;
+  margin:0 0 26px;
+  font-size:16px;
+  line-height:1.55;
+}
+.byline .byline__dates{color:var(--ps-muted);margin-top:8px;font-size:14px}
+
+.pk-stars{
+  position:relative;
+  display:inline-block;
+  font-size:16px;
+  line-height:1;
+  letter-spacing:1.5px;
+  color:var(--ps-star-off);
+  white-space:nowrap;
+}
+.pk-stars::before{content:"\2605\2605\2605\2605\2605"}
+.pk-stars-on{
+  position:absolute;left:0;top:0;overflow:hidden;
+  white-space:nowrap;color:var(--ps-star-on);
+}
+
+/* ===================================================================
+   Live theme layer (cycle 78). See the note at the top of this file for
+   why these rules carry !important and doubled classes.
+   =================================================================== */
+
+/* Headings: Montserrat 600 (Poppins fallback), sentence case, -.01em; H1 44-52px desktop,
+   28-34px phone. One rule for every look, so no look can drift. */
+.adv-wrap h1,.adv-wrap h2,.adv-wrap h3,.adv-wrap h4{
+  font-family:var(--ps-heading)!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+  text-transform:none!important;
+}
+.adv-wrap h1{font-size:clamp(28px,calc(23px + 1.75vw),50px)!important;line-height:1.12!important}
+
+/* No shadows, glows or gradients anywhere on the page. */
+.adv-wrap *,.adv-wrap *::before,.adv-wrap *::after{box-shadow:none!important;text-shadow:none!important}
+
+/* Primary CTA: Basalt pill, white text, Montserrat 600 16px (Poppins fallback), 17px 44px;
+   hover brand red. */
+.adv-wrap .adv-cta.adv-cta,.adv-wrap .lst-btn.lst-btn,.adv-wrap .ed-btn.ed-btn,.adv-wrap .ld-btn.ld-btn,
+.adv-wrap .pil-btn.pil-btn,.adv-wrap .sc-btn.sc-btn,.adv-wrap .cmp-btn.cmp-btn,.adv-wrap .qz-btn.qz-btn,
+.adv-wrap .pp-btn.pp-btn,.adv-wrap .op-btn.op-btn,.adv-wrap .bk-closing-offer__button.bk-closing-offer__button,
+.adv-wrap .bk-hero-editorial__button.bk-hero-editorial__button,.adv-wrap .bk-hero-fullbleed__button.bk-hero-fullbleed__button,
+.adv-wrap .bk-hero-split__button.bk-hero-split__button,.adv-wrap .bk-verdict-box__button.bk-verdict-box__button,
+.adv-wrap .bk-sticky-cta-bar__button.bk-sticky-cta-bar__button{
+  background:var(--ps-ink-dark)!important;
+  color:var(--ps-on-dark)!important;
+  border:1.5px solid var(--ps-ink-dark)!important;
+  border-radius:999px!important;
+  padding:17px 44px!important;
+  min-height:52px;
+  font-family:var(--ps-heading)!important;
+  font-size:16px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+  text-decoration:none!important;
+  opacity:1!important;
+  background-image:none!important;
+}
+.adv-wrap .adv-cta.adv-cta:hover,.adv-wrap .lst-btn.lst-btn:hover,.adv-wrap .ed-btn.ed-btn:hover,.adv-wrap .ld-btn.ld-btn:hover,
+.adv-wrap .pil-btn.pil-btn:hover,.adv-wrap .sc-btn.sc-btn:hover,.adv-wrap .cmp-btn.cmp-btn:hover,.adv-wrap .qz-btn.qz-btn:hover,
+.adv-wrap .pp-btn.pp-btn:hover,.adv-wrap .op-btn.op-btn:hover{
+  background:var(--ps-accent-hover)!important;
+  border-color:var(--ps-accent-hover)!important;
+  color:#FFFFFF!important;
+  opacity:1!important;
+}
+
+/* Rectangular buy-box CTA (pdp): Basalt, 4px, min-height 56px, full width. */
+.adv-wrap .pp-buy .pp-btn.pp-btn{border-radius:4px!important;min-height:56px;width:100%;padding:17px 24px!important}
+
+/* Secondary CTA: transparent, 1.5px ink outline; hover fills ink. */
+.adv-wrap .lst-btn--ghost.lst-btn--ghost,.adv-wrap .ld-btn--ghost.ld-btn--ghost,
+.adv-wrap .pil-btn--ghost.pil-btn--ghost,.adv-wrap .sc-btn--ghost.sc-btn--ghost{
+  background:transparent!important;
+  color:var(--ps-text)!important;
+  border:1.5px solid var(--ps-text)!important;
+  padding:12px 28px!important;
+}
+.adv-wrap .lst-btn--ghost.lst-btn--ghost:hover,.adv-wrap .ld-btn--ghost.ld-btn--ghost:hover,
+.adv-wrap .pil-btn--ghost.pil-btn--ghost:hover,.adv-wrap .sc-btn--ghost.sc-btn--ghost:hover{
+  background:var(--ps-text)!important;
+  border-color:var(--ps-text)!important;
+  color:#FFFFFF!important;
+}
+
+/* CTA on a dark band or photo: white pill, Basalt text; hover red. */
+.adv-wrap .ld-btn--light.ld-btn--light,.adv-wrap .ld-close .ld-btn.ld-btn,.adv-wrap .qz-close .qz-btn.qz-btn,
+.adv-wrap .op-close .op-btn.op-btn{
+  background:#FFFFFF!important;
+  color:var(--ps-ink-dark)!important;
+  border-color:#FFFFFF!important;
+}
+.adv-wrap .ld-btn--light.ld-btn--light:hover,.adv-wrap .ld-close .ld-btn.ld-btn:hover,.adv-wrap .op-close .op-btn.op-btn:hover,.adv-wrap .qz-close .qz-btn.qz-btn:hover:hover{
+  background:var(--ps-accent-hover)!important;
+  border-color:var(--ps-accent-hover)!important;
+  color:#FFFFFF!important;
+}
+
+/* Text-link CTAs: ink, underlined; hover red. */
+.adv-wrap .ld-link.ld-link:hover,.adv-wrap .ed-link-cta.ed-link-cta:hover,.adv-wrap .ed-model-link.ed-model-link:hover,
+.adv-wrap .cmp-link.cmp-link:hover,.adv-wrap .qz-link.qz-link:hover{color:var(--ps-accent-hover)!important}
+
+/* The storefront puts fixed UI along the bottom edge on every page (the
+   Peak Assist bar, ~70px; the sales popup; Klaviyo): no sticky CTA bar at
+   the bottom edge, and ~90px of room under the page. */
+.adv-wrap .lst-sticky,.adv-wrap .ld-sticky,.adv-wrap .pil-sticky,.adv-wrap .sc-sticky,.adv-wrap .ed-sticky,
+.adv-wrap .cmp-sticky,.adv-wrap .pp-sticky,.adv-wrap .qz-sticky,.adv-wrap .bk-sticky-cta-bar,.adv-wrap .adv-sticky-cta{display:none!important}
+.adv-wrap .adv-footer{padding-bottom:90px!important}
+
+/* Cycle 79 boxless layer: white page, no panel behind the byline, trust
+   line, proof lines or FAQ in any cartridge (the listicle's own look draws
+   none; these catch the other cartridges' older boxes). */
+.adv-wrap{background:var(--ps-bg)!important}
+.adv-wrap .byline,.adv-wrap .adv-byline,.adv-wrap .adv-trust,.adv-wrap .adv-trust-item,
+.adv-wrap .cmp-trust,.adv-wrap .qz-trust,.adv-wrap .pp-trust{background:transparent!important;border:0!important;box-shadow:none!important}
+
+/* Inputs: 4px, at least 16px text (no iOS zoom). */
+.adv-wrap input,.adv-wrap select,.adv-wrap textarea{border-radius:4px;font-size:16px}
+</style>
+
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "acceptedAnswer": {"@type": "Answer", "text": "It runs on a dedicated 120V / 20A outlet. Check this against your room before ordering."}, "name": "What outlet does the Fuji need?"}, {"@type": "Question", "acceptedAnswer": {"@type": "Answer", "text": "Shipping is free. In-stock orders take two to four business days to process, then three to seven in transit, and the cabin goes together with a clasp-together assembly."}, "name": "How is the Fuji delivered and assembled?"}, {"@type": "Question", "acceptedAnswer": {"@type": "Answer", "text": "7-year residential warranty; full terms by component are published on the warranty page."}, "name": "What\u0027s covered under warranty?"}, {"@type": "Question", "acceptedAnswer": {"@type": "Answer", "text": "The cabin heats up to 150\u00b0F using full-spectrum infrared across near, mid, and far wavelengths."}, "name": "How hot does the Fuji get?"}, {"@type": "Question", "acceptedAnswer": {"@type": "Answer", "text": "Returns require the sauna disassembled and repacked in its original crate, with a restocking fee and return shipping paid by the customer."}, "name": "Can I return it if it doesn\u0027t fit my space?"}]}</script>
+
+</head>
+<body>
+
+<main class="adv-wrap" data-pk-theme="open-2026-10-05">
+
+
+
+
+
+
+<style>
+.adv-wrap:has(.adv-landing){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.adv-landing) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.adv-landing{
+  --pk-ink:var(--ps-text-strong,var(--adv-fg));
+  --pk-body:var(--ps-text,var(--adv-fg));
+  --pk-muted:var(--ps-muted-alt,var(--ps-muted,var(--adv-muted)));
+  --pk-bg:var(--ps-bg,var(--adv-bg));
+  --pk-red:var(--ps-red,var(--ps-accent-hover,var(--adv-accent)));
+  --pk-line:var(--ps-hairline,var(--ps-border,var(--adv-border)));
+  --pk-dark:var(--ps-ink-dark,var(--pk-ink));
+  --pk-on-dark:var(--ps-on-dark,var(--pk-bg));
+  --pk-sans:var(--ps-sans,inherit);
+  --pk-heading:var(--ps-heading,var(--pk-sans));
+  --pk-display-wide:var(--ps-display-wide,var(--pk-heading));
+  --pk-display-acid:var(--ps-display-acid,var(--pk-heading));
+  --pk-radius:var(--ps-radius-box,4px);
+  --pk-max:var(--ps-max-width,1320px);
+  --cn-gap:64px;
+  background:var(--pk-bg);
+  color:var(--pk-body);
+  font-family:var(--pk-sans);
+  font-size:16.5px;
+  line-height:1.55;
+  overflow-x:clip;
+}
+.adv-landing.pk-lp{display:block}
+.adv-landing .ld-about{margin-top:0}
+.adv-landing p{color:var(--pk-body)}
+.adv-landing .cn-c{max-width:1200px;margin:0 auto;padding:0 16px}
+.adv-landing .cn-eyebrow{font:500 11.5px/1.4 var(--pk-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--pk-muted);margin:0 0 12px}
+.adv-landing .cn-eyebrow span{padding:0 6px}
+.adv-landing .cn-h2{margin:0 0 24px;font:600 26px/1.15 var(--pk-heading);letter-spacing:-.015em;color:var(--pk-ink);text-wrap:balance;max-width:22ch}
+.adv-landing .cn-sec{padding:var(--cn-gap) 0 0}
+.adv-landing .cn-rule{border:0;border-top:1px solid var(--pk-line);margin:var(--cn-gap) 0 0}
+/* the stats under the first screen: on its dark ground, or on hairlines */
+.adv-landing .cn-stats{padding:0 16px}
+.adv-landing .cn-stats .bk-stat_strip{max-width:1200px;margin:0 auto}
+.adv-landing .cn-stats--dark{background:var(--pk-dark);padding-bottom:32px}
+.adv-landing .cn-stats--light{padding-top:24px}
+.adv-landing .cn-stats--light .bk-stat_strip.bk-stat_strip--inline{--bk-line:var(--pk-line)}
+.adv-landing .cn-stats--light .bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-value{color:var(--pk-ink)}
+.adv-landing .cn-stats--light .bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-label{color:var(--pk-muted);opacity:1}
+.adv-landing .cn-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px}
+.adv-landing .ld-btn{display:inline-flex;align-items:center;justify-content:center;background:var(--pk-dark);color:var(--pk-on-dark);border-radius:var(--ps-radius-btn,999px);padding:15px 36px;min-height:52px;font:600 16px/1.2 var(--pk-heading);text-decoration:none;text-align:center}
+.adv-landing .ld-btn:hover{background:var(--pk-red)}
+/* checked claims as numbered steps */
+.adv-landing .cn-steps{list-style:none;margin:0;padding:0}
+.adv-landing .cn-step{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 12px;padding:22px 0;border-top:1px solid var(--pk-line)}
+.adv-landing .cn-step:last-child{border-bottom:1px solid var(--pk-line)}
+.adv-landing .cn-num{font:400 30px/1 var(--pk-display-acid);color:var(--pk-red)}
+.adv-landing .cn-said{margin:0 0 6px;font:600 18px/1.3 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .cn-fact{margin:0;color:var(--pk-muted);max-width:60ch}
+.adv-landing .cn-side{margin:32px 0 0}
+.adv-landing .cn-side .adv-img{width:100%;border-radius:var(--pk-radius);object-fit:cover}
+/* proof */
+.adv-landing .cn-proof{list-style:none;margin:0;padding:0;display:grid;gap:22px}
+.adv-landing .cn-proof li{border-left:3px solid var(--pk-red);padding:2px 0 2px 16px}
+.adv-landing .cn-proof b{display:block;margin-bottom:2px;font:400 30px/1.1 var(--pk-display-wide);color:var(--pk-ink)}
+.adv-landing .cn-proof span{display:block;color:var(--pk-muted)}
+.adv-landing .cn-proof blockquote{margin:0}
+.adv-landing .cn-proof blockquote p{margin:0;font:500 17px/1.45 var(--pk-heading);color:var(--pk-ink)}
+/* price */
+.adv-landing .cn-big{margin:0;font:400 44px/1.02 var(--pk-display-wide);color:var(--pk-ink);overflow-wrap:anywhere}
+.adv-landing .cn-pricecopy p{margin:16px 0 20px;color:var(--pk-muted);max-width:44ch}
+/* closing */
+.adv-landing .cn-close{padding:var(--cn-gap) 0 72px}
+.adv-landing .cn-close .cn-h2{font-size:30px;max-width:18ch}
+.adv-landing .cn-fine{margin:16px 0 0;max-width:52ch;font-size:13.5px;color:var(--pk-muted)}
+/* sticky bar: price + the pill, after the first screen scrolls out */
+.adv-landing .ld-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--pk-bg);border-top:1px solid var(--pk-line);transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility .25s}
+.adv-landing .ld-bar.ld-bar--on{transform:none;visibility:visible}
+.adv-landing .ld-bar .ld-bar-name{margin:0;min-width:0;font:600 16px/1.2 var(--pk-heading);color:var(--pk-ink)}
+.adv-landing .ld-bar .ld-bar-name span{display:block;margin-top:2px;font:400 12.5px/1.3 var(--pk-sans);color:var(--pk-muted);white-space:nowrap}
+.adv-landing .ld-bar .ld-btn.ld-btn{min-height:46px!important;padding:10px 24px!important;font-size:15px!important}
+@media (min-width:768px){
+  .adv-landing{--cn-gap:88px;font-size:17px}
+  .adv-wrap:has(.adv-landing) .adv-footer{padding-left:32px;padding-right:32px}
+  .adv-landing .cn-c,.adv-landing .cn-stats{padding-left:32px;padding-right:32px}
+  .adv-landing .cn-h2{font-size:38px}
+  .adv-landing .cn-big{font-size:68px}
+  .adv-landing .cn-close .cn-h2{font-size:42px}
+  .adv-landing .ld-bar{justify-content:center;gap:24px}
+}
+@media (min-width:1024px){
+  .adv-landing{--cn-gap:104px}
+  .adv-landing .cn-steps-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:72px;align-items:start}
+  .adv-landing .cn-side{position:sticky;top:32px;margin-top:0}
+  .adv-landing .cn-split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:72px;align-items:start}
+  .adv-landing .cn-split--end{align-items:end}
+  .adv-landing .cn-big{font-size:88px}
+  .adv-landing .ld-bar{display:none}
+}
+</style>
+<div class="pk-lp adv-landing">
+
+  
+
+
+
+<style>
+.adv-wrap:has(.hr-bleed){max-width:none;padding-top:0;padding-left:0;padding-right:0}
+.adv-wrap:has(.hr-bleed) .adv-footer{max-width:var(--ps-max-width,1320px);margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+.hr-caps_over_photo{
+  --hr-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));
+  --hr-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));
+  --hr-red:var(--pk-red,var(--ps-red,var(--adv-accent)));
+  --hr-sans:var(--pk-sans,var(--ps-sans,inherit));
+  --hr-heading:var(--pk-heading,var(--ps-heading,inherit));
+  --hr-ground:var(--hr-dark);
+  --hr-text:var(--hr-on-dark);
+  position:relative;display:flex;flex-direction:column;justify-content:flex-end;
+  min-height:clamp(560px,100svh,900px);margin:0;background:var(--hr-ground);color:var(--hr-text);overflow:hidden;text-align:left;
+}
+.hr-caps_over_photo .hr-caps_over_photo-media{position:absolute;inset:0;margin:0}
+.hr-caps_over_photo .hr-caps_over_photo-media .adv-img{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;border-radius:0;object-fit:cover;object-position:var(--hr-pos,50% 30%)}
+.hr-caps_over_photo .hr-caps_over_photo-media::after{content:"";position:absolute;inset:0;background:var(--hr-dark);opacity:.58}
+.hr-caps_over_photo .hr-caps_over_photo-body{position:relative;z-index:1;box-sizing:border-box;width:100%;max-width:var(--ps-max-width,1320px);margin:0 auto;padding:96px 16px 36px}
+.hr-caps_over_photo .hr-caps_over_photo-eyebrow{margin:0;font:500 12px/1.4 var(--hr-sans);letter-spacing:.2em;text-transform:uppercase;color:var(--hr-text);opacity:.82}
+.hr-caps_over_photo .hr-caps_over_photo-eyebrow span{padding:0 6px}
+.hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1{margin:12px 0 0;max-width:15ch;color:var(--hr-text)!important;font-family:var(--pk-display-wide)!important;font-weight:400!important;font-size:31px!important;line-height:1.06!important;letter-spacing:.01em!important;text-transform:uppercase!important;text-wrap:balance;overflow-wrap:break-word}
+.hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1--long{max-width:22ch;font-size:24px!important;line-height:1.12!important}
+.hr-caps_over_photo .hr-accent{color:inherit;text-decoration:underline;text-decoration-color:var(--hr-red);text-decoration-thickness:.08em;text-underline-offset:.14em}
+.hr-caps_over_photo .hr-caps_over_photo-dek{margin:14px 0 0;max-width:36em;font-size:17px;line-height:1.5;color:var(--hr-text);opacity:.88}
+.hr-caps_over_photo .hr-caps_over_photo-price{margin:16px 0 0;color:var(--hr-text)}
+.hr-caps_over_photo .hr-caps_over_photo-price b{display:block;font:400 26px/1.05 var(--pk-display-wide);color:var(--hr-text)}
+.hr-caps_over_photo .hr-caps_over_photo-price span{display:block;margin-top:6px;font-size:13.5px;line-height:1.45;opacity:.82}
+.hr-caps_over_photo .hr-caps_over_photo-act{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:20px 0 0}
+.hr-caps_over_photo .hr-caps_over_photo-act .hr-cta{display:inline-flex;align-items:center;justify-content:center;min-height:52px}
+.hr-caps_over_photo .hr-cta.hr-cta.hr-cta{background:var(--hr-on-dark)!important;color:var(--hr-dark)!important;border-color:var(--hr-on-dark)!important}
+.hr-caps_over_photo .hr-cta.hr-cta.hr-cta:hover{background:var(--hr-red)!important;color:var(--hr-on-dark)!important;border-color:var(--hr-red)!important}
+.hr-caps_over_photo .hr-caps_over_photo-text{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-size:15px;color:var(--hr-text);text-decoration:underline;text-underline-offset:3px}
+.hr-caps_over_photo .hr-caps_over_photo-trust{display:flex;flex-wrap:wrap;gap:2px 0;margin:14px 0 0;padding:0;list-style:none;font-size:12.5px;line-height:1.5;color:var(--hr-text);opacity:.82}
+.hr-caps_over_photo .hr-caps_over_photo-trust li+li::before{content:"\00b7";padding:0 8px}
+.hr-caps_over_photo .hr-caps_over_photo-by{margin:14px 0 0;font-size:13px;line-height:1.45;color:var(--hr-text);opacity:.8}
+.hr-caps_over_photo .hr-caps_over_photo-by b{font-weight:500}
+@media (min-width:900px){
+  .adv-wrap:has(.hr-bleed) .adv-footer{padding-left:32px;padding-right:32px}
+  .hr-caps_over_photo{min-height:min(92svh,880px)}
+  .hr-caps_over_photo .hr-caps_over_photo-body{padding:160px 32px 72px}
+  .hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1{font-size:58px!important}
+  .hr-caps_over_photo .hr-caps_over_photo-h1.hr-caps_over_photo-h1--long{font-size:40px!important}
+  .hr-caps_over_photo .hr-caps_over_photo-dek{font-size:19px}
+}
+</style>
+<header class="hr-root hr-caps_over_photo hr-bleed" data-look-pattern="hero:caps_over_photo" data-hero-image="library">
+  <figure class="hr-caps_over_photo-media" style="--hr-pos:50% 45%"><picture><source type="image/webp" srcset="assets/asset-photo-c63844ef5fc6-480.webp 480w, assets/asset-photo-c63844ef5fc6-800.webp 800w" sizes="(max-width: 768px) 100vw, 700px"><img src="assets/asset-photo-c63844ef5fc6-800.jpg" alt="Peak Fuji – lifestyle photo" srcset="assets/asset-photo-c63844ef5fc6-480.jpg 480w, assets/asset-photo-c63844ef5fc6-800.jpg 800w" sizes="(max-width: 768px) 100vw, 700px" width="1065" height="1600" loading="eager" decoding="async" fetchpriority="high" class="adv-img adv-img--hero"></picture></figure>
+  <div class="hr-caps_over_photo-body">
+    <p class="hr-caps_over_photo-eyebrow">Community Savings Sale</p>
+    <h1 class="hr-caps_over_photo-h1"><span class="hr-accent">Money off</span> every indoor sauna during the sale</h1>
+    <p class="hr-caps_over_photo-dek">Save on the Peak Fuji before prices change, with the discount applied at checkout.</p>
+    <p class="hr-caps_over_photo-price"><b>$8,250</b><span class="hr-caps_over_photo-offer ld-offer" style="font-weight:600;font-size:15px;opacity:1;color:inherit">$300 off with code INDOOR300</span><span class="hr-caps_over_photo-deadline ld-deadline">Prices go up on October 16, 2026.</span><span>Financing is available through Bread Pay at checkout.</span></p>
+    <div class="hr-caps_over_photo-act"><a class="ld-btn hr-cta" href="https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy">Shop the Fuji</a><a class="ld-text hr-caps_over_photo-text" href="sms:+14706653747?&amp;body=Hi%2C%20I%20have%20a%20question%20about%20the%20Peak%20Fuji.">Text us</a></div><p class="hr-caps_over_photo-offer-note ld-offer-note" style="margin:8px 0 0;font-size:13px;line-height:1.4;color:inherit">Offer applied at checkout with the code.</p>
+    <ul class="hr-caps_over_photo-trust"><li>4.8 ★ · 49 reviews</li><li>Free shipping</li><li>7-year residential warranty</li></ul>
+    
+  </div>
+</header>
+  <div class="cn-stats cn-stats--dark">
+<style>
+.bk-stat_strip{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--bk-line)}
+.bk-stat_strip .bk-stat_strip-cell{min-width:0;padding:14px 12px 14px 0;border-bottom:1px solid var(--bk-line)}
+.bk-stat_strip .bk-stat_strip-cell:nth-child(even){padding-left:14px;border-left:1px solid var(--bk-line)}
+.bk-stat_strip .bk-stat_strip-value{display:block;font:400 18px/1.15 var(--bk-display);letter-spacing:.01em;color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-stat_strip .bk-stat_strip-value::before{content:"";display:block;width:24px;height:3px;margin-bottom:10px;background:var(--bk-red)}
+.bk-stat_strip .bk-stat_strip-label{display:block;margin-top:6px;font:400 13px/1.35 var(--bk-sans);color:var(--bk-muted)}
+.bk-stat_strip.bk-stat_strip--inline{--bk-line:var(--bk-muted)}
+.bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-value{color:var(--bk-on-dark)}
+.bk-stat_strip.bk-stat_strip--inline .bk-stat_strip-label{color:var(--bk-on-dark);opacity:.82}
+@media (min-width:768px){
+  .bk-stat_strip{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);border-bottom:1px solid var(--bk-line)}
+  .bk-stat_strip .bk-stat_strip-cell,.bk-stat_strip .bk-stat_strip-cell:nth-child(even){border-bottom:0;border-left:0;padding:20px 18px 22px}
+  .bk-stat_strip .bk-stat_strip-cell+.bk-stat_strip-cell{border-left:1px solid var(--bk-line)}
+  .bk-stat_strip .bk-stat_strip-cell:first-child{padding-left:0}
+  .bk-stat_strip .bk-stat_strip-value{font-size:24px}
+}
+</style>
+<ul class="bk-stat_strip bk-stat_strip--inline" data-look-pattern="stat_strip stat-strip"><li class="bk-stat_strip-cell"><b class="bk-stat_strip-value">4.8 ★</b><span class="bk-stat_strip-label">49 reviews</span></li><li class="bk-stat_strip-cell"><b class="bk-stat_strip-value">2-Person</b><span class="bk-stat_strip-label">Capacity</span></li><li class="bk-stat_strip-cell"><b class="bk-stat_strip-value">Free</b><span class="bk-stat_strip-label">Shipping</span></li><li class="bk-stat_strip-cell"><b class="bk-stat_strip-value">150°F</b><span class="bk-stat_strip-label">Max temperature</span></li></ul></div>
+
+  
+  <section class="cn-sec">
+    <div class="cn-c">
+      <div>
+        <p class="cn-eyebrow">The ad, checked</p>
+        <h2 class="cn-h2">What the ad said, and what holds up</h2>
+        <ol class="cn-steps">
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">01</span><div><p class="cn-said">$300 off every indoor sauna. $500 off outdoor.</p><p class="cn-fact">Community Savings Sale: $300 off indoor saunas with code INDOOR300 and $500 off outdoor saunas with code OUTDOOR500, applied at checkout; prices go up on October 16, 2026.</p></div></li>
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">02</span><div><p class="cn-said">Placeholder for offer, rendered separately by the page.</p><p class="cn-fact">placeholder</p></div></li>
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">03</span><div><p class="cn-said">The ad shows a roomy two-person cabin ready for daily use.</p><p class="cn-fact">The Peak Fuji is a two-person cabin built from Canadian red cedar, inside and out.</p></div></li>
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">04</span><div><p class="cn-said">The ad implies the heat reaches the whole body, not just one spot.</p><p class="cn-fact">Heat comes from full-spectrum infrared panels placed around the cabin, covering near, mid, and far wavelengths up to 150°F.</p></div></li>
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">05</span><div><p class="cn-said">The ad doesn&#39;t mention what outlet this plugs into at home.</p><p class="cn-fact">The Fuji runs on a dedicated 120V / 20A outlet.</p></div></li>
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">06</span><div><p class="cn-said">The ad doesn&#39;t say how it ships or sets up.</p><p class="cn-fact">Shipping is free, with in-stock orders handled in two to four business days before transit; assembly uses a clasp-together design.</p></div></li>
+          
+          <li class="cn-step"><span class="cn-num" aria-hidden="true">07</span><div><p class="cn-said">The ad doesn&#39;t mention sound or extras built into the cabin.</p><p class="cn-fact">The Fuji includes two Bluetooth speakers for audio during a session.</p></div></li>
+          
+        </ol>
+      </div>
+      
+    </div>
+  </section>
+  
+
+  
+  <section class="cn-sec">
+    <div class="cn-c">
+      <p class="cn-eyebrow">A closer look</p>
+      
+<style>
+.bk-photo_essay{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));display:grid;grid-template-columns:minmax(0,1fr);gap:32px;margin:0}
+.bk-photo_essay .bk-photo_essay-fig{margin:0;min-width:0}
+.bk-photo_essay .bk-photo_essay-fig .adv-img{width:100%;margin:0;border-radius:var(--bk-radius);object-fit:cover}
+.bk-photo_essay .bk-photo_essay-line{margin:14px 0 0;font:500 17px/1.4 var(--bk-heading);color:var(--bk-ink);max-width:36ch;text-wrap:pretty}
+.bk-photo_essay.bk-photo_essay--bleed{gap:40px}
+.bk-photo_essay.bk-photo_essay--bleed .bk-photo_essay-fig .adv-img{border-radius:0}
+.bk-photo_essay.bk-photo_essay--bleed .bk-photo_essay-line{padding:0 16px;max-width:40ch}
+@media (min-width:768px){
+  .bk-photo_essay.bk-photo_essay--contained{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
+  .bk-photo_essay.bk-photo_essay--bleed .bk-photo_essay-line{padding:0 32px}
+}
+</style>
+<div class="bk-photo_essay bk-photo_essay--contained" data-look-pattern="photo_essay">
+  <figure class="bk-photo_essay-fig"><picture><source type="image/webp" srcset="assets/asset-photo-60890018ef2f-480.webp 480w, assets/asset-photo-60890018ef2f-800.webp 800w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px"><img src="assets/asset-photo-60890018ef2f-800.jpg" alt="Rendering: Peak Fuji – lifestyle photo" srcset="assets/asset-photo-60890018ef2f-480.jpg 480w, assets/asset-photo-60890018ef2f-800.jpg 800w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px" width="1024" height="1024" loading="lazy" decoding="async" class="adv-img adv-img--cover" style="aspect-ratio:4 / 5"></picture><figcaption class="bk-photo_essay-line">A two-person cedar cabin sized for a home sauna room, not a spa</figcaption></figure>
+  <figure class="bk-photo_essay-fig"><picture><source type="image/webp" srcset="assets/asset-photo-6043a197d883-480.webp 480w, assets/asset-photo-6043a197d883-800.webp 800w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px"><img src="assets/asset-photo-6043a197d883-800.jpg" alt="Peak Fuji – product photo" srcset="assets/asset-photo-6043a197d883-480.jpg 480w, assets/asset-photo-6043a197d883-800.jpg 800w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px" width="1067" height="1600" loading="lazy" decoding="async" class="adv-img adv-img--contain" style="aspect-ratio:4 / 5"></picture><figcaption class="bk-photo_essay-line">Solid wood door handle built for daily use, not a showroom piece</figcaption></figure>
+  <figure class="bk-photo_essay-fig"><picture><source type="image/webp" srcset="assets/asset-photo-b3e871fd00ee-480.webp 480w, assets/asset-photo-b3e871fd00ee-800.webp 800w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px"><img src="assets/asset-photo-b3e871fd00ee-800.jpg" alt="Peak Fuji – product photo" srcset="assets/asset-photo-b3e871fd00ee-480.jpg 480w, assets/asset-photo-b3e871fd00ee-800.jpg 800w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px" width="1067" height="1600" loading="lazy" decoding="async" class="adv-img adv-img--contain" style="aspect-ratio:4 / 5"></picture><figcaption class="bk-photo_essay-line">Mood lighting and a glass door bring warmth into a small footprint</figcaption></figure>
+  <figure class="bk-photo_essay-fig"><picture><source type="image/webp" srcset="assets/asset-photo-84d9846da050-480.webp 480w, assets/asset-photo-84d9846da050-800.webp 800w, assets/asset-photo-84d9846da050-1200.webp 1200w, assets/asset-photo-84d9846da050-1600.webp 1600w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px"><img src="assets/asset-photo-84d9846da050-1200.jpg" alt="Peak Fuji – product photo" srcset="assets/asset-photo-84d9846da050-480.jpg 480w, assets/asset-photo-84d9846da050-800.jpg 800w, assets/asset-photo-84d9846da050-1200.jpg 1200w, assets/asset-photo-84d9846da050-1600.jpg 1600w" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 80vw, 800px" width="1600" height="900" loading="lazy" decoding="async" class="adv-img adv-img--contain" style="aspect-ratio:4 / 5"></picture><figcaption class="bk-photo_essay-line">Red light glow inside the cabin, part of the standard build</figcaption></figure>
+</div>
+    </div>
+  </section>
+  
+
+  
+  <section class="cn-sec">
+    <div class="cn-c">
+      <p class="cn-eyebrow">Peak Fuji</p>
+      <h2 class="cn-h2">What comes with it</h2>
+      
+<style>
+.bk-feature_grid{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.bk-feature_grid .bk-feature_grid-cell{display:grid;grid-template-columns:36px minmax(0,1fr);gap:2px 12px;padding:18px 0;border-top:1px solid var(--bk-line);min-width:0}
+.bk-feature_grid .bk-feature_grid-cell:last-child{border-bottom:1px solid var(--bk-line)}
+.bk-feature_grid .bk-feature_grid-icon{grid-row:span 2;color:var(--bk-red);padding-top:2px}
+.bk-feature_grid .bk-feature_grid-icon svg{display:block;width:24px;height:24px}
+.bk-feature_grid .bk-feature_grid-rule{display:block;width:20px;height:3px;margin-top:10px;background:var(--bk-red)}
+.bk-feature_grid .bk-feature_grid-label{margin:0;font:600 17px/1.3 var(--bk-heading);color:var(--bk-ink);overflow-wrap:anywhere}
+.bk-feature_grid .bk-feature_grid-line{margin:4px 0 0;font-size:15px;line-height:1.5;color:var(--bk-muted);max-width:44ch}
+@media (min-width:768px){
+  .bk-feature_grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:40px}
+  .bk-feature_grid.bk-feature_grid--n3,.bk-feature_grid.bk-feature_grid--n5,.bk-feature_grid.bk-feature_grid--n6{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bk-feature_grid .bk-feature_grid-cell{grid-template-columns:minmax(0,1fr);padding:24px 0 28px}
+  .bk-feature_grid .bk-feature_grid-cell:last-child{border-bottom:0}
+  .bk-feature_grid .bk-feature_grid-icon{grid-row:auto;margin-bottom:12px}
+}
+@media (min-width:1024px){.bk-feature_grid.bk-feature_grid--n4{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+<ul class="bk-feature_grid bk-feature_grid--n5" data-look-pattern="feature_grid icon-row"><li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></span><p class="bk-feature_grid-label">Red light included</p><p class="bk-feature_grid-line">Red light therapy comes standard, not as an add-on purchase.</p></li><li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 7.5c3-3 6 3 9 0s6 3 9 0"/><path d="M3 12c3-3 6 3 9 0s6 3 9 0"/><path d="M3 16.5c3-3 6 3 9 0s6 3 9 0"/></svg></span><p class="bk-feature_grid-label">Full-spectrum heat</p><p class="bk-feature_grid-line">Near, mid, and far infrared panels heat the cabin up to 150°F.</p></li><li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.5l5.5 7.5h-3l4 6h-13l4-6h-3z"/><path d="M12 16v5.5"/></svg></span><p class="bk-feature_grid-label">Cedar cabin</p><p class="bk-feature_grid-line">Built from Canadian red cedar inside and out.</p></li><li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.75"/><circle cx="16.5" cy="17.5" r="1.75"/></svg></span><p class="bk-feature_grid-label">Free shipping</p><p class="bk-feature_grid-line">Every order ships free, with a scheduled delivery window.</p></li><li class="bk-feature_grid-cell"><span class="bk-feature_grid-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></span><p class="bk-feature_grid-label">7-year warranty</p><p class="bk-feature_grid-line">7-year residential warranty; full terms by component are published on the warranty page.</p></li></ul>
+    </div>
+  </section>
+  
+
+  
+  <div class="cn-sec">
+<style>
+.bk-statement_band{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));background:var(--bk-dark);color:var(--bk-on-dark);padding:64px 16px 72px}
+.bk-statement_band .bk-statement_band-in{max-width:1200px;margin:0 auto}
+.bk-statement_band .bk-statement_band-line{margin:0 0 28px;max-width:16ch;font:400 30px/1.1 var(--bk-display);letter-spacing:.01em;text-transform:uppercase;color:var(--bk-on-dark);text-wrap:balance}
+.bk-statement_band .bk-statement_band-act a{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:15px 36px;border-radius:999px;background:var(--bk-on-dark);color:var(--bk-dark);font:600 16px/1.2 var(--bk-heading);text-decoration:none}
+.bk-statement_band .bk-statement_band-act a:hover{background:var(--bk-red);color:var(--bk-on-dark)}
+@media (min-width:768px){
+  .bk-statement_band{padding:96px 32px 104px}
+  .bk-statement_band .bk-statement_band-line{font-size:48px;max-width:18ch}
+}
+@media (min-width:1024px){.bk-statement_band .bk-statement_band-line{font-size:60px}}
+</style>
+<section class="bk-statement_band" data-look-pattern="statement_band">
+  <div class="bk-statement_band-in">
+    <p class="bk-statement_band-line">A sauna room built for daily use, not just occasions</p>
+    <div class="bk-statement_band-act"><a class="ld-btn ld-btn--light" href="https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy">Shop the Fuji</a></div>
+  </div>
+</section></div>
+  
+
+  
+  <section class="cn-sec">
+    <div class="cn-c cn-split">
+      <div>
+        <p class="cn-eyebrow">Who stands behind it</p>
+        <h2 class="cn-h2">PEAK</h2>
+      </div>
+      <ul class="cn-proof">
+        <li><b>4.8</b><span>out of 5, 49 reviews</span></li>
+        
+        <li><span>7-year residential warranty; full terms by component are published on the warranty page.</span></li>
+      </ul>
+    </div>
+  </section>
+  
+
+  
+  <div class="cn-c"><hr class="cn-rule"></div>
+  <section class="cn-sec">
+    <div class="cn-c cn-split cn-split--end">
+      <div>
+        <p class="cn-eyebrow">Peak Fuji</p>
+        <p class="cn-big">$8,250</p>
+      </div>
+      <div class="cn-pricecopy">
+        <p>Financing is available through Bread Pay at checkout.</p><p><b>$300 off with code INDOOR300</b> Prices go up on October 16, 2026.</p>
+        <div class="cn-ctas"><a class="ld-btn" href="https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy">Shop the Fuji</a></div>
+      </div>
+    </div>
+  </section>
+  
+
+  
+  <section class="cn-sec">
+    <div class="cn-c cn-split">
+      <div><p class="cn-eyebrow">Questions</p><h2 class="cn-h2">Before you buy</h2></div>
+      
+<style>
+.bk-faq{--bk-ink:var(--pk-ink,var(--ps-text-strong,var(--adv-fg)));--bk-body:var(--pk-body,var(--ps-text,var(--adv-fg)));--bk-muted:var(--pk-muted,var(--ps-muted,var(--adv-muted)));--bk-bg:var(--pk-bg,var(--ps-bg,var(--adv-bg)));--bk-red:var(--pk-red,var(--ps-red,var(--adv-accent)));--bk-line:var(--pk-line,var(--ps-hairline,var(--adv-border)));--bk-dark:var(--pk-dark,var(--ps-ink-dark,var(--adv-fg)));--bk-on-dark:var(--pk-on-dark,var(--ps-on-dark,var(--adv-bg)));--bk-sans:var(--pk-sans,var(--ps-sans,inherit));--bk-heading:var(--pk-heading,var(--ps-heading,inherit));--bk-display:var(--pk-display-wide,var(--ps-display-wide,inherit));--bk-radius:var(--pk-radius,var(--ps-radius-box,4px));margin:0;border-bottom:1px solid var(--bk-line)}
+.bk-faq .bk-faq-qa{padding:18px 0;border-top:1px solid var(--bk-line)}
+.bk-faq .bk-faq-q{margin:0 0 6px;font:600 17px/1.35 var(--bk-heading);color:var(--bk-ink)}
+.bk-faq .bk-faq-a{margin:0;max-width:65ch;color:var(--bk-muted)}
+</style>
+<div class="bk-faq" data-look-pattern="faq"><div class="bk-faq-qa"><h3 class="bk-faq-q">What outlet does the Fuji need?</h3><p class="bk-faq-a">It runs on a dedicated 120V / 20A outlet. Check this against your room before ordering.</p></div><div class="bk-faq-qa"><h3 class="bk-faq-q">How is the Fuji delivered and assembled?</h3><p class="bk-faq-a">Shipping is free. In-stock orders take two to four business days to process, then three to seven in transit, and the cabin goes together with a clasp-together assembly.</p></div><div class="bk-faq-qa"><h3 class="bk-faq-q">What&#39;s covered under warranty?</h3><p class="bk-faq-a">7-year residential warranty; full terms by component are published on the warranty page.</p></div><div class="bk-faq-qa"><h3 class="bk-faq-q">How hot does the Fuji get?</h3><p class="bk-faq-a">The cabin heats up to 150°F using full-spectrum infrared across near, mid, and far wavelengths.</p></div><div class="bk-faq-qa"><h3 class="bk-faq-q">Can I return it if it doesn&#39;t fit my space?</h3><p class="bk-faq-a">Returns require the sauna disassembled and repacked in its original crate, with a restocking fee and return shipping paid by the customer.</p></div></div>
+    </div>
+  </section>
+  
+
+  <section class="cn-close">
+    <div class="cn-c">
+      <h2 class="cn-h2">Save on the Fuji while the sale lasts</h2>
+      <div class="cn-ctas"><a class="ld-btn" href="https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy">Shop the Fuji</a></div>
+      <p class="cn-fine">7-year residential warranty; full terms by component are published on the warranty page.</p>
+    </div>
+  </section>
+
+  <div class="ld-bar">
+    <p class="ld-bar-name">Peak Fuji<span>$8,250 &middot; Code INDOOR300</span></p>
+    <a class="ld-btn" href="https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy">Shop now</a>
+  </div>
+</div>
+<script>
+(function(){var h=document.querySelector(".adv-landing .hr-root"),b=document.querySelector(".adv-landing .ld-bar");if(!h||!b||!("IntersectionObserver" in window))return;new IntersectionObserver(function(e){b.classList.toggle("ld-bar--on",!e[0].isIntersecting);}).observe(h);})();
+</script>
+
+
+<footer class="adv-footer">
+  <div class="adv-byline ld-about"><!--
+  PEAK byline block, cleaned of Shopify section wrappers.
+  Fix cycle 2 (fix 1 / FIXLOG item 10): rewritten page-neutral. The prior
+  copy was lifted verbatim from an unrelated buyer's-guide article and
+  didn't fit a general landing page (it referred to itself as a ranking and
+  promised corrections that could favor a rival brand).
+  Cycle 19 (Caleb's byline decision): three distinct roles, not two:
+  author (Austin Laudenslager, responsible for every claim), contributor
+  (PEAK Editorial Team, no named person), reviewer (Caleb Niednagel,
+  reviews specifications and sources). See tenants/peak-saunas/authors.yaml.
+  Live markup used classes "pkx-byline" / "pkx-dates" / "pkx-sec" (defined
+  in base.css as .byline / .byline__dates). Placeholders: Austin Laudenslager,
+  PEAK Editorial Team, Caleb Niednagel, Technology Lead, 2026-10-14, 2026-10-14. author_url /
+  reviewer_url are left as literal site paths (/pages/austin-laudenslager,
+  /pages/caleb-niednagel); swap them too if the byline names change.
+  (Keep double hyphens out of this comment: they are invalid inside an HTML
+  comment and trip the rendered-page HTML-validity backstop in
+  harness/pagechecks.py.)
+
+  Cycle 43 (listicle only): harness/render.py's split_byline_html looks for
+  the "about-author" marker comment below and splits there: the compact top
+  byline renders in the listicle header, the About block moves down next to
+  the disclosure/sources footer instead of sitting above the fold with it.
+  Every other cartridge still gets this whole file as one combined
+  byline_html, unchanged.
+-->
+
+<!-- Top-of-page byline -->
+<div class="byline">
+  <div>&#10003; <strong>Written by</strong> <a href="/pages/austin-laudenslager">Austin Laudenslager</a> &middot; PEAK Editorial Team &middot; <strong>Reviewed by</strong> <a href="/pages/caleb-niednagel">Caleb Niednagel, Technology Lead</a></div>
+  <div class="byline__dates">Published: 2026-10-14 &middot; Updated: 2026-10-14</div>
+</div>
+
+<!-- about-author -->
+<!-- Bottom-of-page "About the author" block -->
+<div class="byline" style="border-top:1px solid var(--ps-border,#E9EAEC);padding-top:14px;font-size:14px">
+  <p><strong>About the author.</strong> Austin Laudenslager is the Founder &amp; CEO of PEAK and is responsible for every claim on this page. Corrections are date-stamped in the Updated line above. <a href="/pages/austin-laudenslager">Full bio</a>. Caleb Niednagel, Technology Lead, reviews the specifications and sources on this page.</p>
+</div></div>
+  <p class="adv-disclosure">This page is published by PEAK, which sells the products described. Prices, specifications and policies are verified against PEAK&#39;s own published sources at the time of writing. Every specific claim on this page is sourced; see Sources below. Prices were current as of the publish date above and may have changed since.</p>
+  
+  <div class="adv-sources">
+    <h3>Sources</h3>
+    <ul>
+    
+      <li><a href="https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy" rel="nofollow">PEAK – Fuji product page</a></li>
+    
+      <li><a href="https://peaksaunas.com/policies/refund-policy" rel="nofollow">PEAK – Refund policy</a></li>
+    
+      <li><a href="https://judge.me/reviews/stores/peaksaunas.com" rel="nofollow">Judge.me reviews for PEAK</a></li>
+    
+      <li><a href="https://peaksaunas.com/policies/shipping-policy" rel="nofollow">PEAK – Shipping policy</a></li>
+    
+      <li><a href="https://peaksaunas.com/pages/warranty" rel="nofollow">PEAK – Warranty</a></li>
+    
+    </ul>
+  </div>
+  
+</footer>
+</main>
+</body>
+</html>

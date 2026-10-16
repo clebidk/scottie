@@ -43,6 +43,11 @@ Job types and handlers (each reuses the CLI's own code path):
                    creative copied with the split link, the ad pointed at it,
                    read back and verified
   meta_revert_go_live  the "Revert" button (= `harness abtest revert-go-live`)
+  sale_extend      cycle 111: the store's countdown moved later -- re-render in
+                   place and update the live page (harness/sale_sync.py)
+  sale_end         cycle 111: the sale is over -- the non-sale twin, else a
+                   redirect to the product page and a sale_rebuild job
+  sale_rebuild     cycle 111: a fresh non-sale run of the same ad, then update
 """
 import argparse
 import contextlib
@@ -64,7 +69,7 @@ from .errors import HarnessError
 STATES = ("queued", "running", "done", "failed")
 JOB_TYPES = ("regenerate", "create_test", "publish_page", "replace_variant", "post_live", "update_live",
              "unpublish_live", "look_import", "library_build", "photos_import", "meta_go_live",
-             "meta_revert_go_live", "look_revise")
+             "meta_revert_go_live", "look_revise", "sale_extend", "sale_end", "sale_rebuild")
 # Cycle 87: the job the worker is running now, so a handler can report its
 # progress (set by run_one, one job at a time per worker).
 _RUNNING = {"id": None}
@@ -564,7 +569,17 @@ HANDLERS = {
     "photos_import": handle_photos_import,
     "meta_go_live": handle_meta_go_live,
     "meta_revert_go_live": lambda tenant, payload: handle_meta_go_live(tenant, payload, revert=True),
+    # cycle 111: the sale expiry sweep's actions (harness/sale_sync.py)
+    "sale_extend": lambda tenant, payload: _sale().handle_sale_extend(tenant, payload),
+    "sale_end": lambda tenant, payload: _sale().handle_sale_end(tenant, payload),
+    "sale_rebuild": lambda tenant, payload: _sale().handle_sale_rebuild(tenant, payload),
 }
+
+
+def _sale():
+    from . import sale_sync
+
+    return sale_sync
 
 
 # ---------------------------------------------------------------------------
@@ -606,10 +621,11 @@ def run_one(tenant, handlers=None, log=print):
     return job
 
 
-def work(tenant, *, once=False, interval=5.0, stop=None, handlers=None, log=print):
+def work(tenant, *, once=False, interval=5.0, stop=None, handlers=None, log=print, tick=None):
     """The worker loop. `stop` (a threading.Event, set by the SIGTERM
     handler) ends the loop after the job in hand; `once` runs the queue
-    until it is empty and returns."""
+    until it is empty and returns. `tick` (cycle 111: the sale sweep clock)
+    is called before each queue check."""
     stop = stop or threading.Event()
     with worker_lock(tenant):
         recovered = recover_stale(tenant)
@@ -617,6 +633,8 @@ def work(tenant, *, once=False, interval=5.0, stop=None, handlers=None, log=prin
             log(f"marked {len(recovered)} job(s) left running by a previous worker as failed: {recovered}")
         log(f"harness worker for {tenant.name} started (pid {os.getpid()})")
         while not stop.is_set():
+            if tick is not None:
+                tick()
             job = run_one(tenant, handlers=handlers, log=log)
             if job is None:
                 if once:

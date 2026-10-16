@@ -31,6 +31,10 @@ steps:
       cycle 92: screenshots, hard checks and a vision judge per page; best of
       N layouts (tenant.yaml design_gate; off changes nothing)
     on_fail: stop            # exit 2 in enforce mode, see design/scores.json
+  - stage: sale_twin
+    description: >-
+      cycle 111: an offer-led page also gets its non-sale twin <page>-nosale/
+      (tenant.yaml sale_twin; a twin STOP is recorded, the run goes on)
   - stage: review_notify
     description: >-
       state.json -> needs_review (every page passed), then notify the

@@ -1626,6 +1626,22 @@ def render_page(
         if log:
             log.event("render", f"stripped leaked claim id from copy: {token!r} ({cartridge_name})")
 
+    # Cycle 111: an offer-led page hides its own sale lines once the offer's
+    # instant has passed (harness/offer_failsafe.py), until the expiry sweep
+    # switches the page.
+    if cartridge_name in ("landing", "listicle"):
+        offer_view = offer_mod.offer_view(facts_pack)
+        if offer_view:
+            from . import offer_failsafe
+
+            default_cta, sale_ctas = offer_failsafe.default_and_sale_ctas(
+                json.loads(tenant.render((cartridge_dir / "schema.json").read_text())), facts_pack, offer_view)
+            html = offer_failsafe.mark(html, offer_view, offer_mod.expires_iso(facts_pack.get("offer"), tenant),
+                                       default_cta=default_cta, sale_ctas=sale_ctas)
+            if Path(out_dir).name == cartridge_name:   # the run's twin, when written: its h1 and CTA
+                html = offer_failsafe.add_nosale(html, *offer_failsafe.nosale_texts(
+                    Path(out_dir).parent / f"{cartridge_name}-nosale"))
+
     # Fix cycle 2 item 9 / cycle 5 item 2: EMF and a leaked claim id are both
     # absolute -- scan the page as a reader would actually see it (tags/
     # scripts/styles stripped, entities unescaped) before writing it out.

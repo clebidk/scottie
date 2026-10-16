@@ -179,7 +179,15 @@ def _claim_date(text, claim):
     """(date, raises) for the claim's own deadline: the first date in its text
     next to a deadline cue (the year from the text, else the claim's date).
     `raises` is True for "prices go up on <date>" (the sale is over ON that
-    date) and False for "ends <date>" / "through <date>" (over AFTER it)."""
+    date) and False for "ends <date>" / "through <date>" (over AFTER it).
+    Cycle 111: a claim whose deadline was synced from the store's countdown
+    (harness/sale_sync.py) carries `last_sale_day`; that day wins."""
+    synced = (claim or {}).get("last_sale_day")
+    if synced:
+        try:
+            return datetime.date.fromisoformat(str(synced)[:10]), False
+        except ValueError:
+            pass
     for clause in re.split(r"[;.]\s+|;", str(text or "")):
         m = _DATE_RE.search(clause)
         if not m or not _DEADLINE_CUE_RE.search(clause):
@@ -193,8 +201,23 @@ def _claim_date(text, claim):
     return None, False
 
 
-def claim_expired(claim, today):
-    """True when the promo claim's own deadline has passed on `today`."""
+def _instant(value):
+    """An aware datetime from an ISO string (None when there is none)."""
+    try:
+        when = datetime.datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return when if when.tzinfo else None
+
+
+def claim_expired(claim, today, now=None):
+    """True when the promo claim's own deadline has passed on `today`.
+    Cycle 111: with `now` (an aware datetime), a synced `deadline_end`
+    instant that has passed also ends it (the sale ends at the countdown's
+    instant, not at midnight)."""
+    end = _instant(claim.get("deadline_end")) if now is not None else None
+    if end is not None and now >= end:
+        return True
     when, raises = _claim_date(claim.get("text"), claim)
     if when is None or today is None:
         return False
@@ -209,19 +232,31 @@ def _amount_in(amount, text):
     return re.search(r"\$\s?" + re.escape(digits) + r"(?![\d,]|\.\d)", text) is not None
 
 
-def match_offer(offer, claims, today=None):
+def _site_synced(claim):
+    """Cycle 111: the claim's deadline came from the store's countdown
+    (harness/sale_sync.py set it and wrote the provenance)."""
+    return bool(claim.get("deadline_end")) and "site promo bar" in str(claim.get("source") or "")
+
+
+def _short_day(month, day):
+    return f"{_MONTHS[month - 1][:3].capitalize()} {day}"
+
+
+def match_offer(offer, claims, today=None, now=None, notes=None):
     """The verified promo claim the ad's offer states, or None. Every amount
     and code the ad states must be in the claim's text; with neither, the
     sale name must be; when the ad and the claim both give a deadline date
-    they must be the same day; a claim whose deadline has passed never
-    matches."""
+    they must be the same day -- unless the claim's deadline came from the
+    store's countdown (owner decision 2026-10-16: the site wins over the
+    ad's own date; `notes` gets "ad date Oct 16 ignored, site deadline
+    Oct 20"); a claim whose deadline has passed never matches."""
     if not offer:
         return None
     for claim in claims or []:
         if claim.get("category") != PROMO_CATEGORY:
             continue
         text = str(claim.get("text") or "")
-        if claim_expired(claim, today):
+        if claim_expired(claim, today, now):
             continue
         if not all(_amount_in(a, text) for a in offer.get("amounts") or []):
             continue
@@ -231,15 +266,21 @@ def match_offer(offer, claims, today=None):
             if not offer.get("name") or offer["name"].lower() not in text.lower():
                 continue
         if offer.get("deadline"):
-            when, _ = _claim_date(text, claim)
+            when, _ = _claim_date(text, {"date": claim.get("date")})   # cycle 111: the text's own date
             m = _DATE_RE.search(offer["deadline"])
-            if when and m and (when.month, when.day) != (_month_index(m.group("month")), int(m.group("day"))):
-                continue
+            ad_day = (_month_index(m.group("month")), int(m.group("day"))) if m else None
+            if when and m and (when.month, when.day) != ad_day:
+                if not _site_synced(claim):
+                    continue
+                site_day, _ = _claim_date(text, claim)
+                if notes is not None:
+                    notes.append(f"ad date {_short_day(*ad_day)} ignored, site deadline "
+                                 f"{_short_day(site_day.month, site_day.day)}")
         return claim
     return None
 
 
-def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
+def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None, now=None):
     """The claims step for one run: matches ad_brief.offer to a verified promo
     claim. Match: ad_brief.offer.claim_id is set, the claim joins
     facts_pack.verified_claims (so the page may cite it and Sources lists
@@ -251,7 +292,10 @@ def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
     facts_pack.pop("offer_unverified", None)
     if not offer:
         return None
-    claim = match_offer(offer, all_verified, today)
+    notes = []
+    claim = match_offer(offer, all_verified, today, now, notes=notes)
+    for note in notes if log is not None else ():
+        log.event("ground", note)
     if claim is None:
         offer.pop("claim_id", None)
         facts_pack["offer_unverified"] = {k: offer.get(k) for k in ("sentence", "amounts", "codes", "deadline",
@@ -267,6 +311,8 @@ def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
     facts_pack["offer"] = {"claim_id": claim["id"], "text": claim["text"], "sentence": offer.get("sentence"),
                            "amounts": offer.get("amounts"), "codes": offer.get("codes"),
                            "deadline": offer.get("deadline"), "name": offer.get("name")}
+    # Cycle 111: the deadline synced from the store's countdown travels with the offer
+    facts_pack["offer"].update({k: claim[k] for k in ("last_sale_day", "deadline_end") if claim.get(k)})
     # Cycle 110: the figures the page prints (facts_pack contract: offer.net_price,
     # offer.list_price, offer.code, offer.deadline_short), from offer_view.
     view = offer_view(facts_pack, today=today)
@@ -275,6 +321,23 @@ def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
     if log is not None:
         log.event("ground", f"offer matched verified claim {claim['id']}: {offer.get('sentence')!r}")
     return claim
+
+
+def without_offer(facts_pack, ad_brief=None):
+    """Cycle 111: deep copies of (facts_pack, ad_brief) for the run's
+    non-sale twin page: no offer, the promo claim out of verified_claims,
+    the ad's offer marked unverified (the writer says nothing about
+    discounts, sales, codes or deadlines; the hook gate leaves the offer's
+    figures out)."""
+    import copy
+
+    fp, brief = copy.deepcopy(facts_pack or {}), copy.deepcopy(ad_brief or {})
+    offer = fp.pop("offer", None) or {}
+    fp["verified_claims"] = [c for c in fp.get("verified_claims") or [] if c.get("id") != offer.get("claim_id")]
+    fp["offer_unverified"] = {k: offer.get(k) for k in ("sentence", "amounts", "codes", "deadline", "name")}
+    if isinstance(brief.get("offer"), dict):
+        brief["offer"].pop("claim_id", None)
+    return fp, brief
 
 
 # ---------------------------------------------------------------------------
@@ -349,12 +412,8 @@ def deadline_short(text, claim=None):
             f"{_MONTHS[last.month - 1][:3].capitalize()} {last.day}")
 
 
-def render_today(tenant=None, now=None):
-    """Today in the tenant's timezone (tenant.yaml `timezone`, else UTC):
-    the render date a sale's deadline is compared with (cycle 110
-    integration F4) and every run date (pipeline today_iso, the spend
-    ledger; hotfix H1). `now`: an aware datetime instead of the clock.
-    tests/conftest.py pins it."""
+def tenant_tz(tenant=None):
+    """The tenant's timezone (tenant.yaml `timezone`), else UTC."""
     from zoneinfo import ZoneInfo
 
     from . import tenant as tenant_mod
@@ -362,9 +421,34 @@ def render_today(tenant=None, now=None):
     tenant = tenant or tenant_mod.active_or_none()
     name = tenant.get("timezone") if tenant is not None else None
     try:
-        tz = ZoneInfo(str(name)) if name else datetime.timezone.utc
+        return ZoneInfo(str(name)) if name else datetime.timezone.utc
     except (ValueError, KeyError):
-        tz = datetime.timezone.utc
+        return datetime.timezone.utc
+
+
+def expires_iso(offer, tenant=None):
+    """Cycle 111: the instant a run's dated offer ends, as an ISO string, or
+    None: facts_pack.offer `expires` (grounding: the store's countdown when
+    fresh), else the claim's synced `deadline_end`, else the end of the
+    claim's last sale day in the tenant's timezone."""
+    offer = offer or {}
+    if offer.get("expires") or offer.get("deadline_end"):
+        return offer.get("expires") or offer.get("deadline_end")
+    when, raises = _claim_date(offer.get("text"), offer)
+    if when is None:
+        return None
+    last = when - datetime.timedelta(days=1) if raises else when
+    return datetime.datetime.combine(last + datetime.timedelta(days=1), datetime.time(0),
+                                     tenant_tz(tenant)).isoformat()
+
+
+def render_today(tenant=None, now=None):
+    """Today in the tenant's timezone (tenant.yaml `timezone`, else UTC):
+    the render date a sale's deadline is compared with (cycle 110
+    integration F4) and every run date (pipeline today_iso, the spend
+    ledger; hotfix H1). `now`: an aware datetime instead of the clock.
+    tests/conftest.py pins it."""
+    tz = tenant_tz(tenant)
     return (now.astimezone(tz) if now is not None else datetime.datetime.now(tz)).date()
 
 

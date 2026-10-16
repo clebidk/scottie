@@ -1,0 +1,178 @@
+{
+  "hero": {
+    "eyebrow": "Community Savings Sale",
+    "headline": "Money off every indoor sauna during the sale",
+    "accent_phrase": "Money off",
+    "subhead": "Save on the Peak Fuji before prices change, with the discount applied at checkout.",
+    "hero_image": {
+      "asset_id": "asset-cutout-fuji"
+    }
+  },
+  "checked_claims": [
+    {
+      "ad_said": "Placeholder for offer, rendered separately by the page.",
+      "fact": "placeholder",
+      "claim_ids": [
+        "promo-community-savings-sale-2026-10"
+      ]
+    },
+    {
+      "ad_said": "The ad shows a roomy two-person cabin ready for daily use.",
+      "fact": "The Peak Fuji is a two-person cabin built from Canadian red cedar, inside and out.",
+      "claim_ids": [
+        "spec-fuji-capacity",
+        "spec-fuji-cabin-material"
+      ]
+    },
+    {
+      "ad_said": "The ad implies the heat reaches the whole body, not just one spot.",
+      "fact": "Heat comes from full-spectrum infrared panels placed around the cabin, covering near, mid, and far wavelengths up to 150\u00b0F.",
+      "claim_ids": [
+        "spec-fuji-infrared-wavelength-range",
+        "spec-fuji-max-temperature"
+      ]
+    },
+    {
+      "ad_said": "The ad doesn't mention what outlet this plugs into at home.",
+      "fact": "The Fuji runs on a dedicated 120V / 20A outlet.",
+      "claim_ids": [
+        "spec-fuji-electrical-requirement"
+      ]
+    },
+    {
+      "ad_said": "The ad doesn't say how it ships or sets up.",
+      "fact": "Shipping is free, with in-stock orders handled in two to four business days before transit; assembly uses a clasp-together design.",
+      "claim_ids": [
+        "shipping-policy",
+        "pdp-fuji-assembly"
+      ]
+    },
+    {
+      "ad_said": "The ad doesn't mention sound or extras built into the cabin.",
+      "fact": "The Fuji includes two Bluetooth speakers for audio during a session.",
+      "claim_ids": [
+        "spec-fuji-audio"
+      ]
+    }
+  ],
+  "room_photo": {
+    "asset_id": "asset-cutout-fuji"
+  },
+  "faq": {
+    "questions": [
+      {
+        "question": "What outlet does the Fuji need?",
+        "answer": "It runs on a dedicated 120V / 20A outlet. Check this against your room before ordering.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "question": "How is the Fuji delivered and assembled?",
+        "answer": "Shipping is free. In-stock orders take two to four business days to process, then three to seven in transit, and the cabin goes together with a clasp-together assembly.",
+        "claim_ids": [
+          "shipping-policy",
+          "pdp-fuji-assembly"
+        ]
+      },
+      {
+        "question": "What's covered under warranty?",
+        "answer": "7-year residential warranty; full terms by component are published on the warranty page.",
+        "claim_ids": [
+          "warranty-terms"
+        ]
+      },
+      {
+        "question": "How hot does the Fuji get?",
+        "answer": "The cabin heats up to 150\u00b0F using full-spectrum infrared across near, mid, and far wavelengths.",
+        "claim_ids": [
+          "spec-fuji-max-temperature",
+          "spec-fuji-infrared-wavelength-range"
+        ]
+      },
+      {
+        "question": "Can I return it if it doesn't fit my space?",
+        "answer": "Returns require the sauna disassembled and repacked in its original crate, with a restocking fee and return shipping paid by the customer.",
+        "claim_ids": [
+          "returns-policy"
+        ]
+      }
+    ]
+  },
+  "closing": {
+    "headline": "Save on the Fuji while the sale lasts"
+  },
+  "cta_text": "Shop the Fuji",
+  "cta_url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+  "blocks": {
+    "photo_essay": {
+      "lines": [
+        {
+          "text": "A two-person cedar cabin sized for a home sauna room, not a spa",
+          "claim_ids": [
+            "spec-fuji-capacity"
+          ]
+        },
+        {
+          "text": "Solid wood door handle built for daily use, not a showroom piece",
+          "claim_ids": []
+        },
+        {
+          "text": "Mood lighting and a glass door bring warmth into a small footprint",
+          "claim_ids": []
+        },
+        {
+          "text": "Red light glow inside the cabin, part of the standard build",
+          "claim_ids": [
+            "gbrain-allowlist-red-light"
+          ]
+        }
+      ]
+    },
+    "feature_grid": {
+      "cells": [
+        {
+          "label": "Red light included",
+          "line": "Red light therapy comes standard, not as an add-on purchase.",
+          "claim_ids": [
+            "gbrain-allowlist-red-light"
+          ]
+        },
+        {
+          "label": "Full-spectrum heat",
+          "line": "Near, mid, and far infrared panels heat the cabin up to 150\u00b0F.",
+          "claim_ids": [
+            "spec-fuji-infrared-wavelength-range",
+            "spec-fuji-max-temperature"
+          ]
+        },
+        {
+          "label": "Cedar cabin",
+          "line": "Built from Canadian red cedar inside and out.",
+          "claim_ids": [
+            "spec-fuji-cabin-material"
+          ]
+        },
+        {
+          "label": "Free shipping",
+          "line": "Every order ships free, with a scheduled delivery window.",
+          "claim_ids": [
+            "shipping-policy"
+          ]
+        },
+        {
+          "label": "7-year warranty",
+          "line": "7-year residential warranty; full terms by component are published on the warranty page.",
+          "claim_ids": [
+            "warranty-terms"
+          ]
+        }
+      ]
+    },
+    "statement_band": {
+      "line": "A sauna room built for daily use, not just occasions"
+    }
+  },
+  "look": "cinematic",
+  "hero_style": "caps_over_photo"
+}
