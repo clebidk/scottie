@@ -22,6 +22,8 @@ from tests.support import REPO_ROOT, TENANT
 from tests.test_offer_cycle109 import AIIR
 from tests.test_presell_cycle110 import PROMO, _offer_facts, _page, _render
 
+pytestmark = pytest.mark.frozen_tenant  # Cycle 113: the claims and tenant.yaml of 9bdb996 (tests/conftest.py)
+
 FIXTURE = json.loads((REPO_ROOT / "tests" / "fixtures" / "c111" / "site-promo-2026-10-16.json").read_text())
 END = "2026-10-16T23:30:00-05:00"
 UTC = datetime.timezone.utc

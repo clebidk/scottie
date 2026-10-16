@@ -7965,3 +7965,4 @@ version can do".
 
 ## Cycle 113 (CI green)
 - GitHub CI had never run pytest (Ruff failed first): ruff check . is now clean (109 findings: 17 auto-fixes, 23 zip strict=, 58 F811 from imported pytest fixtures, rest by hand), the real_browser tests skip when CI is set (tests/conftest.py), and make test runs ruff check . before pytest.
+- The sale, offer and proof tests (6 modules, marker `frozen_tenant`) read tests/fixtures/tenants/peak-saunas-frozen/ (claims/verified.json and tenant.yaml of 9bdb996), not the live tenant files: the 16:58 sale sync and sale_sweep switch had turned 18 of them red; tests/test_frozen_tenant_cycle113.py fails if a module reads the live files again. ci.yml and make test pin ruff==0.17.1.

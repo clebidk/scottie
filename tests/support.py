@@ -7,6 +7,13 @@ from harness import tenant as tenant_mod
 TENANT = tenant_mod.load_tenant()
 REPO_ROOT = tenant_mod.REPO_ROOT
 
+# Cycle 113: the claims file and tenant.yaml of the sale/offer/proof tests, frozen at
+# 9bdb996 (before the 2026-10-16 sale sync stamped the site deadline on the promo
+# claim). A module marked `frozen_tenant` gets them through tests/conftest.py; its own
+# import-time reads use FROZEN_VERIFIED. Never read tenants/peak-saunas/claims/verified.json.
+FROZEN_TENANT_DIR = REPO_ROOT / "tests" / "fixtures" / "tenants" / "peak-saunas-frozen"
+FROZEN_VERIFIED = FROZEN_TENANT_DIR / "claims" / "verified.json"
+
 
 def newest_run_dir(base_dir, pattern):
     """The most recently created directory under `base_dir` matching glob

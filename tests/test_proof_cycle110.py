@@ -14,7 +14,9 @@ from harness import offer, proof, textutil
 from harness import tenant as tenant_mod
 from harness.ground import LocalFactsSource, load_claims_config
 from harness.sources import judgeme
-from tests.support import REPO_ROOT, TENANT
+from tests.support import FROZEN_VERIFIED, REPO_ROOT, TENANT
+
+pytestmark = pytest.mark.frozen_tenant  # Cycle 113: the claims and tenant.yaml of 9bdb996 (tests/conftest.py)
 
 FX = REPO_ROOT / "tests" / "fixtures" / "c110"
 FUJI = "peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
@@ -300,7 +302,7 @@ def test_facts_pack_without_live_claims_stays_within_its_size_budget():
 # 6. offer figures
 # ---------------------------------------------------------------------------
 
-PROMO = json.loads((TENANT.claims_dir / "verified.json").read_text())
+PROMO = json.loads(FROZEN_VERIFIED.read_text())
 
 
 @pytest.mark.parametrize("slug,net,listed,code", [

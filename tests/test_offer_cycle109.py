@@ -28,7 +28,7 @@ from evals import fake_run
 from harness import abtest, abtest_inbox, abtest_rebuild, cli, claims, landing, meta_golive, meta_ingest, offer
 from harness import render as render_mod
 from harness import repair, runstate
-from tests.support import REPO_ROOT, TENANT, tenant_copy
+from tests.support import FROZEN_VERIFIED, REPO_ROOT, TENANT, tenant_copy
 from tests.test_abtest_cycle67 import _write_fake_run
 from tests.test_auto_pipeline_cycle108 import EchoMeta, _item
 from tests.test_control_arms_cycle88 import BriefRunner, _shopify
@@ -41,8 +41,8 @@ from tests.test_meta_ingest import make_client
 from tests.test_render import AD_BRIEF
 
 AIIR = "$300 off every indoor sauna. $500 off outdoor. Prices go up October 16, so Thursday is your last chance"
-PROMO = next(c for c in json.loads((REPO_ROOT / "tenants" / "peak-saunas" / "claims" / "verified.json").read_text())
-             if c["category"] == "promo")
+pytestmark = pytest.mark.frozen_tenant  # Cycle 113: the claims and tenant.yaml of 9bdb996 (tests/conftest.py)
+PROMO = next(c for c in json.loads(FROZEN_VERIFIED.read_text()) if c["category"] == "promo")
 DEADLINE = "Prices go up on October 16, 2026."
 TODAY = "2026-10-14"
 LOOKS = ("open", "proof", "cinematic", "cinematic-light", "buybox")

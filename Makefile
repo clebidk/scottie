@@ -10,7 +10,7 @@ OUT ?= ./review
 test:
 	python3 -m venv .venv-local
 	.venv-local/bin/pip install -q --upgrade pip
-	.venv-local/bin/pip install -q -e . pytest ruff
+	.venv-local/bin/pip install -q -e . pytest ruff==0.17.1
 	.venv-local/bin/ruff check .
 	.venv-local/bin/python -m pytest -q
 

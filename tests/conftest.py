@@ -4,16 +4,19 @@ No network calls anywhere in tests -- every Anthropic client is this fake,
 injected explicitly, and since Cycle 22 that is enforced rather than assumed
 (see _no_network below).
 """
+import copy
 import hashlib
 import json
+import shutil
 import socket
 
 import os
 import pytest
+import yaml
 
 from harness import tenant as tenant_mod
 from harness import vocab
-from tests.support import TENANT
+from tests.support import FROZEN_TENANT_DIR, FROZEN_VERIFIED, TENANT
 
 pytest_plugins = ["pytester"]
 
@@ -310,6 +313,30 @@ def isolated_tenant_paths(request, tmp_path, monkeypatch):
     from harness import look_vision
     monkeypatch.setattr(look_vision, "find_browser", lambda: None)
     return base
+
+
+@pytest.fixture(autouse=True)
+def _frozen_tenant(request, tmp_path, monkeypatch):
+    """Cycle 113: a test marked `frozen_tenant` (the sale, offer and proof
+    modules) reads the promo claim and tenant.yaml as they stood in 9bdb996,
+    not the live files. The owner's sale sync and sale_sweep switch changed
+    both on prod at 16:58 on 2026-10-16 and 18 tests that assert on the old
+    state went red on master. Claims: a tmp copy of the real claims folder
+    (products, config stay live) with the frozen verified.json. tenant.yaml:
+    only the keys whose frozen value differs from the file on disk are put
+    back, so the isolation fixtures' own setitem calls are left alone."""
+    if not request.node.get_closest_marker("frozen_tenant"):
+        return None
+    claims = tmp_path / "frozen-tenant" / "claims"
+    shutil.copytree(TENANT.claims_dir, claims)
+    shutil.copy(FROZEN_VERIFIED, claims / "verified.json")
+    monkeypatch.setattr(type(TENANT), "claims_dir", property(lambda self: claims))
+    live = yaml.safe_load((TENANT.root / "tenant.yaml").read_text()) or {}
+    frozen = yaml.safe_load((FROZEN_TENANT_DIR / "tenant.yaml").read_text()) or {}
+    for key, value in frozen.items():
+        if live.get(key) != value:
+            monkeypatch.setitem(TENANT.config, key, copy.deepcopy(value))
+    return claims
 
 
 # ---------------------------------------------------------------------------

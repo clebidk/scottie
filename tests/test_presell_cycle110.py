@@ -30,12 +30,12 @@ import pytest
 from evals import fake_run
 from harness import design_gate, landing, landing_sell, offer, pagechecks, perf, persuasion, repair, theme_lean
 from harness.render import render_page
-from tests.support import REPO_ROOT, TENANT
+from tests.support import FROZEN_VERIFIED, REPO_ROOT, TENANT
 from tests.test_landing_cycle82 import CARTRIDGE_DIR, LANDING_BRIEF, _facts_pack, _gates, _keys, _page
 
 AIIR = "$300 off every indoor sauna. $500 off outdoor. Prices go up October 16, so Thursday is your last chance"
-PROMO = next(c for c in json.loads((REPO_ROOT / "tenants" / "peak-saunas" / "claims" / "verified.json").read_text())
-             if c["category"] == "promo")
+pytestmark = pytest.mark.frozen_tenant  # Cycle 113: the claims and tenant.yaml of 9bdb996 (tests/conftest.py)
+PROMO = next(c for c in json.loads(FROZEN_VERIFIED.read_text()) if c["category"] == "promo")
 SRC = "https://peaksaunas.com/products/fuji"
 
 

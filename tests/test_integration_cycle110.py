@@ -3,10 +3,14 @@ of 2026-10-15 (lreb = a PA's video ad, ddqi = the Community Savings Sale still).
 """
 import datetime
 
+import pytest
+
 from harness import landing, landing_sell, listicle_persuasion, offer, persuasion, quote_fidelity
 from tests.support import TENANT
 from tests.test_landing_cycle82 import _facts_pack
 from tests.test_presell_cycle110 import _offer_facts, _page, _render, _rich
+
+pytestmark = pytest.mark.frozen_tenant  # Cycle 113: the claims and tenant.yaml of 9bdb996 (tests/conftest.py)
 
 # the real offer.render_today (tests/conftest.py pins it for every test)
 REAL_RENDER_TODAY = offer.render_today

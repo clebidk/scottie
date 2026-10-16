@@ -1,0 +1,608 @@
+# PEAK -- the first tenant of the harness.
+# Every company-specific string the engine needs lives here (or in authors.yaml,
+# vocab.yaml, claims/config.json). harness/ never hardcodes any of it.
+
+# The tenant file format this file is written against. `harness doctor` and
+# every `harness` command check it; a mismatch stops the run with one line
+# rather than half-reading a file whose keys have moved. Bumped only when a
+# change would make an older tenant.yaml wrong, never when a key is added.
+schema_version: 1
+
+name: PEAK
+slug: peak-saunas
+site_url: https://peaksaunas.com
+site_host: peaksaunas.com
+# The business day a sale's last day is counted in (offer.render_today): Mountain time.
+timezone: America/Denver
+
+# Shopify storefront. products.json is the public product feed; no Admin API
+# call is ever made by this harness.
+shopify:
+  products_json: https://peaksaunas.com/products.json
+  product_url_template: "https://peaksaunas.com/products/{slug}"
+
+# Where review statistics come from. The rating/count are scraped from the
+# product page (JSON-LD aggregateRating, then the widget's data attributes),
+# but the claim's own source points at the review platform's own store page.
+reviews:
+  source: judgeme-live
+  platform_name: Judge.me
+  store_url: https://judge.me/reviews/stores/peaksaunas.com
+  claim_template: "Rated {rating} out of 5 across {count} reviews on {platform_name} (fetched {date})."
+  # Cycle 110: the store-wide rating (the store page's own "4.6 out of 5 stars
+  # based on 4260 reviews") and verbatim review quotes (harness/proof.py). The
+  # review platform's public endpoints key the store by its *.myshopify.com
+  # domain (Judge.me answered with PEAK's own reviews for this one, 2026-10-15).
+  store_claim_template: "Rated {rating} out of 5 from {count} reviews on {platform_name} (fetched {date})."
+  shop_domain: bd4b8d-2.myshopify.com
+  quotes_max: 6
+  widget_url_template: "https://judge.me/reviews/reviews_for_widget?url={shop}&shop_domain={shop}&platform=shopify&page={page}&per_page={per_page}&product_id={product_id}"
+  all_reviews_url_template: "https://judge.me/reviews/all_reviews_js_based?url={shop}&shop_domain={shop}&platform=shopify&page={page}&per_page={per_page}&review_type=all-reviews"
+
+# Cycle 110: units delivered (harness/units.py, `harness claims refresh-units`).
+# A unit is a line whose SKU is <prefix><MODEL>[n] for a catalog model (plus
+# the retired ones below), or a no-SKU "<n>-Person ... Sauna" title naming
+# one; third-party resale SKUs (Dynamic, Maxxus, Golden Designs, SaunaLife)
+# never count. Figures are rounded DOWN to the thousand.
+units:
+  sku_prefixes: [PEAK-, KING-]
+  extra_models: [Olympus, Aspen, Zion]
+  sku_aliases: {WHITNEY: Crown, ELCAPITAN: El Capitan}
+  third_party_sku: "^((DYN|MX|GDI|SL)[- ]|HL\\d)"
+  category_word: sauna
+  last_12mo_template: "{count}+ saunas delivered to US homes in the last 12 months (Shopify, {month})"
+  all_time_template: "{count}+ saunas delivered since {year} (Shopify, {month})"
+
+# Cycle 110: the facts_pack proof and offer fields (harness/proof.py). Each
+# entry names the verified claims that back it, first found wins; "{model}" is
+# the run's model slug. A field whose claims are all missing is left out.
+proof:
+  hsa_fsa: {claims: [hsa-fsa-redo]}
+  support: {text: "Lifetime U.S.-based support", claims: [gbrain-warranty-lifetime-definition]}
+  founder: {claims: [founder-ceo]}
+  us_owned: {claims: [gbrain-allowlist-us-owned]}
+  included:
+    - {text: "Medical-grade red light therapy, standard", claims: ["spec-{model}-red-light", "gbrain-{model}-rlt", gbrain-allowlist-red-light]}
+    - {text: "Full-spectrum infrared heat: near, mid and far", claims: ["spec-{model}-infrared-wavelength-range", "gbrain-{model}-wavelengths", gbrain-allowlist-360-full-spectrum]}
+    - {text: "Peak Wellness Club, a $588-a-year membership, included free", claims: [pwc-value-588]}
+    - {text: "Free shipping", claims: [gbrain-allowlist-free-shipping, shipping-policy]}
+    - {text: "7-year warranty on the heaters and the cabinet", claims: [warranty-terms], also: [gbrain-allowlist-lifetime-warranty]}
+    - {text: "Lifetime U.S.-based support", claims: [gbrain-warranty-lifetime-definition]}
+    - {text: "App control: preheat from your phone", claims: ["pdp-{model}-app-control"]}
+    - {text: "Two Bluetooth speakers", claims: ["spec-{model}-audio"]}
+
+# One in-memory price claim per product, built fresh every run. Cycle 64:
+# the product is named by its full name ("The Peak Fuji ..."), never the
+# company name in front of the model ("The PEAK Fuji ...").
+price_claim_template: "The {product_full_name} is priced at {price}."
+
+# Storefront theme. full_bleed_css is pasted verbatim at the top of
+# `harness shopify-body` output; it neutralises the theme's page container so a
+# generated page renders full width. Targeted at the ".pk-lp" root class every
+# cartridge template keeps for exactly this reason -- never retarget it at a
+# page's own class names.
+theme:
+  name: aurora
+  root_class: pk-lp
+  full_bleed_css: |
+    /* full-bleed: break out of the theme page container */
+    .section:has(.pk-lp) .container{max-width:100%;width:100%;padding:0;--gsc-section-spacing-top:0px;--gsc-section-spacing-bottom:0px}
+    .section:has(.pk-lp) .page__title{display:none}
+    .section:has(.pk-lp) .page__content{margin:0;opacity:1;transform:none;animation:none}
+
+default_cta_url: /collections/all
+
+# Cycle 52 (rebrand). The storefront's own product titles still carry the
+# old full company name as a prefix ("Peak Saunas Fuji 2-Person ..."). It is
+# stripped wherever a product name is DISPLAYED (the listicle model picker,
+# image alt text, source labels, JSON-LD) and wherever the WRITER is handed
+# a product name (facts_pack), so no page ever says the old name in front of
+# a model name. Slugs, URLs and claim ids are never touched -- they are
+# identifiers, not copy. Remove this key and nothing is stripped.
+product_display_strip_prefix: "Peak Saunas "
+
+# Cycle 64 (owner decision 2026-09-22): a product's full name is this format
+# with its model filled in -- "Peak Mini" -- in title case, never "PEAK Mini"
+# or "Peak Saunas Mini". It is the name wherever a page names a product as a
+# title and at its first mention in body copy; the model alone ("Mini") is
+# the short name used after that and in every CTA ("Shop the Mini"). The
+# catalog's long capacity/style title is never a displayed name. See
+# harness/tenant.py product_names.
+product_name_format: "Peak {model}"
+
+# Cycle 54: the product-page `pdp` look's eyebrow over the product name --
+# the product category in plain words (e.g. "Espresso machine"), shown
+# after the model's own fit line. "" shows the fit line alone.
+product_category: "Infrared sauna"
+
+# Cycle 55: no "Advertisement" wording anywhere on Peak pages. The header
+# label is the optional `disclosure_label` key, deliberately left unset here
+# (so no label renders); see docs/TENANT-ONBOARDING.md.
+disclosure_text: >-
+  This page is published by {tenant_name}, which sells the products described.
+  Prices, specifications and policies are verified against {tenant_name}'s own
+  published sources at the time of writing. Every specific claim on this page
+  is sourced; see Sources below. Prices were current as of the publish date
+  above and may have changed since.
+
+# Sources list: a short human-readable label per source URL, never the raw URL.
+source_label_prefix: "PEAK"
+source_path_labels:
+  /pages/warranty: Warranty
+  /policies/shipping-policy: Shipping policy
+  /policies/refund-policy: Refund policy
+  /pages/austin-laudenslager: Austin Laudenslager
+product_page_label: "{prefix} – {product_name} product page"
+review_source_label: "{platform_name} reviews for {tenant_name}"
+asset_alt_fallback: PEAK
+
+# whisper.cpp initial prompt: biases decoding toward this vocabulary without
+# changing the model. Not a transcript prefix -- it never appears in the output.
+whisper_prompt: >-
+  Peak Saunas. Sauna, infrared sauna, red light therapy. Models: Fuji, Everest,
+  Rainier, Shasta, Denali, Matterhorn, Patagonia, El Capitan, Kilimanjaro, Mini.
+
+# Facts to seed from each active product's own Shopify body_html, one phrase
+# check per fact. A fact is created only when one of its phrases is literally
+# on the page -- conservative by design, no inference.
+pdp_facts:
+  app-control: ["peak saunas app"]
+  electrical: ["120v", "standard household outlet", "no electrician"]
+  speakers: ["bluetooth speaker"]
+  wood: ["hemlock", "cedar"]
+  red-light: ["medical-grade red light"]
+  crate-shipping: ["protective crate", "crate"]
+  capacity: []
+  assembly: ["clasp-together", "assembly"]
+
+# Cleared, product-wide claims every product's facts_pack always carries.
+benefit_allowlist_ids:
+  - gbrain-allowlist-red-light
+  - gbrain-allowlist-free-shipping
+  - gbrain-allowlist-360-full-spectrum
+  - gbrain-allowlist-us-owned
+  - gbrain-allowlist-lifetime-warranty
+
+# Claims every product's facts_pack always carries, whichever model a run is
+# about -- the founder claim plus the three policy claims.
+universal_claim_ids: [founder-ceo, warranty-terms, shipping-policy, returns-policy]
+
+# Models the listicle asset pack (brand/assets-listicle-pack.json) covers.
+listicle_pack_models: [mini, matterhorn]
+
+# Cycle 75: the photo library (harness/photo_library.py, docs/IMAGES.md section 9).
+# features: the fixed vocabulary a vision tag's features_visible draws from.
+# topic_keywords: words/phrases in a slot's own text that ask for a topic --
+# a feature name, "shot:<shot>" or "setting:<setting>". A slot is given the
+# unused photo whose tags cover the most of its topics.
+photo_library:
+  features:
+    - red-light-panel
+    - control-panel
+    - bench
+    - heaters
+    - glass-door
+    - wood-grain
+    - size-in-room
+    - outlet-plug
+    - assembly
+    - chromotherapy
+    - speakers
+    - roof-outdoor-weather
+  whole_unit_topics: [unit, size-in-room]
+  topic_keywords:
+    red-light-panel: [red light, red-light, red light therapy, red light panel, red light panels, led, leds, near infrared led, photobiomodulation, skin, collagen]
+    control-panel: [control panel, controls, control, touchscreen, touch screen, app, wifi, wi-fi, phone, smart, timer, preheat, settings, dial, display]
+    bench: [bench, seat, seating, sit, sitting, legroom, backrest, lie down, stretch out, roomy, spacious]
+    heaters: [heater, heaters, heating panels, carbon, carbon panels, full spectrum, full-spectrum, far infrared, mid infrared, infrared heat, heats up, warm up, heat]
+    glass-door: [glass, glass door, door, window, tempered glass, see through]
+    wood-grain: [wood, cedar, hemlock, red cedar, canadian, timber, grain, craftsmanship, build quality, materials]
+    size-in-room: [space, footprint, fits, fit, small space, apartment, spare room, corner, bedroom, bathroom, home gym, garage, basement, room, square feet, dimensions, size, compact, condo, closet, office]
+    outlet-plug: [outlet, plug, plugs, plugged, plug in, plugged in, plug-in, 120v, 240v, electrician, wiring, standard outlet, household outlet, electrical, amp, power]
+    assembly: [assembly, assemble, assembled, install, installation, setup, set up, delivery, delivered, arrives, unbox, unboxing, tools, minutes to build]
+    chromotherapy: [chromotherapy, color light, colour light, mood light, mood lighting, ambient light, colored light]
+    speakers: [speaker, speakers, bluetooth, music, podcast, audio, playlist, sound]
+    roof-outdoor-weather: [outdoor, outdoors, backyard, yard, patio, deck, garden, rain, snow, weather, winter, roof, canopy, cold, all-season]
+    # Cycle 79 review: the whole cabin -- a slot about it shows the product
+    # cut-out (whole_unit_topics above), never a part close-up.
+    unit: [cabin, full cabin, whole cabin, unit, capacity, one person, two person, 1-person, 2-person, built for one, built for two, design, sized]
+    "setting:outdoor": [outdoor, outdoors, backyard, yard, patio, deck, garden, lake, mountain, cabin outside]
+    "setting:indoor": [indoor, inside, apartment, bedroom, bathroom, living room, basement, home gym, spare room, condo]
+    "shot:interior": [inside, interior, cabin interior, inside the cabin]
+    "shot:people-in-use": [together, partner, couple, family, friends, session, sessions, routine, ritual, relax, unwind, sweat, recovery, sleep, stress, morning, evening, after work, after a workout]
+    "shot:lifestyle": [home, house, design, decor, looks, style, modern, beautiful, aesthetic, furniture]
+    "shot:exterior": [exterior, outside of the cabin, overall look, front view]
+
+warranty_claim_id: warranty-terms
+excluded_benefit_ids: [warranty-terms, shipping-policy, returns-policy]
+claim_id_prefixes: [spec-, price-, gbrain-, pdp-, reviews-, warranty-, shipping-, returns-, founder-, review-quote-, financing-monthly-, units-delivered-]
+
+# `harness run` with no --cartridges draws three at random from this pool.
+# listicle is opt-in only until it is approved for the default rotation.
+default_cartridge_pool: [article, product-page, longform]
+
+allow_ai_renders: true
+
+# Cycle 65: whether the person speaking in this tenant's ads is a verified
+# customer. false (the safe default): the page may quote what she says in the
+# ad, framed neutrally ("In the ad, she says ...", "As one shopper put it,
+# ..."), but never calls her a customer/buyer/owner or says she "told us"
+# anything. Set true only when every ad speaker is a confirmed buyer.
+ad_speaker_is_verified_customer: false
+
+# Cycle 30: warm-up window (article cartridge only) -- pricing, the CTA,
+# and the brand name stay out of the first warmup_window_words words.
+# warmup_mode: "enforce" -- confirmed via `python -m evals.fake_run
+# tenants/peak-saunas/fixtures/hidden-costs-v2.transcript.txt --tenant
+# peak-saunas` that the current baseline article page already passes at
+# this window (brand first appears at word 1063, no price/CTA text in the
+# window at all -- see docs/FIXLOG.md Cycle 30). Revert to "warn" if a
+# future baseline update ever fails this gate.
+cartridges:
+  listicle:
+    # Cycle 41 styles: reasons|mistakes|questions|myths|tested. `tested` was
+    # excluded 2026-09-19 (its headline/dek asserted a first-person test that
+    # never happened) and re-scoped in cycle 49: it now reports a claims
+    # check against verified specs and published facts, never a physical
+    # test, and the gate (listicle:tested_no_fake_test) rejects any
+    # first-person testing/usage phrasing on the page. All five styles run.
+    styles: [reasons, mistakes, questions, myths, tested]
+    # Cycle 70 headline templates (cartridges/listicle/headlines.yaml,
+    # docs/HEADLINES.md): every template the style and the verified evidence
+    # allow is in the rotation. To pin or drop some:
+    # headline_templates: {include: [s-reasons, h04, h16], exclude: [h08]}
+  article:
+    warmup_window_words: 600
+    warmup_mode: warn
+  # Cycle 82: the longform page renders in the cycle 79 "open" design
+  # language (cartridges/longform/looks/open/), the ad's own still and quote
+  # first. `harness run|rerender --look classic` still renders the old one.
+  longform:
+    looks: [open]
+  # Cycle 82: the landing cartridge (opt-in: --cartridges landing). The one
+  # secondary link under the CTA pill -- a plain text link, never a button
+  # and never counted as a CTA. `sms` + `body` build an sms: link that opens
+  # the phone's Messages app ({product_name} = the product's full name,
+  # e.g. "Peak Fuji"); a `url:` key, when set, wins instead.
+  # TODO (owner): confirm the number and the wording before the first live page.
+  landing:
+    secondary_cta:
+      text: "Text us"
+      sms: "+14706653747"
+      body: "Hi, I have a question about the {product_name}."
+
+# Cycle 32: the simplicity gate (harness/simplicity.py) -- "warn" until a
+# real enforce-mode run's Simplicity section has been reviewed clean, same
+# rollout discipline as warmup_mode above.
+simplicity_mode: warn
+
+# Cycle 30: structural design references -- Peak Saunas takes the hero
+# style / whitespace / content-width / type-ratio / image-aspect / section
+# -rhythm structure from these two references, never their fonts, colors,
+# or brand names (see harness/design_skills/design-md/README.md).
+design_reference: [tesla, apple]
+
+# Cycle 90 (import fidelity): the owner's hand-made look pack -- the pages and
+# their hand-made looks (looks/<cartridge>/<slug>/) that "Import a page" shows
+# the model as its exemplar. Relative to the repo; a missing folder means no
+# pack exemplars (hand-made tenant looks with source.kind "pack" still count).
+look_import:
+  pack_dir: /home/deploy/lp-pack
+
+# Cycle 17 (cost reduction): which model each stage calls -- see
+# harness/config.py's DEFAULT_MODELS for what a key left out falls back to.
+# Peak Saunas runs the engine defaults explicitly here so a future default
+# change is a deliberate tenant.yaml edit, not a silent behavior change.
+models:
+  write: claude-sonnet-5
+  # Cycle 74: was claude-haiku-4-5. A Haiku repair cannot read the Sonnet
+  # prompt cache (a fresh cache write every time) and returned invalid JSON
+  # on 5 of the 8 listicle STOPs of 2026-10-05; a Sonnet patch repair is
+  # cheaper than a Haiku full rewrite (docs/FIXLOG.md cycle 74).
+  repair_first: claude-sonnet-5
+  repair_next: claude-sonnet-5
+  ingest: claude-haiku-4-5
+  matcher: claude-haiku-4-5
+
+# Cycle 76: best-of-N listicle drafts (harness/drafts.py, harness/jev.py).
+# enabled: write `drafts` listicle drafts per run (1-3), run every gate on
+# each, and let TypeSafe's Jev model score the drafts that pass; the higher
+# composite ships. A failing draft never ships. No TYPESAFE_API_KEY in .env,
+# an HTTP error or a timeout: the first passing draft ships. false (or
+# drafts: 1): one draft, the run as before. HARNESS_JEV_DRAFTS in the
+# environment overrides drafts for one run. timeout_s: one Jev call.
+# Owner decision 2026-10-05: on, two drafts.
+jev:
+  enabled: true
+  drafts: 2
+  timeout_s: 60
+  # A later draft ships only when its Jev composite beats the first passing
+  # draft by at least this much; else the first passing draft ships.
+  min_margin: 0.02
+  # Real time only: write draft 2 only when draft 1 fails a gate or Jev scores
+  # it below this composite (a batch always writes both). Unset: always both.
+  second_draft_below: 0.70
+
+# Cycle 92: the design-quality gate (harness/design_gate.py, docs/DESIGN-GATE.md).
+# After render: phone + desktop screenshots, hard checks (overflow at 390,
+# contrast over photos, empty image slots, cut-off text, tap targets, page
+# weight, fonts) and a vision judge scoring against harness/design_rubric.md.
+# mode: off (nothing runs, every output as before) | warn (score, build the
+# variants, never stop) | enforce (a page under min_score after the revise
+# round STOPs the run, exit 2). variants: layouts tried per page (look x
+# first screen), best kept. model: the judge (the strongest vision model the
+# harness prices). effort: the judge's thinking depth. max_usd_per_page: the
+# judge spend per page; reaching it stops further rounds with a note, it
+# never lowers min_score. HARNESS_DESIGN_GATE in the environment overrides
+# mode for one run.
+# Owner rule 2026-10-07: "Visual design needs to be top tier. Better
+# generation is preferred over lower cost."
+design_gate:
+  mode: enforce
+  model: claude-opus-5-5
+  effort: high
+  min_score: 62
+  variants: 3
+  max_usd_per_page: 1.00
+  advise_looks: [peak]
+
+# Cycle 76: Message Batches API (half price) for builds nobody waits on:
+# A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta
+# ads) send every draft's first write in one batch. The review site's
+# regenerate / feedback and `harness revise` stay real time; `harness run`
+# batches only with --batch. timeout_s: how long a run waits for the batch
+# before it cancels it and writes in real time (the wait is not counted in
+# the run's 300 s wall-clock budget).
+batch_api:
+  non_interactive: true
+  timeout_s: 1800
+
+# Cycle 16 item 9 (Thursday queue item 3, "consult-CTA variant per config"). A
+# short form of the company name for a consult-mode CTA phrase.
+tenant_short_name: PEAK
+
+# cta_mode picks which CTA phrasing set a cartridge's allowed_cta_texts draws
+# from: "buy" (default here) leaves every cartridge's own schema.json
+# allowed_cta_texts exactly as it is today; "consult" replaces it, for every
+# cartridge, with cta_variants.consult below (each template filled in with
+# {short_name}/{model_name}/{tenant_short_name}); "auto" picks "consult" when
+# the ad's own angle text matches one of write.py's short list of
+# high-consideration keywords, else "buy". cta_variants.buy is documentation
+# only today -- "buy" mode reads each cartridge's own schema list, not this
+# list -- kept here so a future tenant can override it without a code change.
+cta_mode: buy
+cta_variants:
+  buy: []
+  consult:
+    - "Book a consult"
+    - "Talk to {tenant_short_name}"
+
+# Cycle 20 (run states, approval, publishing). An approve/reject from an
+# email not on this list is refused.
+reviewers:
+  - name: Michael
+    email: michael@peaksaunas.com
+    role: primary
+  - name: Caleb
+    email: caleb@peaksaunas.com
+    role: backup
+  - name: Nery
+    email: nery@aiir.agency
+    role: reviewer
+
+# harness/publishers/shopify.py -- needs SHOPIFY_STORE + SHOPIFY_TOKEN in
+# tenants/peak-saunas/.env (neither is set yet; every publish path fails
+# closed with a clear message until they are -- see docs/PUBLISHING.md).
+publisher: shopify
+shopify_publish:
+  store: peaksaunas.com     # the live storefront domain -- documentation only, not used for API calls
+  store_admin_domain: null  # the *.myshopify.com admin domain is not yet confirmed; SHOPIFY_STORE must hold it once known
+  # Cycle 84: every published page renders through templates/page.pk-harness.liquid
+  # (deploy/shopify/templates/), pushed to BOTH themes of the store's theme A/B
+  # test. The default page template of one theme strips the body <style> block.
+  template_suffix: pk-harness
+  # Cycle 110: the two themes of the store's theme split (Intelligems cookie
+  # pk_ab_theme_split_2026_10); `harness theme verify-landing-layout` checks
+  # both hold the lean landing files.
+  theme_ids: [182943580461, 188604088621]
+
+# Cycle 110: true -> landing pages publish with template_suffix "landing"
+# (deploy/shopify/lean/: no promo bar, header, sales popup or chat bar). Both
+# themes need the lean files first (`harness theme push-landing-layout`);
+# owner approved 2026-10-15, to be tried on one unlinked page first.
+landing_lean_layout: false
+
+# Cycle 67 (owner decision 2026-09-23): every new Meta ad gets an A/B/C test
+# -- three builds from this library, one split link pasted into the ad in
+# Ads Manager, winner by CTA click-through (docs/ABTEST.md). The listicle
+# entries are the style:look pairs the renderer already uses.
+abtest:
+  # Cycle 79: listicle builds are <style>:<look>:<first-screen style>. One
+  # look ("open") since the owner approved the boxless design on 2026-10-05;
+  # the three first screens (face | story | display) are the new dimension.
+  # `harness abtest library --by hero` pools results per first screen.
+  library:
+    # 2026-10-12 launch (owner): landing pages are the test arms; the
+    # design gate picks the first screen within each look.
+    # Cycle 110: `open` retired from the library (it lost head to head, the
+    # files stay); `peak` (the pre-sell look) joins proof and cinematic.
+    - landing:peak
+    - landing:proof
+    - landing:cinematic
+    # The home page is a destination, not a build: abtest.inbox_plan auto adds
+    # it as arm C only when the ad names no model (cycle 108 rule 2 adds the
+    # PDP instead); a home arm on every test needs an owner decision.
+  explore: 0.2
+  min_views: 300
+  beacon_url: https://listicle.peaksaunasteam.com/e
+  # Cycle 69 (owner decision): tests go live as soon as their pages are built.
+  # 2026-10-05 (owner): off while training wheels are on -- see publish_locked.
+  auto_publish: true   # owner: on 2026-10-13 (auto pipeline)
+  # Cycle 107: the go-live lever. When true, from-inbox also puts each test it
+  # publishes on its Meta ad (a copy of the creative with the split link) once
+  # Meta has approved the ad (effective_status ACTIVE); never forced, never an
+  # existing-post creative. Acts only on tests from-inbox publishes, so it
+  # needs auto_publish: true too. Manual go-live (`harness abtest go-live`,
+  # the Ads page's "Go live on Meta") works with the lever off.
+  auto_go_live: true   # owner: on 2026-10-13; paused and resumed 2026-10-14 after offer-led pages (cycle 109)
+  # Cycle 108 (owner decision 2026-10-13): "lets turn it on. only exception is
+  # if ad is uploaded with specific landing page, that becomes A of the A/B/C
+  # test and only 2 others are generated". The plan of each test from-inbox
+  # builds is chosen per ad: the ad's own specific store page (not home, not a
+  # /products/ page) is arm A + 2 generated; else 2 generated + the PDP when
+  # the ad's copy names a model; else 2 generated + the home page.
+  inbox_plan: auto
+  # Meta ads created before this date (00:00 UTC) are never auto-built; they
+  # stay "new" and the Ads page says why. Only ACTIVE, PENDING_REVIEW and
+  # IN_PROCESS ads are auto-built. `harness abtest create` and the upload
+  # form are not limited by this.
+  auto_since: "2026-10-13"
+  # At most this many tests are built per hourly run (the daily budget cap
+  # still applies); the rest wait for the next run. 0 stops auto builds.
+  auto_max_per_run: 5
+
+notifications:
+  slack: false
+  email: []
+
+# Cycle 68 (owner decision 2026-09-23): every new ad in PEAK's Meta ad
+# account is pulled into meta_inbox/ for an A/B/C landing-page test. Read
+# only (ads_read). META_ACCESS_TOKEN lives in .env; see docs/META-INGEST.md.
+# 2026-10-05 (owner decision, "training wheels"): ads may be pulled and pages
+# built for review, but no generated page goes live on the store until the
+# owner lifts this. Enforced in harness/cli.py LockedShopifyPublisher.
+publish_locked: false  # lifted 2026-10-12 for the 3pm launch (owner autonomy)
+
+# Cycle 111 (harness/sale_sync.py): a run whose page is offer-led also writes the
+# same page without the sale (<page>-nosale/, its own model cost); the expiry sweep
+# switches the live page to it when the sale ends.
+sale_twin: true  # cycle 111
+# true: the worker runs `harness sale sweep` hourly and 10 minutes after an offer ends
+# (one more look at the store's countdown, then extend or switch live pages).
+sale_sweep: false  # owner turns it on (it updates live pages)
+# false: when a sale ends and the page has no non-sale twin, the sweep hides the page and
+# redirects it to the product page but builds no new page (the twin is still used).
+sale_sweep_rebuild: false  # owner 2026-10-16: no new pages until the next design is approved
+
+meta:
+  ad_account_id: act_963439094733982
+  graph_api_version: v24.0
+  ingest_since: "2026-09-23"
+  token_env: META_ACCESS_TOKEN
+
+# Cycle 78 (2026-10-05): the generator matches the LIVE storefront theme
+# ("mono", theme 182943580461). The 2026-09-22 rebrand palette (stone,
+# fossil dust, cedar, solar-flare orange, Acid Grotesk uppercase) is retired;
+# the owner banned all orange on 2026-09-28. The values the engine reads are
+# brand/base.css (tokens + the live theme layer) and the keys below that say
+# "read by"; the rest is the short, readable statement of the same decisions.
+# See docs/FIXLOG.md cycle 78.
+brand:
+  name: PEAK
+  legal_entity: Peak Wellness USA LLC   # unchanged; used only where a legal line is rendered
+  # Cycle 53: pre-rebrand display name (cycle 52) -- never written by the
+  # writer; a fresh gate/repair-loop rewrite catches any that slips in from
+  # a quoted claim source (a policy title, "the Peak Saunas app").
+  retired_names: ["Peak Saunas"]
+  retired_name_exceptions: ["Peak Saunas app"]
+  # Read by harness/render.py. The live theme sets headings in sentence
+  # case, so the uppercase class is off ("none" leaves the copy as written).
+  headline_case: none
+  # Read by harness/templates/base.html: a <link> in the document head, so
+  # the review/standalone page loads the theme's faces. The storefront export
+  # keeps only the body (the theme loads both faces site-wide).
+  font_stylesheet: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Poppins:wght@500;600&display=swap"
+  # Read by harness/templates/base.html: data-pk-theme on the page wrapper,
+  # so a cached storefront page shows which theme build it carries.
+  theme_marker: open-2026-10-05
+  palette:
+    basalt: "#161817"        # dark bands, footer, primary CTA
+    ink: "#1A1A1A"           # body text
+    red: "#702B34"           # CTA hover/pressed, badges (theme mostly #712B33)
+    white: "#FFFFFF"         # page ground
+    muted: "#616161"         # secondary text
+  fonts:
+    display_wide: Peak Grotesk Wide   # cycle 79, upper case, "display" first screen (theme CDN, base.css)
+    display_acid: Acid Grotesk        # cycle 79, approved alternative; cycle 95: licensed file, brand/fonts/
+    body: DM Sans            # 400/500, 16px, line-height 1.55
+    headings: Montserrat     # cycle 95; 600, sentence case, letter-spacing -.01em; Poppins next
+    serif: Epika             # cycle 95; pull quotes, review quotes, founder line (brand/fonts/LICENSES.md)
+  logo:
+    on_light: brand/logo.svg          # PEAK wordmark, Basalt; the renderer's default
+    rule: "Never the legacy green/cyan mountain 'Peak Saunas' mark."
+  radius: 4  # boxes, cards, inputs; 999px only for pill CTAs (brand/base.css)
+
+# Cycle 79: the listicle's first screen (harness/first_screen.py). Three
+# approved styles -- face | story | display -- picked per run (--hero-style,
+# an A/B/C build, else seeded from the run seed); pin a subset with
+# cartridges.listicle.hero_styles: [story, display].
+# Cycle 94: these are hero compositions now (harness/heroes/, docs/HEROES.md),
+# next to caps_over_photo, split, dark_statement (listicle and landing),
+# letters_pill and buybox (landing); `cartridges.<c>.hero_styles` may pin any
+# the look renders. With no pin a run keeps the look's own default.
+hero:
+  # letters_pill's two display letter pairs (default: first two and last two
+  # letters of the display name, which for PEAK is the same).
+  letters: ["PE", "AK"]
+
+first_screen:
+  # No photo of the author yet: the byline shows the PEAK mark. Set a path
+  # under this tenant folder (e.g. brand/austin.jpg) to show his photo.
+  author_photo: null
+  byline_mark: brand/byline-mark.png
+  byline_title: PEAK founder
+  byline_verified_tick: true
+  # The display style's headline face: wide (Peak Grotesk Wide, upper case)
+  # or acid (Acid Grotesk, sentence case). Both owner-approved 2026-10-05.
+  display_font: wide
+  # What the image-ad check (harness/ad_frames.py) looks for as the retired
+  # brand mark; an image ad that shows it is never put on the page.
+  retired_mark: 'a mountain line-drawing logo, or the words "Peak Saunas" used as a logo'
+  # Review fix (cycle 79): the ad speaker's pronoun is never guessed. Evidence
+  # is the ad-still vision check when it is unambiguous, or this per-ad
+  # override (Meta ad id or source file stem -> she|he). Otherwise every
+  # quote frame is "In the ad, the creator says, ...".
+  speaker_pronouns: {}
+
+# Cycle 79 (owner, "for now"): the product hero and every product-of-X image
+# the renderer owns use the cut-out of X. One manifest (model -> file), so a
+# new-mark set is one edit there or a new manifest path here.
+product_cutouts:
+  manifest: brand/cutouts/cutouts.json
+
+# Cycle 103: structures left off the Library page and out of `harness library
+# build` (docs/LISTICLE-SITE.md, Library). Runs that pin them still render.
+library:
+  # 2026-10-12 owner: merged near-duplicates; then "only 15 options, more
+  # different and distinct". Hidden looks still generate when a run pins them.
+  hide:
+    - article:default
+    - longform:classic
+    - product-page:classic
+    - landing:proof
+    - landing:cinematic-light
+    - listicle:bobbie-split-hero
+    - listicle:caraway-soft
+    - product-page:pdp
+    - landing:regret-story   # imported 2026-10-12 as the first real URL import; hidden until the owner wants it as a 16th
+
+# Cycle 112: the review site's Versions page (harness/versions.py).
+versions:
+  # read-only folders of older runs; `harness versions backfill` indexes them
+  # into runs/versions-index.json and never writes into them
+  archives:
+    before-1005: ~/archive/peak-out-before-2026-10-05-1711
+    cleared-1005: ~/archive/peak-site-cleared-2026-10-05-2132
+  # labels on the timeline, by FIXLOG cycle
+  milestones:
+    "67": A/B/C tests
+    "75": photo library
+    "76": Jev best of 2
+    "79": first-screen styles face, story, display
+    "80": review-site redesign
+    "82": landing looks
+    "92": design gate
+    "108": Meta pipeline
+    "109": offer-led pages
+    "110": "pre-sell rebuild: peak look, proof, listicle parity"
+    "111": sale countdown (in progress)
