@@ -332,6 +332,9 @@ class _Publisher(ShopifyPublisher):
 
 
 def test_with_no_twin_the_page_is_hidden_redirected_and_rebuilt(tmp_path, monkeypatch):
+    from tests.support import tenant_copy
+
+    tenant_copy(monkeypatch, {"sale_sweep_rebuild": True})   # the template default
     run_dir = _live(tmp_path, kind="postlive")
     pub = _Publisher()
     monkeypatch.setattr(cli, "_make_publisher", lambda tenant, *, export_dir: pub)
@@ -672,3 +675,48 @@ def test_q2_delete_redirect_sends_one_delete():
     transport.set_response("DELETE", "redirects/77.json", 200, {})
     ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport).delete_redirect(77)
     assert [(c["method"], c["url"].rsplit("/", 1)[-1]) for c in transport.calls] == [("DELETE", "77.json")]
+
+
+
+@pytest.mark.parametrize("rebuild", [True, False])
+def test_sale_sweep_rebuild_flag(tmp_path, monkeypatch, rebuild):
+    from tests.support import tenant_copy
+
+    tenant_copy(monkeypatch, {"sale_sweep_rebuild": rebuild})
+    run_dir = _live(tmp_path, kind="postlive")
+    pub = _Publisher()
+    monkeypatch.setattr(cli, "_make_publisher", lambda tenant, *, export_dir: pub)
+    monkeypatch.setattr(type(TENANT), "load_env", lambda self: None)
+    payload = {"run_id": run_dir.name, "page": "landing", "kind": "postlive", "test_id": None, "key": None,
+               "by": "caleb@peaksaunas.com"}
+    result = sale_sync.handle_sale_end(TENANT, payload)
+    assert [c[0] for c in pub.calls] == ["update_page", "find_redirect", "create_redirect"]   # hidden + redirect
+    state = runstate.load_state(run_dir)
+    if rebuild:
+        assert [j["type"] for j in jobs.list_jobs(TENANT)] == ["sale_rebuild"] and result["rebuild_job"]
+        assert sale_sync.card_line(state) == "rebuilding"
+    else:
+        assert jobs.list_jobs(TENANT) == [] and result["rebuild_job"] is None
+        assert sale_sync.card_line(state) == "sale ended: hidden, rebuild deferred"
+        # the next sweep does not end it again
+        after = datetime.datetime(2026, 10, 17, 4, 40, tzinfo=UTC)
+        out = sale_sync.sweep(TENANT, now=after, fetch=lambda url: _home(), dry_run=True, log=lambda *_: None)
+        assert [d["action"] for _i, d, _j in out["decisions"]] == ["wait"]
+
+
+def test_sale_sweep_rebuild_false_still_uses_the_twin(tmp_path, monkeypatch):
+    from tests.support import tenant_copy
+
+    tenant_copy(monkeypatch, {"sale_sweep_rebuild": False})
+    run_dir = _live(tmp_path, kind="abtest", twin=True)
+    monkeypatch.setattr(sale_sync, "_publish", lambda tenant, rd, payload, note: {})
+    result = sale_sync.handle_sale_end(TENANT, {"run_id": run_dir.name, "page": "landing", "kind": "abtest",
+                                                "test_id": "aiir-t1", "key": "A", "by": "caleb@peaksaunas.com"})
+    assert result["via"] == "twin" and sale_sync.card_line(runstate.load_state(run_dir)) == "sale ended: switched"
+
+
+def test_the_flag_defaults():
+    import yaml
+
+    template = yaml.safe_load((REPO_ROOT / "tenants" / "_template" / "tenant.yaml").read_text())
+    assert template["sale_sweep_rebuild"] is True and TENANT.get("sale_sweep_rebuild") is False

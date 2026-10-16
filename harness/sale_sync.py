@@ -55,6 +55,7 @@ _SITE_CODE_RE = re.compile(r"\b(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]{4,20}\b
 SALE_JOBS = ("sale_extend", "sale_end", "sale_rebuild")
 CARD_LABELS = {"extending": "sale extended: updating", "extended": "sale extended",
                "ending": "sale ended: switching", "rebuilding": "rebuilding", "switched": "sale ended: switched",
+               "deferred": "sale ended: hidden, rebuild deferred",
                "failed": "sale switch failed"}
 
 
@@ -527,7 +528,7 @@ def sweep(tenant, *, now=None, fetch=None, dry_run=False, by=None, log=print):
         if decision["action"] == "extend" and done.get("end") == decision["end"] and \
                 done.get("status") in ("extending", "extended", "unchanged"):
             decision = {"action": "wait", "reason": f"already extended to {decision['end_local']}"}
-        if decision["action"] == "end" and done.get("status") in ("ending", "rebuilding", "switched"):
+        if decision["action"] == "end" and done.get("status") in ("ending", "rebuilding", "switched", "deferred"):
             decision = {"action": "wait", "reason": f"already {done['status']}"}
         job_id = None
         label = f"run {item['run_id']} page {item['page']} ({item['kind']}" + \
@@ -713,11 +714,20 @@ def handle_sale_end(tenant, payload):
                 redirect = {"from": source, "to": target, "id": made.get("id")}
         except (ShopifyCredentialsMissing, HarnessError) as e:
             raise jobs.JobFailed(f"redirect failed: {e}") from e
+        # owner decision 2026-10-16: no new page from the generator until the next design is approved
         job_id = jobs.enqueue(tenant, "sale_rebuild", dict(payload), by=payload["by"],
-                              target=f"run:{run_dir.name}/{page}")
+                              target=f"run:{run_dir.name}/{page}") if tenant.get("sale_sweep_rebuild") is not False \
+            else None
     except Exception as e:
         _failed(run_dir, e)
         raise
+    if job_id is None:
+        set_sale_expiry(run_dir, status="deferred", redirect=redirect)
+        jobs.audit(tenant, by=payload["by"], action="sale_redirected", target=f"run:{run_dir.name}/{page}",
+                   detail=dict(redirect, rebuild="deferred"))
+        print(f"run {run_dir.name}: sale ended: {source} hidden, redirect to {target}; rebuild deferred "
+              "(sale_sweep_rebuild false)", flush=True)
+        return {"run_id": run_dir.name, "via": "redirect", "from": source, "to": target, "rebuild_job": None}
     set_sale_expiry(run_dir, status="rebuilding", redirect=redirect, job_id=job_id)
     jobs.audit(tenant, by=payload["by"], action="sale_redirected", target=f"run:{run_dir.name}/{page}",
                detail=dict(redirect, rebuild_job=job_id))

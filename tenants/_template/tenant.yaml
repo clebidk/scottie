@@ -302,6 +302,9 @@ sale_twin: false
 # true: the worker runs `harness sale sweep` hourly and 10 minutes after an offer ends
 # (one more look at the store's countdown, then extend or switch live pages).
 sale_sweep: false
+# false: when a sale ends and the page has no non-sale twin, the sweep hides the page and
+# redirects it to the product page but builds no new page (the twin is still used).
+sale_sweep_rebuild: true
 
 # Reviewer notifications sent on: a run reaching needs_review, an approve,
 # and a publish. Both channels are entirely optional and fail closed -- no
