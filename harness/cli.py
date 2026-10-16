@@ -695,6 +695,36 @@ def cmd_library_build(args):
     return exits.USAGE if summary["failed"] else exits.OK
 
 
+def cmd_versions_backfill(args):
+    """`harness versions backfill --tenant <t> [--dry-run]` (cycle 112): a
+    derived harness_version on every out/ run without one, and the archive
+    index (runs/versions-index.json); the archives are only read."""
+    from . import versions
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    summary = versions.backfill(tenant, dry_run=args.dry_run)
+    cycles = ", ".join(f"{c}: {n}" for c, n in sorted(summary["by_cycle"].items(),
+                                                     key=lambda kv: versions.cycle_key(kv[0])))
+    verb = "would write" if args.dry_run else "wrote"
+    print(f"versions backfill: {verb} {summary['written']} run(s), {summary['kept']} already recorded, "
+          f"{summary['recent']} left alone (recent), {summary['archived']} archived run(s) indexed")
+    print(f"runs per cycle: {cycles or 'none'}")
+    return exits.OK
+
+
+def cmd_versions_export(args):
+    """`harness versions export --tenant <t> --out <dir>` (cycle 112): the
+    Versions and Showcase pages and their thumbnails as static files."""
+    from . import site_versions
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    beacon = urllib.parse.urlsplit(tenant.get("abtest.beacon_url") or "")
+    review_url = f"{beacon.scheme}://{beacon.netloc}" if beacon.netloc else ""
+    site_versions.export(tenant, args.out, review_url=review_url)
+    return exits.OK
+
+
 def _library_design_score(tenant, *, force=False):
     """Cycle 92: `library build --design-score` -- one judge call per
     Library version that has a page and no design score yet (every version
@@ -2512,6 +2542,20 @@ def build_parser():
              "version without a score; every version with --force); the score shows on the Library card")
     _add_tenant_flag(p_library_build)
     p_library_build.set_defaults(func=cmd_library_build)
+
+    # Cycle 112: harness versions (harness/versions.py, harness/site_versions.py).
+    p_versions = sub.add_parser("versions", help="the harness version of each run: backfill, static export")
+    versions_sub = p_versions.add_subparsers(dest="versions_command", required=True)
+    p_versions_backfill = versions_sub.add_parser(
+        "backfill", help="derive harness_version for older runs; index the read-only archives")
+    p_versions_backfill.add_argument("--dry-run", dest="dry_run", action="store_true",
+                                     help="count per cycle, write nothing")
+    _add_tenant_flag(p_versions_backfill)
+    p_versions_backfill.set_defaults(func=cmd_versions_backfill)
+    p_versions_export = versions_sub.add_parser("export", help="the Versions and Showcase pages as static HTML")
+    p_versions_export.add_argument("--out", required=True, help="output folder")
+    _add_tenant_flag(p_versions_export)
+    p_versions_export.set_defaults(func=cmd_versions_export)
 
     # Cycle 92: the design gate (harness/design_gate.py, docs/DESIGN-GATE.md).
     p_design = sub.add_parser("design", help="the design-quality gate: score a rendered page, report scores")

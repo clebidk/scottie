@@ -669,6 +669,8 @@ _ICONS = {
     "grid": '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
     "layers": '<path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/>',
     "chart": '<path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-9"/>',
+    "tag": '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+    "eye": '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     "list": '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
 }
 
@@ -793,6 +795,9 @@ NAV = (
         ("library_home", "Library", "layers", ("library_home",)),
         # Cycle 107: which generations perform best (per test and pooled).
         ("results_home", "Results", "chart", ("results_home",)),
+        # Cycle 112: harness versions over time, and what the current one can do.
+        ("versions_home", "Versions", "tag", ("versions_home",)),
+        ("showcase_home", "Showcase", "eye", ("showcase_home",)),
         ("upload_ad", "Upload an ad", "upload", ("upload_ad",)),
     )),
     ("Queue", (
