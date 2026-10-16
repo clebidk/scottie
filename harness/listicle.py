@@ -358,7 +358,7 @@ def fix_headline_number(page, headline=None):
 # Rules the writer needs whatever style this run is in. Every one of these is
 # a failure mode seen on a real run of this cartridge, stated where the
 # writer reads it rather than left for the gate to discover.
-def writer_rules_lines():
+def writer_rules_lines(ad_brief=None, tenant=None):
     lo, hi = ITEM_COUNT_RANGE
     return [
         f"Every one of the {lo}-{hi} items carries its own "
@@ -389,15 +389,15 @@ def writer_rules_lines():
         "\"we measured\" anywhere on the page, in any style -- this harness reports a claims "
         "check against verified specs and published facts, never a physical test, trial, or "
         "usage period.",
-    ] + _first_screen_lines()
+    ] + _first_screen_lines(ad_brief, tenant)
 
 
-def _first_screen_lines():
+def _first_screen_lines(ad_brief=None, tenant=None):
     from . import first_screen, listicle_persuasion
 
     # Cycle 110: items as reasons, proof_ref, the ad-reference ban, the
     # reading level, the hook on the first screen.
-    return first_screen.writer_lines() + listicle_persuasion.writer_lines()
+    return first_screen.writer_lines() + listicle_persuasion.writer_lines(ad_brief, tenant)
 
 
 def writer_style_lines(style, headline=None):

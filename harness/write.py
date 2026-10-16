@@ -475,7 +475,7 @@ def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, hea
                                     tenant=None, include_draft=True, ad_brief=None, facts_pack=None):
     if cartridge_name != "listicle":
         return
-    hard_constraints.extend(listicle.writer_rules_lines())
+    hard_constraints.extend(listicle.writer_rules_lines(ad_brief=ad_brief, tenant=tenant))
     if include_draft:
         hard_constraints.extend(_listicle_draft_lines(cartridge_name, style, headline, skeleton))
     # Cycle 74: the copy-quality rules harness/listicle_quality.py gates.

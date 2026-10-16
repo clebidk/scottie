@@ -647,7 +647,13 @@ def find_persuasion_violations(page, facts_pack, ad_brief=None, name_words=(), p
     return problems
 
 
-def writer_lines():
+def writer_lines(ad_brief=None, tenant=None):
+    # cycle 110 round 4: the quote frame's pronoun from evidence only (as landing F1), else "the creator"
+    from . import first_screen
+
+    pronoun = first_screen.evidence_pronoun(ad_brief, None, tenant) if ad_brief else None
+    frame = first_screen.quote_frame(pronoun) + (" ..." if pronoun else
+                                                 " ...\" (or the speaker's name); never she/he as a guess")
     return [
         "Items are reasons to act on the ad's promise. Give every item a \"lever\": outcome (the ad's promise, "
         "in the reader's words), likelihood (proof it works for this reader), time (how fast: ships in days, "
@@ -666,7 +672,7 @@ def writer_lines():
         "Never mention, quote, grade or correct the ad in your own words: no \"the ad\", \"actually\", \"real "
         "price\", \"plainly\", \"not verified\", \"not lifetime\", \"no separate\", \"nothing to submit\", "
         "\"no form required\", \"what holds up\". An ad claim the facts do not support is simply left out. The "
-        "one place the ad is named is the quote frame (\"In the ad, she says, ...\").",
+        f"one place the ad is named is the quote frame (\"{frame}" + ("\")." if pronoun else ")."),
         f"Reading level: grade {MAX_GRADE} or lower. Short sentences (under 14 words), everyday words of one or "
         "two syllables, one idea per sentence.",
         "The first screen (eyebrow, headline, dek, lede) pays off the ad's hook: reuse at least two of its own "

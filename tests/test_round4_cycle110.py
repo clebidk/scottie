@@ -76,3 +76,15 @@ def test_w2_the_2jon_writer_and_repair_are_told_to_quote_a_whole_transcript_sent
     assert "one whole sentence of the speaker's transcript, word for word, in quotation marks" in issue
     # a hook with no health word gets neither
     assert listicle_persuasion.medical_hook_lines(_load("zt6o", "ad_brief")) == []
+
+
+def test_w3_the_listicle_quote_frame_example_follows_the_pronoun_evidence():
+    from harness import listicle, listicle_persuasion
+
+    brief = _load("2jon", "ad_brief")
+    mine = " ".join(listicle_persuasion.writer_lines(brief, TENANT))
+    assert 'the quote frame ("In the ad, he says, ...").' in mine and "she" not in mine.split("quote frame")[1]
+    assert 'the quote frame ("In the ad, he says, ...")' in " ".join(listicle.writer_rules_lines(brief, TENANT))
+    mine = " ".join(listicle_persuasion.writer_lines(dict(brief, speaker_pronoun=None), TENANT))
+    assert ('the quote frame ("In the ad, the creator says, ..." (or the speaker\'s name); never she/he as a '
+            "guess).") in mine
