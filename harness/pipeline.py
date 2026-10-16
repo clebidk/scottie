@@ -914,6 +914,13 @@ def _write_sale_twin(state, cartridge_name):
                     fetch_url=http_fetch_bytes, drive_downloader=download_drive_file, tenant=state.tenant)
         (out_dir / "facts_pack.json").write_text(json.dumps(fp, indent=2))
         result["attempts"] = len(attempts)
+        # owner decision 2026-10-16: the sale page's fail-safe swaps in the twin's h1 and CTA
+        from . import offer_failsafe
+
+        sale_index = state.run_dir / cartridge_name / "index.html"
+        if sale_index.is_file():
+            sale_index.write_text(offer_failsafe.add_nosale(sale_index.read_text(),
+                                                            *offer_failsafe.nosale_texts(out_dir)))
     except (ClaimsGateFailure, BudgetExceeded) as e:
         result = {"status": "stop", "reason": str(e)[:300]}
         shutil.rmtree(out_dir, ignore_errors=True)

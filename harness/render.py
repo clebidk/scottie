@@ -1639,6 +1639,9 @@ def render_page(
                 json.loads(tenant.render((cartridge_dir / "schema.json").read_text())), facts_pack, offer_view)
             html = offer_failsafe.mark(html, offer_view, offer_mod.expires_iso(facts_pack.get("offer"), tenant),
                                        default_cta=default_cta, sale_ctas=sale_ctas)
+            if Path(out_dir).name == cartridge_name:   # the run's twin, when written: its h1 and CTA
+                html = offer_failsafe.add_nosale(html, *offer_failsafe.nosale_texts(
+                    Path(out_dir).parent / f"{cartridge_name}-nosale"))
 
     # Fix cycle 2 item 9 / cycle 5 item 2: EMF and a leaked claim id are both
     # absolute -- scan the page as a reader would actually see it (tags/

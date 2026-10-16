@@ -18,8 +18,12 @@ and adds one inline script (no network, no dependency) that does this when
 Date.now() is past the element's own instant. Before the instant the script
 changes nothing, so the first paint and the layout are the same.
 
-The h1/h2 headings are never touched: an offer-led headline stays until the
-sweep replaces the page.
+The h1/h2 headings are not hidden. Owner decision 2026-10-16: when the run
+has its non-sale twin, add_nosale puts the twin's h1 on the page's h1
+(data-nosale-headline) and the twin's CTA on the sale CTAs
+(data-nosale-cta), and the script swaps those texts too. Without a twin
+(runs from before cycle 111) the headline stays until the sweep hides the
+page.
 """
 import html as html_mod
 import re
@@ -33,7 +37,8 @@ _HEADINGS = {"h1", "h2"}
 SCRIPT = """<script>(function(){var n=Date.now();
 document.querySelectorAll("[data-offer-expires]").forEach(function(el){var d=el.dataset;
 if(!(n>Date.parse(d.offerExpires)))return;
-if(d.offerCta){el.textContent=d.offerCta;return;}
+if(d.nosaleHeadline){el.textContent=d.nosaleHeadline;return;}
+if(d.offerCta){el.textContent=d.nosaleCta||d.offerCta;return;}
 if(d.offerList){var w=document.createTreeWalker(el,4),t,s=(d.offerStrip||"").split("|");
 while((t=w.nextNode())){var v=t.nodeValue;if(d.offerNet)v=v.split(d.offerNet).join(d.offerList);
 s.forEach(function(x){if(x)v=v.split(x).join("");});t.nodeValue=v;}
@@ -175,6 +180,50 @@ def mark(page_html, view, expires, *, default_cta, sale_ctas=()):
     result = "".join(out)
     closing = result.lower().rfind("</body>")
     return (result[:closing] + SCRIPT + "\n" + result[closing:]) if closing != -1 else result + SCRIPT
+
+
+def nosale_texts(twin_dir):
+    """(the twin page's h1 text, its CTA text), each None when absent."""
+    from pathlib import Path
+
+    twin_dir = Path(twin_dir)
+    index = twin_dir / "index.html"
+    if not index.is_file():
+        return None, None
+    m = re.search(r"<h1\b[^>]*>(.*?)</h1>", index.read_text(), re.IGNORECASE | re.DOTALL)
+    headline = _norm(re.sub(r"<[^>]+>", " ", m.group(1))) if m else None
+    try:
+        import json
+
+        cta = _norm(json.loads((twin_dir / "page.json").read_text()).get("cta_text")) or None
+    except (OSError, ValueError):
+        cta = None
+    return headline or None, cta
+
+
+def add_nosale(page_html, headline, cta):
+    """The marked page with the twin's texts: data-nosale-headline (and the
+    instant) on the first h1, data-nosale-cta on every sale CTA. Unchanged
+    without the fail-safe or without twin texts; never added twice."""
+    m = re.search(ATTR + r'="([^"]+)"', page_html)
+    if not m or not (headline or cta):
+        return page_html
+    expires = m.group(1)
+    if headline:
+        def h1(match):
+            if "data-nosale-headline" in match.group(0):
+                return match.group(0)
+            extra = (f' {ATTR}="{expires}"' if ATTR not in match.group(0) else "") + \
+                f' data-nosale-headline="{html_mod.escape(headline, quote=True)}"'
+            return match.group(0)[:-1] + extra + ">"
+        page_html = re.sub(r"<h1\b[^>]*>", h1, page_html, count=1, flags=re.IGNORECASE)
+    if cta:
+        def link(match):
+            if "data-nosale-cta" in match.group(0):
+                return match.group(0)
+            return match.group(0)[:-1] + f' data-nosale-cta="{html_mod.escape(cta, quote=True)}">'
+        page_html = re.sub(r'<a\b[^>]*data-offer-cta="[^"]*"[^>]*>', link, page_html)
+    return page_html
 
 
 def default_and_sale_ctas(schema, facts_pack, view):

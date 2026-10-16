@@ -549,6 +549,13 @@ def test_a_fake_run_of_the_sale_ad_writes_the_non_sale_twin(tmp_path, monkeypatc
     assert "INDOOR300" in sale and "data-offer-expires" in sale
     assert "INDOOR300" not in nosale and "Prices go up" not in nosale and "data-offer-expires" not in nosale
     assert json.loads((run_dir / "landing-nosale" / "page.json").read_text())["look"] == "open"
+    # Q3: the sale page's fail-safe carries the twin's h1 and CTA
+    twin_h1, twin_cta = offer_failsafe.nosale_texts(run_dir / "landing-nosale")
+    assert twin_h1 and twin_cta == "Shop the Fuji"
+    h1 = re.search(r"<h1\b[^>]*>", sale).group(0)
+    assert "data-offer-expires" in h1 and f'data-nosale-headline="{offer_failsafe.html_mod.escape(twin_h1)}"' in h1
+    ctas = re.findall(r"<a\b[^>]*data-offer-cta=[^>]*>", sale)
+    assert ctas and all('data-nosale-cta="Shop the Fuji"' in a for a in ctas)
     ledger = [json.loads(x) for x in budget_mod.spend_ledger_path(TENANT).read_text().splitlines() if x.strip()]
     assert any(e.get("run_id") == f"{run_dir.name}-landing-nosale" and "cost_estimate" in e for e in ledger)
 
@@ -720,3 +727,43 @@ def test_the_flag_defaults():
 
     template = yaml.safe_load((REPO_ROOT / "tenants" / "_template" / "tenant.yaml").read_text())
     assert template["sale_sweep_rebuild"] is True and TENANT.get("sale_sweep_rebuild") is False
+
+
+
+def test_q3_no_twin_no_swap_texts(tmp_path):
+    html = _offer_page_html(tmp_path)                                  # an offer page, no twin folder
+    assert "data-offer-expires" in html and "data-nosale-" not in html
+    old = (LWTR / "index.html").read_text()                           # a real arm from before cycle 111
+    assert "data-nosale-" not in old and offer_failsafe.add_nosale(old, "x", "y") == old
+
+
+def test_q3_a_re_render_next_to_a_twin_carries_its_texts(tmp_path):
+    twin = tmp_path / "run" / "landing-nosale"
+    twin.mkdir(parents=True)
+    (twin / "index.html").write_text('<html><body><h1 class="x">A home sauna <em>for every</em> evening</h1>'
+                                     "</body></html>")
+    (twin / "page.json").write_text(json.dumps({"cta_text": "Shop the Fuji"}))
+    html = _offer_page_html(tmp_path)
+    h1 = re.search(r"<h1\b[^>]*>", html).group(0)
+    assert 'data-nosale-headline="A home sauna for every evening"' in h1 and f'data-offer-expires="{END}"' in h1
+    assert html.count('data-nosale-cta="Shop the Fuji"') == html.count("data-offer-cta=") > 0
+    assert offer_failsafe.add_nosale(html, "A home sauna for every evening", "Shop the Fuji") == html
+
+
+@pytest.mark.real_browser
+def test_q3_the_script_swaps_the_headline_and_cta_after_the_instant(tmp_path):
+    import subprocess
+
+    browser = capture.find_browser()
+    if not browser:
+        pytest.skip("needs a real browser")
+    page = ('<html><body><h1 data-offer-expires="2020-01-01T00:00:00Z" data-nosale-headline="No sale here">'
+            '$300 off the Fuji, today&#39;s price ends tonight</h1><a data-offer-expires="2020-01-01T00:00:00Z" '
+            'data-offer-cta="Shop the Fuji" data-nosale-cta="See the Fuji">Shop the sale</a>'
+            '<a data-offer-expires="2999-01-01T00:00:00Z" data-offer-cta="Shop the Fuji">Get $300 off the Fuji</a>'
+            + offer_failsafe.SCRIPT + "</body></html>")
+    path = tmp_path / "p.html"
+    path.write_text(page)
+    dom = subprocess.run([browser, "--headless=new", "--no-sandbox", "--disable-gpu", f"--user-data-dir={tmp_path / 'u'}",
+                          "--dump-dom", path.as_uri()], capture_output=True, text=True, timeout=60).stdout
+    assert ">No sale here</h1>" in dom and ">See the Fuji</a>" in dom and ">Get $300 off the Fuji</a>" in dom
