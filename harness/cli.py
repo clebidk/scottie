@@ -824,7 +824,8 @@ def cmd_library_publish(args):
         good = sum(1 for status in check["assets"].values() if status == 200)
         print(f"{out['target']}: verify {'OK' if check['ok'] else 'FAILED'}: status {check['status']}, h1 "
               f"{'present' if check['h1'] else 'MISSING'}, assets {good}/{len(check['assets'])} answer 200, "
-              f"relative assets/ paths left: {len(check['relative'])}")
+              f"relative assets/ paths left: {len(check['relative'])}, links "
+              f"{sum(1 for status in check['links'].values() if status == 200)}/{len(check['links'])} answer 200")
         if not check["ok"]:
             print(json.dumps(check, indent=2), file=sys.stderr)
             rc = exits.USAGE

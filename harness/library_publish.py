@@ -68,6 +68,7 @@ _H1_RE = re.compile(r"<h1\b[^>]*>(.*?)</h1>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
 _HEAD_KEEP_RE = re.compile(r"<style\b[^>]*>.*?</style>|<link\b[^>]*\brel=[\"']?preload\b[^>]*>",
                            re.IGNORECASE | re.DOTALL)
+_ABS_LINK_RE = re.compile(r'\bhref="(https?://[^"#]+)"', re.IGNORECASE)
 _STYLE_RE = re.compile(r"(<style\b[^>]*>)(.*?)(</style>)", re.IGNORECASE | re.DOTALL)
 _CHROME_TAG_RE = re.compile(r"<(/?)(header|footer|nav)\b([^>]*)>", re.IGNORECASE)
 _PRELUDE_RE = re.compile(r"[^{}]+(?=\{)")
@@ -522,7 +523,8 @@ def publish_variant(tenant, entry, variant, *, publisher, root=None, now=None, l
            "published_at": page.get("published_at"), "content_hash": plan["content_hash"], "title": plan["title"],
            "h1": plan["h1"], "sale": plan["sale"], "seo_hidden": True,
            "template_suffix": getattr(publisher, "template_suffix", None),
-           "assets": {ref: {"sha256": plan["sha"][ref], "url": url} for ref, url in sorted(url_by_ref.items())}}
+           "assets": {ref: {"sha256": plan["sha"][ref], "url": url} for ref, url in sorted(url_by_ref.items())},
+           "links": sorted(set(_ABS_LINK_RE.findall(plan["html"])))}
     if plan["sale"]:
         rec.update(offer_claim_id=CLAIM_ID, offer_expires=plan["offer_expires"])
     if plan["action"] == "update":
@@ -561,22 +563,26 @@ def verify_live(record, *, fetch=None, attempts=6, wait_s=5, sleep=time.sleep):
     """GET the live URL: status 200, our h1 present, every CDN asset URL of
     the record in the page and answering 200, no relative assets/ path (none
     of the page's own, none in a src/href/srcset/url(); the theme's own CSS
-    comments name its assets/ files and are not a load).
+    comments name its assets/ files and are not a load). Cycle 114b: every
+    absolute link of the page (record["links"]) in the page and answering
+    200, at least one of them a /products/ page.
     Retries while the storefront cache still serves an older copy."""
     fetch = fetch or _get
+    urls = sorted({a["url"] for a in (record.get("assets") or {}).values()})
+    links = record.get("links") or []
     status, text = 0, ""
     for i in range(attempts):
         if i:
             sleep(wait_s)
         status, raw = fetch(record["url"])
         text = raw.decode("utf-8", errors="replace")
-        if status == 200 and record["h1"] in h1_texts(text):
+        if status == 200 and record["h1"] in h1_texts(text) and all(u in text for u in urls + links):
             break
-    urls = sorted({a["url"] for a in (record.get("assets") or {}).values()})
     asset_status = {u: (fetch(u)[0] if u in text else "not in page") for u in urls}
+    link_status = {u: (fetch(u)[0] if u in text else "not in page") for u in links}
     relative = sorted(set(_RELATIVE_USE_RE.findall(text))
                       | {r for r in record.get("assets") or {} if re.search(rf"(?<![\w/.:-]){re.escape(r)}", text)})
     ok = status == 200 and record["h1"] in h1_texts(text) and all(s == 200 for s in asset_status.values()) \
-        and not relative
+        and not relative and all(s == 200 for s in link_status.values()) and any("/products/" in u for u in links)
     return {"ok": ok, "status": status, "h1": record["h1"] in h1_texts(text), "assets": asset_status,
-            "relative": relative}
+            "relative": relative, "links": link_status}

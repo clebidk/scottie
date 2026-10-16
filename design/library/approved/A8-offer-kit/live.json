@@ -22,10 +22,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
       }
     },
-    "content_hash": "2de2855f3ada1536041998cd73f59ee20e86cd6c839677d8c576ab6946ec7ed3",
+    "content_hash": "a456071b386f43350116c01a498094ec08d827f3729cbf67c0dc3118d5a9c107",
     "first_published_at": "2026-10-16T16:08:10-05:00",
     "h1": "The Fuji, monthly.",
     "handle": "lp-lib-a8-offer-kit-indoor",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    ],
     "page_id": 165461721389,
     "published_at": "2026-10-16T16:08:10-05:00",
     "sale": false,
@@ -33,6 +36,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Kit No Sale",
+    "updated_at": "2026-10-16T22:01:06+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-indoor"
   },
   "indoor-sale": {
@@ -58,10 +62,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
       }
     },
-    "content_hash": "f81f889aa77588a8165afb22b73df6fbe9d10e730f48211421ea6a3437f6bd04",
+    "content_hash": "1f6d1e880e7d168c2bfc8df54aa318042cd57184faf377db39c3b0fb6992a348",
     "first_published_at": "2026-10-16T16:16:36-05:00",
     "h1": "The Fuji, monthly.",
     "handle": "lp-lib-a8-offer-kit-indoor-sale",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    ],
     "offer_claim_id": "promo-community-savings-sale-2026-10",
     "offer_expires": "2026-10-16T23:30:00-05:00",
     "page_id": 165462049069,
@@ -71,6 +78,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Kit Sample",
+    "updated_at": "2026-10-16T22:01:08+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-indoor-sale"
   },
   "outdoor": {
@@ -96,10 +104,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
       }
     },
-    "content_hash": "fdbd65fff2282e9850cda8d0233b32a7816130e531d8f858fb8e23c56d03af6e",
+    "content_hash": "00a8316d415737c06a4ad73ed5dd64a9791977f9a0e60b9b317ab21c7123c44e",
     "first_published_at": "2026-10-16T16:12:57-05:00",
     "h1": "The Patagonia, all in.",
     "handle": "lp-lib-a8-offer-kit-outdoor",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control"
+    ],
     "page_id": 165461754157,
     "published_at": "2026-10-16T16:12:57-05:00",
     "sale": false,
@@ -107,6 +118,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Kit Outdoor",
+    "updated_at": "2026-10-16T22:01:10+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-outdoor"
   },
   "outdoor-sale": {
@@ -132,10 +144,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
       }
     },
-    "content_hash": "b127527dfc71a5f1bb829d7de7641762ca426cccd4b5c6586ce59c1a282ac209",
+    "content_hash": "c4cb2c2f15f6756ff2be12e6843b3a54df3d4788e8fd9f2c5f775d28fb62aeda",
     "first_published_at": "2026-10-16T16:16:39-05:00",
     "h1": "The Patagonia, all in.",
     "handle": "lp-lib-a8-offer-kit-outdoor-sale",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control"
+    ],
     "offer_claim_id": "promo-community-savings-sale-2026-10",
     "offer_expires": "2026-10-16T23:30:00-05:00",
     "page_id": 165462081837,
@@ -145,6 +160,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Kit Outdoor Sale",
+    "updated_at": "2026-10-16T22:01:12+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-outdoor-sale"
   }
 }

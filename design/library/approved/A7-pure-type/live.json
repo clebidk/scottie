@@ -1,0 +1,100 @@
+{
+  "nosale": {
+    "assets": {
+      "assets/cut/mini-360.webp": {
+        "sha256": "34d4ad944d7377cf0ad490579dda51e06be68ff0f33624642b5ae5fb462e1d27",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-02-peak-mini-1-person-infrared-sauna-360w.webp?v=1792187593"
+      },
+      "assets/cut/mini-640.webp": {
+        "sha256": "67ba0386ada6a8fe1e5bc17575ab99cc7dcae7ef4d211f4453a4f8fa62ca4235",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-02-peak-mini-1-person-infrared-sauna-640w.webp?v=1792187595"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      },
+      "assets/img/alcove-single-1080.webp": {
+        "sha256": "ed96e11df16d22492e1041bf9bc6152b64e2c899600c403cee7d4d9dd7b00701",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-01-a-one-person-peak-sauna-built-into-a-bathroom-alcove-1080w.webp?v=1792187598"
+      },
+      "assets/img/alcove-single-640.webp": {
+        "sha256": "f0e59c6ba66522fba4cc8119c7e38e5fea89e4fe413bb229fdf61964c6fb453f",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-01-a-one-person-peak-sauna-built-into-a-bathroom-alcove-640w.webp?v=1792187600"
+      }
+    },
+    "content_hash": "9ec52816b6fa7b9b21a0ea5006930178e8a3e0beef734b58ed710dbfa5cbbbdd",
+    "first_published_at": "2026-10-16T16:53:21-05:00",
+    "h1": "The Real Sauna That Plugs Into the Outlet You Already Have",
+    "handle": "lp-lib-a7-pure-type-nosale",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    ],
+    "page_id": 165462966573,
+    "published_at": "2026-10-16T16:53:21-05:00",
+    "sale": false,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Mini Sample No Sale",
+    "updated_at": "2026-10-16T22:00:55+00:00",
+    "url": "https://peaksaunas.com/pages/lp-lib-a7-pure-type-nosale"
+  },
+  "sale": {
+    "assets": {
+      "assets/cut/mini-360.webp": {
+        "sha256": "34d4ad944d7377cf0ad490579dda51e06be68ff0f33624642b5ae5fb462e1d27",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-02-peak-mini-1-person-infrared-sauna-360w.webp?v=1792187593"
+      },
+      "assets/cut/mini-640.webp": {
+        "sha256": "67ba0386ada6a8fe1e5bc17575ab99cc7dcae7ef4d211f4453a4f8fa62ca4235",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-02-peak-mini-1-person-infrared-sauna-640w.webp?v=1792187595"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      },
+      "assets/img/alcove-single-1080.webp": {
+        "sha256": "ed96e11df16d22492e1041bf9bc6152b64e2c899600c403cee7d4d9dd7b00701",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-01-a-one-person-peak-sauna-built-into-a-bathroom-alcove-1080w.webp?v=1792187598"
+      },
+      "assets/img/alcove-single-640.webp": {
+        "sha256": "f0e59c6ba66522fba4cc8119c7e38e5fea89e4fe413bb229fdf61964c6fb453f",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a7-pure-type-nosale-01-a-one-person-peak-sauna-built-into-a-bathroom-alcove-640w.webp?v=1792187600"
+      }
+    },
+    "content_hash": "ac257d9d06c52020ce225fe30668a495784fa02348e8fbcc0f2b5331c7b7998a",
+    "first_published_at": "2026-10-16T16:53:25-05:00",
+    "h1": "The Real Sauna That Plugs Into the Outlet You Already Have",
+    "handle": "lp-lib-a7-pure-type-sale",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    ],
+    "offer_claim_id": "promo-community-savings-sale-2026-10",
+    "offer_expires": "2026-10-16T23:30:00-05:00",
+    "page_id": 165462999341,
+    "published_at": "2026-10-16T16:53:25-05:00",
+    "sale": true,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Mini Sample",
+    "updated_at": "2026-10-16T22:00:57+00:00",
+    "url": "https://peaksaunas.com/pages/lp-lib-a7-pure-type-sale"
+  }
+}

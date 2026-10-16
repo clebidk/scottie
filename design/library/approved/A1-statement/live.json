@@ -66,10 +66,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-640w.webp?v=1792185206"
       }
     },
-    "content_hash": "8376bc780e4fea2437220b2b5a85e06344be3253857178c744fc9da04d6ee6a4",
+    "content_hash": "e2be87afd7c5a18b9b7e06b3506c3840f590032261a5de5d77cbcd5ff967d9e4",
     "first_published_at": "2026-10-16T16:13:27-05:00",
     "h1": "Your own sauna for the cost of an Equinox membership.",
     "handle": "lp-lib-a1-statement-indoor",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    ],
     "page_id": 165461786925,
     "published_at": "2026-10-16T16:13:27-05:00",
     "sale": false,
@@ -77,6 +80,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Statement No Sale",
+    "updated_at": "2026-10-16T22:00:30+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-indoor"
   },
   "indoor-sale": {
@@ -146,10 +150,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-640w.webp?v=1792185206"
       }
     },
-    "content_hash": "d9aea419d80068bd605ccb218c2a2cb68870335da88f81ec1ff1b58c60537af9",
+    "content_hash": "516c98dbfbaa8871162c696886374e866f78837d553b2f0f6cd463f9b538a6de",
     "first_published_at": "2026-10-16T16:16:41-05:00",
     "h1": "$300 off every indoor sauna.",
     "handle": "lp-lib-a1-statement-indoor-sale",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy"
+    ],
     "offer_claim_id": "promo-community-savings-sale-2026-10",
     "offer_expires": "2026-10-16T23:30:00-05:00",
     "page_id": 165462114605,
@@ -159,6 +166,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Statement Sample",
+    "updated_at": "2026-10-16T22:00:33+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-indoor-sale"
   },
   "outdoor": {
@@ -212,10 +220,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-01-a-peak-patagonia-outdoor-sauna-on-a-wooden-deck-640w.webp?v=1792185221"
       }
     },
-    "content_hash": "d7188d8727961a57db0728e6708031569bc23589e8bba88a8c547b0b27c3bc53",
+    "content_hash": "48c6236a144affdfa395ebf8105b12d9116593a2ac4e54c0b0b451aa95ada6bc",
     "first_published_at": "2026-10-16T16:13:42-05:00",
     "h1": "The sauna brand 2,000+ homes chose in 12 months.",
     "handle": "lp-lib-a1-statement-outdoor",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control"
+    ],
     "page_id": 165461819693,
     "published_at": "2026-10-16T16:13:42-05:00",
     "sale": false,
@@ -223,6 +234,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Statement Outdoor",
+    "updated_at": "2026-10-16T22:00:35+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-outdoor"
   },
   "outdoor-sale": {
@@ -276,10 +288,13 @@
         "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-01-a-peak-patagonia-outdoor-sauna-on-a-wooden-deck-640w.webp?v=1792185221"
       }
     },
-    "content_hash": "1271231795f785e576fdeae8da0432c256970bf60bb8614e200cbce4a8e26001",
+    "content_hash": "0be64e79718a7c4ff5c81fa641f4b71935fe322fa55ae7f20e80f50a0218e6da",
     "first_published_at": "2026-10-16T16:16:47-05:00",
     "h1": "$500 off every outdoor sauna.",
     "handle": "lp-lib-a1-statement-outdoor-sale",
+    "links": [
+      "https://peaksaunas.com/products/peak-saunas-patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control"
+    ],
     "offer_claim_id": "promo-community-savings-sale-2026-10",
     "offer_expires": "2026-10-16T23:30:00-05:00",
     "page_id": 165462147373,
@@ -289,6 +304,7 @@
     "template_suffix": "pk-harness",
     "tenant": "peak-saunas",
     "title": "PEAK Statement Outdoor Sale",
+    "updated_at": "2026-10-16T22:00:37+00:00",
     "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-outdoor-sale"
   }
 }
