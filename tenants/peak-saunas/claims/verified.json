@@ -1192,8 +1192,10 @@
     "id": "promo-community-savings-sale-2026-10",
     "text": "Community Savings Sale: $300 off indoor saunas with code INDOOR300 and $500 off outdoor saunas with code OUTDOOR500, applied at checkout; prices go up on October 16, 2026.",
     "category": "promo",
-    "source": "store promo bar on peaksaunas.com (pk_promo_message) read 2026-10-14; the AIIR sale ads of 2026-10-13 say the same. Remove or date this claim when the sale ends.",
+    "source": "store promo bar on peaksaunas.com (pk_promo_message) read 2026-10-14; the AIIR sale ads of 2026-10-13 say the same. Remove or date this claim when the sale ends.; deadline from site promo bar, fetched 2026-10-16T16:58:19+00:00",
     "approved_by": "caleb@peaksaunas.com (owner autonomy, 2026-10-14)",
-    "date": "2026-10-14"
+    "date": "2026-10-14",
+    "last_sale_day": "2026-10-16",
+    "deadline_end": "2026-10-16T23:30:00-05:00"
   }
 ]
