@@ -8038,3 +8038,61 @@ peaksaunas.com at its own URL, linked to no ad, hidden from search.
 - With the sale_sync hook removed, the two sweep tests fail.
 - tests/conftest.py: every test gets an empty `library_publish.APPROVED_DIR` (the committed live.json files put 4
   real sale pages into the sweep of 3 cycle 111 tests in the first full run); the real-folder tests set it back.
+
+## Cycle 114b (library pages live: theme shield, product CTAs, 22 pages, lean layout test, 2026-10-16)
+
+Branch `cycle114b/library-live`, worktree `~/adv-c114b`, from master e77e95e (cycle 114 merged at 290dbac, the 14
+variants restored at e77e95e). Not merged, not pushed.
+
+### Theme shield (measured, both themes of the split)
+- Method: in the store page (`?preview_theme_id=`, fetched into a same-origin srcdoc iframe 390 px wide), the
+  computed color, font, weight, size, line height, letter spacing, case, radius, background, margins, paddings,
+  display and visibility of every element of our content, once with the theme's stylesheets on and once with only
+  the page's own styles. Before the shield: 71-99 differences per page in 188604088621 (PEAK: Live Site), 22-34 in
+  182943580461 (Caleb Version: PEAK rebrand).
+- What the themes did: `body.pkj-body` font Inter and `.pkj-template-page #MainContent` color; headings
+  `color:var(--gsc-text-color-100)` and `font-weight:700!important` (pkj-base); `.btn` Inter, uppercase, letter
+  spacing, `font-weight:400!important`, `border-radius:999px!important`; images `border-radius:0!important`;
+  `main{display:flex}`; `.quote{display:flex}`; `.pkj-body dl` margin and `dd` weight; theme A `section` color and
+  its own `--ink` / `--muted` custom properties (fine print #B0B0B0 instead of #5C5F5D).
+- `<style id="pk-lib-shield">` after the page's own styles in each of the 22 index.html files. Every rule starts
+  with `:where(#pk-lib-shield~*)` (or `:where(#pk-lib-shield)~main|section`), so it reaches only the elements that
+  follow the style element in the same parent: the page content on the store, nothing in the review copy (the
+  style is in head there). It sets the page's variables, font and color on the top-level elements, headings
+  inherit color, line height and letter spacing, the page's own heading weights (400) and button weight / 4 px
+  radius and image radii again with !important, main block, .quote block, dl/dd as in the page.
+- After: 0 differences on 20 of 22 pages in both themes at 390 px and on 6 pages at 1280 px; A7 (2 pages) keeps one:
+  its top-level `<picture>` is a flex item of the theme's `#MainContent`, so its computed display is block.
+
+### Product CTAs
+- The offer-card button (`href="#"`) and the sticky bar button (`href="#offer"`) of every page go to the product page
+  (runs/products-cache.json): Fuji `/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-
+  sauna-with-medical-grade-red-light-therapy` (the handle is a URL, not copy), Patagonia `/products/peak-saunas-
+  patagonia-2-person-outdoor-full-spectrum-infrared-sauna-with-smart-wifi-app-control`, Mini `/products/peak-saunas-
+  mini-1-person-indoor-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy`, absolute, no query. The
+  other `#offer` CTAs stay. El Capitan is in the map (200) and on no page. A script check: each file differs from
+  e77e95e only by the shield and those two hrefs.
+- `library publish` records the page's absolute links (live.json `links`); verify needs them in the live page,
+  each 200, one of them a /products/ page.
+
+### Publish (16:52-16:59 CDT, then 17:00 with the second shield)
+- 8 pages updated in place, 14 created (A4, A6, A7, A8-offer-hero); all 22 verify OK (200, h1, assets 200, no
+  relative path, product link 200). 11 sale pages carry offer_expires 2026-10-16T23:30:00-05:00; a dry-run sweep at
+  22:41 MDT on this branch: 11 "would hide", next sweep 22:40 MDT. The 7 new sale pages are in this branch's
+  live.json only: the worker hides them only when this branch is merged and the worker restarted before 22:40 MDT.
+
+### Lean layout test (theme 182943580461 only; landing_lean_layout stays false)
+- Dry run: both lean files absent in both themes. Written to 182943580461 only (absent before, so no backup file).
+- A8-offer-kit/indoor (page 165461721389) set to suffix `landing` after the push (about 17:05 CDT), measured, set back to `pk-harness`
+  (see below). Numbers at 390x844, Slow 4G, 4x CPU (headless Chrome over CDP):
+  pk-harness: promo bar, assist bar, theme header and Judge.me markup; HTML + 28 refs 2014 KB; transfer 2.13-2.14 MB;
+  LCP 3120 / 3304 ms; CLS 0.033. landing: no promo bar, sales popup, assist/chat bar or theme header markup;
+  Judge.me script still present (an app embed, injected into every layout); HTML + 20 refs 1241 KB; transfer
+  1.71-1.73 MB; LCP 1720 / 3224 / 3852 / 4060 ms (spread from the CDN; no LCP gain measured); CLS 0.082.
+- Theme 188604088621 has no lean files, so the page fell back to that theme's default page template, which strips
+  the page's styles (cycle 84): the page showed unstyled for that bucket. Set back to pk-harness after the numbers;
+  restored and checked (styled h1). Switch it again after 188604088621 has the files.
+
+### Verify
+- tests/test_library_publish_cycle114.py: product links in the record and the published body, the shield in the
+  body, verify fails on a 404 product link; the list test no longer treats `nosale` as a sale variant.
