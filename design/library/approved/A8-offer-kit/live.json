@@ -1,0 +1,150 @@
+{
+  "indoor": {
+    "assets": {
+      "assets/cut/fuji-360.webp": {
+        "sha256": "28361191e771fdce9508d127ff8440ad1c1c20bd19e6fb1922755539a6eaae46",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-360w.webp?v=1792184877"
+      },
+      "assets/cut/fuji-640.webp": {
+        "sha256": "b87076d1d48314c467c0e076501fa88929aba7ee66513407e56f4626190e07fa",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-640w.webp?v=1792184880"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      }
+    },
+    "content_hash": "2de2855f3ada1536041998cd73f59ee20e86cd6c839677d8c576ab6946ec7ed3",
+    "first_published_at": "2026-10-16T16:08:10-05:00",
+    "h1": "The Fuji, monthly.",
+    "handle": "lp-lib-a8-offer-kit-indoor",
+    "page_id": 165461721389,
+    "published_at": "2026-10-16T16:08:10-05:00",
+    "sale": false,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Kit No Sale",
+    "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-indoor"
+  },
+  "indoor-sale": {
+    "assets": {
+      "assets/cut/fuji-360.webp": {
+        "sha256": "28361191e771fdce9508d127ff8440ad1c1c20bd19e6fb1922755539a6eaae46",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-360w.webp?v=1792184877"
+      },
+      "assets/cut/fuji-640.webp": {
+        "sha256": "b87076d1d48314c467c0e076501fa88929aba7ee66513407e56f4626190e07fa",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-640w.webp?v=1792184880"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      }
+    },
+    "content_hash": "f81f889aa77588a8165afb22b73df6fbe9d10e730f48211421ea6a3437f6bd04",
+    "first_published_at": "2026-10-16T16:16:36-05:00",
+    "h1": "The Fuji, monthly.",
+    "handle": "lp-lib-a8-offer-kit-indoor-sale",
+    "offer_claim_id": "promo-community-savings-sale-2026-10",
+    "offer_expires": "2026-10-16T23:30:00-05:00",
+    "page_id": 165462049069,
+    "published_at": "2026-10-16T16:16:36-05:00",
+    "sale": true,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Kit Sample",
+    "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-indoor-sale"
+  },
+  "outdoor": {
+    "assets": {
+      "assets/cut/patagonia-360.webp": {
+        "sha256": "225ea2bbda3951036d2a0c4e73489f769701e9aa13d620c110c84f4bfbe7988b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-360w.webp?v=1792185174"
+      },
+      "assets/cut/patagonia-640.webp": {
+        "sha256": "52856b21d7d0b15430f45c9174001db56afb8847303c45445d0e4b398cc0f910",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-640w.webp?v=1792185177"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      }
+    },
+    "content_hash": "fdbd65fff2282e9850cda8d0233b32a7816130e531d8f858fb8e23c56d03af6e",
+    "first_published_at": "2026-10-16T16:12:57-05:00",
+    "h1": "The Patagonia, all in.",
+    "handle": "lp-lib-a8-offer-kit-outdoor",
+    "page_id": 165461754157,
+    "published_at": "2026-10-16T16:12:57-05:00",
+    "sale": false,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Kit Outdoor",
+    "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-outdoor"
+  },
+  "outdoor-sale": {
+    "assets": {
+      "assets/cut/patagonia-360.webp": {
+        "sha256": "225ea2bbda3951036d2a0c4e73489f769701e9aa13d620c110c84f4bfbe7988b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-360w.webp?v=1792185174"
+      },
+      "assets/cut/patagonia-640.webp": {
+        "sha256": "52856b21d7d0b15430f45c9174001db56afb8847303c45445d0e4b398cc0f910",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-640w.webp?v=1792185177"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      }
+    },
+    "content_hash": "b127527dfc71a5f1bb829d7de7641762ca426cccd4b5c6586ce59c1a282ac209",
+    "first_published_at": "2026-10-16T16:16:39-05:00",
+    "h1": "The Patagonia, all in.",
+    "handle": "lp-lib-a8-offer-kit-outdoor-sale",
+    "offer_claim_id": "promo-community-savings-sale-2026-10",
+    "offer_expires": "2026-10-16T23:30:00-05:00",
+    "page_id": 165462081837,
+    "published_at": "2026-10-16T16:16:39-05:00",
+    "sale": true,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Kit Outdoor Sale",
+    "url": "https://peaksaunas.com/pages/lp-lib-a8-offer-kit-outdoor-sale"
+  }
+}

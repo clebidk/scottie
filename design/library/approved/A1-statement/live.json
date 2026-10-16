@@ -1,0 +1,294 @@
+{
+  "indoor": {
+    "assets": {
+      "assets/cut/fuji-360.webp": {
+        "sha256": "28361191e771fdce9508d127ff8440ad1c1c20bd19e6fb1922755539a6eaae46",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-360w.webp?v=1792184877"
+      },
+      "assets/cut/fuji-640.webp": {
+        "sha256": "b87076d1d48314c467c0e076501fa88929aba7ee66513407e56f4626190e07fa",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-640w.webp?v=1792184880"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      },
+      "assets/img/assembly-carry-640.webp": {
+        "sha256": "7ad7eb8792c128a26153fdbc02cc02754f0e8dc53f6429c7a9028ef5f117d44a",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-05-two-people-carrying-a-peak-sauna-wall-panel-640w.webp?v=1792185182"
+      },
+      "assets/img/cedar-stool-1080.webp": {
+        "sha256": "689b8f36e85bbbcaacbb6bc1d0d1a7de9e439c19f4b1e145c22ba028f301a1a8",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-03-a-red-cedar-two-person-peak-sauna-1080w.webp?v=1792185184"
+      },
+      "assets/img/cedar-stool-640.webp": {
+        "sha256": "1bd175de8593a153c6999ee4bf340c08841450eff47a841b0a52f6e1590838ed",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-03-a-red-cedar-two-person-peak-sauna-640w.webp?v=1792185187"
+      },
+      "assets/img/fuji-concrete-1080.webp": {
+        "sha256": "e346c85591e8fc446c6b310f1946a093bf64efea5704291177cae5ad6ef86c4b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-01-peak-fuji-sauna-in-a-bright-concrete-room-1080w.webp?v=1792185189"
+      },
+      "assets/img/fuji-concrete-640.webp": {
+        "sha256": "e920a7b46243e764445b85d4faa650b695b15ff4f8e226cd672aec08842da884",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-01-peak-fuji-sauna-in-a-bright-concrete-room-640w.webp?v=1792185192"
+      },
+      "assets/img/garage-gym-1080.webp": {
+        "sha256": "fb9d71a6bd94321b988cc41fc59f7768f65f5e06e3d8c69a86c7a7da5d82a6b7",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-02-a-peak-sauna-in-a-home-gym-1080w.webp?v=1792185194"
+      },
+      "assets/img/garage-gym-640.webp": {
+        "sha256": "36efa82b1763ec3b8bed606fc2ac01152a1fd2ed3b90f1a537f4282a5bbc2a04",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-02-a-peak-sauna-in-a-home-gym-640w.webp?v=1792185197"
+      },
+      "assets/img/man-seated-1080.webp": {
+        "sha256": "6957195cde3e9824bf3b329224a5eb16c4d9773f0c9b3b20ecbd0bfadc9e612c",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-1080w.webp?v=1792185199"
+      },
+      "assets/img/man-seated-640.webp": {
+        "sha256": "7c736076c000443cc5fd1e4863e45061e31ddef14af0d6518fcc368b1c06cecb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-640w.webp?v=1792185202"
+      },
+      "assets/img/man-towel-1080.webp": {
+        "sha256": "6ccf9cc8c59a23adb12703b1aaeb323f601224c99411dc4f9944740ceabd908b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-1080w.webp?v=1792185204"
+      },
+      "assets/img/man-towel-640.webp": {
+        "sha256": "0de3e8603a38cd0d80d0e76b8e884f37860f203ee2df4dbdc9d919f51eca4ab8",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-640w.webp?v=1792185206"
+      }
+    },
+    "content_hash": "8376bc780e4fea2437220b2b5a85e06344be3253857178c744fc9da04d6ee6a4",
+    "first_published_at": "2026-10-16T16:13:27-05:00",
+    "h1": "Your own sauna for the cost of an Equinox membership.",
+    "handle": "lp-lib-a1-statement-indoor",
+    "page_id": 165461786925,
+    "published_at": "2026-10-16T16:13:27-05:00",
+    "sale": false,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Statement No Sale",
+    "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-indoor"
+  },
+  "indoor-sale": {
+    "assets": {
+      "assets/cut/fuji-360.webp": {
+        "sha256": "28361191e771fdce9508d127ff8440ad1c1c20bd19e6fb1922755539a6eaae46",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-360w.webp?v=1792184877"
+      },
+      "assets/cut/fuji-640.webp": {
+        "sha256": "b87076d1d48314c467c0e076501fa88929aba7ee66513407e56f4626190e07fa",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-indoor-01-peak-fuji-2-person-infrared-sauna-640w.webp?v=1792184880"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      },
+      "assets/img/assembly-carry-640.webp": {
+        "sha256": "7ad7eb8792c128a26153fdbc02cc02754f0e8dc53f6429c7a9028ef5f117d44a",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-05-two-people-carrying-a-peak-sauna-wall-panel-640w.webp?v=1792185182"
+      },
+      "assets/img/cedar-stool-1080.webp": {
+        "sha256": "689b8f36e85bbbcaacbb6bc1d0d1a7de9e439c19f4b1e145c22ba028f301a1a8",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-03-a-red-cedar-two-person-peak-sauna-1080w.webp?v=1792185184"
+      },
+      "assets/img/cedar-stool-640.webp": {
+        "sha256": "1bd175de8593a153c6999ee4bf340c08841450eff47a841b0a52f6e1590838ed",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-03-a-red-cedar-two-person-peak-sauna-640w.webp?v=1792185187"
+      },
+      "assets/img/fuji-concrete-1080.webp": {
+        "sha256": "e346c85591e8fc446c6b310f1946a093bf64efea5704291177cae5ad6ef86c4b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-01-peak-fuji-sauna-in-a-bright-concrete-room-1080w.webp?v=1792185189"
+      },
+      "assets/img/fuji-concrete-640.webp": {
+        "sha256": "e920a7b46243e764445b85d4faa650b695b15ff4f8e226cd672aec08842da884",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-01-peak-fuji-sauna-in-a-bright-concrete-room-640w.webp?v=1792185192"
+      },
+      "assets/img/garage-gym-1080.webp": {
+        "sha256": "fb9d71a6bd94321b988cc41fc59f7768f65f5e06e3d8c69a86c7a7da5d82a6b7",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-02-a-peak-sauna-in-a-home-gym-1080w.webp?v=1792185194"
+      },
+      "assets/img/garage-gym-640.webp": {
+        "sha256": "36efa82b1763ec3b8bed606fc2ac01152a1fd2ed3b90f1a537f4282a5bbc2a04",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-02-a-peak-sauna-in-a-home-gym-640w.webp?v=1792185197"
+      },
+      "assets/img/man-seated-1080.webp": {
+        "sha256": "6957195cde3e9824bf3b329224a5eb16c4d9773f0c9b3b20ecbd0bfadc9e612c",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-1080w.webp?v=1792185199"
+      },
+      "assets/img/man-seated-640.webp": {
+        "sha256": "7c736076c000443cc5fd1e4863e45061e31ddef14af0d6518fcc368b1c06cecb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-640w.webp?v=1792185202"
+      },
+      "assets/img/man-towel-1080.webp": {
+        "sha256": "6ccf9cc8c59a23adb12703b1aaeb323f601224c99411dc4f9944740ceabd908b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-1080w.webp?v=1792185204"
+      },
+      "assets/img/man-towel-640.webp": {
+        "sha256": "0de3e8603a38cd0d80d0e76b8e884f37860f203ee2df4dbdc9d919f51eca4ab8",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-640w.webp?v=1792185206"
+      }
+    },
+    "content_hash": "d9aea419d80068bd605ccb218c2a2cb68870335da88f81ec1ff1b58c60537af9",
+    "first_published_at": "2026-10-16T16:16:41-05:00",
+    "h1": "$300 off every indoor sauna.",
+    "handle": "lp-lib-a1-statement-indoor-sale",
+    "offer_claim_id": "promo-community-savings-sale-2026-10",
+    "offer_expires": "2026-10-16T23:30:00-05:00",
+    "page_id": 165462114605,
+    "published_at": "2026-10-16T16:16:41-05:00",
+    "sale": true,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Statement Sample",
+    "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-indoor-sale"
+  },
+  "outdoor": {
+    "assets": {
+      "assets/cut/patagonia-360.webp": {
+        "sha256": "225ea2bbda3951036d2a0c4e73489f769701e9aa13d620c110c84f4bfbe7988b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-360w.webp?v=1792185174"
+      },
+      "assets/cut/patagonia-640.webp": {
+        "sha256": "52856b21d7d0b15430f45c9174001db56afb8847303c45445d0e4b398cc0f910",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-640w.webp?v=1792185177"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      },
+      "assets/img/man-seated-1080.webp": {
+        "sha256": "6957195cde3e9824bf3b329224a5eb16c4d9773f0c9b3b20ecbd0bfadc9e612c",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-1080w.webp?v=1792185199"
+      },
+      "assets/img/man-seated-640.webp": {
+        "sha256": "7c736076c000443cc5fd1e4863e45061e31ddef14af0d6518fcc368b1c06cecb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-640w.webp?v=1792185202"
+      },
+      "assets/img/man-towel-1080.webp": {
+        "sha256": "6ccf9cc8c59a23adb12703b1aaeb323f601224c99411dc4f9944740ceabd908b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-1080w.webp?v=1792185204"
+      },
+      "assets/img/man-towel-640.webp": {
+        "sha256": "0de3e8603a38cd0d80d0e76b8e884f37860f203ee2df4dbdc9d919f51eca4ab8",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-640w.webp?v=1792185206"
+      },
+      "assets/img/man-towel-wide-640.webp": {
+        "sha256": "03e8d74101e7ec7083b1939b49e0b0f5519d7d6ee778aaaafea19bc33adc164e",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-04-glowing-infrared-heater-panels-behind-a-man-with-a-towel-640w.webp?v=1792185215"
+      },
+      "assets/img/outdoor-deck-1080.webp": {
+        "sha256": "c44a36f1122380b8af364e17760159adf55f11270b0930a9f274b26424d5fb9d",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-01-a-peak-patagonia-outdoor-sauna-on-a-wooden-deck-1080w.webp?v=1792185218"
+      },
+      "assets/img/outdoor-deck-640.webp": {
+        "sha256": "295a31ff4c6872e07df823733042fd5088f24c8a27ac833f32ffc4ce796be425",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-01-a-peak-patagonia-outdoor-sauna-on-a-wooden-deck-640w.webp?v=1792185221"
+      }
+    },
+    "content_hash": "d7188d8727961a57db0728e6708031569bc23589e8bba88a8c547b0b27c3bc53",
+    "first_published_at": "2026-10-16T16:13:42-05:00",
+    "h1": "The sauna brand 2,000+ homes chose in 12 months.",
+    "handle": "lp-lib-a1-statement-outdoor",
+    "page_id": 165461819693,
+    "published_at": "2026-10-16T16:13:42-05:00",
+    "sale": false,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Statement Outdoor",
+    "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-outdoor"
+  },
+  "outdoor-sale": {
+    "assets": {
+      "assets/cut/patagonia-360.webp": {
+        "sha256": "225ea2bbda3951036d2a0c4e73489f769701e9aa13d620c110c84f4bfbe7988b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-360w.webp?v=1792185174"
+      },
+      "assets/cut/patagonia-640.webp": {
+        "sha256": "52856b21d7d0b15430f45c9174001db56afb8847303c45445d0e4b398cc0f910",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a8-offer-kit-outdoor-01-peak-patagonia-2-person-outdoor-sauna-640w.webp?v=1792185177"
+      },
+      "assets/fonts/FFF-AcidGrotesk-Regular.woff2": {
+        "sha256": "8725391f562256e1ce1fa8ab97775c7c5de129d2f7d9acba066cbb903dcfd305",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/FFF-AcidGrotesk-Regular_1bc7d9e7-6c74-4df9-ab39-b2cc7c5b1c8a.woff2?v=1792184883"
+      },
+      "assets/fonts/dm-sans-400-normal-latin.woff2": {
+        "sha256": "468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/dm-sans-400-normal-latin.woff2?v=1792184886"
+      },
+      "assets/fonts/pk-peak-grotesk-wide.woff2": {
+        "sha256": "69d910d7521cd64a9e02a673cbb0c6b0c6dc66e5bfe0733591fea46af42707be",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-peak-grotesk-wide.woff2?v=1792184889"
+      },
+      "assets/img/man-seated-1080.webp": {
+        "sha256": "6957195cde3e9824bf3b329224a5eb16c4d9773f0c9b3b20ecbd0bfadc9e612c",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-1080w.webp?v=1792185199"
+      },
+      "assets/img/man-seated-640.webp": {
+        "sha256": "7c736076c000443cc5fd1e4863e45061e31ddef14af0d6518fcc368b1c06cecb",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-04-a-man-sitting-in-an-infrared-sauna-640w.webp?v=1792185202"
+      },
+      "assets/img/man-towel-1080.webp": {
+        "sha256": "6ccf9cc8c59a23adb12703b1aaeb323f601224c99411dc4f9944740ceabd908b",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-1080w.webp?v=1792185204"
+      },
+      "assets/img/man-towel-640.webp": {
+        "sha256": "0de3e8603a38cd0d80d0e76b8e884f37860f203ee2df4dbdc9d919f51eca4ab8",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-indoor-06-a-man-with-a-towel-after-a-sauna-session-640w.webp?v=1792185206"
+      },
+      "assets/img/man-towel-wide-640.webp": {
+        "sha256": "03e8d74101e7ec7083b1939b49e0b0f5519d7d6ee778aaaafea19bc33adc164e",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-04-glowing-infrared-heater-panels-behind-a-man-with-a-towel-640w.webp?v=1792185215"
+      },
+      "assets/img/outdoor-deck-1080.webp": {
+        "sha256": "c44a36f1122380b8af364e17760159adf55f11270b0930a9f274b26424d5fb9d",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-01-a-peak-patagonia-outdoor-sauna-on-a-wooden-deck-1080w.webp?v=1792185218"
+      },
+      "assets/img/outdoor-deck-640.webp": {
+        "sha256": "295a31ff4c6872e07df823733042fd5088f24c8a27ac833f32ffc4ce796be425",
+        "url": "https://cdn.shopify.com/s/files/1/0825/8312/6317/files/pk-lib-a1-statement-outdoor-01-a-peak-patagonia-outdoor-sauna-on-a-wooden-deck-640w.webp?v=1792185221"
+      }
+    },
+    "content_hash": "1271231795f785e576fdeae8da0432c256970bf60bb8614e200cbce4a8e26001",
+    "first_published_at": "2026-10-16T16:16:47-05:00",
+    "h1": "$500 off every outdoor sauna.",
+    "handle": "lp-lib-a1-statement-outdoor-sale",
+    "offer_claim_id": "promo-community-savings-sale-2026-10",
+    "offer_expires": "2026-10-16T23:30:00-05:00",
+    "page_id": 165462147373,
+    "published_at": "2026-10-16T16:16:47-05:00",
+    "sale": true,
+    "seo_hidden": true,
+    "template_suffix": "pk-harness",
+    "tenant": "peak-saunas",
+    "title": "PEAK Statement Outdoor Sale",
+    "url": "https://peaksaunas.com/pages/lp-lib-a1-statement-outdoor-sale"
+  }
+}

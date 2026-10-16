@@ -7966,3 +7966,73 @@ version can do".
 ## Cycle 113 (CI green)
 - GitHub CI had never run pytest (Ruff failed first): ruff check . is now clean (109 findings: 17 auto-fixes, 23 zip strict=, 58 F811 from imported pytest fixtures, rest by hand), the real_browser tests skip when CI is set (tests/conftest.py), and make test runs ruff check . before pytest.
 - The sale, offer and proof tests (6 modules, marker `frozen_tenant`) read tests/fixtures/tenants/peak-saunas-frozen/ (claims/verified.json and tenant.yaml of 9bdb996), not the live tenant files: the 16:58 sale sync and sale_sweep switch had turned 18 of them red; tests/test_frozen_tenant_cycle113.py fails if a module reads the live files again. ci.yml and make test pin ruff==0.17.1.
+
+## Cycle 114 (library publish, 2026-10-16)
+
+Branch `cycle114/library-publish`, worktree `~/adv-c114`, from master 2e6251a. Not merged, not pushed.
+Owner: "ok all versions through PEAK Kit sample are approved and ready to go live". Precedent 2026-10-06: live on
+peaksaunas.com at its own URL, linked to no ad, hidden from search.
+
+### Change
+- `harness/library_publish.py` (new; `harness/library.py` is the cycle 86 Library build, so the name differs).
+  A variant is `design/library/approved/<entry>/<variant>/index.html`; an index.html at the entry root is not one.
+- `harness library list [--tenant]`: entries, variants (sale / no-sale), handles, status (not published, live,
+  changed since, hidden by the sale sweep).
+- `harness library publish <entry>/<variant> | --all [--dry-run] --tenant <t>`: the referenced assets go up through
+  `ShopifyPublisher.upload_assets` (images, named by `page_body.build_asset_manifest`) and `upload_fonts` (by file
+  name); bytes that any live.json already has are not uploaded again (sha256). Every `assets/...` reference (src,
+  srcset, href, CSS url()) becomes its CDN URL; one left stops the publish. Body = the head's `<style>` blocks and
+  preload links + the `<body>` content; nothing added. One change: `page.pk-harness.liquid` hides every `<header>` and
+  `<footer>` element, and every approved page has its hero in a `<header>` and its FTC / Bread Pay text in a
+  `<footer>`, so those tags become `<div data-lib-el="...">` and the page's CSS type selectors for them become
+  `div:where([data-lib-el="..."])` (same specificity). Page: handle `lp-lib-<entry>-<variant>`, title = `<title>`,
+  live, `seo.hidden = 1`, template suffix from `shopify_publish` (pk-harness; the theme's default page template of one
+  theme strips body `<style>`, cycle 84), never the lean layout. A taken handle with no live.json record stops it.
+  A no-sale variant that shows a promo code, or a page that holds the theme's promo bar text, stops it.
+- `design/library/approved/<entry>/live.json`: per variant tenant, handle, url, page_id, published_at,
+  content_hash, title, h1, sale, assets {ref: sha256, url}; sale variants also offer_claim_id
+  `promo-community-savings-sale-2026-10` and offer_expires (`sale_sync.run_expiry`: the synced site deadline from
+  runs/sale-site.json, else the claim's). The README gets one "Live (unlinked, hidden from search): ..." line.
+  Same content hash = no-op (no store call); changed content = PUT of the same page id.
+- `publish_locked: true`: refused before any call, with `LockedShopifyPublisher.MESSAGE`.
+- Sale: a variant whose folder name has the word "sale" (sale, indoor-sale; never nosale). A sale page is not
+  published after its deadline. `sale_sync.live_offer_pages` adds `library_publish.live_sale_pages` (kind
+  `library`), so `next_sweep_at` wakes the worker at the end + 10 min. In `sweep`, a library item goes to
+  `library_publish.sweep_action`: end -> PUT `published: false` only (no redirect, no rebuild, no twin), log
+  "sale sweep: library sale page hidden: <entry>/<variant> page <id> <url>", audit `library_sale_hidden`, state in
+  `tenants/<t>/runs/library-sale.json` (runtime; the worker does not write the repo); extend -> WARNING (static page,
+  not changed); unknown -> no action. A hidden page leaves the list and `library publish` does not bring it back.
+- Verify after each write: GET of the live URL (status 200, our h1 among the page's h1s), every CDN URL of the
+  record in the page and 200, no relative `assets/` load (the theme's own CSS comments name `assets/...css` files;
+  they are not counted).
+
+### Data (2026-10-16, peak-saunas, from the worktree with the tenant's .env and runs/ linked in)
+- Master 2e6251a has variant folders only for A1-statement and A8-offer-kit (4 each). Commit 8ee28f8 ("whole-sauna
+  rule applied to every image") deleted the 14 variant pages of A4-reasons-photo, A6-comparison-first, A7-pure-type
+  and A8-offer-hero and put the same "PEAK sample pages: 13 builds" gallery index.html (md5 888e65ef9ab3) in each
+  of the 4 entry roots. Those 4 entries have nothing to publish until their variant folders are back.
+- Published live 16:08-16:17 MDT, all verify OK (200, h1, assets 200, 0 relative): A8-offer-kit indoor
+  165461721389, outdoor 165461754157, indoor-sale 165462049069, outdoor-sale 165462081837; A1-statement indoor
+  165461786925, outdoor 165461819693, indoor-sale 165462114605, outdoor-sale 165462147373. 21 files uploaded in
+  all (the rest by sha). A second `--all`: 8 unchanged, no store call. The live HTML has
+  `<meta name="robots" content="noindex,nofollow">`.
+- Sweep on real data (dry run, clock 22:41 MDT): the 4 sale pages registered with offer_expires
+  2026-10-16T23:30:00-05:00; next sweep 22:40 MDT; "would hide" for each. The running worker is master code: it
+  hides them only after this branch is merged and the worker restarts.
+- Screenshots at 390 px (both themes of the split, `?preview_theme_id=`): A1 headline color comes from the theme
+  (`h1,h2,...,.h2,.h3{color:var(--gsc-text-color-100)}`), so on the dark hero only the accent span shows
+  ("EQUINOX MEMBERSHIP."); A8 buttons are pill-shaped and the h3s heavier in the live theme; one theme shows its
+  header, sales popup and chat bubble (theme chrome). Not changed here: the brief says to add nothing.
+- Every approved page's offer-card button has `href="#"` (other CTAs go to `#offer`): no link to a product page.
+
+### Verify
+- tests/test_library_publish_cycle114.py (16): library list on the real folder; `--all --dry-run` over every real
+  variant (handles, sale deadline, read-only calls only, nothing written); the path rewrite on the 8 real pages
+  (each reference replaced as often as it occurs, no `assets/` left, no `<title>`, header/footer as divs with their
+  CSS); publish over the REAL ShopifyPublisher with a fake store (payload, seo.hidden, template suffix, live.json,
+  README line, 5 uploads), republish no-op (0 calls), the sale twin uploads only new bytes, a changed page is a PUT
+  of the same id with no re-upload; taken handle and a no-sale page with INDOOR300 refused; sale page registered with
+  the site deadline, nothing due at 22:29 MDT, dry run "would hide" at 22:40, then exactly one PUT `published: false`,
+  the log line, audit, off the list, publish refuses after the end, the no-sale page stays live; an extended sale is a
+  WARNING only; publish_locked refusal; verify (404 asset, relative path, theme comment ignored).
+- With the sale_sync hook removed, the two sweep tests fail.
