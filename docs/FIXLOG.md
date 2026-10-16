@@ -7909,3 +7909,56 @@ are 404.
   it 10 `sale_end` (no twin): hidden + redirect, rebuild deferred while `sale_sweep_rebuild: false`.
 - Runs without a twin keep their offer-led h1/h2 until the sweep hides the page.
 - A run grounded while the site bar is off but the claim still runs is offer-led until a sync ends the claim.
+
+## Cycle 112 (versions timeline and showcase, 2026-10-16)
+
+Branch `cycle112/versions` (from 2c554b2), worktree `~/adv-c112`. Not merged, not deployed.
+
+Owner ask: "how can i see different versions. versions over time as well as examples of what most recent
+version can do".
+
+### Change
+- `harness/versions.py`: `current()` = {commit (git short HEAD), date (commit date), cycle (newest "## Cycle N"
+  heading of docs/FIXLOG.md at HEAD)}, cached per process. `runstate.init_state` writes it into every new
+  state.json as `harness_version`.
+- `harness versions backfill --tenant <t> [--dry-run]`: an out/ run without `harness_version` gets a derived
+  one (`derived: true`). Cycle = the highest-numbered cycle that was on master at the run's start time. A cycle's
+  time is when its first FIXLOG heading reached master (first-parent git history), else its FIXLOG date at
+  00:00. Commit = the newest first-parent commit at or before the run time. A state.json changed in the last
+  10 minutes is left alone. The two archives (~/archive/peak-out-before-2026-10-05-1711,
+  ~/archive/peak-site-cleared-2026-10-05-2132) are only read: their runs go into
+  tenants/<t>/runs/versions-index.json.
+- Review site (`harness/site_versions.py`, sidebar "Versions" and "Showcase" under Review):
+  - `/versions`: one row per cycle with runs, newest first: date, FIXLOG summary, milestone label, runs, pass
+    rate (state needs_review / approved / published / rejected), median cost (spend ledger), up to 3 first
+    screens of passing runs, store links. A milestone cycle without runs gets a thin row.
+  - `/showcase`: current cycle and commit, then one card per capability (landing looks from
+    `abtest.library` with peak first, listicle 5 styles x 3 first screens, comparison, quiz, product page,
+    long-form, offer-led sale page, video ad page, financing ad page) with the newest passing run: thumbnail,
+    run link, cost, Jev composite, quality numbers, store link. A card from an older cycle shows "(older)". A
+    capability with no run shows "Example missing: not generated on this version yet."
+  - `/versions/thumb/<source>/<run>/<page>`: the first phone screen (390 x 844, shown at 240 wide), cached in
+    runs/thumbs/. Source: the design gate's chosen shot, else a headless capture of index.html, else the first
+    image. A capture works on a copy in runs/thumbs/stage-*/ with assets/ as a symlink, so an archive folder
+    is never written. The existing `/run/<id>/thumb/<page>` shows the first asset photo, not the first screen,
+    so it is not used here.
+  - `/versions/archive/<source>/<run>/<page>/`: an archived page and its assets, read-only.
+- Config (tenant.yaml, declared in the template): `versions.archives` {key: folder} and `versions.milestones`
+  {cycle: label}; the engine names no tenant. The Showcase landing looks follow `abtest.library` order.
+- Store links: abtests/*.json arms (also the archive's abtests/), state.json `published_pages`, and
+  PUBLISHED-STORE-PAGES.txt. A url that several runs used (listicle-test-1..12) shows "Store page (replaced
+  later)" on every run but the newest.
+- `harness versions export --tenant <t> --out <dir>`: index.html (timeline), showcase.html and thumbs/*.jpg as
+  static files. Run links go to the review site (login needed); store links are public.
+
+### Data (peak-saunas, 2026-10-16)
+- Backfill: 196 out/ runs written (derived), 143 archive runs indexed; archive file list, sizes and mtimes
+  unchanged (md5 of `find -printf` before and after).
+- Export: ~/asset-inbox/versions-2026-10-16/ (82 thumbnails).
+
+### Verify
+- tests/test_versions_cycle112.py: FIXLOG parse and derivation (3 headings, runs at 3 times, git time wins
+  over the date), a new run records commit / date / cycle from a temporary git repo, backfill and dry run,
+  a run being written is left alone, the archive index is read-only (snapshot before and after, capture
+  staged outside the archive), both routes with 0 runs and with fixture runs, thumb and archive routes (path
+  traversal 404), the export files and links.

@@ -48,6 +48,12 @@ def packet_path(run_dir):
 # state.json
 # ---------------------------------------------------------------------------
 
+def _harness_version():
+    from . import versions
+
+    return versions.current()
+
+
 def init_state(run_dir, *, pages, by="system", note="run started", dry_run=False):
     """Writes a fresh state.json: run-level state "generated", every page
     "generated". Called once, from pipeline.prepare_run. Refuses to
@@ -67,6 +73,8 @@ def init_state(run_dir, *, pages, by="system", note="run started", dry_run=False
         "pages": {p: "generated" for p in pages},
         "history": [{"state": "generated", "by": by, "at": _now(), "note": note}],
         "dry_run": bool(dry_run),
+        # Cycle 112: the harness version that made this run (harness/versions.py)
+        "harness_version": _harness_version(),
     }
     path.write_text(json.dumps(data, indent=2) + "\n")
     return data

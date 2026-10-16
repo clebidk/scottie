@@ -34,6 +34,8 @@ harness/site_ui.py. Pages:
                              harness/meta_golive.py)
   /results                   cycle 107: per test and arm results with Meta
                              spend, and the pooled leaderboard by build / look
+  /versions, /showcase       cycle 112: the harness versions timeline and what
+                             the current version can do (harness/site_versions.py)
 
 Nothing slow runs in a request: feedback, uploads, publishes and replacements
 only write a job; `harness worker` runs it. Every POST here carries a CSRF
@@ -83,6 +85,8 @@ ENDPOINTS = (
     "photos_home", "photo_thumb", "photos_upload", "photo_edit", "photos_pull_drive",
     # cycle 107: go live on Meta, revert, results
     "test_go_live", "test_revert_go_live", "results_home",
+    # cycle 112: versions timeline and showcase (harness/site_versions.py)
+    "versions_home", "showcase_home", "versions_thumb", "archive_page",
 )
 CSRF_ENDPOINTS = frozenset({"gen_feedback", "gen_publish", "gen_replace", "upload_ad",
                             "gen_post_live", "gen_update_live", "gen_unpublish", "library_rebuild", "look_import",
@@ -2536,6 +2540,11 @@ def register(app, tenant):
     from . import site_photos
 
     site_photos.register(app, tenant)
+
+    # Cycle 112: Versions and Showcase (harness/site_versions.py).
+    from . import site_versions
+
+    site_versions.register(app, tenant)
 
     # Cycle 107: go live on Meta / revert (harness/meta_golive.py), as jobs.
     def _go_live_action(test_id, *, revert):

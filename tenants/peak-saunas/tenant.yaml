@@ -585,3 +585,24 @@ library:
     - listicle:caraway-soft
     - product-page:pdp
     - landing:regret-story   # imported 2026-10-12 as the first real URL import; hidden until the owner wants it as a 16th
+
+# Cycle 112: the review site's Versions page (harness/versions.py).
+versions:
+  # read-only folders of older runs; `harness versions backfill` indexes them
+  # into runs/versions-index.json and never writes into them
+  archives:
+    before-1005: ~/archive/peak-out-before-2026-10-05-1711
+    cleared-1005: ~/archive/peak-site-cleared-2026-10-05-2132
+  # labels on the timeline, by FIXLOG cycle
+  milestones:
+    "67": A/B/C tests
+    "75": photo library
+    "76": Jev best of 2
+    "79": first-screen styles face, story, display
+    "80": review-site redesign
+    "82": landing looks
+    "92": design gate
+    "108": Meta pipeline
+    "109": offer-led pages
+    "110": "pre-sell rebuild: peak look, proof, listicle parity"
+    "111": sale countdown (in progress)
