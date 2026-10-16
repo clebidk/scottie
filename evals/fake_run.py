@@ -274,10 +274,11 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
                 {"text": "You would rather read the published specification than book a sales call."},
                 {"text": "You want a session you can take without leaving the house."},
             ],
+            # hotfix L3: each line a checkable product limit with its claim id
             "not_for_you": [
-                {"text": "You rent and cannot leave a cabin behind when the lease ends."},
-                {"text": "Your only free wall is in an unheated garage that freezes in winter."},
-                {"text": "You want something that folds away between sessions."},
+                {"text": "You need a cabin for more than two people at once.", "claim_ids": ["spec-fuji-capacity"]},
+                {"text": "You don't have a 120V / 20A outlet available where you'd place it.",
+                 "claim_ids": ["spec-fuji-electrical-requirement"]},
             ],
         },
         "faq": {

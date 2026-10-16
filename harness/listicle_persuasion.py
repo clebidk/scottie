@@ -354,6 +354,136 @@ def _unquoted(node, drop=None):
     return node
 
 
+# Hotfix L1 (run aqdh, 2026-10-16: "A sauna ad made health claims we can't
+# verify, so here's what to ask before you buy one instead."): in the page's
+# own voice the ad is never named and no claim is called (un)verified. Quoted
+# words, the approved quote frame and the "verified review" label are exempt.
+PAGE_VOICE_RE = re.compile(
+    r"\b(?:ads?|adverts?|advertisements?|advertising|commercials?)\b"
+    r"|\b(?:verify|verifies|verified|verifying|verification|unverified|unverifiable)\b"
+    r"|\b(?:can'?t|cannot|can\u2019t|could\s?n[o']?t)\s+(?:be\s+)?(?:verif\w*|check(?:ed)?|confirm(?:ed)?)\b",
+    re.IGNORECASE)
+_VERIFIED_LABEL_RE = re.compile(r"\bverified\s+(?:reviews?|buyers?|purchases?|owners?)\b", re.IGNORECASE)
+
+
+def _page_voice(text, drop_meta=True):
+    """The page's own words: quoted spans, the approved quote frame and the
+    "verified review" label out; with `drop_meta`, also what listicle_quality's
+    meta_reference gate reports ("the ad", "the ad speaker"), so it is
+    reported once."""
+    from .listicle_quality import _ALLOWED_FRAME_RE, _META_RE
+
+    text = _QUOTED_SPAN_RE.sub(" ", str(text or ""))
+    text = persuasion.ATTRIBUTION_FRAME_RE.sub(" ", _ALLOWED_FRAME_RE.sub(" ", text))
+    text = _META_RE.sub(" ", text) if drop_meta else text
+    return _VERIFIED_LABEL_RE.sub(" ", text)
+
+
+def find_page_voice_violations(page, prefix=PREFIX):
+    """listicle:page_voice:<path> -- PAGE_VOICE_RE in the writer's own words."""
+    problems = []
+    for path, node in walk_page(page or {}, skip_keys=NON_PROSE_KEYS):
+        if not isinstance(node, str):
+            continue
+        m = PAGE_VOICE_RE.search(_page_voice(node))
+        if m:
+            problems.append(_problem(path, f"{prefix}:page_voice:{path}",
+                                     f"{m.group(0)!r}: the page never names the ad and never calls a claim "
+                                     "verified or unverified -- say what the reader gets; an ad claim the facts do "
+                                     "not support is simply left out", text=node))
+    return problems
+
+
+# Hotfix L2 (aqdh: display headline "What medical conditions could benefit"):
+# no health word at the top of the page or in an item heading, unless the
+# sentence is the speaker's own, word for word.
+HEALTH_WORD_RE = re.compile(
+    r"\b(?:medical(?:ly)?|conditions?|benefit(?:s|ed|ing)?|treat(?:s|ed|ing|ment|ments)?|symptoms?|relief|"
+    r"relieve[sd]?|pain(?:s|ful)?|joints?|diagnos\w*)\b", re.IGNORECASE)
+HEALTH_TOP_FIELDS = ("headline", "display_headline", "accent_phrase", "lede", "title")
+
+
+def _sentences(text):
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+", str(text or "")) if x.strip()]
+
+
+def _norm_words(text):
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", str(text or "").lower().replace("\u2019", "'").replace("'", "")).split())
+
+
+def find_health_word_violations(page, ad_brief=None, prefix=PREFIX):
+    """listicle:health_words:<path> -- HEALTH_WORD_RE in the headline,
+    display headline, accent phrase, lede, title or an item heading, outside a
+    sentence (or quoted span) that is the ad transcript's own words."""
+    page = page or {}
+    transcript = _norm_words((ad_brief or {}).get("transcript_or_text") or "")
+
+    def theirs(text):
+        norm = _norm_words(text)
+        return bool(transcript and norm and f" {norm} " in f" {transcript} ")
+
+    fields = [(f"$.{k}", page.get(k)) for k in HEALTH_TOP_FIELDS]
+    fields += [(f"$.reasons[{i}].heading", it.get("heading")) for i, it in _items(page)]
+    problems = []
+    for path, text in fields:
+        if not isinstance(text, str):
+            continue
+        for sentence in _sentences(text):
+            if theirs(sentence):
+                continue
+            mine = _QUOTED_SPAN_RE.sub(lambda q: " " if theirs(q.group(0)) else q.group(0), sentence)
+            m = HEALTH_WORD_RE.search(mine)
+            if m:
+                problems.append(_problem(path, f"{prefix}:health_words:{path}",
+                                         f"{m.group(0)!r} at the top of the page or in an item heading -- never a "
+                                         "medical, condition, benefit, treatment, symptom, relief or pain word "
+                                         "there; the speaker's own sentence, word for word, is the only exception",
+                                         text=text))
+                break
+    return problems
+
+
+# Hotfix L3 (aqdh: "You want a brand with a visible track record, not just a
+# sales page."): a not-for-you line is a checkable product limit -- space,
+# outlet, capacity, price, shipping -- with that claim's id, never a jab at
+# the brand or the page.
+NOT_FOR_YOU_BANNED_RE = re.compile(r"\bsales\s+pages?\b|\bthis\s+page\b|\btrack\s+record\b|\bbrands?\b",
+                                   re.IGNORECASE)
+
+
+def _product_fact_ids(facts_pack):
+    fp = facts_pack or {}
+    slug = product_name_slug((fp.get("product") or {}).get("name") or "")
+    ids = set()
+    for c in fp.get("verified_claims") or []:
+        cid = str(c.get("id") or "")
+        if (slug and cid.startswith((f"spec-{slug}-", f"pdp-{slug}-", f"gbrain-{slug}-", f"price-{slug}"))) \
+                or cid in ("shipping-policy", "gbrain-allowlist-free-shipping") \
+                or re.search(r"free shipping", c.get("text") or "", re.IGNORECASE):
+            ids.add(cid)
+    return ids
+
+
+def find_not_for_you_violations(page, facts_pack, prefix=PREFIX):
+    fit = (page or {}).get("audience_fit")
+    rows = fit.get("not_for_you") if isinstance(fit, dict) else None
+    allowed = _product_fact_ids(facts_pack)
+    problems = []
+    for i, row in enumerate(rows if isinstance(rows, list) else []):
+        text = row.get("text") if isinstance(row, dict) else row
+        ids = [c for c in ((row.get("claim_ids") if isinstance(row, dict) else None) or []) if c]
+        path = f"$.audience_fit.not_for_you[{i}]"
+        m = NOT_FOR_YOU_BANNED_RE.search(str(text or ""))
+        if m or not ids or any(c not in allowed for c in ids):
+            why = (f"{m.group(0)!r} -- never a jab at the brand or the page" if m else
+                   "it cites no product fact" if not ids else
+                   f"{[c for c in ids if c not in allowed]} are not product facts")
+            problems.append(_problem(path, f"{prefix}:not_for_you:{i}",
+                                     f"a not-for-you line names a checkable product limit -- space, outlet, "
+                                     f"capacity, price, shipping -- with that claim's id ({why})", text=text))
+    return problems
+
+
 def find_ad_reference_violations(page, prefix=PREFIX, extra_phrases=None):
     """persuasion.find_ad_reference_violations over the writer's own words
     (quoted speaker words left out): no "actually", "plainly", "real price",
@@ -389,6 +519,9 @@ def find_rendered_ad_reference_violations(html):
     text = _QUOTED_SPAN_RE.sub(" ", text)
     text = persuasion.ATTRIBUTION_FRAME_RE.sub(" ", _ALLOWED_FRAME_RE.sub(" ", text))
     hits = []
+    for m in PAGE_VOICE_RE.finditer(_VERIFIED_LABEL_RE.sub(" ", text)):   # hotfix L1
+        around = " ".join(text[max(0, m.start() - 50): m.end() + 50].split())
+        hits.append({"term": m.group(0), "issue": f"{m.group(0)!r} in the rendered page: {around!r}"})
     for m in persuasion.AD_REFERENCE_RE.finditer(text):
         around = " ".join(text[max(0, m.start() - 50): m.end() + 50].split())
         hits.append({"term": m.group(0), "issue": f"{m.group(0)!r} in the rendered page: {around!r}"})
@@ -445,6 +578,9 @@ def find_persuasion_violations(page, facts_pack, ad_brief=None, name_words=(), p
     problems = find_item_reason_violations(page, facts_pack, name_words, prefix)
     problems += find_hook_match_violations(page, ad_brief, facts_pack, name_words, prefix)
     problems += find_ad_reference_violations(page, prefix)
+    problems += find_page_voice_violations(page, prefix)                 # hotfix L1
+    problems += find_health_word_violations(page, ad_brief, prefix)      # hotfix L2
+    problems += find_not_for_you_violations(page, facts_pack, prefix)    # hotfix L3
     problems += find_reading_level_violations(page, name_words, prefix)
     problems += persuasion.find_copy_hygiene_violations(_unquoted(page), facts_pack, prefix=prefix)
     if ad_brief:

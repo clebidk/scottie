@@ -614,7 +614,8 @@ def test_a_listicle_repair_is_a_patch_of_the_flagged_item_only(tmp_path):
     good["faq"]["questions"][0]["answer"] = good["faq"]["questions"][0]["answer"].replace(
         ", with nothing to submit first", "")
     good["closing"]["recap"][0]["text"] = "The Peak Fuji is priced at $8,250, listed on the page."
-    good["audience_fit"]["not_for_you"][2]["text"] = "You want a cabin you never have to put together."
+    good["audience_fit"]["not_for_you"][2] = {"text": "You want a cabin that arrives fully built.",
+                                              "claim_ids": ["pdp-fuji-assembly"]}   # hotfix L3
     bad = copy.deepcopy(good)
     bad["reasons"][4]["text"] = "As the ad speaker found, some brands hide everything. " + good["reasons"][4]["text"]
 

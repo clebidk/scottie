@@ -1,0 +1,260 @@
+{
+  "style": "questions",
+  "headline": "No guesswork. No hype. Still a real recovery routine.",
+  "dek": "A sauna ad made health claims we can't verify, so here's what to ask before you buy one instead.",
+  "hero": {
+    "asset_id": "asset-cutout-fuji"
+  },
+  "eyebrow": "For people building a recovery routine",
+  "accent_phrase": "Still a real recovery routine",
+  "display_headline": "What medical conditions could benefit",
+  "lede": "A sauna ad can tell a good story. Before you spend on one, ask the seller these questions instead.",
+  "scroll_cue": "6 questions to ask before you buy",
+  "hero_quote_id": "q6",
+  "reasons": [
+    {
+      "number": 1,
+      "heading": "What does the heat cover?",
+      "text": "Ask whether the heat comes from a single panel or surrounds the cabin. The Fuji uses near, mid and far infrared placed around the cabin, from 700 to 25,000nm, reaching up to 150\u00b0F.",
+      "lever": "outcome",
+      "claim_ids": [
+        "spec-fuji-infrared-wavelength-range",
+        "spec-fuji-max-temperature"
+      ],
+      "image": {
+        "asset_id": "asset-photo-b10cab04076d"
+      },
+      "proof": {
+        "text": "The Fuji's infrared range runs 700 to 25,000nm across near, mid and far bands.",
+        "claim_ids": [
+          "spec-fuji-infrared-wavelength-range"
+        ]
+      }
+    },
+    {
+      "number": 2,
+      "heading": "Is red light included or a paid add-on?",
+      "text": "Some brands charge extra for red light therapy. Ask up front. On the Fuji, red light therapy is standard equipment, not an upgrade.",
+      "lever": "effort",
+      "claim_ids": [
+        "gbrain-fuji-rlt"
+      ],
+      "image": {
+        "asset_id": "asset-photo-ff0e06a0da3a"
+      },
+      "proof": {
+        "text": "Medical-grade red light therapy comes standard on the Fuji.",
+        "claim_ids": [
+          "gbrain-fuji-rlt"
+        ]
+      }
+    },
+    {
+      "number": 3,
+      "heading": "What outlet does it need?",
+      "text": "Some units need an electrician before they can run at all. Check your space's wiring against the seller's power requirement before you order.",
+      "lever": "effort",
+      "claim_ids": [
+        "spec-fuji-electrical-requirement"
+      ],
+      "image": {
+        "asset_id": "asset-photo-0d82c7db36be"
+      },
+      "proof": {
+        "text": "The Fuji runs on a 120V / 20A outlet.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      }
+    },
+    {
+      "number": 4,
+      "heading": "Will it fit the room you have?",
+      "text": "Measure your space before you shop, not after delivery. The Fuji is built for two people and ships at 385 lbs assembled weight, so plan the doorway and the floor space it needs.",
+      "lever": "likelihood",
+      "claim_ids": [
+        "spec-fuji-capacity",
+        "gbrain-fuji-dimensions"
+      ],
+      "image": {
+        "asset_id": "asset-cutout-fuji"
+      },
+      "proof": {
+        "proof_ref": "review-quote-1"
+      }
+    },
+    {
+      "number": 5,
+      "heading": "What does the warranty cover, part by part?",
+      "text": "Ask which parts get the longest coverage, and how long that coverage runs, before you buy.",
+      "lever": "time",
+      "claim_ids": [
+        "warranty-terms"
+      ],
+      "image": {
+        "asset_id": null
+      },
+      "proof": {
+        "text": "7-year residential warranty; full terms by component are published on the warranty page.",
+        "claim_ids": [
+          "warranty-terms"
+        ]
+      }
+    },
+    {
+      "number": 6,
+      "heading": "How soon can it ship to you?",
+      "text": "Ask the seller for a real delivery window before you order, not a vague estimate. In-stock units typically leave within days and arrive on a scheduled delivery.",
+      "lever": "time",
+      "claim_ids": [
+        "shipping-policy"
+      ],
+      "image": {
+        "asset_id": "asset-photo-c63844ef5fc6"
+      },
+      "proof": {
+        "proof_ref": "review-quote-6"
+      }
+    }
+  ],
+  "audience_fit": {
+    "for_you": [
+      {
+        "text": "You want heat that reaches around the whole cabin, not just one panel.",
+        "claim_ids": [
+          "spec-fuji-infrared-wavelength-range"
+        ]
+      },
+      {
+        "text": "You have a spot with a 120V, 20A outlet ready to go.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "text": "You want red light therapy included, not billed separately.",
+        "claim_ids": [
+          "gbrain-fuji-rlt"
+        ]
+      }
+    ],
+    "not_for_you": [
+      {
+        "text": "You only have a standard 15A outlet and can't add a dedicated circuit.",
+        "claim_ids": [
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "text": "Your space can't fit a two-person cabin.",
+        "claim_ids": [
+          "spec-fuji-capacity"
+        ]
+      },
+      {
+        "text": "You want a brand with a visible track record, not just a sales page.",
+        "claim_ids": [
+          "returns-policy"
+        ]
+      }
+    ]
+  },
+  "faq": {
+    "questions": [
+      {
+        "question": "Does a sauna treat rheumatoid arthritis or lupus?",
+        "answer": "No. A sauna is not a treatment for any medical condition, and this page makes no such claim. Talk to your own doctor about your care plan.",
+        "claim_ids": [
+          "gbrain-allowlist-red-light"
+        ]
+      },
+      {
+        "question": "Can I install the Fuji myself?",
+        "answer": "The Fuji uses clasp-together assembly, and several buyers describe setup as easy.",
+        "claim_ids": [
+          "pdp-fuji-assembly"
+        ]
+      },
+      {
+        "question": "What's included with the Fuji?",
+        "answer": "Full-spectrum infrared heat, standard red light therapy, two Bluetooth speakers, and app control to preheat and adjust settings from your phone.",
+        "claim_ids": [
+          "spec-fuji-infrared-wavelength-range",
+          "gbrain-fuji-rlt",
+          "spec-fuji-audio",
+          "pdp-fuji-app-control"
+        ]
+      },
+      {
+        "question": "How much does the Fuji cost?",
+        "answer": "The Fuji is priced at $8,250. Financing is available through Bread Pay at checkout.",
+        "claim_ids": [
+          "price-fuji"
+        ]
+      },
+      {
+        "question": "What if something breaks after delivery?",
+        "answer": "The 7-year residential warranty covers the Fuji, with full terms by component published on the warranty page.",
+        "claim_ids": [
+          "warranty-terms"
+        ]
+      },
+      {
+        "question": "What do other buyers say about delivery and setup?",
+        "answer": "Customer feedback describes quick warm-up and straightforward assembly, with responsive support during ordering and installation.",
+        "claim_ids": [
+          "review-quote-3"
+        ]
+      },
+      {
+        "question": "How fast does the Fuji ship?",
+        "answer": "In-stock items typically leave within 2-4 business days of ordering, then arrive by freight with a scheduled delivery appointment.",
+        "claim_ids": [
+          "shipping-policy"
+        ]
+      }
+    ]
+  },
+  "cta_text": "See the Fuji he uses",
+  "cta_url": "https://peaksaunas.com/products/peak-saunas-fuji-2-person-indoor-near-zero-emf-full-spectrum-infrared-sauna-with-medical-grade-red-light-therapy",
+  "closing": {
+    "headline": "Ask these questions before you buy",
+    "recap": [
+      {
+        "text": "Check whether the heat surrounds the cabin or comes from one panel.",
+        "claim_ids": [
+          "spec-fuji-infrared-wavelength-range"
+        ]
+      },
+      {
+        "text": "Confirm red light therapy and the outlet requirement before you order.",
+        "claim_ids": [
+          "gbrain-fuji-rlt",
+          "spec-fuji-electrical-requirement"
+        ]
+      },
+      {
+        "text": "Read the warranty and return terms by component before you buy.",
+        "claim_ids": [
+          "warranty-terms",
+          "returns-policy"
+        ]
+      }
+    ],
+    "financing_line": {
+      "text": "Financing is available through Bread Pay at checkout.",
+      "claim_ids": [
+        "financing-monthly-fuji"
+      ]
+    },
+    "warranty_line": {
+      "text": "7-year residential warranty; full terms by component are published on the warranty page.",
+      "claim_ids": [
+        "warranty-terms"
+      ]
+    }
+  },
+  "look": "open",
+  "headline_template_id": "o2",
+  "hero_style": "display"
+}
