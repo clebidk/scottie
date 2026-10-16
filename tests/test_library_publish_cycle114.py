@@ -267,7 +267,8 @@ def test_verify_reads_status_h1_assets_and_relative_paths(lib):
     shop = FakeShop()
     out = lp.publish_variant(TENANT, "A8-offer-kit", "outdoor", publisher=_publisher(shop), log=lambda m: None)
     rec = out["record"]
-    page = f"<html><head><link href=\"//peaksaunas.com/cdn/shop/t/1/assets/base.css\"></head><body>" \
+    page = f"<html><head><link href=\"//peaksaunas.com/cdn/shop/t/1/assets/base.css\"><style>/* QA: LIVE in " \
+           f"assets/pkj-cvr-v21-home.css */</style></head><body>" \
            f"{shop.pages[rec['page_id']]['body_html']}</body></html>"
     answers = {rec["url"]: (200, page.encode())}
     fetch = lambda url: answers.get(url, (200, b"x"))  # noqa: E731

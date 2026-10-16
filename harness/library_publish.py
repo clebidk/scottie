@@ -72,6 +72,9 @@ _STYLE_RE = re.compile(r"(<style\b[^>]*>)(.*?)(</style>)", re.IGNORECASE | re.DO
 _CHROME_TAG_RE = re.compile(r"<(/?)(header|footer|nav)\b([^>]*)>", re.IGNORECASE)
 _PRELUDE_RE = re.compile(r"[^{}]+(?=\{)")
 _TYPE_SELECTOR_RE = re.compile(r"(?<![\w.#\[=\"'-])(header|footer|nav)(?![\w-])", re.IGNORECASE)
+# an assets/ path the browser would load (src, href, srcset, url()); a theme's CSS comment is not one
+_RELATIVE_USE_RE = re.compile(r"""(?:\b(?:src|href)=["']?|\bsrcset=["'][^"']*?|url\(\s*["']?)(assets/[^\s"'()<>,]+)""",
+                              re.IGNORECASE)
 
 
 class LibraryError(HarnessError):
@@ -556,7 +559,9 @@ def _get(url, timeout=20):
 
 def verify_live(record, *, fetch=None, attempts=6, wait_s=5, sleep=time.sleep):
     """GET the live URL: status 200, our h1 present, every CDN asset URL of
-    the record in the page and answering 200, no relative assets/ path.
+    the record in the page and answering 200, no relative assets/ path (none
+    of the page's own, none in a src/href/srcset/url(); the theme's own CSS
+    comments name its assets/ files and are not a load).
     Retries while the storefront cache still serves an older copy."""
     fetch = fetch or _get
     status, text = 0, ""
@@ -569,7 +574,8 @@ def verify_live(record, *, fetch=None, attempts=6, wait_s=5, sleep=time.sleep):
             break
     urls = sorted({a["url"] for a in (record.get("assets") or {}).values()})
     asset_status = {u: (fetch(u)[0] if u in text else "not in page") for u in urls}
-    relative = sorted(set(ASSET_REF_RE.findall(text)))
+    relative = sorted(set(_RELATIVE_USE_RE.findall(text))
+                      | {r for r in record.get("assets") or {} if re.search(rf"(?<![\w/.:-]){re.escape(r)}", text)})
     ok = status == 200 and record["h1"] in h1_texts(text) and all(s == 200 for s in asset_status.values()) \
         and not relative
     return {"ok": ok, "status": status, "h1": record["h1"] in h1_texts(text), "assets": asset_status,
