@@ -537,7 +537,7 @@ def test_the_claim_form_writes_a_promo_claim_and_the_next_run_rebuilds_and_goes_
         monkeypatch, claims_copy, client):  # noqa: F811
     tenant_copy(monkeypatch, {"abtest.auto_publish": True, "abtest.auto_go_live": True})
     _item(AD, "AIIR sale", primary_text=AIIR)
-    fake, store = _meta(monkeypatch), {}
+    _fake, store = _meta(monkeypatch), {}
     _shopify_publish(monkeypatch, store)
     runner = BriefRunner(brief=OFFER_BRIEF)
     abtest_inbox.from_inbox(TENANT, by=REVIEWER, runner=runner, log=lambda *_: None)
@@ -610,7 +610,7 @@ def _live_test(monkeypatch):
     rc, rec = abtest.create_test(TENANT, input_path="fixture.mov", name="AIIR sale", seed=7, runner=BriefRunner(),
                                  plan="gen2-home")
     tid = rec["test_id"]
-    for v, page_id in zip(rec["variants"][:2], (500, 501)):
+    for v, page_id in zip(rec["variants"][:2], (500, 501), strict=False):
         v.update(look=v["arm"].split(":")[1], hero_style=v["arm"].split(":")[2])
         runstate.mark_published(v["run_dir"], page=v["cartridge"], by=REVIEWER, page_id=page_id,
                                 handle=f"lp-{tid}-{v['key'].lower()}", url=f"https://peaksaunas.com/pages/lp-{tid}-"

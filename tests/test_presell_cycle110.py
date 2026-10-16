@@ -613,7 +613,7 @@ def test_push_landing_layout_dry_run_writes_nothing_and_apply_backs_up_first(tmp
     client = _FakeShopify({"layout/landing.liquid": "old layout"})
     lines = []
     assert theme_lean.push(client, [1], dry_run=True, backup_dir=tmp_path, out=lines.append) == 0
-    assert not [c for c in client.calls if c[0] == "PUT"] and any("would back up" in l for l in lines)
+    assert not [c for c in client.calls if c[0] == "PUT"] and any("would back up" in line for line in lines)
     assert theme_lean.push(client, [1], dry_run=False, backup_dir=tmp_path, out=lines.append, now="T") == 2
     assert (tmp_path / "1" / "layout__landing.liquid.T.bak").read_text() == "old layout"
     puts = [c for c in client.calls if c[0] == "PUT"]

@@ -12,13 +12,16 @@ import types
 import pytest
 
 from evals import fake_run
-from harness import abtest, batch as batch_mod, drafts, jev, pipeline, runstate, write
-from tests.conftest import FakeBlock, FakeResponse, FakeUsage, block_text
+from harness import abtest, batch as batch_mod, drafts, jev, pipeline, write
+from tests.conftest import FakeBlock, FakeUsage, block_text
 from tests.support import TENANT
+from tests import test_jev_cycle76
 from tests.test_jev_cycle76 import (
     FIXTURE, PINNED_HEADLINE, FakeJev, RoutedClient, STYLE, _good_page, _bad_page, _jev_record, _log_text, _other_good_page, _run,
-    _skeleton_ids, two_drafts,  # noqa: F401 -- the fixture
+    _skeleton_ids,
 )
+
+two_drafts = test_jev_cycle76.two_drafts  # the pytest fixture, found by name in this module
 
 
 def _write_calls(client, sk):

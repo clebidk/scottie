@@ -72,7 +72,7 @@ def test_an_unknown_entry_is_reported_once_at_build_time_and_ignored(monkeypatch
     assert summary["built"] == [] and summary["failed"] == []
     for entry in ("quiz:nope", "no-such-cartridge:open"):
         assert sum(entry in line for line in lines) == 1, (entry, lines)
-    assert f"tenant.yaml library.hide: 'quiz:nope' names no Library structure; ignored" in lines
+    assert "tenant.yaml library.hide: 'quiz:nope' names no Library structure; ignored" in lines
 
 
 def test_peak_hides_the_three_merged_near_duplicates():

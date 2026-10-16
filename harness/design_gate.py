@@ -352,7 +352,7 @@ def cta_spacing(probe_phone, presell=False):
         return _check("fail" if presell else "warn", "no in-flow CTA found")
     limit = int(CTA_GAP_SCREENS * PHONE[1])
     edges = [0] + tops + [int(probe_phone.get("footer_top") or tops[-1])]
-    gaps = [(a, b) for a, b in zip(edges, edges[1:]) if b - a > limit]
+    gaps = [(a, b) for a, b in zip(edges, edges[1:], strict=False) if b - a > limit]
     if gaps:
         return _check("fail" if presell else "warn",
                       f"{len(gaps)} stretch(es) longer than {CTA_GAP_SCREENS} phone screens ({limit}px) with no CTA",

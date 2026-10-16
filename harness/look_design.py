@@ -483,7 +483,7 @@ def _cols(css, el, desktop):
 
 
 def _layout(css, section):
-    for node, depth in _depth_iter(section, 3):
+    for node, _depth in _depth_iter(section, 3):
         kids = [k for k in node if isinstance(k.tag, str) and li._has_content(k)]
         if len(kids) < 2:
             continue
@@ -728,7 +728,7 @@ def detect_patterns(css, body, nodes_, sections):
         kids = [k for k in el if isinstance(k.tag, str)]
         if len(kids) < 3:
             continue
-        for a, b, c in zip(kids, kids[1:], kids[2:]):
+        for a, b, c in zip(kids, kids[1:], kids[2:], strict=False):
             if not _has_img(b) or _has_img(a) or _has_img(c):
                 continue
             ta, tc = _own_text(a), _own_text(c)
@@ -812,7 +812,7 @@ def detect_patterns(css, body, nodes_, sections):
             break
 
     # trust bar: an early strip of 3-6 short items, no h1/h2
-    for s, node in zip(sections, nodes_):
+    for s, node in zip(sections, nodes_, strict=True):
         if s["index"] > 2:
             break
         if s["role"] in ("nav", "hero", "footer") or any(li._tag(d) in ("h1", "h2") for d in node.iter()):
@@ -897,7 +897,7 @@ def detect_patterns(css, body, nodes_, sections):
             break
 
     # FAQ accordion
-    for s, node in zip(sections, nodes_):
+    for s, node in zip(sections, nodes_, strict=True):
         if s["details"] >= 3:
             add("faq-accordion", node, f"{s['details']} questions that open")
             break
@@ -982,7 +982,7 @@ def annotate(observation, tree, body, nodes_, css_texts, tenant=None):
     `patterns`, `global.dark_page`, `brief`; then trims the skeletons until
     the JSON is at most MAX_OBSERVATION_BYTES. Returns the Css."""
     css = Css(css_texts, tenant_tokens(tenant)).bind(tree)
-    for s, node in zip(observation["sections"], nodes_):
+    for s, node in zip(observation["sections"], nodes_, strict=True):
         s["style"] = section_style(css, node)
         s["background"] = s["style"]["bg"]
         s["skeleton"] = skeleton(node, SKELETON_NODES[0])
@@ -997,7 +997,7 @@ def annotate(observation, tree, body, nodes_, css_texts, tenant=None):
     for limit in SKELETON_NODES[1:]:
         if len(json.dumps(observation, separators=(",", ":"))) <= MAX_OBSERVATION_BYTES:
             break
-        for s, node in zip(observation["sections"], nodes_):
+        for s, node in zip(observation["sections"], nodes_, strict=True):
             s["skeleton"] = skeleton(node, limit)
     return css
 

@@ -260,7 +260,7 @@ def _groups(cuts, max_images):
         k = max(open_, key=lambda j: len(cuts[j]) / alloc[j])
         alloc[k] += 1
     out = []
-    for cut, n in zip(cuts, alloc):
+    for cut, n in zip(cuts, alloc, strict=True):
         per = math.ceil(len(cut) / n)
         out += [cut[i:i + per] for i in range(0, len(cut), per)]
     return out
@@ -694,7 +694,7 @@ def merge(image_obs, html_obs):
     pairs = {}
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal" or (tag == "replace" and i2 - i1 == j2 - j1):
-            pairs.update(zip(range(i1, i2), range(j1, j2)))
+            pairs.update(zip(range(i1, i2), range(j1, j2), strict=True))
     for i, j in pairs.items():
         s, h = img_s[i], html_s[j]
         hst = h.get("style") or {}

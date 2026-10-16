@@ -18,10 +18,8 @@ from harness.budget import Budget
 from harness.claims import (
     find_leaked_claim_ids,
     find_leaked_claim_ids_visible_text,
-    gate_page_json,
     safe_quote_candidates,
     validate_page_claim_ids,
-    ClaimsGateFailure,
 )
 from harness.jsonutil import extract_json_tolerant
 from harness.log import RunLog
@@ -605,7 +603,7 @@ def test_a_listicle_repair_is_a_patch_of_the_flagged_item_only(tmp_path):
     # Cycle 110: the live page's ad-grading tics ("actually holds up", "a real
     # price", "nothing to submit first") and its returns line fail the new
     # gates (listicle_persuasion); items get their Value Equation lever.
-    for item, lever in zip(good["reasons"], ("outcome", "likelihood", "effort", "time", "likelihood", "outcome")):
+    for item, lever in zip(good["reasons"], ("outcome", "likelihood", "effort", "time", "likelihood", "outcome"), strict=False):
         item["lever"] = lever
     good["dek"] = good["dek"].replace("here's what actually holds up", "here is what you get")
     good["reasons"][0]["heading"] = "You have to call to get the price"

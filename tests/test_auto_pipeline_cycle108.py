@@ -78,7 +78,7 @@ def test_the_plan_rules_and_their_letters(destination, copy, name, letters):
     item = {"ad_name": "Cold mornings", "primary_text": copy, "destination_url": destination}
     got_name, specs, rule = abtest_inbox.plan_for_item(item, TENANT)
     assert got_name == name and rule.startswith(f"rule {['auto-page', 'auto-pdp', 'auto-home'].index(name) + 1}:")
-    shown = {k: (s.get("target") or "generated", s.get("url")) for k, s in zip(abtest.KEYS, specs)}
+    shown = {k: (s.get("target") or "generated", s.get("url")) for k, s in zip(abtest.KEYS, specs, strict=False)}
     assert shown == letters
     assert abtest.validate_plan(specs)  # every automatic plan is an allowed shape
 

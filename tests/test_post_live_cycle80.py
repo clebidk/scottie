@@ -17,10 +17,13 @@ import pytest
 from harness import abtest, cli, jobs, meta_ingest, postlive, revise, runstate, site
 from harness.publishers.shopify import ShopifyPublisher
 from tests.support import TENANT, tenant_copy
-from tests.test_listicle_site_cycle69 import (  # noqa: F401 -- `client` is a fixture
-    OTHER, PNG, REVIEWER, _auth, _built_test, _csrf, _fake_revise, _feedback, _older_run, _upload, client,
+from tests import test_listicle_site_cycle69
+from tests.test_listicle_site_cycle69 import (
+    OTHER, PNG, REVIEWER, _auth, _built_test, _csrf, _fake_revise, _feedback, _older_run, _upload,
 )
 from tests.test_publishers import FakeTransport
+
+client = test_listicle_site_cycle69.client  # the pytest fixture, found by name in this module
 
 PAGE = "listicle"
 HANDLE = "lp-small-space-excuses-mini"

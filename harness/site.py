@@ -465,7 +465,7 @@ def _post_live_form(tenant, info, *, dialog_id=None, error=None, value=None):
         f'<input type="text" name="handle" id="{key}-h" value="{e(handle)}" required maxlength="{postlive.HANDLE_MAX}" '
         f'autocomplete="off" autocapitalize="off" spellcheck="false"'
         + (' readonly' if readonly else f' data-preview="{key}-u" data-msg="{key}-m"') + "></div>"
-        + (f'<p class="hint">This page is a hidden draft on Shopify already; it goes live at its own address.</p>'
+        + ('<p class="hint">This page is a hidden draft on Shopify already; it goes live at its own address.</p>'
            if readonly else
            f'<div class="handle-msg" id="{key}-m" aria-live="polite"></div>'
            '<p class="hint">Edit the slug if you like. It starts with <code>lp-</code>; lower-case letters, digits and '
@@ -799,7 +799,7 @@ def _ad_card(tenant, ad, index):
         parts.append(_meta_box(tenant, rec, index))
     if ad["variants"]:
         cards = [_gen_card(tenant, ad, v, info, dom_id=f"g{index}-{j}")
-                 for j, (v, info) in enumerate(zip(ad["variants"], ad["gens"]))]
+                 for j, (v, info) in enumerate(zip(ad["variants"], ad["gens"], strict=True))]
         parts.append('<div class="gens">' + "".join(cards) + "</div>")
     else:
         parts.append('<p class="more">No pages yet.</p>')
@@ -1773,7 +1773,7 @@ def _lib_card(structure):
     thumb = url_for("library_thumb", key=item["key"]) if item["has_thumb"] else ""
     if real:
         thumb = url_for("library_real_thumb", key=structure["key"])
-    screen = (f'<div class="phone"><div class="screen"><img class="poster lib-poster" '
+    screen = ('<div class="phone"><div class="screen"><img class="poster lib-poster" '
               + (f'src="{thumb}" ' if thumb else "hidden ")
               + f'alt=""><b class="lib-noshot"{" hidden" if thumb else ""}>'
               f'{e("Not renderable offline" if item["state"] == "off" else _lib_no_thumb_text(item))}</b></div></div>')

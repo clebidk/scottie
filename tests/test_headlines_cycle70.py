@@ -20,7 +20,7 @@ import pytest
 from harness import abtest, headlines, listicle, runstate
 from harness.repair import apply_deterministic_fixes
 from tests.support import TENANT
-from tests.test_listicle import FACTS_PACK, _gate, _items, _listicle_page
+from tests.test_listicle import FACTS_PACK, _gate, _listicle_page
 
 TODAY = datetime.date(2026, 9, 24)
 NEW_IDS = [f"h{i:02d}" for i in range(1, 18)]

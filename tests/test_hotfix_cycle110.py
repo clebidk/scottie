@@ -119,7 +119,9 @@ def test_r2_a_templated_headline_with_no_hook_word_passes_when_the_first_screen_
 # R3: the design judge advises on a pre-sell look, never stops it
 # ---------------------------------------------------------------------------
 
-from tests.test_design_gate_cycle92 import fake_shots  # noqa: E402,F401  (the fixture)
+from tests import test_design_gate_cycle92  # noqa: E402
+
+fake_shots = test_design_gate_cycle92.fake_shots  # the pytest fixture, found by name in this module
 
 
 def test_r3_enforce_stops_at_60_for_proof_and_advise_records_60_for_peak(tmp_path, fake_shots):

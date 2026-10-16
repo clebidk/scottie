@@ -144,7 +144,7 @@ def render(ctx):
     keys = [k for k in KEYS if k in found and (not table or k in table)][:MAX_DOTS]
     spots = [table[k] for k in keys] if table else _even(len(keys))
     # numbered top to bottom, so the list under the image reads down the picture
-    placed = sorted(zip(keys, spots), key=lambda kv: (kv[1][1], kv[1][0]))
+    placed = sorted(zip(keys, spots, strict=True), key=lambda kv: (kv[1][1], kv[1][0]))
     dots = [{"n": i + 1, "key": k, "label": found[k]["label"], "claim_ids": found[k]["claim_ids"],
              "x": x, "y": y, "side": "left" if x > 55 else "right"}
             for i, (k, (x, y)) in enumerate(placed)]

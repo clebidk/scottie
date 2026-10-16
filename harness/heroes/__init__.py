@@ -424,6 +424,6 @@ def _discover():
             importlib.import_module(f"{__name__}.{info.name}")
 
 
-from . import _common  # noqa: E402  (the shared field builder the modules use)
+from . import _common as _common  # noqa: E402  (the shared field builder the modules use)
 
 _discover()

@@ -88,7 +88,10 @@ def test_the_look_scopes_its_css_and_carries_its_look_class(tmp_path):
     assert "adv-listicle look-open" in html
     css = re.sub(r"/\*.*?\*/", "", _STYLE_RE.search(_template()).group(1), flags=re.S)
     rules = [r.strip() for r in re.findall(r"([^{}]+)\{", css) if r.strip() and not r.strip().startswith("@")]
-    scoped = lambda r: r.startswith(".adv-listicle.look-open") or r.startswith(".adv-case-upper .adv-listicle.look-open")
+
+    def scoped(r):
+        return r.startswith(".adv-listicle.look-open") or r.startswith(".adv-case-upper .adv-listicle.look-open")
+
     assert rules and all(scoped(r) for r in rules), [r for r in rules if not scoped(r)][:3]
 
 

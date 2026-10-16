@@ -2,7 +2,6 @@
 the writer can cite from. `FactsSource` is a protocol so `write`/`cli` don't
 care whether facts came from the local JSON files or (later) g Brain.
 """
-import datetime
 import json
 import re
 from collections import Counter

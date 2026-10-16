@@ -917,7 +917,7 @@ def _fonts(css_texts, tree, hrefs):
 
 def _max_width(index, tree):
     widths = Counter()
-    for sel, _cls, decls, _desk in index.rules:
+    for _sel, _cls, decls, _desk in index.rules:
         m = re.match(r"\s*(\d+(?:\.\d+)?)px\s*$", decls.get("max-width") or "")
         if m and 640 <= float(m.group(1)) <= 1920:
             widths[int(float(m.group(1)))] += 1

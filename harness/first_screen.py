@@ -1053,7 +1053,7 @@ def strip_source_parentheticals(page):
     import copy as _copy
 
     out = _copy.deepcopy(page)
-    for path, node in walk_page(out):
+    for _path, node in walk_page(out):
         if isinstance(node, dict):
             for key in _SOURCE_PAREN_KEYS:
                 if isinstance(node.get(key), str):

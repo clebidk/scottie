@@ -349,7 +349,7 @@ def revert(tenant, test_id, *, by, client, log=print):
         raise GoLiveRefused(f"test {test_id} is not live on Meta; there is nothing to revert")
     ad_id, old_id = block["ad_id"], block["old_creative_id"]
     log(f"test {test_id}: Meta ad {ad_id} back to creative {old_id} ({block.get('old_destination') or '-'})")
-    log(f"WARNING: Meta restarts the ad's learning phase again. Likes and comments on the split-link post stay on "
+    log("WARNING: Meta restarts the ad's learning phase again. Likes and comments on the split-link post stay on "
         "that post; the old post still has its own.")
     client.post(ad_id, {"creative": {"creative_id": old_id}})
     back = client.get(ad_id, {"fields": VERIFY_FIELDS})

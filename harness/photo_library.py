@@ -1011,10 +1011,12 @@ def pick_agnostic(agnostic, limit=AGNOSTIC_MAX):
     features (and shots) covered, so topic matching has the widest choice."""
     chosen, covered = [], set()
     rest = list(agnostic)
+
+    def gain(p):
+        keys = set(p["tags"]["features_visible"]) | {"shot:" + p["tags"]["shot"]}
+        return (len(keys - covered), quality_rank(p))
+
     while rest and len(chosen) < limit:
-        def gain(p):
-            keys = set(p["tags"]["features_visible"]) | {"shot:" + p["tags"]["shot"]}
-            return (len(keys - covered), quality_rank(p))
         best = max(rest, key=gain)
         chosen.append(best)
         covered |= set(best["tags"]["features_visible"]) | {"shot:" + best["tags"]["shot"]}
@@ -1274,7 +1276,7 @@ def assign_page_images(page, facts_pack, cartridge_name, *, tenant, exclude_ids=
             return bool(parts)
         return bool(parts or [m for m in matched if m.startswith("shot:")])
 
-    for _neg, order, path, node, topics, heading_feats in sorted(scored, key=lambda s: (s[0], s[1])):
+    for _neg, _order, path, node, topics, heading_feats in sorted(scored, key=lambda s: (s[0], s[1])):
         feats = _feature_topics(topics)
         unit_slot = (heading_feats and heading_feats <= whole_unit) or (not heading_feats and feats and feats <= whole_unit)
         if unit_slot and cutout_id and cutout_uses < CUTOUT_MAX_USES:

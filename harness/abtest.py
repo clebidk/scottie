@@ -863,7 +863,7 @@ def ad_angle_of(rec):
 def _new_variants(specs, ranking):
     builds = iter(ranking)
     variants = []
-    for key, spec in zip(KEYS, specs):
+    for key, spec in zip(KEYS, specs, strict=False):
         if spec["kind"] == "generated":
             variants.append({"key": key, "arm": next(builds), "status": "pending", "attempts": []})
         else:

@@ -14,8 +14,13 @@ from harness import abevents, abtest, abtest_inbox, cli, jobs, meta_golive, meta
 from harness.meta_ingest import Inbox
 from tests.support import REPO_ROOT, TENANT, tenant_copy
 from tests.test_abtest_cycle67 import _insert
-from tests.test_listicle_site_cycle69 import REVIEWER, _auth, _csrf, _live_test, client  # noqa: F401 -- fixture
-from tests.test_meta_ingest import TOKEN, V, make_client, no_real_env  # noqa: F401 -- fixture
+from tests import test_listicle_site_cycle69, test_meta_ingest
+from tests.test_listicle_site_cycle69 import REVIEWER, _auth, _csrf, _live_test
+from tests.test_meta_ingest import TOKEN, V, make_client
+
+# the pytest fixtures, found by name in this module
+client = test_listicle_site_cycle69.client
+no_real_env = test_meta_ingest.no_real_env
 
 AD = "120210000000000301"
 ACCOUNT = "act_963439094733982"

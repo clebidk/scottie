@@ -47,7 +47,7 @@ def candidates(facts_pack, tenant):
         manifest = photo_library.photos_by_id(photo_library.load_manifest(tenant))
     except Exception:  # noqa: BLE001 -- no library for this tenant: no essay
         return []
-    groups = {g: [p for p in r["picks"] if p.get("asset")] for (g, _shots), r in zip(GROUPS, results)}
+    groups = {g: [p for p in r["picks"] if p.get("asset")] for (g, _shots), r in zip(GROUPS, results, strict=True)}
     out = []
     while len(out) < MAX_PHOTOS and any(groups.values()):
         for g, _shots in GROUPS:

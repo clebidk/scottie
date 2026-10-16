@@ -29,13 +29,16 @@ from harness import render as render_mod
 from harness.budget import Budget
 from tests.conftest import FakeClient, json_response
 from tests.support import REPO_ROOT, TENANT
-from tests.test_design_gate_cycle92 import GOOD_PROBE, Log, _cfg, _judge_json, _page_dir, _renderer, fake_shots  # noqa: F401
+from tests import test_design_gate_cycle92
+from tests.test_design_gate_cycle92 import GOOD_PROBE, Log, _cfg, _judge_json, _page_dir, _renderer
 from tests.test_first_screen_cycle79 import SPEAKER_BRIEF, _Log
 from tests.test_blocks_cycle91 import _block_page, _render as _render_blocks
 from tests.test_brand_lint_cycle78 import _lint
 from tests.test_heroes_cycle94 import FIXTURE, _export_invariants, _library_dir, _partial_css
 from tests.test_landing_proof_cycle85 import _facts_pack as _landing_facts
 from tests.test_listicle import RICH_FACTS_PACK, _make_image_bytes
+
+fake_shots = test_design_gate_cycle92.fake_shots  # the pytest fixture, found by name in this module
 
 REAL_BROWSER = capture.find_browser()
 needs_browser = pytest.mark.skipif(REAL_BROWSER is None, reason="no headless chromium/google-chrome here")

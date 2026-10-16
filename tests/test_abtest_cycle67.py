@@ -363,7 +363,7 @@ def test_publish_ships_three_hidden_variants_and_a_split_page(monkeypatch, capsy
         assert {"namespace": "seo", "key": "hidden", "value": 1, "type": "number_integer"} in p["metafields"]
     # variants carry the beacon; the split page carries only the split script
     # (cycle 88: which sends its own "assign" event, never a view or a cta)
-    for p, key in zip(posts[:3], "ABC"):
+    for p, key in zip(posts[:3], "ABC", strict=False):
         assert "sendBeacon" in p["body_html"] and f'"{key}"' in p["body_html"]
     split = posts[3]["body_html"]
     assert "e:'assign'" in split and "'view'" not in split and "'cta'" not in split

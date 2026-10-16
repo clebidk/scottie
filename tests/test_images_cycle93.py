@@ -475,7 +475,7 @@ def _render_listicle(tmp_path, style, tag):
     facts = copy.deepcopy(FACTS_PACK)
     facts["assets"] = [pl.facts_pack_asset(p) for p in fs79.POOL] + facts["assets"]
     page = fs79._page(style)
-    page["reasons"] = [dict(r, heading=h) for r, h in zip(page["reasons"], fs79.HEADINGS)]
+    page["reasons"] = [dict(r, heading=h) for r, h in zip(page["reasons"], fs79.HEADINGS, strict=False)]
     run_dir = tmp_path / f"{tag}-{style}" / "20261005-172955-meta-1-cgkv"
     (run_dir / "listicle").mkdir(parents=True)
     _with_frame(run_dir, tmp_path)

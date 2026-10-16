@@ -6,7 +6,6 @@ No model or network call: the vision check is a FakeClient, ffmpeg is a fake
 """
 import argparse
 import copy
-import io
 import json
 from pathlib import Path
 
@@ -496,7 +495,7 @@ def test_topic_matching_runs_and_is_recorded_on_build_and_on_rerender(tmp_path, 
     facts = copy.deepcopy(FACTS_PACK)
     facts["assets"] = [pl.facts_pack_asset(p) for p in POOL] + facts["assets"]
     page = _listicle_page()
-    page["reasons"] = [dict(r, heading=h) for r, h in zip(page["reasons"], HEADINGS)]
+    page["reasons"] = [dict(r, heading=h) for r, h in zip(page["reasons"], HEADINGS, strict=False)]
     page["hero_style"] = "story"
     run_dir = tmp_path / "20261005-172955-meta-1-cgkv"
     (run_dir / "listicle").mkdir(parents=True)

@@ -23,7 +23,10 @@ import pytest
 from harness import cli, heroes, jobs, library, look_design, look_import
 from tests.conftest import FakeClient, FakeResponse
 from tests.support import REPO_ROOT, TENANT
-from tests.test_look_import_cycle87 import _auth, _post, client  # noqa: F401 (client is a fixture)
+from tests import test_look_import_cycle87
+from tests.test_look_import_cycle87 import _auth, _post
+
+client = test_look_import_cycle87.client  # the pytest fixture, found by name in this module
 
 PACK = REPO_ROOT / "tests" / "fixtures" / "look_import" / "pack"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "look_import" / "sample-landing.html"

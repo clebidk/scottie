@@ -20,8 +20,11 @@ from harness import abevents, abtest, abtest_inbox, cli, jobs, meta_ingest, serv
 from harness.publishers.shopify import ShopifyPublisher
 from tests.support import TENANT
 from tests.test_abtest_cycle67 import NODE, FakeRunner, _insert, _run_js, _script_body
-from tests.test_listicle_site_cycle69 import _auth, _meta_item, _upload, client  # noqa: F401 (fixture)
+from tests import test_listicle_site_cycle69 as listicle_site
+from tests.test_listicle_site_cycle69 import _auth, _meta_item, _upload
 from tests.test_publishers import FakeTransport
+
+client = listicle_site.client  # the pytest fixture, found by name in this module
 
 REVIEWER = "caleb@peaksaunas.com"
 needs_node = pytest.mark.skipif(NODE is None, reason="node is not installed")

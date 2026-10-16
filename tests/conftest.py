@@ -189,7 +189,6 @@ def _unconfined_browser():
     affected. The suite points capture at a non-snap browser when one is
     installed (google-chrome on prod) via HARNESS_CHROME; with none, the snap
     one stays (and those tests fail as before on that host)."""
-    import shutil
 
     from harness import capture
 

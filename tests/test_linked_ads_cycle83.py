@@ -13,9 +13,14 @@ import pytest
 from harness import abtest, cli, meta_ingest, postlive, runstate
 from harness.meta_ingest import Inbox
 from tests.support import TENANT
-from tests.test_listicle_site_cycle69 import REVIEWER, _auth, client  # noqa: F401 -- `client` is a fixture
-from tests.test_meta_ingest import TOKEN, V, FakeGraph, make_client, no_real_env  # noqa: F401 -- fixture
+from tests import test_listicle_site_cycle69, test_meta_ingest
+from tests.test_listicle_site_cycle69 import REVIEWER, _auth
+from tests.test_meta_ingest import TOKEN, V, FakeGraph, make_client
 from tests.test_post_live_cycle80 import PAGE, _run
+
+# the pytest fixtures, found by name in this module
+client = test_listicle_site_cycle69.client
+no_real_env = test_meta_ingest.no_real_env
 
 URL = "https://peaksaunas.com/pages/lp-cold-mornings-sauna"
 AD_ACTIVE = "120210000000000201"

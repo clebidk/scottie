@@ -23,7 +23,7 @@ from harness.repair import (
 from harness.claims import ClaimsGateFailure, gate_page_json
 from harness.page_body import build_shopify_body
 from harness.render import render_page
-from harness.write import parse_word_range, resolve_allowed_cta_texts, validate_schema
+from harness.write import parse_word_range, validate_schema
 
 CARTRIDGE_DIR = REPO_ROOT / "cartridges" / "listicle"
 SCHEMA = json.loads((CARTRIDGE_DIR / "schema.json").read_text())

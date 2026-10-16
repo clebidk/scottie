@@ -26,7 +26,6 @@ from harness import render as render_mod
 from harness import runstate, site_ui
 from harness.repair import check_page_gates
 from tests.support import REPO_ROOT, TENANT
-from tests.test_listicle_cycle74 import _real
 
 FX = REPO_ROOT / "tests" / "fixtures" / "c110c"
 CGYN = {name: json.loads((FX / "cgyn" / f"{name}.json").read_text()) for name in ("page", "facts_pack", "ad_brief")}
@@ -59,10 +58,10 @@ def clean_cgyn(proof_refs=("review-quote-1", "units-delivered-12mo")):
     # were facts_pack asset ids
     ids = [a["id"] for a in CGYN["facts_pack"]["assets"]]
     page["hero"]["asset_id"] = ids[0]
-    for item, lever, asset_id in zip(page["reasons"], LEVERS, ids[1:]):
+    for item, lever, asset_id in zip(page["reasons"], LEVERS, ids[1:], strict=False):
         item["lever"] = lever
         item["image"] = {"asset_id": asset_id}
-    for item, ref in zip((page["reasons"][1], page["reasons"][4]), proof_refs):
+    for item, ref in zip((page["reasons"][1], page["reasons"][4]), proof_refs, strict=False):
         item["proof"] = {"proof_ref": ref}
     page["lede"] = page["lede"].replace("what's actually true", "what is true")
     for q in page["faq"]["questions"]:

@@ -176,10 +176,10 @@ def revise_look(tenant, *, cartridge, slug, note, by, client=None, model=None, p
                 _write(folder / "look.json", json.dumps(spec, indent=2) + "\n")
             for name in BEFORE_SHOTS + AFTER_SHOTS:
                 (folder / name).unlink(missing_ok=True)
-            for src, name in zip(_shot_files(work, "before"), BEFORE_SHOTS):
+            for src, name in zip(_shot_files(work, "before"), BEFORE_SHOTS, strict=False):
                 if src.is_file():
                     shutil.copyfile(src, folder / name)
-            for src, name in zip(_shot_files(work, f"after{best['attempt']}"), AFTER_SHOTS):
+            for src, name in zip(_shot_files(work, f"after{best['attempt']}"), AFTER_SHOTS, strict=False):
                 if src.is_file():
                     shutil.copyfile(src, folder / name)
             when = datetime.datetime.now().isoformat(timespec="seconds")

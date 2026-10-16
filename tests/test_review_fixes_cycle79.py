@@ -21,7 +21,7 @@ import pytest
 from harness import ad_frames, first_screen, listicle_quality, photo_library as pl
 from harness import render as render_mod
 from tests.support import REPO_ROOT, TENANT
-from tests.test_first_screen_cycle79 import SPEAKER_BRIEF, _Log, _jpeg, _page, _run_dir
+from tests.test_first_screen_cycle79 import SPEAKER_BRIEF, _Log, _page, _run_dir
 from tests.test_listicle import FACTS_PACK, RICH_FACTS_PACK, _make_image_bytes
 from tests.test_photo_library import FakeTenant, _library, _photo, _tags
 

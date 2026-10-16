@@ -141,9 +141,9 @@ def extract_json_tolerant(text):
             elif e.msg.startswith("Expecting property name enclosed in double quotes"):
                 fixed = _escape_quote_before_comma(candidate, e.pos)
             else:
-                raise first_error
+                raise first_error from None
             if fixed is None:
-                raise first_error
+                raise first_error from None
             candidate = fixed
             fixes.append("escaped quote")
     raise first_error

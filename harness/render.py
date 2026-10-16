@@ -35,7 +35,6 @@ from . import pagechecks
 from . import quiz as quiz_mod
 from . import landing as landing_mod
 from . import runstate as runstate_mod
-from . import offer as offer_mod
 from . import pdp as pdp_mod
 from . import quote_fidelity
 from . import tenant as tenant_mod
@@ -1388,7 +1387,7 @@ def render_page(
         photos = landing_mod.landing_sell.reason_photos(
             sell["reasons"] if flags.get("reason_photos") else [], facts_pack, tenant, assets=assets_by_id,
             exclude=tuple(taken | set(audience)))
-        for reason, pid in zip(sell["reasons"], photos):
+        for reason, pid in zip(sell["reasons"], photos, strict=False):
             reason["photo_id"] = pid
             if pid:
                 landing_extra_ids.add(pid)

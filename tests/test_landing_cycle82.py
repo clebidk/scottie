@@ -27,7 +27,6 @@ from harness import abtest, claims, landing, pagechecks, repair, write
 from harness.page_body import build_shopify_body, relativize_internal_links
 from harness.render import render_page
 from harness.vocab import ALLOWED_WARRANTY_SENTENCE
-from harness.vocab import ALLOWED_WARRANTY_SENTENCE
 from tests.support import REPO_ROOT, TENANT
 from tests.test_brand_lint_cycle78 import _PAGE_SCOPED, _css, _lint, _rules
 from tests.test_product_page_looks import _rich_facts_pack
