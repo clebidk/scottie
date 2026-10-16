@@ -1,0 +1,241 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PEAK Statement Outdoor Sale</title>
+<link rel="preload" href="assets/fonts/pk-peak-grotesk-wide.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face{font-family:"DM Sans";src:url(assets/fonts/dm-sans-400-normal-latin.woff2) format("woff2");font-weight:100 1000;font-display:swap}
+@font-face{font-family:"Acid";src:url(assets/fonts/FFF-AcidGrotesk-Regular.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"PeakWide";src:url(assets/fonts/pk-peak-grotesk-wide.woff2) format("woff2");font-display:swap}
+:root{--ink:#161817;--red:#702B34;--stone:#EFE3D2;--fossil:#C0C8C3;--muted:#5C5F5D;--line:rgba(22,24,23,.14);--g:20px;--s:56px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{background:#fff;color:var(--ink);font:400 17px/1.5 "DM Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{display:block;max-width:100%;height:auto}
+a{color:inherit}
+b,strong{font-weight:700}
+.wrap{max-width:1200px;margin:0 auto;padding:0 var(--g)}
+.col{max-width:680px;margin:0 auto;padding:0 var(--g)}
+/* masthead: logo + 11px disclosure eyebrow */
+.mast{height:44px;display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;padding:0 var(--g)}
+.logo{height:15px;width:auto;display:block;fill:currentColor}
+.lbl{font-size:11px;line-height:1.4;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.muted{color:var(--muted)}
+/* display faces */
+.d-wide{font-family:"PeakWide","DM Sans",sans-serif;text-transform:uppercase;font-weight:400;line-height:1;letter-spacing:-.005em}
+.d-acid{font-family:"Acid","DM Sans",sans-serif;font-weight:400;line-height:1.04;letter-spacing:-.02em}
+.acc{color:var(--red)}
+.dark .acc{color:var(--stone)}
+/* buttons: 4px radius, 54px, full width on phone */
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:0 24px;border-radius:4px;background:var(--ink);color:#fff;font-weight:700;font-size:17px;line-height:1.2;text-decoration:none;width:100%;text-align:center;border:0}
+.btn:hover{background:var(--red)}
+.btn.light{background:#fff;color:var(--ink)}
+.btn.light:hover{background:var(--stone)}
+.btn .ar{font-weight:400}
+.tlink{font-weight:700;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:1px}
+/* proof chip */
+.chip{display:flex;align-items:center;flex-wrap:wrap;column-gap:8px;row-gap:2px;font-size:17px;line-height:1.35}
+.stars{display:inline-flex;color:var(--red);flex:none}
+.dark .stars{color:var(--stone)}
+.stars svg{width:86px;height:17px;display:block}
+.price s{color:var(--muted)}
+.dark .price s{color:var(--fossil)}
+/* stat row: big numerals with 3px red bar */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:22px 16px}
+.stat{border-left:3px solid var(--red);padding-left:12px}
+.stat .n{font-family:"Acid","DM Sans",sans-serif;font-size:36px;line-height:1;letter-spacing:-.02em}
+.stat .t{font-size:14px;line-height:1.35;color:var(--muted);margin-top:6px}
+.dark .stat{border-color:var(--stone)}
+.dark .stat .t{color:var(--fossil)}
+/* bands */
+.dark{background:var(--ink);color:#fff}
+.stone{background:var(--stone)}
+.band{padding:var(--s) 0}
+.h2{font-family:"Acid","DM Sans",sans-serif;font-size:30px;line-height:1.08;letter-spacing:-.02em;font-weight:400}
+.h3{font-family:"Acid","DM Sans",sans-serif;font-size:26px;line-height:1.1;letter-spacing:-.02em;font-weight:400}
+.kick{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--red)}
+.dark .kick{color:var(--stone)}
+p+p{margin-top:12px}
+/* review quote */
+.quote{font-family:"Acid","DM Sans",sans-serif;font-size:24px;line-height:1.22;letter-spacing:-.01em}
+.who{font-size:14px;color:var(--muted);margin-top:12px}
+.dark .who{color:var(--fossil)}
+/* checklist */
+.ticks{list-style:none}
+.ticks li{position:relative;padding:10px 0 10px 30px;border-top:1px solid var(--line);font-size:16px;line-height:1.4}
+.ticks li:before{content:"";position:absolute;left:2px;top:15px;width:14px;height:8px;border-left:2px solid var(--red);border-bottom:2px solid var(--red);transform:rotate(-45deg)}
+.dark .ticks li{border-color:rgba(255,255,255,.18)}
+.dark .ticks li:before{border-color:var(--stone)}
+/* offer card */
+.offer{background:#fff;border:1px solid var(--line);border-radius:4px;padding:24px 20px}
+.offer .was{color:var(--muted);text-decoration:line-through}
+.offer .big{font-family:"Acid","DM Sans",sans-serif;font-size:44px;line-height:1;letter-spacing:-.02em}
+.offer .code{display:inline-block;border:1px dashed var(--ink);padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.04em}
+.fine{font-size:12px;line-height:1.5;color:var(--muted)}
+.dark .fine{color:var(--fossil)}
+/* FAQ: plain Q and A on hairlines */
+.faq dt{font-weight:700;padding-top:18px;border-top:1px solid var(--line)}
+.faq dd{padding:6px 0 18px;color:#2b2e2c}
+/* sticky bar: shows after the hero CTA leaves the screen */
+.sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--line);padding:10px var(--g) calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px;transform:translateY(110%);transition:transform .25s}
+.sticky.on{transform:none}
+.sticky .sp{font-size:14px;line-height:1.3;flex:1}
+.sticky .btn{width:auto;min-height:48px;padding:0 18px;font-size:16px}
+.cap-full .sticky{display:none}
+footer{padding:40px 0 110px;border-top:1px solid var(--line)}
+footer p{font-size:12px;line-height:1.55;color:var(--muted)}
+.ph{width:100%;object-fit:cover}
+@media(min-width:900px){
+ :root{--g:48px;--s:96px}
+ body{font-size:18px}
+ .mast{height:64px}.logo{height:18px}
+ .lbl{font-size:12px}
+ .h2{font-size:48px}.h3{font-size:34px}
+ .quote{font-size:34px}
+ .stats{grid-template-columns:repeat(4,1fr);gap:32px}
+ .stat .n{font-size:56px}
+ .btn{width:auto;min-width:340px}
+ .sticky{justify-content:center}.sticky .sp{flex:none;font-size:16px}
+}
+.offer-grid img{width:150px;margin:0 auto 14px}@media(min-width:900px){.offer-grid{display:grid;grid-template-columns:300px 1fr;gap:48px;align-items:start}.offer-grid img{width:260px;margin:0}.offer{padding:40px}}</style>
+<style>
+.hero .mast{color:#fff}.hero .mast .lbl{color:var(--fossil)}
+.hero-t{padding:18px var(--g) 22px}
+.hero h1{font-size:46px;margin:12px 0 16px}
+.hero .sub{color:rgba(255,255,255,.84)}
+.hero .chip{margin-top:14px}
+.hero .price{margin:6px 0 18px}
+.showme{display:none;color:var(--stone);font-size:15px;margin-top:16px;align-self:flex-start;letter-spacing:.08em;text-transform:uppercase}
+.hero-ph{aspect-ratio:1/1;width:100%;object-fit:cover;object-position:50% 50%}
+.intro{padding:44px var(--g) 28px;max-width:1440px;margin:0 auto}.intro .h2{margin-top:10px;max-width:760px}
+.rsn{display:grid}
+.rsn img{aspect-ratio:1/1;width:100%;object-fit:cover}
+.rsn .tx{padding:26px var(--g) 44px;max-width:640px}
+.num{font-family:"PeakWide",sans-serif;font-size:17px;color:var(--red);letter-spacing:.06em;display:block;margin-bottom:10px}
+.rsn .h3{margin-bottom:10px}
+.mini{margin-top:14px;padding-left:12px;border-left:3px solid var(--red);font-size:16px}
+.inl{padding:0 var(--g) 48px;max-width:640px}
+.inl .fine{margin-top:8px}
+.offer-grid img{width:150px;margin:0 auto 14px}
+@media(min-width:900px){
+ .hero-g{display:grid;grid-template-columns:1.1fr 1fr;max-width:1440px;margin:0 auto;min-height:780px}
+ .hero-t{padding:40px 64px 56px 48px;display:flex;flex-direction:column;justify-content:center}
+ .hero h1{font-size:92px;margin:18px 0 24px}
+ .hero .sub{font-size:20px;max-width:560px}
+ .hero-ph{aspect-ratio:1/1;height:auto;align-self:center}
+ .hero .mast{max-width:1440px}
+ .showme{display:inline-block}
+ .rsn{grid-template-columns:1fr 1fr;align-items:center;max-width:1440px;margin:0 auto}
+ .rsn:nth-of-type(even) img{order:2}
+ .rsn img{aspect-ratio:1/1}
+ .rsn .tx{padding:48px 72px}
+ .inl{max-width:1440px;margin:0 auto;padding:24px 48px 72px;display:flex;align-items:center;gap:24px}
+ .offer-grid{display:grid;grid-template-columns:300px 1fr;gap:48px;align-items:start}
+ .offer-grid img{width:260px;margin:0}
+ .offer{padding:40px}
+}
+</style></head><body>
+<header class="hero dark">
+ <div class="mast"><svg class="logo" viewBox="100 100 550 108" aria-label="PEAK" role="img"><path d="M205.65,102.83h-102.18c-.35,0-.64.29-.64.64v101.5c0,.35.29.64.64.64h19.72c.35,0,.64-.29.64-.64v-31.44c0-4.99,4.04-9.03,9.03-9.03h72.78c11.26,0,20.41-9.06,20.55-20.29h.05v-21h-.05c-.1-11.27-9.26-20.38-20.55-20.38ZM194.97,143.94h-71.13v-20.56h70.69c5.37,0,10.16,3.93,10.67,9.27.58,6.13-4.22,11.29-10.23,11.29Z"/><path d="M647.41,204.63l-31.77-50.27c-1.71-2.71-1.71-6.16,0-8.87l26.34-41.67c.27-.43-.04-.98-.54-.98h-23.18c-.22,0-.42.11-.54.3l-21.91,34.68c-2.42,3.82-6.62,6.14-11.14,6.14h-31.02c-4.99,0-9.04-4.05-9.04-9.04v-31.43c0-.35-.29-.64-.64-.64h-19.72c-.35,0-.64.29-.64.64v101.5c0,.35.29.64.64.64h19.72c.35,0,.64-.29.64-.64v-31.44c0-4.99,4.04-9.03,9.03-9.03h29.6c8.79,0,16.97,4.51,21.67,11.94l18.25,28.88c.12.19.32.3.54.3h23.18c.5,0,.81-.56.54-.98Z"/><path d="M356.96,102.83h-97.84c-11.29,0-20.46,9.11-20.55,20.38h0v61.4c0,11.6,9.4,21,21,21h97.4c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64h-86.68c-5.37,0-10.16-3.92-10.67-9.27-.58-6.13,4.22-11.29,10.23-11.29h60.56c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64h-60.13c-5.37,0-10.16-3.92-10.67-9.27-.58-6.13,4.22-11.29,10.23-11.29h87.12c.35,0,.64-.29.64-.64v-19.28c0-.35-.29-.64-.64-.64Z"/><path d="M479.53,144.53c-.24-.37-.64-.6-1.08-.6h-75.7c-.44,0-.85.23-1.08.6l-37.99,60.12c-.27.43.04.98.54.98h23.19c.22,0,.42-.11.54-.3l18.26-28.9c4.7-7.43,12.88-11.93,21.67-11.93h25.44c8.79,0,16.97,4.5,21.67,11.93l18.26,28.9c.12.19.32.3.54.3h23.19c.5,0,.81-.56.54-.98l-37.99-60.12Z"/><path d="M415.87,123.28c.1.06.21.1.34.1h48.78c.38,0,.65-.32.63-.66,0-.11-.03-.23-.1-.33l-12.19-19.29c-.19-.11-.35-.19-.54-.3h-24.42s-.07.04-.1.06c-.13.03-.24.09-.33.18-.04.02-.07.04-.11.06l-12.19,19.29c-.2.32-.07.72.22.89Z"/></svg><span class="lbl">Advertisement</span></div>
+ <div class="hero-g">
+  <div class="hero-t">
+   <p class="lbl" style="color:var(--stone)" data-m="eyebrow">Community Savings Sale &middot; Ends tonight</p>
+   <h1 class="d-wide" data-m="headline"><span class="acc">$500 off</span> every outdoor sauna.</h1>
+   <p class="sub" data-m="sub">Start with the Patagonia: full-spectrum infrared and red light in a 2-person outdoor cabin with a black aluminum shell, delivered free.</p>
+   <p class="chip" data-m="proof"><span class="stars" aria-label="4.6 out of 5 stars"><svg viewBox="0 0 100 20"><defs><clipPath id="c46"><rect width="91.5" height="20"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="1.2"><path transform="translate(0 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(20 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(40 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(60 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(80 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/></g><g fill="currentColor" clip-path="url(#c46)"><path transform="translate(0 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(20 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(40 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(60 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(80 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/></g></svg></span><span>4.6 from 4,260 reviews &middot; 2,000+ delivered in 12 months</span></p>
+   <p class="price" data-m="price">Patagonia <b>$10,450</b> with code OUTDOOR500 <s>$10,950</s> &middot; or finance with Bread Pay*</p>
+   <a class="btn light" href="#offer" data-m="cta">Claim $500 off the Patagonia <span class="ar">&rarr;</span></a>
+   <a class="tlink showme" href="#why">Show me why &darr;</a>
+  </div>
+  <img class="hero-ph" data-m="hero" src="assets/img/outdoor-deck-640.webp" srcset="assets/img/outdoor-deck-640.webp 640w, assets/img/outdoor-deck-1080.webp 1080w" sizes="(min-width:900px) 50vw, 100vw" width="640" height="640" alt="A PEAK Patagonia outdoor sauna on a wooden deck">
+ </div>
+</header>
+
+<main>
+ <div class="intro" id="why"><p class="kick">Why the Patagonia</p><h2 class="h2">5 reasons it earns a place in your yard.</h2></div>
+ <section class="rsn">
+  <img loading="lazy" src="assets/img/outdoor-deck-640.webp" srcset="assets/img/outdoor-deck-640.webp 640w, assets/img/outdoor-deck-1080.webp 1080w" sizes="(min-width:900px) 50vw, 100vw" width="640" height="640" alt="A PEAK Patagonia on a deck among trees">
+  <div class="tx"><span class="num">01</span><h2 class="h3">Heat on your schedule.</h2><p>Preheat it from your phone on the way home. Near, mid and far infrared up to 170&deg;F, out in your own yard.</p></div>
+ </section>
+ <section class="rsn">
+  <img loading="lazy" src="assets/cut/patagonia-640.webp" width="640" height="834" style="object-fit:contain;background:var(--stone);padding:24px" alt="PEAK Patagonia, 2-person outdoor sauna">
+  <div class="tx"><span class="num">02</span><h2 class="h3">Two seats, so it becomes a shared habit.</h2><p>The Patagonia seats two on a 46-inch bench. Two people, one session, any evening you choose.</p></div>
+ </section>
+
+ <section class="band stone"><div class="col">
+  <p class="chip" style="margin-bottom:14px"><span class="stars" aria-label="4.6 out of 5 stars"><svg viewBox="0 0 100 20"><defs><clipPath id="c46"><rect width="91.5" height="20"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="1.2"><path transform="translate(0 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(20 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(40 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(60 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(80 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/></g><g fill="currentColor" clip-path="url(#c46)"><path transform="translate(0 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(20 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(40 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(60 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/><path transform="translate(80 0)" d="M10 1.6l2.6 5.6 6.1.6-4.6 4.1 1.4 6-5.5-3.2-5.5 3.2 1.4-6L1.3 7.8l6.1-.6z"/></g></svg></span><span class="lbl">PEAK owner</span></p>
+  <blockquote class="quote">&ldquo;Our experience with Peak Saunas has been very positive, from ordering, to installation, to putting our sauna to use.&rdquo;</blockquote>
+  <p class="who">Mike B. &middot; Feb 25, 2026 &middot; one of 4,260 reviews on Judge.me</p>
+ </div></section>
+
+ <section class="rsn">
+  <img loading="lazy" src="assets/img/man-seated-640.webp" srcset="assets/img/man-seated-640.webp 640w, assets/img/man-seated-1080.webp 1080w" sizes="(min-width:900px) 50vw, 100vw" width="640" height="480" alt="A man sitting in an infrared sauna">
+  <div class="tx"><span class="num">03</span><h2 class="h3">Red light is already inside.</h2><p>A red light panel comes standard. Heat and red light in one session, included in the price.</p></div>
+ </section>
+ <div class="inl"><a class="btn" href="#offer">Claim $500 off the Patagonia <span class="ar">&rarr;</span></a><p class="fine">$10,450 with OUTDOOR500. Today's price ends tonight.</p></div>
+
+ <section class="rsn">
+  <img loading="lazy" src="assets/img/man-towel-wide-640.webp" width="640" height="640" alt="Glowing infrared heater panels behind a man with a towel">
+  <div class="tx"><span class="num">04</span><h2 class="h3">Built for outside.</h2><p>A black space-grade aluminum exterior around a Canadian hemlock interior, with seven hybrid full-spectrum panels and a floor heater.</p></div>
+ </section>
+ <section class="rsn">
+  <img loading="lazy" src="assets/img/man-towel-640.webp" srcset="assets/img/man-towel-640.webp 640w, assets/img/man-towel-1080.webp 1080w" sizes="(min-width:900px) 50vw, 100vw" width="640" height="480" alt="A man with a towel after a sauna session">
+  <div class="tx"><span class="num">05</span><h2 class="h3">You become someone who keeps the streak.</h2><p>Every PEAK includes Wellness Club, a $588-a-year membership: expert protocols with temperature and timing, streak tracking and an owner community.</p></div>
+ </section>
+
+ <section class="band dark"><div class="wrap">
+  <p class="kick" style="margin-bottom:22px">The numbers behind it</p>
+  <div class="stats">
+   <div class="stat"><div class="n">4.6</div><div class="t">from 4,260 reviews on Judge.me</div></div>
+   <div class="stat"><div class="n">2,000+</div><div class="t">saunas delivered to US homes in 12 months</div></div>
+   <div class="stat"><div class="n">7-year</div><div class="t">limited warranty (residential)</div></div>
+   <div class="stat"><div class="n">$588</div><div class="t">a year: Wellness Club, included</div></div>
+  </div>
+ </div></section>
+
+ <section class="band" id="offer"><div class="wrap">
+  <div class="offer"><div class="offer-grid">
+   <img loading="lazy" src="assets/cut/patagonia-360.webp" srcset="assets/cut/patagonia-360.webp 360w, assets/cut/patagonia-640.webp 640w" sizes="260px" width="360" height="469" alt="PEAK Patagonia, 2-person outdoor sauna">
+   <div>
+    <p class="kick">Community Savings Sale</p>
+    <h2 class="h3" style="margin:8px 0 14px">PEAK Patagonia, 2-person outdoor sauna</h2>
+    <p><span class="was">$10,950</span> &nbsp;<span class="big">$10,450</span></p>
+    <p style="margin-top:8px">with code <span class="code">OUTDOOR500</span> &middot; or finance with Bread Pay, subject to approval*</p>
+    <ul class="ticks" style="margin:20px 0">
+     <li>Full-spectrum infrared heat: near, mid and far, up to 170&deg;F</li>
+     <li>Medical-grade red light therapy, standard</li>
+     <li>Peak Wellness Club, a $588-a-year membership, included free</li>
+     <li>Free shipping in a custom protective crate</li>
+     <li>7-year limited warranty (residential) on the heaters and the cabinet</li>
+     <li>Lifetime U.S.-based support</li>
+     <li>App control: preheat from your phone</li>
+     <li>Two Bluetooth speakers</li>
+     <li>Black space-grade aluminum exterior, Canadian hemlock interior</li>
+    </ul>
+    <a class="btn" href="#">Claim $500 off the Patagonia <span class="ar">&rarr;</span></a>
+    <p class="fine" style="margin-top:12px">Prices go up on October 16, 2026. PEAK saunas may be eligible for HSA/FSA purchase through Redo. The Patagonia needs a dedicated 240V/20A outdoor-rated circuit installed by an electrician.</p>
+   </div>
+  </div></div>
+ </div></section>
+
+ <section class="band" style="padding-top:0"><div class="col">
+  <h2 class="h2" style="margin-bottom:18px">Before you order</h2>
+  <dl class="faq">
+   <dt>What outlet does it need?</dt><dd>A dedicated 240V/20A outdoor-rated circuit, installed by an electrician.</dd>
+   <dt>How big is it?</dt><dd>52 in wide, 42 in deep and 83 in tall, assembled, and 798 lbs. It ships free in a custom protective crate.</dd>
+   <dt>How does delivery work?</dt><dd>Shipping is free. In-stock orders ship within 2 to 4 business days by freight, and the carrier calls before delivery to schedule it.</dd>
+   <dt>What does the warranty cover?</dt><dd>7 years on the heating elements, the cabinet and the control system. 3 years on the red light panels. 1 year on audio, app hardware and accessories.</dd>
+  </dl>
+ </div></section>
+
+ <section class="band dark"><div class="col" style="text-align:center">
+  <h2 class="d-wide" style="font-size:34px;line-height:1.05">Today's price <span class="acc">ends tonight.</span></h2>
+  <p style="margin:16px 0 22px;color:rgba(255,255,255,.84)">Prices go up on October 16, 2026. $500 off outdoor saunas with code OUTDOOR500.</p>
+  <a class="btn light" href="#offer" style="margin:0 auto">Claim $500 off the Patagonia <span class="ar">&rarr;</span></a>
+ </div></section>
+</main>
+<footer><div class="col">
+ <p>This page is published by PEAK, which sells the products described. It is an advertisement.</p>
+ <p style="margin-top:10px">*Financing through Bread Pay at checkout, subject to approval of credit application. A minimum purchase of $5,000.00 is required. Availability of terms may vary based on purchase price, product, and state of residence. Down payment may be required. Rates range from 0% to 34.99% APR. APRs will vary depending on credit qualifications, loan amount, and term. Bread Pay&reg; loans are made by Comenity Capital Bank, a Bread Financial&reg; company.</p>
+ <p style="margin-top:10px">Community Savings Sale: $300 off indoor saunas with code INDOOR300 and $500 off outdoor saunas with code OUTDOOR500, applied at checkout; prices go up on October 16, 2026. Rating: 4.6 out of 5 from 4,260 reviews on Judge.me (fetched Oct 15, 2026). Units: Shopify, Oct 2026. PEAK is a US-owned company. Peak Wellness USA LLC.</p>
+</div></footer>
+<div class="sticky"><span class="sp"><b>Patagonia $10,450</b> with OUTDOOR500<br><span class="muted">Ends tonight</span></span><a class="btn" href="#offer">Claim $500 off</a></div>
+<script>(()=>{const b=document.querySelector(".sticky"),t=document.querySelector("[data-m=cta]");if(!b||b.classList.contains("on")||!t)return;new IntersectionObserver(([e])=>{b.classList.toggle("on",!e.isIntersecting&&e.boundingClientRect.top<0)}).observe(t)})();</script>
+</body></html>
