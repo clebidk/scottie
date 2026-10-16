@@ -181,3 +181,18 @@ def test_f4_grounding_uses_its_own_date_not_the_wall_clock(monkeypatch):
     _render_on(monkeypatch, 20)
     fp, _brief = _offer_facts()
     assert fp["offer"]["net_price"] == "$7,950" and offer.offer_view(fp) is None
+
+
+# ---------------------------------------------------------------------------
+# D1: "really" is banned only in the ad-reference framing
+# ---------------------------------------------------------------------------
+
+def test_d1_a_buyers_really_mean_question_passes_and_the_ad_reference_framing_fails():
+    # cgyn FAQ (a real buyer question) passes
+    assert persuasion.AD_REFERENCE_RE.search("Does free shipping really mean no extra fees?") is None
+    for text in ("What the research really says about infrared sauna",       # B's teardown headline
+                 "Here is what that claim really means for you",
+                 "What a sauna really is, in plain terms",
+                 "Really means nothing to a buyer.",
+                 "Skip the noise. Really says it all."):
+        assert persuasion.AD_REFERENCE_RE.search(text), text

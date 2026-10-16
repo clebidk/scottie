@@ -125,7 +125,10 @@ AD_REFERENCE_RE = re.compile(
     r"|\bnot\s+(?:verified|part\s+of|lifetime)\b|\bdoes\s+not\s+verify\b|\bdoesn't\s+verify\b|\bno\s+separate\b"
     r"|\bplainly\b|\bnothing\s+to\s+submit\b|\bno\s+form\s+required\b|\bwhat\s+holds\s+up\b"
     r"|\bwhat'?s\s+(?:actually\s+)?verified\b|\bthe\s+ad\s+(?:said|says|claimed|promised|implied|shows?)\b"
-    r"|\breally\s+(?:says?|is|are|costs?|offers?|means?|includes?)\b|\bexplained\s+plainly\b",
+    # cycle 110 integration D1: "really" only in the ad-reference framing ("what the research really says",
+    # "Really means ..."), so a buyer's question "Does free shipping really mean no extra fees?" passes
+    r"|\bwhat\b[^.?!]{0,60}?\breally\s+(?:means?|says?|is)\b|^really\s+(?:says|means)\b"
+    r"|(?<=[.!?]\s)really\s+(?:says|means)\b|\bexplained\s+plainly\b",
     re.IGNORECASE)
 # The one way the page may name the ad: crediting the speaker's own words
 # ("In the ad, she says ..."), the framing quote_fidelity requires.
