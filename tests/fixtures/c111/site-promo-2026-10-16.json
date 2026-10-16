@@ -1,0 +1,15 @@
+{
+  "pk_promo_enabled": true,
+  "pk_promo_badge": "",
+  "pk_promo_message": "Community Savings Sale: $300 off indoor with INDOOR300 · $500 off outdoor with OUTDOOR500",
+  "pk_promo_message_mobile": "$300 off indoor: INDOOR300 · $500 off outdoor: OUTDOOR500",
+  "pk_promo_code_prefix": "with code",
+  "pk_promo_code": "",
+  "pk_promo_end": "2026-10-16T23:30:00-05:00",
+  "pk_promo_count_label": "sale ends in",
+  "pk_promo_after_end": "hide",
+  "pk_promo_cta_label": "Shop the sale",
+  "pk_promo_cta_url": "/collections/saunas",
+  "pk_promo_show_close": true,
+  "pk_promo_hide_mobile": false
+}

@@ -393,8 +393,14 @@ def ground(state):
         offer_mod.apply_to_run(
             state.ad_brief, state.facts_pack,
             state.facts_source.all_verified_claims(state.live_price_claims_by_slug, extra_claims=state.pdp_claims),
-            today=state.today_iso, log=state.log,
+            today=state.today_iso, log=state.log, now=datetime.datetime.now(datetime.timezone.utc),
         )
+        # Cycle 111: the instant the dated offer ends (the store's countdown when fresh, else
+        # the claim) -> facts_pack.offer.expires and state.json offer_expires / offer_claim_id.
+        if state.facts_pack.get("offer"):
+            from . import sale_sync
+
+            sale_sync.record_run_expiry(state.tenant, state.run_dir, state.facts_pack, log=state.log)
         (state.run_dir / "ad_brief.json").write_text(json.dumps(state.ad_brief, indent=2))
     (state.run_dir / "facts_pack.json").write_text(json.dumps(state.facts_pack, indent=2))
     if "quiz" in state.selected:
@@ -858,6 +864,73 @@ def design_gate(state):
         raise design_gate_mod.DesignGateStop(stops, state.design)
 
 
+def sale_twin(state):
+    """Cycle 111 (tenant.yaml `sale_twin: true`): a run whose page is
+    offer-led also writes the same page without the sale -- same look and
+    hero composition, the offer removed from the facts -- as <page>-nosale/,
+    through the writer's gates and the render backstops (no design judge:
+    the look and the composition are the sale page's). Its model calls go
+    to their own log and spend-ledger line (<run>-<page>-nosale). A twin
+    that STOPs is recorded and the run goes on; the expiry sweep then falls
+    back to a redirect and a fresh run (harness/sale_sync.py). The suite
+    sets HARNESS_SALE_TWIN=off (tests/conftest.py)."""
+    if os.environ.get("HARNESS_SALE_TWIN") == "off" or state.tenant.get("sale_twin") is not True or \
+            not offer_mod.offer_view(state.facts_pack, today=state.today_iso):
+        return
+    for cartridge_name in [c for c in ("landing", "listicle") if c in state.pages]:
+        _write_sale_twin(state, cartridge_name)
+
+
+def _write_sale_twin(state, cartridge_name):
+    import shutil
+
+    from . import runstate, sale_sync
+
+    out_dir = sale_sync.twin_dir(state.run_dir, cartridge_name)
+    fp, brief = offer_mod.without_offer(state.facts_pack, state.ad_brief)
+    twin_id = f"{state.run_id}-{cartridge_name}-nosale"
+    twin_log = RunLog(twin_id, state.tenant.runs_dir / f"{twin_id}.log")
+    sale_page = state.pages[cartridge_name]
+    # the twin's render writes the run's top-level records too; the sale page's stay as they are
+    saved = {p.name: p.read_bytes() for p in state.run_dir.iterdir() if p.is_file() and p.name.endswith(".json")}
+    result = {"status": "pass"}
+    try:
+        page, attempts, _fixes = repair.write_and_gate_page(
+            cartridge_name=cartridge_name, cartridges_dir=CARTRIDGES_DIR, ad_brief=brief, facts_pack=fp,
+            client=state.client, model=state.tenant.model_for("write"),
+            repair_first_model=state.tenant.model_for("repair_first"),
+            repair_next_model=state.tenant.model_for("repair_next"), budget=state.budget, log=twin_log,
+            financing_lender=state.claims_config.get("financing_lender"), speaker_pov=brief.get("speaker_pov"),
+            ad_not_repeated=state.ad_not_repeated, tenant=state.tenant, listicle_style=state.listicle_style,
+            listicle_headline=state.listicle_headline, listicle_skeleton=state.listicle_skeleton,
+            landing_look=getattr(state, "landing_look", None),
+        )
+        for key in ("look", "hero_style", "headline_template_id"):
+            if sale_page.get(key):
+                page[key] = sale_page[key]
+        render_page(cartridge_name=cartridge_name, page=page, ad_brief=brief, facts_pack=fp,
+                    cartridges_dir=CARTRIDGES_DIR, brand_dir=state.tenant.brand_dir, templates_dir=TEMPLATES_DIR,
+                    out_dir=out_dir, published=state.today_iso, updated=state.today_iso, log=twin_log,
+                    fetch_url=http_fetch_bytes, drive_downloader=download_drive_file, tenant=state.tenant)
+        (out_dir / "facts_pack.json").write_text(json.dumps(fp, indent=2))
+        result["attempts"] = len(attempts)
+    except (ClaimsGateFailure, BudgetExceeded) as e:
+        result = {"status": "stop", "reason": str(e)[:300]}
+        shutil.rmtree(out_dir, ignore_errors=True)
+    finally:
+        for name, data in saved.items():
+            (state.run_dir / name).write_bytes(data)
+        cost = twin_log.cost_estimate()
+        twin_log.close()
+        budget_mod.record_spend(state.tenant, run_id=twin_id, cost=cost, today_iso=state.today_iso, log=state.log)
+    result["cost_usd"] = round(cost, 4)
+    state.log.event("sale_twin", f"{cartridge_name}-nosale: {result['status'].upper()}, ${cost:.4f}"
+                    + (f" ({result['reason']})" if result.get("reason") else ""))
+    data = runstate.load_state(state.run_dir)
+    data.setdefault("sale_twin", {})[cartridge_name] = result
+    runstate.save_state(state.run_dir, data)
+
+
 def _record_measured_quality(run_dir, result):
     """Cycle 110: LCP, CLS (design gate load_budget) and whether the first
     screen fits the phone window under the store's chrome (chrome_window),
@@ -925,6 +998,7 @@ STAGES = {
     "write_pages": write_pages,
     "render_pages": render_pages,
     "design_gate": design_gate,
+    "sale_twin": sale_twin,
     "review_notify": review_notify,
     "write_review": write_review,
 }
@@ -938,6 +1012,7 @@ DEFAULT_STAGES = (
     "write_pages",
     "render_pages",
     "design_gate",
+    "sale_twin",
     "review_notify",
     "write_review",
 )

@@ -581,6 +581,12 @@ def _gen_card(tenant, ad, v, info, *, dom_id):
         f'<a class="gen-title" href="{info["gen_url"]}">{e(title)}</a>',
         _facts(info),
     ]
+    # cycle 111: the sale expiry sweep on this page (harness/sale_sync.py)
+    from . import sale_sync
+
+    sale_line = sale_sync.card_line(info["state"])
+    if sale_line:
+        parts.append(f'<div class="small" data-sale-expiry><b>{e(sale_line)}</b></div>')
     if "views" in v:
         parts.append(
             '<div class="abstats">'

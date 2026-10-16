@@ -1662,8 +1662,34 @@ def cmd_worker(args):
 
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
-    jobs.work(tenant, once=args.once, interval=args.interval, stop=stop,
-              log=lambda msg: print(msg, flush=True))
+    log = lambda msg: print(msg, flush=True)  # noqa: E731
+    # cycle 111: the sale expiry sweep, hourly and 10 minutes after an offer ends
+    tick = None
+    if tenant.get("sale_sweep") is True:
+        from . import sale_sync
+
+        tick = sale_sync.SweepClock(tenant, log=log)
+    jobs.work(tenant, once=args.once, interval=args.interval, stop=stop, log=log, tick=tick)
+    return exits.OK
+
+
+def cmd_sale(args):
+    """`harness sale sync|sweep --tenant <t> [--dry-run]` (cycle 111,
+    harness/sale_sync.py): the store's countdown -> the promo claim's
+    deadline; the expiry sweep over the live offer pages."""
+    from . import sale_sync
+
+    tenant = tenant_mod.load_tenant(args.tenant, require=True)
+    tenant_mod.activate(tenant)
+    try:
+        if args.sale_command == "sync":
+            result = sale_sync.sync(tenant, dry_run=args.dry_run, accept_site_offer=args.accept_site_offer)
+            print(json.dumps(result["record"], indent=2))
+            return exits.USAGE if result["action"] in ("stopped", "no claim") else exits.OK
+        sale_sync.sweep(tenant, dry_run=args.dry_run, by=args.by)
+    except sale_sync.SaleSyncError as e:
+        print(f"sale {args.sale_command}: {e}", file=sys.stderr)
+        return exits.USAGE
     return exits.OK
 
 
@@ -2717,6 +2743,21 @@ def build_parser():
                                 help="count orders created at or after this ISO time (default: all time)")
     _add_tenant_flag(p_claims_units)
     p_claims_units.set_defaults(func=cmd_claims_refresh_units)
+
+    # cycle 111: the store's countdown and the sale expiry sweep (harness/sale_sync.py)
+    p_sale = sub.add_parser("sale", help="sync the sale deadline from the store's countdown; sweep expired offer pages")
+    sale_sub = p_sale.add_subparsers(dest="sale_command", required=True)
+    p_sale_sync = sale_sub.add_parser("sync", help="read the store's promo bar, update the promo claim's deadline")
+    p_sale_sync.add_argument("--dry-run", action="store_true", help="print what would change; write nothing")
+    p_sale_sync.add_argument("--accept-site-offer", action="store_true",
+                             help="let the site's amounts and codes replace the claim's (owner-approved wording)")
+    _add_tenant_flag(p_sale_sync)
+    p_sale_sync.set_defaults(func=cmd_sale)
+    p_sale_sweep = sale_sub.add_parser("sweep", help="one more look at the site for every live page whose offer ended")
+    p_sale_sweep.add_argument("--dry-run", action="store_true", help="print the decisions; queue no job")
+    p_sale_sweep.add_argument("--by", help="reviewer recorded on the jobs; default: the primary reviewer")
+    _add_tenant_flag(p_sale_sweep)
+    p_sale_sweep.set_defaults(func=cmd_sale)
 
     p_score = sub.add_parser("score", help="record a human score for a run (see evals/rubric.md)")
     p_score.add_argument("run_dir")

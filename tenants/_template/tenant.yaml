@@ -295,6 +295,14 @@ abtest:
 # switching a page live and redirects fail with a clear message.
 publish_locked: false
 
+# Cycle 111 (harness/sale_sync.py): a run whose page is offer-led also writes the
+# same page without the sale (<page>-nosale/, its own model cost); the expiry sweep
+# switches the live page to it when the sale ends.
+sale_twin: false
+# true: the worker runs `harness sale sweep` hourly and 10 minutes after an offer ends
+# (one more look at the store's countdown, then extend or switch live pages).
+sale_sweep: false
+
 # Reviewer notifications sent on: a run reaching needs_review, an approve,
 # and a publish. Both channels are entirely optional and fail closed -- no
 # SLACK_WEBHOOK_URL / SMTP_* in .env just logs a skip, never blocks a run

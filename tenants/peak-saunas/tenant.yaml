@@ -473,6 +473,14 @@ notifications:
 # owner lifts this. Enforced in harness/cli.py LockedShopifyPublisher.
 publish_locked: false  # lifted 2026-10-12 for the 3pm launch (owner autonomy)
 
+# Cycle 111 (harness/sale_sync.py): a run whose page is offer-led also writes the
+# same page without the sale (<page>-nosale/, its own model cost); the expiry sweep
+# switches the live page to it when the sale ends.
+sale_twin: true  # cycle 111
+# true: the worker runs `harness sale sweep` hourly and 10 minutes after an offer ends
+# (one more look at the store's countdown, then extend or switch live pages).
+sale_sweep: false  # owner turns it on (it updates live pages)
+
 meta:
   ad_account_id: act_963439094733982
   graph_api_version: v24.0
