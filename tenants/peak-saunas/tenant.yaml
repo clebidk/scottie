@@ -344,6 +344,7 @@ design_gate:
   min_score: 62
   variants: 3
   max_usd_per_page: 1.00
+  advise_looks: [peak]
 
 # Cycle 76: Message Batches API (half price) for builds nobody waits on:
 # A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta

@@ -63,6 +63,8 @@ DEFAULTS = {
     "min_score": 75,
     "variants": 3,
     "max_usd_per_page": 1.00,
+    # cycle 110 round 3: looks whose judge score only advises (warn), never STOPs; hard checks still do
+    "advise_looks": (),
 }
 MAX_VARIANTS = 6
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
@@ -153,6 +155,9 @@ def settings(tenant):
         cfg["max_usd_per_page"] = float(cfg["max_usd_per_page"])
     except (TypeError, ValueError) as e:
         raise DesignGateError(f"design_gate: {e}") from e
+    if not isinstance(cfg["advise_looks"], (list, tuple)):
+        raise DesignGateError("design_gate.advise_looks must be a list of look names")
+    cfg["advise_looks"] = tuple(str(x) for x in cfg["advise_looks"])
     try:
         pricing.price_for(pricing.family_id(cfg["model"]))
     except pricing.UnknownModel as e:
@@ -1037,12 +1042,16 @@ def run_for_page(*, cartridge, page_dir, base_page, render, tenant, client, cfg,
         final_page = render(copy.deepcopy(base_page))
     shutil.rmtree(work, ignore_errors=True)
 
+    # cycle 110 round 3: a look in design_gate.advise_looks runs in warn mode for its judge score; a variant
+    # that fails a hard check (eligible() False) still stops in enforce mode
+    look = (best or {}).get("look") or (base_page or {}).get("look")
+    advise = look in (cfg.get("advise_looks") or ()) and best is not None and eligible(best)
     if best is None:
         status = "unscored"
     elif passes(best, cfg):
         status = "pass"
     else:
-        status = "stop" if cfg["mode"] == "enforce" else "warn"
+        status = "stop" if cfg["mode"] == "enforce" and not advise else "warn"
     if status == "unscored" and any(r.get("budget_stop") for r in records):
         # A page never judged because of the money cap is not a pass.
         status = "stop" if cfg["mode"] == "enforce" else "warn"
@@ -1069,6 +1078,8 @@ def run_for_page(*, cartridge, page_dir, base_page, render, tenant, client, cfg,
     (design_dir / SCORES_FILE).write_text(json.dumps(result, indent=2) + "\n")
     if log is not None:
         log.event("design_gate", f"{cartridge}: {summary_line(result)}")
+        if advise and cfg["mode"] != "off":
+            log.event("design_gate", f"design gate: advise (look {look}): score {result['score']}")
         for note in notes:
             log.event("design_gate", f"{cartridge}: {note}")
     result["final_page"] = final_page

@@ -213,6 +213,7 @@ design_gate:
   min_score: 75
   variants: 3
   max_usd_per_page: 1.00
+  advise_looks: []   # looks whose judge score is recorded but never stops a run (hard checks still do)
 
 # Cycle 76: Message Batches API (half price) for builds nobody waits on:
 # A/B/C builds (`harness abtest create` / `from-inbox`, site uploads, Meta

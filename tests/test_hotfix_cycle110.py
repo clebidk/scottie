@@ -96,3 +96,49 @@ def test_r2_the_listicle_h1_must_share_a_hook_word():
     quiet = dict(page, display_headline="Quiet evenings start here")
     match, _text = lp.hook_match(quiet, brief, fp, names)
     assert not match["ok"] and match["headline_overlap"] == []
+
+
+# ---------------------------------------------------------------------------
+# R3: the design judge advises on a pre-sell look, never stops it
+# ---------------------------------------------------------------------------
+
+from tests.test_design_gate_cycle92 import fake_shots  # noqa: E402,F401  (the fixture)
+
+
+def test_r3_enforce_stops_at_60_for_proof_and_advise_records_60_for_peak(tmp_path, fake_shots):
+    import json
+
+    from harness import design_gate
+    from tests.test_design_gate_cycle92 import FakeClient, Log, _cfg, _judge_json, _page_dir, _renderer
+
+    results = {}
+    for look in ("proof", "peak"):
+        page_dir, page = _page_dir(tmp_path / look, "landing", {"headline": "h", "look": look})
+        render, _calls = _renderer(page_dir)
+        log = Log()
+        cfg = _cfg(mode="enforce", min_score=62.0, variants=1, advise_looks=("peak",))
+        results[look] = (design_gate.run_for_page(
+            cartridge="landing", page_dir=page_dir, base_page=page, render=render, tenant=TENANT,
+            client=FakeClient([_judge_json(60), _judge_json(60)]), cfg=cfg, log=log), log, page_dir)
+    proof, proof_log, _ = results["proof"]
+    assert proof["status"] == "stop" and proof["score"] == 60
+    assert not any("advise" in m for _s, m in proof_log.events)
+    peak, peak_log, peak_dir = results["peak"]
+    assert peak["status"] == "warn" and peak["score"] == 60 and peak["subscores"] and peak["top_issues"]
+    assert ("design_gate", "design gate: advise (look peak): score 60") in peak_log.events
+    saved = json.loads((design_gate.design_dir_for(peak_dir) / design_gate.SCORES_FILE).read_text())
+    assert saved["score"] == 60 and saved["status"] == "warn"
+
+
+def test_r3_peak_is_advise_only_in_the_tenant_and_a_hard_check_still_stops(tmp_path, fake_shots):
+    from harness import design_gate
+    from tests.test_design_gate_cycle92 import GOOD_PROBE, FakeClient, Log, _cfg, _judge_json, _page_dir, _renderer
+
+    assert TENANT.get("design_gate.advise_looks") == ["peak"]
+    fake_shots.extend([dict(GOOD_PROBE, cta_expected=True, cta={"sel": "a.ld-btn", "top": 2400, "bottom": 2455})] * 4)
+    page_dir, page = _page_dir(tmp_path, "landing", {"headline": "h", "look": "peak"})
+    render, _calls = _renderer(page_dir)
+    result = design_gate.run_for_page(cartridge="landing", page_dir=page_dir, base_page=page, render=render,
+                                      tenant=TENANT, client=FakeClient([_judge_json(90)] * 3),
+                                      cfg=_cfg(mode="enforce", variants=1, advise_looks=("peak",)), log=Log())
+    assert result["status"] == "stop"     # first_screen_cta is a hard check: advise never waives it
