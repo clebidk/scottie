@@ -11,3 +11,5 @@ Claims: price-fuji, financing-monthly-fuji (0% APR 18 months, $458.33/mo), spec-
 Verified 2026-10-16 (both at 390 and 1280): CTA bottom 525 px; cutout centered (0 px offset) on phone; 20 px Stone below the cutout on both widths; no overflow; no banned terms; no exclamation marks; no-sale page has zero sale text; console clean.
 
 Review copies: indoor-sale https://claude.ai/artifact/8NpWdyJFifdThkj9qhBCbn ; indoor https://claude.ai/artifact/CUbfkFjg8d3Jfa737GyyaQ
+
+Outdoor pair added 2026-10-16: outdoor-sale/ ("The Patagonia, all in.", $10,450 with OUTDOOR500, strip "$500 off outdoor saunas") and outdoor/ ($10,950 · finance with Bread Pay*; no monthly wording, no Patagonia monthly claim). First CTA bottom 665 / 640 px at 390; cutout uncropped and centered; 20 px Stone below.
