@@ -131,15 +131,18 @@ footer p{font-size:12px;line-height:1.55;color:var(--muted)}
  .offer-grid img{width:260px;margin:0}
  .offer{padding:40px}
 }
-</style><style id="pk-lib-shield">/* Theme shield (cycle 114b). On peaksaunas.com this page sits inside the store theme, whose rules for body, headings, buttons, main, section, .quote and dl/dd reach it; these rules put back the page's own values. They apply only to elements that follow this style element in the same parent, so in this file (where it is in head) they match nothing. */
+</style><style id="pk-lib-shield">/* Theme shield (cycle 114b). On peaksaunas.com this page sits inside the store theme, whose rules for body, headings, buttons, images, main, section, .quote and dl/dd reach it; these rules put back the page's own values. They apply only to elements that follow this style element in the same parent, so in this file (where it is in head) they match nothing. */
 :where(#pk-lib-shield~*){--ink:#161817;--red:#702B34;--stone:#EFE3D2;--fossil:#C0C8C3;--muted:#5C5F5D;--line:rgba(22,24,23,.14);--g:20px;--s:56px;font-family:"DM Sans",system-ui,sans-serif;color:var(--ink)}
 @media(min-width:900px){:where(#pk-lib-shield~*){--g:48px;--s:96px}}
 :where(#pk-lib-shield)~main{display:block}
+:where(#pk-lib-shield)~section{color:var(--ink)}
 :where(#pk-lib-shield~*) section{color:inherit}
 :where(#pk-lib-shield~*) :is(h1,h2,h3,h4,h5,h6,.h1,.h2,.h3){color:inherit}
 :where(#pk-lib-shield~*) :is(h1,h2,h3,h4,h5,h6){line-height:inherit;letter-spacing:inherit}
 :where(#pk-lib-shield~*) :is(.d-wide,.d-acid,.h2,.h3,.r h2,.obj h3,.fit h3){font-weight:400!important}
 :where(#pk-lib-shield~*) .btn{font-family:inherit;letter-spacing:normal;text-transform:none;font-weight:700!important;border-radius:4px!important}
+:where(#pk-lib-shield~*) :is(.r .tile img,.it img,.hv .ph,.trio img){border-radius:4px!important}
+:where(#pk-lib-shield~*) .by img{border-radius:50%!important}
 :where(#pk-lib-shield~*) .quote{display:block;border-radius:0}
 :where(#pk-lib-shield~*) dl.faq{margin-top:0}
 :where(#pk-lib-shield~*) .faq dd{font-weight:inherit}

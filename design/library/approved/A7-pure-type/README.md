@@ -16,3 +16,5 @@ Claims used: price-mini, spec-mini-dimensions, spec-mini-electrical, spec-mini-i
 Verified 2026-10-16 (both versions): headline 52 px at 390 / 84 px at 1280; type-out completes (77 chars); sticky bar fixed and visible at 390 and 1280; desktop hero = alcove-single-1080.webp 848x1264 at 640x954; no horizontal overflow; weight 342 KB; no banned terms, no exclamation marks, no urgency beyond the claim sentence; no-sale twin has zero sale text; console clean; published review copies match these files.
 
 Review copies: sale https://claude.ai/artifact/523SSp3YShdn2i9NjNv6Aw ; no-sale https://claude.ai/artifact/6hY23gRLHLfnSA5jXBRoUS
+
+Live (unlinked, hidden from search): nosale https://peaksaunas.com/pages/lp-lib-a7-pure-type-nosale (page 165462966573, published 2026-10-16T16:53:21-05:00) ; sale https://peaksaunas.com/pages/lp-lib-a7-pure-type-sale (page 165462999341, published 2026-10-16T16:53:25-05:00, sale: hidden by the sale sweep after 2026-10-16T23:30:00-05:00)
