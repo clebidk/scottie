@@ -13,7 +13,7 @@ import pytest
 from PIL import Image
 
 from harness import capture, runstate, site_versions, versions
-from tests.support import TENANT
+from tests.support import TENANT, tenant_copy
 from tests.test_listicle_site_cycle69 import _auth, client  # noqa: F401 (client is a fixture)
 
 FIXLOG = """# FIXLOG
@@ -31,7 +31,7 @@ OLD = datetime.datetime(2026, 9, 1).timestamp()
 @pytest.fixture(autouse=True)
 def _isolated(monkeypatch):
     """No real archive, no browser, a fresh version cache per test."""
-    monkeypatch.setattr(versions, "ARCHIVES", {})
+    tenant_copy(monkeypatch, {"versions.archives": {}})
     monkeypatch.setattr(capture, "find_browser", lambda: None)
     versions._current.cache_clear()
     yield
@@ -155,7 +155,7 @@ def test_the_archive_is_indexed_and_never_written(tmp_path, monkeypatch):
     _run(arch, "20260911-100000-old-c3d4", at="2026-09-11T10:00:00", state="generated")
     (arch / versions.PUBLISHED_FILE).write_text(
         "2 published pages\n20260906-100000-old-a1b2 listicle https://shop.example/pages/listicle-test-1\n")
-    monkeypatch.setattr(versions, "ARCHIVES", {TENANT.name: (("arch", arch),)})
+    tenant_copy(monkeypatch, {"versions.archives": {"arch": str(arch)}})
     before = _snapshot(arch)
 
     versions.backfill(TENANT, repo=repo, log=lambda _m: None)
@@ -215,7 +215,7 @@ def _fixture_runs(tmp_path, monkeypatch):
     arch = tmp_path / "archive"
     _run(arch, "20260906-100000-old-a1b2", at="2026-09-06T10:00:00", page="listicle", look="open", hero="face",
          style="reasons", asset=True)
-    monkeypatch.setattr(versions, "ARCHIVES", {TENANT.name: (("arch", arch),)})
+    tenant_copy(monkeypatch, {"versions.archives": {"arch": str(arch)}})
     versions.backfill(TENANT, repo=_fixlog_repo(tmp_path), log=lambda _m: None)
 
 

@@ -7839,6 +7839,8 @@ version can do".
     is never written. The existing `/run/<id>/thumb/<page>` shows the first asset photo, not the first screen,
     so it is not used here.
   - `/versions/archive/<source>/<run>/<page>/`: an archived page and its assets, read-only.
+- Config (tenant.yaml, declared in the template): `versions.archives` {key: folder} and `versions.milestones`
+  {cycle: label}; the engine names no tenant. The Showcase landing looks follow `abtest.library` order.
 - Store links: abtests/*.json arms (also the archive's abtests/), state.json `published_pages`, and
   PUBLISHED-STORE-PAGES.txt. A url that several runs used (listicle-test-1..12) shows "Store page (replaced
   later)" on every run but the newest.

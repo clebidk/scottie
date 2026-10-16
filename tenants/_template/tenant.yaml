@@ -373,3 +373,11 @@ product_cutouts: {}
 # cartridge with no looks. A hidden look still renders when a run pins it.
 library: {}
 #   hide: ["article:default"]
+
+# Cycle 112: the review site's Versions page (harness/versions.py). archives:
+# {key: folder} of read-only older runs (`harness versions backfill` indexes
+# them into runs/versions-index.json, never writes into them); milestones:
+# {cycle: label} shown on the timeline. Leave out for neither.
+versions: {}
+#   archives: {old-runs: ~/archive/old-runs}
+#   milestones: {"67": "A/B/C tests"}

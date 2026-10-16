@@ -10,8 +10,9 @@ review site's /versions timeline and /showcase page (harness/site_versions.py).
     run's start time: a cycle's time is when its first FIXLOG heading reached
     master (first-parent git history), else its FIXLOG date at 00:00. The
     commit is the newest first-parent commit at or before that time.
-  - Archives (ARCHIVES: read-only folders of older runs) are never written:
-    their runs are described in tenants/<t>/runs/versions-index.json.
+  - Archives (tenant.yaml versions.archives: read-only folders of older runs)
+    are never written: their runs are described in
+    tenants/<t>/runs/versions-index.json.
   - timeline() / showcase(): the rows and cards the two pages show.
   - thumb(): a run page's first phone screen (390 x 844, shown at 240 wide),
     cached under tenants/<t>/runs/thumbs/.
@@ -40,23 +41,12 @@ SCREEN = (390, 844)
 THUMB_SIZE = (240, 520)
 RECENT_S = 600  # backfill leaves a state.json changed in the last 10 minutes alone (a run may be writing it)
 
-# Read-only folders of older runs, per tenant: (key, folder). A folder's runs
-# are <folder>/out/* when it has out/, else <folder>/*; its A/B records are
-# <folder>/abtests/*.json; PUBLISHED-STORE-PAGES.txt maps runs to store pages.
-ARCHIVES = {
-    "peak-saunas": (
-        ("before-1005", Path.home() / "archive" / "peak-out-before-2026-10-05-1711"),
-        ("cleared-1005", Path.home() / "archive" / "peak-site-cleared-2026-10-05-2132"),
-    ),
-}
+# tenant.yaml versions.archives {key: folder}: read-only folders of older
+# runs. A folder's runs are <folder>/out/* when it has out/, else <folder>/*;
+# its A/B records are <folder>/abtests/*.json; PUBLISHED-STORE-PAGES.txt maps
+# runs to store pages. tenant.yaml versions.milestones {cycle: label}: the
+# labels on the timeline.
 PUBLISHED_FILE = "PUBLISHED-STORE-PAGES.txt"
-
-MILESTONES = {
-    "67": "A/B/C tests", "75": "photo library", "76": "Jev best of 2",
-    "79": "first-screen styles face, story, display", "80": "review-site redesign", "82": "landing looks",
-    "92": "design gate", "108": "Meta pipeline", "109": "offer-led pages",
-    "110": "pre-sell rebuild: peak look, proof, listicle parity", "111": "sale countdown (in progress)",
-}
 
 LISTICLE_STYLES = ("reasons", "mistakes", "questions", "myths", "tested")
 LISTICLE_HEROES = ("face", "story", "display")
@@ -230,8 +220,8 @@ def run_started(run_id, state):
 def archives(tenant):
     """[(key, runs folder, archive folder)] that exist."""
     found = []
-    for key, root in ARCHIVES.get(tenant.name, ()):
-        root = Path(root)
+    for key, root in (tenant.get("versions.archives") or {}).items():
+        root = Path(str(root)).expanduser()
         if root.is_dir():
             found.append((key, root / "out" if (root / "out").is_dir() else root, root))
     return found
@@ -440,18 +430,19 @@ def timeline(tenant, repo=None):
     cost = costs(tenant)
     live = live_links(tenant, runs)
     cycles = parse_fixlog(fixlog_text(repo or REPO_ROOT))
+    milestones = {str(k): str(v) for k, v in (tenant.get("versions.milestones") or {}).items()}
     groups = {}
     for run in runs:
         groups.setdefault(run.get("cycle") or "", []).append(run)
     rows = []
-    for cycle in set(groups) | set(MILESTONES):
+    for cycle in set(groups) | set(milestones):
         group = groups.get(cycle, [])
         info = cycles.get(cycle) or {}
         spent = [cost[r["run_id"]] for r in group if r["run_id"] in cost]
         examples = [(r, primary_page(r)) for r in group if r["passed"] and primary_page(r)][:3]
         rows.append({
             "cycle": cycle, "date": info.get("date"), "summary": info.get("summary") or "",
-            "milestone": MILESTONES.get(cycle, ""), "runs": len(group),
+            "milestone": milestones.get(cycle, ""), "runs": len(group),
             "derived": sum(1 for r in group if r.get("derived")),
             "pass_rate": (sum(1 for r in group if r["passed"]) / len(group)) if group else None,
             "median_cost": statistics.median(spent) if spent else None,
@@ -464,8 +455,7 @@ def timeline(tenant, repo=None):
 def capabilities(tenant):
     """[(id, title, match(run, page) -> bool)] for the showcase, in page order."""
     library = tenant.get("abtest.library") or []
-    looks = [str(a).split(":")[1] for a in library if str(a).startswith("landing:") and ":" in str(a)]
-    looks = ["peak"] + [look for look in dict.fromkeys(looks) if look != "peak"]
+    looks = dict.fromkeys(str(a).split(":")[1] for a in library if str(a).startswith("landing:"))
     caps = [(f"landing-{look}", f"Landing page, {look} look",
              lambda r, p, look=look: p["page"] == "landing" and p["look"] == look) for look in looks]
     for style in LISTICLE_STYLES:
