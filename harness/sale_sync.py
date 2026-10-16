@@ -705,7 +705,12 @@ def handle_sale_end(tenant, payload):
         try:
             # hidden first: a store redirect applies only to an address with no page
             publisher.update_page(published["page_id"], {"storefront_host": tenant.get("site_host")}, unpublished=True)
-            publisher.create_redirect(source, target)
+            existing = publisher._find_redirect_by_path(source)
+            if existing:   # never changed or later deleted: it is not this sweep's
+                redirect = {"from": source, "to": existing.get("target"), "id": None, "existing": existing.get("id")}
+            else:
+                made = publisher.create_redirect(source, target) or {}
+                redirect = {"from": source, "to": target, "id": made.get("id")}
         except (ShopifyCredentialsMissing, HarnessError) as e:
             raise jobs.JobFailed(f"redirect failed: {e}") from e
         job_id = jobs.enqueue(tenant, "sale_rebuild", dict(payload), by=payload["by"],
@@ -713,9 +718,9 @@ def handle_sale_end(tenant, payload):
     except Exception as e:
         _failed(run_dir, e)
         raise
-    set_sale_expiry(run_dir, status="rebuilding", redirect={"from": source, "to": target}, job_id=job_id)
+    set_sale_expiry(run_dir, status="rebuilding", redirect=redirect, job_id=job_id)
     jobs.audit(tenant, by=payload["by"], action="sale_redirected", target=f"run:{run_dir.name}/{page}",
-               detail={"from": source, "to": target, "rebuild_job": job_id})
+               detail=dict(redirect, rebuild_job=job_id))
     print(f"run {run_dir.name}: sale ended: {source} hidden, redirect to {target}; rebuilding (job {job_id})",
           flush=True)
     return {"run_id": run_dir.name, "via": "redirect", "from": source, "to": target, "rebuild_job": job_id}
@@ -728,6 +733,7 @@ def handle_sale_rebuild(tenant, payload, runner=None):
 
     run_dir = jobs._run_dir(tenant, payload["run_id"])
     page = payload["page"]
+    redirect = ((_read(run_dir / "state.json").get("sale_expiry") or {}).get("redirect") or {})
     try:
         if payload["kind"] == "abtest":
             try:
@@ -752,15 +758,41 @@ def handle_sale_rebuild(tenant, payload, runner=None):
                                    note="sale ended: non-sale rebuild")
             except HarnessError as e:
                 raise jobs.JobFailed(str(e)) from e
+        deleted = _delete_own_redirect(tenant, run_dir, page, redirect)
     except Exception as e:
         _failed(run_dir, e)
         raise
-    set_sale_expiry(run_dir, status="switched", via="rebuild", run=new_run.name)
+    set_sale_expiry(run_dir, status="switched", via="rebuild", run=new_run.name, redirect=redirect,
+                    redirect_deleted=deleted)
     set_sale_expiry(new_run, status="switched", via="rebuild", replaces=run_dir.name)
     jobs.audit(tenant, by=payload["by"], action="sale_switched", target=f"run:{run_dir.name}/{page}",
                detail={"via": "rebuild", "run": new_run.name})
     print(f"run {run_dir.name}: sale ended: switched to the non-sale run {new_run.name}", flush=True)
     return {"run_id": run_dir.name, "via": "rebuild", "new_run": new_run.name}
+
+
+def _delete_own_redirect(tenant, run_dir, page, redirect):
+    """After the rebuild is live again: deletes the redirect sale_end
+    created -- only when the store's redirect for that path is still the
+    same id and target; never another redirect. Returns True when deleted."""
+    from . import cli
+    from .publishers.shopify import ShopifyPublisher
+
+    if not redirect.get("id"):
+        return False
+    tenant.load_env()
+    publisher = cli._make_publisher(tenant, export_dir=Path(run_dir) / page / "export")
+    if not isinstance(publisher, ShopifyPublisher):
+        return False
+    found = publisher._find_redirect_by_path(redirect["from"]) or {}
+    if str(found.get("id")) != str(redirect["id"]) or found.get("target") != redirect["to"]:
+        print(f"run {Path(run_dir).name}: redirect {redirect['from']} not deleted: the store has "
+              f"{found or 'none'}, not the one this sweep made", flush=True)
+        return False
+    publisher.delete_redirect(redirect["id"])
+    print(f"run {Path(run_dir).name}: deleted redirect {redirect['id']} {redirect['from']} -> {redirect['to']}",
+          flush=True)
+    return True
 
 
 def card_line(state):

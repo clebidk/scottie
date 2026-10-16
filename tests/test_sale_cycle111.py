@@ -312,14 +312,23 @@ def test_the_end_job_prefers_the_twin(tmp_path, monkeypatch):
 
 
 class _Publisher(ShopifyPublisher):
-    def __init__(self):   # no store, no token: records the two calls only
-        self.calls = []
+    def __init__(self, redirects=None):   # no store, no token: records the calls; redirects by path
+        self.calls, self.redirects = [], dict(redirects or {})
 
     def update_page(self, page_id, page, *, unpublished=True):
         self.calls.append(("update_page", page_id, unpublished))
 
+    def _find_redirect_by_path(self, path):
+        self.calls.append(("find_redirect", path))
+        return self.redirects.get(path)
+
     def create_redirect(self, path, target):
         self.calls.append(("create_redirect", path, target))
+        self.redirects[path] = {"id": 77, "path": path, "target": target}
+        return self.redirects[path]
+
+    def delete_redirect(self, redirect_id):
+        self.calls.append(("delete_redirect", redirect_id))
 
 
 def test_with_no_twin_the_page_is_hidden_redirected_and_rebuilt(tmp_path, monkeypatch):
@@ -331,8 +340,11 @@ def test_with_no_twin_the_page_is_hidden_redirected_and_rebuilt(tmp_path, monkey
                "by": "caleb@peaksaunas.com"}
     result = sale_sync.handle_sale_end(TENANT, payload)
     product = "/products/" + json.loads((run_dir / "facts_pack.json").read_text())["product"]["url"].split("/products/")[1]
-    assert pub.calls == [("update_page", 500, True), ("create_redirect", "/pages/lp-aiir-postlive", product)]
+    assert pub.calls == [("update_page", 500, True), ("find_redirect", "/pages/lp-aiir-postlive"),
+                         ("create_redirect", "/pages/lp-aiir-postlive", product)]
     assert result["via"] == "redirect"
+    assert runstate.load_state(run_dir)["sale_expiry"]["redirect"] == {"from": "/pages/lp-aiir-postlive",
+                                                                       "to": product, "id": 77}
     [job] = jobs.list_jobs(TENANT)
     assert job["type"] == "sale_rebuild" and job["target"] == f"run:{run_dir.name}/landing"
     assert sale_sync.card_line(runstate.load_state(run_dir)) == "rebuilding"
@@ -602,3 +614,61 @@ def test_q1_a_moved_countdown_that_changes_the_sentence_still_re_renders(tmp_pat
     assert job["type"] == "sale_extend" and job["target"] == f"run:{run_dir.name}/landing"
     fp = sale_sync.offer_with_claim(json.loads((run_dir / "facts_pack.json").read_text()), _promo(claims_tmp), later)
     assert sale_sync.extend_changes(run_dir, "landing", fp, later) == ["text 'Prices go up on October 20, 2026.'"]
+
+
+def _ended_arm(tmp_path, monkeypatch, store_redirect):
+    """An arm after sale_end made redirect 77; the rebuild is faked (its run
+    is live again); the store holds `store_redirect` for the path."""
+    run_dir = _live(tmp_path, kind="abtest")
+    sale_sync.set_sale_expiry(run_dir, status="rebuilding", redirect={"from": "/pages/lp-aiir-abtest",
+                                                                      "to": "/products/fuji", "id": 77})
+    new_run = _run(tmp_path, "20261017-aiir-rebuilt")
+    from harness import abtest_rebuild
+
+    monkeypatch.setattr(abtest_rebuild, "rebuild_arm",
+                        lambda tenant, test_id, key, *, by, runner=None, log=print: {"run_dir": str(new_run)})
+    pub = _Publisher({"/pages/lp-aiir-abtest": store_redirect} if store_redirect else {})
+    monkeypatch.setattr(cli, "_make_publisher", lambda tenant, *, export_dir: pub)
+    monkeypatch.setattr(type(TENANT), "load_env", lambda self: None)
+    payload = {"run_id": run_dir.name, "page": "landing", "kind": "abtest", "test_id": "aiir-t1", "key": "A",
+               "by": "caleb@peaksaunas.com"}
+    return run_dir, pub, payload
+
+
+def test_q2_the_rebuild_deletes_the_redirect_the_sweep_made(tmp_path, monkeypatch):
+    run_dir, pub, payload = _ended_arm(tmp_path, monkeypatch, {"id": 77, "path": "/pages/lp-aiir-abtest",
+                                                                "target": "/products/fuji"})
+    sale_sync.handle_sale_rebuild(TENANT, payload)
+    assert ("delete_redirect", 77) in pub.calls
+    rec = runstate.load_state(run_dir)["sale_expiry"]
+    assert rec["status"] == "switched" and rec["redirect_deleted"] is True
+
+
+@pytest.mark.parametrize("store", [{"id": 78, "path": "/pages/lp-aiir-abtest", "target": "/products/fuji"},
+                                   {"id": 77, "path": "/pages/lp-aiir-abtest", "target": "/collections/saunas"},
+                                   None])
+def test_q2_never_another_redirect(tmp_path, monkeypatch, store):
+    run_dir, pub, payload = _ended_arm(tmp_path, monkeypatch, store)
+    sale_sync.handle_sale_rebuild(TENANT, payload)
+    assert not any(c[0] == "delete_redirect" for c in pub.calls)
+    assert runstate.load_state(run_dir)["sale_expiry"]["redirect_deleted"] is False
+
+
+def test_q2_an_existing_redirect_is_not_taken_over(tmp_path, monkeypatch):
+    run_dir = _live(tmp_path, kind="postlive")
+    pub = _Publisher({"/pages/lp-aiir-postlive": {"id": 5, "path": "/pages/lp-aiir-postlive", "target": "/"}})
+    monkeypatch.setattr(cli, "_make_publisher", lambda tenant, *, export_dir: pub)
+    monkeypatch.setattr(type(TENANT), "load_env", lambda self: None)
+    sale_sync.handle_sale_end(TENANT, {"run_id": run_dir.name, "page": "landing", "kind": "postlive",
+                                       "test_id": None, "key": None, "by": "caleb@peaksaunas.com"})
+    assert not any(c[0] == "create_redirect" for c in pub.calls)
+    assert runstate.load_state(run_dir)["sale_expiry"]["redirect"]["id"] is None
+
+
+def test_q2_delete_redirect_sends_one_delete():
+    from tests.test_publishers import FakeTransport
+
+    transport = FakeTransport()
+    transport.set_response("DELETE", "redirects/77.json", 200, {})
+    ShopifyPublisher(store="acme.myshopify.com", token="tok", transport=transport).delete_redirect(77)
+    assert [(c["method"], c["url"].rsplit("/", 1)[-1]) for c in transport.calls] == [("DELETE", "77.json")]

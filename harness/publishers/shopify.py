@@ -881,6 +881,14 @@ class ShopifyPublisher(Publisher):
             return put_data["redirect"]
         raise PublishFailed(f"redirect create failed for {path!r}: status={status} body={data}")
 
+    def delete_redirect(self, redirect_id):
+        """Cycle 111: deletes one URL redirect by id (DELETE
+        /redirects/<id>.json) -- the sale sweep removes only the redirect it
+        created itself (harness/sale_sync.py)."""
+        status, data = self._request("DELETE", f"redirects/{int(redirect_id)}.json")
+        if status not in (200, 204):
+            raise PublishFailed(f"redirect delete failed for id {redirect_id}: status={status} body={data}")
+
     def _find_redirect_by_path(self, path):
         query = urllib.parse.urlencode({"path": path})
         status, data = self._request("GET", f"redirects.json?{query}")
