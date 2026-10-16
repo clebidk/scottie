@@ -767,3 +767,36 @@ def test_q3_the_script_swaps_the_headline_and_cta_after_the_instant(tmp_path):
     dom = subprocess.run([browser, "--headless=new", "--no-sandbox", "--disable-gpu", f"--user-data-dir={tmp_path / 'u'}",
                           "--dump-dom", path.as_uri()], capture_output=True, text=True, timeout=60).stdout
     assert ">No sale here</h1>" in dom and ">See the Fuji</a>" in dom and ">Get $300 off the Fuji</a>" in dom
+
+
+
+class _Log:
+    def __init__(self):
+        self.lines = []
+
+    def event(self, stage, message):
+        self.lines.append(f"{stage}: {message}")
+
+
+def test_q4_a_site_deadline_wins_over_the_ad_date_on_the_64wr_brief(claims_tmp):
+    from tests.test_hotfix_cycle110 import _64wr
+
+    brief, fp = _64wr("ad_brief"), _64wr("facts_pack")
+    assert brief["offer"]["deadline"] == "October 16"
+    sale_sync.sync(TENANT, fetch=lambda url: _home({"pk_promo_end": "2026-10-20T23:30:00-05:00"}), now=FETCHED,
+                   log=lambda *_: None)
+    moved = _promo(claims_tmp)
+    assert moved["text"].endswith("prices go up on October 20, 2026.")
+    # the same text without the site provenance: the ad's Oct 16 does not match Oct 20
+    hand = {k: v for k, v in moved.items() if k not in ("deadline_end", "last_sale_day")}
+    assert offer.match_offer(brief["offer"], [hand], "2026-10-17") is None
+    log = _Log()
+    assert offer.apply_to_run(copy.deepcopy(brief), fp, [moved], today="2026-10-17", log=log)["id"] == PROMO["id"]
+    assert "ground: ad date Oct 16 ignored, site deadline Oct 20" in log.lines
+    assert fp["offer"]["last_sale_day"] == "2026-10-20"
+    # the same day: nothing is ignored, nothing is logged
+    log = _Log()
+    claim = dict(PROMO, **sale_sync.deadline_update(PROMO, _record()))   # synced: last day Oct 16, provenance
+    assert offer._site_synced(claim)
+    assert offer.apply_to_run(copy.deepcopy(brief), _64wr("facts_pack"), [claim], today="2026-10-16", log=log)
+    assert not any("ignored" in line for line in log.lines)

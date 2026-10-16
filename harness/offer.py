@@ -232,12 +232,24 @@ def _amount_in(amount, text):
     return re.search(r"\$\s?" + re.escape(digits) + r"(?![\d,]|\.\d)", text) is not None
 
 
-def match_offer(offer, claims, today=None, now=None):
+def _site_synced(claim):
+    """Cycle 111: the claim's deadline came from the store's countdown
+    (harness/sale_sync.py set it and wrote the provenance)."""
+    return bool(claim.get("deadline_end")) and "site promo bar" in str(claim.get("source") or "")
+
+
+def _short_day(month, day):
+    return f"{_MONTHS[month - 1][:3].capitalize()} {day}"
+
+
+def match_offer(offer, claims, today=None, now=None, notes=None):
     """The verified promo claim the ad's offer states, or None. Every amount
     and code the ad states must be in the claim's text; with neither, the
     sale name must be; when the ad and the claim both give a deadline date
-    they must be the same day; a claim whose deadline has passed never
-    matches."""
+    they must be the same day -- unless the claim's deadline came from the
+    store's countdown (owner decision 2026-10-16: the site wins over the
+    ad's own date; `notes` gets "ad date Oct 16 ignored, site deadline
+    Oct 20"); a claim whose deadline has passed never matches."""
     if not offer:
         return None
     for claim in claims or []:
@@ -256,8 +268,14 @@ def match_offer(offer, claims, today=None, now=None):
         if offer.get("deadline"):
             when, _ = _claim_date(text, {"date": claim.get("date")})   # cycle 111: the text's own date
             m = _DATE_RE.search(offer["deadline"])
-            if when and m and (when.month, when.day) != (_month_index(m.group("month")), int(m.group("day"))):
-                continue
+            ad_day = (_month_index(m.group("month")), int(m.group("day"))) if m else None
+            if when and m and (when.month, when.day) != ad_day:
+                if not _site_synced(claim):
+                    continue
+                site_day, _ = _claim_date(text, claim)
+                if notes is not None:
+                    notes.append(f"ad date {_short_day(*ad_day)} ignored, site deadline "
+                                 f"{_short_day(site_day.month, site_day.day)}")
         return claim
     return None
 
@@ -274,7 +292,10 @@ def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None, now=N
     facts_pack.pop("offer_unverified", None)
     if not offer:
         return None
-    claim = match_offer(offer, all_verified, today, now)
+    notes = []
+    claim = match_offer(offer, all_verified, today, now, notes=notes)
+    for note in notes if log is not None else ():
+        log.event("ground", note)
     if claim is None:
         offer.pop("claim_id", None)
         facts_pack["offer_unverified"] = {k: offer.get(k) for k in ("sentence", "amounts", "codes", "deadline",
