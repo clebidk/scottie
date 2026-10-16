@@ -98,6 +98,23 @@ def test_r2_the_listicle_h1_must_share_a_hook_word():
     assert not match["ok"] and match["headline_overlap"] == []
 
 
+def test_r2_a_templated_headline_with_no_hook_word_passes_when_the_first_screen_shares_two():
+    from harness import listicle_persuasion as lp
+
+    page, brief, fp = _aqdh("page"), _aqdh("ad_brief"), _aqdh("facts_pack")
+    names = ["Fuji", "Peak Fuji", "PEAK", "Peak"]
+    # a cycle 70 template headline as the H1 (display style with no display line), no hook word in it
+    story = dict(page, hero_style="display", display_headline="", headline="5 Reasons Careful Buyers Are Choosing PEAK",
+                 dek="What medical conditions could benefit from an infrared sauna?")
+    match, _text = lp.hook_match(story, brief, fp, names)
+    assert not match["ok"] and match["headline_overlap"] == []          # free headline: the H1 rule applies
+    match, _text = lp.hook_match(story, brief, fp, names, headline_templated=True)
+    assert match["ok"] and match["headline_overlap"] is None and len(match["overlap"]) >= 2
+    match, _text = lp.hook_match(dict(story, dek="A plain look before you buy."), brief, fp, names,
+                                 headline_templated=True)
+    assert not match["ok"]                                              # the two-word rule still applies
+
+
 # ---------------------------------------------------------------------------
 # R3: the design judge advises on a pre-sell look, never stops it
 # ---------------------------------------------------------------------------

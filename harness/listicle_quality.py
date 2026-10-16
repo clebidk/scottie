@@ -374,7 +374,7 @@ def find_message_match_violations(page, ad_brief, exempt=frozenset()):
 # ---------------------------------------------------------------------------
 
 def find_quality_violations(page, *, style=None, ad_brief=None, facts_pack=None, brand_regex=None,
-                            display_name=None, name_words=(), financing_lender=None):
+                            display_name=None, name_words=(), financing_lender=None, headline_templated=False):
     if not isinstance(page, dict):
         return []
     facts_pack = facts_pack or {}
@@ -405,7 +405,8 @@ def find_quality_violations(page, *, style=None, ad_brief=None, facts_pack=None,
     from . import listicle_persuasion
 
     problems += listicle_persuasion.find_persuasion_violations(
-        page, facts_pack, ad_brief, name_words=[n for n in (display_name, *name_words) if n])
+        page, facts_pack, ad_brief, name_words=[n for n in (display_name, *name_words) if n],
+        headline_templated=headline_templated)
     return problems
 
 

@@ -329,21 +329,26 @@ def first_screen_h1(page):
     return page.get("headline")
 
 
-def hook_match(page, ad_brief, facts_pack=None, name_words=()):
+def hook_match(page, ad_brief, facts_pack=None, name_words=(), headline_templated=False):
     text, quotes = first_screen_text(page, ad_brief, facts_pack)
-    # cycle 110 round 3: the H1 itself shares a hook (or promise) word, as on the landing page
+    # cycle 110 round 3: the H1 itself shares a hook (or promise) word, as on the landing page -- except an H1
+    # that is the headline written to a cycle 70 template (its slots may hold no hook word); the two-word
+    # first-screen rule still applies
+    h1 = first_screen_h1(page)
+    templated = headline_templated and h1 == (page or {}).get("headline")
     return persuasion.hook_match(text, ad_brief, exclude=_exclude_words(name_words), quotes=quotes,
-                                 headline=str(first_screen_h1(page) or "")), text
+                                 headline=None if templated else str(h1 or "")), text
 
 
-def find_hook_match_violations(page, ad_brief, facts_pack=None, name_words=(), prefix=PREFIX):
+def find_hook_match_violations(page, ad_brief, facts_pack=None, name_words=(), prefix=PREFIX,
+                               headline_templated=False):
     """listicle:hook_match -- the first screen restates the ad's hook (B's
     persuasion.hook_match: two content words of hook/angle/promise, or the
     speaker's own sentence quoted); plus no item heading is a spec label."""
     problems = []
     brief = ad_brief or {}
     if any(str(brief.get(k) or "").strip() for k in ("hook", "angle", "promise")):
-        result, text = hook_match(page, brief, facts_pack, name_words)
+        result, text = hook_match(page, brief, facts_pack, name_words, headline_templated)
         if not result["ok"]:
             problems.append(_problem("$.headline", f"{prefix}:hook_match",
                                      "the first screen must pay off the ad's hook: restate it as closely as the "
@@ -583,13 +588,14 @@ def find_reading_level_violations(page, name_words=(), prefix=PREFIX, max_grade=
                      f"line now (grade {worst[0]}): {worst[2]!r}", grade=grade, text=worst[2])]
 
 
-def find_persuasion_violations(page, facts_pack, ad_brief=None, name_words=(), prefix=PREFIX):
+def find_persuasion_violations(page, facts_pack, ad_brief=None, name_words=(), prefix=PREFIX,
+                               headline_templated=False):
     """Every cycle 110 listicle check, combined (repair.check_page_gates
     runs it through listicle_quality.find_quality_violations)."""
     if not isinstance(page, dict):
         return []
     problems = find_item_reason_violations(page, facts_pack, name_words, prefix)
-    problems += find_hook_match_violations(page, ad_brief, facts_pack, name_words, prefix)
+    problems += find_hook_match_violations(page, ad_brief, facts_pack, name_words, prefix, headline_templated)
     problems += find_ad_reference_violations(page, prefix)
     problems += find_page_voice_violations(page, prefix)                 # hotfix L1
     problems += find_health_word_violations(page, ad_brief, prefix)      # hotfix L2

@@ -525,6 +525,7 @@ def check_page_gates(page, facts_pack, cartridge_name, *, financing_lender, spea
             page, style=listicle_style, ad_brief=ad_brief, facts_pack=facts_pack,
             brand_regex=_brand_spelling_regex(facts_pack, tenant), display_name=tenant.display_name,
             name_words=[w for f in forms for w in (f[0], f[1])], financing_lender=financing_lender,
+            headline_templated=listicle_headline is not None,
         )
     # Cycle 56: the comparison cartridge's own structural checks (axis and
     # headline formula, alternatives allowlist and their digit-free rule,
