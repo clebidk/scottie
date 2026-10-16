@@ -59,6 +59,9 @@ FACTS_PACK = {
         {"id": "warranty-terms", "text": "warranty text", "category": "trust", "source": "https://peaksaunas.com/pages/warranty"},
         {"id": "shipping-policy", "text": "Free shipping on all orders.", "category": "trust", "source": "https://peaksaunas.com/policies/shipping-policy"},
         {"id": "gbrain-allowlist-red-light", "text": "Medical-grade red light therapy (included standard).", "category": "trust", "source": "https://peaksaunas.com/products/fuji"},
+        # hotfix L3: the product limits the not-for-you lines cite
+        {"id": "spec-fuji-placement", "text": "Fuji -- Placement: indoors, on a dry and level floor.", "category": "spec", "source": "https://peaksaunas.com/products/fuji"},
+        {"id": "spec-fuji-power", "text": "Fuji -- Power: a dedicated household circuit.", "category": "spec", "source": "https://peaksaunas.com/products/fuji"},
     ],
     # One hero plus up to seven item images, all distinct
     # (pagechecks.find_duplicate_asset_violations).
@@ -167,10 +170,10 @@ def _listicle_page(style="reasons", n_items=5):
                 {"text": "You want a session you can take without leaving the house."},
                 {"text": "You would rather read the specification than book a sales call."},
             ],
+            # hotfix L3: each line a checkable product limit with its claim id
             "not_for_you": [
-                {"text": "You rent and cannot leave a cabin behind when you move."},
-                {"text": "Your only free wall is in an unheated garage that freezes."},
-                {"text": "You want something that folds away between sessions."},
+                {"text": "Your only free spot is outdoors or on an uneven floor.", "claim_ids": ["spec-fuji-placement"]},
+                {"text": "You cannot give the cabin a dedicated household circuit.", "claim_ids": ["spec-fuji-power"]},
             ],
         },
         "faq": {

@@ -374,17 +374,19 @@ def test_with_a_library_photo_caps_over_photo_renders_as_itself(tmp_path, monkey
 # it) and the closing band drops the warranty sentence when the value stack states it.
 # Re-pinned cycle 110 integration: the six listicle keys from the merged templates (C listicle
 # parity + B face still framed 4:3).
+# Listicle hotfix (L3): the test page's not-for-you lines now cite product facts; the
+# six listicle pins follow that fixture text, no template change.
 SHIPPED = {
     "landing-open-dry": "7513037f31a2955a",
     "landing-open-frame": "b3a118f453e25126",
     "landing-proof-dry": "f35169064da7c94a",
     "landing-proof-frame": "1d8e0624c049b59f",
-    "listicle-display-dry": "923baa75a0dd4644",
-    "listicle-display-frame": "456c6ec876d79a5c",
-    "listicle-face-dry": "9b4f3d09ff76e7d5",     # no still: face falls back to story
-    "listicle-face-frame": "70f047bfcef5f3e1",   # cycle 110: still 4:3; D4: proof row, CTA, price before the lede
-    "listicle-story-dry": "9b4f3d09ff76e7d5",
-    "listicle-story-frame": "a8ba4d543ad8d4d0",
+    "listicle-display-dry": "e7270603eab71dd8",
+    "listicle-display-frame": "8e75bd36791a9792",
+    "listicle-face-dry": "935acf7a5ef353cc",     # no still: face falls back to story
+    "listicle-face-frame": "96cd49cc78bfe9f3",   # cycle 110: still 4:3; D4: proof row, CTA, price before the lede
+    "listicle-story-dry": "935acf7a5ef353cc",
+    "listicle-story-frame": "85cf136c165dbb02",
 }
 
 
