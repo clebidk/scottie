@@ -7775,3 +7775,33 @@ pytest on prod: `--basetemp` on disk and one full suite at a time (B's entry, "H
 - A home-page arm in the A/B library is the owner's decision (tenant.yaml note under `abtest.library`).
 - After the merge: run `harness claims refresh-units` once on prod and install the `units-refresh` timer
   (`crons/units-refresh.{service,timer}`).
+
+## Cycle 110 (round 3) (hotfixes after the first fresh runs, 2026-10-16)
+
+Branches `cycle110/hotfix-date` (from 715cc38) and `cycle110/round3`, worktree `~/adv-c110`. Not pushed.
+
+### Change
+- H1 run date (29786a2): run 64wr (00:56 UTC Oct 16) found no promo claim because the run date was the
+  server's UTC day. `RunState.today_iso`, the `abort_budget_run` and `ground.facts_for` fallbacks and the ingest
+  spend ledger dates now come from `offer.render_today(tenant)` (tenant.yaml `timezone`, else UTC).
+- H2 unverified offer in the hook (43ab292): 64wr failed `landing:hook_match` four times on the hook "$300 off
+  every indoor sauna" with no verified offer. When `ad_brief.offer` is set and `offer_view` gives no sale, the
+  gate matches the angle + promise without the offer's figures and off/sale/discount/code, and the writer is
+  told "The ad's offer is not verified; do not state it; lead with the ad's promise instead."
+- C's listicle hotfix (107ddb3, merged in b1762e2): gates `listicle:page_voice` (the page never names the ad),
+  `listicle:health_words` (no health words on the first screen), `listicle:not_for_you` (product limits only);
+  fixture claim ids; 6 listicle render pins.
+- Listicle H1 rule (262bb75, 79c93b6): `listicle_persuasion.hook_match` passes the rendered H1 (display line,
+  else headline) so the H1 must share a hook or promise word -- except an H1 that is the headline written to a
+  cycle 70 template (its fixed slots may hold no hook word; owner decision); the two-word first-screen rule
+  still applies there.
+- `design_gate.advise_looks` (5419713; peak-saunas `[peak]`): for these looks a judge score below min_score is
+  `warn`, never STOP (run ygya stopped at 60 on reasons that contradict the owner's font and photo decisions);
+  scores.json and the log line "design gate: advise (look peak): score N" keep the score. A hard-check failure
+  still stops.
+
+### Verify
+- tests/test_hotfix_cycle110.py: H1 (00:56Z Oct 16 matches in Denver, not in UTC), H2 (real 64wr brief and
+  facts), R2 (aqdh), R3 (enforce stops proof at 60, advise records peak at 60, a peak CTA below the fold stops).
+- Known flake: `test_grading_cycle97::test_cinematic_light_passes_the_hard_checks_at_390[caps_over_photo]` failed
+  `contrast_hero` once under full-suite load and passes alone (real-browser timing); left as is.
