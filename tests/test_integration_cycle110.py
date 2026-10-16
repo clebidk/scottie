@@ -196,3 +196,39 @@ def test_d1_a_buyers_really_mean_question_passes_and_the_ad_reference_framing_fa
                  "Really means nothing to a buyer.",
                  "Skip the noise. Really says it all."):
         assert persuasion.AD_REFERENCE_RE.search(text), text
+
+
+# ---------------------------------------------------------------------------
+# D4: the face first screen puts the whole CTA above the fold
+# ---------------------------------------------------------------------------
+
+def test_d4_a_cta_whose_bottom_edge_is_below_844_is_not_on_the_first_screen():
+    from harness import design_gate
+
+    # cgyn face, merged before D4: top 806, bottom 861 (38 px of the button showed)
+    cgyn = {"cta_expected": True, "cta": {"sel": "a.op-btn", "top": 806, "bottom": 861}}
+    assert design_gate.first_screen_cta(cgyn)["status"] == "fail"
+    assert design_gate.first_screen_cta(dict(cgyn, cta={"sel": "a.op-btn", "top": 640, "bottom": 695}))["status"] \
+        == "pass"
+    assert listicle_persuasion.first_cta_top(cgyn) == 806
+
+
+def test_d4_listicle_first_screen_ok_uses_the_bottom_edge(tmp_path):
+    from tests.test_listicle_cycle110 import CGYN, clean_cgyn, with_a_fields
+    from tests.test_listicle_cycle110 import _render as render_listicle
+
+    fp = with_a_fields(CGYN["facts_pack"])
+    page = dict(clean_cgyn(), hero_style="face")
+    html = render_listicle(tmp_path, page, fp)
+    for top, bottom, ok in ((806, 861, False), (788, 843, True)):
+        layout = {"cta": {"sel": "a.op-btn", "top": top, "bottom": bottom}}
+        assert listicle_persuasion.quality(page, html, CGYN["ad_brief"], fp, TENANT, layout=layout)["first_screen_ok"] is ok
+
+
+def test_d4_the_face_composition_orders_proof_row_cta_and_price_before_the_lede():
+    from pathlib import Path
+
+    face = (Path(__file__).resolve().parent.parent / "harness" / "heroes" / "face.html").read_text()
+    order = [face.index(k) for k in ("<figcaption>", 'class="op-proofrow"', 'data-el="hero"', 'class="op-fine op-pl"',
+                                     'class="op-lede"', 'class="op-cue"')]
+    assert order == sorted(order)

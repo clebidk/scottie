@@ -199,7 +199,7 @@
      rating, units line -- the display strip already shows them) and the CTA
      with its price line follow them. The newer compositions print their own. #}
   {% macro price_line() %}{% set pl = fs.price_line %}{% if pl %}<p class="op-fine op-pl">{% if pl.net %}<b>{{ pl.net }}</b>{% if pl.code %} with code {{ pl.code }}{% endif %} <s>{{ pl.list }}</s>{% else %}{{ pl.price }}{% endif %}{% if pl.monthly %} &middot; or {{ pl.monthly }}{% endif %}</p>{% endif %}{% endmacro %}
-  {% if fs.hero_style in ("face", "story", "display") %}
+  {% if fs.hero_style in ("story", "display") %}{# cycle 110 integration D4: face prints its own (heroes/face.html) #}
   <div class="op-narrow op-first{{ ' op-first--center' if fs.hero_style == 'display' else '' }}">
 
     <a class="op-btn" data-el="hero" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a>

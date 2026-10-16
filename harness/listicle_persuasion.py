@@ -718,7 +718,10 @@ def quality(page, html, ad_brief, facts_pack, tenant=None, layout=None):
     top = first_cta_top(layout)
     first_ok = None
     if layout is not None:
-        first_ok = bool(hm["ok"] and ctx["proof_row"] and top is not None and top < PHONE_SCREEN[1])
+        # cycle 110 integration D4: the CTA's BOTTOM edge (the whole button) inside the first screen
+        cta = layout.get("cta") if isinstance(layout, dict) else None
+        bottom = cta.get("bottom") if isinstance(cta, dict) and isinstance(cta.get("bottom"), (int, float)) else top
+        first_ok = bool(hm["ok"] and ctx["proof_row"] and bottom is not None and bottom < PHONE_SCREEN[1])
     return {"hook_match": 1.0 if hm["quoted"] else hm["score"], "grade_level": grade, "cta_count": cta,
             "proof_count": len(shown), "lcp_ms": None, "cls": None, "first_screen_ok": first_ok,
             "first_cta_top": top, "ad_reference_rendered": [h["term"] for h in

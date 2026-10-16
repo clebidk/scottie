@@ -150,7 +150,8 @@ PROBE_JS = r"""
       // cycle 110: a listicle whose first screen carries the pill (data-el="hero") is held to it too
       out.cta_expected=!!document.querySelector('.hr-root,.adv-landing,.adv-listicle a[data-el="hero"]');
       out.cta=ctas.length ? (function(el){ var r=el.getBoundingClientRect();
-        return {sel:sel(el), top:Math.round(r.top+sy), text:el.textContent.replace(/\s+/g,' ').trim().slice(0,40)};
+        return {sel:sel(el), top:Math.round(r.top+sy), bottom:Math.round(r.bottom+sy),
+                text:el.textContent.replace(/\s+/g,' ').trim().slice(0,40)};
       })(ctas[0]) : null;
       // cycle 110: every in-flow CTA's top (a CTA within every 1.5 screens),
       // where the footer starts, the pre-sell first screen's blocks, and

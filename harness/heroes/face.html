@@ -2,7 +2,10 @@
    before hero compositions (harness/heroes/face.py). Its CSS stays in the look.
    No whitespace may change below this comment: the shipped look's output is
    pinned by a hash test (tests/test_heroes_cycle94.py). Cycle 110: the still is framed 4:3
-   (was 4:5, ~490px tall at 390) so the first screen's proof row and CTA stay above the fold. #}
+   (was 4:5, ~490px tall at 390) so the first screen's proof row and CTA stay above the fold.
+   Cycle 110 integration D4: the proof row, the CTA and its price line follow the quote caption, before
+   the lede and the scroll cue (the whole button above the fold at 390 x 844); the look prints them
+   after the hero only for story and display. #}
   <header class="op-hero op-hero--face op-narrow">
     {% if disclosure_label %}<p class="op-eyebrow">{{ disclosure_label }}</p>{% endif %}
     <h1 class="op-h1">{{ fs.headline_html }}</h1>
@@ -14,6 +17,9 @@
       {% if fs.quote %}<figcaption>&ldquo;{{ fs.quote.text }}&rdquo;<small>{{ fs.made_for }}</small></figcaption>{% endif %}
     </figure>
     {% endif %}
+    {% if fs.proof_row %}<p class="op-proofrow">{% for p in fs.proof_row %}{% if not loop.first %}<i aria-hidden="true">&middot;</i>{% endif %}<span>{% if p.kind == "rating" %}<b class="op-star" aria-hidden="true">&#9733;</b> {{ p.text | replace(" ★", "") }}{% else %}{{ p.text }}{% endif %}</span>{% endfor %}</p>{% endif %}
+    <p style="margin:14px 0 0"><a class="op-btn" data-el="hero" href="{{ page.cta_url }}">{{ page.cta_text }} &rarr;</a></p>
+    {% set pl = fs.price_line %}{% if pl %}<p class="op-fine op-pl">{% if pl.net %}<b>{{ pl.net }}</b>{% if pl.code %} with code {{ pl.code }}{% endif %} <s>{{ pl.list }}</s>{% else %}{{ pl.price }}{% endif %}{% if pl.monthly %} &middot; or {{ pl.monthly }}{% endif %}</p>{% endif %}
     {% if fs.lede %}<div class="op-lede"><p>{{ fs.lede }}</p></div>{% endif %}
     <p class="op-cue"><b>&darr;</b> {{ fs.scroll_cue }}</p>
   </header>

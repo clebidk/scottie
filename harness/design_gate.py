@@ -285,10 +285,14 @@ def first_screen_cta(probe_phone):
     cta = probe_phone.get("cta")
     if not cta:
         return _check("fail", "no primary CTA found on the page")
+    # cycle 110 integration D4: the whole button is on the first screen -- its BOTTOM edge (a probe
+    # recorded before the probe measured it has only the top)
     top = cta.get("top") or 0
-    if top >= PHONE[1]:
-        return _check("fail", f"the primary CTA starts at {top}px, below the first {PHONE[1]}px screen", [cta])
-    return _check("pass", f"the primary CTA starts at {top}px, inside the first {PHONE[1]}px screen")
+    bottom = cta.get("bottom") if cta.get("bottom") is not None else top
+    if bottom >= PHONE[1]:
+        return _check("fail", f"the primary CTA starts at {top}px and ends at {bottom}px, below the first "
+                              f"{PHONE[1]}px screen", [cta])
+    return _check("pass", f"the primary CTA starts at {top}px and ends at {bottom}px, inside the first {PHONE[1]}px screen")
 
 
 # Cycle 110: the first phone window a visitor sees on the live store. Measured

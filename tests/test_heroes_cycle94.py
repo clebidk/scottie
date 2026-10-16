@@ -382,7 +382,7 @@ SHIPPED = {
     "listicle-display-dry": "923baa75a0dd4644",
     "listicle-display-frame": "456c6ec876d79a5c",
     "listicle-face-dry": "9b4f3d09ff76e7d5",     # no still: face falls back to story
-    "listicle-face-frame": "4606e937def7dc29",   # cycle 110: the face still framed 4:3 (was 4:5)
+    "listicle-face-frame": "70f047bfcef5f3e1",   # cycle 110: still 4:3; D4: proof row, CTA, price before the lede
     "listicle-story-dry": "9b4f3d09ff76e7d5",
     "listicle-story-frame": "a8ba4d543ad8d4d0",
 }
