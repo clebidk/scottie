@@ -396,6 +396,7 @@ def _named_cause_page(style, headline=None, hero_quote_id=None, display_line=Non
         {"number": i, **copy.deepcopy(item), "image": {"asset_id": _LISTICLE_ASSET_IDS[i]}}
         for i, item in enumerate(chosen, start=1)
     ]
+    page["reasons"][1]["proof"] = {"proof_ref": "reviews-store-live"}   # cycle 110 integration D3, as above
     page["faq"] = {"questions": copy.deepcopy(list(_NAMED_CAUSE_FAQ))}
     page["closing"]["headline"] = "Start with the outlet, then pick the cabin"
     page["closing"]["recap"] = [
