@@ -1,0 +1,15 @@
+# A8 Offer hero, approved library page (owner review 2026-10-16)
+
+Archetype A8 "Offer hero" (reference: dalstrong sum-of-parts in the Landra swipe file). Ad: "$14,032 value". ONE library entry, FOUR sub-variants: `indoor/` (Fuji $8,250), `indoor-sale/` (Fuji $7,950 with INDOOR300, sale strip "$300 off every indoor sauna · ends tonight"), `outdoor/` (Patagonia $10,950), `outdoor-sale/` (Patagonia $10,450 with OUTDOOR500, strip "$500 off outdoor saunas" in the claim's own words). No-sale is the base; the sale twin is derived.
+
+First screen at 390 px (dark band): optional sale strip; masthead; stars + "4.6 rating · 4,260 reviews"; eyebrow "Fuji · 2-person full-spectrum infrared sauna" / "Patagonia · 2-person outdoor sauna"; caps headline in Peak Grotesk Wide "HEAT, RED LIGHT AND A ROUTINE. ONE CEDAR CABIN." / "... IN YOUR YARD."; hero photo (indoor: the full home-gym photo; outdoor: the deck photo) in a 5:4 box on phone and 1:1 on desktop so the whole unit is visible (owner: "fix the image cropping so full sauna is in view"); price block "Compare-at value $14,032 · price $8,250" (outdoor $18,032 / $10,950; compare-at figures from price-fuji / price-patagonia claim text, shown as plain text, never struck, legal pending per the owner's 2026-10-15 decision), sale price with code chip on sale pages, "$458.33/mo for 18 months at 0% APR*" on the Fuji only (no Patagonia monthly claim), CTA "Get the Fuji / Get the Patagonia". First CTA bottom at 390: 754 (no-sale) / 788 (sale).
+
+Body: "What one price gets you" value stack (dollar value only where a claim prices it: Wellness Club $588/yr), three cards (heat on every side / heat up to 170°F outdoors; built to last / built for outside; a routine you keep), delivery and setup band, reviews (store-level quotes, labeled "PEAK owner"), FAQ, offer card with the Patagonia's 240V/20A circuit and electrician in the fine print, footer with the FTC disclosure, Bread Pay terms and proof sources.
+
+Claims: Fuji: price-fuji (incl. compare-at $14,032), spec-fuji-*, financing-monthly-fuji, pwc-value-588, reviews-store-live, units-delivered-12mo, review quotes, promo-community-savings-sale-2026-10 (sale only). Patagonia: price-patagonia (incl. compare-at $18,032), spec-patagonia-wood, -max-temperature, -heater, -red-light, -audio, -electrical, pdp-patagonia-app-control, gbrain-financing-terms.
+
+Flags: compare-at figures ($14,032 / $18,032) are legal-pending; the outdoor deck photo shows the old glass mark small; the outdoor sale footer keeps the full verbatim sale sentence which also names INDOOR300.
+
+Verified 2026-10-16 (all four at 390 and 1280): first CTA bottom 754-788 px; whole unit inside the hero box at both widths (desktop 524x524); no horizontal overflow; 264-403 KB; no banned terms; no exclamation marks; no-sale variants contain zero sale text; no broken images; console clean.
+
+Review copies: indoor-sale https://claude.ai/artifact/PCXmHWMSFQX4Gkg1hfH8AC ; indoor, outdoor-sale and outdoor: see REVIEW.md in the scratchpad for the links published 2026-10-16.
