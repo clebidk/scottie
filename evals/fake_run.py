@@ -262,7 +262,9 @@ def _listicle_page(style, headline=None, hero_quote_id=None, display_line=None):
                 "text": _listicle_words(30, offset=i * 7, tag=i),
                 "lever": _LISTICLE_LEVERS[(i - 1) % len(_LISTICLE_LEVERS)],
                 "image": {"asset_id": _LISTICLE_ASSET_IDS[i]},
-                "proof": _LISTICLE_PROOFS[i - 1],
+                # cycle 110 integration D3: item 2 points at the store rating (the proof element a
+                # fake run's facts carry, see _fake_judgeme_fetch) -- listicle:item_proof_refs
+                "proof": {"proof_ref": "reviews-store-live"} if i == 2 else _LISTICLE_PROOFS[i - 1],
             }
             for i in range(1, 6)
         ],
@@ -525,8 +527,21 @@ def fake_environment(client):
         dest.write_bytes(b"\xff\xd8\xff\xe0fake-drive-bytes")
         return dest
 
+    # cycle 110 integration D3: judge.me is never fetched in a fake run; the store page is the real
+    # 2026-10-15 response (tests/fixtures/c110), every other judge.me URL fails soft (no review quotes)
+    from harness.sources import judgeme
+
+    store_page = (Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "c110"
+                  / "judgeme-store-page-20261015.html")
+
+    def _fake_judgeme_fetch(url):
+        if url == judgeme.store_url():
+            return store_page.read_text()
+        raise OSError(f"fake run: no judge.me response for {url}")
+
     patches = [
         (cli, "make_client", lambda: client),
+        (judgeme, "http_fetch", _fake_judgeme_fetch),
         (pipeline, "refresh_price_data", fake_refresh_price_data),
         (pipeline, "fetch_reviews_claim", lambda url, today_iso, log=None: None),
         (pipeline, "http_fetch_bytes", lambda url: b"\xff\xd8\xff\xe0fake-jpeg-bytes"),
