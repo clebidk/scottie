@@ -7869,11 +7869,43 @@ counted Oct 15 as the last day and a run on Oct 16 (Denver) saw no sale. The sit
 - `harness sale sync --tenant peak-saunas --dry-run` on 2026-10-16 16:08 UTC: bar on, end 2026-10-16T23:30-05:00
   = 22:30 MDT, claim last day 2026-10-15 -> 2026-10-16, text unchanged; verified.json md5 unchanged.
 
+### Owner decisions (2026-10-16, after the first report)
+- Q1 extend is a no-op when nothing on the page changes (3c22585). `extend_changes` compares what a re-render would
+  print (the claim's deadline sentence; the short form, day and date when the page prints them) with the live
+  page, and the page's `data-offer-expires`. Nothing new: facts_pack and state.json take the new end, `sale_expiry`
+  "unchanged", log "extend: unchanged"; no job, no render, no publish. Test on the real arm lwtr-a run
+  (tests/fixtures/c111/lwtr-a, copied from prod): before 22:30 MDT a no-op, nothing due an hour later, `sale_end`
+  at 22:40 MDT; the countdown moved to Oct 20 queues `sale_extend` ("Prices go up on October 20, 2026.").
+- Q2 the rebuild deletes the redirect the sweep made (2bf0545): `sale_end` records {from, to, id} of the redirect
+  it created; a redirect that already existed for the path is not changed and not recorded as ours.
+  `sale_rebuild`, after the page is live again, deletes it only when the store still has that id and target
+  (`ShopifyPublisher.delete_redirect`, DELETE redirects/<id>.json); `sale_expiry.redirect_deleted`.
+- `sale_sweep_rebuild` (ba46306; _template true, peak-saunas false: no new pages from the current generator until
+  the owner approves the next design). False: `sale_end` without a twin hides the page and sets the redirect, queues
+  no rebuild, logs "rebuild deferred (sale_sweep_rebuild false)"; card "sale ended: hidden, rebuild deferred". A
+  twin is still used.
+- Q3 with a twin the headline and the sale CTAs are swapped too (f9668f1): `add_nosale` writes the twin's h1 as
+  `data-nosale-headline` (with the instant) on the page's h1 and the twin's CTA as `data-nosale-cta` on every sale
+  CTA, in the twin stage and on every render next to `<page>-nosale/`; the script uses them after the instant
+  (checked in Chrome). Runs without a twin are unchanged (the sweep hides the page within 10 minutes).
+- Q4 a site-synced deadline wins over the ad's date (fefda0a): a claim with `deadline_end` and the "site promo bar"
+  provenance matches although the ad names another day; grounding logs "ad date Oct 16 ignored, site deadline
+  Oct 20". Test: the real 64wr brief, the claim synced to Oct 20 from the real fixture.
+- Q5 accepted: the twin skips the design judge (it is the sale page's look and composition) and costs one more
+  writer call per offer-led page (own ledger line `<run>-<page>-nosale`).
+
+### Live sale pages on 2026-10-16 (read-only inventory, 65 live pages fetched)
+The 10 live AIIR arms are the only pages that show the sale; each shows "$300 off with code INDOOR300" (vrqs:
+"$500 off with code OUTDOOR500") and "Prices go up on October 16, 2026."; none shows "ends tonight" or "ends
+Thursday". Tests (A and B each, peaksaunas.com/pages/lp-aiir-sale-<...>-a|-b): 300-indoor-static-oct-w2-homep-lwtr,
+fuji-price-static-oct-w2-fuji-5s4e, founder-note-static-oct-w2-hom-6m7j, ends-thursday-static-oct-w2-ho-bxh4,
+patagonia-price-static-oct-w2-vrqs. Arm bxh4 A also has old writer copy "before prices increase soon" (the
+rebuild replaces it). The 5 post-live pages and listicle-test-5, 10, 12 show no sale; listicle-test-1..4, 6..9, 11
+are 404.
+
 ### Open
-- Not run on prod for real; nothing published. With `sale_sweep: true` the first sweep finds the 10 live AIIR arms
-  (expiry from facts_pack: 2026-10-16 00:00 MDT): before 22:30 MDT -> 10 `sale_extend` (re-render of 2026-10-14
-  runs with today's renderer); after it -> 10 `sale_end` (no twin) -> hidden + redirect + 10 model-billed rebuilds.
-- A Shopify redirect applies only while the page is hidden; the rebuild re-publishes the page and the redirect is
-  left in place, inert.
-- The fail-safe leaves an offer-led h1/h2 headline ("$300 off the Fuji, today's price ends tonight") until the job.
+- Not run on prod for real; nothing published, no flag changed. With `sale_sweep: true` the first sweep finds the
+  10 live AIIR arms (expiry from facts_pack: 2026-10-16 00:00 MDT): before 22:30 MDT 10 "extend: unchanged"; after
+  it 10 `sale_end` (no twin): hidden + redirect, rebuild deferred while `sale_sweep_rebuild: false`.
+- Runs without a twin keep their offer-led h1/h2 until the sweep hides the page.
 - A run grounded while the site bar is off but the claim still runs is offer-led until a sync ends the claim.

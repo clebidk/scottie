@@ -512,7 +512,11 @@ with tenant.yaml `sale_sweep: true`) looks at the site once more: the countdown 
 the claim's deadline, a re-render in place and an update at the same address (`sale_extend`); the
 sale is over -> the run's non-sale twin `landing-nosale/` (tenant.yaml `sale_twin: true`) replaces
 the page in place (`sale_end`), else the page is hidden with a store redirect to the product page
-and a fresh non-sale build of the arm replaces it (`sale_rebuild`, = `abtest rebuild-arm`). Views
-and clicks are not reset. The card on the Ads page says "sale extended", "sale ended: switched"
-or "rebuilding". Until a job has run, the page hides its own sale lines at the instant
-(`data-offer-expires` and a small inline script; the h1/h2 headline stays).
+and a fresh non-sale build of the arm replaces it (`sale_rebuild`, = `abtest rebuild-arm`; then the
+sweep deletes the redirect it made). With tenant.yaml `sale_sweep_rebuild: false` (PEAK until the
+next design is approved) no rebuild is queued: the page stays hidden and redirected. An extend whose
+deadline text and instant are already on the page changes nothing ("extend: unchanged"). Views and
+clicks are not reset. The card on the Ads page says "sale extended", "sale ended: switched",
+"rebuilding" or "sale ended: hidden, rebuild deferred". Until a job has run, the page hides its own
+sale lines at the instant (`data-offer-expires` and a small inline script); with a twin, the h1 and
+the sale CTAs take the twin's texts, without one the h1/h2 headline stays.
