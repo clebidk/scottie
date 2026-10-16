@@ -464,10 +464,18 @@ def test_the_sale_page_shows_the_net_price_struck_list_price_and_deadline(tmp_pa
 
 
 def test_no_net_price_means_the_list_price_and_the_claims_offer_line(tmp_path):
+    # cycle 110 integration: one amount always gives a net price (agent A offer_view), so the fallback is
+    # tested with a claim that has no single amount ("up to $300")
     fp, brief = _offer_facts()
+    fp["offer"]["text"] = ("Fall Sale: save up to $300 on indoor saunas with code INDOOR300, applied at checkout; "
+                           "prices go up on October 16, 2099.")
+    for key in ("net_price", "list_price"):
+        fp["offer"].pop(key, None)
+    assert offer.offer_view(fp)["net_price"] is None
     html, _ = _render(tmp_path, _page(cta_text="Shop the sale"), fp, brief)
     first = html[html.index('data-look-pattern="hero:peak_first"'):html.index("</header>")]
-    assert "<b>$8,250</b>" in first and "$300 off with code INDOOR300" in first and "<s>" not in first
+    assert "<b>$8,250</b>" in first and "save up to $300 on indoor saunas with code INDOOR300" in first
+    assert "<s>" not in first and "$7,950" not in first
 
 
 def test_a_legacy_page_in_the_presell_look_shows_its_facts_never_the_ad_lines(tmp_path):

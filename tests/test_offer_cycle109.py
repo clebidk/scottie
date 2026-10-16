@@ -191,7 +191,8 @@ def test_every_landing_look_leads_with_the_offer(tmp_path, look, hero):
     assert "$8,250 &middot; Code INDOOR300" in bar[:400]
     # cycle 110: the offer is the first reason (renderer-owned), before the writer's own
     why = html.index("Why it works")
-    assert why < html.index("$300 off with code INDOOR300", why) < html.index("Heat that reaches your whole body")
+    # cycle 110 integration: one amount for this product -> the net price (agent A offer_view)
+    assert why < html.index("$7,950 with code INDOOR300", why) < html.index("Heat that reaches your whole body")
     assert all(not i.get("offer") for i in page["reasons"]) and "checked_claims" not in page
     assert "offer_unverified" not in page and "last chance" not in html.lower()
 
@@ -465,7 +466,7 @@ def test_the_prod_refusals_are_fixed_and_the_page_passes_after_one_repair(look, 
     first = _first_screen(html)
     assert first.count("INDOOR300") == 1 and first.count("Prices go up on October 16, 2099.") == 1
     why = html[html.index("Why it works"):]
-    assert why.index("$300 off with code INDOOR300") < why.index(page["reasons"][0]["headline"])
+    assert why.index("$7,950 with code INDOOR300") < why.index(page["reasons"][0]["headline"])   # net price
     assert "no discount" not in html.lower() and "full price" not in html.lower()
 
 
