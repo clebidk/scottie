@@ -318,9 +318,22 @@ def _exclude_words(name_words):
     return out
 
 
+def first_screen_h1(page):
+    """The H1 the first screen renders: the display style's wide line
+    (first_screen.display_line), else the headline."""
+    from . import first_screen
+
+    page = page or {}
+    if page.get("hero_style") == "display":
+        return first_screen.display_line(page) or page.get("headline")
+    return page.get("headline")
+
+
 def hook_match(page, ad_brief, facts_pack=None, name_words=()):
     text, quotes = first_screen_text(page, ad_brief, facts_pack)
-    return persuasion.hook_match(text, ad_brief, exclude=_exclude_words(name_words), quotes=quotes), text
+    # cycle 110 round 3: the H1 itself shares a hook (or promise) word, as on the landing page
+    return persuasion.hook_match(text, ad_brief, exclude=_exclude_words(name_words), quotes=quotes,
+                                 headline=str(first_screen_h1(page) or "")), text
 
 
 def find_hook_match_violations(page, ad_brief, facts_pack=None, name_words=(), prefix=PREFIX):

@@ -71,3 +71,28 @@ def test_h2_the_64wr_hook_states_an_unverified_offer_so_the_promise_is_matched()
     assert _hook_keys("$300 off every indoor sauna", brief, fp) == ["landing:hook_match"]   # the unverified offer
     text = " ".join(landing.writer_lines(fp, TENANT, look="peak", ad_brief=brief))
     assert "The ad's offer is not verified; do not state it; lead with the ad's promise instead." in text
+
+
+# ---------------------------------------------------------------------------
+# R2: the listicle H1 itself shares a hook word
+# ---------------------------------------------------------------------------
+
+def _aqdh(name):
+    import json
+
+    from tests.support import REPO_ROOT
+
+    return json.loads((REPO_ROOT / "tests" / "fixtures" / "c110c" / "aqdh" / f"{name}.json").read_text())
+
+
+def test_r2_the_listicle_h1_must_share_a_hook_word():
+    from harness import listicle_persuasion as lp
+
+    page, brief, fp = _aqdh("page"), _aqdh("ad_brief"), _aqdh("facts_pack")
+    names = ["Fuji", "Peak Fuji", "PEAK", "Peak"]
+    assert lp.first_screen_h1(page) == "What medical conditions could benefit"     # the display H1
+    match, _text = lp.hook_match(page, brief, fp, names)
+    assert match["ok"] and match["headline_overlap"]       # passes here; listicle:health_words catches it
+    quiet = dict(page, display_headline="Quiet evenings start here")
+    match, _text = lp.hook_match(quiet, brief, fp, names)
+    assert not match["ok"] and match["headline_overlap"] == []
