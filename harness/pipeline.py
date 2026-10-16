@@ -128,7 +128,8 @@ class RunState:
         self.live_price_claims_by_slug = {}
         self.live_products = []
         self.pdp_claims = []
-        self.today_iso = datetime.date.today().isoformat()
+        # cycle 110 hotfix H1: the tenant's day (tenant.yaml timezone), as the render side
+        self.today_iso = offer_mod.render_today(tenant).isoformat()
         self.ad_brief = None
         self.product = None
         self.product_warning = None
@@ -960,7 +961,7 @@ def abort_budget_run(log, budget, e, *, tenant=None, run_id=None, today_iso=None
     log.event(stage, f"budget exceeded: {e}")
     if tenant is not None:
         budget_mod.record_spend(tenant, run_id=run_id, cost=log.cost_estimate(),
-                                today_iso=today_iso or datetime.date.today().isoformat(), log=log,
+                                today_iso=today_iso or offer_mod.render_today(tenant).isoformat(), log=log,
                                 drafts=drafts)
     log.budget_summary(budget.summary())
     review_md.log_run_result(log, "STOP", gate_log or {})

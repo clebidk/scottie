@@ -349,10 +349,12 @@ def deadline_short(text, claim=None):
             f"{_MONTHS[last.month - 1][:3].capitalize()} {last.day}")
 
 
-def render_today(tenant=None):
+def render_today(tenant=None, now=None):
     """Today in the tenant's timezone (tenant.yaml `timezone`, else UTC):
     the render date a sale's deadline is compared with (cycle 110
-    integration F4). tests/conftest.py pins it."""
+    integration F4) and every run date (pipeline today_iso, the spend
+    ledger; hotfix H1). `now`: an aware datetime instead of the clock.
+    tests/conftest.py pins it."""
     from zoneinfo import ZoneInfo
 
     from . import tenant as tenant_mod
@@ -363,7 +365,7 @@ def render_today(tenant=None):
         tz = ZoneInfo(str(name)) if name else datetime.timezone.utc
     except (ValueError, KeyError):
         tz = datetime.timezone.utc
-    return datetime.datetime.now(tz).date()
+    return (now.astimezone(tz) if now is not None else datetime.datetime.now(tz)).date()
 
 
 def offer_view(facts_pack, today=None):

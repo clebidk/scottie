@@ -16,6 +16,7 @@ from pathlib import Path
 from . import abtest
 from . import asset_describe
 from . import budget as budget_mod
+from . import offer as offer_mod
 from . import brand_import
 from . import notify
 from . import listicle
@@ -133,7 +134,7 @@ def cmd_ingest(args):
         (out_dir / "ad_brief.json").write_text(json.dumps(ad_brief, indent=2))
         cost = log.cost_estimate()
         budget_mod.record_spend(tenant, run_id=run_id, cost=cost,
-                                today_iso=datetime.date.today().isoformat(), log=log)
+                                today_iso=offer_mod.render_today(tenant).isoformat(), log=log)   # hotfix H1
         print(json.dumps(ad_brief, indent=2))
         print(f"\nWrote {out_dir / 'ad_brief.json'}")
         return 0

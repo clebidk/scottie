@@ -15,6 +15,7 @@ from . import quiz as quiz_mod
 from . import tenant as tenant_mod
 from .errors import UnknownProduct
 from .prices import format_price
+from . import offer as offer_mod
 from . import proof as proof_mod
 from .textutil import DOLLAR_AMOUNT_RE, product_name_slug, walk_page
 from .tenant import DEFAULT_CLAIMS_CONFIG as DEFAULT_CONFIG
@@ -1479,7 +1480,7 @@ class LocalFactsSource:
         proof_mod.enrich(
             pack, product, list(self._verified) + pdp_claims_for_product, config=config,
             live_claims=live_claims or (), price=product.get("price"),
-            today_iso=today_iso or datetime.date.today().isoformat(),
+            today_iso=today_iso or offer_mod.render_today().isoformat(),   # cycle 110 hotfix H1
         )
         if include_listicle or include_product_page:
             # Cycle 41: only a run whose selected cartridges include listicle

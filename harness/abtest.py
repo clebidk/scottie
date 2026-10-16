@@ -617,6 +617,7 @@ def default_brief_runner(tenant, input_path, seed):
     call, spend recorded in the daily ledger). Returns (exit code, run_dir
     or None)."""
     from . import budget as budget_mod
+    from . import offer as offer_mod
     from . import config as harness_config
     from .anthropic_client import make_client
     from .budget import Budget, BudgetExceeded
@@ -639,7 +640,7 @@ def default_brief_runner(tenant, input_path, seed):
             return exits.BUDGET, None
         (run_dir / "ad_brief.json").write_text(json.dumps(brief, indent=2))
         budget_mod.record_spend(tenant, run_id=run_id, cost=log.cost_estimate(),
-                                today_iso=datetime.date.today().isoformat(), log=log)
+                                today_iso=offer_mod.render_today(tenant).isoformat(), log=log)   # hotfix H1
         return exits.OK, run_dir
     finally:
         log.close()
