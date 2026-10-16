@@ -269,8 +269,9 @@ def apply_to_run(ad_brief, facts_pack, all_verified, today=None, log=None):
                            "deadline": offer.get("deadline"), "name": offer.get("name")}
     # Cycle 110: the figures the page prints (facts_pack contract: offer.net_price,
     # offer.list_price, offer.code, offer.deadline_short), from offer_view.
-    view = offer_view(facts_pack)
-    facts_pack["offer"].update({k: view[k] for k in ("net_price", "list_price", "code", "deadline_short")})
+    view = offer_view(facts_pack, today=today)
+    if view:   # None only when no grounding date was given and the claim has expired by the render date
+        facts_pack["offer"].update({k: view[k] for k in ("net_price", "list_price", "code", "deadline_short")})
     if log is not None:
         log.event("ground", f"offer matched verified claim {claim['id']}: {offer.get('sentence')!r}")
     return claim
@@ -365,7 +366,7 @@ def render_today(tenant=None):
     return datetime.datetime.now(tz).date()
 
 
-def offer_view(facts_pack):
+def offer_view(facts_pack, today=None):
     """The offer as the renderer prints it, from facts_pack.offer (the
     verified claim) and the product, or None when the page is not
     offer-led: {name, line, code, codes, amount, deadline, cta_note, bar,
@@ -377,7 +378,7 @@ def offer_view(facts_pack):
     if not offer or not offer.get("claim_id"):
         return None
     # cycle 110 integration F4: a sale whose deadline has passed is not shown (a rerender reuses facts_pack)
-    if claim_expired(offer, render_today()):
+    if claim_expired(offer, today or render_today()):
         return None
     text = str(offer.get("text") or "")
     product_words = _product_words(fp.get("product"))

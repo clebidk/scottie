@@ -174,3 +174,10 @@ def test_f4_a_sale_past_its_deadline_is_not_rendered(monkeypatch, tmp_path):
     assert offer.offer_view(fp) is None and landing_sell.deadline(fp) is None
     html, _ = _render(tmp_path, _page(cta_text="Shop the Fuji"), fp, brief)
     assert "INDOOR300" not in html and "$300 off" not in html and "Community Savings Sale" not in html
+
+
+def test_f4_grounding_uses_its_own_date_not_the_wall_clock(monkeypatch):
+    # grounding on Oct 14 (the sale is live) must not fail when the render clock is already past the deadline
+    _render_on(monkeypatch, 20)
+    fp, _brief = _offer_facts()
+    assert fp["offer"]["net_price"] == "$7,950" and offer.offer_view(fp) is None
