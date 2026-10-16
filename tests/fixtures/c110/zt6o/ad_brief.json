@@ -1,0 +1,39 @@
+{
+  "hook": "BEFORE PRICES GO UP OCT 16",
+  "promise": "$300 off every indoor sauna, $500 off outdoor before a price increase",
+  "angle": "Limited-time discount offer ending Thursday with an upcoming price increase creating urgency.",
+  "claims_made": [
+    "Prices go up October 16",
+    "$300 off every indoor sauna",
+    "$500 off outdoor saunas",
+    "Today's price ends Thursday, October 15",
+    "Discount applied at checkout with no code needed"
+  ],
+  "speaker_experience": [],
+  "features_shown": [
+    "Indoor saunas",
+    "Outdoor saunas"
+  ],
+  "objections_raised": [],
+  "cta": "Shop now",
+  "tone": "Urgent, promotional",
+  "speaker_pov": "brand",
+  "source_file": "meta-120259310328070746.jpg",
+  "input_type": "still",
+  "transcript_or_text": "BEFORE PRICES GO UP OCT 16\n\n$300 off\n\nEVERY INDOOR SAUNA.\n\n$500 OFF OUTDOOR\nTODAY'S PRICE ENDS THU, OCT 15\n\nPEAK",
+  "audience": "",
+  "_dropped_emf_claims": [],
+  "offer": {
+    "amounts": [
+      "$300",
+      "$500"
+    ],
+    "amount": "$300",
+    "codes": [],
+    "code": null,
+    "deadline": "October 16",
+    "name": null,
+    "sentence": "$300 off every indoor sauna. $500 off outdoor.",
+    "claim_id": "promo-community-savings-sale-2026-10"
+  }
+}

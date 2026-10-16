@@ -855,7 +855,10 @@ def find_urgency_violations(page, prefix="listicle", allowed_deadlines=()):
                 problems.append(_problem(
                     path, f"{prefix}:urgency:{phrase}",
                     f"urgency phrase {phrase!r} found; this page never uses urgency, a countdown, "
-                    "or a discount to push the reader",
+                    "or a discount to push the reader"
+                    # cycle 110 round 4: the repair names the wording that passes
+                    + (f" -- for the sale's deadline, replace the sentence with: {allowed_deadlines[0]!r} (or, in "
+                       "the headline, \"today's price ends {deadline_day}\")" if allowed_deadlines else ""),
                     text=node,
                 ))
         for sentence in deadline_violations(node, allowed_deadlines):
@@ -863,7 +866,8 @@ def find_urgency_violations(page, prefix="listicle", allowed_deadlines=()):
                 path, f"{prefix}:urgency:deadline",
                 "deadline sentence found; this page never uses urgency to push the reader"
                 + (f" -- the one deadline it may state is the verified claim's own sentence, word for word: "
-                   f"{allowed_deadlines[0]!r}" if allowed_deadlines else ""),
+                   f"{allowed_deadlines[0]!r}; replace the sentence with: {allowed_deadlines[0]!r} (or, in the "
+                   "headline, \"today's price ends {deadline_day}\")" if allowed_deadlines else ""),
                 text=sentence,
             ))
     return problems

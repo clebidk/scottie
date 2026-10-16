@@ -1,0 +1,11 @@
+{
+  "stage": "page_json:landing",
+  "items": [
+    {
+      "path": "$.hero.headline",
+      "key": "landing:urgency:deadline",
+      "issue": "deadline sentence found; this page never uses urgency to push the reader -- the one deadline it may state is the verified claim's own sentence, word for word: 'Prices go up on October 16, 2026.'",
+      "text": "{offer_amount} off the Fuji, before prices go up"
+    }
+  ]
+}

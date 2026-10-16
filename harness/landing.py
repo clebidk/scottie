@@ -669,6 +669,20 @@ def offer_writer_lines(facts_pack):
         "\"{offer_amount} off the <model>, today's price ends {deadline_day}\" -- or names the sale in words. "
         "The offer needs its code at checkout: never say it applies automatically. No countdown, no \"last "
         "chance\", no \"hurry\", no invented scarcity.",
+    ] + deadline_wording_lines(fp)
+
+
+def deadline_wording_lines(facts_pack):
+    """Cycle 110 round 4 (run zt6o): the two deadline wordings the urgency
+    gate lets through, verbatim, and the phrases that fail it."""
+    allowed = offer_mod.allowed_deadline_sentences(facts_pack)
+    if not allowed:
+        return []
+    return [
+        "DEADLINE WORDING: the page may state the sale's deadline in exactly two ways, word for word: the "
+        f"verified claim's own sentence {json.dumps(allowed[0])}, or the headline token form "
+        "\"today's price ends {deadline_day}\". Every other deadline or urgency phrase fails the gate, e.g. "
+        "\"before prices go up\", \"today only\", \"last chance\", \"hurry\", \"don't miss\".",
     ]
 
 
