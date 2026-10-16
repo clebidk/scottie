@@ -536,3 +536,69 @@ def test_a_fake_run_of_the_sale_ad_writes_the_non_sale_twin(tmp_path, monkeypatc
     assert json.loads((run_dir / "landing-nosale" / "page.json").read_text())["look"] == "open"
     ledger = [json.loads(x) for x in budget_mod.spend_ledger_path(TENANT).read_text().splitlines() if x.strip()]
     assert any(e.get("run_id") == f"{run_dir.name}-landing-nosale" and "cost_estimate" in e for e in ledger)
+
+
+# ---------------------------------------------------------------------------
+# owner decisions 2026-10-16
+# ---------------------------------------------------------------------------
+
+LWTR = REPO_ROOT / "tests" / "fixtures" / "c111" / "lwtr-a"   # live arm A of aiir-sale-300-indoor-...-lwtr (Oct 14)
+
+
+def _real_arm():
+    """The real run of a live AIIR arm (index.html, page.json, facts_pack.json,
+    ad_brief.json as on prod), published and in a live test; no
+    offer_expires in state.json (built before cycle 111)."""
+    run_dir = TENANT.out_dir / "20261014-161608-meta-120259310328070746-ks3s"
+    (run_dir / "landing").mkdir(parents=True)
+    for name in ("index.html", "page.json"):
+        shutil.copy(LWTR / name, run_dir / "landing" / name)
+    for name in ("facts_pack.json", "ad_brief.json"):
+        shutil.copy(LWTR / name, run_dir / name)
+    runstate.init_state(run_dir, pages=["landing"])
+    runstate.mark_published(run_dir, page="landing", by="caleb@peaksaunas.com", page_id=165391204653,
+                            handle="lp-aiir-sale-300-indoor-static-oct-w2-homep-lwtr-a",
+                            url="https://peaksaunas.com/pages/lp-aiir-sale-300-indoor-static-oct-w2-homep-lwtr-a")
+    runstate.record_abtest(run_dir, page="landing", test_id="aiir-lwtr", key="A")
+    abtest.save_test(TENANT, {"test_id": "aiir-lwtr", "status": "live", "seed": 1, "input": "x.jpg", "variants": [
+        {"key": "A", "arm": "landing:cinematic:caps_over_photo", "cartridge": "landing", "run_dir": str(run_dir),
+         "status": "built", "shopify": {"page_id": 165391204653, "handle": "lp-aiir-sale-300-indoor-static-oct-w2-"
+                                        "homep-lwtr-a", "url": "https://peaksaunas.com/pages/lp-aiir-sale-300-indoor-"
+                                        "static-oct-w2-homep-lwtr-a"}}]})
+    return run_dir
+
+
+def test_q1_the_real_aiir_arm_is_a_no_op_before_the_countdown_ends(tmp_path, claims_tmp, monkeypatch):
+    monkeypatch.setattr(offer, "render_today", lambda tenant=None: datetime.date(2026, 10, 16))
+    run_dir = _real_arm()
+    before = (run_dir / "landing" / "index.html").read_bytes()
+    assert b"Prices go up on October 16, 2026." in before and b"data-offer-expires" not in before
+    [item] = sale_sync.live_offer_pages(TENANT)
+    assert item["offer_expires"] == "2026-10-16T00:00:00-06:00" and item["expires_from"] == "facts_pack"
+    noon = datetime.datetime(2026, 10, 16, 18, 0, tzinfo=UTC)          # 12:00 MDT, before 22:30
+    lines = []
+    out = sale_sync.sweep(TENANT, now=noon, fetch=lambda url: _home(), log=lines.append)
+    assert [d["action"] for _i, d, _j in out["decisions"]] == ["unchanged"]
+    assert any("extend: unchanged" in x for x in lines) and not jobs.list_jobs(TENANT)
+    assert (run_dir / "landing" / "index.html").read_bytes() == before            # no render, no publish
+    state = runstate.load_state(run_dir)
+    assert state["offer_expires"] == END and state["sale_expiry"]["status"] == "unchanged"
+    assert json.loads((run_dir / "facts_pack.json").read_text())["offer"]["last_sale_day"] == "2026-10-16"
+    # the next sweep before 22:30 MDT has nothing due; at 22:40 MDT the sale has ended
+    assert sale_sync.sweep(TENANT, now=noon + datetime.timedelta(hours=1), fetch=lambda url: 1 / 0,
+                           log=lines.append)["due"] == 0
+    late = datetime.datetime(2026, 10, 17, 4, 40, tzinfo=UTC)
+    sale_sync.sweep(TENANT, now=late, fetch=lambda url: _home(), log=lines.append)
+    assert [j["type"] for j in jobs.list_jobs(TENANT)] == ["sale_end"]
+
+
+def test_q1_a_moved_countdown_that_changes_the_sentence_still_re_renders(tmp_path, claims_tmp, monkeypatch):
+    monkeypatch.setattr(offer, "render_today", lambda tenant=None: datetime.date(2026, 10, 16))
+    run_dir = _real_arm()
+    later = "2026-10-20T23:30:00-05:00"
+    noon = datetime.datetime(2026, 10, 16, 18, 0, tzinfo=UTC)
+    sale_sync.sweep(TENANT, now=noon, fetch=lambda url: _home({"pk_promo_end": later}), log=lambda *_: None)
+    [job] = jobs.list_jobs(TENANT)
+    assert job["type"] == "sale_extend" and job["target"] == f"run:{run_dir.name}/landing"
+    fp = sale_sync.offer_with_claim(json.loads((run_dir / "facts_pack.json").read_text()), _promo(claims_tmp), later)
+    assert sale_sync.extend_changes(run_dir, "landing", fp, later) == ["text 'Prices go up on October 20, 2026.'"]

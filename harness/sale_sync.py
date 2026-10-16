@@ -27,7 +27,9 @@ extended before switching to the normal non-sale listicle."
     card shows.
 """
 import argparse
+import copy
 import datetime
+import html as html_mod
 import json
 import os
 import re
@@ -314,7 +316,7 @@ def sync(tenant, *, dry_run=False, accept_site_offer=False, fetch=None, now=None
             _write_json(path, claims)
     if not dry_run:
         _write_json(site_path(tenant), record)
-    return dict(result, action=action, fields=fields)
+    return dict(result, action=action, fields=fields, claim=dict(claim, **fields))
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +443,63 @@ def set_sale_expiry(run_dir, **fields):
     return data["sale_expiry"]
 
 
+def offer_with_claim(facts_pack, claim, end):
+    """A copy of facts_pack whose offer takes the claim's text and synced
+    deadline and ends at `end`."""
+    fp = copy.deepcopy(facts_pack)
+    fp["offer"].update({k: claim[k] for k in ("text", "last_sale_day", "deadline_end") if claim.get(k)})
+    fp["offer"]["expires"] = end
+    fp["offer"]["deadline_short"] = offer_mod.deadline_short(fp["offer"]["text"], fp["offer"])
+    return fp
+
+
+def _shown(text):
+    return " ".join(html_mod.unescape(text).replace("\u2019", "'").split()).lower()
+
+
+def extend_changes(run_dir, page, facts_pack, end):
+    """What a re-render with the moved deadline would change on the live
+    page: a deadline text the page does not show yet (the claim's deadline
+    sentence; the short form, the day and the date when the page prints
+    them), or an instant on the page other than `end`. Empty: the page
+    already says what the countdown says, and the extend is a no-op (owner
+    decision, 2026-10-16)."""
+    from . import landing_sell
+
+    path = Path(run_dir) / page / "index.html"
+    raw = path.read_text() if path.is_file() else ""
+    shown = _shown(raw)
+    view = offer_mod.offer_view(facts_pack)
+    if view is None:
+        return ["the sale would not show"]
+    texts = [view["deadline"]] if view.get("deadline") else []
+    deadline = landing_sell.deadline(facts_pack)
+    page_json = json.dumps(_read(Path(run_dir) / page / "page.json"))
+    if deadline:
+        if "today's price ends" in shown:
+            texts.append(deadline["short"])
+        texts += [deadline[k] for k, token in (("day", "{deadline_day}"), ("date", "{deadline_date}"))
+                  if token in page_json]
+    changes = [f"text {t!r}" for t in texts if t and _shown(t) not in shown]
+    instants = set(re.findall(r'data-offer-expires="([^"]+)"', raw))
+    if instants and instants != {end}:
+        changes.append(f"instant {', '.join(sorted(instants))} -> {end}")
+    return changes
+
+
+def record_unchanged(run_dir, facts_pack, end):
+    """An extend that changes nothing on the page: the run's offer and
+    state.json take the new end (the next sweep waits for it); no render,
+    no publish."""
+    from . import runstate
+
+    (Path(run_dir) / "facts_pack.json").write_text(json.dumps(facts_pack, indent=2))
+    data = runstate.load_state(run_dir)
+    data["offer_expires"] = end
+    runstate.save_state(run_dir, data)
+    set_sale_expiry(run_dir, status="unchanged", end=end)
+
+
 def sweep(tenant, *, now=None, fetch=None, dry_run=False, by=None, log=print):
     """One sweep. Returns {"due", "decisions": [(item, decision, job_id)]}.
     Fetches the site only when a live page's offer has ended."""
@@ -453,10 +512,10 @@ def sweep(tenant, *, now=None, fetch=None, dry_run=False, by=None, log=print):
     if not due:
         log("sale sweep: no live offer page has reached its end")
         return out
-    site, stopped = None, False
+    site, stopped, claim = None, False, None
     try:
         result = sync(tenant, dry_run=dry_run, fetch=fetch, now=now, log=log)
-        site, stopped = result["record"], result["action"] in ("stopped", "no claim")
+        site, stopped, claim = result["record"], result["action"] in ("stopped", "no claim"), result.get("claim")
     except SaleSyncError as e:
         log(f"sale sweep: WARNING {e}; no page changed (the page fail-safe hides the offer)")
     by = by or abtest_inbox.default_by(tenant)
@@ -466,13 +525,23 @@ def sweep(tenant, *, now=None, fetch=None, dry_run=False, by=None, log=print):
             decision = {"action": "unknown", "reason": "the site's offer differs from the claim (sync stopped)"}
         done = item["sale_expiry"]
         if decision["action"] == "extend" and done.get("end") == decision["end"] and \
-                done.get("status") in ("extending", "extended"):
+                done.get("status") in ("extending", "extended", "unchanged"):
             decision = {"action": "wait", "reason": f"already extended to {decision['end_local']}"}
         if decision["action"] == "end" and done.get("status") in ("ending", "rebuilding", "switched"):
             decision = {"action": "wait", "reason": f"already {done['status']}"}
         job_id = None
         label = f"run {item['run_id']} page {item['page']} ({item['kind']}" + \
             (f" {item['test_id']} {item['key']}" if item["kind"] == "abtest" else "") + ")"
+        fp = _read(Path(item["run_dir"]) / "facts_pack.json")
+        if decision["action"] == "extend" and claim and (fp.get("offer") or {}).get("claim_id") == claim.get("id"):
+            fp = offer_with_claim(fp, claim, decision["end"])
+            if not extend_changes(item["run_dir"], item["page"], fp, decision["end"]):
+                if not dry_run:
+                    record_unchanged(item["run_dir"], fp, decision["end"])
+                log(f"sale sweep: {label}: extend: unchanged (the page already shows the deadline); expires "
+                    f"{decision['end_local']}" + (" (dry run)" if dry_run else ""))
+                out["decisions"].append((item, dict(decision, action="unchanged"), None))
+                continue
         if decision["action"] in ("extend", "end"):
             job_type = "sale_extend" if decision["action"] == "extend" else "sale_end"
             what = f"sale extended to {decision['end_local']}" if decision["action"] == "extend" else "sale ended"
@@ -564,9 +633,12 @@ def handle_sale_extend(tenant, payload):
         claim = next((c for c in claims if c.get("id") == (fp.get("offer") or {}).get("claim_id")), None)
         if claim is None:
             raise jobs.JobFailed("the run's promo claim is gone from verified.json")
-        fp["offer"].update({k: claim[k] for k in ("text", "last_sale_day", "deadline_end") if claim.get(k)})
-        fp["offer"]["expires"] = payload["end"]
-        fp["offer"]["deadline_short"] = offer_mod.deadline_short(fp["offer"]["text"], fp["offer"])
+        fp = offer_with_claim(fp, claim, payload["end"])
+        changes = extend_changes(run_dir, payload["page"], fp, payload["end"])
+        if not changes:
+            record_unchanged(run_dir, fp, payload["end"])
+            print(f"run {run_dir.name}: extend: unchanged", flush=True)
+            return {"run_id": run_dir.name, "end": payload["end"], "unchanged": True}
         fp_path.write_text(json.dumps(fp, indent=2))
         from . import runstate
 
