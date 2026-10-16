@@ -472,7 +472,7 @@ def _append_design_reference_guidance(hard_constraints, cartridge_name, tenant):
 # drafts of one run (the headline template's lines and the skeleton's) --
 # _listicle_draft_lines puts them after the last cache breakpoint instead.
 def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, headline=None, skeleton=None,
-                                    tenant=None, include_draft=True):
+                                    tenant=None, include_draft=True, ad_brief=None, facts_pack=None):
     if cartridge_name != "listicle":
         return
     hard_constraints.extend(listicle.writer_rules_lines())
@@ -482,6 +482,10 @@ def _append_listicle_style_guidance(hard_constraints, cartridge_name, style, hea
     hard_constraints.extend(listicle_quality.writer_lines(getattr(tenant, "display_name", None)))
     if style == "myths":
         hard_constraints.append(listicle_quality.myth_writer_line())
+    # Cycle 110 round 4: a medical hook is met only by the speaker's own sentence, word for word
+    from . import listicle_persuasion
+
+    hard_constraints.extend(listicle_persuasion.medical_hook_lines(ad_brief, facts_pack))
 
 
 def _listicle_draft_lines(cartridge_name, style, headline=None, skeleton=None):
@@ -782,7 +786,8 @@ def build_initial_write_request(*, cartridge_name, cartridges_dir, ad_brief, fac
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
-                                    skeleton=skeleton, tenant=tenant, include_draft=False)
+                                    skeleton=skeleton, tenant=tenant, include_draft=False, ad_brief=ad_brief,
+                                    facts_pack=facts_pack)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)
@@ -877,7 +882,8 @@ def write_page(*, cartridge_name, cartridges_dir, ad_brief, facts_pack, client, 
     _append_design_reference_guidance(hard_constraints, cartridge_name, tenant)
     _append_warmup_hard_constraints(hard_constraints, cartridge_name, tenant)
     _append_listicle_style_guidance(hard_constraints, cartridge_name, listicle_style, headline=listicle_headline,
-                                    skeleton=skeleton, tenant=tenant, include_draft=False)
+                                    skeleton=skeleton, tenant=tenant, include_draft=False, ad_brief=ad_brief,
+                                    facts_pack=facts_pack)
     _append_comparison_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_quiz_guidance(hard_constraints, cartridge_name, facts_pack)
     _append_product_page_guidance(hard_constraints, cartridge_name)

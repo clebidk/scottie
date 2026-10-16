@@ -429,6 +429,43 @@ def _norm_words(text):
     return " ".join(re.sub(r"[^a-z0-9]+", " ", str(text or "").lower().replace("\u2019", "'").replace("'", "")).split())
 
 
+MEDICAL_HOOK_LINE = ("The ad's hook is medical: the headline or the first-screen quote must be one whole sentence "
+                     "of the speaker's transcript, word for word, in quotation marks; never paraphrase the medical "
+                     "words.")
+
+
+def medical_hook(ad_brief):
+    """Cycle 110 round 4 (run 2jon): the ad's own hook carries a health word."""
+    return bool(HEALTH_WORD_RE.search(str((ad_brief or {}).get("hook") or "")))
+
+
+def transcript_sentences(ad_brief, facts_pack=None):
+    """The speaker's whole transcript sentences that are safe to quote
+    (claims.safe_quote_candidates kept them uncut)."""
+    from .claims import safe_quote_candidates
+
+    whole = {_norm_words(s) for s in _sentences((ad_brief or {}).get("transcript_or_text") or "")}
+    return [q["text"] for q in safe_quote_candidates(ad_brief, facts_pack or {}) if _norm_words(q["text"]) in whole]
+
+
+def medical_hook_lines(ad_brief, facts_pack=None):
+    """The writer line for a medical hook, with the candidate sentences."""
+    if not medical_hook(ad_brief):
+        return []
+    sentences = transcript_sentences(ad_brief, facts_pack)
+    return [MEDICAL_HOOK_LINE + (" The speaker's sentences: " + " | ".join(json.dumps(s) for s in sentences)
+                                 if sentences else "")]
+
+
+def medical_hook_hint(ad_brief, facts_pack=None):
+    """The repair hint for health_words / message_match on a medical hook."""
+    if not medical_hook(ad_brief):
+        return ""
+    sentences = transcript_sentences(ad_brief, facts_pack)
+    return (" -- the ad's hook is medical: make the headline one whole sentence of the speaker's transcript, word "
+            "for word, in quotation marks" + (f", e.g. {json.dumps(sentences[0])}" if sentences else ""))
+
+
 def find_health_word_violations(page, ad_brief=None, prefix=PREFIX):
     """listicle:health_words:<path> -- HEALTH_WORD_RE in the headline,
     display headline, accent phrase, lede, title or an item heading, outside a
@@ -455,7 +492,8 @@ def find_health_word_violations(page, ad_brief=None, prefix=PREFIX):
                 problems.append(_problem(path, f"{prefix}:health_words:{path}",
                                          f"{m.group(0)!r} at the top of the page or in an item heading -- never a "
                                          "medical, condition, benefit, treatment, symptom, relief or pain word "
-                                         "there; the speaker's own sentence, word for word, is the only exception",
+                                         "there; the speaker's own sentence, word for word, is the only exception"
+                                         + medical_hook_hint(ad_brief),
                                          text=text))
                 break
     return problems

@@ -352,6 +352,12 @@ def ad_hook_stems(ad_brief, exempt=frozenset()):
     return set(_content_stems(text)) - _GENERIC_MATCH_STEMS - exempt
 
 
+def _medical_hook_hint(ad_brief):
+    from .listicle_persuasion import medical_hook_hint
+
+    return medical_hook_hint(ad_brief)
+
+
 def find_message_match_violations(page, ad_brief, exempt=frozenset()):
     wanted = ad_hook_stems(ad_brief, exempt)
     if not wanted:
@@ -364,7 +370,7 @@ def find_message_match_violations(page, ad_brief, exempt=frozenset()):
         "$.dek", "listicle:message_match",
         f"neither the headline nor the dek carries the ad's own hook ({hook!r}) -- the reader "
         "clicked that ad; say its problem in its own words in the dek (and in the headline's free "
-        "slots where the template allows)",
+        "slots where the template allows)" + _medical_hook_hint(ad_brief),
         text=page.get("dek") or "",
     )]
 

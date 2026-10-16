@@ -1,0 +1,29 @@
+{
+  "stage": "page_json:listicle",
+  "items": [
+    {
+      "path": "$.headline",
+      "key": "listicle:speaker_pronoun:$.headline",
+      "issue": "\"her\" for the ad's speaker: the ad's speaker is \"he\"",
+      "text": "He wanted relief for her. His garage had no outlet ready."
+    },
+    {
+      "path": "$.headline",
+      "key": "listicle:speaker_slot_words",
+      "issue": "the headline tells the speaker's story with words she never said (relief, garag, outlet, readi) -- use her own transcript words in it, or a template that does not describe her",
+      "text": "He wanted relief for her. His garage had no outlet ready."
+    },
+    {
+      "path": "$.dek",
+      "key": "listicle:message_match",
+      "issue": "neither the headline nor the dek carries the ad's own hook (\"I'm a board certified PA and I think a lot about what medical conditions or types of people would benefit from an infrared sauna.\") -- the reader clicked that ad; say its problem in its own words in the dek (and in the headline's free slots where the template allows)",
+      "text": "A lot of buyers chase a feature list and miss the setup checks that matter."
+    },
+    {
+      "path": "$.headline",
+      "key": "listicle:health_words:$.headline",
+      "issue": "'relief' at the top of the page or in an item heading -- never a medical, condition, benefit, treatment, symptom, relief or pain word there; the speaker's own sentence, word for word, is the only exception",
+      "text": "He wanted relief for her. His garage had no outlet ready."
+    }
+  ]
+}
