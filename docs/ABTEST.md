@@ -499,3 +499,20 @@ copy style with a first screen so all three are in play; the Thompson sampler is
 without the 4th part still works: the run seeds a hero style. The beacon counts clicks on
 the open look's `op-btn` / `op-link` (abtest.CTA_CLASSES).
 
+
+## Sale pages after the sale (cycle 111)
+
+The deadline of a sale page comes from the store's own countdown (the `pk_promo_*` theme settings
+in the peaksaunas.com homepage). `harness sale sync --tenant <t> [--dry-run]` reads it into
+`runs/sale-site.json` and sets the promo claim's `last_sale_day` / `deadline_end` (the wording
+stays; different amounts or codes stop the sync until the owner approves, `--accept-site-offer`).
+Every offer-led run records `offer_expires` in state.json. When an arm's (or a post-live page's)
+offer has expired, `harness sale sweep` (and the worker, hourly and 10 minutes after an expiry,
+with tenant.yaml `sale_sweep: true`) looks at the site once more: the countdown moved later ->
+the claim's deadline, a re-render in place and an update at the same address (`sale_extend`); the
+sale is over -> the run's non-sale twin `landing-nosale/` (tenant.yaml `sale_twin: true`) replaces
+the page in place (`sale_end`), else the page is hidden with a store redirect to the product page
+and a fresh non-sale build of the arm replaces it (`sale_rebuild`, = `abtest rebuild-arm`). Views
+and clicks are not reset. The card on the Ads page says "sale extended", "sale ended: switched"
+or "rebuilding". Until a job has run, the page hides its own sale lines at the instant
+(`data-offer-expires` and a small inline script; the h1/h2 headline stays).

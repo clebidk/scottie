@@ -7805,3 +7805,75 @@ Branches `cycle110/hotfix-date` (from 715cc38) and `cycle110/round3`, worktree `
   facts), R2 (aqdh), R3 (enforce stops proof at 60, advise records peak at 60, a peak CTA below the fold stops).
 - Known flake: `test_grading_cycle97::test_cinematic_light_passes_the_hard_checks_at_390[caps_over_photo]` failed
   `contrast_hero` once under full-suite load and passes alone (real-browser timing); left as is.
+
+## Cycle 111 (sale countdown sync and expiry sweep, 2026-10-16)
+
+Branch `cycle111/sale-countdown`, worktree `~/adv-c111`, from master 2c554b2. Not merged, not pushed.
+
+### Problem
+Owner rule (intent, verbatim): "The listicle is always time-stamped for when the sale ends off of the site
+countdown. When the countdown ends, have one more look at the site to ensure the sale was not extended before
+switching to the normal non-sale listicle." The promo claim says "prices go up on October 16, 2026", so pages
+counted Oct 15 as the last day and a run on Oct 16 (Denver) saw no sale. The site's countdown ends
+2026-10-16T23:30:00-05:00 (22:30 Oct 16 in Denver). Published pages are static: nothing switched them after a sale.
+
+### Change
+- `harness/sale_sync.py` (new). `parse_promo` reads only the `"pk_promo_<key>": <scalar>` values from the homepage
+  (a GET with a browser User-Agent; the page is data, `pk_promo_exclude` is not kept). `normalize` -> {enabled,
+  end, end_local, last_sale_day, timezone, message, codes, amounts, cta_url, after_end, fetched_at, source_url}.
+  `sync` (`harness sale sync [--dry-run] [--accept-site-offer]`): finds the promo claim (a shared code, else the
+  sale name), compares the last sale day; a difference sets `last_sale_day`, `deadline_end` and appends "deadline
+  from site promo bar, fetched <ts>" to `source` (id kept). The text's date changes only when it no longer names
+  the countdown's day ("prices go up on <the end's local date>", "ends <last day>"). Different amounts or codes:
+  WARNING and stop (exit 1) unless `--accept-site-offer`. A bar switched off ends a claim that still runs at the
+  instant it was seen. Writes `runs/sale-site.json` (with `claim_id` only when the offer matched).
+- `harness/offer.py`: a synced `last_sale_day` wins in `_claim_date`; `claim_expired(..., now=)` also ends a claim
+  at `deadline_end`; grounding passes `now`; `match_offer` compares the ad's date with the claim text's own date;
+  `facts_pack.offer` carries the synced fields; `tenant_tz`, `expires_iso`, `without_offer`.
+- `pipeline.ground`: `record_run_expiry` -> `facts_pack.offer.expires` and state.json `offer_expires` /
+  `offer_claim_id` (the site's end when sale-site.json is fresh, < 24 h, on and about this claim; else the claim's
+  last day + 1 at 00:00 tenant time).
+- Sweep (`harness sale sweep [--dry-run] [--by]`; the worker via `jobs.work(tick=)` when tenant.yaml
+  `sale_sweep: true`, hourly and at expiry + 10 min). Live pages = arms of live tests + unlinked post-live pages;
+  a run from before this cycle gets its expiry from facts_pack.json. Expired -> one sync (no amount/code edit) ->
+  `decide`: extend (bar on, end later), end (bar off, or end passed with after_end hide), unknown (WARNING, no
+  action). Jobs (new types): `sale_extend` (refresh facts_pack.offer from the claim, `harness rerender`, update:
+  arm = `_publish_update` live + seo hidden, no stats reset; post-live = update action), `sale_end` (twin ->
+  `<page>-sale/` kept, twin copied over `<page>/`, update; no twin -> the page hidden, `create_redirect`
+  /pages/<handle> -> the product path, `sale_rebuild` queued), `sale_rebuild` (arm: `rebuild_arm`; post-live:
+  a run of `ad_brief.source_file` in the page's look/hero, carry the page, update). Idempotent: one active job per
+  target, state.json `sale_expiry` {status, end, ...}; the Ads page card prints it.
+- Non-sale twin: stage `sale_twin` after `design_gate` (tenant.yaml `sale_twin`; _template false, peak-saunas
+  true; the suite sets `HARNESS_SALE_TWIN=off`): the writer with `without_offer` facts (offer unverified), the sale
+  page's look, hero and headline template, the render backstops (no design judge), into `<page>-nosale/`; its own
+  RunLog and spend-ledger line `<run>-<page>-nosale`; a STOP is recorded, the run goes on.
+- Page fail-safe (`harness/offer_failsafe.py`, landing and listicle, offer-led only): `data-offer-expires` on the
+  offer bar (a short line that starts with the sale name), the offer lines, "with code X" lines, the offer's
+  checked claim, every price line with a struck price (`data-offer-list/net/strip`) and every sale CTA
+  (`data-offer-cta` = the schema's default CTA, "Shop the Fuji"); a 10-line inline script acts only past the
+  instant. h1/h2 are never touched.
+- tenant.yaml: `sale_twin`, `sale_sweep` (peak-saunas `sale_sweep: false` until the owner turns it on).
+
+### Verify
+- tests/test_sale_cycle111.py (25 offline + 1 `live`/`real_browser`): parse of the real 2026-10-16 slice
+  (tests/fixtures/c111/site-promo-2026-10-16.json); Central end -> Denver 22:30, last day Oct 16, "tonight" on
+  Oct 16, "Friday" on Oct 15, offer gone Oct 17, the instant at 22:29/22:31; sync dry run writes nothing, the real
+  sync changes only the promo claim, then "unchanged"; CLI dry run; extension (text -> October 20); $400 on the
+  site stops, `--accept-site-offer` rewrites; bar off; run expiry fresh / stale; decide; sweep (dry run, one job
+  per page, no duplicate, no fetch before the end); extend job re-renders "October 20" in place; end job prefers
+  the twin; no twin -> hide + redirect + rebuild job; worker clock; fail-safe on landing (peak look), listicle,
+  shared markup, none on an offer-free page; `without_offer`; twin stage switch; fake run of the AIIR sale ad
+  writes `landing-nosale/` (no code, no deadline) and its ledger line.
+- LCP/CLS (prod, google-chrome, Slow 4G, 4x CPU, dry render without images): no fail-safe 544/576 ms CLS 0;
+  fail-safe before the instant 516/544 ms CLS 0; after 596/580 ms CLS 0; HTML 43,053 -> 44,949 bytes.
+- `harness sale sync --tenant peak-saunas --dry-run` on 2026-10-16 16:08 UTC: bar on, end 2026-10-16T23:30-05:00
+  = 22:30 MDT, claim last day 2026-10-15 -> 2026-10-16, text unchanged; verified.json md5 unchanged.
+
+### Open
+- Not run on prod for real; nothing published. With `sale_sweep: true` the first sweep finds the 10 live AIIR arms
+  (expiry from facts_pack: 2026-10-16 00:00 MDT): before 22:30 MDT -> 10 `sale_extend` (re-render of 2026-10-14
+  runs with today's renderer); after it -> 10 `sale_end` (no twin) -> hidden + redirect + 10 model-billed rebuilds.
+- A Shopify redirect applies only while the page is hidden; the rebuild re-publishes the page and the redirect is
+  left in place, inert.
+- The fail-safe leaves an offer-led h1/h2 headline ("$300 off the Fuji, today's price ends tonight") until the job.
+- A run grounded while the site bar is off but the claim still runs is offer-led until a sync ends the claim.
