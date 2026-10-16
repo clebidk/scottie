@@ -35,6 +35,7 @@ from . import pagechecks
 from . import quiz as quiz_mod
 from . import landing as landing_mod
 from . import runstate as runstate_mod
+from . import offer as offer_mod
 from . import pdp as pdp_mod
 from . import quote_fidelity
 from . import tenant as tenant_mod

@@ -255,7 +255,7 @@ def _accept_offer(claim, record):
     if len(amounts) != len(record["amounts"]) or len(codes) != len(record["codes"]):
         return None
     text = claim["text"]
-    for old, new in list(zip(amounts, record["amounts"])) + list(zip(codes, record["codes"])):
+    for old, new in list(zip(amounts, record["amounts"], strict=True)) + list(zip(codes, record["codes"], strict=True)):
         text = re.sub(re.escape(old) + r"(?![\d,A-Z])", new, text)
     return text
 
