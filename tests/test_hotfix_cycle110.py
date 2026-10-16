@@ -40,3 +40,34 @@ def test_h1_the_run_date_comes_from_render_today(monkeypatch):
     monkeypatch.setattr(offer, "render_today", lambda tenant=None, now=None: REAL_RENDER_TODAY(tenant, now=RUN_64WR))
     assert TENANT.get("timezone") == "America/Denver"
     assert pipeline.RunState(tenant=TENANT, args=None, client=None).today_iso == "2026-10-15"
+
+
+# ---------------------------------------------------------------------------
+# H2: an unverified offer in the hook falls back to the ad's promise
+# ---------------------------------------------------------------------------
+
+def _64wr(name):
+    import json
+
+    from tests.support import REPO_ROOT
+
+    return json.loads((REPO_ROOT / "tests" / "fixtures" / "c110" / "64wr" / f"{name}.json").read_text())
+
+
+def _hook_keys(headline, brief, fp):
+    from harness import persuasion
+
+    return [p["key"] for p in persuasion.find_hook_match_violations({"hero": {"headline": headline}}, brief,
+                                                                     facts_pack=fp, exclude={"peak", "fuji"})]
+
+
+def test_h2_the_64wr_hook_states_an_unverified_offer_so_the_promise_is_matched():
+    from harness import landing
+
+    brief, fp = _64wr("ad_brief"), _64wr("facts_pack")
+    assert brief["hook"] == "$300 off every indoor sauna" and brief["offer"] and offer.offer_view(fp) is None
+    assert _hook_keys("A full-spectrum infrared sauna built for two", brief, fp) == ["landing:hook_match"]  # attempt 2
+    assert _hook_keys("Save on a two-person sauna before the price goes up", brief, fp) == []
+    assert _hook_keys("$300 off every indoor sauna", brief, fp) == ["landing:hook_match"]   # the unverified offer
+    text = " ".join(landing.writer_lines(fp, TENANT, look="peak", ad_brief=brief))
+    assert "The ad's offer is not verified; do not state it; lead with the ad's promise instead." in text

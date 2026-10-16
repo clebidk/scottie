@@ -736,6 +736,8 @@ def writer_lines(facts_pack, tenant=None, look=None, ad_brief=None):
     ]
     lines += (proof_writer_lines(facts_pack, tenant) if look == "proof" else
               ["benefits and icon_row are for the proof look only: omit both."])
+    if persuasion.unverified_offer(ad_brief, facts_pack or {}):   # cycle 110 hotfix H2
+        lines.append("The ad's offer is not verified; do not state it; lead with the ad's promise instead.")
     return lines + offer_writer_lines(facts_pack)
 
 
@@ -1162,7 +1164,8 @@ def find_persuasion_violations(page, facts_pack=None, ad_brief=None, tenant=None
     if ad_brief:
         quotes = [q["text"] for q in safe_quote_candidates(ad_brief, facts_pack or {})]
         problems += persuasion.find_hook_match_violations(
-            page, ad_brief, filled_hero=filled_hero(page, facts_pack), exclude=_exclude_words(facts_pack, tenant),
+            page, ad_brief, facts_pack=facts_pack or {}, filled_hero=filled_hero(page, facts_pack),
+            exclude=_exclude_words(facts_pack, tenant),
             quotes=quotes, prefix=_PROBLEM_PREFIX)
     problems += persuasion.find_reading_level_violations(page, exclude=name_words(facts_pack, tenant),
                                                          prefix=_PROBLEM_PREFIX)

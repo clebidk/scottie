@@ -261,6 +261,17 @@ def hook_match(hero_text, ad_brief, exclude=(), quotes=(), headline=None):
             "quoted": quoted, "ok": ok}
 
 
+UNVERIFIED_OFFER_WORDS = ("off", "sale", "discount", "code")
+
+
+def unverified_offer(ad_brief, facts_pack):
+    """True when the ad states an offer (ad_brief.offer) and this page has no
+    verified sale for it (offer_view is None): the page may not state it."""
+    from . import offer as offer_mod
+
+    return bool((ad_brief or {}).get("offer")) and facts_pack is not None and offer_mod.offer_view(facts_pack) is None
+
+
 def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=None, exclude=(), quotes=(),
                                prefix="landing"):
     """landing:hook_match -- the first screen (eyebrow + headline + subhead,
@@ -269,6 +280,19 @@ def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=N
     brief = ad_brief or {}
     if not any(str(brief.get(k) or "").strip() for k in ("hook", "angle", "promise")):
         return []
+    target = f"The hook: {brief.get('hook')!r}"
+    if unverified_offer(brief, facts_pack):
+        # cycle 110 hotfix H2 (run 64wr): the hook states an offer the facts do not carry, so the page may not
+        # say it; match the angle + promise instead, without the offer's amounts and words
+        figures = content_words(" ".join(str(a) for a in ((brief.get("offer") or {}).get("amounts") or [])))
+
+        def drop_figures(text):   # content_words never excludes a figure, so the amounts leave the text
+            return re.sub(r"[$]?\d[\d,]*(?:\.\d+)?%?",
+                          lambda m: " " if re.sub(r"[^\d]", "", m.group(0)) in figures else m.group(0), str(text or ""))
+
+        exclude = set(exclude) | set(UNVERIFIED_OFFER_WORDS)
+        brief = {k: (drop_figures(v) if k in ("angle", "promise") else v) for k, v in brief.items() if k != "hook"}
+        target = f"The ad's offer is not verified, so match its promise: {brief.get('promise')!r}"
     hero = filled_hero if filled_hero is not None else (page.get("hero") or {})
     text = " ".join(str(hero.get(k) or "") for k in ("eyebrow", "headline", "subhead"))
     result = hook_match(text, brief, exclude=exclude, quotes=quotes, headline=str(hero.get("headline") or ""))
@@ -276,7 +300,7 @@ def find_hook_match_violations(page, ad_brief, *, facts_pack=None, filled_hero=N
         return []
     return [_problem("$.hero.headline", f"{prefix}:hook_match",
                      "the first screen must pay off the ad's hook: the headline restates it as closely as the "
-                     f"verified facts allow -- same words, same number, same person. The hook: {brief.get('hook')!r}. "
+                     f"verified facts allow -- same words, same number, same person. {target}. "
                      f"Shared content words now: {result['overlap'] or 'none'} (headline: "
                      f"{result['headline_overlap'] or 'none'})", text=text)]
 
